@@ -1,7 +1,8 @@
 import asyncio
 import logging
 import socket
-from typing import Any, Callable, List, Optional, Tuple, Union, cast
+import time
+from typing import Any, Callable, List, Optional, Tuple, Union, cast, Dict
 
 import attr
 from google.protobuf import message
@@ -49,6 +50,10 @@ MESSAGE_TYPE_TO_PROTO = {
     31: pb.FanCommandRequest,
     32: pb.LightCommandRequest,
     33: pb.SwitchCommandRequest,
+    34: pb.SubscribeServiceCallsRequest,
+    35: pb.ServiceCallResponse,
+    36: pb.GetTimeRequest,
+    37: pb.GetTimeResponse,
 }
 
 
@@ -210,6 +215,7 @@ class SensorState(EntityState):
 @attr.s
 class SwitchInfo(EntityInfo):
     icon = attr.ib(type=str)
+    optimistic = attr.ib(type=bool)
 
 
 @attr.s
@@ -236,6 +242,14 @@ COMPONENT_TYPE_TO_INFO = {
     'switch': SwitchInfo,
     'text_sensor': TextSensorInfo,
 }
+
+
+@attr.s
+class ServiceCall:
+    service = attr.ib(type=str)
+    data = attr.ib(type=Dict[str, str], converter=dict)
+    data_template = attr.ib(type=Dict[str, str], converter=dict)
+    variables = attr.ib(type=Dict[str, str], converter=dict)
 
 
 class APIClient:
@@ -298,7 +312,7 @@ class APIClient:
             self._ping_timer.cancel()
             self._ping_timer = None
 
-    async def start(self):
+    async def start(self) -> None:
         self._eventloop.create_task(self.run_forever())
         await self.running_event.wait()
 
@@ -565,6 +579,19 @@ class APIClient:
             req.level = log_level
         await self._send_message(req)
 
+    async def subscribe_service_calls(self, on_service_call: Callable[[ServiceCall], None]) -> None:
+        self._check_authenticated()
+
+        def on_msg(msg):
+            if isinstance(msg, pb.ServiceCallResponse):
+                kwargs = {}
+                for key, _ in attr.fields_dict(ServiceCall).items():
+                    kwargs[key] = getattr(msg, key)
+                on_service_call(ServiceCall(**kwargs))
+
+        self._message_handlers.append(on_msg)
+        await self._send_message(pb.SubscribeServiceCallsRequest())
+
     async def cover_command(self,
                             key: int,
                             command: int
@@ -720,3 +747,7 @@ class APIClient:
                 await self.on_disconnect()
         elif isinstance(msg, pb.PingRequest):
             await self._send_message(pb.PingResponse())
+        elif isinstance(msg, pb.GetTimeRequest):
+            resp = pb.GetTimeResponse()
+            resp.epoch_seconds = int(time.time())
+            await self._send_message(resp)
