@@ -2,7 +2,7 @@
 """aioesphomeapi setup script."""
 from setuptools import find_packages, setup
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 PROJECT_NAME = 'aioesphomeapi'
 PROJECT_PACKAGE_NAME = 'aioesphomeapi'
 PROJECT_LICENSE = 'MIT'
