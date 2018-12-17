@@ -106,7 +106,7 @@ class DeviceInfo:
     uses_password = attr.ib(type=bool)
     name = attr.ib(type=str)
     mac_address = attr.ib(type=str)
-    esphomelib_version = attr.ib(type=str)
+    esphome_core_version = attr.ib(type=str)
     compilation_time = attr.ib(type=str)
     model = attr.ib(type=str)
     has_deep_sleep = attr.ib(type=bool)
@@ -478,7 +478,7 @@ class APIClient:
             uses_password=resp.uses_password,
             name=resp.name,
             mac_address=resp.mac_address,
-            esphomelib_version=resp.esphomelib_version,
+            esphome_core_version=resp.esphome_core_version,
             compilation_time=resp.compilation_time,
             model=resp.model,
             has_deep_sleep=resp.has_deep_sleep,
