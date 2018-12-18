@@ -54,6 +54,9 @@ MESSAGE_TYPE_TO_PROTO = {
     35: pb.ServiceCallResponse,
     36: pb.GetTimeRequest,
     37: pb.GetTimeResponse,
+    38: pb.SubscribeHomeAssistantStatesRequest,
+    39: pb.SubscribeHomeAssistantStateResponse,
+    40: pb.HomeAssistantStateResponse,
 }
 
 
@@ -591,6 +594,24 @@ class APIClient:
 
         self._message_handlers.append(on_msg)
         await self._send_message(pb.SubscribeServiceCallsRequest())
+
+    async def subscribe_home_assistant_states(self, on_state_sub: Callable[[str], None]) -> None:
+        self._check_authenticated()
+
+        def on_msg(msg):
+            if isinstance(msg, pb.SubscribeHomeAssistantStateResponse):
+                on_state_sub(msg.entity_id)
+
+        self._message_handlers.append(on_msg)
+        await self._send_message(pb.SubscribeHomeAssistantStatesRequest())
+
+    async def send_home_assistant_state(self, entity_id: str, state: str) -> None:
+        self._check_authenticated()
+
+        await self._send_message(pb.HomeAssistantStateResponse(
+            entity_id=entity_id,
+            state=state,
+        ))
 
     async def cover_command(self,
                             key: int,
