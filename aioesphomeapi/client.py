@@ -291,39 +291,32 @@ class APIConnection:
         self._socket_connected = False
         self._state_lock = asyncio.Lock()
 
-        self._ping_timer = None  # type: Optional[asyncio.Task]
         self._message_handlers = []  # type: List[Callable[[message], None]]
 
         self._running_task = None  # type: Optional[asyncio.Task]
 
-    def _refresh_ping(self) -> None:
-        self._cancel_ping()
-
+    def _start_ping(self) -> None:
         async def func() -> None:
-            await asyncio.sleep(self._params.keepalive)
+            while self._connected:
+                await asyncio.sleep(self._params.keepalive)
 
-            if self._connected:
+                if not self._connected:
+                    return
+
                 try:
                     await self.ping()
                 except APIConnectionError:
+                    _LOGGER.info("%s: Ping Failed!", self._params.address)
                     await self._on_error()
-                else:
-                    self._refresh_ping()
+                    return
 
-        self._ping_timer = self._params.eventloop.create_task(func())
-
-    def _cancel_ping(self) -> None:
-        if self._ping_timer is not None:
-            self._ping_timer.cancel()
-            self._ping_timer = None
+        self._params.eventloop.create_task(func())
 
     async def _close_socket(self) -> None:
         if not self._socket_connected:
             return
         async with self._write_lock:
             self._socket_writer.close()
-            if hasattr(self._socket_writer, 'wait_closed'):
-                await self._socket_writer.wait_closed()
             self._socket_writer = None
             self._socket_reader = None
         if self._socket is not None:
@@ -331,11 +324,11 @@ class APIConnection:
         self._socket_connected = False
         self._connected = False
         self._authenticated = False
-        _LOGGER.debug("Closed socket")
+        _LOGGER.debug("%s: Closed socket", self._params.address)
 
     async def stop(self, force: bool = False) -> None:
         if self._stopped:
-            raise ValueError
+            return
         if self._connected and not force:
             try:
                 await self._disconnect()
@@ -344,7 +337,6 @@ class APIConnection:
         self._stopped = True
         if self._running_task is not None:
             self._running_task.cancel()
-        self._cancel_ping()
         await self._close_socket()
         await self.on_stop()
 
@@ -372,7 +364,8 @@ class APIConnection:
         self._socket.setblocking(False)
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
-        _LOGGER.debug("Connecting to %s:%s (%s)", self._params.address, self._params.port, sockaddr)
+        _LOGGER.debug("%s: Connecting to %s:%s (%s)", self._params.address,
+                      self._params.address, self._params.port, sockaddr)
         try:
             coro = self._params.eventloop.sock_connect(self._socket, sockaddr)
             await asyncio.wait_for(coro, 15.0)
@@ -383,8 +376,9 @@ class APIConnection:
             await self._on_error()
             raise APIConnectionError("Timeout while connecting to {}".format(sockaddr))
 
-        _LOGGER.debug("Opened socket")
+        _LOGGER.debug("%s: Opened socket for", self._params.address)
         self._socket_reader, self._socket_writer = await asyncio.open_connection(sock=self._socket)
+        self._socket_connected = True
         self._params.eventloop.create_task(self.run_forever())
 
         hello = pb.HelloRequest()
@@ -394,9 +388,12 @@ class APIConnection:
         except APIConnectionError as err:
             await self._on_error()
             raise err
-        _LOGGER.debug("Successfully connected to %s ('%s' API=%s.%s)", self._params.address,
+        _LOGGER.debug("%s: Successfully connected to %s ('%s' API=%s.%s)",
+                      self._params.address, self._params.address,
                       resp.server_info, resp.api_version_major, resp.api_version_minor)
         self._connected = True
+
+        self._start_ping()
 
     async def login(self) -> None:
         self._check_connected()
@@ -425,7 +422,10 @@ class APIConnection:
         return self._authenticated
 
     async def _write(self, data: bytes) -> None:
-        _LOGGER.debug("Write: %s", ' '.join('{:02X}'.format(x) for x in data))
+        _LOGGER.debug("%s: Write: %s", self._params.address,
+                      ' '.join('{:02X}'.format(x) for x in data))
+        if not self._socket_connected:
+            raise APIConnectionError("Socket is not connected")
         try:
             async with self._write_lock:
                 self._socket_writer.write(data)
@@ -442,13 +442,12 @@ class APIConnection:
             raise ValueError
 
         encoded = msg.SerializeToString()
-        _LOGGER.debug("Sending %s: %s", type(msg), str(msg))
+        _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
         req = bytes([0])
         req += _varuint_to_bytes(len(encoded))
         req += _varuint_to_bytes(message_type)
         req += encoded
         await self._write(req)
-        self._refresh_ping()
 
     async def send_message_callback_response(self, send_msg: message.Message,
                                              on_message: Callable[[Any], None]) -> None:
@@ -506,7 +505,7 @@ class APIConnection:
 
         try:
             ret = await self._socket_reader.readexactly(amount)
-        except (asyncio.IncompleteReadError, OSError) as err:
+        except (asyncio.IncompleteReadError, OSError, TimeoutError) as err:
             raise APIConnectionError("Error while receiving data: {}".format(err))
 
         return ret
@@ -527,25 +526,25 @@ class APIConnection:
 
         raw_msg = await self._recv(length)
         if msg_type not in MESSAGE_TYPE_TO_PROTO:
-            _LOGGER.debug("Skipping message type %s", msg_type)
+            _LOGGER.debug("%s: Skipping message type %s", self._params.address, msg_type)
             return
 
         msg = MESSAGE_TYPE_TO_PROTO[msg_type]()
         msg.ParseFromString(raw_msg)
-        _LOGGER.debug("Got message of type %s: %s", type(msg), msg)
+        _LOGGER.debug("%s: Got message of type %s: %s", self._params.address, type(msg), msg)
         for msg_handler in self._message_handlers[:]:
             msg_handler(msg)
         await self._handle_internal_messages(msg)
-        self._refresh_ping()
 
     async def run_forever(self) -> None:
         while True:
             try:
                 await self._run_once()
             except APIConnectionError as err:
-                _LOGGER.info("Error while reading incoming messages for %s: %s", self._params.address,
-                             err)
+                _LOGGER.info("%s: Error while reading incoming messages: %s",
+                             self._params.address, err)
                 await self._on_error()
+                break
 
     async def _handle_internal_messages(self, msg: Any) -> None:
         if isinstance(msg, pb.DisconnectRequest):

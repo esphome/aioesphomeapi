@@ -2,7 +2,7 @@
 """aioesphomeapi setup script."""
 from setuptools import find_packages, setup
 
-VERSION = '1.4.0'
+VERSION = '1.4.1'
 PROJECT_NAME = 'aioesphomeapi'
 PROJECT_PACKAGE_NAME = 'aioesphomeapi'
 PROJECT_LICENSE = 'MIT'
@@ -12,7 +12,7 @@ PROJECT_URL = 'https://esphomelib.com/esphomeyaml/'
 PROJECT_EMAIL = 'contact@otto-winter.com'
 
 PROJECT_GITHUB_USERNAME = 'OttoWinter'
-PROJECT_GITHUB_REPOSITORY = 'aioesphomelibpy3haapiclient'
+PROJECT_GITHUB_REPOSITORY = 'aioesphomeapi'
 
 PYPI_URL = 'https://pypi.python.org/pypi/{}'.format(PROJECT_PACKAGE_NAME)
 GITHUB_PATH = '{}/{}'.format(PROJECT_GITHUB_USERNAME, PROJECT_GITHUB_REPOSITORY)
