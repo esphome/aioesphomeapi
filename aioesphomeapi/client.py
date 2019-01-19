@@ -548,6 +548,11 @@ class APIConnection:
                              self._params.address, err)
                 await self._on_error()
                 break
+            except Exception as err:
+                _LOGGER.info("%s: Unexpected error while reading incoming messages: %s",
+                             self._params.address, err)
+                await self._on_error()
+                break
 
     async def _handle_internal_messages(self, msg: Any) -> None:
         if isinstance(msg, pb.DisconnectRequest):
