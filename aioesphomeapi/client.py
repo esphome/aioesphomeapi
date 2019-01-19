@@ -57,6 +57,8 @@ MESSAGE_TYPE_TO_PROTO = {
     38: pb.SubscribeHomeAssistantStatesRequest,
     39: pb.SubscribeHomeAssistantStateResponse,
     40: pb.HomeAssistantStateResponse,
+    41: pb.ListEntitiesCameraResponse,
+    42: pb.CameraImageResponse,
 }
 
 
@@ -236,6 +238,16 @@ class TextSensorState(EntityState):
     state = attr.ib(type=str)
 
 
+@attr.s
+class CameraInfo(EntityInfo):
+    pass
+
+
+@attr.s
+class CameraState(EntityState):
+    image = attr.ib(type=bytes)
+
+
 COMPONENT_TYPE_TO_INFO = {
     'binary_sensor': BinarySensorInfo,
     'cover': CoverInfo,
@@ -244,6 +256,7 @@ COMPONENT_TYPE_TO_INFO = {
     'sensor': SensorInfo,
     'switch': SwitchInfo,
     'text_sensor': TextSensorInfo,
+    'camera': CameraInfo,
 }
 
 
@@ -655,6 +668,7 @@ class APIClient:
             pb.ListEntitiesSensorResponse: SensorInfo,
             pb.ListEntitiesSwitchResponse: SwitchInfo,
             pb.ListEntitiesTextSensorResponse: TextSensorInfo,
+            pb.ListEntitiesCameraResponse: CameraInfo,
         }
 
         def do_append(msg):
@@ -690,7 +704,21 @@ class APIClient:
             pb.TextSensorStateResponse: TextSensorState,
         }
 
+        image_stream = {}
+
         def on_msg(msg):
+            if isinstance(msg, pb.CameraImageResponse):
+                data = image_stream.pop(msg.key, bytes()) + msg.data
+                if msg.done:
+                    on_state(CameraState(key=msg.key, image=data))
+                    hash_ = 0
+                    for x in data:
+                        hash_ ^= x
+                    _LOGGER.warning("Got image hash=%s len=%s", hex(hash_), len(data))
+                else:
+                    image_stream[msg.key] = data
+                return
+
             for resp_type, cls in response_types.items():
                 if isinstance(msg, resp_type):
                     break
