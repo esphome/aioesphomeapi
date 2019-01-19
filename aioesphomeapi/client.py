@@ -530,7 +530,10 @@ class APIConnection:
             return
 
         msg = MESSAGE_TYPE_TO_PROTO[msg_type]()
-        msg.ParseFromString(raw_msg)
+        try:
+            msg.ParseFromString(raw_msg)
+        except Exception as e:
+            raise APIConnectionError("Invalid protobuf message: {}".format(e))
         _LOGGER.debug("%s: Got message of type %s: %s", self._params.address, type(msg), msg)
         for msg_handler in self._message_handlers[:]:
             msg_handler(msg)
