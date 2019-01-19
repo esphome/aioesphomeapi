@@ -600,10 +600,14 @@ class APIClient:
             raise APIConnectionError("Already connected!")
 
         connected = False
+        stopped = False
 
         async def _on_stop():
-            if self._connection is None:
+            nonlocal stopped
+
+            if stopped:
                 return
+            stopped = True
             self._connection = None
             if connected and on_stop is not None:
                 await on_stop()
