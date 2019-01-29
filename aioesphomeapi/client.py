@@ -352,7 +352,7 @@ class APIConnection:
         try:
             coro = resolve_ip_address(self._params.eventloop, self._params.address,
                                       self._params.port)
-            sockaddr = await asyncio.wait_for(coro, 15.0)
+            sockaddr = await asyncio.wait_for(coro, 30.0)
         except APIConnectionError as err:
             await self._on_error()
             raise err
@@ -368,7 +368,7 @@ class APIConnection:
                       self._params.address, self._params.port, sockaddr)
         try:
             coro = self._params.eventloop.sock_connect(self._socket, sockaddr)
-            await asyncio.wait_for(coro, 15.0)
+            await asyncio.wait_for(coro, 30.0)
         except OSError as err:
             await self._on_error()
             raise APIConnectionError("Error connecting to {}: {}".format(sockaddr, err))
@@ -457,7 +457,7 @@ class APIConnection:
     async def send_message_await_response_complex(self, send_msg: message.Message,
                                                   do_append: Callable[[Any], bool],
                                                   do_stop: Callable[[Any], bool],
-                                                  timeout: float = 1.0) -> List[Any]:
+                                                  timeout: float = 5.0) -> List[Any]:
         fut = self._params.eventloop.create_future()
         responses = []
 
@@ -488,7 +488,7 @@ class APIConnection:
 
     async def send_message_await_response(self,
                                           send_msg: message.Message,
-                                          response_type: Any, timeout: float = 1.0) -> Any:
+                                          response_type: Any, timeout: float = 5.0) -> Any:
         def is_response(msg):
             return isinstance(msg, response_type)
 
