@@ -2,16 +2,16 @@
 """aioesphomeapi setup script."""
 from setuptools import find_packages, setup
 
-VERSION = '1.4.2'
+VERSION = '1.5.0'
 PROJECT_NAME = 'aioesphomeapi'
 PROJECT_PACKAGE_NAME = 'aioesphomeapi'
 PROJECT_LICENSE = 'MIT'
 PROJECT_AUTHOR = 'Otto Winter'
-PROJECT_COPYRIGHT = ' 2018, Otto Winter'
-PROJECT_URL = 'https://esphomelib.com/esphomeyaml/'
+PROJECT_COPYRIGHT = ' 2019, Otto Winter'
+PROJECT_URL = 'https://esphome.io/'
 PROJECT_EMAIL = 'contact@otto-winter.com'
 
-PROJECT_GITHUB_USERNAME = 'OttoWinter'
+PROJECT_GITHUB_USERNAME = 'esphome'
 PROJECT_GITHUB_REPOSITORY = 'aioesphomeapi'
 
 PYPI_URL = 'https://pypi.python.org/pypi/{}'.format(PROJECT_PACKAGE_NAME)
