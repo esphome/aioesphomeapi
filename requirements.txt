@@ -1,2 +1,3 @@
 protobuf
 attrs
+zeroconf>=0.21.3

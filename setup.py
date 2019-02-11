@@ -23,6 +23,7 @@ DOWNLOAD_URL = '{}/archive/{}.zip'.format(GITHUB_URL, VERSION)
 REQUIRES = [
     'attrs',
     'protobuf>=3.6',
+    'zeroconf>=0.21.3',
 ]
 
 setup(

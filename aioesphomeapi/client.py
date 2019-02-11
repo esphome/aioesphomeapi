@@ -87,8 +87,8 @@ def _bytes_to_varuint(value: bytes) -> Optional[int]:
     return None
 
 
-async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
-                             host: str, port: int) -> Tuple[Any, ...]:
+async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEventLoop,
+                                         host: str, port: int) -> Tuple[Any, ...]:
     try:
         res = await eventloop.getaddrinfo(host, port, family=socket.AF_INET,
                                           proto=socket.IPPROTO_TCP)
@@ -101,6 +101,18 @@ async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
     _, _, _, _, sockaddr = res[0]
 
     return sockaddr
+
+
+async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
+                             host: str, port: int) -> Tuple[Any, ...]:
+    try:
+        return await resolve_ip_address_getaddrinfo(eventloop, host, port)
+    except APIConnectionError as err:
+        if host.endswith('.local'):
+            from aioesphomeapi.host_resolver import resolve_host
+
+            return await eventloop.run_in_executor(None, resolve_host, host), port
+        raise err
 
 
 # Wrap some types in attr classes to make them serializable
