@@ -57,6 +57,8 @@ MESSAGE_TYPE_TO_PROTO = {
     38: pb.SubscribeHomeAssistantStatesRequest,
     39: pb.SubscribeHomeAssistantStateResponse,
     40: pb.HomeAssistantStateResponse,
+    41: pb.ListEntitiesServicesResponse,
+    42: pb.ExecuteServiceRequest,
 }
 
 
@@ -267,16 +269,49 @@ class ServiceCall:
     variables = attr.ib(type=Dict[str, str], converter=dict)
 
 
+USER_SERVICE_ARG_BOOL = 0
+USER_SERVICE_ARG_INT = 1
+USER_SERVICE_ARG_FLOAT = 2
+USER_SERVICE_ARG_STRING = 3
+USER_SERVICE_ARG_TYPES = [
+    USER_SERVICE_ARG_BOOL, USER_SERVICE_ARG_INT, USER_SERVICE_ARG_FLOAT, USER_SERVICE_ARG_STRING
+]
+
+
+def _attr_obj_from_dict(cls, **kwargs):
+    return cls(**{key: kwargs[key] for key in attr.fields_dict(cls)})
+
+
 @attr.s
-class State:
-    running = attr.ib(type=bool)
-    stopped = attr.ib(type=bool)
-    socket = attr.ib(type=Optional[socket.socket])
-    socket_reader = attr.ib(type=Optional[asyncio.StreamReader])
-    socket_writer = attr.ib(type=Optional[asyncio.StreamWriter])
-    socket_open = attr.ib(type=bool)
-    connected = attr.ib(type=bool)
-    authenticated = attr.ib(type=bool)
+class UserServiceArg:
+    name = attr.ib(type=str)
+    type_ = attr.ib(type=int, converter=int,
+                    validator=attr.validators.in_(USER_SERVICE_ARG_TYPES))
+
+
+@attr.s
+class UserService:
+    name = attr.ib(type=str)
+    key = attr.ib(type=int)
+    args = attr.ib(type=List[UserServiceArg], converter=list)
+
+    @staticmethod
+    def from_dict(dict_):
+        args = []
+        for arg in dict_.get('args', []):
+            args.append(_attr_obj_from_dict(UserServiceArg, **arg))
+        return UserService(
+            name=dict_.get('name', ''),
+            key=dict_.get('key', 0),
+            args=args
+        )
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'key': self.key,
+            'args': [attr.asdict(arg) for arg in self.args],
+        }
 
 
 @attr.s
@@ -669,7 +704,7 @@ class APIClient:
             has_deep_sleep=resp.has_deep_sleep,
         )
 
-    async def list_entities(self) -> List[Any]:
+    async def list_entities_services(self) -> Tuple[List[Any], List[UserService]]:
         self._check_authenticated()
         response_types = {
             pb.ListEntitiesBinarySensorResponse: BinarySensorInfo,
@@ -679,6 +714,7 @@ class APIClient:
             pb.ListEntitiesSensorResponse: SensorInfo,
             pb.ListEntitiesSwitchResponse: SwitchInfo,
             pb.ListEntitiesTextSensorResponse: TextSensorInfo,
+            pb.ListEntitiesServicesResponse: None,
         }
 
         def do_append(msg):
@@ -690,7 +726,21 @@ class APIClient:
         resp = await self._connection.send_message_await_response_complex(
             pb.ListEntitiesRequest(), do_append, do_stop, timeout=5)
         entities = []
+        services = []
         for msg in resp:
+            if isinstance(msg, pb.ListEntitiesServicesResponse):
+                args = []
+                for arg in msg.args:
+                    args.append(UserServiceArg(
+                        name=arg.name,
+                        type_=arg.type,
+                    ))
+                services.append(UserService(
+                    name=msg.name,
+                    key=msg.key,
+                    args=args,
+                ))
+                continue
             cls = None
             for resp_type, cls in response_types.items():
                 if isinstance(msg, resp_type):
@@ -699,7 +749,7 @@ class APIClient:
             for key, _ in attr.fields_dict(cls).items():
                 kwargs[key] = getattr(msg, key)
             entities.append(cls(**kwargs))
-        return entities
+        return entities, services
 
     async def subscribe_states(self, on_state: Callable[[Any], None]) -> None:
         self._check_authenticated()
@@ -861,4 +911,24 @@ class APIClient:
         req = pb.SwitchCommandRequest()
         req.key = key
         req.state = state
+        await self._connection.send_message(req)
+
+    async def execute_service(self, service: UserService, data: dict):
+        self._check_authenticated()
+
+        req = pb.ExecuteServiceRequest()
+        req.key = service.key
+        args = []
+        for arg_desc in service.args:
+            arg = pb.ExecuteServiceArgument()
+            val = data[arg_desc.name]
+            attr_ = {
+                USER_SERVICE_ARG_BOOL: 'bool_',
+                USER_SERVICE_ARG_INT: 'int_',
+                USER_SERVICE_ARG_FLOAT: 'float_',
+                USER_SERVICE_ARG_STRING: 'string_',
+            }[arg_desc.type_]
+            setattr(arg, attr_, val)
+            args.append(arg)
+        req.args.extend(args)
         await self._connection.send_message(req)
