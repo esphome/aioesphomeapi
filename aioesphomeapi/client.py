@@ -57,8 +57,10 @@ MESSAGE_TYPE_TO_PROTO = {
     38: pb.SubscribeHomeAssistantStatesRequest,
     39: pb.SubscribeHomeAssistantStateResponse,
     40: pb.HomeAssistantStateResponse,
-    41: pb.ListEntitiesCameraResponse,
-    42: pb.CameraImageResponse,
+    41: pb.ListEntitiesServicesResponse,
+    42: pb.ExecuteServiceRequest,
+    43: pb.ListEntitiesCameraResponse,
+    44: pb.CameraImageResponse,
 }
 
 
@@ -89,8 +91,8 @@ def _bytes_to_varuint(value: bytes) -> Optional[int]:
     return None
 
 
-async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
-                             host: str, port: int) -> Tuple[Any, ...]:
+async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEventLoop,
+                                         host: str, port: int) -> Tuple[Any, ...]:
     try:
         res = await eventloop.getaddrinfo(host, port, family=socket.AF_INET,
                                           proto=socket.IPPROTO_TCP)
@@ -103,6 +105,18 @@ async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
     _, _, _, _, sockaddr = res[0]
 
     return sockaddr
+
+
+async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
+                             host: str, port: int) -> Tuple[Any, ...]:
+    try:
+        return await resolve_ip_address_getaddrinfo(eventloop, host, port)
+    except APIConnectionError as err:
+        if host.endswith('.local'):
+            from aioesphomeapi.host_resolver import resolve_host
+
+            return await eventloop.run_in_executor(None, resolve_host, host), port
+        raise err
 
 
 # Wrap some types in attr classes to make them serializable
@@ -268,16 +282,49 @@ class ServiceCall:
     variables = attr.ib(type=Dict[str, str], converter=dict)
 
 
+USER_SERVICE_ARG_BOOL = 0
+USER_SERVICE_ARG_INT = 1
+USER_SERVICE_ARG_FLOAT = 2
+USER_SERVICE_ARG_STRING = 3
+USER_SERVICE_ARG_TYPES = [
+    USER_SERVICE_ARG_BOOL, USER_SERVICE_ARG_INT, USER_SERVICE_ARG_FLOAT, USER_SERVICE_ARG_STRING
+]
+
+
+def _attr_obj_from_dict(cls, **kwargs):
+    return cls(**{key: kwargs[key] for key in attr.fields_dict(cls)})
+
+
 @attr.s
-class State:
-    running = attr.ib(type=bool)
-    stopped = attr.ib(type=bool)
-    socket = attr.ib(type=Optional[socket.socket])
-    socket_reader = attr.ib(type=Optional[asyncio.StreamReader])
-    socket_writer = attr.ib(type=Optional[asyncio.StreamWriter])
-    socket_open = attr.ib(type=bool)
-    connected = attr.ib(type=bool)
-    authenticated = attr.ib(type=bool)
+class UserServiceArg:
+    name = attr.ib(type=str)
+    type_ = attr.ib(type=int, converter=int,
+                    validator=attr.validators.in_(USER_SERVICE_ARG_TYPES))
+
+
+@attr.s
+class UserService:
+    name = attr.ib(type=str)
+    key = attr.ib(type=int)
+    args = attr.ib(type=List[UserServiceArg], converter=list)
+
+    @staticmethod
+    def from_dict(dict_):
+        args = []
+        for arg in dict_.get('args', []):
+            args.append(_attr_obj_from_dict(UserServiceArg, **arg))
+        return UserService(
+            name=dict_.get('name', ''),
+            key=dict_.get('key', 0),
+            args=args
+        )
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'key': self.key,
+            'args': [attr.asdict(arg) for arg in self.args],
+        }
 
 
 @attr.s
@@ -365,7 +412,7 @@ class APIConnection:
         try:
             coro = resolve_ip_address(self._params.eventloop, self._params.address,
                                       self._params.port)
-            sockaddr = await asyncio.wait_for(coro, 15.0)
+            sockaddr = await asyncio.wait_for(coro, 30.0)
         except APIConnectionError as err:
             await self._on_error()
             raise err
@@ -381,7 +428,7 @@ class APIConnection:
                       self._params.address, self._params.port, sockaddr)
         try:
             coro = self._params.eventloop.sock_connect(self._socket, sockaddr)
-            await asyncio.wait_for(coro, 15.0)
+            await asyncio.wait_for(coro, 30.0)
         except OSError as err:
             await self._on_error()
             raise APIConnectionError("Error connecting to {}: {}".format(sockaddr, err))
@@ -470,7 +517,7 @@ class APIConnection:
     async def send_message_await_response_complex(self, send_msg: message.Message,
                                                   do_append: Callable[[Any], bool],
                                                   do_stop: Callable[[Any], bool],
-                                                  timeout: float = 1.0) -> List[Any]:
+                                                  timeout: float = 5.0) -> List[Any]:
         fut = self._params.eventloop.create_future()
         responses = []
 
@@ -501,7 +548,7 @@ class APIConnection:
 
     async def send_message_await_response(self,
                                           send_msg: message.Message,
-                                          response_type: Any, timeout: float = 1.0) -> Any:
+                                          response_type: Any, timeout: float = 5.0) -> Any:
         def is_response(msg):
             return isinstance(msg, response_type)
 
@@ -543,7 +590,10 @@ class APIConnection:
             return
 
         msg = MESSAGE_TYPE_TO_PROTO[msg_type]()
-        msg.ParseFromString(raw_msg)
+        try:
+            msg.ParseFromString(raw_msg)
+        except Exception as e:
+            raise APIConnectionError("Invalid protobuf message: {}".format(e))
         _LOGGER.debug("%s: Got message of type %s: %s", self._params.address, type(msg), msg)
         for msg_handler in self._message_handlers[:]:
             msg_handler(msg)
@@ -555,6 +605,11 @@ class APIConnection:
                 await self._run_once()
             except APIConnectionError as err:
                 _LOGGER.info("%s: Error while reading incoming messages: %s",
+                             self._params.address, err)
+                await self._on_error()
+                break
+            except Exception as err:
+                _LOGGER.info("%s: Unexpected error while reading incoming messages: %s",
                              self._params.address, err)
                 await self._on_error()
                 break
@@ -605,10 +660,14 @@ class APIClient:
             raise APIConnectionError("Already connected!")
 
         connected = False
+        stopped = False
 
         async def _on_stop():
-            if self._connection is None:
+            nonlocal stopped
+
+            if stopped:
                 return
+            stopped = True
             self._connection = None
             if connected and on_stop is not None:
                 await on_stop()
@@ -658,7 +717,7 @@ class APIClient:
             has_deep_sleep=resp.has_deep_sleep,
         )
 
-    async def list_entities(self) -> List[Any]:
+    async def list_entities_services(self) -> Tuple[List[Any], List[UserService]]:
         self._check_authenticated()
         response_types = {
             pb.ListEntitiesBinarySensorResponse: BinarySensorInfo,
@@ -668,6 +727,7 @@ class APIClient:
             pb.ListEntitiesSensorResponse: SensorInfo,
             pb.ListEntitiesSwitchResponse: SwitchInfo,
             pb.ListEntitiesTextSensorResponse: TextSensorInfo,
+            pb.ListEntitiesServicesResponse: None,
             pb.ListEntitiesCameraResponse: CameraInfo,
         }
 
@@ -680,7 +740,21 @@ class APIClient:
         resp = await self._connection.send_message_await_response_complex(
             pb.ListEntitiesRequest(), do_append, do_stop, timeout=5)
         entities = []
+        services = []
         for msg in resp:
+            if isinstance(msg, pb.ListEntitiesServicesResponse):
+                args = []
+                for arg in msg.args:
+                    args.append(UserServiceArg(
+                        name=arg.name,
+                        type_=arg.type,
+                    ))
+                services.append(UserService(
+                    name=msg.name,
+                    key=msg.key,
+                    args=args,
+                ))
+                continue
             cls = None
             for resp_type, cls in response_types.items():
                 if isinstance(msg, resp_type):
@@ -689,7 +763,7 @@ class APIClient:
             for key, _ in attr.fields_dict(cls).items():
                 kwargs[key] = getattr(msg, key)
             entities.append(cls(**kwargs))
-        return entities
+        return entities, services
 
     async def subscribe_states(self, on_state: Callable[[Any], None]) -> None:
         self._check_authenticated()
@@ -711,10 +785,7 @@ class APIClient:
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
                     on_state(CameraState(key=msg.key, image=data))
-                    hash_ = 0
-                    for x in data:
-                        hash_ ^= x
-                    _LOGGER.warning("Got image hash=%s len=%s", hex(hash_), len(data))
+                    _LOGGER.warning("Got image len=%s", len(data))
                 else:
                     image_stream[msg.key] = data
                 return
@@ -847,10 +918,10 @@ class APIClient:
             req.color_temperature = color_temperature
         if transition_length is not None:
             req.has_transition_length = True
-            req.transition_length = int(round(transition_length / 1000))
+            req.transition_length = int(round(transition_length * 1000))
         if flash_length is not None:
             req.has_flash_length = True
-            req.flash_length = int(round(flash_length / 1000))
+            req.flash_length = int(round(flash_length * 1000))
         if effect is not None:
             req.has_effect = True
             req.effect = effect
@@ -865,4 +936,24 @@ class APIClient:
         req = pb.SwitchCommandRequest()
         req.key = key
         req.state = state
+        await self._connection.send_message(req)
+
+    async def execute_service(self, service: UserService, data: dict):
+        self._check_authenticated()
+
+        req = pb.ExecuteServiceRequest()
+        req.key = service.key
+        args = []
+        for arg_desc in service.args:
+            arg = pb.ExecuteServiceArgument()
+            val = data[arg_desc.name]
+            attr_ = {
+                USER_SERVICE_ARG_BOOL: 'bool_',
+                USER_SERVICE_ARG_INT: 'int_',
+                USER_SERVICE_ARG_FLOAT: 'float_',
+                USER_SERVICE_ARG_STRING: 'string_',
+            }[arg_desc.type_]
+            setattr(arg, attr_, val)
+            args.append(arg)
+        req.args.extend(args)
         await self._connection.send_message(req)
