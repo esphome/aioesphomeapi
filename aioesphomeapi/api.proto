@@ -368,3 +368,8 @@ message ExecuteServiceRequest {
   fixed32 key = 1;
   repeated ExecuteServiceArgument args = 2;
 }
+
+message CameraImageRequest {
+  bool single = 1;
+  bool stream = 2;
+}

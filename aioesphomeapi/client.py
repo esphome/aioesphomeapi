@@ -61,6 +61,7 @@ MESSAGE_TYPE_TO_PROTO = {
     42: pb.ExecuteServiceRequest,
     43: pb.ListEntitiesCameraResponse,
     44: pb.CameraImageResponse,
+    45: pb.CameraImageRequest,
 }
 
 
@@ -785,7 +786,6 @@ class APIClient:
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
                     on_state(CameraState(key=msg.key, image=data))
-                    _LOGGER.warning("Got image len=%s", len(data))
                 else:
                     image_stream[msg.key] = data
                 return
@@ -957,3 +957,15 @@ class APIClient:
             args.append(arg)
         req.args.extend(args)
         await self._connection.send_message(req)
+
+    async def _request_image(self, *, single=False, stream=False):
+        req = pb.CameraImageRequest()
+        req.single = single
+        req.stream = stream
+        await self._connection.send_message(req)
+
+    async def request_single_image(self):
+        await self._request_image(single=True)
+
+    async def request_image_stream(self):
+        await self._request_image(stream=True)
