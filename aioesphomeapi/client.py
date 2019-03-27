@@ -62,6 +62,9 @@ MESSAGE_TYPE_TO_PROTO = {
     43: pb.ListEntitiesCameraResponse,
     44: pb.CameraImageResponse,
     45: pb.CameraImageRequest,
+    46: pb.ListEntitiesClimateResponse,
+    47: pb.ClimateStateResponse,
+    48: pb.ClimateCommandRequest,
 }
 
 
@@ -263,6 +266,39 @@ class CameraState(EntityState):
     image = attr.ib(type=bytes)
 
 
+CLIMATE_MODE_OFF = 0
+CLIMATE_MODE_AUTO = 1
+CLIMATE_MODE_COOL = 2
+CLIMATE_MODE_HEAT = 3
+CLIMATE_MODES = [CLIMATE_MODE_OFF, CLIMATE_MODE_AUTO, CLIMATE_MODE_COOL, CLIMATE_MODE_HEAT]
+_validate_climate_mode = attr.validators.in_(CLIMATE_MODES)
+
+
+def _convert_climate_modes(value):
+    return [int(val) for val in value]
+
+
+@attr.s
+class ClimateInfo(EntityInfo):
+    supports_current_temperature = attr.ib(type=bool)
+    supports_two_point_target_temperature = attr.ib(type=bool)
+    supported_modes = attr.ib(type=List[int], converter=_convert_climate_modes)
+    visual_min_temperature = attr.ib(type=float)
+    visual_max_temperature = attr.ib(type=float)
+    visual_temperature_step = attr.ib(type=float)
+    supports_away = attr.ib(type=bool)
+
+
+@attr.s
+class ClimateState(EntityState):
+    mode = attr.ib(type=int, converter=int, validator=_validate_climate_mode)
+    current_temperature = attr.ib(type=float)
+    target_temperature = attr.ib(type=float)
+    target_temperature_low = attr.ib(type=float)
+    target_temperature_high = attr.ib(type=float)
+    away = attr.ib(type=bool)
+
+
 COMPONENT_TYPE_TO_INFO = {
     'binary_sensor': BinarySensorInfo,
     'cover': CoverInfo,
@@ -272,6 +308,7 @@ COMPONENT_TYPE_TO_INFO = {
     'switch': SwitchInfo,
     'text_sensor': TextSensorInfo,
     'camera': CameraInfo,
+    'climate': ClimateInfo,
 }
 
 
@@ -730,6 +767,7 @@ class APIClient:
             pb.ListEntitiesTextSensorResponse: TextSensorInfo,
             pb.ListEntitiesServicesResponse: None,
             pb.ListEntitiesCameraResponse: CameraInfo,
+            pb.ListEntitiesClimateResponse: ClimateInfo,
         }
 
         def do_append(msg):
@@ -777,6 +815,7 @@ class APIClient:
             pb.SensorStateResponse: SensorState,
             pb.SwitchStateResponse: SwitchState,
             pb.TextSensorStateResponse: TextSensorState,
+            pb.ClimateStateResponse: ClimateState,
         }
 
         image_stream = {}
@@ -936,6 +975,35 @@ class APIClient:
         req = pb.SwitchCommandRequest()
         req.key = key
         req.state = state
+        await self._connection.send_message(req)
+
+    async def climate_command(self,
+                              key: int,
+                              mode: Optional[int] = None,
+                              target_temperature: Optional[float] = None,
+                              target_temperature_low: Optional[float] = None,
+                              target_temperature_high: Optional[float] = None,
+                              away: Optional[bool] = None,
+                              ) -> None:
+        self._check_authenticated()
+
+        req = pb.ClimateCommandRequest()
+        req.key = key
+        if mode is not None:
+            req.has_mode = True
+            req.mode = mode
+        if target_temperature is not None:
+            req.has_target_temperature = True
+            req.target_temperature = target_temperature
+        if target_temperature_low is not None:
+            req.has_target_temperature_low = True
+            req.target_temperature_low = target_temperature_low
+        if target_temperature_high is not None:
+            req.has_target_temperature_high = True
+            req.target_temperature_high = target_temperature_high
+        if away is not None:
+            req.has_away = True
+            req.away = away
         await self._connection.send_message(req)
 
     async def execute_service(self, service: UserService, data: dict):

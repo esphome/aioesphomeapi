@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\tapi.proto\"#\n\x0cHelloRequest\x12\x13\n\x0b\x63lient_info\x18\x01 \x01(\t\"Z\n\rHelloResponse\x12\x19\n\x11\x61pi_version_major\x18\x01 \x01(\r\x12\x19\n\x11\x61pi_version_minor\x18\x02 \x01(\r\x12\x13\n\x0bserver_info\x18\x03 \x01(\t\"\"\n\x0e\x43onnectRequest\x12\x10\n\x08password\x18\x01 \x01(\t\"+\n\x0f\x43onnectResponse\x12\x18\n\x10invalid_password\x18\x01 \x01(\x08\"\x13\n\x11\x44isconnectRequest\"\x14\n\x12\x44isconnectResponse\"\r\n\x0bPingRequest\"\x0e\n\x0cPingResponse\"\x13\n\x11\x44\x65viceInfoRequest\"\xad\x01\n\x12\x44\x65viceInfoResponse\x12\x15\n\ruses_password\x18\x01 \x01(\x08\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0bmac_address\x18\x03 \x01(\t\x12\x1c\n\x14\x65sphome_core_version\x18\x04 \x01(\t\x12\x18\n\x10\x63ompilation_time\x18\x05 \x01(\t\x12\r\n\x05model\x18\x06 \x01(\t\x12\x16\n\x0ehas_deep_sleep\x18\x07 \x01(\x08\"\x15\n\x13ListEntitiesRequest\"\x9a\x01\n ListEntitiesBinarySensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x14\n\x0c\x64\x65vice_class\x18\x05 \x01(\t\x12\x1f\n\x17is_status_binary_sensor\x18\x06 \x01(\x08\"s\n\x19ListEntitiesCoverResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x15\n\ris_optimistic\x18\x05 \x01(\x08\"\x90\x01\n\x17ListEntitiesFanResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1c\n\x14supports_oscillation\x18\x05 \x01(\x08\x12\x16\n\x0esupports_speed\x18\x06 \x01(\x08\"\x8a\x02\n\x19ListEntitiesLightResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1b\n\x13supports_brightness\x18\x05 \x01(\x08\x12\x14\n\x0csupports_rgb\x18\x06 \x01(\x08\x12\x1c\n\x14supports_white_value\x18\x07 \x01(\x08\x12\"\n\x1asupports_color_temperature\x18\x08 \x01(\x08\x12\x12\n\nmin_mireds\x18\t \x01(\x02\x12\x12\n\nmax_mireds\x18\n \x01(\x02\x12\x0f\n\x07\x65\x66\x66\x65\x63ts\x18\x0b \x03(\t\"\xa3\x01\n\x1aListEntitiesSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13unit_of_measurement\x18\x06 \x01(\t\x12\x19\n\x11\x61\x63\x63uracy_decimals\x18\x07 \x01(\x05\"\x7f\n\x1aListEntitiesSwitchResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x12\n\noptimistic\x18\x06 \x01(\x08\"o\n\x1eListEntitiesTextSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\"]\n\x1aListEntitiesCameraResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\"\x1a\n\x18ListEntitiesDoneResponse\"\x18\n\x16SubscribeStatesRequest\"7\n\x19\x42inarySensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\"t\n\x12\x43overStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12-\n\x05state\x18\x02 \x01(\x0e\x32\x1e.CoverStateResponse.CoverState\"\"\n\nCoverState\x12\x08\n\x04OPEN\x10\x00\x12\n\n\x06\x43LOSED\x10\x01\"]\n\x10\x46\x61nStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x13\n\x0boscillating\x18\x03 \x01(\x08\x12\x18\n\x05speed\x18\x04 \x01(\x0e\x32\t.FanSpeed\"\xa8\x01\n\x12LightStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x12\n\nbrightness\x18\x03 \x01(\x02\x12\x0b\n\x03red\x18\x04 \x01(\x02\x12\r\n\x05green\x18\x05 \x01(\x02\x12\x0c\n\x04\x62lue\x18\x06 \x01(\x02\x12\r\n\x05white\x18\x07 \x01(\x02\x12\x19\n\x11\x63olor_temperature\x18\x08 \x01(\x02\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\t \x01(\t\"1\n\x13SensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02\"1\n\x13SwitchStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\"5\n\x17TextSensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t\">\n\x13\x43\x61meraImageResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x0c\n\x04\x64one\x18\x03 \x01(\x08\"\x98\x01\n\x13\x43overCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\x32\n\x07\x63ommand\x18\x03 \x01(\x0e\x32!.CoverCommandRequest.CoverCommand\"-\n\x0c\x43overCommand\x12\x08\n\x04OPEN\x10\x00\x12\t\n\x05\x43LOSE\x10\x01\x12\x08\n\x04STOP\x10\x02\"\x9d\x01\n\x11\x46\x61nCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x11\n\thas_speed\x18\x04 \x01(\x08\x12\x18\n\x05speed\x18\x05 \x01(\x0e\x32\t.FanSpeed\x12\x17\n\x0fhas_oscillating\x18\x06 \x01(\x08\x12\x13\n\x0boscillating\x18\x07 \x01(\x08\"\x95\x03\n\x13LightCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x16\n\x0ehas_brightness\x18\x04 \x01(\x08\x12\x12\n\nbrightness\x18\x05 \x01(\x02\x12\x0f\n\x07has_rgb\x18\x06 \x01(\x08\x12\x0b\n\x03red\x18\x07 \x01(\x02\x12\r\n\x05green\x18\x08 \x01(\x02\x12\x0c\n\x04\x62lue\x18\t \x01(\x02\x12\x11\n\thas_white\x18\n \x01(\x08\x12\r\n\x05white\x18\x0b \x01(\x02\x12\x1d\n\x15has_color_temperature\x18\x0c \x01(\x08\x12\x19\n\x11\x63olor_temperature\x18\r \x01(\x02\x12\x1d\n\x15has_transition_length\x18\x0e \x01(\x08\x12\x19\n\x11transition_length\x18\x0f \x01(\r\x12\x18\n\x10has_flash_length\x18\x10 \x01(\x08\x12\x14\n\x0c\x66lash_length\x18\x11 \x01(\r\x12\x12\n\nhas_effect\x18\x12 \x01(\x08\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\x13 \x01(\t\"2\n\x14SwitchCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\"E\n\x14SubscribeLogsRequest\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x13\n\x0b\x64ump_config\x18\x02 \x01(\x08\"d\n\x15SubscribeLogsResponse\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x0b\n\x03tag\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x13\n\x0bsend_failed\x18\x04 \x01(\x08\"\x1e\n\x1cSubscribeServiceCallsRequest\"\xdf\x02\n\x13ServiceCallResponse\x12\x0f\n\x07service\x18\x01 \x01(\t\x12,\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x1e.ServiceCallResponse.DataEntry\x12=\n\rdata_template\x18\x03 \x03(\x0b\x32&.ServiceCallResponse.DataTemplateEntry\x12\x36\n\tvariables\x18\x04 \x03(\x0b\x32#.ServiceCallResponse.VariablesEntry\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x33\n\x11\x44\x61taTemplateEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x30\n\x0eVariablesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"%\n#SubscribeHomeAssistantStatesRequest\"8\n#SubscribeHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\">\n\x1aHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\r\n\x05state\x18\x02 \x01(\t\"\x10\n\x0eGetTimeRequest\"(\n\x0fGetTimeResponse\x12\x15\n\repoch_seconds\x18\x01 \x01(\x07\"\x90\x01\n\x1cListEntitiesServicesArgument\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x30\n\x04type\x18\x02 \x01(\x0e\x32\".ListEntitiesServicesArgument.Type\"0\n\x04Type\x12\x08\n\x04\x42OOL\x10\x00\x12\x07\n\x03INT\x10\x01\x12\t\n\x05\x46LOAT\x10\x02\x12\n\n\x06STRING\x10\x03\"f\n\x1cListEntitiesServicesResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12+\n\x04\x61rgs\x18\x03 \x03(\x0b\x32\x1d.ListEntitiesServicesArgument\"V\n\x16\x45xecuteServiceArgument\x12\r\n\x05\x62ool_\x18\x01 \x01(\x08\x12\x0c\n\x04int_\x18\x02 \x01(\x05\x12\x0e\n\x06\x66loat_\x18\x03 \x01(\x02\x12\x0f\n\x07string_\x18\x04 \x01(\t\"K\n\x15\x45xecuteServiceRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12%\n\x04\x61rgs\x18\x02 \x03(\x0b\x32\x17.ExecuteServiceArgument\"4\n\x12\x43\x61meraImageRequest\x12\x0e\n\x06single\x18\x01 \x01(\x08\x12\x0e\n\x06stream\x18\x02 \x01(\x08*)\n\x08\x46\x61nSpeed\x12\x07\n\x03LOW\x10\x00\x12\n\n\x06MEDIUM\x10\x01\x12\x08\n\x04HIGH\x10\x02*]\n\x08LogLevel\x12\x08\n\x04NONE\x10\x00\x12\t\n\x05\x45RROR\x10\x01\x12\x08\n\x04WARN\x10\x02\x12\x08\n\x04INFO\x10\x03\x12\t\n\x05\x44\x45\x42UG\x10\x04\x12\x0b\n\x07VERBOSE\x10\x05\x12\x10\n\x0cVERY_VERBOSE\x10\x06\x62\x06proto3')
+  serialized_pb=_b('\n\tapi.proto\"#\n\x0cHelloRequest\x12\x13\n\x0b\x63lient_info\x18\x01 \x01(\t\"Z\n\rHelloResponse\x12\x19\n\x11\x61pi_version_major\x18\x01 \x01(\r\x12\x19\n\x11\x61pi_version_minor\x18\x02 \x01(\r\x12\x13\n\x0bserver_info\x18\x03 \x01(\t\"\"\n\x0e\x43onnectRequest\x12\x10\n\x08password\x18\x01 \x01(\t\"+\n\x0f\x43onnectResponse\x12\x18\n\x10invalid_password\x18\x01 \x01(\x08\"\x13\n\x11\x44isconnectRequest\"\x14\n\x12\x44isconnectResponse\"\r\n\x0bPingRequest\"\x0e\n\x0cPingResponse\"\x13\n\x11\x44\x65viceInfoRequest\"\xad\x01\n\x12\x44\x65viceInfoResponse\x12\x15\n\ruses_password\x18\x01 \x01(\x08\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0bmac_address\x18\x03 \x01(\t\x12\x1c\n\x14\x65sphome_core_version\x18\x04 \x01(\t\x12\x18\n\x10\x63ompilation_time\x18\x05 \x01(\t\x12\r\n\x05model\x18\x06 \x01(\t\x12\x16\n\x0ehas_deep_sleep\x18\x07 \x01(\x08\"\x15\n\x13ListEntitiesRequest\"\x9a\x01\n ListEntitiesBinarySensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x14\n\x0c\x64\x65vice_class\x18\x05 \x01(\t\x12\x1f\n\x17is_status_binary_sensor\x18\x06 \x01(\x08\"s\n\x19ListEntitiesCoverResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x15\n\ris_optimistic\x18\x05 \x01(\x08\"\x90\x01\n\x17ListEntitiesFanResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1c\n\x14supports_oscillation\x18\x05 \x01(\x08\x12\x16\n\x0esupports_speed\x18\x06 \x01(\x08\"\x8a\x02\n\x19ListEntitiesLightResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1b\n\x13supports_brightness\x18\x05 \x01(\x08\x12\x14\n\x0csupports_rgb\x18\x06 \x01(\x08\x12\x1c\n\x14supports_white_value\x18\x07 \x01(\x08\x12\"\n\x1asupports_color_temperature\x18\x08 \x01(\x08\x12\x12\n\nmin_mireds\x18\t \x01(\x02\x12\x12\n\nmax_mireds\x18\n \x01(\x02\x12\x0f\n\x07\x65\x66\x66\x65\x63ts\x18\x0b \x03(\t\"\xa3\x01\n\x1aListEntitiesSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13unit_of_measurement\x18\x06 \x01(\t\x12\x19\n\x11\x61\x63\x63uracy_decimals\x18\x07 \x01(\x05\"\x7f\n\x1aListEntitiesSwitchResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x12\n\noptimistic\x18\x06 \x01(\x08\"o\n\x1eListEntitiesTextSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\"]\n\x1aListEntitiesCameraResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\"\x1a\n\x18ListEntitiesDoneResponse\"\x18\n\x16SubscribeStatesRequest\"7\n\x19\x42inarySensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\"t\n\x12\x43overStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12-\n\x05state\x18\x02 \x01(\x0e\x32\x1e.CoverStateResponse.CoverState\"\"\n\nCoverState\x12\x08\n\x04OPEN\x10\x00\x12\n\n\x06\x43LOSED\x10\x01\"]\n\x10\x46\x61nStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x13\n\x0boscillating\x18\x03 \x01(\x08\x12\x18\n\x05speed\x18\x04 \x01(\x0e\x32\t.FanSpeed\"\xa8\x01\n\x12LightStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x12\n\nbrightness\x18\x03 \x01(\x02\x12\x0b\n\x03red\x18\x04 \x01(\x02\x12\r\n\x05green\x18\x05 \x01(\x02\x12\x0c\n\x04\x62lue\x18\x06 \x01(\x02\x12\r\n\x05white\x18\x07 \x01(\x02\x12\x19\n\x11\x63olor_temperature\x18\x08 \x01(\x02\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\t \x01(\t\"1\n\x13SensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02\"1\n\x13SwitchStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\"5\n\x17TextSensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t\">\n\x13\x43\x61meraImageResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x0c\n\x04\x64one\x18\x03 \x01(\x08\"\x98\x01\n\x13\x43overCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\x32\n\x07\x63ommand\x18\x03 \x01(\x0e\x32!.CoverCommandRequest.CoverCommand\"-\n\x0c\x43overCommand\x12\x08\n\x04OPEN\x10\x00\x12\t\n\x05\x43LOSE\x10\x01\x12\x08\n\x04STOP\x10\x02\"\x9d\x01\n\x11\x46\x61nCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x11\n\thas_speed\x18\x04 \x01(\x08\x12\x18\n\x05speed\x18\x05 \x01(\x0e\x32\t.FanSpeed\x12\x17\n\x0fhas_oscillating\x18\x06 \x01(\x08\x12\x13\n\x0boscillating\x18\x07 \x01(\x08\"\x95\x03\n\x13LightCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x16\n\x0ehas_brightness\x18\x04 \x01(\x08\x12\x12\n\nbrightness\x18\x05 \x01(\x02\x12\x0f\n\x07has_rgb\x18\x06 \x01(\x08\x12\x0b\n\x03red\x18\x07 \x01(\x02\x12\r\n\x05green\x18\x08 \x01(\x02\x12\x0c\n\x04\x62lue\x18\t \x01(\x02\x12\x11\n\thas_white\x18\n \x01(\x08\x12\r\n\x05white\x18\x0b \x01(\x02\x12\x1d\n\x15has_color_temperature\x18\x0c \x01(\x08\x12\x19\n\x11\x63olor_temperature\x18\r \x01(\x02\x12\x1d\n\x15has_transition_length\x18\x0e \x01(\x08\x12\x19\n\x11transition_length\x18\x0f \x01(\r\x12\x18\n\x10has_flash_length\x18\x10 \x01(\x08\x12\x14\n\x0c\x66lash_length\x18\x11 \x01(\r\x12\x12\n\nhas_effect\x18\x12 \x01(\x08\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\x13 \x01(\t\"2\n\x14SwitchCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\"E\n\x14SubscribeLogsRequest\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x13\n\x0b\x64ump_config\x18\x02 \x01(\x08\"d\n\x15SubscribeLogsResponse\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x0b\n\x03tag\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x13\n\x0bsend_failed\x18\x04 \x01(\x08\"\x1e\n\x1cSubscribeServiceCallsRequest\"\xdf\x02\n\x13ServiceCallResponse\x12\x0f\n\x07service\x18\x01 \x01(\t\x12,\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x1e.ServiceCallResponse.DataEntry\x12=\n\rdata_template\x18\x03 \x03(\x0b\x32&.ServiceCallResponse.DataTemplateEntry\x12\x36\n\tvariables\x18\x04 \x03(\x0b\x32#.ServiceCallResponse.VariablesEntry\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x33\n\x11\x44\x61taTemplateEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x30\n\x0eVariablesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"%\n#SubscribeHomeAssistantStatesRequest\"8\n#SubscribeHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\">\n\x1aHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\r\n\x05state\x18\x02 \x01(\t\"\x10\n\x0eGetTimeRequest\"(\n\x0fGetTimeResponse\x12\x15\n\repoch_seconds\x18\x01 \x01(\x07\"\x90\x01\n\x1cListEntitiesServicesArgument\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x30\n\x04type\x18\x02 \x01(\x0e\x32\".ListEntitiesServicesArgument.Type\"0\n\x04Type\x12\x08\n\x04\x42OOL\x10\x00\x12\x07\n\x03INT\x10\x01\x12\t\n\x05\x46LOAT\x10\x02\x12\n\n\x06STRING\x10\x03\"f\n\x1cListEntitiesServicesResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12+\n\x04\x61rgs\x18\x03 \x03(\x0b\x32\x1d.ListEntitiesServicesArgument\"V\n\x16\x45xecuteServiceArgument\x12\r\n\x05\x62ool_\x18\x01 \x01(\x08\x12\x0c\n\x04int_\x18\x02 \x01(\x05\x12\x0e\n\x06\x66loat_\x18\x03 \x01(\x02\x12\x0f\n\x07string_\x18\x04 \x01(\t\"K\n\x15\x45xecuteServiceRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12%\n\x04\x61rgs\x18\x02 \x03(\x0b\x32\x17.ExecuteServiceArgument\"4\n\x12\x43\x61meraImageRequest\x12\x0e\n\x06single\x18\x01 \x01(\x08\x12\x0e\n\x06stream\x18\x02 \x01(\x08\"\xd2\x02\n\x1bListEntitiesClimateResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12$\n\x1csupports_current_temperature\x18\x05 \x01(\x08\x12-\n%supports_two_point_target_temperature\x18\x06 \x01(\x08\x12%\n\x0fsupported_modes\x18\x07 \x03(\x0e\x32\x0c.ClimateMode\x12\x1e\n\x16visual_min_temperature\x18\x08 \x01(\x02\x12\x1e\n\x16visual_max_temperature\x18\t \x01(\x02\x12\x1f\n\x17visual_temperature_step\x18\n \x01(\x02\x12\x15\n\rsupports_away\x18\x0b \x01(\x08\"\xc7\x01\n\x14\x43limateStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x1a\n\x04mode\x18\x02 \x01(\x0e\x32\x0c.ClimateMode\x12\x1b\n\x13\x63urrent_temperature\x18\x03 \x01(\x02\x12\x1a\n\x12target_temperature\x18\x04 \x01(\x02\x12\x1e\n\x16target_temperature_low\x18\x05 \x01(\x02\x12\x1f\n\x17target_temperature_high\x18\x06 \x01(\x02\x12\x0c\n\x04\x61way\x18\x07 \x01(\x08\"\xb8\x02\n\x15\x43limateCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x10\n\x08has_mode\x18\x02 \x01(\x08\x12\x1a\n\x04mode\x18\x03 \x01(\x0e\x32\x0c.ClimateMode\x12\x1e\n\x16has_target_temperature\x18\x04 \x01(\x08\x12\x1a\n\x12target_temperature\x18\x05 \x01(\x02\x12\"\n\x1ahas_target_temperature_low\x18\x06 \x01(\x08\x12\x1e\n\x16target_temperature_low\x18\x07 \x01(\x02\x12#\n\x1bhas_target_temperature_high\x18\x08 \x01(\x08\x12\x1f\n\x17target_temperature_high\x18\t \x01(\x02\x12\x10\n\x08has_away\x18\n \x01(\x08\x12\x0c\n\x04\x61way\x18\x0b \x01(\x08*)\n\x08\x46\x61nSpeed\x12\x07\n\x03LOW\x10\x00\x12\n\n\x06MEDIUM\x10\x01\x12\x08\n\x04HIGH\x10\x02*]\n\x08LogLevel\x12\x08\n\x04NONE\x10\x00\x12\t\n\x05\x45RROR\x10\x01\x12\x08\n\x04WARN\x10\x02\x12\x08\n\x04INFO\x10\x03\x12\t\n\x05\x44\x45\x42UG\x10\x04\x12\x0b\n\x07VERBOSE\x10\x05\x12\x10\n\x0cVERY_VERBOSE\x10\x06*4\n\x0b\x43limateMode\x12\x07\n\x03OFF\x10\x00\x12\x08\n\x04\x41UTO\x10\x01\x12\x08\n\x04\x43OOL\x10\x02\x12\x08\n\x04HEAT\x10\x03\x62\x06proto3')
 )
 
 _FANSPEED = _descriptor.EnumDescriptor(
@@ -45,8 +45,8 @@ _FANSPEED = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=4451,
-  serialized_end=4492,
+  serialized_start=5309,
+  serialized_end=5350,
 )
 _sym_db.RegisterEnumDescriptor(_FANSPEED)
 
@@ -88,12 +88,43 @@ _LOGLEVEL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=4494,
-  serialized_end=4587,
+  serialized_start=5352,
+  serialized_end=5445,
 )
 _sym_db.RegisterEnumDescriptor(_LOGLEVEL)
 
 LogLevel = enum_type_wrapper.EnumTypeWrapper(_LOGLEVEL)
+_CLIMATEMODE = _descriptor.EnumDescriptor(
+  name='ClimateMode',
+  full_name='ClimateMode',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='OFF', index=0, number=0,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='AUTO', index=1, number=1,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='COOL', index=2, number=2,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='HEAT', index=3, number=3,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=5447,
+  serialized_end=5499,
+)
+_sym_db.RegisterEnumDescriptor(_CLIMATEMODE)
+
+ClimateMode = enum_type_wrapper.EnumTypeWrapper(_CLIMATEMODE)
 LOW = 0
 MEDIUM = 1
 HIGH = 2
@@ -104,6 +135,10 @@ INFO = 3
 DEBUG = 4
 VERBOSE = 5
 VERY_VERBOSE = 6
+OFF = 0
+AUTO = 1
+COOL = 2
+HEAT = 3
 
 
 _COVERSTATERESPONSE_COVERSTATE = _descriptor.EnumDescriptor(
@@ -2455,6 +2490,281 @@ _CAMERAIMAGEREQUEST = _descriptor.Descriptor(
   serialized_end=4449,
 )
 
+
+_LISTENTITIESCLIMATERESPONSE = _descriptor.Descriptor(
+  name='ListEntitiesClimateResponse',
+  full_name='ListEntitiesClimateResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='object_id', full_name='ListEntitiesClimateResponse.object_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ListEntitiesClimateResponse.key', index=1,
+      number=2, type=7, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='name', full_name='ListEntitiesClimateResponse.name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='unique_id', full_name='ListEntitiesClimateResponse.unique_id', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='supports_current_temperature', full_name='ListEntitiesClimateResponse.supports_current_temperature', index=4,
+      number=5, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='supports_two_point_target_temperature', full_name='ListEntitiesClimateResponse.supports_two_point_target_temperature', index=5,
+      number=6, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='supported_modes', full_name='ListEntitiesClimateResponse.supported_modes', index=6,
+      number=7, type=14, cpp_type=8, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='visual_min_temperature', full_name='ListEntitiesClimateResponse.visual_min_temperature', index=7,
+      number=8, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='visual_max_temperature', full_name='ListEntitiesClimateResponse.visual_max_temperature', index=8,
+      number=9, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='visual_temperature_step', full_name='ListEntitiesClimateResponse.visual_temperature_step', index=9,
+      number=10, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='supports_away', full_name='ListEntitiesClimateResponse.supports_away', index=10,
+      number=11, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=4452,
+  serialized_end=4790,
+)
+
+
+_CLIMATESTATERESPONSE = _descriptor.Descriptor(
+  name='ClimateStateResponse',
+  full_name='ClimateStateResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ClimateStateResponse.key', index=0,
+      number=1, type=7, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='mode', full_name='ClimateStateResponse.mode', index=1,
+      number=2, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='current_temperature', full_name='ClimateStateResponse.current_temperature', index=2,
+      number=3, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='target_temperature', full_name='ClimateStateResponse.target_temperature', index=3,
+      number=4, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='target_temperature_low', full_name='ClimateStateResponse.target_temperature_low', index=4,
+      number=5, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='target_temperature_high', full_name='ClimateStateResponse.target_temperature_high', index=5,
+      number=6, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='away', full_name='ClimateStateResponse.away', index=6,
+      number=7, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=4793,
+  serialized_end=4992,
+)
+
+
+_CLIMATECOMMANDREQUEST = _descriptor.Descriptor(
+  name='ClimateCommandRequest',
+  full_name='ClimateCommandRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ClimateCommandRequest.key', index=0,
+      number=1, type=7, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='has_mode', full_name='ClimateCommandRequest.has_mode', index=1,
+      number=2, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='mode', full_name='ClimateCommandRequest.mode', index=2,
+      number=3, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='has_target_temperature', full_name='ClimateCommandRequest.has_target_temperature', index=3,
+      number=4, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='target_temperature', full_name='ClimateCommandRequest.target_temperature', index=4,
+      number=5, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='has_target_temperature_low', full_name='ClimateCommandRequest.has_target_temperature_low', index=5,
+      number=6, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='target_temperature_low', full_name='ClimateCommandRequest.target_temperature_low', index=6,
+      number=7, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='has_target_temperature_high', full_name='ClimateCommandRequest.has_target_temperature_high', index=7,
+      number=8, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='target_temperature_high', full_name='ClimateCommandRequest.target_temperature_high', index=8,
+      number=9, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='has_away', full_name='ClimateCommandRequest.has_away', index=9,
+      number=10, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='away', full_name='ClimateCommandRequest.away', index=10,
+      number=11, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=4995,
+  serialized_end=5307,
+)
+
 _COVERSTATERESPONSE.fields_by_name['state'].enum_type = _COVERSTATERESPONSE_COVERSTATE
 _COVERSTATERESPONSE_COVERSTATE.containing_type = _COVERSTATERESPONSE
 _FANSTATERESPONSE.fields_by_name['speed'].enum_type = _FANSPEED
@@ -2473,6 +2783,9 @@ _LISTENTITIESSERVICESARGUMENT.fields_by_name['type'].enum_type = _LISTENTITIESSE
 _LISTENTITIESSERVICESARGUMENT_TYPE.containing_type = _LISTENTITIESSERVICESARGUMENT
 _LISTENTITIESSERVICESRESPONSE.fields_by_name['args'].message_type = _LISTENTITIESSERVICESARGUMENT
 _EXECUTESERVICEREQUEST.fields_by_name['args'].message_type = _EXECUTESERVICEARGUMENT
+_LISTENTITIESCLIMATERESPONSE.fields_by_name['supported_modes'].enum_type = _CLIMATEMODE
+_CLIMATESTATERESPONSE.fields_by_name['mode'].enum_type = _CLIMATEMODE
+_CLIMATECOMMANDREQUEST.fields_by_name['mode'].enum_type = _CLIMATEMODE
 DESCRIPTOR.message_types_by_name['HelloRequest'] = _HELLOREQUEST
 DESCRIPTOR.message_types_by_name['HelloResponse'] = _HELLORESPONSE
 DESCRIPTOR.message_types_by_name['ConnectRequest'] = _CONNECTREQUEST
@@ -2520,8 +2833,12 @@ DESCRIPTOR.message_types_by_name['ListEntitiesServicesResponse'] = _LISTENTITIES
 DESCRIPTOR.message_types_by_name['ExecuteServiceArgument'] = _EXECUTESERVICEARGUMENT
 DESCRIPTOR.message_types_by_name['ExecuteServiceRequest'] = _EXECUTESERVICEREQUEST
 DESCRIPTOR.message_types_by_name['CameraImageRequest'] = _CAMERAIMAGEREQUEST
+DESCRIPTOR.message_types_by_name['ListEntitiesClimateResponse'] = _LISTENTITIESCLIMATERESPONSE
+DESCRIPTOR.message_types_by_name['ClimateStateResponse'] = _CLIMATESTATERESPONSE
+DESCRIPTOR.message_types_by_name['ClimateCommandRequest'] = _CLIMATECOMMANDREQUEST
 DESCRIPTOR.enum_types_by_name['FanSpeed'] = _FANSPEED
 DESCRIPTOR.enum_types_by_name['LogLevel'] = _LOGLEVEL
+DESCRIPTOR.enum_types_by_name['ClimateMode'] = _CLIMATEMODE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 HelloRequest = _reflection.GeneratedProtocolMessageType('HelloRequest', (_message.Message,), dict(
@@ -2876,6 +3193,27 @@ CameraImageRequest = _reflection.GeneratedProtocolMessageType('CameraImageReques
   # @@protoc_insertion_point(class_scope:CameraImageRequest)
   ))
 _sym_db.RegisterMessage(CameraImageRequest)
+
+ListEntitiesClimateResponse = _reflection.GeneratedProtocolMessageType('ListEntitiesClimateResponse', (_message.Message,), dict(
+  DESCRIPTOR = _LISTENTITIESCLIMATERESPONSE,
+  __module__ = 'api_pb2'
+  # @@protoc_insertion_point(class_scope:ListEntitiesClimateResponse)
+  ))
+_sym_db.RegisterMessage(ListEntitiesClimateResponse)
+
+ClimateStateResponse = _reflection.GeneratedProtocolMessageType('ClimateStateResponse', (_message.Message,), dict(
+  DESCRIPTOR = _CLIMATESTATERESPONSE,
+  __module__ = 'api_pb2'
+  # @@protoc_insertion_point(class_scope:ClimateStateResponse)
+  ))
+_sym_db.RegisterMessage(ClimateStateResponse)
+
+ClimateCommandRequest = _reflection.GeneratedProtocolMessageType('ClimateCommandRequest', (_message.Message,), dict(
+  DESCRIPTOR = _CLIMATECOMMANDREQUEST,
+  __module__ = 'api_pb2'
+  # @@protoc_insertion_point(class_scope:ClimateCommandRequest)
+  ))
+_sym_db.RegisterMessage(ClimateCommandRequest)
 
 
 _SERVICECALLRESPONSE_DATAENTRY._options = None
