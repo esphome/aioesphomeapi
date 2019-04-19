@@ -49,10 +49,10 @@ class BinarySensorState(EntityState):
 # ==================== COVER ====================
 @attr.s
 class CoverInfo(EntityInfo):
-    assumed_state = attr.ib(type=bool)
-    supports_position = attr.ib(type=bool)
-    supports_tilt = attr.ib(type=bool)
-    device_class = attr.ib(type=str)
+    assumed_state = attr.ib(type=bool, default=False)
+    supports_position = attr.ib(type=bool, default=False)
+    supports_tilt = attr.ib(type=bool, default=False)
+    device_class = attr.ib(type=str, default='')
 
 
 class LegacyCoverState(enum.IntEnum):
@@ -146,7 +146,7 @@ class SensorState(EntityState):
 @attr.s
 class SwitchInfo(EntityInfo):
     icon = attr.ib(type=str)
-    assumed_state = attr.ib(type=bool)
+    assumed_state = attr.ib(type=bool, default=False)
 
 
 @attr.s
