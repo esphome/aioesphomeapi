@@ -50,11 +50,11 @@ async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEvent
 
 async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
                              host: str, port: int) -> Tuple[Any, ...]:
-    try:
-        return await resolve_ip_address_getaddrinfo(eventloop, host, port)
-    except APIConnectionError as err:
-        if host.endswith('.local'):
-            from aioesphomeapi.host_resolver import resolve_host
+    if host.endswith('.local'):
+        from aioesphomeapi.host_resolver import resolve_host
 
+        try:
             return await eventloop.run_in_executor(None, resolve_host, host), port
-        raise err
+        except APIConnectionError:
+            pass
+    return await resolve_ip_address_getaddrinfo(eventloop, host, port)
