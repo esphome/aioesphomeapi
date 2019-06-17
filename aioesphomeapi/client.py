@@ -78,7 +78,7 @@ class APIClient:
             uses_password=resp.uses_password,
             name=resp.name,
             mac_address=resp.mac_address,
-            esphome_core_version=resp.esphome_core_version,
+            esphome_version=resp.esphome_version,
             compilation_time=resp.compilation_time,
             model=resp.model,
             has_deep_sleep=resp.has_deep_sleep,
@@ -357,13 +357,25 @@ class APIClient:
         for arg_desc in service.args:
             arg = pb.ExecuteServiceArgument()
             val = data[arg_desc.name]
-            attr_ = {
+            int_type = 'int_' if self.api_version >= APIVersion(1, 3) else 'legacy_int'
+            map_single = {
                 UserServiceArgType.BOOL: 'bool_',
-                UserServiceArgType.INT: 'int_',
+                UserServiceArgType.INT: int_type,
                 UserServiceArgType.FLOAT: 'float_',
                 UserServiceArgType.STRING: 'string_',
-            }[arg_desc.type_]
-            setattr(arg, attr_, val)
+            }
+            map_array = {
+                UserServiceArgType.BOOL_ARRAY: 'bool_array',
+                UserServiceArgType.INT_ARRAY: 'int_array',
+                UserServiceArgType.FLOAT_ARRAY: 'float_array',
+                UserServiceArgType.STRING_ARRAY: 'string_array',
+            }
+            if arg_desc.type_ in map_array:
+                attr = getattr(arg, map_array[arg_desc.type_])
+                attr.extend(val)
+            else:
+                setattr(arg, map_single[arg_desc.type_], val)
+
             args.append(arg)
         req.args.extend(args)
         await self._connection.send_message(req)

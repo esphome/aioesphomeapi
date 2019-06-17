@@ -177,8 +177,8 @@ class APIConnection:
         return self._authenticated
 
     async def _write(self, data: bytes) -> None:
-        _LOGGER.debug("%s: Write: %s", self._params.address,
-                      ' '.join('{:02X}'.format(x) for x in data))
+        # _LOGGER.debug("%s: Write: %s", self._params.address,
+        #               ' '.join('{:02X}'.format(x) for x in data))
         if not self._socket_connected:
             raise APIConnectionError("Socket is not connected")
         try:

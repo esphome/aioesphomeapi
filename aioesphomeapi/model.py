@@ -15,10 +15,10 @@ class DeviceInfo:
     uses_password = attr.ib(type=bool)
     name = attr.ib(type=str)
     mac_address = attr.ib(type=str)
-    esphome_core_version = attr.ib(type=str)
     compilation_time = attr.ib(type=str)
     model = attr.ib(type=str)
     has_deep_sleep = attr.ib(type=bool)
+    esphome_version = attr.ib(type=str, default='')
 
 
 @attr.s
@@ -236,6 +236,10 @@ class UserServiceArgType(enum.IntEnum):
     INT = 1
     FLOAT = 2
     STRING = 3
+    BOOL_ARRAY = 4
+    INT_ARRAY = 5
+    FLOAT_ARRAY = 6
+    STRING_ARRAY = 7
 
 
 def _attr_obj_from_dict(cls, **kwargs):
