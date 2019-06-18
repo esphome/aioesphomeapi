@@ -223,12 +223,17 @@ COMPONENT_TYPE_TO_INFO = {
 
 
 # ==================== USER-DEFINED SERVICES ====================
+def _convert_homeassistant_service_map(value):
+    return {v.key: v.value for v in value}
+
+
 @attr.s
-class ServiceCall:
+class HomeassistantServiceCall:
     service = attr.ib(type=str)
-    data = attr.ib(type=Dict[str, str], converter=dict)
-    data_template = attr.ib(type=Dict[str, str], converter=dict)
-    variables = attr.ib(type=Dict[str, str], converter=dict)
+    is_event = attr.ib(type=bool)
+    data = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map)
+    data_template = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map)
+    variables = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map)
 
 
 class UserServiceArgType(enum.IntEnum):

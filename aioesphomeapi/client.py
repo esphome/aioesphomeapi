@@ -184,17 +184,17 @@ class APIClient:
             req.level = log_level
         await self._connection.send_message_callback_response(req, on_msg)
 
-    async def subscribe_service_calls(self, on_service_call: Callable[[ServiceCall], None]) -> None:
+    async def subscribe_service_calls(self, on_service_call: Callable[[HomeassistantServiceCall], None]) -> None:
         self._check_authenticated()
 
         def on_msg(msg):
-            if isinstance(msg, pb.ServiceCallResponse):
+            if isinstance(msg, pb.HomeassistantServiceResponse):
                 kwargs = {}
-                for key, _ in attr.fields_dict(ServiceCall).items():
+                for key, _ in attr.fields_dict(HomeassistantServiceCall).items():
                     kwargs[key] = getattr(msg, key)
-                on_service_call(ServiceCall(**kwargs))
+                on_service_call(HomeassistantServiceCall(**kwargs))
 
-        await self._connection.send_message_callback_response(pb.SubscribeServiceCallsRequest(),
+        await self._connection.send_message_callback_response(pb.SubscribeHomeassistantServicesRequest(),
                                                               on_msg)
 
     async def subscribe_home_assistant_states(self, on_state_sub: Callable[[str], None]) -> None:
