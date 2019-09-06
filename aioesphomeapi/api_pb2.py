@@ -2755,6 +2755,13 @@ _CLIMATESTATERESPONSE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='action', full_name='ClimateStateResponse.action', index=7,
+      number=8, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -2887,6 +2894,7 @@ _LISTENTITIESSERVICESRESPONSE.fields_by_name['args'].message_type = _LISTENTITIE
 _EXECUTESERVICEREQUEST.fields_by_name['args'].message_type = _EXECUTESERVICEARGUMENT
 _LISTENTITIESCLIMATERESPONSE.fields_by_name['supported_modes'].enum_type = _CLIMATEMODE
 _CLIMATESTATERESPONSE.fields_by_name['mode'].enum_type = _CLIMATEMODE
+_CLIMATESTATERESPONSE.fields_by_name['action'].enum_type = _CLIMATEMODE
 _CLIMATECOMMANDREQUEST.fields_by_name['mode'].enum_type = _CLIMATEMODE
 DESCRIPTOR.message_types_by_name['HelloRequest'] = _HELLOREQUEST
 DESCRIPTOR.message_types_by_name['HelloResponse'] = _HELLORESPONSE
