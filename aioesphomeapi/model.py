@@ -184,6 +184,12 @@ class ClimateMode(enum.IntEnum):
     HEAT = 3
 
 
+class ClimateAction(enum.IntEnum):
+    OFF = 0
+    COOLING = 2
+    HEATING = 3
+
+
 def _convert_climate_modes(value):
     return [ClimateMode(val) for val in value]
 
@@ -197,12 +203,13 @@ class ClimateInfo(EntityInfo):
     visual_max_temperature = attr.ib(type=float)
     visual_temperature_step = attr.ib(type=float)
     supports_away = attr.ib(type=bool)
+    supports_action = attr.ib(type=bool)
 
 
 @attr.s
 class ClimateState(EntityState):
     mode = attr.ib(type=ClimateMode, converter=ClimateMode)
-    action = attr.ib(type=ClimateMode, converter=ClimateMode)
+    action = attr.ib(type=ClimateAction, converter=ClimateAction)
     current_temperature = attr.ib(type=float)
     target_temperature = attr.ib(type=float)
     target_temperature_low = attr.ib(type=float)
