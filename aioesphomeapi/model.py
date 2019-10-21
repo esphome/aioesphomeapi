@@ -135,6 +135,7 @@ class SensorInfo(EntityInfo):
     icon = attr.ib(type=str)
     unit_of_measurement = attr.ib(type=str)
     accuracy_decimals = attr.ib(type=int)
+    force_update = attr.ib(type=bool)
 
 
 @attr.s
