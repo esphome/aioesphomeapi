@@ -218,7 +218,7 @@ class ClimateInfo(EntityInfo):
 
 @attr.s
 class ClimateState(EntityState):
-    mode = attr.ib(type=ClimateMode, converter=ClimateMode, default=CimateMode.OFF)
+    mode = attr.ib(type=ClimateMode, converter=ClimateMode, default=ClimateMode.OFF)
     action = attr.ib(type=ClimateAction, converter=ClimateAction, default=ClimateAction.OFF)
     current_temperature = attr.ib(type=float, default=0.0)
     target_temperature = attr.ib(type=float, default=0.0)
