@@ -3,47 +3,53 @@ from typing import List, Dict
 
 import attr
 
+# All fields in here should have defaults set
+# Home Assistant depends on these fields being constructible
+# with args from a previous version of Home Assistant.
+# The default value should *always* be the Protobuf default value
+# for a field (False, 0, empty string, enum with value 0, ...)
+
 
 @attr.s(cmp=True)
 class APIVersion:
-    major = attr.ib(type=int)
-    minor = attr.ib(type=int)
+    major = attr.ib(type=int, default=0)
+    minor = attr.ib(type=int, default=0)
 
 
 @attr.s
 class DeviceInfo:
-    uses_password = attr.ib(type=bool)
-    name = attr.ib(type=str)
-    mac_address = attr.ib(type=str)
-    compilation_time = attr.ib(type=str)
-    model = attr.ib(type=str)
-    has_deep_sleep = attr.ib(type=bool)
+    uses_password = attr.ib(type=bool, default=False)
+    name = attr.ib(type=str, default='')
+    mac_address = attr.ib(type=str, default='')
+    compilation_time = attr.ib(type=str, default='')
+    model = attr.ib(type=str, default='')
+    has_deep_sleep = attr.ib(type=bool, default=False)
     esphome_version = attr.ib(type=str, default='')
 
 
 @attr.s
 class EntityInfo:
-    object_id = attr.ib(type=str)
-    key = attr.ib(type=int)
-    name = attr.ib(type=str)
-    unique_id = attr.ib(type=str)
+    object_id = attr.ib(type=str, default='')
+    key = attr.ib(type=int, default=0)
+    name = attr.ib(type=str, default='')
+    unique_id = attr.ib(type=str, default='')
 
 
 @attr.s
 class EntityState:
-    key = attr.ib(type=int)
+    key = attr.ib(type=int, default=0)
 
 
 # ==================== BINARY SENSOR ====================
 @attr.s
 class BinarySensorInfo(EntityInfo):
-    device_class = attr.ib(type=str)
-    is_status_binary_sensor = attr.ib(type=bool)
+    device_class = attr.ib(type=str, default='')
+    is_status_binary_sensor = attr.ib(type=bool, default=False)
 
 
 @attr.s
 class BinarySensorState(EntityState):
-    state = attr.ib(type=bool)
+    state = attr.ib(type=bool, default=False)
 
 
 # ==================== COVER ====================
@@ -74,10 +80,12 @@ class CoverOperation(enum.IntEnum):
 
 @attr.s
 class CoverState(EntityState):
-    legacy_state = attr.ib(type=LegacyCoverState, converter=LegacyCoverState)
-    position = attr.ib(type=float)
-    tilt = attr.ib(type=float)
-    current_operation = attr.ib(type=CoverOperation, converter=CoverOperation)
+    legacy_state = attr.ib(type=LegacyCoverState, converter=LegacyCoverState,
+                           default=LegacyCoverState.OPEN)
+    position = attr.ib(type=float, default=0.0)
+    tilt = attr.ib(type=float, default=0.0)
+    current_operation = attr.ib(type=CoverOperation, converter=CoverOperation,
+                                default=CoverOperation.IDLE)
 
     def is_closed(self, api_version: APIVersion):
         if api_version >= APIVersion(1, 1):
@@ -88,8 +96,8 @@ class CoverState(EntityState):
 # ==================== FAN ====================
 @attr.s
 class FanInfo(EntityInfo):
-    supports_oscillation = attr.ib(type=bool)
-    supports_speed = attr.ib(type=bool)
+    supports_oscillation = attr.ib(type=bool, default=False)
+    supports_speed = attr.ib(type=bool, default=False)
 
 
 class FanSpeed(enum.IntEnum):
@@ -100,70 +108,70 @@ class FanSpeed(enum.IntEnum):
 
 @attr.s
 class FanState(EntityState):
-    state = attr.ib(type=bool)
-    oscillating = attr.ib(type=bool)
-    speed = attr.ib(type=FanSpeed, converter=FanSpeed)
+    state = attr.ib(type=bool, default=False)
+    oscillating = attr.ib(type=bool, default=False)
+    speed = attr.ib(type=FanSpeed, converter=FanSpeed, default=FanSpeed.LOW)
 
 
 # ==================== LIGHT ====================
 @attr.s
 class LightInfo(EntityInfo):
-    supports_brightness = attr.ib(type=bool)
-    supports_rgb = attr.ib(type=bool)
-    supports_white_value = attr.ib(type=bool)
-    supports_color_temperature = attr.ib(type=bool)
-    min_mireds = attr.ib(type=float)
-    max_mireds = attr.ib(type=float)
-    effects = attr.ib(type=List[str], converter=list)
+    supports_brightness = attr.ib(type=bool, default=False)
+    supports_rgb = attr.ib(type=bool, default=False)
+    supports_white_value = attr.ib(type=bool, default=False)
+    supports_color_temperature = attr.ib(type=bool, default=False)
+    min_mireds = attr.ib(type=float, default=0.0)
+    max_mireds = attr.ib(type=float, default=0.0)
+    effects = attr.ib(type=List[str], converter=list, factory=list)
 
 
 @attr.s
 class LightState(EntityState):
-    state = attr.ib(type=bool)
-    brightness = attr.ib(type=float)
-    red = attr.ib(type=float)
-    green = attr.ib(type=float)
-    blue = attr.ib(type=float)
-    white = attr.ib(type=float)
-    color_temperature = attr.ib(type=float)
-    effect = attr.ib(type=str)
+    state = attr.ib(type=bool, default=False)
+    brightness = attr.ib(type=float, default=0.0)
+    red = attr.ib(type=float, default=0.0)
+    green = attr.ib(type=float, default=0.0)
+    blue = attr.ib(type=float, default=0.0)
+    white = attr.ib(type=float, default=0.0)
+    color_temperature = attr.ib(type=float, default=0.0)
+    effect = attr.ib(type=str, default='')
 
 
 # ==================== SENSOR ====================
 @attr.s
 class SensorInfo(EntityInfo):
-    icon = attr.ib(type=str)
-    unit_of_measurement = attr.ib(type=str)
-    accuracy_decimals = attr.ib(type=int)
-    force_update = attr.ib(type=bool)
+    icon = attr.ib(type=str, default='')
+    unit_of_measurement = attr.ib(type=str, default='')
+    accuracy_decimals = attr.ib(type=int, default=0)
+    force_update = attr.ib(type=bool, default=False)
 
 
 @attr.s
 class SensorState(EntityState):
-    state = attr.ib(type=float)
+    state = attr.ib(type=float, default=0.0)
 
 
 # ==================== SWITCH ====================
 @attr.s
 class SwitchInfo(EntityInfo):
-    icon = attr.ib(type=str)
+    icon = attr.ib(type=str, default='')
     assumed_state = attr.ib(type=bool, default=False)
 
 
 @attr.s
 class SwitchState(EntityState):
-    state = attr.ib(type=bool)
+    state = attr.ib(type=bool, default=False)
 
 
 # ==================== TEXT SENSOR ====================
 @attr.s
 class TextSensorInfo(EntityInfo):
-    icon = attr.ib(type=str)
+    icon = attr.ib(type=str, default='')
 
 
 @attr.s
 class TextSensorState(EntityState):
-    state = attr.ib(type=str)
+    state = attr.ib(type=str, default='')
 
 
 # ==================== CAMERA ====================
@@ -174,7 +182,7 @@ class CameraInfo(EntityInfo):
 
 @attr.s
 class CameraState(EntityState):
-    image = attr.ib(type=bytes)
+    image = attr.ib(type=bytes, factory=bytes)
 
 
 # ==================== CLIMATE ====================
@@ -197,25 +205,26 @@ def _convert_climate_modes(value):
 
 @attr.s
 class ClimateInfo(EntityInfo):
-    supports_current_temperature = attr.ib(type=bool)
-    supports_two_point_target_temperature = attr.ib(type=bool)
-    supported_modes = attr.ib(type=List[ClimateMode], converter=_convert_climate_modes)
-    visual_min_temperature = attr.ib(type=float)
-    visual_max_temperature = attr.ib(type=float)
-    visual_temperature_step = attr.ib(type=float)
-    supports_away = attr.ib(type=bool)
-    supports_action = attr.ib(type=bool)
+    supports_current_temperature = attr.ib(type=bool, default=False)
+    supports_two_point_target_temperature = attr.ib(type=bool, default=False)
+    supported_modes = attr.ib(type=List[ClimateMode], converter=_convert_climate_modes,
+                              factory=list)
+    visual_min_temperature = attr.ib(type=float, default=0.0)
+    visual_max_temperature = attr.ib(type=float, default=0.0)
+    visual_temperature_step = attr.ib(type=float, default=0.0)
+    supports_away = attr.ib(type=bool, default=False)
+    supports_action = attr.ib(type=bool, default=False)
 
 
 @attr.s
 class ClimateState(EntityState):
-    mode = attr.ib(type=ClimateMode, converter=ClimateMode)
-    action = attr.ib(type=ClimateAction, converter=ClimateAction)
-    current_temperature = attr.ib(type=float)
-    target_temperature = attr.ib(type=float)
-    target_temperature_low = attr.ib(type=float)
-    target_temperature_high = attr.ib(type=float)
-    away = attr.ib(type=bool)
+    mode = attr.ib(type=ClimateMode, converter=ClimateMode, default=CimateMode.OFF)
+    action = attr.ib(type=ClimateAction, converter=ClimateAction, default=ClimateAction.OFF)
+    current_temperature = attr.ib(type=float, default=0.0)
+    target_temperature = attr.ib(type=float, default=0.0)
+    target_temperature_low = attr.ib(type=float, default=0.0)
+    target_temperature_high = attr.ib(type=float, default=0.0)
+    away = attr.ib(type=bool, default=False)
 
 
 COMPONENT_TYPE_TO_INFO = {
@@ -238,11 +247,14 @@ def _convert_homeassistant_service_map(value):
 
 @attr.s
 class HomeassistantServiceCall:
-    service = attr.ib(type=str)
-    is_event = attr.ib(type=bool)
-    data = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map)
-    data_template = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map)
-    variables = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map)
+    service = attr.ib(type=str, default='')
+    is_event = attr.ib(type=bool, default=False)
+    data = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map,
+                   factory=dict)
+    data_template = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map,
+                            factory=dict)
+    variables = attr.ib(type=Dict[str, str], converter=_convert_homeassistant_service_map,
+                        factory=dict)
 
 
 class UserServiceArgType(enum.IntEnum):
@@ -262,15 +274,16 @@ def _attr_obj_from_dict(cls, **kwargs):
 
 @attr.s
 class UserServiceArg:
-    name = attr.ib(type=str)
-    type_ = attr.ib(type=UserServiceArgType, converter=UserServiceArgType)
+    name = attr.ib(type=str, default='')
+    type_ = attr.ib(type=UserServiceArgType, converter=UserServiceArgType,
+                    default=UserServiceArgType.BOOL)
 
 
 @attr.s
 class UserService:
-    name = attr.ib(type=str)
-    key = attr.ib(type=int)
-    args = attr.ib(type=List[UserServiceArg], converter=list)
+    name = attr.ib(type=str, default='')
+    key = attr.ib(type=int, default=0)
+    args = attr.ib(type=List[UserServiceArg], converter=list, factory=list)
 
     @staticmethod
     def from_dict(dict_):
