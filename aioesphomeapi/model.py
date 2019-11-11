@@ -194,6 +194,20 @@ class ClimateMode(enum.IntEnum):
     AUTO = 1
     COOL = 2
     HEAT = 3
+    FAN_ONLY = 4
+    DRY = 5
+
+
+class ClimateFanMode(enum.IntEnum):
+    ON = 0
+    OFF = 1
+    AUTO = 2
+    LOW = 3
+    MEDIUM = 4
+    HIGH = 5
+    MIDDLE = 6
+    FOCUS = 7
+    DIFFUSE = 8
 
 
 class ClimateAction(enum.IntEnum):
@@ -221,8 +235,10 @@ class ClimateInfo(EntityInfo):
 
 @attr.s
 class ClimateState(EntityState):
-    mode = attr.ib(type=ClimateMode, converter=ClimateMode, default=ClimateMode.OFF)
-    action = attr.ib(type=ClimateAction, converter=ClimateAction, default=ClimateAction.OFF)
+    mode = attr.ib(type=ClimateMode, converter=ClimateMode,
+                   default=ClimateMode.OFF)
+    action = attr.ib(type=ClimateAction, converter=ClimateAction,
+                     default=ClimateAction.OFF)
     current_temperature = attr.ib(type=float, default=0.0)
     target_temperature = attr.ib(type=float, default=0.0)
     target_temperature_low = attr.ib(type=float, default=0.0)
