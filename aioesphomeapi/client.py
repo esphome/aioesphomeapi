@@ -327,7 +327,7 @@ class APIClient:
                               target_temperature_low: Optional[float] = None,
                               target_temperature_high: Optional[float] = None,
                               away: Optional[bool] = None,
-                              fan: Optional[ClimateFanMode] = None,
+                              fan_mode: Optional[ClimateFanMode] = None,
                               ) -> None:
         self._check_authenticated()
 
@@ -348,9 +348,9 @@ class APIClient:
         if away is not None:
             req.has_away = True
             req.away = away
-        if fan is not None:
-            req.has_fan = True
-            req.fan = fan
+        if fan_mode is not None:
+            req.has_fan_mode = True
+            req.fan_mode = fan_mode
         await self._connection.send_message(req)
 
     async def execute_service(self, service: UserService, data: dict):

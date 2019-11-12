@@ -220,6 +220,10 @@ def _convert_climate_modes(value):
     return [ClimateMode(val) for val in value]
 
 
+def _convert_climate_fan_modes(value):
+    return [ClimateFanMode(val) for val in value]
+
+
 @attr.s
 class ClimateInfo(EntityInfo):
     supports_current_temperature = attr.ib(type=bool, default=False)
@@ -231,6 +235,9 @@ class ClimateInfo(EntityInfo):
     visual_temperature_step = attr.ib(type=float, default=0.0)
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
+    supported_fan_modes = attr.ib(
+        type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
+    )
 
 
 @attr.s
@@ -244,6 +251,9 @@ class ClimateState(EntityState):
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
     away = attr.ib(type=bool, default=False)
+    fan_mode = attr.ib(
+        type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
+    )
 
 
 COMPONENT_TYPE_TO_INFO = {

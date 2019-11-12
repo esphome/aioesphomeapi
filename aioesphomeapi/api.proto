@@ -726,6 +726,6 @@ message ClimateCommandRequest {
   float target_temperature_high = 9;
   bool has_away = 10;
   bool away = 11;
-  bool has_fan = 12;
-  ClimateFanMode fan = 13;
+  bool has_fan_mode = 12;
+  ClimateFanMode fan_mode = 13;
 }
