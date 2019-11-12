@@ -50,6 +50,7 @@ class BinarySensorInfo(EntityInfo):
 @attr.s
 class BinarySensorState(EntityState):
     state = attr.ib(type=bool, default=False)
+    missing_state = attr.ib(type=bool, default=False)
 
 
 # ==================== COVER ====================
@@ -149,6 +150,7 @@ class SensorInfo(EntityInfo):
 @attr.s
 class SensorState(EntityState):
     state = attr.ib(type=float, default=0.0)
+    missing_state = attr.ib(type=bool, default=False)
 
 
 # ==================== SWITCH ====================
@@ -172,6 +174,7 @@ class TextSensorInfo(EntityInfo):
 @attr.s
 class TextSensorState(EntityState):
     state = attr.ib(type=str, default='')
+    missing_state = attr.ib(type=bool, default=False)
 
 
 # ==================== CAMERA ====================
