@@ -11,13 +11,14 @@ _LOGGER = logging.getLogger(__name__)
 
 class APIClient:
     def __init__(self, eventloop, address: str, port: int, password: str, *,
-                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0):
+                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0, client_version: int = 0):
         self._params = ConnectionParams(
             eventloop=eventloop,
             address=address,
             port=port,
             password=password,
             client_info=client_info,
+            client_version=client_version,
             keepalive=keepalive,
         )
         self._connection = None  # type: Optional[APIConnection]
@@ -328,6 +329,7 @@ class APIClient:
                               target_temperature_high: Optional[float] = None,
                               away: Optional[bool] = None,
                               fan_mode: Optional[ClimateFanMode] = None,
+                              swing_mode: Optional[ClimateSwingMode] = None,
                               ) -> None:
         self._check_authenticated()
 
@@ -351,6 +353,9 @@ class APIClient:
         if fan_mode is not None:
             req.has_fan_mode = True
             req.fan_mode = fan_mode
+        if swing_mode is not None:
+            req.has_swing_mode = True
+            req.swing_mode = swing_mode
         await self._connection.send_message(req)
 
     async def execute_service(self, service: UserService, data: dict):

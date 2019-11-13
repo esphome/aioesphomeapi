@@ -210,6 +210,13 @@ class ClimateFanMode(enum.IntEnum):
     DIFFUSE = 8
 
 
+class ClimateSwingMode(enum.IntEnum):
+    OFF = 0
+    BOTH = 1
+    VERTICAL = 2
+    HORIZONTAL = 3
+
+
 class ClimateAction(enum.IntEnum):
     OFF = 0
     COOLING = 2
@@ -222,6 +229,10 @@ def _convert_climate_modes(value):
 
 def _convert_climate_fan_modes(value):
     return [ClimateFanMode(val) for val in value]
+
+
+def _convert_climate_swing_modes(value):
+    return [ClimateSwingMode(val) for val in value]
 
 
 @attr.s
@@ -238,6 +249,9 @@ class ClimateInfo(EntityInfo):
     supported_fan_modes = attr.ib(
         type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
     )
+    supported_swing_modes = attr.ib(
+        type=List[ClimateSwingMode], converter=_convert_climate_swing_modes, factory=list
+    )
 
 
 @attr.s
@@ -253,6 +267,9 @@ class ClimateState(EntityState):
     away = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
         type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
+    )
+    swing_mode = attr.ib(
+        type=ClimateSwingMode, converter=ClimateSwingMode, default=ClimateSwingMode.OFF
     )
 
 
