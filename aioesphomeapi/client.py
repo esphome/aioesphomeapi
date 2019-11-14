@@ -11,14 +11,13 @@ _LOGGER = logging.getLogger(__name__)
 
 class APIClient:
     def __init__(self, eventloop, address: str, port: int, password: str, *,
-                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0, client_version: int = 0):
+                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0):
         self._params = ConnectionParams(
             eventloop=eventloop,
             address=address,
             port=port,
             password=password,
             client_info=client_info,
-            client_version=client_version,
             keepalive=keepalive,
         )
         self._connection = None  # type: Optional[APIConnection]

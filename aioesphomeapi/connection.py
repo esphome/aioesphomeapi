@@ -23,7 +23,6 @@ class ConnectionParams:
     password = attr.ib(type=Optional[str])
     client_info = attr.ib(type=str)
     keepalive = attr.ib(type=float)
-    client_version = attr.ib(type=int)
 
 
 class APIConnection:
@@ -135,7 +134,6 @@ class APIConnection:
 
         hello = pb.HelloRequest()
         hello.client_info = self._params.client_info
-        hello.client_version = self._params.client_version
         try:
             resp = await self.send_message_await_response(hello, pb.HelloResponse)
         except APIConnectionError as err:
