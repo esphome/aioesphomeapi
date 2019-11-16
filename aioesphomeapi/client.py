@@ -50,7 +50,8 @@ class APIClient:
             raise
         except Exception as e:
             await _on_stop()
-            raise APIConnectionError("Unexpected error while connecting: {}".format(e))
+            raise APIConnectionError(
+                "Unexpected error while connecting: {}".format(e))
 
         connected = True
 
@@ -326,6 +327,8 @@ class APIClient:
                               target_temperature_low: Optional[float] = None,
                               target_temperature_high: Optional[float] = None,
                               away: Optional[bool] = None,
+                              fan_mode: Optional[ClimateFanMode] = None,
+                              swing_mode: Optional[ClimateSwingMode] = None,
                               ) -> None:
         self._check_authenticated()
 
@@ -346,6 +349,12 @@ class APIClient:
         if away is not None:
             req.has_away = True
             req.away = away
+        if fan_mode is not None:
+            req.has_fan_mode = True
+            req.fan_mode = fan_mode
+        if swing_mode is not None:
+            req.has_swing_mode = True
+            req.swing_mode = swing_mode
         await self._connection.send_message(req)
 
     async def execute_service(self, service: UserService, data: dict):
@@ -357,7 +366,8 @@ class APIClient:
         for arg_desc in service.args:
             arg = pb.ExecuteServiceArgument()
             val = data[arg_desc.name]
-            int_type = 'int_' if self.api_version >= APIVersion(1, 3) else 'legacy_int'
+            int_type = 'int_' if self.api_version >= APIVersion(
+                1, 3) else 'legacy_int'
             map_single = {
                 UserServiceArgType.BOOL: 'bool_',
                 UserServiceArgType.INT: int_type,

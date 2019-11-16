@@ -194,6 +194,27 @@ class ClimateMode(enum.IntEnum):
     AUTO = 1
     COOL = 2
     HEAT = 3
+    FAN_ONLY = 4
+    DRY = 5
+
+
+class ClimateFanMode(enum.IntEnum):
+    ON = 0
+    OFF = 1
+    AUTO = 2
+    LOW = 3
+    MEDIUM = 4
+    HIGH = 5
+    MIDDLE = 6
+    FOCUS = 7
+    DIFFUSE = 8
+
+
+class ClimateSwingMode(enum.IntEnum):
+    OFF = 0
+    BOTH = 1
+    VERTICAL = 2
+    HORIZONTAL = 3
 
 
 class ClimateAction(enum.IntEnum):
@@ -204,6 +225,14 @@ class ClimateAction(enum.IntEnum):
 
 def _convert_climate_modes(value):
     return [ClimateMode(val) for val in value]
+
+
+def _convert_climate_fan_modes(value):
+    return [ClimateFanMode(val) for val in value]
+
+
+def _convert_climate_swing_modes(value):
+    return [ClimateSwingMode(val) for val in value]
 
 
 @attr.s
@@ -217,17 +246,31 @@ class ClimateInfo(EntityInfo):
     visual_temperature_step = attr.ib(type=float, default=0.0)
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
+    supported_fan_modes = attr.ib(
+        type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
+    )
+    supported_swing_modes = attr.ib(
+        type=List[ClimateSwingMode], converter=_convert_climate_swing_modes, factory=list
+    )
 
 
 @attr.s
 class ClimateState(EntityState):
-    mode = attr.ib(type=ClimateMode, converter=ClimateMode, default=ClimateMode.OFF)
-    action = attr.ib(type=ClimateAction, converter=ClimateAction, default=ClimateAction.OFF)
+    mode = attr.ib(type=ClimateMode, converter=ClimateMode,
+                   default=ClimateMode.OFF)
+    action = attr.ib(type=ClimateAction, converter=ClimateAction,
+                     default=ClimateAction.OFF)
     current_temperature = attr.ib(type=float, default=0.0)
     target_temperature = attr.ib(type=float, default=0.0)
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
     away = attr.ib(type=bool, default=False)
+    fan_mode = attr.ib(
+        type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
+    )
+    swing_mode = attr.ib(
+        type=ClimateSwingMode, converter=ClimateSwingMode, default=ClimateSwingMode.OFF
+    )
 
 
 COMPONENT_TYPE_TO_INFO = {
