@@ -221,6 +221,9 @@ class ClimateAction(enum.IntEnum):
     OFF = 0
     COOLING = 2
     HEATING = 3
+    IDLE = 4
+    DRYING = 5
+    FAN = 6
 
 
 def _convert_climate_modes(value):
