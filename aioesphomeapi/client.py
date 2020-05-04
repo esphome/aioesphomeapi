@@ -249,7 +249,8 @@ class APIClient:
                           key: int,
                           state: Optional[bool] = None,
                           speed: Optional[FanSpeed] = None,
-                          oscillating: Optional[bool] = None
+                          oscillating: Optional[bool] = None,
+                          direction: Optional[FanDirection] = None
                           ) -> None:
         self._check_authenticated()
 
@@ -264,6 +265,9 @@ class APIClient:
         if oscillating is not None:
             req.has_oscillating = True
             req.oscillating = oscillating
+        if direction is not None:
+            req.has_direction = True
+            req.direction = direction
         await self._connection.send_message(req)
 
     async def light_command(self,
