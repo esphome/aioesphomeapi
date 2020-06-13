@@ -10,7 +10,7 @@ import attr
 # for a field (False, 0, empty string, enum with value 0, ...)
 
 
-@attr.s(cmp=True)
+@attr.s
 class APIVersion:
     major = attr.ib(type=int, default=0)
     minor = attr.ib(type=int, default=0)
