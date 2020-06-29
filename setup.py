@@ -36,6 +36,7 @@ setup(
     download_url=DOWNLOAD_URL,
     author=PROJECT_AUTHOR,
     author_email=PROJECT_EMAIL,
+    license=PROJECT_LICENSE,
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
