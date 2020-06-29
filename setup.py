@@ -46,6 +46,7 @@ setup(
     author_email=PROJECT_EMAIL,
     description='Python API for interacting with ESPHome devices.',
     long_description=long_description,
+    license=PROJECT_LICENSE,
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
