@@ -94,7 +94,7 @@ Other examples:
 
 - `Camera <https://gist.github.com/micw/202f9dee5c990f0b0f7e7c36b567d92b>`_
 - `Async print <https://gist.github.com/fpletz/d071c72e45d17ba274fd61ca7a465033#file-esphome-print-async-py>`_
-- `Simple print <https://gist.github.com/fpletz/d071c72e45d17ba274fd61ca7a465033#file-esphome-print-simple-py`_
+- `Simple print <https://gist.github.com/fpletz/d071c72e45d17ba274fd61ca7a465033#file-esphome-print-simple-py>`_
 - `InfluxDB <https://gist.github.com/fpletz/d071c72e45d17ba274fd61ca7a465033#file-esphome-sensor-influxdb-py>`_
 
 Development
