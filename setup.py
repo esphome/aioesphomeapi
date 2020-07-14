@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """aioesphomeapi setup script."""
+import os
+
 from setuptools import find_packages, setup
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+with open(os.path.join(here, 'README.rst'), encoding='utf-8') as readme_file:
+    long_description = readme_file.read()
+
 
 VERSION = '2.6.1'
 PROJECT_NAME = 'aioesphomeapi'
 PROJECT_PACKAGE_NAME = 'aioesphomeapi'
 PROJECT_LICENSE = 'MIT'
 PROJECT_AUTHOR = 'Otto Winter'
-PROJECT_COPYRIGHT = ' 2019, Otto Winter'
+PROJECT_COPYRIGHT = ' 2019-2020, Otto Winter'
 PROJECT_URL = 'https://esphome.io/'
 PROJECT_EMAIL = 'contact@otto-winter.com'
 
@@ -33,6 +41,9 @@ setup(
     download_url=DOWNLOAD_URL,
     author=PROJECT_AUTHOR,
     author_email=PROJECT_EMAIL,
+    description='Python API for interacting with ESPHome devices.',
+    long_description=long_description,
+    license=PROJECT_LICENSE,
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
