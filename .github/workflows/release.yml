@@ -1,0 +1,27 @@
+name: Publish Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy-pypi:
+    name: Build and publish to PyPi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.x'
+      - name: Set up python environment
+        run: |
+          pip3 install -e .
+          pip3 install setuptools wheel twine
+      - name: Build
+        run: python setup.py sdist bdist_wheel
+      - name: Upload
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: twine upload dist/*
