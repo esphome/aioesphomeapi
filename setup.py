@@ -21,12 +21,9 @@ GITHUB_URL = 'https://github.com/{}'.format(GITHUB_PATH)
 DOWNLOAD_URL = '{}/archive/{}.zip'.format(GITHUB_URL, VERSION)
 
 REQUIRES = [
-    'attrs',
-    # Pin protobuf version to 3.6.1, 3.7 is slightly incompatible with the generated
-    # api_pb2.py. We could upgrade to 3.7, but that breaks HA installs because
-    # image_processing.tensorflow pins protobuf to 3.6.1
-    'protobuf==3.6.1',
-    'zeroconf>=0.21.3',
+    'attrs>=19.3.0',
+    'protobuf>=3.12.2,<4.0',
+    'zeroconf>=0.28.0,<1.0',
 ]
 
 setup(
