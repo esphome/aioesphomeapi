@@ -166,6 +166,7 @@ class APIClient:
                 return
 
             kwargs = {}
+            # pylint: disable=undefined-loop-variable
             for key, _ in attr.fields_dict(cls).items():
                 kwargs[key] = getattr(msg, key)
             on_state(cls(**kwargs))
@@ -380,6 +381,7 @@ class APIClient:
                 UserServiceArgType.FLOAT_ARRAY: 'float_array',
                 UserServiceArgType.STRING_ARRAY: 'string_array',
             }
+            # pylint: disable=redefined-outer-name
             if arg_desc.type_ in map_array:
                 attr = getattr(arg, map_array[arg_desc.type_])
                 attr.extend(val)
@@ -387,6 +389,7 @@ class APIClient:
                 setattr(arg, map_single[arg_desc.type_], val)
 
             args.append(arg)
+        # pylint: disable=no-member
         req.args.extend(args)
         await self._connection.send_message(req)
 

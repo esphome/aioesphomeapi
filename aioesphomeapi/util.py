@@ -2,6 +2,7 @@ import asyncio
 import socket
 from typing import Optional, Tuple, Any
 
+# pylint: disable=cyclic-import
 from aioesphomeapi.core import APIConnectionError
 
 

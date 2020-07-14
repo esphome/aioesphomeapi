@@ -146,7 +146,7 @@ class APIConnection:
             resp.api_version_major, resp.api_version_minor)
         if self._api_version.major > 2:
             _LOGGER.error("%s: Incompatible version %s! Closing connection",
-                          self._api_version.major)
+                          self._params.address, self._api_version.major)
             await self._on_error()
             raise APIConnectionError("Incompatible API version.")
         self._connected = True
@@ -205,6 +205,7 @@ class APIConnection:
                       self._params.address, type(msg), str(msg))
         req = bytes([0])
         req += _varuint_to_bytes(len(encoded))
+        # pylint: disable=undefined-loop-variable
         req += _varuint_to_bytes(message_type)
         req += encoded
         await self._write(req)
@@ -313,7 +314,7 @@ class APIConnection:
                              self._params.address, err)
                 await self._on_error()
                 break
-            except Exception as err:
+            except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.info("%s: Unexpected error while reading incoming messages: %s",
                              self._params.address, err)
                 await self._on_error()
