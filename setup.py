@@ -28,11 +28,8 @@ GITHUB_URL = 'https://github.com/{}'.format(GITHUB_PATH)
 
 DOWNLOAD_URL = '{}/archive/{}.zip'.format(GITHUB_URL, VERSION)
 
-REQUIRES = [
-    'attrs>=19.3.0',
-    'protobuf>=3.12.2,<4.0',
-    'zeroconf>=0.28.0,<1.0',
-]
+with open(os.path.join(here, 'requirements.txt')) as requirements_txt:
+    REQUIRES = requirements_txt.read().splitlines()
 
 setup(
     name=PROJECT_PACKAGE_NAME,
