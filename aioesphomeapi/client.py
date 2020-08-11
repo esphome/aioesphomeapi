@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Callable, Optional, Tuple
+import zeroconf
 
 import aioesphomeapi.api_pb2 as pb
 from aioesphomeapi.connection import APIConnection, ConnectionParams
@@ -11,7 +12,8 @@ _LOGGER = logging.getLogger(__name__)
 
 class APIClient:
     def __init__(self, eventloop, address: str, port: int, password: str, *,
-                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0):
+                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0,
+                 zeroconf_instance: zeroconf.Zeroconf = None):
         self._params = ConnectionParams(
             eventloop=eventloop,
             address=address,
@@ -19,6 +21,7 @@ class APIClient:
             password=password,
             client_info=client_info,
             keepalive=keepalive,
+            zeroconf_instance=zeroconf_instance
         )
         self._connection = None  # type: Optional[APIConnection]
 

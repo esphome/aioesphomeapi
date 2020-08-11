@@ -49,11 +49,11 @@ class HostResolver(zeroconf.RecordUpdateListener):
         return True
 
 
-def resolve_host(host, timeout=3.0):
+def resolve_host(host, timeout=3.0, zeroconf_instance: zeroconf.Zeroconf = None):
     from aioesphomeapi import APIConnectionError
 
     try:
-        zc = zeroconf.Zeroconf()
+        zc = zeroconf_instance or zeroconf.Zeroconf()
     except Exception:
         raise APIConnectionError("Cannot start mDNS sockets, is this a docker container without "
                                  "host network mode?")
@@ -66,7 +66,8 @@ def resolve_host(host, timeout=3.0):
     except Exception as err:
         raise APIConnectionError("Error resolving mDNS hostname: {}".format(err))
     finally:
-        zc.close()
+        if not zeroconf_instance:
+            zc.close()
 
     if address is None:
         raise APIConnectionError("Error resolving address with mDNS: Did not respond. "

@@ -5,6 +5,7 @@ import time
 from typing import Any, Callable, List, Optional, cast
 
 import attr
+import zeroconf
 from google.protobuf import message
 
 import aioesphomeapi.api_pb2 as pb
@@ -23,7 +24,7 @@ class ConnectionParams:
     password = attr.ib(type=Optional[str])
     client_info = attr.ib(type=str)
     keepalive = attr.ib(type=float)
-
+    zeroconf_instance = attr.ib(type=zeroconf.Zeroconf)
 
 class APIConnection:
     def __init__(self, params: ConnectionParams, on_stop):
@@ -100,7 +101,7 @@ class APIConnection:
 
         try:
             coro = resolve_ip_address(self._params.eventloop, self._params.address,
-                                      self._params.port)
+                                      self._params.port, self._params.zeroconf_instance)
             sockaddr = await asyncio.wait_for(coro, 30.0)
         except APIConnectionError as err:
             await self._on_error()
