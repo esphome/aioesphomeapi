@@ -10,7 +10,7 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = '2.6.2'
+VERSION = '2.6.3'
 PROJECT_NAME = 'aioesphomeapi'
 PROJECT_PACKAGE_NAME = 'aioesphomeapi'
 PROJECT_LICENSE = 'MIT'
@@ -23,7 +23,8 @@ PROJECT_GITHUB_USERNAME = 'esphome'
 PROJECT_GITHUB_REPOSITORY = 'aioesphomeapi'
 
 PYPI_URL = 'https://pypi.python.org/pypi/{}'.format(PROJECT_PACKAGE_NAME)
-GITHUB_PATH = '{}/{}'.format(PROJECT_GITHUB_USERNAME, PROJECT_GITHUB_REPOSITORY)
+GITHUB_PATH = '{}/{}'.format(PROJECT_GITHUB_USERNAME,
+                             PROJECT_GITHUB_REPOSITORY)
 GITHUB_URL = 'https://github.com/{}'.format(GITHUB_PATH)
 
 DOWNLOAD_URL = '{}/archive/{}.zip'.format(GITHUB_URL, VERSION)
