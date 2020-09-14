@@ -54,7 +54,7 @@ class APIClient:
         except Exception as e:
             await _on_stop()
             raise APIConnectionError(
-                "Unexpected error while connecting: {}".format(e))
+                "Unexpected error while connecting: {}".format(e)) from e
 
         connected = True
 

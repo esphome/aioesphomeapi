@@ -106,9 +106,9 @@ class APIConnection:
         except APIConnectionError as err:
             await self._on_error()
             raise err
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as err:
             await self._on_error()
-            raise APIConnectionError("Timeout while resolving IP address")
+            raise APIConnectionError("Timeout while resolving IP address") from err
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.setblocking(False)
@@ -122,11 +122,11 @@ class APIConnection:
         except OSError as err:
             await self._on_error()
             raise APIConnectionError(
-                "Error connecting to {}: {}".format(sockaddr, err))
-        except asyncio.TimeoutError:
+                "Error connecting to {}: {}".format(sockaddr, err)) from err
+        except asyncio.TimeoutError as err:
             await self._on_error()
             raise APIConnectionError(
-                "Timeout while connecting to {}".format(sockaddr))
+                "Timeout while connecting to {}".format(sockaddr)) from err
 
         _LOGGER.debug("%s: Opened socket for", self._params.address)
         self._socket_reader, self._socket_writer = await asyncio.open_connection(sock=self._socket)
@@ -192,7 +192,7 @@ class APIConnection:
         except OSError as err:
             await self._on_error()
             raise APIConnectionError(
-                "Error while writing data: {}".format(err))
+                "Error while writing data: {}".format(err)) from err
 
     async def send_message(self, msg: message.Message) -> None:
         for message_type, klass in MESSAGE_TYPE_TO_PROTO.items():
@@ -236,11 +236,11 @@ class APIConnection:
 
         try:
             await asyncio.wait_for(fut, timeout)
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as err:
             if self._stopped:
                 raise APIConnectionError(
-                    "Disconnected while waiting for API response!")
-            raise APIConnectionError("Timeout while waiting for API response!")
+                    "Disconnected while waiting for API response!") from err
+            raise APIConnectionError("Timeout while waiting for API response!") from err
 
         try:
             self._message_handlers.remove(on_message)
@@ -271,7 +271,7 @@ class APIConnection:
             ret = await self._socket_reader.readexactly(amount)
         except (asyncio.IncompleteReadError, OSError, TimeoutError) as err:
             raise APIConnectionError(
-                "Error while receiving data: {}".format(err))
+                "Error while receiving data: {}".format(err)) from err
 
         return ret
 
@@ -299,7 +299,7 @@ class APIConnection:
         try:
             msg.ParseFromString(raw_msg)
         except Exception as e:
-            raise APIConnectionError("Invalid protobuf message: {}".format(e))
+            raise APIConnectionError("Invalid protobuf message: {}".format(e)) from e
         _LOGGER.debug("%s: Got message of type %s: %s",
                       self._params.address, type(msg), msg)
         for msg_handler in self._message_handlers[:]:

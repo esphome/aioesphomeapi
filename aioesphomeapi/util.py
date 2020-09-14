@@ -41,7 +41,7 @@ async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEvent
         res = await eventloop.getaddrinfo(host, port, family=socket.AF_INET,
                                           proto=socket.IPPROTO_TCP)
     except OSError as err:
-        raise APIConnectionError("Error resolving IP address: {}".format(err))
+        raise APIConnectionError("Error resolving IP address: {}".format(err)) from err
 
     if not res:
         raise APIConnectionError("Error resolving IP address: No matches!")

@@ -54,9 +54,9 @@ def resolve_host(host, timeout=3.0, zeroconf_instance: zeroconf.Zeroconf = None)
 
     try:
         zc = zeroconf_instance or zeroconf.Zeroconf()
-    except Exception:
+    except Exception as err:
         raise APIConnectionError("Cannot start mDNS sockets, is this a docker container without "
-                                 "host network mode?")
+                                 "host network mode?") from err
 
     try:
         info = HostResolver(host + '.')
@@ -64,7 +64,7 @@ def resolve_host(host, timeout=3.0, zeroconf_instance: zeroconf.Zeroconf = None)
         if info.request(zc, timeout):
             address = socket.inet_ntoa(info.address)
     except Exception as err:
-        raise APIConnectionError("Error resolving mDNS hostname: {}".format(err))
+        raise APIConnectionError("Error resolving mDNS hostname: {}".format(err)) from err
     finally:
         if not zeroconf_instance:
             zc.close()
