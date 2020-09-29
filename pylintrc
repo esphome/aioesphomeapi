@@ -1,0 +1,15 @@
+[MASTER]
+reports=no
+ignore=api_pb2.py,api_options_pb2.py
+
+disable=
+  missing-docstring,
+  too-few-public-methods,
+  too-many-instance-attributes,
+  wildcard-import,
+  invalid-name,
+  too-many-arguments,
+  line-too-long,
+  protected-access,
+  unused-wildcard-import,
+  import-outside-toplevel,

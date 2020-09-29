@@ -1,7 +1,10 @@
 import asyncio
+import functools
 import socket
 from typing import Optional, Tuple, Any
+import zeroconf
 
+# pylint: disable=cyclic-import
 from aioesphomeapi.core import APIConnectionError
 
 
@@ -49,12 +52,20 @@ async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEvent
 
 
 async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
-                             host: str, port: int) -> Tuple[Any, ...]:
+                             host: str, port: int,
+                             zeroconf_instance: zeroconf.Zeroconf = None) -> Tuple[Any, ...]:
     if host.endswith('.local'):
         from aioesphomeapi.host_resolver import resolve_host
 
         try:
-            return await eventloop.run_in_executor(None, resolve_host, host), port
+            return await eventloop.run_in_executor(
+                None,
+                functools.partial(
+                    resolve_host,
+                    host,
+                    zeroconf_instance=zeroconf_instance
+                )
+            ), port
         except APIConnectionError:
             pass
     return await resolve_ip_address_getaddrinfo(eventloop, host, port)

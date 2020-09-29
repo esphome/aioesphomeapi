@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Callable, Optional, Tuple
+import zeroconf
 
 import aioesphomeapi.api_pb2 as pb
 from aioesphomeapi.connection import APIConnection, ConnectionParams
@@ -11,7 +12,8 @@ _LOGGER = logging.getLogger(__name__)
 
 class APIClient:
     def __init__(self, eventloop, address: str, port: int, password: str, *,
-                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0):
+                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0,
+                 zeroconf_instance: zeroconf.Zeroconf = None):
         self._params = ConnectionParams(
             eventloop=eventloop,
             address=address,
@@ -19,6 +21,7 @@ class APIClient:
             password=password,
             client_info=client_info,
             keepalive=keepalive,
+            zeroconf_instance=zeroconf_instance
         )
         self._connection = None  # type: Optional[APIConnection]
 
@@ -166,6 +169,7 @@ class APIClient:
                 return
 
             kwargs = {}
+            # pylint: disable=undefined-loop-variable
             for key, _ in attr.fields_dict(cls).items():
                 kwargs[key] = getattr(msg, key)
             on_state(cls(**kwargs))
@@ -384,6 +388,7 @@ class APIClient:
                 UserServiceArgType.FLOAT_ARRAY: 'float_array',
                 UserServiceArgType.STRING_ARRAY: 'string_array',
             }
+            # pylint: disable=redefined-outer-name
             if arg_desc.type_ in map_array:
                 attr = getattr(arg, map_array[arg_desc.type_])
                 attr.extend(val)
@@ -391,6 +396,7 @@ class APIClient:
                 setattr(arg, map_single[arg_desc.type_], val)
 
             args.append(arg)
+        # pylint: disable=no-member
         req.args.extend(args)
         await self._connection.send_message(req)
 
