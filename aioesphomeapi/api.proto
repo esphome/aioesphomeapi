@@ -682,6 +682,18 @@ enum ClimateAction {
   CLIMATE_ACTION_DRYING = 5;
   CLIMATE_ACTION_FAN = 6;
 }
+
+enum ClimatePreset {
+  CLIMATE_PRESET_NONE = 0;
+  CLIMATE_PRESET_HOME = 1;
+  CLIMATE_PRESET_AWAY = 2;
+  CLIMATE_PRESET_SLEEP = 3;
+  CLIMATE_PRESET_BOOST = 4;
+  CLIMATE_PRESET_ECO = 5;
+  CLIMATE_PRESET_COMFORT = 6;
+  CLIMATE_PRESET_ACTIVITY = 7;
+}
+
 message ListEntitiesClimateResponse {
   option (id) = 46;
   option (source) = SOURCE_SERVER;
@@ -698,7 +710,7 @@ message ListEntitiesClimateResponse {
   float visual_min_temperature = 8;
   float visual_max_temperature = 9;
   float visual_temperature_step = 10;
-  bool supports_away = 11;
+  repeated ClimatePreset supported_presets = 11;
   bool supports_action = 12;
   repeated ClimateFanMode supported_fan_modes = 13;
   repeated ClimateSwingMode supported_swing_modes = 14;
@@ -715,7 +727,7 @@ message ClimateStateResponse {
   float target_temperature = 4;
   float target_temperature_low = 5;
   float target_temperature_high = 6;
-  bool away = 7;
+  ClimatePreset preset = 7;
   ClimateAction action = 8;
   ClimateFanMode fan_mode = 9;
   ClimateSwingMode swing_mode = 10;
@@ -735,8 +747,8 @@ message ClimateCommandRequest {
   float target_temperature_low = 7;
   bool has_target_temperature_high = 8;
   float target_temperature_high = 9;
-  bool has_away = 10;
-  bool away = 11;
+  bool has_preset = 10;
+  ClimatePreset preset = 11;
   bool has_fan_mode = 12;
   ClimateFanMode fan_mode = 13;
   bool has_swing_mode = 14;
