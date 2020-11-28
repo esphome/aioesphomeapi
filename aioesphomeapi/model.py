@@ -265,7 +265,6 @@ class ClimateInfo(EntityInfo):
     supported_presets = attr.ib(
         type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
     )
-    away = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
         type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
     )
