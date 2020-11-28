@@ -261,8 +261,8 @@ class ClimateInfo(EntityInfo):
     visual_temperature_step = attr.ib(type=float, default=0.0)
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
-    supported_presets = attr.ib(type=bool, default=False)
-    supports_action = attr.ib(
+    #supports_presets = attr.ib(type=bool, default=False)
+    supports_preset = attr.ib(
         type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
     )
     away = attr.ib(type=bool, default=False)
@@ -284,6 +284,7 @@ class ClimateState(EntityState):
     target_temperature = attr.ib(type=float, default=0.0)
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
+    away = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
         type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
     )
