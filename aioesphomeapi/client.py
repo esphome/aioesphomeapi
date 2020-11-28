@@ -350,6 +350,9 @@ class APIClient:
         if target_temperature_high is not None:
             req.has_target_temperature_high = True
             req.target_temperature_high = target_temperature_high
+        if away is not None:
+            req.has_away = True
+            req.away = away
         if preset is not None:
             req.has_preset = True
             req.preset = preset
