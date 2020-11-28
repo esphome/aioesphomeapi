@@ -683,7 +683,7 @@ enum ClimateAction {
   CLIMATE_ACTION_FAN = 6;
 }
 
-enum ClimatePreset {
+/*enum ClimatePreset {
   CLIMATE_PRESET_NONE = 0;
   CLIMATE_PRESET_HOME = 1;
   CLIMATE_PRESET_AWAY = 2;
@@ -692,7 +692,7 @@ enum ClimatePreset {
   CLIMATE_PRESET_ECO = 5;
   CLIMATE_PRESET_COMFORT = 6;
   CLIMATE_PRESET_ACTIVITY = 7;
-}
+}*/
 
 message ListEntitiesClimateResponse {
   option (id) = 46;
@@ -714,7 +714,9 @@ message ListEntitiesClimateResponse {
   bool supports_action = 12;
   repeated ClimateFanMode supported_fan_modes = 13;
   repeated ClimateSwingMode supported_swing_modes = 14;
-  repeated ClimatePreset supported_presets = 15;
+  //repeated ClimatePreset supported_presets = 15;
+  bool supports_boost = 15;
+  bool supports_sleep = 16;
 }
 message ClimateStateResponse {
   option (id) = 47;
@@ -732,7 +734,9 @@ message ClimateStateResponse {
   ClimateAction action = 8;
   ClimateFanMode fan_mode = 9;
   ClimateSwingMode swing_mode = 10;
-  ClimatePreset preset = 11;
+  //ClimatePreset preset = 11;
+  bool boost = 11;
+  bool sleep = 12;
 }
 message ClimateCommandRequest {
   option (id) = 48;
@@ -755,6 +759,10 @@ message ClimateCommandRequest {
   ClimateFanMode fan_mode = 13;
   bool has_swing_mode = 14;
   ClimateSwingMode swing_mode = 15;
-  bool has_preset = 16;
-  ClimatePreset preset = 17;
+  //bool has_preset = 16;
+  //ClimatePreset preset = 17;
+  bool has_boost = 16;
+  bool boost = 17;
+  bool has_sleep = 18;
+  bool sleep = 19;
 }

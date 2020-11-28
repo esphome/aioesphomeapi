@@ -225,15 +225,15 @@ class ClimateAction(enum.IntEnum):
     DRYING = 5
     FAN = 6
 
-class ClimatePreset(enum.IntEnum):
-    NONE = 0
-    HOME = 1
-    AWAY = 2
-    SLEEP = 3
-    BOOST = 4
-    ECO = 5
-    COMFORT = 6
-    ACTIVITY = 7
+#class ClimatePreset(enum.IntEnum):
+#    NONE = 0
+#    HOME = 1
+#    AWAY = 2
+#    SLEEP = 3
+#    BOOST = 4
+#    ECO = 5
+#    COMFORT = 6
+#    ACTIVITY = 7
 
 
 def _convert_climate_modes(value):
@@ -260,11 +260,13 @@ class ClimateInfo(EntityInfo):
     visual_max_temperature = attr.ib(type=float, default=0.0)
     visual_temperature_step = attr.ib(type=float, default=0.0)
     supports_away = attr.ib(type=bool, default=False)
+    supports_boost = attr.ib(type=bool, default=False)
+    supports_sleep = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     #supports_presets = attr.ib(type=bool, default=False)
-    supported_presets = attr.ib(
-        type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
-    )
+    #supported_presets = attr.ib(
+    #    type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
+    #)
     supported_fan_modes = attr.ib(
         type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
     )
@@ -284,12 +286,14 @@ class ClimateState(EntityState):
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
     away = attr.ib(type=bool, default=False)
+    sleep = attr.ib(type=bool, default=False)
+    boost = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
         type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
     )
-    preset = attr.ib(
-        type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.NONE
-    )
+    #preset = attr.ib(
+    #    type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.NONE
+    #)
     swing_mode = attr.ib(
         type=ClimateSwingMode, converter=ClimateSwingMode, default=ClimateSwingMode.OFF
     )

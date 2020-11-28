@@ -331,7 +331,8 @@ class APIClient:
                               target_temperature_low: Optional[float] = None,
                               target_temperature_high: Optional[float] = None,
                               away: Optional[bool] = None,
-                              preset: Optional[ClimatePreset] = None,
+                              boost: Optional[bool] = None,
+                              sleep: Optional[bool] = None,
                               fan_mode: Optional[ClimateFanMode] = None,
                               swing_mode: Optional[ClimateSwingMode] = None,
                               ) -> None:
@@ -354,9 +355,12 @@ class APIClient:
         if away is not None:
             req.has_away = True
             req.away = away
-        if preset is not None:
-            req.has_preset = True
-            req.preset = preset
+        if boost is not None:
+            req.has_boost = True
+            req.boost = boost
+        if sleep is not None:
+            req.has_sleep = True
+            req.sleep = sleep
         if fan_mode is not None:
             req.has_fan_mode = True
             req.fan_mode = fan_mode
