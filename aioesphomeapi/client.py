@@ -330,6 +330,7 @@ class APIClient:
                               target_temperature: Optional[float] = None,
                               target_temperature_low: Optional[float] = None,
                               target_temperature_high: Optional[float] = None,
+                              away: Optional[bool] = None,
                               preset: Optional[ClimatePreset] = None,
                               fan_mode: Optional[ClimateFanMode] = None,
                               swing_mode: Optional[ClimateSwingMode] = None,
