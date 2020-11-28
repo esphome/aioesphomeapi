@@ -262,7 +262,7 @@ class ClimateInfo(EntityInfo):
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     #supports_presets = attr.ib(type=bool, default=False)
-    supports_preset = attr.ib(
+    supports_presets = attr.ib(
         type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
     )
     away = attr.ib(type=bool, default=False)
