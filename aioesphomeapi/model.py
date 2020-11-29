@@ -249,6 +249,7 @@ class ClimateInfo(EntityInfo):
     supports_away = attr.ib(type=bool, default=False)
     supports_boost = attr.ib(type=bool, default=False)
     supports_night = attr.ib(type=bool, default=False)
+    supports_eco = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
         type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
@@ -271,6 +272,7 @@ class ClimateState(EntityState):
     away = attr.ib(type=bool, default=False)
     night = attr.ib(type=bool, default=False)
     boost = attr.ib(type=bool, default=False)
+    eco = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
         type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
     )

@@ -333,6 +333,7 @@ class APIClient:
                               away: Optional[bool] = None,
                               boost: Optional[bool] = None,
                               night: Optional[bool] = None,
+                              eco: Optional[bool] = None,
                               fan_mode: Optional[ClimateFanMode] = None,
                               swing_mode: Optional[ClimateSwingMode] = None,
                               ) -> None:
@@ -358,6 +359,9 @@ class APIClient:
         if boost is not None:
             req.has_boost = True
             req.boost = boost
+        if eco is not None:
+            req.has_eco = True
+            req.eco = eco
         if night is not None:
             req.has_night = True
             req.night = night
