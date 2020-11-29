@@ -225,16 +225,6 @@ class ClimateAction(enum.IntEnum):
     DRYING = 5
     FAN = 6
 
-#class ClimatePreset(enum.IntEnum):
-#    NONE = 0
-#    HOME = 1
-#    AWAY = 2
-#    SLEEP = 3
-#    BOOST = 4
-#    ECO = 5
-#    COMFORT = 6
-#    ACTIVITY = 7
-
 
 def _convert_climate_modes(value):
     return [ClimateMode(val) for val in value]
@@ -247,9 +237,6 @@ def _convert_climate_fan_modes(value):
 def _convert_climate_swing_modes(value):
     return [ClimateSwingMode(val) for val in value]
 
-def _convert_climate_presets(value):
-    return [ClimatePreset(val) for val in value]
-
 @attr.s
 class ClimateInfo(EntityInfo):
     supports_current_temperature = attr.ib(type=bool, default=False)
@@ -261,12 +248,8 @@ class ClimateInfo(EntityInfo):
     visual_temperature_step = attr.ib(type=float, default=0.0)
     supports_away = attr.ib(type=bool, default=False)
     supports_boost = attr.ib(type=bool, default=False)
-    supports_sleep = attr.ib(type=bool, default=False)
+    supports_night = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
-    #supports_presets = attr.ib(type=bool, default=False)
-    #supported_presets = attr.ib(
-    #    type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
-    #)
     supported_fan_modes = attr.ib(
         type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
     )
@@ -286,14 +269,11 @@ class ClimateState(EntityState):
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
     away = attr.ib(type=bool, default=False)
-    sleep = attr.ib(type=bool, default=False)
+    night = attr.ib(type=bool, default=False)
     boost = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
         type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
     )
-    #preset = attr.ib(
-    #    type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.NONE
-    #)
     swing_mode = attr.ib(
         type=ClimateSwingMode, converter=ClimateSwingMode, default=ClimateSwingMode.OFF
     )
