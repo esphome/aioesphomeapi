@@ -99,6 +99,7 @@ class CoverState(EntityState):
 class FanInfo(EntityInfo):
     supports_oscillation = attr.ib(type=bool, default=False)
     supports_speed = attr.ib(type=bool, default=False)
+    supports_direction = attr.ib(type=bool, default=False)
 
 
 class FanSpeed(enum.IntEnum):
@@ -107,11 +108,17 @@ class FanSpeed(enum.IntEnum):
     HIGH = 2
 
 
+class FanDirection(enum.IntEnum):
+    FORWARD = 0
+    REVERSE = 1
+
+
 @attr.s
 class FanState(EntityState):
     state = attr.ib(type=bool, default=False)
     oscillating = attr.ib(type=bool, default=False)
     speed = attr.ib(type=FanSpeed, converter=FanSpeed, default=FanSpeed.LOW)
+    direction = attr.ib(type=FanDirection, converter=FanDirection, default=FanDirection.FORWARD)
 
 
 # ==================== LIGHT ====================
