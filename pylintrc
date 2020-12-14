@@ -13,3 +13,4 @@ disable=
   protected-access,
   unused-wildcard-import,
   import-outside-toplevel,
+  raise-missing-from,
