@@ -74,7 +74,7 @@ Subscribe to state changes of an ESPHome device.
        
        await cli.connect(login=True)
 
-        def change_callback(state):
+       def change_callback(state):
            """Print the state changes of the device.."""
            print(state)
        
@@ -85,7 +85,7 @@ Subscribe to state changes of an ESPHome device.
    try:
        asyncio.ensure_future(main())
        loop.run_forever()
-    except KeyboardInterrupt:
+   except KeyboardInterrupt:
        pass
    finally:
        loop.close()
