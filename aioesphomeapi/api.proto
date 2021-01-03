@@ -713,7 +713,7 @@ message ListEntitiesClimateResponse {
   repeated ClimateFanMode supported_fan_modes = 13;
   repeated ClimateSwingMode supported_swing_modes = 14;
   bool supports_boost = 15;
-  bool supports_sleep = 16;
+  bool supports_sleep_ = 16;
   bool supports_eco = 17;
 }
 message ClimateStateResponse {
