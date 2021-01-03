@@ -255,7 +255,7 @@ class ClimateInfo(EntityInfo):
     visual_temperature_step = attr.ib(type=float, default=0.0)
     supports_away = attr.ib(type=bool, default=False)
     supports_boost = attr.ib(type=bool, default=False)
-    supports_night = attr.ib(type=bool, default=False)
+    supports_sleep_ = attr.ib(type=bool, default=False)
     supports_eco = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
@@ -277,7 +277,7 @@ class ClimateState(EntityState):
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
     away = attr.ib(type=bool, default=False)
-    night = attr.ib(type=bool, default=False)
+    sleep_ = attr.ib(type=bool, default=False)
     boost = attr.ib(type=bool, default=False)
     eco = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
