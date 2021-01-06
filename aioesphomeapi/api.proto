@@ -711,8 +711,8 @@ enum ClimatePreset {
   CLIMATE_PRESET_BOOST = 2;
   CLIMATE_PRESET_COMFORT = 3;
   CLIMATE_PRESET_HOME	= 4;
-  CLIMATE_PRESET_SLEEP	= 5;
-  CLIMATE_PRESET_ACTIVITY	= 6;
+  CLIMATE_PRESET_SLEEP = 5;
+  CLIMATE_PRESET_ACTIVITY = 6;
 }
 message ListEntitiesClimateResponse {
   option (id) = 46;
