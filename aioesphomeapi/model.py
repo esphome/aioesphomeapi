@@ -287,14 +287,14 @@ class ClimateAction(APIIntEnum):
     FAN = 6
 
 class ClimatePreset(enum.IntEnum):
-  NONE = 0
-  ECO = 1
-  AWAY = 2
-  BOOST = 3
-  COMFORT = 4
-  HOME = 5
-  SLEEP = 6
-  ACTIVITY = 7
+    NONE = 0
+    ECO = 1
+    AWAY = 2
+    BOOST = 3
+    COMFORT = 4
+    HOME = 5
+    SLEEP = 6
+    ACTIVITY = 7
 
 
 def _convert_climate_modes(value):
@@ -324,8 +324,6 @@ class ClimateInfo(EntityInfo):
     visual_min_temperature = attr.ib(type=float, default=0.0)
     visual_max_temperature = attr.ib(type=float, default=0.0)
     visual_temperature_step = attr.ib(type=float, default=0.0)
-    # TODO: leaving away here for backward compatibility, remove 
-    #  it once all climate components have been migrated to the new preset API
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(

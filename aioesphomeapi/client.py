@@ -504,7 +504,7 @@ class APIClient:
             req.has_swing_mode = True
             req.swing_mode = swing_mode
         if custom_fan_mode is not None:
-            reg.has_fan_mode = True
+            req.has_fan_mode = True
             req.custom_fan_mode = custom_fan_mode
         if preset_mode is not None:
             req.has_preset = True
