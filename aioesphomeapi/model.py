@@ -342,7 +342,7 @@ class ClimateInfo(EntityInfo):
         type=List[string], factory=list
     )
     supported_presets = attr.ib(
-        type=List[ClimatePreset], factory=_convert_climate_presets, factory=list
+        type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
     )
     supported_custom_presets = attr.ib(
         type=List[string], factory=list
