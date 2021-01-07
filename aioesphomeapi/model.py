@@ -256,6 +256,7 @@ class ClimateMode(APIIntEnum):
     HEAT = 3
     FAN_ONLY = 4
     DRY = 5
+    HEAT_COOL = 6
 
 
 class ClimateFanMode(APIIntEnum):
@@ -285,6 +286,31 @@ class ClimateAction(APIIntEnum):
     DRYING = 5
     FAN = 6
 
+class ClimatePreset(enum.IntEnum):
+  NONE = 0
+  ECO = 1
+  AWAY = 2
+  BOOST = 3
+  COMFORT = 4
+  HOME = 5
+  SLEEP = 6
+  ACTIVITY = 7
+
+
+def _convert_climate_modes(value):
+    return [ClimateMode(val) for val in value]
+
+
+def _convert_climate_fan_modes(value):
+    return [ClimateFanMode(val) for val in value]
+
+
+def _convert_climate_swing_modes(value):
+    return [ClimateSwingMode(val) for val in value]
+
+
+def _convert_climate_presets(value):
+    return [ClimatePreset(val) for val in value]
 
 @attr.s
 class ClimateInfo(EntityInfo):
@@ -298,6 +324,8 @@ class ClimateInfo(EntityInfo):
     visual_min_temperature = attr.ib(type=float, default=0.0)
     visual_max_temperature = attr.ib(type=float, default=0.0)
     visual_temperature_step = attr.ib(type=float, default=0.0)
+    # TODO: leaving away here for backward compatibility, remove 
+    #  it once all climate components have been migrated to the new preset API
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
@@ -309,6 +337,15 @@ class ClimateInfo(EntityInfo):
         type=List[ClimateSwingMode],
         converter=ClimateSwingMode.convert_list,  # type: ignore
         factory=list,
+    )
+    supported_custom_fan_modes = attr.ib(
+        type=List[string], factory=list
+    )
+    supported_presets = attr.ib(
+        type=List[ClimatePreset], factory=_convert_climate_presets, factory=list
+    )
+    supported_custom_presets = attr.ib(
+        type=List[string], factory=list
     )
 
 
@@ -338,6 +375,15 @@ class ClimateState(EntityState):
         type=Optional[ClimateSwingMode],
         converter=ClimateSwingMode.convert,  # type: ignore
         default=ClimateSwingMode.OFF,
+    )
+    custom_fan_mode = attr.ib(
+        type=string, default=None
+    )
+    preset = attr.ib(
+        type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.NONE
+    )
+    custom_preset = attr.ib(
+        type=string, default=None
     )
 
 
