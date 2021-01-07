@@ -474,9 +474,9 @@ class APIClient:
         away: Optional[bool] = None,
         fan_mode: Optional[ClimateFanMode] = None,
         swing_mode: Optional[ClimateSwingMode] = None,
-        custom_fan_mode: Optional[string] = None,
+        custom_fan_mode: Optional[str] = None,
         preset_mode: Optional[ClimatePreset] = None,
-        custom_preset_mode: Optional[string] = None
+        custom_preset_mode: Optional[str] = None
     ) -> None:
         self._check_authenticated()
 
