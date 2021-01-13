@@ -475,8 +475,8 @@ class APIClient:
         fan_mode: Optional[ClimateFanMode] = None,
         swing_mode: Optional[ClimateSwingMode] = None,
         custom_fan_mode: Optional[str] = None,
-        preset_mode: Optional[ClimatePreset] = None,
-        custom_preset_mode: Optional[str] = None
+        preset: Optional[ClimatePreset] = None,
+        custom_preset: Optional[str] = None
     ) -> None:
         self._check_authenticated()
 
@@ -506,12 +506,12 @@ class APIClient:
         if custom_fan_mode is not None:
             req.has_fan_mode = True
             req.custom_fan_mode = custom_fan_mode
-        if preset_mode is not None:
+        if preset is not None:
             req.has_preset = True
-            req.preset_mode = preset_mode
-        if custom_preset_mode is not None:
+            req.preset = preset
+        if custom_preset is not None:
             req.has_preset = True
-            req.custom_preset_mode = custom_preset_mode
+            req.custom_preset = custom_preset
         assert self._connection is not None
         await self._connection.send_message(req)
 
