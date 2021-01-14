@@ -311,6 +311,10 @@ def _convert_climate_swing_modes(value):
 def _convert_climate_presets(value):
     return [ClimatePreset(val) for val in value]
 
+
+def _convert_string(value):
+    return [val for val in value]
+
 @attr.s
 class ClimateInfo(EntityInfo):
     supports_current_temperature = attr.ib(type=bool, default=False)
@@ -336,13 +340,13 @@ class ClimateInfo(EntityInfo):
         factory=list,
     )
     supported_custom_fan_modes = attr.ib(
-        type=List[str], factory=list
+        type=List[str], converter=_convert_string, factory=list
     )
     supported_presets = attr.ib(
         type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
     )
     supported_custom_presets = attr.ib(
-        type=List[str], factory=list
+        type=List[str], converter=_convert_string, factory=list
     )
 
 
