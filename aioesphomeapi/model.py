@@ -377,7 +377,7 @@ class ClimateState(EntityState):
         type=str, default=None
     )
     preset = attr.ib(
-        type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.NONE
+        type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.HOME
     )
     custom_preset = attr.ib(
         type=str, default=None
