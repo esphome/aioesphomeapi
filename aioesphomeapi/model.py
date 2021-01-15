@@ -313,6 +313,8 @@ def _convert_climate_presets(value):
 
 
 def _convert_string(value):
+    # need to convert protobuf iterable to list, otherwise HA fails to serialize it as JSON
+    # pylint: disable=R1721
     return [val for val in value]
 
 @attr.s
