@@ -149,6 +149,7 @@ class LightState(EntityState):
 @attr.s
 class SensorInfo(EntityInfo):
     icon = attr.ib(type=str, default='')
+    device_class = attr.ib(type=str, default='')
     unit_of_measurement = attr.ib(type=str, default='')
     accuracy_decimals = attr.ib(type=int, default=0)
     force_update = attr.ib(type=bool, default=False)
