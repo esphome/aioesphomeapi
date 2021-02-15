@@ -37,6 +37,14 @@ def _bytes_to_varuint(value: bytes) -> Optional[int]:
 
 async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEventLoop,
                                          host: str, port: int) -> Tuple[Any, ...]:
+
+    try:
+        socket.inet_aton(host)
+    except OSError:
+        pass
+    else:
+        return (host, port)
+
     try:
         res = await eventloop.getaddrinfo(host, port, family=socket.AF_INET,
                                           proto=socket.IPPROTO_TCP)
