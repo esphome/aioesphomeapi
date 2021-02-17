@@ -118,6 +118,7 @@ class FanState(EntityState):
     state = attr.ib(type=bool, default=False)
     oscillating = attr.ib(type=bool, default=False)
     speed = attr.ib(type=FanSpeed, converter=FanSpeed, default=FanSpeed.LOW)
+    speed_percentage = attr.ib(type=float, default=0.0)
     direction = attr.ib(type=FanDirection, converter=FanDirection, default=FanDirection.FORWARD)
 
 
