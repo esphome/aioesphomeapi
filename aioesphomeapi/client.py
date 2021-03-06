@@ -253,7 +253,7 @@ class APIClient:
                           key: int,
                           state: Optional[bool] = None,
                           speed: Optional[FanSpeed] = None,
-                          speed_percentage: Optional[float] = None,
+                          speed_level: Optional[int] = None,
                           oscillating: Optional[bool] = None,
                           direction: Optional[FanDirection] = None
                           ) -> None:
@@ -267,9 +267,9 @@ class APIClient:
         if speed is not None:
             req.has_speed = True
             req.speed = speed
-        if speed_percentage is not None:
-            req.has_speed_percentage = True
-            req.speed_percentage = speed_percentage
+        if speed_level is not None:
+            req.has_speed_level = True
+            req.speed_level = speed_level
         if oscillating is not None:
             req.has_oscillating = True
             req.oscillating = oscillating

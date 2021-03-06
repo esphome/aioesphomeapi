@@ -100,6 +100,7 @@ class FanInfo(EntityInfo):
     supports_oscillation = attr.ib(type=bool, default=False)
     supports_speed = attr.ib(type=bool, default=False)
     supports_direction = attr.ib(type=bool, default=False)
+    supported_speed_levels = attr.ib(type=int, default=3)
 
 
 class FanSpeed(enum.IntEnum):
@@ -118,7 +119,7 @@ class FanState(EntityState):
     state = attr.ib(type=bool, default=False)
     oscillating = attr.ib(type=bool, default=False)
     speed = attr.ib(type=FanSpeed, converter=FanSpeed, default=FanSpeed.LOW)
-    speed_percentage = attr.ib(type=float, default=0.0)
+    speed_level = attr.ib(type=int, default=0)
     direction = attr.ib(type=FanDirection, converter=FanDirection, default=FanDirection.FORWARD)
 
 
