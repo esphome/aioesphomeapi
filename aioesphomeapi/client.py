@@ -504,13 +504,13 @@ class APIClient:
             req.has_swing_mode = True
             req.swing_mode = swing_mode
         if custom_fan_mode is not None:
-            req.has_fan_mode = True
+            req.has_custom_fan_mode = True
             req.custom_fan_mode = custom_fan_mode
         if preset is not None:
             req.has_preset = True
             req.preset = preset
         if custom_preset is not None:
-            req.has_preset = True
+            req.has_custom_preset = True
             req.custom_preset = custom_preset
         assert self._connection is not None
         await self._connection.send_message(req)
