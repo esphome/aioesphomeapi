@@ -251,12 +251,12 @@ class CameraState(EntityState):
 # ==================== CLIMATE ====================
 class ClimateMode(APIIntEnum):
     OFF = 0
-    AUTO = 1
+    HEAT_COOL = 1
     COOL = 2
     HEAT = 3
     FAN_ONLY = 4
     DRY = 5
-    HEAT_COOL = 6
+    AUTO = 6
 
 
 class ClimateFanMode(APIIntEnum):
