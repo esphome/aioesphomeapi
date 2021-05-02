@@ -17,7 +17,7 @@ PROJECT_LICENSE = 'MIT'
 PROJECT_AUTHOR = 'Otto Winter'
 PROJECT_COPYRIGHT = ' 2019-2020, Otto Winter'
 PROJECT_URL = 'https://esphome.io/'
-PROJECT_EMAIL = 'contact@otto-winter.com'
+PROJECT_EMAIL = 'esphome@nabucasa.com'
 
 PROJECT_GITHUB_USERNAME = 'esphome'
 PROJECT_GITHUB_REPOSITORY = 'aioesphomeapi'
