@@ -199,26 +199,35 @@ class APIClient:
                     kwargs[key] = getattr(msg, key)
                 on_service_call(HomeassistantServiceCall(**kwargs))
 
-        await self._connection.send_message_callback_response(pb.SubscribeHomeassistantServicesRequest(),
-                                                              on_msg)
+        await self._connection.send_message_callback_response(
+            pb.SubscribeHomeassistantServicesRequest(), on_msg
+        )
 
-    async def subscribe_home_assistant_states(self, on_state_sub: Callable[[str], None]) -> None:
+    async def subscribe_home_assistant_states(
+        self, on_state_sub: Callable[[str, Optional[str]], None]
+    ) -> None:
         self._check_authenticated()
 
         def on_msg(msg):
             if isinstance(msg, pb.SubscribeHomeAssistantStateResponse):
-                on_state_sub(msg.entity_id)
+                on_state_sub(msg.entity_id, msg.attribute)
 
         await self._connection.send_message_callback_response(
-            pb.SubscribeHomeAssistantStatesRequest(), on_msg)
+            pb.SubscribeHomeAssistantStatesRequest(), on_msg
+        )
 
-    async def send_home_assistant_state(self, entity_id: str, state: str) -> None:
+    async def send_home_assistant_state(
+        self, entity_id: str, attribute: Optional[str], state: str
+    ) -> None:
         self._check_authenticated()
 
-        await self._connection.send_message(pb.HomeAssistantStateResponse(
-            entity_id=entity_id,
-            state=state,
-        ))
+        await self._connection.send_message(
+            pb.HomeAssistantStateResponse(
+                entity_id=entity_id,
+                state=state,
+                attribute=attribute,
+            )
+        )
 
     async def cover_command(self,
                             key: int,
