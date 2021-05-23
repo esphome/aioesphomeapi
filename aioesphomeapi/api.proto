@@ -425,7 +425,6 @@ message ListEntitiesSensorResponse {
   bool force_update = 8;
   string device_class = 9;
   string state_class = 10;
-  string last_reset = 11;
 }
 message SensorStateResponse {
   option (id) = 25;
@@ -438,6 +437,7 @@ message SensorStateResponse {
   // If the sensor does not have a valid state yet.
   // Equivalent to `!obj->has_state()` - inverse logic to make state packets smaller
   bool missing_state = 3;
+  string last_reset = 4;
 }
 
 // ==================== SWITCH ====================

@@ -156,13 +156,14 @@ class SensorInfo(EntityInfo):
     accuracy_decimals = attr.ib(type=int, default=0)
     force_update = attr.ib(type=bool, default=False)
     state_class = attr.ib(type=str, default='')
-    last_reset = attr.ib(type=str, default='')
 
 
 @attr.s
 class SensorState(EntityState):
     state = attr.ib(type=float, default=0.0)
     missing_state = attr.ib(type=bool, default=False)
+    last_reset = attr.ib(type=str, default='')
+
 
 
 # ==================== SWITCH ====================
