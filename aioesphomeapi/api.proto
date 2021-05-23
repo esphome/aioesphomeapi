@@ -424,6 +424,8 @@ message ListEntitiesSensorResponse {
   int32 accuracy_decimals = 7;
   bool force_update = 8;
   string device_class = 9;
+  string state_class = 10;
+  string last_reset = 11;
 }
 message SensorStateResponse {
   option (id) = 25;
