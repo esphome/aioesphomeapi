@@ -148,6 +148,10 @@ class LightState(EntityState):
 
 
 # ==================== SENSOR ====================
+class SensorStateClass(enum.IntEnum):
+    NONE = 0
+    MEASUREMENT = 1
+
 @attr.s
 class SensorInfo(EntityInfo):
     icon = attr.ib(type=str, default='')
@@ -155,6 +159,7 @@ class SensorInfo(EntityInfo):
     unit_of_measurement = attr.ib(type=str, default='')
     accuracy_decimals = attr.ib(type=int, default=0)
     force_update = attr.ib(type=bool, default=False)
+    state_class = attr.ib(type=SensorStateClass, converter=SensorStateClass, default=SensorStateClass.NONE)
 
 
 @attr.s
