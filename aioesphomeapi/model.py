@@ -118,31 +118,29 @@ class CoverInfo(EntityInfo):
     device_class: str = ""
 
 
-class LegacyCoverState(enum.IntEnum):
+class LegacyCoverState(APIIntEnum):
     OPEN = 0
     CLOSED = 1
 
 
-class LegacyCoverCommand(enum.IntEnum):
+class LegacyCoverCommand(APIIntEnum):
     OPEN = 0
     CLOSE = 1
     STOP = 2
 
 
-class CoverOperation(enum.IntEnum):
+class CoverOperation(APIIntEnum):
     IDLE = 0
     IS_OPENING = 1
     IS_CLOSING = 2
 
 
 class CoverState(EntityState):
-    # pylint: disable=no-member
     legacy_state: Optional[LegacyCoverState] = converter_field(
         default=LegacyCoverState.OPEN, converter=LegacyCoverState.convert
     )
     position: float = 0.0
     tilt: float = 0.0
-    # pylint: disable=no-member
     current_operation: Optional[CoverOperation] = converter_field(
         default=CoverOperation.IDLE, converter=CoverOperation.convert
     )
@@ -161,13 +159,13 @@ class FanInfo(EntityInfo):
     supported_speed_levels: int = 0
 
 
-class FanSpeed(enum.IntEnum):
+class FanSpeed(APIIntEnum):
     LOW = 0
     MEDIUM = 1
     HIGH = 2
 
 
-class FanDirection(enum.IntEnum):
+class FanDirection(APIIntEnum):
     FORWARD = 0
     REVERSE = 1
 
@@ -175,12 +173,10 @@ class FanDirection(enum.IntEnum):
 class FanState(EntityState):
     state: bool = False
     oscillating: bool = False
-    # pylint: disable=no-member
     speed: Optional[FanSpeed] = converter_field(
         default=FanSpeed.LOW, converter=FanSpeed.convert
     )
     speed_level: int = 0
-    # pylint: disable=no-member
     direction: Optional[FanDirection] = converter_field(
         default=FanDirection.FORWARD, converter=FanDirection.convert
     )
@@ -209,7 +205,7 @@ class LightState(EntityState):
 
 
 # ==================== SENSOR ====================
-class SensorStateClass(enum.IntEnum):
+class SensorStateClass(APIIntEnum):
     NONE = 0
     MEASUREMENT = 1
 
@@ -220,7 +216,6 @@ class SensorInfo(EntityInfo):
     unit_of_measurement: str = ""
     accuracy_decimals: int = 0
     force_update: bool = False
-    # pylint: disable=no-member
     state_class: Optional[SensorStateClass] = converter_field(
         default=SensorStateClass.NONE, converter=SensorStateClass.convert
     )
@@ -261,7 +256,7 @@ class CameraState(EntityState):
 
 
 # ==================== CLIMATE ====================
-class ClimateMode(enum.IntEnum):
+class ClimateMode(APIIntEnum):
     OFF = 0
     AUTO = 1
     COOL = 2
@@ -270,7 +265,7 @@ class ClimateMode(enum.IntEnum):
     DRY = 5
 
 
-class ClimateFanMode(enum.IntEnum):
+class ClimateFanMode(APIIntEnum):
     ON = 0
     OFF = 1
     AUTO = 2
@@ -282,14 +277,14 @@ class ClimateFanMode(enum.IntEnum):
     DIFFUSE = 8
 
 
-class ClimateSwingMode(enum.IntEnum):
+class ClimateSwingMode(APIIntEnum):
     OFF = 0
     BOTH = 1
     VERTICAL = 2
     HORIZONTAL = 3
 
 
-class ClimateAction(enum.IntEnum):
+class ClimateAction(APIIntEnum):
     OFF = 0
     COOLING = 2
     HEATING = 3
@@ -301,7 +296,6 @@ class ClimateAction(enum.IntEnum):
 class ClimateInfo(EntityInfo):
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
-    # pylint: disable=no-member
     supported_modes: List[ClimateMode] = converter_field(
         default_factory=list, converter=ClimateMode.convert_list
     )
@@ -310,22 +304,18 @@ class ClimateInfo(EntityInfo):
     visual_temperature_step: float = 0.0
     supports_away: bool = False
     supports_action: bool = False
-    # pylint: disable=no-member
     supported_fan_modes: List[ClimateFanMode] = converter_field(
         default_factory=list, converter=ClimateFanMode.convert_list
     )
-    # pylint: disable=no-member
     supported_swing_modes: List[ClimateSwingMode] = converter_field(
         default_factory=list, converter=ClimateSwingMode.convert_list
     )
 
 
 class ClimateState(EntityState):
-    # pylint: disable=no-member
     mode: Optional[ClimateMode] = converter_field(
         default=ClimateMode.OFF, converter=ClimateMode.convert
     )
-    # pylint: disable=no-member
     action: Optional[ClimateAction] = converter_field(
         default=ClimateAction.OFF, converter=ClimateAction.convert
     )
@@ -334,11 +324,9 @@ class ClimateState(EntityState):
     target_temperature_low: float = 0.0
     target_temperature_high: float = 0.0
     away: bool = False
-    # pylint: disable=no-member
     fan_mode: Optional[ClimateFanMode] = converter_field(
         default=ClimateFanMode.ON, converter=ClimateFanMode.convert
     )
-    # pylint: disable=no-member
     swing_mode: Optional[ClimateSwingMode] = converter_field(
         default=ClimateSwingMode.OFF, converter=ClimateSwingMode.convert
     )
@@ -379,7 +367,7 @@ class HomeassistantServiceCall(APIModelBase):
     )
 
 
-class UserServiceArgType(enum.IntEnum):
+class UserServiceArgType(APIIntEnum):
     BOOL = 0
     INT = 1
     FLOAT = 2
@@ -392,7 +380,6 @@ class UserServiceArgType(enum.IntEnum):
 
 class UserServiceArg(APIModelBase):
     name: str = ""
-    # pylint: disable=no-member
     type: Optional[UserServiceArgType] = converter_field(
         default=UserServiceArgType.BOOL, converter=UserServiceArgType.convert
     )
@@ -408,7 +395,6 @@ class UserServiceArg(APIModelBase):
 class UserService(APIModelBase):
     name: str = ""
     key: int = 0
-    # pylint: disable=no-member
     args: List[UserServiceArg] = converter_field(
         default_factory=list, converter=UserServiceArg.convert_list
     )
