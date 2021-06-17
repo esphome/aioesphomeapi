@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from typing import Any, Callable, Optional, Tuple
 import zeroconf
@@ -131,9 +132,10 @@ class APIClient:
             for resp_type, cls in response_types.items():
                 if isinstance(msg, resp_type):
                     break
-            kwargs = {}
-            for key, _ in attr.fields_dict(cls).items():
-                kwargs[key] = getattr(msg, key)
+            kwargs = {
+                f.name: getattr(msg, f.name)
+                for f in dataclasses.fields(cls)
+            }
             entities.append(cls(**kwargs))
         return entities, services
 
@@ -168,10 +170,11 @@ class APIClient:
             else:
                 return
 
-            kwargs = {}
             # pylint: disable=undefined-loop-variable
-            for key, _ in attr.fields_dict(cls).items():
-                kwargs[key] = getattr(msg, key)
+            kwargs = {
+                f.name: getattr(msg, f.name)
+                for f in dataclasses.fields(cls)
+            }
             on_state(cls(**kwargs))
 
         await self._connection.send_message_callback_response(pb.SubscribeStatesRequest(), on_msg)
@@ -194,9 +197,10 @@ class APIClient:
 
         def on_msg(msg):
             if isinstance(msg, pb.HomeassistantServiceResponse):
-                kwargs = {}
-                for key, _ in attr.fields_dict(HomeassistantServiceCall).items():
-                    kwargs[key] = getattr(msg, key)
+                kwargs = {
+                    f.name: getattr(msg, f.name)
+                    for f in dataclasses.fields(HomeassistantServiceCall)
+                }
                 on_service_call(HomeassistantServiceCall(**kwargs))
 
         await self._connection.send_message_callback_response(
@@ -401,7 +405,6 @@ class APIClient:
                 UserServiceArgType.FLOAT_ARRAY: 'float_array',
                 UserServiceArgType.STRING_ARRAY: 'string_array',
             }
-            # pylint: disable=redefined-outer-name
             if arg_desc.type_ in map_array:
                 attr = getattr(arg, map_array[arg_desc.type_])
                 attr.extend(val)
