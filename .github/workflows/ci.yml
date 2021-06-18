@@ -44,4 +44,17 @@ jobs:
         run: |
           pip3 install -e .
           pip3 install -r requirements_test.txt
-      - run: black --safe aioesphomeapi
+      - run: black --safe --exclude 'api_pb2.py|api_options_pb2.py' aioesphomeapi
+  isort:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Set up Python environment
+        run: |
+          pip3 install -e .
+          pip3 install -r requirements_test.txt
+      - run: isort aioesphomeapi
