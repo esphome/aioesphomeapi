@@ -14,3 +14,4 @@ disable=
   unused-wildcard-import,
   import-outside-toplevel,
   raise-missing-from,
+  duplicate-code,
