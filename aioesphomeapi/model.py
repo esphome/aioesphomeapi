@@ -342,7 +342,7 @@ class ClimateInfo(EntityInfo):
         factory=list,
     )
     supported_custom_fan_modes = attr.ib(
-        type=List[str], converter=_convert_string, factory=list
+        type=List[str], converter=list, factory=list
     )
     supported_presets = attr.ib(
         type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
