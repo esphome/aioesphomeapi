@@ -18,5 +18,30 @@ jobs:
         run: |
           pip3 install -e .
           pip3 install -r requirements_test.txt
-
       - run: pylint aioesphomeapi
+  flake8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Set up Python environment
+        run: |
+          pip3 install -e .
+          pip3 install -r requirements_test.txt
+      - run: flake8 aioesphomeapi
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Set up Python environment
+        run: |
+          pip3 install -e .
+          pip3 install -r requirements_test.txt
+      - run: black --safe aioesphomeapi

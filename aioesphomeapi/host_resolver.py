@@ -24,8 +24,10 @@ class HostResolver(zeroconf.RecordUpdateListener):
         last = now + timeout
 
         try:
-            zc.add_listener(self, zeroconf.DNSQuestion(self.name, zeroconf._TYPE_ANY,
-                                                       zeroconf._CLASS_IN))
+            zc.add_listener(
+                self,
+                zeroconf.DNSQuestion(self.name, zeroconf._TYPE_ANY, zeroconf._CLASS_IN),
+            )
             while self.address is None:
                 if last <= now:
                     # Timeout
@@ -33,10 +35,16 @@ class HostResolver(zeroconf.RecordUpdateListener):
                 if next_ <= now:
                     out = zeroconf.DNSOutgoing(zeroconf._FLAGS_QR_QUERY)
                     out.add_question(
-                        zeroconf.DNSQuestion(self.name, zeroconf._TYPE_A, zeroconf._CLASS_IN))
+                        zeroconf.DNSQuestion(
+                            self.name, zeroconf._TYPE_A, zeroconf._CLASS_IN
+                        )
+                    )
                     out.add_answer_at_time(
-                        zc.cache.get_by_details(self.name, zeroconf._TYPE_A,
-                                                zeroconf._CLASS_IN), now)
+                        zc.cache.get_by_details(
+                            self.name, zeroconf._TYPE_A, zeroconf._CLASS_IN
+                        ),
+                        now,
+                    )
                     zc.send(out)
                     next_ = now + delay
                     delay *= 2
@@ -55,11 +63,13 @@ def resolve_host(host, timeout=3.0, zeroconf_instance: zeroconf.Zeroconf = None)
     try:
         zc = zeroconf_instance or zeroconf.Zeroconf()
     except Exception:
-        raise APIConnectionError("Cannot start mDNS sockets, is this a docker container without "
-                                 "host network mode?")
+        raise APIConnectionError(
+            "Cannot start mDNS sockets, is this a docker container without "
+            "host network mode?"
+        )
 
     try:
-        info = HostResolver(host + '.')
+        info = HostResolver(host + ".")
         address = None
         if info.request(zc, timeout):
             address = socket.inet_ntoa(info.address)
@@ -70,6 +80,8 @@ def resolve_host(host, timeout=3.0, zeroconf_instance: zeroconf.Zeroconf = None)
             zc.close()
 
     if address is None:
-        raise APIConnectionError("Error resolving address with mDNS: Did not respond. "
-                                 "Maybe the device is offline.")
+        raise APIConnectionError(
+            "Error resolving address with mDNS: Did not respond. "
+            "Maybe the device is offline."
+        )
     return address

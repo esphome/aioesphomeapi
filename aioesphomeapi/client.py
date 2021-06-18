@@ -1,19 +1,61 @@
 import logging
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple, List
+
+import attr
 import zeroconf
 
 import aioesphomeapi.api_pb2 as pb
 from aioesphomeapi.connection import APIConnection, ConnectionParams
 from aioesphomeapi.core import APIConnectionError
-from aioesphomeapi.model import *
+from aioesphomeapi.model import (
+    APIVersion,
+    DeviceInfo,
+    BinarySensorInfo,
+    BinarySensorState,
+    UserService,
+    CoverInfo,
+    FanInfo,
+    LightInfo,
+    SensorInfo,
+    SwitchInfo,
+    TextSensorInfo,
+    CameraInfo,
+    ClimateInfo,
+    UserServiceArg,
+    CoverState,
+    FanState,
+    LightState,
+    SensorState,
+    SwitchState,
+    TextSensorState,
+    ClimateState,
+    CameraState,
+    HomeassistantServiceCall,
+    LegacyCoverCommand,
+    FanSpeed,
+    FanDirection,
+    ClimateMode,
+    ClimateFanMode,
+    ClimateSwingMode,
+    UserServiceArgType,
+)
+
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class APIClient:
-    def __init__(self, eventloop, address: str, port: int, password: str, *,
-                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0,
-                 zeroconf_instance: zeroconf.Zeroconf = None):
+    def __init__(
+        self,
+        eventloop,
+        address: str,
+        port: int,
+        password: str,
+        *,
+        client_info: str = "aioesphomeapi",
+        keepalive: float = 15.0,
+        zeroconf_instance: zeroconf.Zeroconf = None
+    ):
         self._params = ConnectionParams(
             eventloop=eventloop,
             address=address,
@@ -21,7 +63,7 @@ class APIClient:
             password=password,
             client_info=client_info,
             keepalive=keepalive,
-            zeroconf_instance=zeroconf_instance
+            zeroconf_instance=zeroconf_instance,
         )
         self._connection = None  # type: Optional[APIConnection]
 
@@ -53,8 +95,7 @@ class APIClient:
             raise
         except Exception as e:
             await _on_stop()
-            raise APIConnectionError(
-                "Unexpected error while connecting: {}".format(e))
+            raise APIConnectionError("Unexpected error while connecting: {}".format(e))
 
         connected = True
 
@@ -77,7 +118,8 @@ class APIClient:
     async def device_info(self) -> DeviceInfo:
         self._check_connected()
         resp = await self._connection.send_message_await_response(
-            pb.DeviceInfoRequest(), pb.DeviceInfoResponse)
+            pb.DeviceInfoRequest(), pb.DeviceInfoResponse
+        )
         return DeviceInfo(
             uses_password=resp.uses_password,
             name=resp.name,
@@ -110,22 +152,27 @@ class APIClient:
             return isinstance(msg, pb.ListEntitiesDoneResponse)
 
         resp = await self._connection.send_message_await_response_complex(
-            pb.ListEntitiesRequest(), do_append, do_stop, timeout=5)
+            pb.ListEntitiesRequest(), do_append, do_stop, timeout=5
+        )
         entities = []
         services = []
         for msg in resp:
             if isinstance(msg, pb.ListEntitiesServicesResponse):
                 args = []
                 for arg in msg.args:
-                    args.append(UserServiceArg(
-                        name=arg.name,
-                        type_=arg.type,
-                    ))
-                services.append(UserService(
-                    name=msg.name,
-                    key=msg.key,
-                    args=args,
-                ))
+                    args.append(
+                        UserServiceArg(
+                            name=arg.name,
+                            type_=arg.type,
+                        )
+                    )
+                services.append(
+                    UserService(
+                        name=msg.name,
+                        key=msg.key,
+                        args=args,
+                    )
+                )
                 continue
             cls = None
             for resp_type, cls in response_types.items():
@@ -174,10 +221,13 @@ class APIClient:
                 kwargs[key] = getattr(msg, key)
             on_state(cls(**kwargs))
 
-        await self._connection.send_message_callback_response(pb.SubscribeStatesRequest(), on_msg)
+        await self._connection.send_message_callback_response(
+            pb.SubscribeStatesRequest(), on_msg
+        )
 
-    async def subscribe_logs(self, on_log: Callable[[pb.SubscribeLogsResponse], None],
-                             log_level=None) -> None:
+    async def subscribe_logs(
+        self, on_log: Callable[[pb.SubscribeLogsResponse], None], log_level=None
+    ) -> None:
         self._check_authenticated()
 
         def on_msg(msg):
@@ -189,7 +239,9 @@ class APIClient:
             req.level = log_level
         await self._connection.send_message_callback_response(req, on_msg)
 
-    async def subscribe_service_calls(self, on_service_call: Callable[[HomeassistantServiceCall], None]) -> None:
+    async def subscribe_service_calls(
+        self, on_service_call: Callable[[HomeassistantServiceCall], None]
+    ) -> None:
         self._check_authenticated()
 
         def on_msg(msg):
@@ -229,12 +281,13 @@ class APIClient:
             )
         )
 
-    async def cover_command(self,
-                            key: int,
-                            position: Optional[float] = None,
-                            tilt: Optional[float] = None,
-                            stop: bool = False,
-                            ) -> None:
+    async def cover_command(
+        self,
+        key: int,
+        position: Optional[float] = None,
+        tilt: Optional[float] = None,
+        stop: bool = False,
+    ) -> None:
         self._check_authenticated()
 
         req = pb.CoverCommandRequest()
@@ -258,14 +311,15 @@ class APIClient:
                 req.legacy_command = LegacyCoverCommand.CLOSE
         await self._connection.send_message(req)
 
-    async def fan_command(self,
-                          key: int,
-                          state: Optional[bool] = None,
-                          speed: Optional[FanSpeed] = None,
-                          speed_level: Optional[int] = None,
-                          oscillating: Optional[bool] = None,
-                          direction: Optional[FanDirection] = None
-                          ) -> None:
+    async def fan_command(
+        self,
+        key: int,
+        state: Optional[bool] = None,
+        speed: Optional[FanSpeed] = None,
+        speed_level: Optional[int] = None,
+        oscillating: Optional[bool] = None,
+        direction: Optional[FanDirection] = None,
+    ) -> None:
         self._check_authenticated()
 
         req = pb.FanCommandRequest()
@@ -287,17 +341,18 @@ class APIClient:
             req.direction = direction
         await self._connection.send_message(req)
 
-    async def light_command(self,
-                            key: int,
-                            state: Optional[bool] = None,
-                            brightness: Optional[float] = None,
-                            rgb: Optional[Tuple[float, float, float]] = None,
-                            white: Optional[float] = None,
-                            color_temperature: Optional[float] = None,
-                            transition_length: Optional[float] = None,
-                            flash_length: Optional[float] = None,
-                            effect: Optional[str] = None,
-                            ):
+    async def light_command(
+        self,
+        key: int,
+        state: Optional[bool] = None,
+        brightness: Optional[float] = None,
+        rgb: Optional[Tuple[float, float, float]] = None,
+        white: Optional[float] = None,
+        color_temperature: Optional[float] = None,
+        transition_length: Optional[float] = None,
+        flash_length: Optional[float] = None,
+        effect: Optional[str] = None,
+    ):
         self._check_authenticated()
 
         req = pb.LightCommandRequest()
@@ -330,10 +385,7 @@ class APIClient:
             req.effect = effect
         await self._connection.send_message(req)
 
-    async def switch_command(self,
-                             key: int,
-                             state: bool
-                             ) -> None:
+    async def switch_command(self, key: int, state: bool) -> None:
         self._check_authenticated()
 
         req = pb.SwitchCommandRequest()
@@ -341,16 +393,17 @@ class APIClient:
         req.state = state
         await self._connection.send_message(req)
 
-    async def climate_command(self,
-                              key: int,
-                              mode: Optional[ClimateMode] = None,
-                              target_temperature: Optional[float] = None,
-                              target_temperature_low: Optional[float] = None,
-                              target_temperature_high: Optional[float] = None,
-                              away: Optional[bool] = None,
-                              fan_mode: Optional[ClimateFanMode] = None,
-                              swing_mode: Optional[ClimateSwingMode] = None,
-                              ) -> None:
+    async def climate_command(
+        self,
+        key: int,
+        mode: Optional[ClimateMode] = None,
+        target_temperature: Optional[float] = None,
+        target_temperature_low: Optional[float] = None,
+        target_temperature_high: Optional[float] = None,
+        away: Optional[bool] = None,
+        fan_mode: Optional[ClimateFanMode] = None,
+        swing_mode: Optional[ClimateSwingMode] = None,
+    ) -> None:
         self._check_authenticated()
 
         req = pb.ClimateCommandRequest()
@@ -387,19 +440,18 @@ class APIClient:
         for arg_desc in service.args:
             arg = pb.ExecuteServiceArgument()
             val = data[arg_desc.name]
-            int_type = 'int_' if self.api_version >= APIVersion(
-                1, 3) else 'legacy_int'
+            int_type = "int_" if self.api_version >= APIVersion(1, 3) else "legacy_int"
             map_single = {
-                UserServiceArgType.BOOL: 'bool_',
+                UserServiceArgType.BOOL: "bool_",
                 UserServiceArgType.INT: int_type,
-                UserServiceArgType.FLOAT: 'float_',
-                UserServiceArgType.STRING: 'string_',
+                UserServiceArgType.FLOAT: "float_",
+                UserServiceArgType.STRING: "string_",
             }
             map_array = {
-                UserServiceArgType.BOOL_ARRAY: 'bool_array',
-                UserServiceArgType.INT_ARRAY: 'int_array',
-                UserServiceArgType.FLOAT_ARRAY: 'float_array',
-                UserServiceArgType.STRING_ARRAY: 'string_array',
+                UserServiceArgType.BOOL_ARRAY: "bool_array",
+                UserServiceArgType.INT_ARRAY: "int_array",
+                UserServiceArgType.FLOAT_ARRAY: "float_array",
+                UserServiceArgType.STRING_ARRAY: "string_array",
             }
             # pylint: disable=redefined-outer-name
             if arg_desc.type_ in map_array:

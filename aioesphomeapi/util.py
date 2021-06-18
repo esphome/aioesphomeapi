@@ -35,8 +35,9 @@ def _bytes_to_varuint(value: bytes) -> Optional[int]:
     return None
 
 
-async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEventLoop,
-                                         host: str, port: int) -> Tuple[Any, ...]:
+async def resolve_ip_address_getaddrinfo(
+    eventloop: asyncio.events.AbstractEventLoop, host: str, port: int
+) -> Tuple[Any, ...]:
 
     try:
         socket.inet_aton(host)
@@ -46,8 +47,9 @@ async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEvent
         return (host, port)
 
     try:
-        res = await eventloop.getaddrinfo(host, port, family=socket.AF_INET,
-                                          proto=socket.IPPROTO_TCP)
+        res = await eventloop.getaddrinfo(
+            host, port, family=socket.AF_INET, proto=socket.IPPROTO_TCP
+        )
     except OSError as err:
         raise APIConnectionError("Error resolving IP address: {}".format(err))
 
@@ -59,21 +61,25 @@ async def resolve_ip_address_getaddrinfo(eventloop: asyncio.events.AbstractEvent
     return sockaddr
 
 
-async def resolve_ip_address(eventloop: asyncio.events.AbstractEventLoop,
-                             host: str, port: int,
-                             zeroconf_instance: zeroconf.Zeroconf = None) -> Tuple[Any, ...]:
-    if host.endswith('.local'):
+async def resolve_ip_address(
+    eventloop: asyncio.events.AbstractEventLoop,
+    host: str,
+    port: int,
+    zeroconf_instance: zeroconf.Zeroconf = None,
+) -> Tuple[Any, ...]:
+    if host.endswith(".local"):
         from aioesphomeapi.host_resolver import resolve_host
 
         try:
-            return await eventloop.run_in_executor(
-                None,
-                functools.partial(
-                    resolve_host,
-                    host,
-                    zeroconf_instance=zeroconf_instance
-                )
-            ), port
+            return (
+                await eventloop.run_in_executor(
+                    None,
+                    functools.partial(
+                        resolve_host, host, zeroconf_instance=zeroconf_instance
+                    ),
+                ),
+                port,
+            )
         except APIConnectionError:
             pass
     return await resolve_ip_address_getaddrinfo(eventloop, host, port)
