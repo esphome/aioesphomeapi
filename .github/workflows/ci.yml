@@ -83,3 +83,30 @@ jobs:
         run: |
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
       - run: mypy --strict aioesphomeapi
+  update-protoc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Install protoc
+        run: |
+          sudo apt-get install protobuf-compiler
+      - name: Set up Python environment
+        run: |
+          pip3 install -e .
+          pip3 install -r requirements_test.txt
+
+      - name: Generate protoc
+        run: |
+          script/gen-protoc
+      - name: Commit changes
+        run: |
+          if git diff-index --quiet HEAD --; then
+            echo "No changes detected, protobuf files are up to date!"
+          else
+            git commit -am "Update protobuf files"
+            git push
+          fi
