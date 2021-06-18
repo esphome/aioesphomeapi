@@ -1,5 +1,5 @@
 import enum
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, TypeVar
 
 import attr
 
@@ -12,7 +12,28 @@ if TYPE_CHECKING:
 # The default value should *always* be the Protobuf default value
 # for a field (False, 0, empty string, enum with value 0, ...)
 
-_T = TypeVar("_T")
+_T = TypeVar("_T", bound="APIIntEnum")
+
+
+class APIIntEnum(enum.IntEnum):
+    """Base class for int enum values in API model."""
+
+    @classmethod
+    def convert(cls: Type[_T], value: int) -> Optional[_T]:
+        try:
+            return cls(value)
+        except ValueError:
+            return None
+
+    @classmethod
+    def convert_list(cls: Type[_T], value: List[int]) -> List[_T]:
+        ret = []
+        for x in value:
+            try:
+                ret.append(cls(x))
+            except ValueError:
+                pass
+        return ret
 
 
 @attr.s
@@ -67,18 +88,18 @@ class CoverInfo(EntityInfo):
     device_class = attr.ib(type=str, default="")
 
 
-class LegacyCoverState(enum.IntEnum):
+class LegacyCoverState(APIIntEnum):
     OPEN = 0
     CLOSED = 1
 
 
-class LegacyCoverCommand(enum.IntEnum):
+class LegacyCoverCommand(APIIntEnum):
     OPEN = 0
     CLOSE = 1
     STOP = 2
 
 
-class CoverOperation(enum.IntEnum):
+class CoverOperation(APIIntEnum):
     IDLE = 0
     IS_OPENING = 1
     IS_CLOSING = 2
@@ -87,12 +108,16 @@ class CoverOperation(enum.IntEnum):
 @attr.s
 class CoverState(EntityState):
     legacy_state = attr.ib(
-        type=LegacyCoverState, converter=LegacyCoverState, default=LegacyCoverState.OPEN
+        type=LegacyCoverState,
+        converter=LegacyCoverState.convert,  # type: ignore
+        default=LegacyCoverState.OPEN,
     )
     position = attr.ib(type=float, default=0.0)
     tilt = attr.ib(type=float, default=0.0)
     current_operation = attr.ib(
-        type=CoverOperation, converter=CoverOperation, default=CoverOperation.IDLE
+        type=CoverOperation,
+        converter=CoverOperation.convert,  # type: ignore
+        default=CoverOperation.IDLE,
     )
 
     def is_closed(self, api_version: APIVersion) -> bool:
@@ -107,16 +132,16 @@ class FanInfo(EntityInfo):
     supports_oscillation = attr.ib(type=bool, default=False)
     supports_speed = attr.ib(type=bool, default=False)
     supports_direction = attr.ib(type=bool, default=False)
-    supported_speed_levels = attr.ib(type=int, default=3)
+    supported_speed_levels = attr.ib(type=int, default=0)
 
 
-class FanSpeed(enum.IntEnum):
+class FanSpeed(APIIntEnum):
     LOW = 0
     MEDIUM = 1
     HIGH = 2
 
 
-class FanDirection(enum.IntEnum):
+class FanDirection(APIIntEnum):
     FORWARD = 0
     REVERSE = 1
 
@@ -125,10 +150,16 @@ class FanDirection(enum.IntEnum):
 class FanState(EntityState):
     state = attr.ib(type=bool, default=False)
     oscillating = attr.ib(type=bool, default=False)
-    speed = attr.ib(type=FanSpeed, converter=FanSpeed, default=FanSpeed.LOW)
+    speed = attr.ib(
+        type=Optional[FanSpeed],
+        converter=FanSpeed.convert,  # type: ignore
+        default=FanSpeed.LOW,
+    )
     speed_level = attr.ib(type=int, default=0)
     direction = attr.ib(
-        type=FanDirection, converter=FanDirection, default=FanDirection.FORWARD
+        type=FanDirection,
+        converter=FanDirection.convert,  # type: ignore
+        default=FanDirection.FORWARD,
     )
 
 
@@ -157,7 +188,7 @@ class LightState(EntityState):
 
 
 # ==================== SENSOR ====================
-class SensorStateClass(enum.IntEnum):
+class SensorStateClass(APIIntEnum):
     NONE = 0
     MEASUREMENT = 1
 
@@ -170,7 +201,9 @@ class SensorInfo(EntityInfo):
     accuracy_decimals = attr.ib(type=int, default=0)
     force_update = attr.ib(type=bool, default=False)
     state_class = attr.ib(
-        type=SensorStateClass, converter=SensorStateClass, default=SensorStateClass.NONE
+        type=SensorStateClass,
+        converter=SensorStateClass.convert,  # type: ignore
+        default=SensorStateClass.NONE,
     )
 
 
@@ -216,7 +249,7 @@ class CameraState(EntityState):
 
 
 # ==================== CLIMATE ====================
-class ClimateMode(enum.IntEnum):
+class ClimateMode(APIIntEnum):
     OFF = 0
     AUTO = 1
     COOL = 2
@@ -225,7 +258,7 @@ class ClimateMode(enum.IntEnum):
     DRY = 5
 
 
-class ClimateFanMode(enum.IntEnum):
+class ClimateFanMode(APIIntEnum):
     ON = 0
     OFF = 1
     AUTO = 2
@@ -237,14 +270,14 @@ class ClimateFanMode(enum.IntEnum):
     DIFFUSE = 8
 
 
-class ClimateSwingMode(enum.IntEnum):
+class ClimateSwingMode(APIIntEnum):
     OFF = 0
     BOTH = 1
     VERTICAL = 2
     HORIZONTAL = 3
 
 
-class ClimateAction(enum.IntEnum):
+class ClimateAction(APIIntEnum):
     OFF = 0
     COOLING = 2
     HEATING = 3
@@ -253,24 +286,14 @@ class ClimateAction(enum.IntEnum):
     FAN = 6
 
 
-def _convert_climate_modes(value: Iterable[int]) -> List[ClimateMode]:
-    return [ClimateMode(val) for val in value]
-
-
-def _convert_climate_fan_modes(value: Iterable[int]) -> List[ClimateFanMode]:
-    return [ClimateFanMode(val) for val in value]
-
-
-def _convert_climate_swing_modes(value: Iterable[int]) -> List[ClimateSwingMode]:
-    return [ClimateSwingMode(val) for val in value]
-
-
 @attr.s
 class ClimateInfo(EntityInfo):
     supports_current_temperature = attr.ib(type=bool, default=False)
     supports_two_point_target_temperature = attr.ib(type=bool, default=False)
     supported_modes = attr.ib(
-        type=List[ClimateMode], converter=_convert_climate_modes, factory=list
+        type=List[ClimateMode],
+        converter=ClimateMode.convert_list,  # type: ignore
+        factory=list,
     )
     visual_min_temperature = attr.ib(type=float, default=0.0)
     visual_max_temperature = attr.ib(type=float, default=0.0)
@@ -278,20 +301,28 @@ class ClimateInfo(EntityInfo):
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
-        type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
+        type=List[ClimateFanMode],
+        converter=ClimateFanMode.convert_list,  # type: ignore
+        factory=list,
     )
     supported_swing_modes = attr.ib(
         type=List[ClimateSwingMode],
-        converter=_convert_climate_swing_modes,
+        converter=ClimateSwingMode.convert_list,  # type: ignore
         factory=list,
     )
 
 
 @attr.s
 class ClimateState(EntityState):
-    mode = attr.ib(type=ClimateMode, converter=ClimateMode, default=ClimateMode.OFF)
+    mode = attr.ib(
+        type=ClimateMode,
+        converter=ClimateMode.convert,  # type: ignore
+        default=ClimateMode.OFF,
+    )
     action = attr.ib(
-        type=ClimateAction, converter=ClimateAction, default=ClimateAction.OFF
+        type=ClimateAction,
+        converter=ClimateAction.convert,  # type: ignore
+        default=ClimateAction.OFF,
     )
     current_temperature = attr.ib(type=float, default=0.0)
     target_temperature = attr.ib(type=float, default=0.0)
@@ -299,10 +330,14 @@ class ClimateState(EntityState):
     target_temperature_high = attr.ib(type=float, default=0.0)
     away = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
-        type=ClimateFanMode, converter=ClimateFanMode, default=ClimateFanMode.AUTO
+        type=Optional[ClimateFanMode],
+        converter=ClimateFanMode.convert,  # type: ignore
+        default=ClimateFanMode.ON,
     )
     swing_mode = attr.ib(
-        type=ClimateSwingMode, converter=ClimateSwingMode, default=ClimateSwingMode.OFF
+        type=Optional[ClimateSwingMode],
+        converter=ClimateSwingMode.convert,  # type: ignore
+        default=ClimateSwingMode.OFF,
     )
 
 
@@ -341,7 +376,7 @@ class HomeassistantServiceCall:
     )
 
 
-class UserServiceArgType(enum.IntEnum):
+class UserServiceArgType(APIIntEnum):
     BOOL = 0
     INT = 1
     FLOAT = 2
@@ -352,7 +387,10 @@ class UserServiceArgType(enum.IntEnum):
     STRING_ARRAY = 7
 
 
-def _attr_obj_from_dict(cls: Type[_T], **kwargs: Any) -> _T:
+_K = TypeVar("_K")
+
+
+def _attr_obj_from_dict(cls: Type[_K], **kwargs: Any) -> _K:
     return cls(**{key: kwargs[key] for key in attr.fields_dict(cls)})  # type: ignore
 
 
@@ -361,7 +399,7 @@ class UserServiceArg:
     name = attr.ib(type=str, default="")
     type_ = attr.ib(
         type=UserServiceArgType,
-        converter=UserServiceArgType,
+        converter=UserServiceArgType.convert,  # type: ignore
         default=UserServiceArgType.BOOL,
     )
 
