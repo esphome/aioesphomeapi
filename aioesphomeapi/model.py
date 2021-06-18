@@ -1,7 +1,19 @@
 import enum
-from typing import Callable, List, Dict, TypeVar, Optional, Type, Any
+from dataclasses import MISSING, Field, dataclass, field, fields
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+)
 
-from dataclasses import Field, dataclass, field, MISSING, fields
+if TYPE_CHECKING:
+    from .api_pb2 import HomeassistantServiceMap  # type: ignore
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
@@ -9,8 +21,7 @@ from dataclasses import Field, dataclass, field, MISSING, fields
 # The default value should *always* be the Protobuf default value
 # for a field (False, 0, empty string, enum with value 0, ...)
 
-
-_T = TypeVar("_T")
+_T = TypeVar("_T", bound="APIIntEnum")
 
 
 class APIIntEnum(enum.IntEnum):
@@ -145,7 +156,7 @@ class CoverState(EntityState):
         default=CoverOperation.IDLE, converter=CoverOperation.convert
     )
 
-    def is_closed(self, api_version: APIVersion):
+    def is_closed(self, api_version: APIVersion) -> bool:
         if api_version >= APIVersion(1, 1):
             return self.position == 0.0
         return self.legacy_state == LegacyCoverState.CLOSED
@@ -346,7 +357,9 @@ COMPONENT_TYPE_TO_INFO = {
 
 
 # ==================== USER-DEFINED SERVICES ====================
-def _convert_homeassistant_service_map(value):
+def _convert_homeassistant_service_map(
+    value: Iterable["HomeassistantServiceMap"],
+) -> Dict[str, str]:
     if isinstance(value, dict):
         # already a dict, don't convert
         return value

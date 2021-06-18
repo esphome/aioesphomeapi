@@ -1,20 +1,108 @@
+import asyncio
 import dataclasses
 import logging
-from typing import Any, Callable, Optional, Tuple
-import zeroconf
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union, cast
 
-import aioesphomeapi.api_pb2 as pb
+import zeroconf
+from google.protobuf import message
+
+from aioesphomeapi.api_pb2 import (  # type: ignore
+    BinarySensorStateResponse,
+    CameraImageRequest,
+    CameraImageResponse,
+    ClimateCommandRequest,
+    ClimateStateResponse,
+    CoverCommandRequest,
+    CoverStateResponse,
+    DeviceInfoRequest,
+    DeviceInfoResponse,
+    ExecuteServiceArgument,
+    ExecuteServiceRequest,
+    FanCommandRequest,
+    FanStateResponse,
+    HomeassistantServiceResponse,
+    HomeAssistantStateResponse,
+    LightCommandRequest,
+    LightStateResponse,
+    ListEntitiesBinarySensorResponse,
+    ListEntitiesCameraResponse,
+    ListEntitiesClimateResponse,
+    ListEntitiesCoverResponse,
+    ListEntitiesDoneResponse,
+    ListEntitiesFanResponse,
+    ListEntitiesLightResponse,
+    ListEntitiesRequest,
+    ListEntitiesSensorResponse,
+    ListEntitiesServicesResponse,
+    ListEntitiesSwitchResponse,
+    ListEntitiesTextSensorResponse,
+    LogLevel,
+    SensorStateResponse,
+    SubscribeHomeassistantServicesRequest,
+    SubscribeHomeAssistantStateResponse,
+    SubscribeHomeAssistantStatesRequest,
+    SubscribeLogsRequest,
+    SubscribeLogsResponse,
+    SubscribeStatesRequest,
+    SwitchCommandRequest,
+    SwitchStateResponse,
+    TextSensorStateResponse,
+)
 from aioesphomeapi.connection import APIConnection, ConnectionParams
 from aioesphomeapi.core import APIConnectionError
-from aioesphomeapi.model import *
+from aioesphomeapi.model import (
+    APIVersion,
+    BinarySensorInfo,
+    BinarySensorState,
+    CameraInfo,
+    CameraState,
+    ClimateFanMode,
+    ClimateInfo,
+    ClimateMode,
+    ClimateState,
+    ClimateSwingMode,
+    CoverInfo,
+    CoverState,
+    DeviceInfo,
+    EntityInfo,
+    FanDirection,
+    FanInfo,
+    FanSpeed,
+    FanState,
+    HomeassistantServiceCall,
+    LegacyCoverCommand,
+    LightInfo,
+    LightState,
+    SensorInfo,
+    SensorState,
+    SwitchInfo,
+    SwitchState,
+    TextSensorInfo,
+    TextSensorState,
+    UserService,
+    UserServiceArg,
+    UserServiceArgType,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
+ExecuteServiceDataType = Dict[
+    str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
+]
+
 
 class APIClient:
-    def __init__(self, eventloop, address: str, port: int, password: str, *,
-                 client_info: str = 'aioesphomeapi', keepalive: float = 15.0,
-                 zeroconf_instance: zeroconf.Zeroconf = None):
+    def __init__(
+        self,
+        eventloop: asyncio.AbstractEventLoop,
+        address: str,
+        port: int,
+        password: str,
+        *,
+        client_info: str = "aioesphomeapi",
+        keepalive: float = 15.0,
+        zeroconf_instance: Optional[zeroconf.Zeroconf] = None
+    ):
         self._params = ConnectionParams(
             eventloop=eventloop,
             address=address,
@@ -22,18 +110,22 @@ class APIClient:
             password=password,
             client_info=client_info,
             keepalive=keepalive,
-            zeroconf_instance=zeroconf_instance
+            zeroconf_instance=zeroconf_instance,
         )
         self._connection = None  # type: Optional[APIConnection]
 
-    async def connect(self, on_stop=None, login=False):
+    async def connect(
+        self,
+        on_stop: Optional[Callable[[], Awaitable[None]]] = None,
+        login: bool = False,
+    ) -> None:
         if self._connection is not None:
             raise APIConnectionError("Already connected!")
 
         connected = False
         stopped = False
 
-        async def _on_stop():
+        async def _on_stop() -> None:
             nonlocal stopped
 
             if stopped:
@@ -54,31 +146,33 @@ class APIClient:
             raise
         except Exception as e:
             await _on_stop()
-            raise APIConnectionError(
-                "Unexpected error while connecting: {}".format(e))
+            raise APIConnectionError("Unexpected error while connecting: {}".format(e))
 
         connected = True
 
-    async def disconnect(self, force=False):
+    async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
             return
         await self._connection.stop(force=force)
 
-    def _check_connected(self):
+    def _check_connected(self) -> None:
         if self._connection is None:
             raise APIConnectionError("Not connected!")
         if not self._connection.is_connected:
             raise APIConnectionError("Connection not done!")
 
-    def _check_authenticated(self):
+    def _check_authenticated(self) -> None:
         self._check_connected()
+        assert self._connection is not None
         if not self._connection.is_authenticated:
             raise APIConnectionError("Not authenticated!")
 
     async def device_info(self) -> DeviceInfo:
         self._check_connected()
+        assert self._connection is not None
         resp = await self._connection.send_message_await_response(
-            pb.DeviceInfoRequest(), pb.DeviceInfoResponse)
+            DeviceInfoRequest(), DeviceInfoResponse
+        )
         return DeviceInfo(
             uses_password=resp.uses_password,
             name=resp.name,
@@ -89,53 +183,61 @@ class APIClient:
             has_deep_sleep=resp.has_deep_sleep,
         )
 
-    async def list_entities_services(self) -> Tuple[List[Any], List[UserService]]:
+    async def list_entities_services(
+        self,
+    ) -> Tuple[List[EntityInfo], List[UserService]]:
         self._check_authenticated()
         response_types = {
-            pb.ListEntitiesBinarySensorResponse: BinarySensorInfo,
-            pb.ListEntitiesCoverResponse: CoverInfo,
-            pb.ListEntitiesFanResponse: FanInfo,
-            pb.ListEntitiesLightResponse: LightInfo,
-            pb.ListEntitiesSensorResponse: SensorInfo,
-            pb.ListEntitiesSwitchResponse: SwitchInfo,
-            pb.ListEntitiesTextSensorResponse: TextSensorInfo,
-            pb.ListEntitiesServicesResponse: None,
-            pb.ListEntitiesCameraResponse: CameraInfo,
-            pb.ListEntitiesClimateResponse: ClimateInfo,
+            ListEntitiesBinarySensorResponse: BinarySensorInfo,
+            ListEntitiesCoverResponse: CoverInfo,
+            ListEntitiesFanResponse: FanInfo,
+            ListEntitiesLightResponse: LightInfo,
+            ListEntitiesSensorResponse: SensorInfo,
+            ListEntitiesSwitchResponse: SwitchInfo,
+            ListEntitiesTextSensorResponse: TextSensorInfo,
+            ListEntitiesServicesResponse: None,
+            ListEntitiesCameraResponse: CameraInfo,
+            ListEntitiesClimateResponse: ClimateInfo,
         }
 
-        def do_append(msg):
+        def do_append(msg: message.Message) -> bool:
             return isinstance(msg, tuple(response_types.keys()))
 
-        def do_stop(msg):
-            return isinstance(msg, pb.ListEntitiesDoneResponse)
+        def do_stop(msg: message.Message) -> bool:
+            return isinstance(msg, ListEntitiesDoneResponse)
 
+        assert self._connection is not None
         resp = await self._connection.send_message_await_response_complex(
-            pb.ListEntitiesRequest(), do_append, do_stop, timeout=5)
-        entities = []
-        services = []
+            ListEntitiesRequest(), do_append, do_stop, timeout=5
+        )
+        entities: List[EntityInfo] = []
+        services: List[UserService] = []
         for msg in resp:
-            if isinstance(msg, pb.ListEntitiesServicesResponse):
+            if isinstance(msg, ListEntitiesServicesResponse):
                 args = []
                 for arg in msg.args:
-                    args.append(UserServiceArg(
-                        name=arg.name,
-                        type_=arg.type,
-                    ))
-                services.append(UserService(
-                    name=msg.name,
-                    key=msg.key,
-                    args=args,
-                ))
+                    args.append(
+                        UserServiceArg(
+                            name=arg.name,
+                            type_=arg.type,
+                        )
+                    )
+                services.append(
+                    UserService(
+                        name=msg.name,
+                        key=msg.key,
+                        args=args,  # type: ignore
+                    )
+                )
                 continue
             cls = None
             for resp_type, cls in response_types.items():
                 if isinstance(msg, resp_type):
                     break
-            kwargs = {
-                f.name: getattr(msg, f.name)
-                for f in dataclasses.fields(cls)
-            }
+            else:
+                continue
+            cls = cast(type, cls)
+            kwargs = {f.name: getattr(msg, f.name) for f in dataclasses.fields(cls)}
             entities.append(cls(**kwargs))
         return entities, services
 
@@ -143,20 +245,20 @@ class APIClient:
         self._check_authenticated()
 
         response_types = {
-            pb.BinarySensorStateResponse: BinarySensorState,
-            pb.CoverStateResponse: CoverState,
-            pb.FanStateResponse: FanState,
-            pb.LightStateResponse: LightState,
-            pb.SensorStateResponse: SensorState,
-            pb.SwitchStateResponse: SwitchState,
-            pb.TextSensorStateResponse: TextSensorState,
-            pb.ClimateStateResponse: ClimateState,
+            BinarySensorStateResponse: BinarySensorState,
+            CoverStateResponse: CoverState,
+            FanStateResponse: FanState,
+            LightStateResponse: LightState,
+            SensorStateResponse: SensorState,
+            SwitchStateResponse: SwitchState,
+            TextSensorStateResponse: TextSensorState,
+            ClimateStateResponse: ClimateState,
         }
 
-        image_stream = {}
+        image_stream: Dict[int, bytes] = {}
 
-        def on_msg(msg):
-            if isinstance(msg, pb.CameraImageResponse):
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, CameraImageResponse):
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
                     on_state(CameraState(key=msg.key, image=data))
@@ -171,40 +273,47 @@ class APIClient:
                 return
 
             # pylint: disable=undefined-loop-variable
-            kwargs = {
-                f.name: getattr(msg, f.name)
-                for f in dataclasses.fields(cls)
-            }
+            kwargs = {f.name: getattr(msg, f.name) for f in dataclasses.fields(cls)}
             on_state(cls(**kwargs))
 
-        await self._connection.send_message_callback_response(pb.SubscribeStatesRequest(), on_msg)
+        assert self._connection is not None
+        await self._connection.send_message_callback_response(
+            SubscribeStatesRequest(), on_msg
+        )
 
-    async def subscribe_logs(self, on_log: Callable[[pb.SubscribeLogsResponse], None],
-                             log_level=None) -> None:
+    async def subscribe_logs(
+        self,
+        on_log: Callable[[SubscribeLogsResponse], None],
+        log_level: Optional[LogLevel] = None,
+    ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg):
-            if isinstance(msg, pb.SubscribeLogsResponse):
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, SubscribeLogsResponse):
                 on_log(msg)
 
-        req = pb.SubscribeLogsRequest()
+        req = SubscribeLogsRequest()
         if log_level is not None:
             req.level = log_level
+        assert self._connection is not None
         await self._connection.send_message_callback_response(req, on_msg)
 
-    async def subscribe_service_calls(self, on_service_call: Callable[[HomeassistantServiceCall], None]) -> None:
+    async def subscribe_service_calls(
+        self, on_service_call: Callable[[HomeassistantServiceCall], None]
+    ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg):
-            if isinstance(msg, pb.HomeassistantServiceResponse):
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, HomeassistantServiceResponse):
                 kwargs = {
                     f.name: getattr(msg, f.name)
                     for f in dataclasses.fields(HomeassistantServiceCall)
                 }
                 on_service_call(HomeassistantServiceCall(**kwargs))
 
+        assert self._connection is not None
         await self._connection.send_message_callback_response(
-            pb.SubscribeHomeassistantServicesRequest(), on_msg
+            SubscribeHomeassistantServicesRequest(), on_msg
         )
 
     async def subscribe_home_assistant_states(
@@ -212,12 +321,13 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg):
-            if isinstance(msg, pb.SubscribeHomeAssistantStateResponse):
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, SubscribeHomeAssistantStateResponse):
                 on_state_sub(msg.entity_id, msg.attribute)
 
+        assert self._connection is not None
         await self._connection.send_message_callback_response(
-            pb.SubscribeHomeAssistantStatesRequest(), on_msg
+            SubscribeHomeAssistantStatesRequest(), on_msg
         )
 
     async def send_home_assistant_state(
@@ -225,25 +335,28 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
+        assert self._connection is not None
         await self._connection.send_message(
-            pb.HomeAssistantStateResponse(
+            HomeAssistantStateResponse(
                 entity_id=entity_id,
                 state=state,
                 attribute=attribute,
             )
         )
 
-    async def cover_command(self,
-                            key: int,
-                            position: Optional[float] = None,
-                            tilt: Optional[float] = None,
-                            stop: bool = False,
-                            ) -> None:
+    async def cover_command(
+        self,
+        key: int,
+        position: Optional[float] = None,
+        tilt: Optional[float] = None,
+        stop: bool = False,
+    ) -> None:
         self._check_authenticated()
 
-        req = pb.CoverCommandRequest()
+        req = CoverCommandRequest()
         req.key = key
-        if self.api_version >= APIVersion(1, 1):
+        apiv = cast(APIVersion, self.api_version)
+        if apiv >= APIVersion(1, 1):
             if position is not None:
                 req.has_position = True
                 req.position = position
@@ -260,19 +373,21 @@ class APIClient:
                 req.legacy_command = LegacyCoverCommand.OPEN
             else:
                 req.legacy_command = LegacyCoverCommand.CLOSE
+        assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def fan_command(self,
-                          key: int,
-                          state: Optional[bool] = None,
-                          speed: Optional[FanSpeed] = None,
-                          speed_level: Optional[int] = None,
-                          oscillating: Optional[bool] = None,
-                          direction: Optional[FanDirection] = None
-                          ) -> None:
+    async def fan_command(
+        self,
+        key: int,
+        state: Optional[bool] = None,
+        speed: Optional[FanSpeed] = None,
+        speed_level: Optional[int] = None,
+        oscillating: Optional[bool] = None,
+        direction: Optional[FanDirection] = None,
+    ) -> None:
         self._check_authenticated()
 
-        req = pb.FanCommandRequest()
+        req = FanCommandRequest()
         req.key = key
         if state is not None:
             req.has_state = True
@@ -289,22 +404,24 @@ class APIClient:
         if direction is not None:
             req.has_direction = True
             req.direction = direction
+        assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def light_command(self,
-                            key: int,
-                            state: Optional[bool] = None,
-                            brightness: Optional[float] = None,
-                            rgb: Optional[Tuple[float, float, float]] = None,
-                            white: Optional[float] = None,
-                            color_temperature: Optional[float] = None,
-                            transition_length: Optional[float] = None,
-                            flash_length: Optional[float] = None,
-                            effect: Optional[str] = None,
-                            ):
+    async def light_command(
+        self,
+        key: int,
+        state: Optional[bool] = None,
+        brightness: Optional[float] = None,
+        rgb: Optional[Tuple[float, float, float]] = None,
+        white: Optional[float] = None,
+        color_temperature: Optional[float] = None,
+        transition_length: Optional[float] = None,
+        flash_length: Optional[float] = None,
+        effect: Optional[str] = None,
+    ) -> None:
         self._check_authenticated()
 
-        req = pb.LightCommandRequest()
+        req = LightCommandRequest()
         req.key = key
         if state is not None:
             req.has_state = True
@@ -332,32 +449,32 @@ class APIClient:
         if effect is not None:
             req.has_effect = True
             req.effect = effect
+        assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def switch_command(self,
-                             key: int,
-                             state: bool
-                             ) -> None:
+    async def switch_command(self, key: int, state: bool) -> None:
         self._check_authenticated()
 
-        req = pb.SwitchCommandRequest()
+        req = SwitchCommandRequest()
         req.key = key
         req.state = state
+        assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def climate_command(self,
-                              key: int,
-                              mode: Optional[ClimateMode] = None,
-                              target_temperature: Optional[float] = None,
-                              target_temperature_low: Optional[float] = None,
-                              target_temperature_high: Optional[float] = None,
-                              away: Optional[bool] = None,
-                              fan_mode: Optional[ClimateFanMode] = None,
-                              swing_mode: Optional[ClimateSwingMode] = None,
-                              ) -> None:
+    async def climate_command(
+        self,
+        key: int,
+        mode: Optional[ClimateMode] = None,
+        target_temperature: Optional[float] = None,
+        target_temperature_low: Optional[float] = None,
+        target_temperature_high: Optional[float] = None,
+        away: Optional[bool] = None,
+        fan_mode: Optional[ClimateFanMode] = None,
+        swing_mode: Optional[ClimateSwingMode] = None,
+    ) -> None:
         self._check_authenticated()
 
-        req = pb.ClimateCommandRequest()
+        req = ClimateCommandRequest()
         req.key = key
         if mode is not None:
             req.has_mode = True
@@ -380,30 +497,33 @@ class APIClient:
         if swing_mode is not None:
             req.has_swing_mode = True
             req.swing_mode = swing_mode
+        assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def execute_service(self, service: UserService, data: dict):
+    async def execute_service(
+        self, service: UserService, data: ExecuteServiceDataType
+    ) -> None:
         self._check_authenticated()
 
-        req = pb.ExecuteServiceRequest()
+        req = ExecuteServiceRequest()
         req.key = service.key
         args = []
         for arg_desc in service.args:
-            arg = pb.ExecuteServiceArgument()
+            arg = ExecuteServiceArgument()
             val = data[arg_desc.name]
-            int_type = 'int_' if self.api_version >= APIVersion(
-                1, 3) else 'legacy_int'
+            apiv = cast(APIVersion, self.api_version)
+            int_type = "int_" if apiv >= APIVersion(1, 3) else "legacy_int"
             map_single = {
-                UserServiceArgType.BOOL: 'bool_',
+                UserServiceArgType.BOOL: "bool_",
                 UserServiceArgType.INT: int_type,
-                UserServiceArgType.FLOAT: 'float_',
-                UserServiceArgType.STRING: 'string_',
+                UserServiceArgType.FLOAT: "float_",
+                UserServiceArgType.STRING: "string_",
             }
             map_array = {
-                UserServiceArgType.BOOL_ARRAY: 'bool_array',
-                UserServiceArgType.INT_ARRAY: 'int_array',
-                UserServiceArgType.FLOAT_ARRAY: 'float_array',
-                UserServiceArgType.STRING_ARRAY: 'string_array',
+                UserServiceArgType.BOOL_ARRAY: "bool_array",
+                UserServiceArgType.INT_ARRAY: "int_array",
+                UserServiceArgType.FLOAT_ARRAY: "float_array",
+                UserServiceArgType.STRING_ARRAY: "string_array",
             }
             if arg_desc.type_ in map_array:
                 attr = getattr(arg, map_array[arg_desc.type_])
@@ -414,18 +534,22 @@ class APIClient:
             args.append(arg)
         # pylint: disable=no-member
         req.args.extend(args)
+        assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def _request_image(self, *, single=False, stream=False):
-        req = pb.CameraImageRequest()
+    async def _request_image(
+        self, *, single: bool = False, stream: bool = False
+    ) -> None:
+        req = CameraImageRequest()
         req.single = single
         req.stream = stream
+        assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def request_single_image(self):
+    async def request_single_image(self) -> None:
         await self._request_image(single=True)
 
-    async def request_image_stream(self):
+    async def request_image_stream(self) -> None:
         await self._request_image(stream=True)
 
     @property

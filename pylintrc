@@ -15,3 +15,4 @@ disable=
   import-outside-toplevel,
   raise-missing-from,
   bad-mcs-classmethod-argument,
+  duplicate-code,
