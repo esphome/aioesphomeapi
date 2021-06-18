@@ -348,7 +348,7 @@ class ClimateInfo(EntityInfo):
         type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
     )
     supported_custom_presets = attr.ib(
-        type=List[str], converter=_convert_string, factory=list
+        type=List[str], converter=list, factory=list
     )
 
 
@@ -380,13 +380,13 @@ class ClimateState(EntityState):
         default=ClimateSwingMode.OFF,
     )
     custom_fan_mode = attr.ib(
-        type=str, default=None
+        type=str, default=''
     )
     preset = attr.ib(
         type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.HOME
     )
     custom_preset = attr.ib(
-        type=str, default=None
+        type=str, default=''
     )
 
 
