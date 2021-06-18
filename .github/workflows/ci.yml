@@ -18,6 +18,9 @@ jobs:
         run: |
           pip3 install -e .
           pip3 install -r requirements_test.txt
+      - name: Register problem matcher
+        run: |
+          echo "::add-matcher::.github/workflows/matchers/pylint.json"
       - run: pylint aioesphomeapi
   flake8:
     runs-on: ubuntu-latest
@@ -31,6 +34,9 @@ jobs:
         run: |
           pip3 install -e .
           pip3 install -r requirements_test.txt
+      - name: Register problem matcher
+        run: |
+          echo "::add-matcher::.github/workflows/matchers/flake8.json"
       - run: flake8 aioesphomeapi
   black:
     runs-on: ubuntu-latest
@@ -57,7 +63,10 @@ jobs:
         run: |
           pip3 install -e .
           pip3 install -r requirements_test.txt
-      - run: isort aioesphomeapi
+      - name: Register problem matcher
+        run: |
+          echo "::add-matcher::.github/workflows/matchers/isort.json"
+      - run: isort --check aioesphomeapi
   mypy:
     runs-on: ubuntu-latest
     steps:
@@ -70,4 +79,7 @@ jobs:
         run: |
           pip3 install -e .
           pip3 install -r requirements_test.txt
+      - name: Register problem matcher
+        run: |
+          echo "::add-matcher::.github/workflows/matchers/mypy.json"
       - run: mypy aioesphomeapi

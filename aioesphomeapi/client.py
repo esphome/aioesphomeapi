@@ -2,7 +2,6 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import attr
-import zeroconf
 
 from aioesphomeapi.api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
@@ -79,6 +78,7 @@ from aioesphomeapi.model import (
     UserServiceArg,
     UserServiceArgType,
 )
+import zeroconf
 
 _LOGGER = logging.getLogger(__name__)
 
