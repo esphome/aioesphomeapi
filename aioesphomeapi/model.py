@@ -1,13 +1,18 @@
 import enum
-from typing import Dict, List
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Type, TypeVar
 
 import attr
+
+if TYPE_CHECKING:
+    from .api_pb2 import HomeassistantServiceMap  # type: ignore
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
 # with args from a previous version of Home Assistant.
 # The default value should *always* be the Protobuf default value
 # for a field (False, 0, empty string, enum with value 0, ...)
+
+_T = TypeVar("_T")
 
 
 @attr.s
@@ -90,7 +95,7 @@ class CoverState(EntityState):
         type=CoverOperation, converter=CoverOperation, default=CoverOperation.IDLE
     )
 
-    def is_closed(self, api_version: APIVersion):
+    def is_closed(self, api_version: APIVersion) -> bool:
         if api_version >= APIVersion(1, 1):
             return self.position == 0.0
         return self.legacy_state == LegacyCoverState.CLOSED
@@ -248,15 +253,15 @@ class ClimateAction(enum.IntEnum):
     FAN = 6
 
 
-def _convert_climate_modes(value):
+def _convert_climate_modes(value: Iterable[int]) -> List[ClimateMode]:
     return [ClimateMode(val) for val in value]
 
 
-def _convert_climate_fan_modes(value):
+def _convert_climate_fan_modes(value: Iterable[int]) -> List[ClimateFanMode]:
     return [ClimateFanMode(val) for val in value]
 
 
-def _convert_climate_swing_modes(value):
+def _convert_climate_swing_modes(value: Iterable[int]) -> List[ClimateSwingMode]:
     return [ClimateSwingMode(val) for val in value]
 
 
@@ -265,7 +270,7 @@ class ClimateInfo(EntityInfo):
     supports_current_temperature = attr.ib(type=bool, default=False)
     supports_two_point_target_temperature = attr.ib(type=bool, default=False)
     supported_modes = attr.ib(
-        type=List[ClimateMode], converter=_convert_climate_modes, factory=list  # type: ignore
+        type=List[ClimateMode], converter=_convert_climate_modes, factory=list
     )
     visual_min_temperature = attr.ib(type=float, default=0.0)
     visual_max_temperature = attr.ib(type=float, default=0.0)
@@ -273,11 +278,11 @@ class ClimateInfo(EntityInfo):
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
-        type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list  # type: ignore
+        type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
     )
     supported_swing_modes = attr.ib(
         type=List[ClimateSwingMode],
-        converter=_convert_climate_swing_modes,  # type: ignore
+        converter=_convert_climate_swing_modes,
         factory=list,
     )
 
@@ -315,7 +320,9 @@ COMPONENT_TYPE_TO_INFO = {
 
 
 # ==================== USER-DEFINED SERVICES ====================
-def _convert_homeassistant_service_map(value):
+def _convert_homeassistant_service_map(
+    value: Iterable["HomeassistantServiceMap"],
+) -> Dict[str, str]:
     return {v.key: v.value for v in value}
 
 
@@ -324,13 +331,13 @@ class HomeassistantServiceCall:
     service = attr.ib(type=str, default="")
     is_event = attr.ib(type=bool, default=False)
     data = attr.ib(
-        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict  # type: ignore
+        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict
     )
     data_template = attr.ib(
-        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict  # type: ignore
+        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict
     )
     variables = attr.ib(
-        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict  # type: ignore
+        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict
     )
 
 
@@ -345,8 +352,8 @@ class UserServiceArgType(enum.IntEnum):
     STRING_ARRAY = 7
 
 
-def _attr_obj_from_dict(cls, **kwargs):
-    return cls(**{key: kwargs[key] for key in attr.fields_dict(cls)})
+def _attr_obj_from_dict(cls: Type[_T], **kwargs: Any) -> _T:
+    return cls(**{key: kwargs[key] for key in attr.fields_dict(cls)})  # type: ignore
 
 
 @attr.s
@@ -365,16 +372,18 @@ class UserService:
     key = attr.ib(type=int, default=0)
     args = attr.ib(type=List[UserServiceArg], converter=list, factory=list)
 
-    @staticmethod
-    def from_dict(dict_):
+    @classmethod
+    def from_dict(cls, dict_: Dict[str, Any]) -> "UserService":
         args = []
         for arg in dict_.get("args", []):
             args.append(_attr_obj_from_dict(UserServiceArg, **arg))
-        return UserService(
-            name=dict_.get("name", ""), key=dict_.get("key", 0), args=args
+        return cls(
+            name=dict_.get("name", ""),
+            key=dict_.get("key", 0),
+            args=args,  # type: ignore
         )
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
             "key": self.key,

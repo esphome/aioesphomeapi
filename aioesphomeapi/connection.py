@@ -2,7 +2,7 @@ import asyncio
 import logging
 import socket
 import time
-from typing import Any, Callable, List, Optional, cast
+from typing import Any, Awaitable, Callable, List, Optional, cast
 
 import attr
 import zeroconf
@@ -39,7 +39,9 @@ class ConnectionParams:
 
 
 class APIConnection:
-    def __init__(self, params: ConnectionParams, on_stop):
+    def __init__(
+        self, params: ConnectionParams, on_stop: Callable[[], Awaitable[None]]
+    ):
         self._params = params
         self.on_stop = on_stop
         self._stopped = False
@@ -54,8 +56,6 @@ class APIConnection:
         self._api_version: Optional[APIVersion] = None
 
         self._message_handlers: List[Callable[[message.Message], None]] = []
-
-        self._running_task: Optional[asyncio.Task] = None
 
     def _start_ping(self) -> None:
         async def func() -> None:
@@ -98,8 +98,6 @@ class APIConnection:
             except APIConnectionError:
                 pass
         self._stopped = True
-        if self._running_task is not None:
-            self._running_task.cancel()
         await self._close_socket()
         await self.on_stop()
 
@@ -254,7 +252,7 @@ class APIConnection:
         fut = self._params.eventloop.create_future()
         responses = []
 
-        def on_message(resp):
+        def on_message(resp: message.Message) -> None:
             if fut.done():
                 return
             if do_append(resp):
@@ -282,7 +280,7 @@ class APIConnection:
     async def send_message_await_response(
         self, send_msg: message.Message, response_type: Any, timeout: float = 5.0
     ) -> Any:
-        def is_response(msg):
+        def is_response(msg: message.Message) -> bool:
             return isinstance(msg, response_type)
 
         res = await self.send_message_await_response_complex(

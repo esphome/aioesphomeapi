@@ -1,7 +1,10 @@
+import asyncio
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import attr
+import zeroconf
+from google.protobuf import message
 
 from aioesphomeapi.api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
@@ -33,6 +36,7 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     ListEntitiesServicesResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    LogLevel,
     SensorStateResponse,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -60,6 +64,7 @@ from aioesphomeapi.model import (
     CoverInfo,
     CoverState,
     DeviceInfo,
+    EntityInfo,
     FanDirection,
     FanInfo,
     FanSpeed,
@@ -78,15 +83,18 @@ from aioesphomeapi.model import (
     UserServiceArg,
     UserServiceArgType,
 )
-import zeroconf
 
 _LOGGER = logging.getLogger(__name__)
+
+ExecuteServiceDataType = Dict[
+    str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
+]
 
 
 class APIClient:
     def __init__(
         self,
-        eventloop,
+        eventloop: asyncio.AbstractEventLoop,
         address: str,
         port: int,
         password: str,
@@ -106,14 +114,18 @@ class APIClient:
         )
         self._connection = None  # type: Optional[APIConnection]
 
-    async def connect(self, on_stop=None, login=False):
+    async def connect(
+        self,
+        on_stop: Optional[Callable[[], Awaitable[None]]] = None,
+        login: bool = False,
+    ) -> None:
         if self._connection is not None:
             raise APIConnectionError("Already connected!")
 
         connected = False
         stopped = False
 
-        async def _on_stop():
+        async def _on_stop() -> None:
             nonlocal stopped
 
             if stopped:
@@ -138,19 +150,20 @@ class APIClient:
 
         connected = True
 
-    async def disconnect(self, force=False):
+    async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
             return
         await self._connection.stop(force=force)
 
-    def _check_connected(self):
+    def _check_connected(self) -> None:
         if self._connection is None:
             raise APIConnectionError("Not connected!")
         if not self._connection.is_connected:
             raise APIConnectionError("Connection not done!")
 
-    def _check_authenticated(self):
+    def _check_authenticated(self) -> None:
         self._check_connected()
+        assert self._connection is not None
         if not self._connection.is_authenticated:
             raise APIConnectionError("Not authenticated!")
 
@@ -170,7 +183,9 @@ class APIClient:
             has_deep_sleep=resp.has_deep_sleep,
         )
 
-    async def list_entities_services(self) -> Tuple[List[Any], List[UserService]]:
+    async def list_entities_services(
+        self,
+    ) -> Tuple[List[EntityInfo], List[UserService]]:
         self._check_authenticated()
         response_types = {
             ListEntitiesBinarySensorResponse: BinarySensorInfo,
@@ -185,18 +200,18 @@ class APIClient:
             ListEntitiesClimateResponse: ClimateInfo,
         }
 
-        def do_append(msg):
+        def do_append(msg: message.Message) -> bool:
             return isinstance(msg, tuple(response_types.keys()))
 
-        def do_stop(msg):
+        def do_stop(msg: message.Message) -> bool:
             return isinstance(msg, ListEntitiesDoneResponse)
 
         assert self._connection is not None
         resp = await self._connection.send_message_await_response_complex(
             ListEntitiesRequest(), do_append, do_stop, timeout=5
         )
-        entities = []
-        services = []
+        entities: List[EntityInfo] = []
+        services: List[UserService] = []
         for msg in resp:
             if isinstance(msg, ListEntitiesServicesResponse):
                 args = []
@@ -244,7 +259,7 @@ class APIClient:
 
         image_stream: Dict[int, bytes] = {}
 
-        def on_msg(msg):
+        def on_msg(msg: message.Message) -> None:
             if isinstance(msg, CameraImageResponse):
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
@@ -271,11 +286,13 @@ class APIClient:
         )
 
     async def subscribe_logs(
-        self, on_log: Callable[[SubscribeLogsResponse], None], log_level=None
+        self,
+        on_log: Callable[[SubscribeLogsResponse], None],
+        log_level: Optional[LogLevel] = None,
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg):
+        def on_msg(msg: message.Message) -> None:
             if isinstance(msg, SubscribeLogsResponse):
                 on_log(msg)
 
@@ -290,7 +307,7 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg):
+        def on_msg(msg: message.Message) -> None:
             if isinstance(msg, HomeassistantServiceResponse):
                 kwargs = {}
                 for key, _ in attr.fields_dict(HomeassistantServiceCall).items():
@@ -307,7 +324,7 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg):
+        def on_msg(msg: message.Message) -> None:
             if isinstance(msg, SubscribeHomeAssistantStateResponse):
                 on_state_sub(msg.entity_id, msg.attribute)
 
@@ -404,7 +421,7 @@ class APIClient:
         transition_length: Optional[float] = None,
         flash_length: Optional[float] = None,
         effect: Optional[str] = None,
-    ):
+    ) -> None:
         self._check_authenticated()
 
         req = LightCommandRequest()
@@ -486,7 +503,9 @@ class APIClient:
         assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def execute_service(self, service: UserService, data: dict):
+    async def execute_service(
+        self, service: UserService, data: ExecuteServiceDataType
+    ) -> None:
         self._check_authenticated()
 
         req = ExecuteServiceRequest()
@@ -522,17 +541,19 @@ class APIClient:
         assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def _request_image(self, *, single=False, stream=False):
+    async def _request_image(
+        self, *, single: bool = False, stream: bool = False
+    ) -> None:
         req = CameraImageRequest()
         req.single = single
         req.stream = stream
         assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def request_single_image(self):
+    async def request_single_image(self) -> None:
         await self._request_image(single=True)
 
-    async def request_image_stream(self):
+    async def request_image_stream(self) -> None:
         await self._request_image(stream=True)
 
     @property

@@ -1,15 +1,18 @@
 import socket
 import time
+from typing import Optional
 
 import zeroconf
 
 
 class HostResolver(zeroconf.RecordUpdateListener):
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
-        self.address = None
+        self.address: Optional[bytes] = None
 
-    def update_record(self, zc, now, record):
+    def update_record(
+        self, zc: zeroconf.Zeroconf, now: float, record: zeroconf.DNSRecord
+    ) -> None:
         if record is None:
             return
         if record.type == zeroconf._TYPE_A:
@@ -17,7 +20,7 @@ class HostResolver(zeroconf.RecordUpdateListener):
             if record.name == self.name:
                 self.address = record.address
 
-    def request(self, zc, timeout):
+    def request(self, zc: zeroconf.Zeroconf, timeout: float) -> bool:
         now = time.time()
         delay = 0.2
         next_ = now + delay
@@ -57,8 +60,12 @@ class HostResolver(zeroconf.RecordUpdateListener):
         return True
 
 
-def resolve_host(host, timeout=3.0, zeroconf_instance: zeroconf.Zeroconf = None):
-    from aioesphomeapi import APIConnectionError
+def resolve_host(
+    host: str,
+    timeout: float = 3.0,
+    zeroconf_instance: Optional[zeroconf.Zeroconf] = None,
+) -> str:
+    from aioesphomeapi.core import APIConnectionError
 
     try:
         zc = zeroconf_instance or zeroconf.Zeroconf()
@@ -70,11 +77,14 @@ def resolve_host(host, timeout=3.0, zeroconf_instance: zeroconf.Zeroconf = None)
 
     try:
         info = HostResolver(host + ".")
+        assert info.address is not None
         address = None
         if info.request(zc, timeout):
             address = socket.inet_ntoa(info.address)
     except Exception as err:
-        raise APIConnectionError("Error resolving mDNS hostname: {}".format(err))
+        raise APIConnectionError(
+            "Error resolving mDNS hostname: {}".format(err)
+        ) from err
     finally:
         if not zeroconf_instance:
             zc.close()

@@ -66,7 +66,7 @@ async def resolve_ip_address(
     eventloop: asyncio.events.AbstractEventLoop,
     host: str,
     port: int,
-    zeroconf_instance: zeroconf.Zeroconf = None,
+    zeroconf_instance: Optional[zeroconf.Zeroconf] = None,
 ) -> Tuple[Any, ...]:
     if host.endswith(".local"):
         from aioesphomeapi.host_resolver import resolve_host

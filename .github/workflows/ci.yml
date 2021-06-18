@@ -82,4 +82,4 @@ jobs:
       - name: Register problem matcher
         run: |
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
-      - run: mypy aioesphomeapi
+      - run: mypy --strict aioesphomeapi

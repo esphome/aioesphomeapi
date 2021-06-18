@@ -7,4 +7,4 @@ black --safe --exclude 'api_pb2.py|api_options_pb2.py' aioesphomeapi
 pylint aioesphomeapi
 flake8 aioesphomeapi
 isort aioesphomeapi
-mypy aioesphomeapi
+mypy --strict aioesphomeapi
