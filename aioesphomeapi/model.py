@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Type,
     TypeVar,
+    cast,
 )
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 # for a field (False, 0, empty string, enum with value 0, ...)
 
 _T = TypeVar("_T", bound="APIIntEnum")
+_V = TypeVar("_V")
 
 
 class APIIntEnum(enum.IntEnum):
@@ -45,50 +47,30 @@ class APIIntEnum(enum.IntEnum):
         return ret
 
 
-class APIDataMeta(type):
-    def __new__(metacls, cls, bases, classdict):
-        new_cls = super().__new__(metacls, cls, bases, classdict)
-        new_cls = dataclass(frozen=True)(new_cls)
-        fields_ = fields(new_cls)
-
-        # Validate field defaults are protobuf 0 types
-        for field_ in fields_:
-            if field_.default is MISSING:
+@dataclass(frozen=True)
+class APIModelBase:
+    def __post_init__(self) -> None:
+        for field_ in fields(type(self)):
+            convert = field_.metadata.get("convert")
+            if convert is None:
                 continue
-            if field_.default not in [False, 0, 0.0, "", b""]:
-                raise ValueError(
-                    f"Field {cls}.{field_.name}: default {field_.default} is invalid"
-                )
-
-        def post_init(self):
-            for field_ in fields_:
-                convert = field_.metadata.get("convert")
-                if convert is None:
-                    continue
-                name = field_.name
-                val = getattr(self, name)
-                setattr(self, name, convert(val))
-
-        setattr(new_cls, "__post_init__", post_init)
-
-        return new_cls
+            val = getattr(self, field_.name)
+            setattr(self, field_.name, convert(val))
 
 
-class APIModelBase(metaclass=APIDataMeta):
-    pass
-
-
-def converter_field(*, converter: Callable[[Any], Any], **kwargs) -> Field:
+def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
-    return field(metadata=metadata, **kwargs)
+    return cast(_V, field(metadata=metadata, **kwargs))
 
 
+@dataclass(frozen=True, order=True)
 class APIVersion(APIModelBase):
     major: int = 0
     minor: int = 0
 
 
+@dataclass(frozen=True)
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
     name: str = ""
@@ -99,6 +81,7 @@ class DeviceInfo(APIModelBase):
     esphome_version: str = ""
 
 
+@dataclass(frozen=True)
 class EntityInfo(APIModelBase):
     object_id: str = ""
     key: int = 0
@@ -106,22 +89,26 @@ class EntityInfo(APIModelBase):
     unique_id: str = ""
 
 
+@dataclass(frozen=True)
 class EntityState(APIModelBase):
     key: int = 0
 
 
 # ==================== BINARY SENSOR ====================
+@dataclass(frozen=True)
 class BinarySensorInfo(EntityInfo):
     device_class: str = ""
     is_status_binary_sensor: bool = False
 
 
+@dataclass(frozen=True)
 class BinarySensorState(EntityState):
     state: bool = False
     missing_state: bool = False
 
 
 # ==================== COVER ====================
+@dataclass(frozen=True)
 class CoverInfo(EntityInfo):
     assumed_state: bool = False
     supports_position: bool = False
@@ -146,6 +133,7 @@ class CoverOperation(APIIntEnum):
     IS_CLOSING = 2
 
 
+@dataclass(frozen=True)
 class CoverState(EntityState):
     legacy_state: Optional[LegacyCoverState] = converter_field(
         default=LegacyCoverState.OPEN, converter=LegacyCoverState.convert
@@ -163,6 +151,7 @@ class CoverState(EntityState):
 
 
 # ==================== FAN ====================
+@dataclass(frozen=True)
 class FanInfo(EntityInfo):
     supports_oscillation: bool = False
     supports_speed: bool = False
@@ -181,6 +170,7 @@ class FanDirection(APIIntEnum):
     REVERSE = 1
 
 
+@dataclass(frozen=True)
 class FanState(EntityState):
     state: bool = False
     oscillating: bool = False
@@ -194,6 +184,7 @@ class FanState(EntityState):
 
 
 # ==================== LIGHT ====================
+@dataclass(frozen=True)
 class LightInfo(EntityInfo):
     supports_brightness: bool = False
     supports_rgb: bool = False
@@ -204,6 +195,7 @@ class LightInfo(EntityInfo):
     effects: List[str] = converter_field(default_factory=list, converter=list)
 
 
+@dataclass(frozen=True)
 class LightState(EntityState):
     state: bool = False
     brightness: float = 0.0
@@ -221,6 +213,7 @@ class SensorStateClass(APIIntEnum):
     MEASUREMENT = 1
 
 
+@dataclass(frozen=True)
 class SensorInfo(EntityInfo):
     icon: str = ""
     device_class: str = ""
@@ -232,36 +225,43 @@ class SensorInfo(EntityInfo):
     )
 
 
+@dataclass(frozen=True)
 class SensorState(EntityState):
     state: float = 0.0
     missing_state: bool = False
 
 
 # ==================== SWITCH ====================
+@dataclass(frozen=True)
 class SwitchInfo(EntityInfo):
     icon: str = ""
     assumed_state: bool = False
 
 
+@dataclass(frozen=True)
 class SwitchState(EntityState):
     state: bool = False
 
 
 # ==================== TEXT SENSOR ====================
+@dataclass(frozen=True)
 class TextSensorInfo(EntityInfo):
     icon: str = ""
 
 
+@dataclass(frozen=True)
 class TextSensorState(EntityState):
     state: str = ""
     missing_state: bool = False
 
 
 # ==================== CAMERA ====================
+@dataclass(frozen=True)
 class CameraInfo(EntityInfo):
     pass
 
 
+@dataclass(frozen=True)
 class CameraState(EntityState):
     image: bytes = field(default_factory=bytes)
 
@@ -304,6 +304,7 @@ class ClimateAction(APIIntEnum):
     FAN = 6
 
 
+@dataclass(frozen=True)
 class ClimateInfo(EntityInfo):
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
@@ -323,6 +324,7 @@ class ClimateInfo(EntityInfo):
     )
 
 
+@dataclass(frozen=True)
 class ClimateState(EntityState):
     mode: Optional[ClimateMode] = converter_field(
         default=ClimateMode.OFF, converter=ClimateMode.convert
@@ -366,6 +368,7 @@ def _convert_homeassistant_service_map(
     return {v.key: v.value for v in value}
 
 
+@dataclass(frozen=True)
 class HomeassistantServiceCall(APIModelBase):
     service: str = ""
     is_event: bool = False
@@ -391,6 +394,7 @@ class UserServiceArgType(APIIntEnum):
     STRING_ARRAY = 7
 
 
+@dataclass(frozen=True)
 class UserServiceArg(APIModelBase):
     name: str = ""
     type: Optional[UserServiceArgType] = converter_field(
@@ -405,6 +409,7 @@ class UserServiceArg(APIModelBase):
         return ret
 
 
+@dataclass(frozen=True)
 class UserService(APIModelBase):
     name: str = ""
     key: int = 0

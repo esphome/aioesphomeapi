@@ -214,19 +214,18 @@ class APIClient:
         services: List[UserService] = []
         for msg in resp:
             if isinstance(msg, ListEntitiesServicesResponse):
-                args = []
-                for arg in msg.args:
-                    args.append(
-                        UserServiceArg(
-                            name=arg.name,
-                            type_=arg.type,
-                        )
+                args = [
+                    UserServiceArg(
+                        name=arg.name,
+                        type=arg.type,
                     )
+                    for arg in msg.args
+                ]
                 services.append(
                     UserService(
                         name=msg.name,
                         key=msg.key,
-                        args=args,  # type: ignore
+                        args=args,
                     )
                 )
                 continue
@@ -525,11 +524,12 @@ class APIClient:
                 UserServiceArgType.FLOAT_ARRAY: "float_array",
                 UserServiceArgType.STRING_ARRAY: "string_array",
             }
-            if arg_desc.type_ in map_array:
-                attr = getattr(arg, map_array[arg_desc.type_])
+            if arg_desc.type in map_array:
+                attr = getattr(arg, map_array[arg_desc.type])
                 attr.extend(val)
             else:
-                setattr(arg, map_single[arg_desc.type_], val)
+                assert arg_desc.type in map_single
+                setattr(arg, map_single[arg_desc.type], val)
 
             args.append(arg)
         # pylint: disable=no-member
