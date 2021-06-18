@@ -122,7 +122,7 @@ class FanInfo(EntityInfo):
     supports_oscillation = attr.ib(type=bool, default=False)
     supports_speed = attr.ib(type=bool, default=False)
     supports_direction = attr.ib(type=bool, default=False)
-    supported_speed_levels = attr.ib(type=int, default=3)
+    supported_speed_levels = attr.ib(type=int, default=0)
 
 
 class FanSpeed(APIIntEnum):
@@ -294,7 +294,7 @@ class ClimateState(EntityState):
     target_temperature_high = attr.ib(type=float, default=0.0)
     away = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
-        type=Optional[ClimateFanMode], converter=ClimateFanMode.convert, default=ClimateFanMode.AUTO
+        type=Optional[ClimateFanMode], converter=ClimateFanMode.convert, default=ClimateFanMode.ON
     )
     swing_mode = attr.ib(
         type=Optional[ClimateSwingMode], converter=ClimateSwingMode.convert, default=ClimateSwingMode.OFF
