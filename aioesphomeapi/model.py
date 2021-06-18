@@ -1,5 +1,5 @@
 import enum
-from dataclasses import dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Type,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -51,11 +52,30 @@ class APIIntEnum(enum.IntEnum):
 class APIModelBase:
     def __post_init__(self) -> None:
         for field_ in fields(type(self)):
-            convert = field_.metadata.get("convert")
+            convert = field_.metadata.get("converter")
             if convert is None:
                 continue
             val = getattr(self, field_.name)
-            setattr(self, field_.name, convert(val))
+            # use this setattr to prevent FrozenInstanceError
+            super().__setattr__(field_.name, convert(val))
+
+    def asdict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def fromdict(cls: Type[_V], data: Dict[str, Any]) -> _V:
+        init_args = {}
+        for field_ in fields(cls):
+            name = field_.name
+            if name not in data:
+                # Use default
+                continue
+            value = data[name]
+            convert = field_.metadata.get("converter")
+            if convert is not None:
+                value = convert(value)
+            init_args[name] = value
+        return cls(**init_args)  # type: ignore
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
@@ -360,12 +380,12 @@ COMPONENT_TYPE_TO_INFO = {
 
 # ==================== USER-DEFINED SERVICES ====================
 def _convert_homeassistant_service_map(
-    value: Iterable["HomeassistantServiceMap"],
+    value: Union[Dict[str, str], Iterable["HomeassistantServiceMap"]],
 ) -> Dict[str, str]:
     if isinstance(value, dict):
         # already a dict, don't convert
         return value
-    return {v.key: v.value for v in value}
+    return {v.key: v.value for v in value}  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -405,7 +425,10 @@ class UserServiceArg(APIModelBase):
     def convert_list(cls, value: List[Any]) -> List["UserServiceArg"]:
         ret = []
         for x in value:
-            ret.append(UserServiceArg(x.name, x.type))
+            if isinstance(x, dict):
+                ret.append(UserServiceArg(x["name"], x["type"]))
+            else:
+                ret.append(UserServiceArg(x.name, x.type))
         return ret
 
 
@@ -416,3 +439,13 @@ class UserService(APIModelBase):
     args: List[UserServiceArg] = converter_field(
         default_factory=list, converter=UserServiceArg.convert_list
     )
+
+
+class LogLevel(APIIntEnum):
+    LOG_LEVEL_NONE = 0
+    LOG_LEVEL_ERROR = 1
+    LOG_LEVEL_WARN = 2
+    LOG_LEVEL_INFO = 3
+    LOG_LEVEL_DEBUG = 4
+    LOG_LEVEL_VERBOSE = 5
+    LOG_LEVEL_VERY_VERBOSE = 6
