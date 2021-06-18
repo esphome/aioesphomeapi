@@ -1,7 +1,8 @@
 import asyncio
 import functools
 import socket
-from typing import Optional, Tuple, Any
+from typing import Any, Optional, Tuple
+
 import zeroconf
 
 # pylint: disable=cyclic-import

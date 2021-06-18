@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional, Tuple, List
+from typing import Any, Callable, List, Optional, Tuple
 
 import attr
 import zeroconf
@@ -9,37 +9,36 @@ from aioesphomeapi.connection import APIConnection, ConnectionParams
 from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.model import (
     APIVersion,
-    DeviceInfo,
     BinarySensorInfo,
     BinarySensorState,
-    UserService,
-    CoverInfo,
-    FanInfo,
-    LightInfo,
-    SensorInfo,
-    SwitchInfo,
-    TextSensorInfo,
     CameraInfo,
-    ClimateInfo,
-    UserServiceArg,
-    CoverState,
-    FanState,
-    LightState,
-    SensorState,
-    SwitchState,
-    TextSensorState,
-    ClimateState,
     CameraState,
+    ClimateFanMode,
+    ClimateInfo,
+    ClimateMode,
+    ClimateState,
+    ClimateSwingMode,
+    CoverInfo,
+    CoverState,
+    DeviceInfo,
+    FanDirection,
+    FanInfo,
+    FanSpeed,
+    FanState,
     HomeassistantServiceCall,
     LegacyCoverCommand,
-    FanSpeed,
-    FanDirection,
-    ClimateMode,
-    ClimateFanMode,
-    ClimateSwingMode,
+    LightInfo,
+    LightState,
+    SensorInfo,
+    SensorState,
+    SwitchInfo,
+    SwitchState,
+    TextSensorInfo,
+    TextSensorState,
+    UserService,
+    UserServiceArg,
     UserServiceArgType,
 )
-
 
 _LOGGER = logging.getLogger(__name__)
 

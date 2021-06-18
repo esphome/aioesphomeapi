@@ -9,7 +9,7 @@ import zeroconf
 from google.protobuf import message
 
 import aioesphomeapi.api_pb2 as pb
-from aioesphomeapi.core import APIConnectionError, MESSAGE_TYPE_TO_PROTO
+from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, APIConnectionError
 from aioesphomeapi.model import APIVersion
 from aioesphomeapi.util import _bytes_to_varuint, _varuint_to_bytes, resolve_ip_address
 
