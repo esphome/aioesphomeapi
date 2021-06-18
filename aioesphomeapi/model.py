@@ -265,7 +265,7 @@ class ClimateInfo(EntityInfo):
     supports_current_temperature = attr.ib(type=bool, default=False)
     supports_two_point_target_temperature = attr.ib(type=bool, default=False)
     supported_modes = attr.ib(
-        type=List[ClimateMode], converter=_convert_climate_modes, factory=list
+        type=List[ClimateMode], converter=_convert_climate_modes, factory=list  # type: ignore
     )
     visual_min_temperature = attr.ib(type=float, default=0.0)
     visual_max_temperature = attr.ib(type=float, default=0.0)
@@ -273,11 +273,11 @@ class ClimateInfo(EntityInfo):
     supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
-        type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list
+        type=List[ClimateFanMode], converter=_convert_climate_fan_modes, factory=list  # type: ignore
     )
     supported_swing_modes = attr.ib(
         type=List[ClimateSwingMode],
-        converter=_convert_climate_swing_modes,
+        converter=_convert_climate_swing_modes,  # type: ignore
         factory=list,
     )
 
@@ -324,13 +324,13 @@ class HomeassistantServiceCall:
     service = attr.ib(type=str, default="")
     is_event = attr.ib(type=bool, default=False)
     data = attr.ib(
-        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict
+        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict  # type: ignore
     )
     data_template = attr.ib(
-        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict
+        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict  # type: ignore
     )
     variables = attr.ib(
-        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict
+        type=Dict[str, str], converter=_convert_homeassistant_service_map, factory=dict  # type: ignore
     )
 
 

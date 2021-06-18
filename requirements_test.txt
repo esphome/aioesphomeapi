@@ -2,3 +2,5 @@ pylint
 black==21.6b0
 flake8==3.9.2
 isort==5.8.0
+mypy==0.902
+types-protobuf==0.1.13

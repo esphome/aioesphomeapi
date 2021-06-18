@@ -8,7 +8,18 @@ import attr
 import zeroconf
 from google.protobuf import message
 
-import aioesphomeapi.api_pb2 as pb
+from aioesphomeapi.api_pb2 import (  # type: ignore
+    ConnectRequest,
+    ConnectResponse,
+    DisconnectRequest,
+    DisconnectResponse,
+    GetTimeRequest,
+    GetTimeResponse,
+    HelloRequest,
+    HelloResponse,
+    PingRequest,
+    PingResponse,
+)
 from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, APIConnectionError
 from aioesphomeapi.model import APIVersion
 from aioesphomeapi.util import _bytes_to_varuint, _varuint_to_bytes, resolve_ip_address
@@ -24,7 +35,7 @@ class ConnectionParams:
     password = attr.ib(type=Optional[str])
     client_info = attr.ib(type=str)
     keepalive = attr.ib(type=float)
-    zeroconf_instance = attr.ib(type=zeroconf.Zeroconf)
+    zeroconf_instance = attr.ib(type=Optional[zeroconf.Zeroconf])
 
 
 class APIConnection:
@@ -32,19 +43,19 @@ class APIConnection:
         self._params = params
         self.on_stop = on_stop
         self._stopped = False
-        self._socket = None  # type: Optional[socket.socket]
-        self._socket_reader = None  # type: Optional[asyncio.StreamReader]
-        self._socket_writer = None  # type: Optional[asyncio.StreamWriter]
+        self._socket: Optional[socket.socket] = None
+        self._socket_reader: Optional[asyncio.StreamReader] = None
+        self._socket_writer: Optional[asyncio.StreamWriter] = None
         self._write_lock = asyncio.Lock()
         self._connected = False
         self._authenticated = False
         self._socket_connected = False
         self._state_lock = asyncio.Lock()
-        self._api_version = None  # type: Optional[APIVersion]
+        self._api_version: Optional[APIVersion] = None
 
-        self._message_handlers = []  # type: List[Callable[[message], None]]
+        self._message_handlers: List[Callable[[message.Message], None]] = []
 
-        self._running_task = None  # type: Optional[asyncio.Task]
+        self._running_task: Optional[asyncio.Task] = None
 
     def _start_ping(self) -> None:
         async def func() -> None:
@@ -67,7 +78,8 @@ class APIConnection:
         if not self._socket_connected:
             return
         async with self._write_lock:
-            self._socket_writer.close()
+            if self._socket_writer is not None:
+                self._socket_writer.close()
             self._socket_writer = None
             self._socket_reader = None
         if self._socket is not None:
@@ -127,8 +139,8 @@ class APIConnection:
             sockaddr,
         )
         try:
-            coro = self._params.eventloop.sock_connect(self._socket, sockaddr)
-            await asyncio.wait_for(coro, 30.0)
+            coro2 = self._params.eventloop.sock_connect(self._socket, sockaddr)
+            await asyncio.wait_for(coro2, 30.0)
         except OSError as err:
             await self._on_error()
             raise APIConnectionError("Error connecting to {}: {}".format(sockaddr, err))
@@ -143,10 +155,10 @@ class APIConnection:
         self._socket_connected = True
         self._params.eventloop.create_task(self.run_forever())
 
-        hello = pb.HelloRequest()
+        hello = HelloRequest()
         hello.client_info = self._params.client_info
         try:
-            resp = await self.send_message_await_response(hello, pb.HelloResponse)
+            resp = await self.send_message_await_response(hello, HelloResponse)
         except APIConnectionError as err:
             await self._on_error()
             raise err
@@ -175,10 +187,10 @@ class APIConnection:
         if self._authenticated:
             raise APIConnectionError("Already logged in!")
 
-        connect = pb.ConnectRequest()
+        connect = ConnectRequest()
         if self._params.password is not None:
             connect.password = self._params.password
-        resp = await self.send_message_await_response(connect, pb.ConnectResponse)
+        resp = await self.send_message_await_response(connect, ConnectResponse)
         if resp.invalid_password:
             raise APIConnectionError("Invalid password!")
 
@@ -203,8 +215,9 @@ class APIConnection:
             raise APIConnectionError("Socket is not connected")
         try:
             async with self._write_lock:
-                self._socket_writer.write(data)
-                await self._socket_writer.drain()
+                if self._socket_writer is not None:
+                    self._socket_writer.write(data)
+                    await self._socket_writer.drain()
         except OSError as err:
             await self._on_error()
             raise APIConnectionError("Error while writing data: {}".format(err))
@@ -285,6 +298,7 @@ class APIConnection:
             return bytes()
 
         try:
+            assert self._socket_reader is not None
             ret = await self._socket_reader.readexactly(amount)
         except (asyncio.IncompleteReadError, OSError, TimeoutError) as err:
             raise APIConnectionError("Error while receiving data: {}".format(err))
@@ -346,26 +360,26 @@ class APIConnection:
                 break
 
     async def _handle_internal_messages(self, msg: Any) -> None:
-        if isinstance(msg, pb.DisconnectRequest):
-            await self.send_message(pb.DisconnectResponse())
+        if isinstance(msg, DisconnectRequest):
+            await self.send_message(DisconnectResponse())
             await self.stop(force=True)
-        elif isinstance(msg, pb.PingRequest):
-            await self.send_message(pb.PingResponse())
-        elif isinstance(msg, pb.GetTimeRequest):
-            resp = pb.GetTimeResponse()
+        elif isinstance(msg, PingRequest):
+            await self.send_message(PingResponse())
+        elif isinstance(msg, GetTimeRequest):
+            resp = GetTimeResponse()
             resp.epoch_seconds = int(time.time())
             await self.send_message(resp)
 
     async def ping(self) -> None:
         self._check_connected()
-        await self.send_message_await_response(pb.PingRequest(), pb.PingResponse)
+        await self.send_message_await_response(PingRequest(), PingResponse)
 
     async def _disconnect(self) -> None:
         self._check_connected()
 
         try:
             await self.send_message_await_response(
-                pb.DisconnectRequest(), pb.DisconnectResponse
+                DisconnectRequest(), DisconnectResponse
             )
         except APIConnectionError:
             pass
