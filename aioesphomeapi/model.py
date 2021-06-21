@@ -287,11 +287,11 @@ class ClimateAction(APIIntEnum):
     FAN = 6
 
 class ClimatePreset(enum.IntEnum):
-    ECO = 0
-    AWAY = 1
-    BOOST = 2
-    COMFORT = 3
-    HOME = 4
+    HOME = 0
+    ECO = 1
+    AWAY = 2
+    BOOST = 3
+    COMFORT = 4
     SLEEP = 5
     ACTIVITY = 6
 
