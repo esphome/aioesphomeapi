@@ -27,9 +27,7 @@ jobs:
       # github actions email from here: https://github.community/t/github-actions-bot-email-address/17204
       - name: Commit changes
         run: |
-          if git diff-index --quiet HEAD --; then
-            echo "No changes detected, protobuf files are up to date!"
-          else
+          if ! git diff-index --quiet HEAD; then
             git config --global user.name "github-actions[bot]"
             git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -am "Update protobuf files"
