@@ -59,6 +59,7 @@ from aioesphomeapi.model import (
     ClimateFanMode,
     ClimateInfo,
     ClimateMode,
+    ClimatePreset,
     ClimateState,
     ClimateSwingMode,
     CoverInfo,
