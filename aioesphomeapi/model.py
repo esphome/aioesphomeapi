@@ -286,36 +286,16 @@ class ClimateAction(APIIntEnum):
     DRYING = 5
     FAN = 6
 
-class ClimatePreset(enum.IntEnum):
+
+class ClimatePreset(APIIntEnum):
     HOME = 0
-    ECO = 1
-    AWAY = 2
-    BOOST = 3
-    COMFORT = 4
+    AWAY = 1
+    BOOST = 2
+    COMFORT = 3
+    ECO = 4
     SLEEP = 5
     ACTIVITY = 6
 
-
-def _convert_climate_modes(value):
-    return [ClimateMode(val) for val in value]
-
-
-def _convert_climate_fan_modes(value):
-    return [ClimateFanMode(val) for val in value]
-
-
-def _convert_climate_swing_modes(value):
-    return [ClimateSwingMode(val) for val in value]
-
-
-def _convert_climate_presets(value):
-    return [ClimatePreset(val) for val in value]
-
-
-def _convert_string(value):
-    # need to convert protobuf iterable to list, otherwise HA fails to serialize it as JSON
-    # pylint: disable=R1721
-    return [val for val in value]
 
 @attr.s
 class ClimateInfo(EntityInfo):
@@ -329,7 +309,7 @@ class ClimateInfo(EntityInfo):
     visual_min_temperature = attr.ib(type=float, default=0.0)
     visual_max_temperature = attr.ib(type=float, default=0.0)
     visual_temperature_step = attr.ib(type=float, default=0.0)
-    supports_away = attr.ib(type=bool, default=False)
+    legacy_supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
         type=List[ClimateFanMode],
@@ -341,15 +321,20 @@ class ClimateInfo(EntityInfo):
         converter=ClimateSwingMode.convert_list,  # type: ignore
         factory=list,
     )
-    supported_custom_fan_modes = attr.ib(
-        type=List[str], converter=list, factory=list
-    )
+    supported_custom_fan_modes = attr.ib(type=List[str], converter=list, factory=list)
     supported_presets = attr.ib(
-        type=List[ClimatePreset], converter=_convert_climate_presets, factory=list
+        type=List[ClimatePreset], converter=ClimatePreset.convert_list, factory=list  # type: ignore
     )
-    supported_custom_presets = attr.ib(
-        type=List[str], converter=list, factory=list
-    )
+    supported_custom_presets = attr.ib(type=List[str], converter=list, factory=list)
+
+    def supported_presets_compat(self, api_version: APIVersion) -> List[ClimatePreset]:
+        if api_version < APIVersion(1, 5):
+            return (
+                [ClimatePreset.HOME, ClimatePreset.AWAY]
+                if self.legacy_supports_away
+                else []
+            )
+        return self.supported_presets
 
 
 @attr.s
@@ -368,7 +353,7 @@ class ClimateState(EntityState):
     target_temperature = attr.ib(type=float, default=0.0)
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
-    away = attr.ib(type=bool, default=False)
+    legacy_away = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
         type=Optional[ClimateFanMode],
         converter=ClimateFanMode.convert,  # type: ignore
@@ -379,15 +364,18 @@ class ClimateState(EntityState):
         converter=ClimateSwingMode.convert,  # type: ignore
         default=ClimateSwingMode.OFF,
     )
-    custom_fan_mode = attr.ib(
-        type=str, default=''
-    )
+    custom_fan_mode = attr.ib(type=str, default="")
     preset = attr.ib(
-        type=ClimatePreset, converter=ClimatePreset, default=ClimatePreset.HOME
+        type=Optional[ClimatePreset],
+        converter=ClimatePreset.convert,  # type: ignore
+        default=ClimatePreset.HOME,
     )
-    custom_preset = attr.ib(
-        type=str, default=''
-    )
+    custom_preset = attr.ib(type=str, default="")
+
+    def preset_compat(self, api_version: APIVersion) -> Optional[ClimatePreset]:
+        if api_version < APIVersion(1, 5):
+            return ClimatePreset.AWAY if self.legacy_away else ClimatePreset.HOME
+        return self.preset
 
 
 COMPONENT_TYPE_TO_INFO = {
