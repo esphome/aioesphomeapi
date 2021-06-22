@@ -288,13 +288,14 @@ class ClimateAction(APIIntEnum):
 
 
 class ClimatePreset(APIIntEnum):
-    HOME = 0
-    AWAY = 1
-    BOOST = 2
-    COMFORT = 3
-    ECO = 4
-    SLEEP = 5
-    ACTIVITY = 6
+    NONE = 0
+    HOME = 1
+    AWAY = 2
+    BOOST = 3
+    COMFORT = 4
+    ECO = 5
+    SLEEP = 6
+    ACTIVITY = 7
 
 
 @attr.s
