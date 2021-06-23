@@ -251,11 +251,12 @@ class CameraState(EntityState):
 # ==================== CLIMATE ====================
 class ClimateMode(APIIntEnum):
     OFF = 0
-    AUTO = 1
+    HEAT_COOL = 1
     COOL = 2
     HEAT = 3
     FAN_ONLY = 4
     DRY = 5
+    AUTO = 6
 
 
 class ClimateFanMode(APIIntEnum):
@@ -286,6 +287,17 @@ class ClimateAction(APIIntEnum):
     FAN = 6
 
 
+class ClimatePreset(APIIntEnum):
+    NONE = 0
+    HOME = 1
+    AWAY = 2
+    BOOST = 3
+    COMFORT = 4
+    ECO = 5
+    SLEEP = 6
+    ACTIVITY = 7
+
+
 @attr.s
 class ClimateInfo(EntityInfo):
     supports_current_temperature = attr.ib(type=bool, default=False)
@@ -298,7 +310,7 @@ class ClimateInfo(EntityInfo):
     visual_min_temperature = attr.ib(type=float, default=0.0)
     visual_max_temperature = attr.ib(type=float, default=0.0)
     visual_temperature_step = attr.ib(type=float, default=0.0)
-    supports_away = attr.ib(type=bool, default=False)
+    legacy_supports_away = attr.ib(type=bool, default=False)
     supports_action = attr.ib(type=bool, default=False)
     supported_fan_modes = attr.ib(
         type=List[ClimateFanMode],
@@ -310,6 +322,20 @@ class ClimateInfo(EntityInfo):
         converter=ClimateSwingMode.convert_list,  # type: ignore
         factory=list,
     )
+    supported_custom_fan_modes = attr.ib(type=List[str], converter=list, factory=list)
+    supported_presets = attr.ib(
+        type=List[ClimatePreset], converter=ClimatePreset.convert_list, factory=list  # type: ignore
+    )
+    supported_custom_presets = attr.ib(type=List[str], converter=list, factory=list)
+
+    def supported_presets_compat(self, api_version: APIVersion) -> List[ClimatePreset]:
+        if api_version < APIVersion(1, 5):
+            return (
+                [ClimatePreset.HOME, ClimatePreset.AWAY]
+                if self.legacy_supports_away
+                else []
+            )
+        return self.supported_presets
 
 
 @attr.s
@@ -328,7 +354,7 @@ class ClimateState(EntityState):
     target_temperature = attr.ib(type=float, default=0.0)
     target_temperature_low = attr.ib(type=float, default=0.0)
     target_temperature_high = attr.ib(type=float, default=0.0)
-    away = attr.ib(type=bool, default=False)
+    legacy_away = attr.ib(type=bool, default=False)
     fan_mode = attr.ib(
         type=Optional[ClimateFanMode],
         converter=ClimateFanMode.convert,  # type: ignore
@@ -339,6 +365,18 @@ class ClimateState(EntityState):
         converter=ClimateSwingMode.convert,  # type: ignore
         default=ClimateSwingMode.OFF,
     )
+    custom_fan_mode = attr.ib(type=str, default="")
+    preset = attr.ib(
+        type=Optional[ClimatePreset],
+        converter=ClimatePreset.convert,  # type: ignore
+        default=ClimatePreset.HOME,
+    )
+    custom_preset = attr.ib(type=str, default="")
+
+    def preset_compat(self, api_version: APIVersion) -> Optional[ClimatePreset]:
+        if api_version < APIVersion(1, 5):
+            return ClimatePreset.AWAY if self.legacy_away else ClimatePreset.HOME
+        return self.preset
 
 
 COMPONENT_TYPE_TO_INFO = {

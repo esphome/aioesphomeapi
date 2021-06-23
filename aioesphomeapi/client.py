@@ -59,6 +59,7 @@ from aioesphomeapi.model import (
     ClimateFanMode,
     ClimateInfo,
     ClimateMode,
+    ClimatePreset,
     ClimateState,
     ClimateSwingMode,
     CoverInfo,
@@ -471,9 +472,11 @@ class APIClient:
         target_temperature: Optional[float] = None,
         target_temperature_low: Optional[float] = None,
         target_temperature_high: Optional[float] = None,
-        away: Optional[bool] = None,
         fan_mode: Optional[ClimateFanMode] = None,
         swing_mode: Optional[ClimateSwingMode] = None,
+        custom_fan_mode: Optional[str] = None,
+        preset: Optional[ClimatePreset] = None,
+        custom_preset: Optional[str] = None,
     ) -> None:
         self._check_authenticated()
 
@@ -491,15 +494,26 @@ class APIClient:
         if target_temperature_high is not None:
             req.has_target_temperature_high = True
             req.target_temperature_high = target_temperature_high
-        if away is not None:
-            req.has_away = True
-            req.away = away
         if fan_mode is not None:
             req.has_fan_mode = True
             req.fan_mode = fan_mode
         if swing_mode is not None:
             req.has_swing_mode = True
             req.swing_mode = swing_mode
+        if custom_fan_mode is not None:
+            req.has_custom_fan_mode = True
+            req.custom_fan_mode = custom_fan_mode
+        if preset is not None:
+            apiv = cast(APIVersion, self.api_version)
+            if apiv < APIVersion(1, 5):
+                req.has_legacy_away = True
+                req.legacy_away = preset == ClimatePreset.AWAY
+            else:
+                req.has_preset = True
+                req.preset = preset
+        if custom_preset is not None:
+            req.has_custom_preset = True
+            req.custom_preset = custom_preset
         assert self._connection is not None
         await self._connection.send_message(req)
 
