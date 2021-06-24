@@ -289,7 +289,7 @@ class APIClient:
     async def subscribe_logs(
         self,
         on_log: Callable[[SubscribeLogsResponse], None],
-        log_level: Optional[LogLevel] = None,
+        log_level: Optional['LogLevel'] = None,
     ) -> None:
         self._check_authenticated()
 
