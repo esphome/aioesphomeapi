@@ -1,6 +1,17 @@
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import attr
 import zeroconf
@@ -36,7 +47,6 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     ListEntitiesServicesResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
-    LogLevel,
     SensorStateResponse,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -84,6 +94,9 @@ from aioesphomeapi.model import (
     UserServiceArg,
     UserServiceArgType,
 )
+
+if TYPE_CHECKING:
+    from aioesphomeapi.api_pb2 import LogLevel  # type: ignore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -289,7 +302,7 @@ class APIClient:
     async def subscribe_logs(
         self,
         on_log: Callable[[SubscribeLogsResponse], None],
-        log_level: Optional['LogLevel'] = None,
+        log_level: Optional["LogLevel"] = None,
     ) -> None:
         self._check_authenticated()
 
