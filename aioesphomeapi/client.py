@@ -42,11 +42,14 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     ListEntitiesDoneResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
+    ListEntitiesNumberResponse,
     ListEntitiesRequest,
     ListEntitiesSensorResponse,
     ListEntitiesServicesResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    NumberCommandRequest,
+    NumberStateResponse,
     SensorStateResponse,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -84,6 +87,8 @@ from aioesphomeapi.model import (
     LegacyCoverCommand,
     LightInfo,
     LightState,
+    NumberInfo,
+    NumberState,
     SensorInfo,
     SensorState,
     SwitchInfo,
@@ -206,6 +211,7 @@ class APIClient:
             ListEntitiesCoverResponse: CoverInfo,
             ListEntitiesFanResponse: FanInfo,
             ListEntitiesLightResponse: LightInfo,
+            ListEntitiesNumberResponse: NumberInfo,
             ListEntitiesSensorResponse: SensorInfo,
             ListEntitiesSwitchResponse: SwitchInfo,
             ListEntitiesTextSensorResponse: TextSensorInfo,
@@ -265,6 +271,7 @@ class APIClient:
             CoverStateResponse: CoverState,
             FanStateResponse: FanState,
             LightStateResponse: LightState,
+            NumberStateResponse: NumberState,
             SensorStateResponse: SensorState,
             SwitchStateResponse: SwitchState,
             TextSensorStateResponse: TextSensorState,
@@ -527,6 +534,15 @@ class APIClient:
         if custom_preset is not None:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def number_command(self, key: int, state: float) -> None:
+        self._check_authenticated()
+
+        req = NumberCommandRequest()
+        req.key = key
+        req.state = state
         assert self._connection is not None
         await self._connection.send_message(req)
 

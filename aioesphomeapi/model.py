@@ -392,6 +392,21 @@ COMPONENT_TYPE_TO_INFO = {
 }
 
 
+# ==================== NUMBER ====================
+@attr.s
+class NumberInfo(EntityInfo):
+    icon = attr.ib(type=str, default="")
+    min_value = attr.ib(type=float, default=0.0)
+    max_value = attr.ib(type=float, default=0.0)
+    step = attr.ib(type=float, default=0.0)
+
+
+@attr.s
+class NumberState(EntityState):
+    state = attr.ib(type=float, default=0.0)
+    missing_state = attr.ib(type=bool, default=False)
+
+
 # ==================== USER-DEFINED SERVICES ====================
 def _convert_homeassistant_service_map(
     value: Iterable["HomeassistantServiceMap"],
