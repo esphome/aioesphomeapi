@@ -379,19 +379,6 @@ class ClimateState(EntityState):
         return self.preset
 
 
-COMPONENT_TYPE_TO_INFO = {
-    "binary_sensor": BinarySensorInfo,
-    "cover": CoverInfo,
-    "fan": FanInfo,
-    "light": LightInfo,
-    "sensor": SensorInfo,
-    "switch": SwitchInfo,
-    "text_sensor": TextSensorInfo,
-    "camera": CameraInfo,
-    "climate": ClimateInfo,
-}
-
-
 # ==================== NUMBER ====================
 @attr.s
 class NumberInfo(EntityInfo):
@@ -405,6 +392,20 @@ class NumberInfo(EntityInfo):
 class NumberState(EntityState):
     state = attr.ib(type=float, default=0.0)
     missing_state = attr.ib(type=bool, default=False)
+
+
+COMPONENT_TYPE_TO_INFO = {
+    "binary_sensor": BinarySensorInfo,
+    "cover": CoverInfo,
+    "fan": FanInfo,
+    "light": LightInfo,
+    "sensor": SensorInfo,
+    "switch": SwitchInfo,
+    "text_sensor": TextSensorInfo,
+    "camera": CameraInfo,
+    "climate": ClimateInfo,
+    "number": NumberInfo,
+}
 
 
 # ==================== USER-DEFINED SERVICES ====================
