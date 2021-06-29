@@ -113,7 +113,7 @@ class APIClient:
         eventloop: asyncio.AbstractEventLoop,
         address: str,
         port: int,
-        password: str,
+        password: Optional[str],
         *,
         client_info: str = "aioesphomeapi",
         keepalive: float = 15.0,
