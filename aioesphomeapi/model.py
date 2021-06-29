@@ -59,22 +59,22 @@ class APIModelBase:
             # use this setattr to prevent FrozenInstanceError
             super().__setattr__(field_.name, convert(val))
 
-    def asdict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def fromdict(cls: Type[_V], data: Dict[str, Any]) -> _V:
-        init_args = {}
-        for field_ in fields(cls):
-            name = field_.name
-            if name not in data:
-                # Use default
-                continue
-            value = data[name]
-            convert = field_.metadata.get("converter")
-            if convert is not None:
-                value = convert(value)
-            init_args[name] = value
+    def from_dict(cls: Type[_V], data: Dict[str, Any], *, ignore_missing: bool = True) -> _V:
+        init_args = {
+            f.name: data[f.name] for f in fields(cls)
+            if f.name in data or (not ignore_missing)
+        }
+        return cls(**init_args)  # type: ignore
+
+    @classmethod
+    def from_pb(cls: Type[_V], data: Any) -> _V:
+        init_args = {
+            f.name: getattr(data, f.name) for f in fields(cls)
+        }
         return cls(**init_args)  # type: ignore
 
 
@@ -289,11 +289,12 @@ class CameraState(EntityState):
 # ==================== CLIMATE ====================
 class ClimateMode(APIIntEnum):
     OFF = 0
-    AUTO = 1
+    HEAT_COOL = 1
     COOL = 2
     HEAT = 3
     FAN_ONLY = 4
     DRY = 5
+    AUTO = 6
 
 
 class ClimateFanMode(APIIntEnum):
@@ -324,6 +325,17 @@ class ClimateAction(APIIntEnum):
     FAN = 6
 
 
+class ClimatePreset(APIIntEnum):
+    NONE = 0
+    HOME = 1
+    AWAY = 2
+    BOOST = 3
+    COMFORT = 4
+    ECO = 5
+    SLEEP = 6
+    ACTIVITY = 7
+
+
 @dataclass(frozen=True)
 class ClimateInfo(EntityInfo):
     supports_current_temperature: bool = False
@@ -334,7 +346,7 @@ class ClimateInfo(EntityInfo):
     visual_min_temperature: float = 0.0
     visual_max_temperature: float = 0.0
     visual_temperature_step: float = 0.0
-    supports_away: bool = False
+    legacy_supports_away: bool = False
     supports_action: bool = False
     supported_fan_modes: List[ClimateFanMode] = converter_field(
         default_factory=list, converter=ClimateFanMode.convert_list
@@ -342,6 +354,24 @@ class ClimateInfo(EntityInfo):
     supported_swing_modes: List[ClimateSwingMode] = converter_field(
         default_factory=list, converter=ClimateSwingMode.convert_list
     )
+    supported_custom_fan_modes: List[str] = converter_field(
+        default_factory=list, converter=list
+    )
+    supported_presets: List[ClimatePreset] = converter_field(
+        default_factory=list, converter=ClimatePreset.convert_list
+    )
+    supported_custom_presets: List[str] = converter_field(
+        default_factory=list, converter=list
+    )
+
+    def supported_presets_compat(self, api_version: APIVersion) -> List[ClimatePreset]:
+        if api_version < APIVersion(1, 5):
+            return (
+                [ClimatePreset.HOME, ClimatePreset.AWAY]
+                if self.legacy_supports_away
+                else []
+            )
+        return self.supported_presets
 
 
 @dataclass(frozen=True)
@@ -356,13 +386,38 @@ class ClimateState(EntityState):
     target_temperature: float = 0.0
     target_temperature_low: float = 0.0
     target_temperature_high: float = 0.0
-    away: bool = False
+    legacy_away: bool = False
     fan_mode: Optional[ClimateFanMode] = converter_field(
         default=ClimateFanMode.ON, converter=ClimateFanMode.convert
     )
     swing_mode: Optional[ClimateSwingMode] = converter_field(
         default=ClimateSwingMode.OFF, converter=ClimateSwingMode.convert
     )
+    custom_fan_mode: str = ""
+    preset: Optional[ClimatePreset] = converter_field(
+        default=ClimatePreset.HOME, converter=ClimatePreset.convert
+    )
+    custom_preset: str = ""
+
+    def preset_compat(self, api_version: APIVersion) -> Optional[ClimatePreset]:
+        if api_version < APIVersion(1, 5):
+            return ClimatePreset.AWAY if self.legacy_away else ClimatePreset.HOME
+        return self.preset
+
+
+# ==================== NUMBER ====================
+@dataclass(frozen=True)
+class NumberInfo(EntityInfo):
+    icon: str = ""
+    min_value: float = 0.0
+    max_value: float = 0.0
+    step: float = 0.0
+
+
+@dataclass(frozen=True)
+class NumberState(EntityState):
+    state: float = 0.0
+    missing_state: bool = False
 
 
 COMPONENT_TYPE_TO_INFO = {
@@ -375,6 +430,7 @@ COMPONENT_TYPE_TO_INFO = {
     "text_sensor": TextSensorInfo,
     "camera": CameraInfo,
     "climate": ClimateInfo,
+    "number": NumberInfo,
 }
 
 

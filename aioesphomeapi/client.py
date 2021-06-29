@@ -1,7 +1,18 @@
 import asyncio
 import dataclasses
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import zeroconf
 from google.protobuf import message
@@ -31,11 +42,14 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     ListEntitiesDoneResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
+    ListEntitiesNumberResponse,
     ListEntitiesRequest,
     ListEntitiesSensorResponse,
     ListEntitiesServicesResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    NumberCommandRequest,
+    NumberStateResponse,
     SensorStateResponse,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -58,6 +72,7 @@ from aioesphomeapi.model import (
     ClimateFanMode,
     ClimateInfo,
     ClimateMode,
+    ClimatePreset,
     ClimateState,
     ClimateSwingMode,
     CoverInfo,
@@ -73,6 +88,8 @@ from aioesphomeapi.model import (
     LightInfo,
     LightState,
     LogLevel,
+    NumberInfo,
+    NumberState,
     SensorInfo,
     SensorState,
     SwitchInfo,
@@ -173,15 +190,7 @@ class APIClient:
         resp = await self._connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
-        return DeviceInfo(
-            uses_password=resp.uses_password,
-            name=resp.name,
-            mac_address=resp.mac_address,
-            esphome_version=resp.esphome_version,
-            compilation_time=resp.compilation_time,
-            model=resp.model,
-            has_deep_sleep=resp.has_deep_sleep,
-        )
+        return DeviceInfo.from_pb(resp)
 
     async def list_entities_services(
         self,
@@ -192,6 +201,7 @@ class APIClient:
             ListEntitiesCoverResponse: CoverInfo,
             ListEntitiesFanResponse: FanInfo,
             ListEntitiesLightResponse: LightInfo,
+            ListEntitiesNumberResponse: NumberInfo,
             ListEntitiesSensorResponse: SensorInfo,
             ListEntitiesSwitchResponse: SwitchInfo,
             ListEntitiesTextSensorResponse: TextSensorInfo,
@@ -214,20 +224,7 @@ class APIClient:
         services: List[UserService] = []
         for msg in resp:
             if isinstance(msg, ListEntitiesServicesResponse):
-                args = [
-                    UserServiceArg(
-                        name=arg.name,
-                        type=arg.type,
-                    )
-                    for arg in msg.args
-                ]
-                services.append(
-                    UserService(
-                        name=msg.name,
-                        key=msg.key,
-                        args=args,
-                    )
-                )
+                services.append(UserService.from_pb(msg))
                 continue
             cls = None
             for resp_type, cls in response_types.items():
@@ -235,9 +232,7 @@ class APIClient:
                     break
             else:
                 continue
-            cls = cast(type, cls)
-            kwargs = {f.name: getattr(msg, f.name) for f in dataclasses.fields(cls)}
-            entities.append(cls(**kwargs))
+            entities.append(cls.from_pb(msg))
         return entities, services
 
     async def subscribe_states(self, on_state: Callable[[Any], None]) -> None:
@@ -248,6 +243,7 @@ class APIClient:
             CoverStateResponse: CoverState,
             FanStateResponse: FanState,
             LightStateResponse: LightState,
+            NumberStateResponse: NumberState,
             SensorStateResponse: SensorState,
             SwitchStateResponse: SwitchState,
             TextSensorStateResponse: TextSensorState,
@@ -260,7 +256,7 @@ class APIClient:
             if isinstance(msg, CameraImageResponse):
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
-                    on_state(CameraState(key=msg.key, image=data))
+                    on_state(CameraState.from_pb(msg))
                 else:
                     image_stream[msg.key] = data
                 return
@@ -272,8 +268,7 @@ class APIClient:
                 return
 
             # pylint: disable=undefined-loop-variable
-            kwargs = {f.name: getattr(msg, f.name) for f in dataclasses.fields(cls)}
-            on_state(cls(**kwargs))
+            on_state(cls.from_pb(msg))
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
@@ -304,11 +299,7 @@ class APIClient:
 
         def on_msg(msg: message.Message) -> None:
             if isinstance(msg, HomeassistantServiceResponse):
-                kwargs = {
-                    f.name: getattr(msg, f.name)
-                    for f in dataclasses.fields(HomeassistantServiceCall)
-                }
-                on_service_call(HomeassistantServiceCall(**kwargs))
+                on_service_call(HomeassistantServiceCall.from_pb(msg))
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
@@ -467,9 +458,11 @@ class APIClient:
         target_temperature: Optional[float] = None,
         target_temperature_low: Optional[float] = None,
         target_temperature_high: Optional[float] = None,
-        away: Optional[bool] = None,
         fan_mode: Optional[ClimateFanMode] = None,
         swing_mode: Optional[ClimateSwingMode] = None,
+        custom_fan_mode: Optional[str] = None,
+        preset: Optional[ClimatePreset] = None,
+        custom_preset: Optional[str] = None,
     ) -> None:
         self._check_authenticated()
 
@@ -487,15 +480,35 @@ class APIClient:
         if target_temperature_high is not None:
             req.has_target_temperature_high = True
             req.target_temperature_high = target_temperature_high
-        if away is not None:
-            req.has_away = True
-            req.away = away
         if fan_mode is not None:
             req.has_fan_mode = True
             req.fan_mode = fan_mode
         if swing_mode is not None:
             req.has_swing_mode = True
             req.swing_mode = swing_mode
+        if custom_fan_mode is not None:
+            req.has_custom_fan_mode = True
+            req.custom_fan_mode = custom_fan_mode
+        if preset is not None:
+            apiv = cast(APIVersion, self.api_version)
+            if apiv < APIVersion(1, 5):
+                req.has_legacy_away = True
+                req.legacy_away = preset == ClimatePreset.AWAY
+            else:
+                req.has_preset = True
+                req.preset = preset
+        if custom_preset is not None:
+            req.has_custom_preset = True
+            req.custom_preset = custom_preset
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def number_command(self, key: int, state: float) -> None:
+        self._check_authenticated()
+
+        req = NumberCommandRequest()
+        req.key = key
+        req.state = state
         assert self._connection is not None
         await self._connection.send_message(req)
 
