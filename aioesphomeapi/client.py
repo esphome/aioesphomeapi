@@ -1,8 +1,6 @@
 import asyncio
-import dataclasses
 import logging
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -10,6 +8,7 @@ from typing import (
     List,
     Optional,
     Tuple,
+    Type,
     Union,
     cast,
 )
@@ -79,6 +78,7 @@ from aioesphomeapi.model import (
     CoverState,
     DeviceInfo,
     EntityInfo,
+    EntityState,
     FanDirection,
     FanInfo,
     FanSpeed,
@@ -97,7 +97,6 @@ from aioesphomeapi.model import (
     TextSensorInfo,
     TextSensorState,
     UserService,
-    UserServiceArg,
     UserServiceArgType,
 )
 
@@ -196,7 +195,7 @@ class APIClient:
         self,
     ) -> Tuple[List[EntityInfo], List[UserService]]:
         self._check_authenticated()
-        response_types = {
+        response_types: Dict[Any, Optional[Type[EntityInfo]]] = {
             ListEntitiesBinarySensorResponse: BinarySensorInfo,
             ListEntitiesCoverResponse: CoverInfo,
             ListEntitiesFanResponse: FanInfo,
@@ -232,13 +231,14 @@ class APIClient:
                     break
             else:
                 continue
+            assert cls is not None
             entities.append(cls.from_pb(msg))
         return entities, services
 
-    async def subscribe_states(self, on_state: Callable[[Any], None]) -> None:
+    async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         self._check_authenticated()
 
-        response_types = {
+        response_types: Dict[Any, Type[EntityState]] = {
             BinarySensorStateResponse: BinarySensorState,
             CoverStateResponse: CoverState,
             FanStateResponse: FanState,
