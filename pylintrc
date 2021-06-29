@@ -14,4 +14,5 @@ disable=
   unused-wildcard-import,
   import-outside-toplevel,
   raise-missing-from,
+  bad-mcs-classmethod-argument,
   duplicate-code,

@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -9,11 +8,11 @@ from typing import (
     List,
     Optional,
     Tuple,
+    Type,
     Union,
     cast,
 )
 
-import attr
 import zeroconf
 from google.protobuf import message
 
@@ -79,6 +78,7 @@ from aioesphomeapi.model import (
     CoverState,
     DeviceInfo,
     EntityInfo,
+    EntityState,
     FanDirection,
     FanInfo,
     FanSpeed,
@@ -87,6 +87,7 @@ from aioesphomeapi.model import (
     LegacyCoverCommand,
     LightInfo,
     LightState,
+    LogLevel,
     NumberInfo,
     NumberState,
     SensorInfo,
@@ -96,12 +97,8 @@ from aioesphomeapi.model import (
     TextSensorInfo,
     TextSensorState,
     UserService,
-    UserServiceArg,
     UserServiceArgType,
 )
-
-if TYPE_CHECKING:
-    from aioesphomeapi.api_pb2 import LogLevel  # type: ignore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -192,21 +189,13 @@ class APIClient:
         resp = await self._connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
-        return DeviceInfo(
-            uses_password=resp.uses_password,
-            name=resp.name,
-            mac_address=resp.mac_address,
-            esphome_version=resp.esphome_version,
-            compilation_time=resp.compilation_time,
-            model=resp.model,
-            has_deep_sleep=resp.has_deep_sleep,
-        )
+        return DeviceInfo.from_pb(resp)
 
     async def list_entities_services(
         self,
     ) -> Tuple[List[EntityInfo], List[UserService]]:
         self._check_authenticated()
-        response_types = {
+        response_types: Dict[Any, Optional[Type[EntityInfo]]] = {
             ListEntitiesBinarySensorResponse: BinarySensorInfo,
             ListEntitiesCoverResponse: CoverInfo,
             ListEntitiesFanResponse: FanInfo,
@@ -234,21 +223,7 @@ class APIClient:
         services: List[UserService] = []
         for msg in resp:
             if isinstance(msg, ListEntitiesServicesResponse):
-                args = []
-                for arg in msg.args:
-                    args.append(
-                        UserServiceArg(
-                            name=arg.name,
-                            type_=arg.type,
-                        )
-                    )
-                services.append(
-                    UserService(
-                        name=msg.name,
-                        key=msg.key,
-                        args=args,  # type: ignore
-                    )
-                )
+                services.append(UserService.from_pb(msg))
                 continue
             cls = None
             for resp_type, cls in response_types.items():
@@ -256,17 +231,14 @@ class APIClient:
                     break
             else:
                 continue
-            cls = cast(type, cls)
-            kwargs = {}
-            for key, _ in attr.fields_dict(cls).items():
-                kwargs[key] = getattr(msg, key)
-            entities.append(cls(**kwargs))
+            assert cls is not None
+            entities.append(cls.from_pb(msg))
         return entities, services
 
-    async def subscribe_states(self, on_state: Callable[[Any], None]) -> None:
+    async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         self._check_authenticated()
 
-        response_types = {
+        response_types: Dict[Any, Type[EntityState]] = {
             BinarySensorStateResponse: BinarySensorState,
             CoverStateResponse: CoverState,
             FanStateResponse: FanState,
@@ -284,7 +256,7 @@ class APIClient:
             if isinstance(msg, CameraImageResponse):
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
-                    on_state(CameraState(key=msg.key, image=data))
+                    on_state(CameraState.from_pb(msg))
                 else:
                     image_stream[msg.key] = data
                 return
@@ -295,11 +267,8 @@ class APIClient:
             else:
                 return
 
-            kwargs = {}
             # pylint: disable=undefined-loop-variable
-            for key, _ in attr.fields_dict(cls).items():
-                kwargs[key] = getattr(msg, key)
-            on_state(cls(**kwargs))
+            on_state(cls.from_pb(msg))
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
@@ -309,7 +278,7 @@ class APIClient:
     async def subscribe_logs(
         self,
         on_log: Callable[[SubscribeLogsResponse], None],
-        log_level: Optional["LogLevel"] = None,
+        log_level: Optional[LogLevel] = None,
     ) -> None:
         self._check_authenticated()
 
@@ -330,10 +299,7 @@ class APIClient:
 
         def on_msg(msg: message.Message) -> None:
             if isinstance(msg, HomeassistantServiceResponse):
-                kwargs = {}
-                for key, _ in attr.fields_dict(HomeassistantServiceCall).items():
-                    kwargs[key] = getattr(msg, key)
-                on_service_call(HomeassistantServiceCall(**kwargs))
+                on_service_call(HomeassistantServiceCall.from_pb(msg))
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
@@ -571,12 +537,12 @@ class APIClient:
                 UserServiceArgType.FLOAT_ARRAY: "float_array",
                 UserServiceArgType.STRING_ARRAY: "string_array",
             }
-            # pylint: disable=redefined-outer-name
-            if arg_desc.type_ in map_array:
-                attr = getattr(arg, map_array[arg_desc.type_])
+            if arg_desc.type in map_array:
+                attr = getattr(arg, map_array[arg_desc.type])
                 attr.extend(val)
             else:
-                setattr(arg, map_single[arg_desc.type_], val)
+                assert arg_desc.type in map_single
+                setattr(arg, map_single[arg_desc.type], val)
 
             args.append(arg)
         # pylint: disable=no-member

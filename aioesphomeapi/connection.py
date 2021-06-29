@@ -2,9 +2,9 @@ import asyncio
 import logging
 import socket
 import time
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, List, Optional, cast
 
-import attr
 import zeroconf
 from google.protobuf import message
 
@@ -27,15 +27,15 @@ from aioesphomeapi.util import _bytes_to_varuint, _varuint_to_bytes, resolve_ip_
 _LOGGER = logging.getLogger(__name__)
 
 
-@attr.s
+@dataclass
 class ConnectionParams:
-    eventloop = attr.ib(type=asyncio.events.AbstractEventLoop)
-    address = attr.ib(type=str)
-    port = attr.ib(type=int)
-    password = attr.ib(type=Optional[str])
-    client_info = attr.ib(type=str)
-    keepalive = attr.ib(type=float)
-    zeroconf_instance = attr.ib(type=Optional[zeroconf.Zeroconf])
+    eventloop: asyncio.events.AbstractEventLoop
+    address: str
+    port: int
+    password: Optional[str]
+    client_info: str
+    keepalive: float
+    zeroconf_instance: Optional[zeroconf.Zeroconf]
 
 
 class APIConnection:
