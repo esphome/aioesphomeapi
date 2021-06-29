@@ -100,6 +100,8 @@ class DeviceInfo(APIModelBase):
     model: str = ""
     has_deep_sleep: bool = False
     esphome_version: str = ""
+    project_name: str = ""
+    project_version: str = ""
 
 
 @dataclass(frozen=True)
