@@ -56,6 +56,7 @@ class APIConnection:
         self._api_version: Optional[APIVersion] = None
 
         self._message_handlers: List[Callable[[message.Message], None]] = []
+        self.log_name = params.address
 
     def _start_ping(self) -> None:
         async def func() -> None:
@@ -68,7 +69,7 @@ class APIConnection:
                 try:
                     await self.ping()
                 except APIConnectionError:
-                    _LOGGER.info("%s: Ping Failed!", self._params.address)
+                    _LOGGER.info("%s: Ping Failed!", self.log_name)
                     await self._on_error()
                     return
 
@@ -87,7 +88,7 @@ class APIConnection:
         self._socket_connected = False
         self._connected = False
         self._authenticated = False
-        _LOGGER.debug("%s: Closed socket", self._params.address)
+        _LOGGER.debug("%s: Closed socket", self.log_name)
 
     async def stop(self, force: bool = False) -> None:
         if self._stopped:
@@ -106,9 +107,9 @@ class APIConnection:
 
     async def connect(self) -> None:
         if self._stopped:
-            raise APIConnectionError("Connection is closed!")
+            raise APIConnectionError(f"Connection is closed for {self.log_name}!")
         if self._connected:
-            raise APIConnectionError("Already connected!")
+            raise APIConnectionError(f"Already connected for {self.log_name}!")
 
         try:
             coro = resolve_ip_address(
@@ -123,7 +124,9 @@ class APIConnection:
             raise err
         except asyncio.TimeoutError:
             await self._on_error()
-            raise APIConnectionError("Timeout while resolving IP address")
+            raise APIConnectionError(
+                f"Timeout while resolving IP address for {self.log_name}"
+            )
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.setblocking(False)
@@ -131,7 +134,7 @@ class APIConnection:
 
         _LOGGER.debug(
             "%s: Connecting to %s:%s (%s)",
-            self._params.address,
+            self.log_name,
             self._params.address,
             self._params.port,
             sockaddr,
@@ -162,7 +165,7 @@ class APIConnection:
             raise err
         _LOGGER.debug(
             "%s: Successfully connected ('%s' API=%s.%s)",
-            self._params.address,
+            self.log_name,
             resp.server_info,
             resp.api_version_major,
             resp.api_version_minor,
@@ -171,7 +174,7 @@ class APIConnection:
         if self._api_version.major > 2:
             _LOGGER.error(
                 "%s: Incompatible version %s! Closing connection",
-                self._params.address,
+                self.log_name,
                 self._api_version.major,
             )
             await self._on_error()
@@ -343,7 +346,7 @@ class APIConnection:
             except APIConnectionError as err:
                 _LOGGER.info(
                     "%s: Error while reading incoming messages: %s",
-                    self._params.address,
+                    self.log_name,
                     err,
                 )
                 await self._on_error()
@@ -351,7 +354,7 @@ class APIConnection:
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.info(
                     "%s: Unexpected error while reading incoming messages: %s",
-                    self._params.address,
+                    self.log_name,
                     err,
                 )
                 await self._on_error()

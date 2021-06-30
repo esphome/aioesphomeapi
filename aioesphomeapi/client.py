@@ -117,7 +117,7 @@ class APIClient:
         *,
         client_info: str = "aioesphomeapi",
         keepalive: float = 15.0,
-        zeroconf_instance: Optional[zeroconf.Zeroconf] = None
+        zeroconf_instance: Optional[zeroconf.Zeroconf] = None,
     ):
         self._params = ConnectionParams(
             eventloop=eventloop,
@@ -129,6 +129,17 @@ class APIClient:
             zeroconf_instance=zeroconf_instance,
         )
         self._connection = None  # type: Optional[APIConnection]
+        self._cached_name: Optional[str] = None
+
+    @property
+    def address(self) -> str:
+        return self._params.address
+
+    @property
+    def _log_name(self) -> str:
+        if self._cached_name is not None:
+            return f"{self._cached_name} @ {self.address}"
+        return self.address
 
     async def connect(
         self,
@@ -136,7 +147,7 @@ class APIClient:
         login: bool = False,
     ) -> None:
         if self._connection is not None:
-            raise APIConnectionError("Already connected!")
+            raise APIConnectionError(f"Already connected to {self._log_name}!")
 
         connected = False
         stopped = False
@@ -152,6 +163,7 @@ class APIClient:
                 await on_stop()
 
         self._connection = APIConnection(self._params, _on_stop)
+        self._connection.log_name = self._log_name
 
         try:
             await self._connection.connect()
@@ -162,7 +174,9 @@ class APIClient:
             raise
         except Exception as e:
             await _on_stop()
-            raise APIConnectionError("Unexpected error while connecting: {}".format(e))
+            raise APIConnectionError(
+                f"Unexpected error while connecting to {self._log_name}: {e}"
+            ) from e
 
         connected = True
 
@@ -173,15 +187,15 @@ class APIClient:
 
     def _check_connected(self) -> None:
         if self._connection is None:
-            raise APIConnectionError("Not connected!")
+            raise APIConnectionError(f"Not connected to {self._log_name}!")
         if not self._connection.is_connected:
-            raise APIConnectionError("Connection not done!")
+            raise APIConnectionError(f"Connection not done for {self._log_name}!")
 
     def _check_authenticated(self) -> None:
         self._check_connected()
         assert self._connection is not None
         if not self._connection.is_authenticated:
-            raise APIConnectionError("Not authenticated!")
+            raise APIConnectionError(f"Not authenticated for {self._log_name}!")
 
     async def device_info(self) -> DeviceInfo:
         self._check_connected()
@@ -189,7 +203,10 @@ class APIClient:
         resp = await self._connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
-        return DeviceInfo.from_pb(resp)
+        info = DeviceInfo.from_pb(resp)
+        self._cached_name = info.name
+        self._connection.log_name = self._log_name
+        return info
 
     async def list_entities_services(
         self,
