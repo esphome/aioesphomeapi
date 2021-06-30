@@ -1,7 +1,6 @@
 import asyncio
 import logging
-from collections.abc import Awaitable
-from typing import Callable, List, Optional
+from typing import Awaitable, Callable, List, Optional
 
 from zeroconf import (  # type: ignore[attr-defined]
     DNSPointer,
