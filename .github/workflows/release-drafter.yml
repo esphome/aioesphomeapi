@@ -1,0 +1,37 @@
+
+name: Release Drafter
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  update_release_draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@v5
+        id: release-draft
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Update version number in setup.py
+      - uses: actions/checkout@v2
+      - name: Calculate version
+        id: version
+        run: |
+          tag="${{ steps.release-draft.outputs.tag_name }}"
+          echo "::set-output name=version::${tag:1}"
+
+      - name: Set setup.py version
+        run: |
+          sed -i "s/VERSION = .*/VERSION = \"${{ steps.version.outputs.version }}\"/g" setup.py
+      # github actions email from here: https://github.community/t/github-actions-bot-email-address/17204
+      - name: Commit changes
+        run: |
+          if ! git diff --quiet; then
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "Bump version to ${{ steps.version.outputs.version }}"
+            git push
+          fi
