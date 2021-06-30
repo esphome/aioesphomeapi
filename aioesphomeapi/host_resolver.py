@@ -1,97 +1,181 @@
+import asyncio
 import socket
-import time
-from typing import Optional
+from dataclasses import dataclass
+from typing import List, Tuple, Union, cast
 
 import zeroconf
+from zeroconf import Zeroconf
+from zeroconf.asyncio import AsyncZeroconf
+
+from .core import APIConnectionError
+
+ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
 
 
-class HostResolver(zeroconf.RecordUpdateListener):
-    def __init__(self, name: str):
-        self.name = name
-        self.address: Optional[bytes] = None
-
-    def update_record(
-        self, zc: zeroconf.Zeroconf, now: float, record: zeroconf.DNSRecord
-    ) -> None:
-        if record is None:
-            return
-        if record.type == zeroconf._TYPE_A:
-            assert isinstance(record, zeroconf.DNSAddress)
-            if record.name == self.name:
-                self.address = record.address
-
-    def request(self, zc: zeroconf.Zeroconf, timeout: float) -> bool:
-        now = time.time()
-        delay = 0.2
-        next_ = now + delay
-        last = now + timeout
-
-        try:
-            zc.add_listener(
-                self,
-                zeroconf.DNSQuestion(self.name, zeroconf._TYPE_ANY, zeroconf._CLASS_IN),
-            )
-            while self.address is None:
-                if last <= now:
-                    # Timeout
-                    return False
-                if next_ <= now:
-                    out = zeroconf.DNSOutgoing(zeroconf._FLAGS_QR_QUERY)
-                    out.add_question(
-                        zeroconf.DNSQuestion(
-                            self.name, zeroconf._TYPE_A, zeroconf._CLASS_IN
-                        )
-                    )
-                    out.add_answer_at_time(
-                        zc.cache.get_by_details(
-                            self.name, zeroconf._TYPE_A, zeroconf._CLASS_IN
-                        ),
-                        now,
-                    )
-                    zc.send(out)
-                    next_ = now + delay
-                    delay *= 2
-
-                zc.wait(min(next_, last) - now)
-                now = time.time()
-        finally:
-            zc.remove_listener(self)
-
-        return True
+@dataclass(frozen=True)
+class Sockaddr:
+    pass
 
 
-def resolve_host(
+@dataclass(frozen=True)
+class IPv4Sockaddr(Sockaddr):
+    address: str
+    port: int
+
+
+@dataclass(frozen=True)
+class IPv6Sockaddr(Sockaddr):
+    address: str
+    port: int
+    flowinfo: int
+    scope_id: int
+
+
+@dataclass(frozen=True)
+class AddrInfo:
+    family: int
+    type: int
+    proto: int
+    sockaddr: Sockaddr
+
+
+async def _async_resolve_host_zeroconf(  # pylint: disable=too-many-branches
     host: str,
+    port: int,
+    *,
     timeout: float = 3.0,
-    zeroconf_instance: Optional[zeroconf.Zeroconf] = None,
-) -> str:
-    from aioesphomeapi.core import APIConnectionError
-
-    try:
-        zc = zeroconf_instance or zeroconf.Zeroconf()
-    except Exception:
-        raise APIConnectionError(
-            "Cannot start mDNS sockets, is this a docker container without "
-            "host network mode?"
+    zeroconf_instance: ZeroconfInstanceType = None,
+) -> List[AddrInfo]:
+    # Use or create zeroconf instance, ensure it's an AsyncZeroconf
+    if zeroconf_instance is None:
+        try:
+            zc = AsyncZeroconf()
+        except Exception:
+            raise APIConnectionError(
+                "Cannot start mDNS sockets, is this a docker container without "
+                "host network mode?"
+            )
+        do_close = True
+    elif isinstance(zeroconf_instance, AsyncZeroconf):
+        zc = zeroconf_instance
+        do_close = False
+    elif isinstance(zeroconf_instance, Zeroconf):
+        zc = AsyncZeroconf(zc=zeroconf_instance)
+        do_close = False
+    else:
+        raise ValueError(
+            f"Invalid type passed for zeroconf_instance: {type(zeroconf_instance)}"
         )
 
+    service_type = "_esphomelib._tcp.local."
+    service_name = f"{host}.{service_type}"
+
     try:
-        info = HostResolver(host + ".")
-        assert info.address is not None
-        address = None
-        if info.request(zc, timeout):
-            address = socket.inet_ntoa(info.address)
-    except Exception as err:
+        info = await zc.async_get_service_info(
+            service_type, service_name, int(timeout * 1000)
+        )
+    except Exception as exc:
         raise APIConnectionError(
-            "Error resolving mDNS hostname: {}".format(err)
-        ) from err
+            f"Error resolving host {host} via mDNS: {exc}"
+        ) from exc
     finally:
-        if not zeroconf_instance:
-            zc.close()
+        if do_close:
+            await zc.async_close()
 
-    if address is None:
-        raise APIConnectionError(
-            "Error resolving address with mDNS: Did not respond. "
-            "Maybe the device is offline."
+    if info is None:
+        return []
+
+    addrs: List[AddrInfo] = []
+    for raw in info.addresses_by_version(zeroconf.IPVersion.All):
+        is_ipv6 = len(raw) == 16
+        sockaddr: Sockaddr
+        if is_ipv6:
+            sockaddr = IPv6Sockaddr(
+                address=socket.inet_ntop(socket.AF_INET6, raw),
+                port=port,
+                flowinfo=0,
+                scope_id=0,
+            )
+        else:
+            sockaddr = IPv4Sockaddr(
+                address=socket.inet_ntop(socket.AF_INET, raw),
+                port=port,
+            )
+
+        addrs.append(
+            AddrInfo(
+                family=socket.AF_INET6 if is_ipv6 else socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=sockaddr,
+            )
         )
-    return address
+    return addrs
+
+
+async def _async_resolve_host_getaddrinfo(
+    eventloop: asyncio.events.AbstractEventLoop, host: str, port: int
+) -> List[AddrInfo]:
+    try:
+        # Limit to TCP IP protocol
+        res = await eventloop.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except OSError as err:
+        raise APIConnectionError("Error resolving IP address: {}".format(err))
+
+    addrs: List[AddrInfo] = []
+    for family, type_, proto, _, raw in res:
+        sockaddr: Sockaddr
+        if family == socket.AF_INET:
+            raw = cast(Tuple[str, int], raw)
+            address, port = raw
+            sockaddr = IPv4Sockaddr(address=address, port=port)
+        elif family == socket.AF_INET6:
+            raw = cast(Tuple[str, int, int, int], raw)
+            address, port, flowinfo, scope_id = raw
+            sockaddr = IPv6Sockaddr(
+                address=address, port=port, flowinfo=flowinfo, scope_id=scope_id
+            )
+        else:
+            # Unknown family
+            continue
+
+        addrs.append(
+            AddrInfo(family=family, type=type_, proto=proto, sockaddr=sockaddr)
+        )
+    return addrs
+
+
+async def async_resolve_host(
+    eventloop: asyncio.events.AbstractEventLoop,
+    host: str,
+    port: int,
+    zeroconf_instance: ZeroconfInstanceType = None,
+) -> AddrInfo:
+    addrs: List[AddrInfo] = []
+
+    zc_error = None
+    if host.endswith(".local"):
+        name = host[: -len(".local")]
+        try:
+            addrs.extend(
+                await _async_resolve_host_zeroconf(
+                    name, port, zeroconf_instance=zeroconf_instance
+                )
+            )
+        except APIConnectionError as err:
+            zc_error = err
+
+    if not addrs:
+        addrs.extend(await _async_resolve_host_getaddrinfo(eventloop, host, port))
+
+    if not addrs:
+        if zc_error:
+            # Only show ZC error if getaddrinfo also didn't work
+            raise zc_error
+        raise APIConnectionError(
+            f"Could not resolve host {host} - got no results from OS"
+        )
+
+    # Use first matching result
+    # Future: return all matches and use first working one
+    return addrs[0]
