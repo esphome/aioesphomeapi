@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio.events import AbstractEventLoop
 from typing import (
     Any,
     Awaitable,
