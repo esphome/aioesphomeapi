@@ -2,7 +2,7 @@ name: Update protobuf generated files
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   protoc-update:
