@@ -2,13 +2,12 @@ import asyncio
 import logging
 import socket
 import time
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from typing import Any, Awaitable, Callable, List, Optional, cast
 
-import zeroconf
 from google.protobuf import message
 
-from aioesphomeapi.api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
     DisconnectRequest,
@@ -20,9 +19,10 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     PingRequest,
     PingResponse,
 )
-from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, APIConnectionError
-from aioesphomeapi.model import APIVersion
-from aioesphomeapi.util import _bytes_to_varuint, _varuint_to_bytes, resolve_ip_address
+from .core import MESSAGE_TYPE_TO_PROTO, APIConnectionError
+from .host_resolver import ZeroconfInstanceType, async_resolve_host
+from .model import APIVersion
+from .util import bytes_to_varuint, varuint_to_bytes
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class ConnectionParams:
     password: Optional[str]
     client_info: str
     keepalive: float
-    zeroconf_instance: Optional[zeroconf.Zeroconf]
+    zeroconf_instance: ZeroconfInstanceType
 
 
 class APIConnection:
@@ -111,13 +111,13 @@ class APIConnection:
             raise APIConnectionError("Already connected!")
 
         try:
-            coro = resolve_ip_address(
+            coro = async_resolve_host(
                 self._params.eventloop,
                 self._params.address,
                 self._params.port,
                 self._params.zeroconf_instance,
             )
-            sockaddr = await asyncio.wait_for(coro, 30.0)
+            addr = await asyncio.wait_for(coro, 30.0)
         except APIConnectionError as err:
             await self._on_error()
             raise err
@@ -125,7 +125,9 @@ class APIConnection:
             await self._on_error()
             raise APIConnectionError("Timeout while resolving IP address")
 
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket = socket.socket(
+            family=addr.family, type=addr.type, proto=addr.proto
+        )
         self._socket.setblocking(False)
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
@@ -134,17 +136,18 @@ class APIConnection:
             self._params.address,
             self._params.address,
             self._params.port,
-            sockaddr,
+            addr,
         )
+        sockaddr = astuple(addr.sockaddr)
         try:
             coro2 = self._params.eventloop.sock_connect(self._socket, sockaddr)
             await asyncio.wait_for(coro2, 30.0)
         except OSError as err:
             await self._on_error()
-            raise APIConnectionError("Error connecting to {}: {}".format(sockaddr, err))
+            raise APIConnectionError(f"Error connecting to {sockaddr}: {err}")
         except asyncio.TimeoutError:
             await self._on_error()
-            raise APIConnectionError("Timeout while connecting to {}".format(sockaddr))
+            raise APIConnectionError(f"Timeout while connecting to {sockaddr}")
 
         _LOGGER.debug("%s: Opened socket for", self._params.address)
         self._socket_reader, self._socket_writer = await asyncio.open_connection(
@@ -230,9 +233,9 @@ class APIConnection:
         encoded = msg.SerializeToString()
         _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
         req = bytes([0])
-        req += _varuint_to_bytes(len(encoded))
+        req += varuint_to_bytes(len(encoded))
         # pylint: disable=undefined-loop-variable
-        req += _varuint_to_bytes(message_type)
+        req += varuint_to_bytes(message_type)
         req += encoded
         await self._write(req)
 
@@ -307,7 +310,7 @@ class APIConnection:
         raw = bytes()
         while not raw or raw[-1] & 0x80:
             raw += await self._recv(1)
-        return cast(int, _bytes_to_varuint(raw))
+        return cast(int, bytes_to_varuint(raw))
 
     async def _run_once(self) -> None:
         preamble = await self._recv(1)

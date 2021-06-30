@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from asyncio.events import AbstractEventLoop
 from typing import (
     Any,
     Awaitable,
@@ -13,10 +14,9 @@ from typing import (
     cast,
 )
 
-import zeroconf
 from google.protobuf import message
 
-from aioesphomeapi.api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     CameraImageRequest,
     CameraImageResponse,
@@ -60,9 +60,10 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     SwitchStateResponse,
     TextSensorStateResponse,
 )
-from aioesphomeapi.connection import APIConnection, ConnectionParams
-from aioesphomeapi.core import APIConnectionError
-from aioesphomeapi.model import (
+from .connection import APIConnection, ConnectionParams
+from .core import APIConnectionError
+from .host_resolver import ZeroconfInstanceType
+from .model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
@@ -107,6 +108,7 @@ ExecuteServiceDataType = Dict[
 ]
 
 
+# pylint: disable=too-many-public-methods
 class APIClient:
     def __init__(
         self,
@@ -117,7 +119,7 @@ class APIClient:
         *,
         client_info: str = "aioesphomeapi",
         keepalive: float = 15.0,
-        zeroconf_instance: Optional[zeroconf.Zeroconf] = None
+        zeroconf_instance: ZeroconfInstanceType = None,
     ):
         self._params = ConnectionParams(
             eventloop=eventloop,
@@ -128,7 +130,7 @@ class APIClient:
             keepalive=keepalive,
             zeroconf_instance=zeroconf_instance,
         )
-        self._connection = None  # type: Optional[APIConnection]
+        self._connection: Optional[APIConnection] = None
 
     async def connect(
         self,
