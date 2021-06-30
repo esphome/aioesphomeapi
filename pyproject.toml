@@ -2,3 +2,29 @@
 profile = "black"
 multi_line_output = 3
 extend_skip = ["api_pb2.py", "api_options_pb2.py"]
+
+[tool.black]
+exclude = 'api_pb2.py|api_options_pb2.py'
+target-version = ['py37']
+
+[tool.pylint.MASTER]
+reports = 'no'
+ignore = [
+    "api_pb2.py",
+    "api_options_pb2.py"
+]
+disable = [
+  "missing-docstring",
+  "too-few-public-methods",
+  "too-many-instance-attributes",
+  "wildcard-import",
+  "invalid-name",
+  "too-many-arguments",
+  "line-too-long",
+  "protected-access",
+  "unused-wildcard-import",
+  "import-outside-toplevel",
+  "raise-missing-from",
+  "bad-mcs-classmethod-argument",
+  "duplicate-code",
+]

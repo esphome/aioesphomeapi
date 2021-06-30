@@ -423,7 +423,7 @@ class NumberState(EntityState):
     missing_state: bool = False
 
 
-COMPONENT_TYPE_TO_INFO = {
+COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
     "fan": FanInfo,
