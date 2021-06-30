@@ -1,4 +1,4 @@
-from aioesphomeapi.api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     CameraImageRequest,
     CameraImageResponse,
