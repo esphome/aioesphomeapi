@@ -1,2 +1,2 @@
 protobuf>=3.12.2,<4.0
-zeroconf>=0.28.0,<1.0
+zeroconf>=0.32.0,<1.0
