@@ -286,7 +286,7 @@ class CameraInfo(EntityInfo):
 
 @dataclass(frozen=True)
 class CameraState(EntityState):
-    image: bytes = field(default_factory=bytes)
+    data: bytes = field(default_factory=bytes)
 
 
 # ==================== CLIMATE ====================
