@@ -274,7 +274,8 @@ class APIClient:
             if isinstance(msg, CameraImageResponse):
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
-                    on_state(CameraState.from_pb(msg))
+                    # Return CameraState with the merged data
+                    on_state(CameraState(key=msg.key, data=data))
                 else:
                     image_stream[msg.key] = data
                 return
