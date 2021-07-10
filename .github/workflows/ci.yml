@@ -14,21 +14,30 @@ jobs:
         include:
           - id: flake8
             name: Lint with flake8
+            python-version: 3.7
           - id: pylint
             name: Lint with pylint
+            python-version: 3.7
           - id: black
             name: Check formatting with black
+            python-version: 3.7
           - id: isort
             name: Check import order with isort
+            python-version: 3.7
           - id: mypy
             name: Check typing with mypy
+            python-version: 3.7
+          # Run pytest with 3.8+ for unitest.mock.AsyncMock
+          - id: pytest
+            name: Run tests with pytest
+            python-version: 3.8
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python
         uses: actions/setup-python@v2
         id: python
         with:
-          python-version: '3.7'
+          python-version: '${{ matrix.python-version }}'
       
       - name: Get pip cache dir
         id: pip-cache
@@ -52,6 +61,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/isort.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
+          echo "::add-matcher::.github/workflows/matchers/pytest.json"
       
       - run: flake8 aioesphomeapi
         if: ${{ matrix.id == 'flake8' }}
@@ -63,3 +73,5 @@ jobs:
         if: ${{ matrix.id == 'isort' }}
       - run: mypy aioesphomeapi
         if: ${{ matrix.id == 'mypy' }}
+      - run: pytest -vv --tb=native tests
+        if: ${{ matrix.id == 'pytest' }}

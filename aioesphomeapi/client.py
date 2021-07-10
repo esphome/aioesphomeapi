@@ -274,7 +274,6 @@ class APIClient:
             if isinstance(msg, CameraImageResponse):
                 data = image_stream.pop(msg.key, bytes()) + msg.data
                 if msg.done:
-                    # Return CameraState with the merged data
                     on_state(CameraState(key=msg.key, data=data))
                 else:
                     image_stream[msg.key] = data
@@ -375,13 +374,15 @@ class APIClient:
             if stop:
                 req.stop = stop
         else:
-            req.has_legacy_command = True
             if stop:
                 req.legacy_command = LegacyCoverCommand.STOP
+                req.has_legacy_command = True
             elif position == 1.0:
                 req.legacy_command = LegacyCoverCommand.OPEN
-            else:
+                req.has_legacy_command = True
+            elif position == 0.0:
                 req.legacy_command = LegacyCoverCommand.CLOSE
+                req.has_legacy_command = True
         assert self._connection is not None
         await self._connection.send_message(req)
 

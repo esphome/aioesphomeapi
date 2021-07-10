@@ -168,9 +168,9 @@ class CoverState(EntityState):
     )
 
     def is_closed(self, api_version: APIVersion) -> bool:
-        if api_version >= APIVersion(1, 1):
-            return self.position == 0.0
-        return self.legacy_state == LegacyCoverState.CLOSED
+        if api_version < APIVersion(1, 1):
+            return self.legacy_state == LegacyCoverState.CLOSED
+        return self.position == 0.0
 
 
 # ==================== FAN ====================
@@ -398,7 +398,7 @@ class ClimateState(EntityState):
     )
     custom_fan_mode: str = ""
     preset: Optional[ClimatePreset] = converter_field(
-        default=ClimatePreset.HOME, converter=ClimatePreset.convert
+        default=ClimatePreset.NONE, converter=ClimatePreset.convert
     )
     custom_preset: str = ""
 

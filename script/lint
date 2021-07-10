@@ -3,8 +3,9 @@
 cd "$(dirname "$0")/.."
 set -euxo pipefail
 
-black --safe aioesphomeapi
+black --safe aioesphomeapi tests
 pylint aioesphomeapi
 flake8 aioesphomeapi
-isort aioesphomeapi
+isort aioesphomeapi tests
 mypy aioesphomeapi
+pytest tests

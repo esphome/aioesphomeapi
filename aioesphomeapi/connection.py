@@ -7,6 +7,8 @@ from typing import Any, Awaitable, Callable, List, Optional, cast
 
 from google.protobuf import message
 
+import aioesphomeapi.host_resolver as hr
+
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
@@ -20,7 +22,6 @@ from .api_pb2 import (  # type: ignore
     PingResponse,
 )
 from .core import MESSAGE_TYPE_TO_PROTO, APIConnectionError
-from .host_resolver import ZeroconfInstanceType, async_resolve_host
 from .model import APIVersion
 from .util import bytes_to_varuint, varuint_to_bytes
 
@@ -35,7 +36,7 @@ class ConnectionParams:
     password: Optional[str]
     client_info: str
     keepalive: float
-    zeroconf_instance: ZeroconfInstanceType
+    zeroconf_instance: hr.ZeroconfInstanceType
 
 
 class APIConnection:
@@ -112,7 +113,7 @@ class APIConnection:
             raise APIConnectionError(f"Already connected for {self.log_name}!")
 
         try:
-            coro = async_resolve_host(
+            coro = hr.async_resolve_host(
                 self._params.eventloop,
                 self._params.address,
                 self._params.port,

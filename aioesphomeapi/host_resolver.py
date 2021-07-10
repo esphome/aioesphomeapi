@@ -4,12 +4,11 @@ from dataclasses import dataclass
 from typing import List, Tuple, Union, cast
 
 import zeroconf
-from zeroconf import Zeroconf
-from zeroconf.asyncio import AsyncZeroconf
+import zeroconf.asyncio
 
 from .core import APIConnectionError
 
-ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
+ZeroconfInstanceType = Union[zeroconf.Zeroconf, zeroconf.asyncio.AsyncZeroconf, None]
 
 
 @dataclass(frozen=True)
@@ -49,18 +48,18 @@ async def _async_resolve_host_zeroconf(  # pylint: disable=too-many-branches
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     if zeroconf_instance is None:
         try:
-            zc = AsyncZeroconf()
+            zc = zeroconf.asyncio.AsyncZeroconf()
         except Exception:
             raise APIConnectionError(
                 "Cannot start mDNS sockets, is this a docker container without "
                 "host network mode?"
             )
         do_close = True
-    elif isinstance(zeroconf_instance, AsyncZeroconf):
+    elif isinstance(zeroconf_instance, zeroconf.asyncio.AsyncZeroconf):
         zc = zeroconf_instance
         do_close = False
-    elif isinstance(zeroconf_instance, Zeroconf):
-        zc = AsyncZeroconf(zc=zeroconf_instance)
+    elif isinstance(zeroconf_instance, zeroconf.Zeroconf):
+        zc = zeroconf.asyncio.AsyncZeroconf(zc=zeroconf_instance)
         do_close = False
     else:
         raise ValueError(
