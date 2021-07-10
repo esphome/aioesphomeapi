@@ -87,7 +87,7 @@ def test_api_int_enum_convert(input, output):
 @pytest.mark.parametrize(
     "input, output",
     [
-        ([], [1]),
+        ([], []),
         ([1], [DummyIntEnum.MY_VAL]),
         ([0, 1], [DummyIntEnum.DEFAULT, DummyIntEnum.MY_VAL]),
         ([-1], []),
