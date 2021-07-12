@@ -1,6 +1,6 @@
 import asyncio
 import socket
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 

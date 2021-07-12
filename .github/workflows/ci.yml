@@ -14,30 +14,23 @@ jobs:
         include:
           - id: flake8
             name: Lint with flake8
-            python-version: 3.7
           - id: pylint
             name: Lint with pylint
-            python-version: 3.7
           - id: black
             name: Check formatting with black
-            python-version: 3.7
           - id: isort
             name: Check import order with isort
-            python-version: 3.7
           - id: mypy
             name: Check typing with mypy
-            python-version: 3.7
-          # Run pytest with 3.8+ for unitest.mock.AsyncMock
           - id: pytest
             name: Run tests with pytest
-            python-version: 3.8
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python
         uses: actions/setup-python@v2
         id: python
         with:
-          python-version: '${{ matrix.python-version }}'
+          python-version: '3.7'
       
       - name: Get pip cache dir
         id: pip-cache

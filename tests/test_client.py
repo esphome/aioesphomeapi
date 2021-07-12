@@ -1,5 +1,5 @@
 from sys import version
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from mock import MagicMock, AsyncMock, call, patch
 
 import pytest
 
@@ -467,7 +467,7 @@ async def test_request_single_image(auth_client):
 
 
 @pytest.mark.asyncio
-async def test_request_single_image(auth_client):
+async def test_request_image_stream(auth_client):
     send = patch_send(auth_client)
 
     await auth_client.request_image_stream()
