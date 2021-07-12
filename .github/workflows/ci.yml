@@ -22,6 +22,8 @@ jobs:
             name: Check import order with isort
           - id: mypy
             name: Check typing with mypy
+          - id: pytest
+            name: Run tests with pytest
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python
@@ -52,6 +54,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/isort.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
+          echo "::add-matcher::.github/workflows/matchers/pytest.json"
       
       - run: flake8 aioesphomeapi
         if: ${{ matrix.id == 'flake8' }}
@@ -63,3 +66,5 @@ jobs:
         if: ${{ matrix.id == 'isort' }}
       - run: mypy aioesphomeapi
         if: ${{ matrix.id == 'mypy' }}
+      - run: pytest -vv --tb=native tests
+        if: ${{ matrix.id == 'pytest' }}

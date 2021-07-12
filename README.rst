@@ -104,9 +104,17 @@ For development is recommended to use a Python virtual environment (``venv``).
 
 .. code:: bash
 
+    # Setup virtualenv (optional)
     $ python3 -m venv .
     $ source bin/activate
-    $ python3 setup.py develop
+    # Install aioesphomeapi and development depenencies
+    $ pip3 install -e .
+    $ pip3 install -r requirements_test.txt
+
+    # Run linters & test
+    $ script/lint
+    # Update protobuf _pb2.py definitions (requires a protobuf compiler installation)
+    $ script/gen-protoc
 
 License
 -------
