@@ -42,9 +42,10 @@ setup(
     description='Python API for interacting with ESPHome devices.',
     long_description=long_description,
     license=PROJECT_LICENSE,
-    packages=find_packages(),
+    packages=find_packages("aioesphomeapi"),
     include_package_data=True,
     zip_safe=False,
     install_requires=REQUIRES,
     python_requires='>=3.7',
+    test_suite="tests",
 )
