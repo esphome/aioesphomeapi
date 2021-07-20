@@ -236,6 +236,12 @@ class SensorStateClass(APIIntEnum):
     MEASUREMENT = 1
 
 
+class LastResetType(APIIntEnum):
+    NONE = 0
+    NEVER = 1
+    AUTO = 2
+
+
 @dataclass(frozen=True)
 class SensorInfo(EntityInfo):
     icon: str = ""
@@ -245,6 +251,9 @@ class SensorInfo(EntityInfo):
     force_update: bool = False
     state_class: Optional[SensorStateClass] = converter_field(
         default=SensorStateClass.NONE, converter=SensorStateClass.convert
+    )
+    last_reset_type: Optional[LastResetType] = converter_field(
+        default=LastResetType.NONE, converter=LastResetType.convert
     )
 
 
