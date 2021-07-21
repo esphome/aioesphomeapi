@@ -1,0 +1,96 @@
+# Hide sublime text stuff
+*.sublime-project
+*.sublime-workspace
+
+# Hide some OS X stuff
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Thumbnails
+._*
+
+# IntelliJ IDEA
+.idea
+*.iml
+
+# pytest
+.pytest_cache
+.cache
+
+# GITHUB Proposed Python stuff:
+*.py[cod]
+
+# C extensions
+*.so
+
+# Packages
+*.egg
+*.egg-info
+dist
+build
+eggs
+.eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+
+# Logs
+*.log
+pip-log.txt
+
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+htmlcov/
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+.python-version
+
+# emacs auto backups
+*~
+*#
+*.orig
+
+# venv stuff
+pyvenv.cfg
+pip-selfcheck.json
+venv
+.venv
+Pipfile*
+share/*
+
+# vimmy stuff
+*.swp
+*.swo
+
+ctags.tmp
+
+# Visual Studio Code
+.vscode
+
+# Built docs
+docs/build
+
+# Windows Explorer
+desktop.ini
+/.vs/*
+
+# mypy
+/.mypy_cache/*
+
+.git*
