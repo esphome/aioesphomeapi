@@ -42,7 +42,8 @@ jobs:
         with:
           context: .
           tags: |
-            esphome/aioesphomeapi-proto-builder:latest
             ghcr.io/esphome/aioesphomeapi-proto-builder:latest
+            esphome/aioesphomeapi-proto-builder:latest
           push: true
+          pull: true
           platforms: linux/amd64,linux/arm64,linux/arm/v7
