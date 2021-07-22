@@ -7,6 +7,7 @@ on:
     paths:
       - Dockerfile
       - requirements_test.txt
+      - .github/workflows/docker.yml
 
 
 jobs:
