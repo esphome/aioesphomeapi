@@ -207,26 +207,46 @@ class FanState(EntityState):
 
 
 # ==================== LIGHT ====================
+class LightColorMode(APIIntEnum):
+    UNKNOWN = 0
+    WHITE = 1
+    COLOR_TEMPERATURE = 3
+    COLD_WARM_WHITE = 4
+    RGB = 8
+    RGB_WHITE = 9
+    RGB_COLOR_TEMPERATURE = 11
+    RGB_COLD_WARM_WHITE = 12
+
+
 @dataclass(frozen=True)
 class LightInfo(EntityInfo):
     supports_brightness: bool = False
-    supports_rgb: bool = False
-    supports_white_value: bool = False
-    supports_color_temperature: bool = False
+    supported_color_modes: List[LightColorMode] = converter_field(
+        default_factory=list, converter=list
+    )
     min_mireds: float = 0.0
     max_mireds: float = 0.0
     effects: List[str] = converter_field(default_factory=list, converter=list)
+
+    # deprecated, do not use
+    supports_rgb: bool = False
+    supports_white_value: bool = False
+    supports_color_temperature: bool = False
 
 
 @dataclass(frozen=True)
 class LightState(EntityState):
     state: bool = False
     brightness: float = 0.0
+    color_mode: LightColorMode = LightColorMode.UNKNOWN
+    color_brightness: float = 0.0
     red: float = 0.0
     green: float = 0.0
     blue: float = 0.0
     white: float = 0.0
     color_temperature: float = 0.0
+    cold_white: float = 0.0
+    warm_white: float = 0.0
     effect: str = ""
 
 
