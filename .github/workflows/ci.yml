@@ -10,6 +10,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - id: flake8
@@ -31,7 +32,7 @@ jobs:
         id: python
         with:
           python-version: '3.7'
-      
+
       - name: Get pip cache dir
         id: pip-cache
         run: |
@@ -55,7 +56,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/isort.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
-      
+
       - run: flake8 aioesphomeapi
         if: ${{ matrix.id == 'flake8' }}
       - run: pylint aioesphomeapi
