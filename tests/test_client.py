@@ -1,7 +1,7 @@
 from sys import version
-from mock import MagicMock, AsyncMock, call, patch
 
 import pytest
+from mock import AsyncMock, MagicMock, call, patch
 
 from aioesphomeapi.api_pb2 import (
     BinarySensorStateResponse,

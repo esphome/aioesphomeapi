@@ -1,7 +1,7 @@
 import socket
-from mock import AsyncMock, MagicMock, patch
 
 import pytest
+from mock import AsyncMock, MagicMock, patch
 
 import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.core import APIConnectionError
