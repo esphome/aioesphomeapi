@@ -42,12 +42,15 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesLightResponse,
     ListEntitiesNumberResponse,
     ListEntitiesRequest,
+    ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
     ListEntitiesServicesResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
     NumberCommandRequest,
     NumberStateResponse,
+    SelectCommandRequest,
+    SelectStateResponse,
     SensorStateResponse,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -91,6 +94,8 @@ from .model import (
     LogLevel,
     NumberInfo,
     NumberState,
+    SelectInfo,
+    SelectState,
     SensorInfo,
     SensorState,
     SwitchInfo,
@@ -220,6 +225,7 @@ class APIClient:
             ListEntitiesFanResponse: FanInfo,
             ListEntitiesLightResponse: LightInfo,
             ListEntitiesNumberResponse: NumberInfo,
+            ListEntitiesSelectResponse: SelectInfo,
             ListEntitiesSensorResponse: SensorInfo,
             ListEntitiesSwitchResponse: SwitchInfo,
             ListEntitiesTextSensorResponse: TextSensorInfo,
@@ -263,6 +269,7 @@ class APIClient:
             FanStateResponse: FanState,
             LightStateResponse: LightState,
             NumberStateResponse: NumberState,
+            SelectStateResponse: SelectState,
             SensorStateResponse: SensorState,
             SwitchStateResponse: SwitchState,
             TextSensorStateResponse: TextSensorState,
@@ -545,6 +552,15 @@ class APIClient:
         self._check_authenticated()
 
         req = NumberCommandRequest()
+        req.key = key
+        req.state = state
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def select_command(self, key: int, state: str) -> None:
+        self._check_authenticated()
+
+        req = SelectCommandRequest()
         req.key = key
         req.state = state
         assert self._connection is not None

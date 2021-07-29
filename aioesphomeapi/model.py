@@ -477,6 +477,19 @@ class NumberState(EntityState):
     missing_state: bool = False
 
 
+# ==================== SELECT ====================
+@dataclass(frozen=True)
+class SelectInfo(EntityInfo):
+    icon: str = ""
+    options: List[str] = converter_field(default_factory=list, converter=list)
+
+
+@dataclass(frozen=True)
+class SelectState(EntityState):
+    state: str = ""
+    missing_state: bool = False
+
+
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
@@ -488,6 +501,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "camera": CameraInfo,
     "climate": ClimateInfo,
     "number": NumberInfo,
+    "select": SelectInfo,
 }
 
 

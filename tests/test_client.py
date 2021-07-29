@@ -17,6 +17,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesDoneResponse,
     ListEntitiesServicesResponse,
     NumberCommandRequest,
+    SelectCommandRequest,
     SwitchCommandRequest,
 )
 from aioesphomeapi.client import APIClient
@@ -354,6 +355,21 @@ async def test_number_command(auth_client, cmd, req):
 
     await auth_client.number_command(**cmd)
     send.assert_called_once_with(NumberCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, state="One"), dict(key=1, state="One")),
+        (dict(key=1, state="Two"), dict(key=1, state="Two")),
+    ],
+)
+async def test_select_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.select_command(**cmd)
+    send.assert_called_once_with(SelectCommandRequest(**req))
 
 
 @pytest.mark.asyncio
