@@ -354,13 +354,15 @@ message FanCommandRequest {
 // ==================== LIGHT ====================
 enum ColorMode {
   COLOR_MODE_UNKNOWN = 0;
-  COLOR_MODE_WHITE = 1;
-  COLOR_MODE_COLOR_TEMPERATURE = 3;
-  COLOR_MODE_COLD_WARM_WHITE = 4;
-  COLOR_MODE_RGB = 8;
-  COLOR_MODE_RGB_WHITE = 9;
-  COLOR_MODE_RGB_COLOR_TEMPERATURE = 11;
-  COLOR_MODE_RGB_COLD_WARM_WHITE = 12;
+  COLOR_MODE_ON_OFF = 1;
+  COLOR_MODE_BRIGHTNESS = 2;
+  COLOR_MODE_WHITE = 7;
+  COLOR_MODE_COLOR_TEMPERATURE = 11;
+  COLOR_MODE_COLD_WARM_WHITE = 19;
+  COLOR_MODE_RGB = 35;
+  COLOR_MODE_RGB_WHITE = 39;
+  COLOR_MODE_RGB_COLOR_TEMPERATURE = 47;
+  COLOR_MODE_RGB_COLD_WARM_WHITE = 51;
 }
 message ListEntitiesLightResponse {
   option (id) = 15;
@@ -372,12 +374,12 @@ message ListEntitiesLightResponse {
   string name = 3;
   string unique_id = 4;
 
-  bool supports_brightness = 5;
   repeated ColorMode supported_color_modes = 12;
-  // next three supports_* are for legacy clients, newer clients should use color modes
-  bool supports_rgb = 6 [deprecated=true];
-  bool supports_white_value = 7 [deprecated=true];
-  bool supports_color_temperature = 8 [deprecated=true];
+  // next four supports_* are for legacy clients, newer clients should use color modes
+  bool legacy_supports_brightness = 5 [deprecated=true];
+  bool legacy_supports_rgb = 6 [deprecated=true];
+  bool legacy_supports_white_value = 7 [deprecated=true];
+  bool legacy_supports_color_temperature = 8 [deprecated=true];
   float min_mireds = 9;
   float max_mireds = 10;
   repeated string effects = 11;
