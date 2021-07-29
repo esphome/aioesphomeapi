@@ -61,9 +61,9 @@ jobs:
         if: ${{ matrix.id == 'flake8' }}
       - run: pylint aioesphomeapi
         if: ${{ matrix.id == 'pylint' }}
-      - run: black --check --diff --color aioesphomeapi
+      - run: black --check --diff --color aioesphomeapi tests
         if: ${{ matrix.id == 'black' }}
-      - run: isort --check --diff aioesphomeapi
+      - run: isort --check --diff aioesphomeapi tests
         if: ${{ matrix.id == 'isort' }}
       - run: mypy aioesphomeapi
         if: ${{ matrix.id == 'mypy' }}

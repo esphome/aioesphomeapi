@@ -1,8 +1,8 @@
 import asyncio
 import socket
-from mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
+from mock import AsyncMock, MagicMock, Mock, patch
 
 from aioesphomeapi.api_pb2 import ConnectResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams
