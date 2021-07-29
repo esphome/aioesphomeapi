@@ -235,13 +235,15 @@ class LightInfo(EntityInfo):
     legacy_supports_white_value: bool = False
     legacy_supports_color_temperature: bool = False
 
-    def supported_color_modes_compat(self, api_version: APIVersion) -> List[LightColorMode]:
+    def supported_color_modes_compat(
+        self, api_version: APIVersion
+    ) -> List[LightColorMode]:
         if api_version < APIVersion(1, 6):
             key = (
                 self.legacy_supports_brightness,
                 self.legacy_supports_rgb,
                 self.legacy_supports_white_value,
-                self.legacy_supports_color_temperature
+                self.legacy_supports_color_temperature,
             )
             # map legacy flags to color modes,
             # key: (brightness, rgb, white, color_temp)
@@ -251,7 +253,7 @@ class LightInfo(EntityInfo):
                 (True, False, False, True): [LightColorMode.COLOR_TEMPERATURE],
                 (True, True, False, False): [LightColorMode.RGB],
                 (True, True, True, False): [LightColorMode.RGB_WHITE],
-                (True, True, True, True): [LightColorMode.RGB_COLOR_TEMPERATURE]
+                (True, True, True, True): [LightColorMode.RGB_COLOR_TEMPERATURE],
             }
 
             return modes_map[key] if key in modes_map else []
