@@ -265,7 +265,9 @@ class LightInfo(EntityInfo):
 class LightState(EntityState):
     state: bool = False
     brightness: float = 0.0
-    color_mode: LightColorMode = LightColorMode.UNKNOWN
+    color_mode: Optional[LightColorMode] = converter_field(
+        default=LightColorMode.UNKNOWN, converter=LightColorMode.convert
+    )
     color_brightness: float = 0.0
     red: float = 0.0
     green: float = 0.0
