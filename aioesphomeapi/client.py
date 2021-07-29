@@ -88,6 +88,7 @@ from .model import (
     FanState,
     HomeassistantServiceCall,
     LegacyCoverCommand,
+    LightColorMode,
     LightInfo,
     LightState,
     LogLevel,
@@ -430,9 +431,13 @@ class APIClient:
         key: int,
         state: Optional[bool] = None,
         brightness: Optional[float] = None,
+        color_mode: Optional[LightColorMode] = None,
+        color_brightness: Optional[float] = None,
         rgb: Optional[Tuple[float, float, float]] = None,
         white: Optional[float] = None,
         color_temperature: Optional[float] = None,
+        cold_white: Optional[float] = None,
+        warm_white: Optional[float] = None,
         transition_length: Optional[float] = None,
         flash_length: Optional[float] = None,
         effect: Optional[str] = None,
@@ -447,6 +452,12 @@ class APIClient:
         if brightness is not None:
             req.has_brightness = True
             req.brightness = brightness
+        if color_mode is not None:
+            req.has_color_mode = True
+            req.color_mode = color_mode
+        if color_brightness is not None:
+            req.has_color_brightness = True
+            req.color_brightness = color_brightness
         if rgb is not None:
             req.has_rgb = True
             req.red = rgb[0]
@@ -458,6 +469,12 @@ class APIClient:
         if color_temperature is not None:
             req.has_color_temperature = True
             req.color_temperature = color_temperature
+        if cold_white is not None:
+            req.has_cold_white = True
+            req.cold_white = cold_white
+        if warm_white is not None:
+            req.has_warm_white = True
+            req.warm_white = warm_white
         if transition_length is not None:
             req.has_transition_length = True
             req.transition_length = int(round(transition_length * 1000))
