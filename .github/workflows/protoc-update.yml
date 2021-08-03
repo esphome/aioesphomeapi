@@ -3,6 +3,7 @@ name: Update protobuf generated files
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   protoc-update:
