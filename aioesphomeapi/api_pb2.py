@@ -1106,7 +1106,7 @@ _LISTENTITIESBINARYSENSORRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesBinarySensorResponse.disabled_default', index=6,
+      name='disabled_by_default', full_name='ListEntitiesBinarySensorResponse.disabled_by_default', index=6,
       number=7, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -1238,7 +1238,7 @@ _LISTENTITIESCOVERRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesCoverResponse.disabled_default', index=8,
+      name='disabled_by_default', full_name='ListEntitiesCoverResponse.disabled_by_default', index=8,
       number=9, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -1464,7 +1464,7 @@ _LISTENTITIESFANRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesFanResponse.disabled_default', index=8,
+      name='disabled_by_default', full_name='ListEntitiesFanResponse.disabled_by_default', index=8,
       number=9, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -1746,7 +1746,7 @@ _LISTENTITIESLIGHTRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesLightResponse.disabled_default', index=12,
+      name='disabled_by_default', full_name='ListEntitiesLightResponse.disabled_by_default', index=12,
       number=13, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -2182,7 +2182,7 @@ _LISTENTITIESSENSORRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesSensorResponse.disabled_default', index=11,
+      name='disabled_by_default', full_name='ListEntitiesSensorResponse.disabled_by_default', index=11,
       number=12, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -2300,7 +2300,7 @@ _LISTENTITIESSWITCHRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesSwitchResponse.disabled_default', index=6,
+      name='disabled_by_default', full_name='ListEntitiesSwitchResponse.disabled_by_default', index=6,
       number=7, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -2442,7 +2442,7 @@ _LISTENTITIESTEXTSENSORRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesTextSensorResponse.disabled_default', index=5,
+      name='disabled_by_default', full_name='ListEntitiesTextSensorResponse.disabled_by_default', index=5,
       number=6, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -3127,7 +3127,7 @@ _LISTENTITIESCAMERARESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesCameraResponse.disabled_default', index=4,
+      name='disabled_by_default', full_name='ListEntitiesCameraResponse.disabled_by_default', index=4,
       number=5, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -3360,7 +3360,7 @@ _LISTENTITIESCLIMATERESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesClimateResponse.disabled_default', index=17,
+      name='disabled_by_default', full_name='ListEntitiesClimateResponse.disabled_by_default', index=17,
       number=18, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -3733,7 +3733,7 @@ _LISTENTITIESNUMBERRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesNumberResponse.disabled_default', index=8,
+      name='disabled_by_default', full_name='ListEntitiesNumberResponse.disabled_by_default', index=8,
       number=9, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -3889,7 +3889,7 @@ _LISTENTITIESSELECTRESPONSE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='disabled_default', full_name='ListEntitiesSelectResponse.disabled_default', index=6,
+      name='disabled_by_default', full_name='ListEntitiesSelectResponse.disabled_by_default', index=6,
       number=7, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,

@@ -110,7 +110,7 @@ class EntityInfo(APIModelBase):
     key: int = 0
     name: str = ""
     unique_id: str = ""
-    disabled_default: bool = False
+    disabled_by_default: bool = False
 
 
 @dataclass(frozen=True)
