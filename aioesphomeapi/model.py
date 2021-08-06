@@ -254,6 +254,7 @@ class LightInfo(EntityInfo):
                 (True, False, False, True): [LightColorMode.COLOR_TEMPERATURE],
                 (True, True, False, False): [LightColorMode.RGB],
                 (True, True, True, False): [LightColorMode.RGB_WHITE],
+                (True, True, False, True): [LightColorMode.RGB_COLOR_TEMPERATURE],
                 (True, True, True, True): [LightColorMode.RGB_COLOR_TEMPERATURE],
             }
 
