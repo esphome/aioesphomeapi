@@ -125,6 +125,7 @@ class APIClient:
         client_info: str = "aioesphomeapi",
         keepalive: float = 15.0,
         zeroconf_instance: ZeroconfInstanceType = None,
+        noise_psk: Optional[str] = None,
     ):
         self._params = ConnectionParams(
             eventloop=eventloop,
@@ -134,6 +135,7 @@ class APIClient:
             client_info=client_info,
             keepalive=keepalive,
             zeroconf_instance=zeroconf_instance,
+            noise_psk=noise_psk,
         )
         self._connection: Optional[APIConnection] = None
         self._cached_name: Optional[str] = None
@@ -306,6 +308,7 @@ class APIClient:
         self,
         on_log: Callable[[SubscribeLogsResponse], None],
         log_level: Optional[LogLevel] = None,
+        dump_config: Optional[bool] = None,
     ) -> None:
         self._check_authenticated()
 
@@ -316,6 +319,8 @@ class APIClient:
         req = SubscribeLogsRequest()
         if log_level is not None:
             req.level = log_level
+        if dump_config is not None:
+            req.dump_config = dump_config
         assert self._connection is not None
         await self._connection.send_message_callback_response(req, on_msg)
 
