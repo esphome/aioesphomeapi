@@ -14,6 +14,8 @@ from typing import (
     cast,
 )
 
+from .util import fix_float_single_double_conversion
+
 if TYPE_CHECKING:
     from .api_pb2 import HomeassistantServiceMap  # type: ignore
 
@@ -407,9 +409,15 @@ class ClimateInfo(EntityInfo):
     supported_modes: List[ClimateMode] = converter_field(
         default_factory=list, converter=ClimateMode.convert_list
     )
-    visual_min_temperature: float = 0.0
-    visual_max_temperature: float = 0.0
-    visual_temperature_step: float = 0.0
+    visual_min_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_max_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     legacy_supports_away: bool = False
     supports_action: bool = False
     supported_fan_modes: List[ClimateFanMode] = converter_field(
@@ -446,10 +454,18 @@ class ClimateState(EntityState):
     action: Optional[ClimateAction] = converter_field(
         default=ClimateAction.OFF, converter=ClimateAction.convert
     )
-    current_temperature: float = 0.0
-    target_temperature: float = 0.0
-    target_temperature_low: float = 0.0
-    target_temperature_high: float = 0.0
+    current_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_low: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_high: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     legacy_away: bool = False
     fan_mode: Optional[ClimateFanMode] = converter_field(
         default=ClimateFanMode.ON, converter=ClimateFanMode.convert
@@ -475,12 +491,16 @@ class NumberInfo(EntityInfo):
     icon: str = ""
     min_value: float = 0.0
     max_value: float = 0.0
-    step: float = 0.0
+    step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
 
 
 @dataclass(frozen=True)
 class NumberState(EntityState):
-    state: float = 0.0
+    state: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     missing_state: bool = False
 
 
