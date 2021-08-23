@@ -211,7 +211,8 @@ class FanState(EntityState):
 class LightColorMode(APIIntEnum):
     UNKNOWN = 0
     ON_OFF = 1
-    BRIGHTNESS = 2
+    BROKEN_BRIGHTNESS = 2  # Remove this in a future update. https://github.com/esphome/esphome/pull/2186
+    BRIGHTNESS =
     WHITE = 7
     COLOR_TEMPERATURE = 11
     COLD_WARM_WHITE = 19
