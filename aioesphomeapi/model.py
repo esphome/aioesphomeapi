@@ -14,6 +14,8 @@ from typing import (
     cast,
 )
 
+from .util import fix_float_single_double_conversion
+
 if TYPE_CHECKING:
     from .api_pb2 import HomeassistantServiceMap  # type: ignore
 
@@ -436,6 +438,18 @@ class ClimateInfo(EntityInfo):
             )
         return self.supported_presets
 
+    @property
+    def visual_min_temperature_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.visual_min_temperature)
+
+    @property
+    def visual_max_temperature_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.visual_max_temperature)
+
+    @property
+    def visual_temperature_step_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.visual_temperature_step)
+
 
 @dataclass(frozen=True)
 class ClimateState(EntityState):
@@ -467,6 +481,22 @@ class ClimateState(EntityState):
             return ClimatePreset.AWAY if self.legacy_away else ClimatePreset.HOME
         return self.preset
 
+    @property
+    def current_temperature_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.current_temperature)
+
+    @property
+    def target_temperature_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.target_temperature)
+
+    @property
+    def target_temperature_low_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.target_temperature_low)
+
+    @property
+    def target_temperature_high_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.target_temperature_high)
+
 
 # ==================== NUMBER ====================
 @dataclass(frozen=True)
@@ -476,11 +506,19 @@ class NumberInfo(EntityInfo):
     max_value: float = 0.0
     step: float = 0.0
 
+    @property
+    def step_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.step)
+
 
 @dataclass(frozen=True)
 class NumberState(EntityState):
     state: float = 0.0
     missing_state: bool = False
+
+    @property
+    def state_rounded(self) -> float:
+        return fix_float_single_double_conversion(self.state)
 
 
 # ==================== SELECT ====================
