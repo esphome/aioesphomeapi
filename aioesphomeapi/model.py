@@ -285,6 +285,7 @@ class LightState(EntityState):
 class SensorStateClass(APIIntEnum):
     NONE = 0
     MEASUREMENT = 1
+    TOTAL_INCREASING = 2
 
 
 class LastResetType(APIIntEnum):
