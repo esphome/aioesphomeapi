@@ -574,7 +574,7 @@ message SubscribeLogsResponse {
   option (no_delay) = false;
 
   LogLevel level = 1;
-  string message = 3;
+  bytes message = 3;
   bool send_failed = 4;
 }
 
