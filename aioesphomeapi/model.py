@@ -517,6 +517,20 @@ class SelectState(EntityState):
     missing_state: bool = False
 
 
+# ==================== SIREN ====================
+@dataclass(frozen=True)
+class SirenInfo(EntityInfo):
+    icon: str = ""
+    tones: List[str] = converter_field(default_factory=list, converter=list)
+    supports_volume: bool = False
+    supports_duration: bool = False
+
+
+@dataclass(frozen=True)
+class SirenState(EntityState):
+    state: bool = False
+
+
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
@@ -529,6 +543,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "climate": ClimateInfo,
     "number": NumberInfo,
     "select": SelectInfo,
+    "siren": SirenInfo,
 }
 
 

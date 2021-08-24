@@ -40,6 +40,7 @@ service APIConnection {
   rpc climate_command (ClimateCommandRequest) returns (void) {}
   rpc number_command (NumberCommandRequest) returns (void) {}
   rpc select_command (SelectCommandRequest) returns (void) {}
+  rpc siren_command (SirenCommandRequest) returns (void) {}
 }
 
 
@@ -915,4 +916,47 @@ message SelectCommandRequest {
 
   fixed32 key = 1;
   string state = 2;
+}
+
+// ==================== SIREN ====================
+message ListEntitiesSirenResponse {
+  option (id) = 55;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_SIREN";
+
+  string object_id = 1;
+  fixed32 key = 2;
+  string name = 3;
+  string unique_id = 4;
+
+  string icon = 5;
+  bool disabled_by_default = 6;
+  repeated string tones = 7;
+  bool supports_duration = 8;
+  bool supports_volume = 9;
+}
+message SirenStateResponse {
+  option (id) = 56;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_SIREN";
+  option (no_delay) = true;
+
+  fixed32 key = 1;
+  bool state = 2;
+}
+message SirenCommandRequest {
+  option (id) = 57;
+  option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_SIREN";
+  option (no_delay) = true;
+
+  fixed32 key = 1;
+  bool has_state = 2;
+  bool state = 3;
+  bool has_tone = 4;
+  string tone = 5;
+  bool has_duration = 6;
+  uint32 duration = 7;
+  bool has_volume = 8;
+  float volume = 9;
 }
