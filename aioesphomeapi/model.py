@@ -14,6 +14,8 @@ from typing import (
     cast,
 )
 
+from .util import fix_float_single_double_conversion
+
 if TYPE_CHECKING:
     from .api_pb2 import HomeassistantServiceMap  # type: ignore
 
@@ -208,23 +210,19 @@ class FanState(EntityState):
 
 
 # ==================== LIGHT ====================
-class LightColorMode(APIIntEnum):
-    UNKNOWN = 0
-    ON_OFF = 1
-    BRIGHTNESS = 2
-    WHITE = 7
-    COLOR_TEMPERATURE = 11
-    COLD_WARM_WHITE = 19
-    RGB = 35
-    RGB_WHITE = 39
-    RGB_COLOR_TEMPERATURE = 47
-    RGB_COLD_WARM_WHITE = 51
+class LightColorCapability(enum.IntFlag):
+    ON_OFF = 1 << 0
+    BRIGHTNESS = 1 << 1
+    WHITE = 1 << 2
+    COLOR_TEMPERATURE = 1 << 3
+    COLD_WARM_WHITE = 1 << 4
+    RGB = 1 << 5
 
 
 @dataclass(frozen=True)
 class LightInfo(EntityInfo):
-    supported_color_modes: List[LightColorMode] = converter_field(
-        default_factory=list, converter=LightColorMode.convert_list
+    supported_color_modes: List[int] = converter_field(
+        default_factory=list, converter=list
     )
     min_mireds: float = 0.0
     max_mireds: float = 0.0
@@ -236,9 +234,7 @@ class LightInfo(EntityInfo):
     legacy_supports_white_value: bool = False
     legacy_supports_color_temperature: bool = False
 
-    def supported_color_modes_compat(
-        self, api_version: APIVersion
-    ) -> List[LightColorMode]:
+    def supported_color_modes_compat(self, api_version: APIVersion) -> List[int]:
         if api_version < APIVersion(1, 6):
             key = (
                 self.legacy_supports_brightness,
@@ -249,16 +245,42 @@ class LightInfo(EntityInfo):
             # map legacy flags to color modes,
             # key: (brightness, rgb, white, color_temp)
             modes_map = {
-                (False, False, False, False): [LightColorMode.ON_OFF],
-                (True, False, False, False): [LightColorMode.BRIGHTNESS],
-                (True, False, False, True): [LightColorMode.COLOR_TEMPERATURE],
-                (True, True, False, False): [LightColorMode.RGB],
-                (True, True, True, False): [LightColorMode.RGB_WHITE],
-                (True, True, False, True): [LightColorMode.RGB_COLOR_TEMPERATURE],
-                (True, True, True, True): [LightColorMode.RGB_COLOR_TEMPERATURE],
+                (False, False, False, False): [LightColorCapability.ON_OFF],
+                (True, False, False, False): [
+                    LightColorCapability.ON_OFF | LightColorCapability.BRIGHTNESS
+                ],
+                (True, False, False, True): [
+                    LightColorCapability.ON_OFF
+                    | LightColorCapability.BRIGHTNESS
+                    | LightColorCapability.COLOR_TEMPERATURE
+                ],
+                (True, True, False, False): [
+                    LightColorCapability.ON_OFF
+                    | LightColorCapability.BRIGHTNESS
+                    | LightColorCapability.RGB
+                ],
+                (True, True, True, False): [
+                    LightColorCapability.ON_OFF
+                    | LightColorCapability.BRIGHTNESS
+                    | LightColorCapability.RGB
+                    | LightColorCapability.WHITE
+                ],
+                (True, True, False, True): [
+                    LightColorCapability.ON_OFF
+                    | LightColorCapability.BRIGHTNESS
+                    | LightColorCapability.RGB
+                    | LightColorCapability.COLOR_TEMPERATURE
+                ],
+                (True, True, True, True): [
+                    LightColorCapability.ON_OFF
+                    | LightColorCapability.BRIGHTNESS
+                    | LightColorCapability.RGB
+                    | LightColorCapability.WHITE
+                    | LightColorCapability.COLOR_TEMPERATURE
+                ],
             }
 
-            return modes_map[key] if key in modes_map else []
+            return cast(List[int], modes_map[key]) if key in modes_map else []
 
         return self.supported_color_modes
 
@@ -267,9 +289,7 @@ class LightInfo(EntityInfo):
 class LightState(EntityState):
     state: bool = False
     brightness: float = 0.0
-    color_mode: Optional[LightColorMode] = converter_field(
-        default=LightColorMode.UNKNOWN, converter=LightColorMode.convert
-    )
+    color_mode: int = 0
     color_brightness: float = 0.0
     red: float = 0.0
     green: float = 0.0
@@ -285,6 +305,7 @@ class LightState(EntityState):
 class SensorStateClass(APIIntEnum):
     NONE = 0
     MEASUREMENT = 1
+    TOTAL_INCREASING = 2
 
 
 class LastResetType(APIIntEnum):
@@ -406,9 +427,15 @@ class ClimateInfo(EntityInfo):
     supported_modes: List[ClimateMode] = converter_field(
         default_factory=list, converter=ClimateMode.convert_list
     )
-    visual_min_temperature: float = 0.0
-    visual_max_temperature: float = 0.0
-    visual_temperature_step: float = 0.0
+    visual_min_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_max_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     legacy_supports_away: bool = False
     supports_action: bool = False
     supported_fan_modes: List[ClimateFanMode] = converter_field(
@@ -445,10 +472,18 @@ class ClimateState(EntityState):
     action: Optional[ClimateAction] = converter_field(
         default=ClimateAction.OFF, converter=ClimateAction.convert
     )
-    current_temperature: float = 0.0
-    target_temperature: float = 0.0
-    target_temperature_low: float = 0.0
-    target_temperature_high: float = 0.0
+    current_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_low: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_high: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     legacy_away: bool = False
     fan_mode: Optional[ClimateFanMode] = converter_field(
         default=ClimateFanMode.ON, converter=ClimateFanMode.convert
@@ -474,12 +509,16 @@ class NumberInfo(EntityInfo):
     icon: str = ""
     min_value: float = 0.0
     max_value: float = 0.0
-    step: float = 0.0
+    step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
 
 
 @dataclass(frozen=True)
 class NumberState(EntityState):
-    state: float = 0.0
+    state: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     missing_state: bool = False
 
 

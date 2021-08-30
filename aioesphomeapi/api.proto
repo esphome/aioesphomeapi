@@ -356,18 +356,6 @@ message FanCommandRequest {
 }
 
 // ==================== LIGHT ====================
-enum ColorMode {
-  COLOR_MODE_UNKNOWN = 0;
-  COLOR_MODE_ON_OFF = 1;
-  COLOR_MODE_BRIGHTNESS = 2;
-  COLOR_MODE_WHITE = 7;
-  COLOR_MODE_COLOR_TEMPERATURE = 11;
-  COLOR_MODE_COLD_WARM_WHITE = 19;
-  COLOR_MODE_RGB = 35;
-  COLOR_MODE_RGB_WHITE = 39;
-  COLOR_MODE_RGB_COLOR_TEMPERATURE = 47;
-  COLOR_MODE_RGB_COLD_WARM_WHITE = 51;
-}
 message ListEntitiesLightResponse {
   option (id) = 15;
   option (source) = SOURCE_SERVER;
@@ -378,7 +366,7 @@ message ListEntitiesLightResponse {
   string name = 3;
   string unique_id = 4;
 
-  repeated ColorMode supported_color_modes = 12;
+  repeated int32 supported_color_modes = 12;
   // next four supports_* are for legacy clients, newer clients should use color modes
   bool legacy_supports_brightness = 5 [deprecated=true];
   bool legacy_supports_rgb = 6 [deprecated=true];
@@ -398,7 +386,7 @@ message LightStateResponse {
   fixed32 key = 1;
   bool state = 2;
   float brightness = 3;
-  ColorMode color_mode = 11;
+  int32 color_mode = 11;
   float color_brightness = 10;
   float red = 4;
   float green = 5;
@@ -421,7 +409,7 @@ message LightCommandRequest {
   bool has_brightness = 4;
   float brightness = 5;
   bool has_color_mode = 22;
-  ColorMode color_mode = 23;
+  int32 color_mode = 23;
   bool has_color_brightness = 20;
   float color_brightness = 21;
   bool has_rgb = 6;
@@ -448,6 +436,7 @@ message LightCommandRequest {
 enum SensorStateClass {
   STATE_CLASS_NONE = 0;
   STATE_CLASS_MEASUREMENT = 1;
+  STATE_CLASS_TOTAL_INCREASING = 2;
 }
 
 enum SensorLastResetType {
@@ -573,7 +562,7 @@ message SubscribeLogsResponse {
   option (no_delay) = false;
 
   LogLevel level = 1;
-  string message = 3;
+  bytes message = 3;
   bool send_failed = 4;
 }
 
