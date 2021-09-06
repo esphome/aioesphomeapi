@@ -20,6 +20,7 @@ def connection_params() -> ConnectionParams:
         client_info="Tests client",
         keepalive=15.0,
         zeroconf_instance=None,
+        noise_psk=None,
     )
 
 
