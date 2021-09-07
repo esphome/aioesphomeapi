@@ -2,13 +2,7 @@ import asyncio
 import logging
 from typing import Awaitable, Callable, List, Optional
 
-from zeroconf import (  # type: ignore[attr-defined]
-    DNSPointer,
-    DNSRecord,
-    RecordUpdate,
-    RecordUpdateListener,
-    Zeroconf,
-)
+import zeroconf
 
 from .client import APIClient
 from .core import APIConnectionError
@@ -16,7 +10,7 @@ from .core import APIConnectionError
 _LOGGER = logging.getLogger(__name__)
 
 
-class ReconnectLogic(RecordUpdateListener):  # type: ignore[misc]
+class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-defined]
     """Reconnectiong logic handler for ESPHome config entries.
 
     Contains two reconnect strategies:
@@ -32,7 +26,7 @@ class ReconnectLogic(RecordUpdateListener):  # type: ignore[misc]
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
         on_disconnect: Callable[[], Awaitable[None]],
-        zeroconf_instance: Zeroconf,
+        zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
     ) -> None:
         """Initialize ReconnectingLogic.
@@ -63,6 +57,7 @@ class ReconnectLogic(RecordUpdateListener):  # type: ignore[misc]
         self._wait_task_lock = asyncio.Lock()
         # Event for tracking when logic should stop
         self._stop_event = asyncio.Event()
+        self._event_loop: Optional[asyncio.events.AbstractEventLoop] = None
 
     @property
     def _is_stopped(self) -> bool:
@@ -182,6 +177,7 @@ class ReconnectLogic(RecordUpdateListener):  # type: ignore[misc]
         """Start the reconnecting logic background task."""
         # Create reconnection loop outside of HA's tracked tasks in order
         # not to delay startup.
+        self._event_loop = asyncio.get_event_loop()
         self._loop_task = asyncio.create_task(self._reconnect_loop())
 
         async with self._connected_lock:
@@ -220,8 +216,8 @@ class ReconnectLogic(RecordUpdateListener):  # type: ignore[misc]
                 self._zc.async_remove_listener(self)
                 self._zc_listening = False
 
-    def _async_on_record(self, record: DNSRecord) -> None:
-        if not isinstance(record, DNSPointer):
+    def _async_on_record(self, record: "zeroconf.DNSRecord") -> None:  # type: ignore[name-defined]
+        if not isinstance(record, zeroconf.DNSPointer):  # type: ignore[attr-defined]
             # We only consider PTR records and match using the alias name
             return
         if self._is_stopped or self.name is None:
@@ -243,9 +239,28 @@ class ReconnectLogic(RecordUpdateListener):  # type: ignore[misc]
         )
         self._reconnect_event.set()
 
+    # From RecordUpdateListener for zeroconf>=0.32
     def async_update_records(
-        self, zc: Zeroconf, now: float, records: List[RecordUpdate]
+        self,
+        zc: "zeroconf.Zeroconf",  # pylint: disable=unused-argument
+        now: float,  # pylint: disable=unused-argument
+        records: List["zeroconf.RecordUpdate"],  # type: ignore[name-defined]
     ) -> None:
         """Listen to zeroconf updated mDNS records. This must be called from the eventloop."""
         for update in records:
             self._async_on_record(update.new)
+
+    # From RecordUpdateListener for zeroconf<0.32
+    def update_record(
+        self,
+        zc: "zeroconf.Zeroconf",  # pylint: disable=unused-argument
+        now: float,  # pylint: disable=unused-argument
+        record: "zeroconf.DNSRecord",  # type: ignore[name-defined]
+    ) -> None:
+        assert self._event_loop is not None
+
+        async def corofunc() -> None:
+            self._async_on_record(record)
+
+        # Dispatch in event loop
+        asyncio.run_coroutine_threadsafe(corofunc(), self._event_loop)
