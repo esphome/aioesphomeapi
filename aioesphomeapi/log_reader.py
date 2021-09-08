@@ -1,3 +1,4 @@
+# Helper script and aioesphomeapi to view logs from an esphome device
 import argparse
 import asyncio
 import logging
