@@ -1,14 +1,21 @@
 import asyncio
+import functools
 import socket
 from dataclasses import dataclass
-from typing import List, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union, cast
 
 import zeroconf
-import zeroconf.asyncio
+
+try:
+    import zeroconf.asyncio
+
+    ZC_ASYNCIO = True
+except ImportError:
+    ZC_ASYNCIO = False
 
 from .core import APIConnectionError
 
-ZeroconfInstanceType = Union[zeroconf.Zeroconf, zeroconf.asyncio.AsyncZeroconf, None]
+ZeroconfInstanceType = Union[zeroconf.Zeroconf, "zeroconf.asyncio.AsyncZeroconf", None]
 
 
 @dataclass(frozen=True)
@@ -38,13 +45,61 @@ class AddrInfo:
     sockaddr: Sockaddr
 
 
-async def _async_resolve_host_zeroconf(  # pylint: disable=too-many-branches
-    host: str,
-    port: int,
-    *,
-    timeout: float = 3.0,
-    zeroconf_instance: ZeroconfInstanceType = None,
-) -> List[AddrInfo]:
+def _sync_zeroconf_get_service_info(
+    zeroconf_instance: ZeroconfInstanceType,
+    service_type: str,
+    service_name: str,
+    timeout: float,
+) -> Optional["zeroconf.ServiceInfo"]:
+    # Use or create zeroconf instance, ensure it's an AsyncZeroconf
+    if zeroconf_instance is None:
+        try:
+            zc = zeroconf.Zeroconf()
+        except Exception:
+            raise APIConnectionError(
+                "Cannot start mDNS sockets, is this a docker container without "
+                "host network mode?"
+            )
+        do_close = True
+    elif isinstance(zeroconf_instance, zeroconf.Zeroconf):
+        zc = zeroconf_instance
+        do_close = False
+    else:
+        raise ValueError(
+            f"Invalid type passed for zeroconf_instance: {type(zeroconf_instance)}"
+        )
+
+    try:
+        info = zc.get_service_info(service_type, service_name, int(timeout * 1000))
+    except Exception as exc:
+        raise APIConnectionError(
+            f"Error resolving mDNS {service_name} via mDNS: {exc}"
+        ) from exc
+    finally:
+        if do_close:
+            zc.close()
+    return info
+
+
+async def _async_zeroconf_get_service_info(
+    eventloop: asyncio.events.AbstractEventLoop,
+    zeroconf_instance: ZeroconfInstanceType,
+    service_type: str,
+    service_name: str,
+    timeout: float,
+) -> Optional["zeroconf.ServiceInfo"]:
+    if not ZC_ASYNCIO:
+        return await eventloop.run_in_executor(
+            None,
+            functools.partial(
+                _sync_zeroconf_get_service_info,
+                zeroconf_instance,
+                service_type,
+                service_name,
+                timeout,
+            ),
+        )
+
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     if zeroconf_instance is None:
         try:
@@ -66,20 +121,34 @@ async def _async_resolve_host_zeroconf(  # pylint: disable=too-many-branches
             f"Invalid type passed for zeroconf_instance: {type(zeroconf_instance)}"
         )
 
-    service_type = "_esphomelib._tcp.local."
-    service_name = f"{host}.{service_type}"
-
     try:
         info = await zc.async_get_service_info(
             service_type, service_name, int(timeout * 1000)
         )
     except Exception as exc:
         raise APIConnectionError(
-            f"Error resolving host {host} via mDNS: {exc}"
+            f"Error resolving mDNS {service_name} via mDNS: {exc}"
         ) from exc
     finally:
         if do_close:
             await zc.async_close()
+    return info
+
+
+async def _async_resolve_host_zeroconf(
+    eventloop: asyncio.events.AbstractEventLoop,
+    host: str,
+    port: int,
+    *,
+    timeout: float = 3.0,
+    zeroconf_instance: ZeroconfInstanceType = None,
+) -> List[AddrInfo]:
+    service_type = "_esphomelib._tcp.local."
+    service_name = f"{host}.{service_type}"
+
+    info = await _async_zeroconf_get_service_info(
+        eventloop, zeroconf_instance, service_type, service_name, timeout
+    )
 
     if info is None:
         return []
@@ -158,7 +227,7 @@ async def async_resolve_host(
         try:
             addrs.extend(
                 await _async_resolve_host_zeroconf(
-                    name, port, zeroconf_instance=zeroconf_instance
+                    eventloop, name, port, zeroconf_instance=zeroconf_instance
                 )
             )
         except APIConnectionError as err:
