@@ -45,6 +45,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
     ListEntitiesServicesResponse,
+    ListEntitiesSirenResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
     NumberCommandRequest,
@@ -52,6 +53,8 @@ from .api_pb2 import (  # type: ignore
     SelectCommandRequest,
     SelectStateResponse,
     SensorStateResponse,
+    SirenCommandRequest,
+    SirenStateResponse,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
     SubscribeHomeAssistantStatesRequest,
@@ -97,6 +100,8 @@ from .model import (
     SelectState,
     SensorInfo,
     SensorState,
+    SirenInfo,
+    SirenState,
     SwitchInfo,
     SwitchState,
     TextSensorInfo,
@@ -228,6 +233,7 @@ class APIClient:
             ListEntitiesNumberResponse: NumberInfo,
             ListEntitiesSelectResponse: SelectInfo,
             ListEntitiesSensorResponse: SensorInfo,
+            ListEntitiesSirenResponse: SirenInfo,
             ListEntitiesSwitchResponse: SwitchInfo,
             ListEntitiesTextSensorResponse: TextSensorInfo,
             ListEntitiesServicesResponse: None,
@@ -272,6 +278,7 @@ class APIClient:
             NumberStateResponse: NumberState,
             SelectStateResponse: SelectState,
             SensorStateResponse: SensorState,
+            SirenStateResponse: SirenState,
             SwitchStateResponse: SwitchState,
             TextSensorStateResponse: TextSensorState,
             ClimateStateResponse: ClimateState,
@@ -567,6 +574,33 @@ class APIClient:
         req = SelectCommandRequest()
         req.key = key
         req.state = state
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def siren_command(
+        self,
+        key: int,
+        state: Optional[bool] = None,
+        tone: Optional[str] = None,
+        volume: Optional[float] = None,
+        duration: Optional[int] = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = SirenCommandRequest()
+        req.key = key
+        if state is not None:
+            req.state = state
+            req.has_state = True
+        if tone is not None:
+            req.tone = tone
+            req.has_tone = True
+        if volume is not None:
+            req.volume = volume
+            req.has_volume = True
+        if duration is not None:
+            req.duration = duration
+            req.has_duration = True
         assert self._connection is not None
         await self._connection.send_message(req)
 
