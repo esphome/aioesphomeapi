@@ -39,6 +39,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesDoneResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
+    ListEntitiesLockResponse,
     ListEntitiesNumberResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
@@ -47,6 +48,9 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesSirenResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    LockCommand,
+    LockCommandRequest,
+    LockStateResponse,
     NumberCommandRequest,
     NumberStateResponse,
     SelectCommandRequest,
@@ -92,6 +96,8 @@ from .model import (
     LegacyCoverCommand,
     LightInfo,
     LightState,
+    LockEntityState,
+    LockInfo,
     LogLevel,
     NumberInfo,
     NumberState,
@@ -220,6 +226,7 @@ class APIClient:
             ListEntitiesCoverResponse: CoverInfo,
             ListEntitiesFanResponse: FanInfo,
             ListEntitiesLightResponse: LightInfo,
+            ListEntitiesLockResponse: LockInfo,
             ListEntitiesNumberResponse: NumberInfo,
             ListEntitiesSelectResponse: SelectInfo,
             ListEntitiesSensorResponse: SensorInfo,
@@ -265,6 +272,7 @@ class APIClient:
             CoverStateResponse: CoverState,
             FanStateResponse: FanState,
             LightStateResponse: LightState,
+            LockStateResponse: LockEntityState,
             NumberStateResponse: NumberState,
             SelectStateResponse: SelectState,
             SensorStateResponse: SensorState,
@@ -591,6 +599,21 @@ class APIClient:
         if duration is not None:
             req.duration = duration
             req.has_duration = True
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def lock_command(
+        self,
+        key: int,
+        command: LockCommand,
+        code: Optional[str] = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = LockCommandRequest()
+        req.key = key
+        req.command = command
+        req.code = code
         assert self._connection is not None
         await self._connection.send_message(req)
 

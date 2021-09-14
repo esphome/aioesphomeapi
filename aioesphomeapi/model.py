@@ -585,6 +585,37 @@ class SirenState(EntityState):
     state: bool = False
 
 
+# ==================== LOCK ====================
+class LockState(APIIntEnum):
+    LOCK_STATE_NONE = 0
+    LOCK_STATE_LOCKED = 1
+    LOCK_STATE_UNLOCKED = 3
+    LOCK_STATE_JAMMED = 3
+    LOCK_STATE_LOCKING = 4
+    LOCK_STATE_UNLOCKING = 5
+
+
+class LockCommand(APIIntEnum):
+    LOCK_COMMAND_LOCK = 0
+    LOCK_COMMAND_UNLOCK = 1
+    LOCK_COMMAND_OPEN = 2
+
+
+@dataclass(frozen=True)
+class LockInfo(EntityInfo):
+    icon: str = ""
+    supports_open: bool = False
+    requires_code: bool = False
+    code_format: str = ""
+
+
+@dataclass(frozen=True)
+class LockEntityState(EntityState):
+    state: LockState = converter_field(
+        default=LockState.LOCK_STATE_NONE, converter=LockState.convert
+    )
+
+
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
