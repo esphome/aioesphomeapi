@@ -63,6 +63,34 @@ class APIConnectionError(Exception):
     pass
 
 
+class InvalidAuthAPIError(APIConnectionError):
+    pass
+
+
+class ResolveAPIError(APIConnectionError):
+    pass
+
+
+class ProtocolAPIError(APIConnectionError):
+    pass
+
+
+class RequiresEncryptionAPIError(ProtocolAPIError):
+    pass
+
+
+class SocketAPIError(APIConnectionError):
+    pass
+
+
+class HandshakeAPIError(APIConnectionError):
+    pass
+
+
+class InvalidEncryptionKeyAPIError(HandshakeAPIError):
+    pass
+
+
 MESSAGE_TYPE_TO_PROTO = {
     1: HelloRequest,
     2: HelloResponse,

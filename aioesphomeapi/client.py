@@ -139,7 +139,8 @@ class APIClient:
             client_info=client_info,
             keepalive=keepalive,
             zeroconf_instance=zeroconf_instance,
-            noise_psk=noise_psk,
+            # treat empty psk string as missing (like password)
+            noise_psk=noise_psk or None,
         )
         self._connection: Optional[APIConnection] = None
         self._cached_name: Optional[str] = None

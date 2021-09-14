@@ -13,7 +13,7 @@ try:
 except ImportError:
     ZC_ASYNCIO = False
 
-from .core import APIConnectionError
+from .core import APIConnectionError, ResolveAPIError
 
 ZeroconfInstanceType = Union[zeroconf.Zeroconf, "zeroconf.asyncio.AsyncZeroconf", None]
 
@@ -56,7 +56,7 @@ def _sync_zeroconf_get_service_info(
         try:
             zc = zeroconf.Zeroconf()
         except Exception:
-            raise APIConnectionError(
+            raise ResolveAPIError(
                 "Cannot start mDNS sockets, is this a docker container without "
                 "host network mode?"
             )
@@ -72,7 +72,7 @@ def _sync_zeroconf_get_service_info(
     try:
         info = zc.get_service_info(service_type, service_name, int(timeout * 1000))
     except Exception as exc:
-        raise APIConnectionError(
+        raise ResolveAPIError(
             f"Error resolving mDNS {service_name} via mDNS: {exc}"
         ) from exc
     finally:
@@ -105,7 +105,7 @@ async def _async_zeroconf_get_service_info(
         try:
             zc = zeroconf.asyncio.AsyncZeroconf()
         except Exception:
-            raise APIConnectionError(
+            raise ResolveAPIError(
                 "Cannot start mDNS sockets, is this a docker container without "
                 "host network mode?"
             )
@@ -126,7 +126,7 @@ async def _async_zeroconf_get_service_info(
             service_type, service_name, int(timeout * 1000)
         )
     except Exception as exc:
-        raise APIConnectionError(
+        raise ResolveAPIError(
             f"Error resolving mDNS {service_name} via mDNS: {exc}"
         ) from exc
     finally:
@@ -240,9 +240,7 @@ async def async_resolve_host(
         if zc_error:
             # Only show ZC error if getaddrinfo also didn't work
             raise zc_error
-        raise APIConnectionError(
-            f"Could not resolve host {host} - got no results from OS"
-        )
+        raise ResolveAPIError(f"Could not resolve host {host} - got no results from OS")
 
     # Use first matching result
     # Future: return all matches and use first working one
