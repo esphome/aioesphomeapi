@@ -185,8 +185,8 @@ async def _async_resolve_host_getaddrinfo(
     eventloop: asyncio.events.AbstractEventLoop, host: str, port: int
 ) -> List[AddrInfo]:
     try:
-        # Limit to TCP IP protocol
-        res = await eventloop.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+        # Limit to TCP IP protocol and SOCK_STREAM
+        res = await eventloop.getaddrinfo(host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
     except OSError as err:
         raise APIConnectionError("Error resolving IP address: {}".format(err))
 
