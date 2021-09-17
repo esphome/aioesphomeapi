@@ -1,7 +1,9 @@
 import asyncio
+import contextlib
 import functools
 import socket
 from dataclasses import dataclass
+from ipaddress import IPv4Address, IPv6Address
 from typing import List, Optional, Tuple, Union, cast
 
 import zeroconf
@@ -213,6 +215,36 @@ async def _async_resolve_host_getaddrinfo(
     return addrs
 
 
+def _async_ip_address_to_addrs(host: str, port: int) -> List[AddrInfo]:
+    """Convert an ipaddress to AddrInfo."""
+    with contextlib.suppress(ValueError):
+        return [
+            AddrInfo(
+                family=socket.AF_INET6,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=IPv6Sockaddr(
+                    address=str(IPv6Address(host)), port=port, flowinfo=0, scope_id=0
+                ),
+            )
+        ]
+
+    with contextlib.suppress(ValueError):
+        return [
+            AddrInfo(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=IPv4Sockaddr(
+                    address=str(IPv4Address(host)),
+                    port=port,
+                ),
+            )
+        ]
+
+    return []
+
+
 async def async_resolve_host(
     eventloop: asyncio.events.AbstractEventLoop,
     host: str,
@@ -232,6 +264,9 @@ async def async_resolve_host(
             )
         except APIConnectionError as err:
             zc_error = err
+
+    if not addrs:
+        addrs.extend(_async_ip_address_to_addrs(host, port))
 
     if not addrs:
         addrs.extend(await _async_resolve_host_getaddrinfo(eventloop, host, port))
