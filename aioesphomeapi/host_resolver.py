@@ -188,7 +188,7 @@ async def _async_resolve_host_getaddrinfo(
         # Limit to TCP IP protocol
         res = await eventloop.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
     except OSError as err:
-        raise APIConnectionError("Error resolving IP address: {}".format(err))
+        raise APIConnectionError(f"Error resolving IP address: {err}")
 
     addrs: List[AddrInfo] = []
     for family, type_, proto, _, raw in res:
