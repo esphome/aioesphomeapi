@@ -501,7 +501,7 @@ class APIConnection:
             send_msg, is_response, is_response, timeout=timeout
         )
         if len(res) != 1:
-            raise APIConnectionError("Expected one result, got {}".format(len(res)))
+            raise APIConnectionError(f"Expected one result, got {len(res)}")
 
         return res[0]
 
