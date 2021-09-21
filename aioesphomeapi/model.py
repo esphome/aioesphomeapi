@@ -227,6 +227,7 @@ class LightInfo(EntityInfo):
     min_mireds: float = 0.0
     max_mireds: float = 0.0
     effects: List[str] = converter_field(default_factory=list, converter=list)
+    icon: str = ""
 
     # deprecated, do not use
     legacy_supports_brightness: bool = False
