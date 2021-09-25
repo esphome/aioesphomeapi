@@ -571,7 +571,7 @@ class APIConnection:
 
     async def ping(self) -> None:
         self._check_connected()
-        await self.send_message_await_response(PingRequest(), PingResponse, timeout=20)
+        await self.send_message_await_response(PingRequest(), PingResponse)
 
     async def _disconnect(self) -> None:
         self._check_connected()
