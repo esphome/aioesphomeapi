@@ -220,7 +220,9 @@ class APIFrameHelper:
                 preamble = await self._reader.readexactly(1)
                 if preamble[0] != 0x00:
                     if preamble[0] == 0x01:
-                        raise RequiresEncryptionAPIError("Connection requires encryption")
+                        raise RequiresEncryptionAPIError(
+                            "Connection requires encryption"
+                        )
                     raise ProtocolAPIError(f"Invalid preamble {preamble[0]:02x}")
 
                 length = b""
