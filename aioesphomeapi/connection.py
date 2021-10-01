@@ -511,6 +511,7 @@ class APIConnection:
         return res[0]
 
     async def _run_once(self) -> None:
+        assert self._frame_helper is not None
         pkt = await self._frame_helper.read_packet()
 
         msg_type = pkt.type
