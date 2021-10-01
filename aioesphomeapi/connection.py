@@ -509,7 +509,6 @@ class APIConnection:
         return res[0]
 
     async def _run_once(self) -> None:
-        assert self._frame_helper is not None
         pkt = await self._frame_helper.read_packet()
 
         msg_type = pkt.type
@@ -534,6 +533,9 @@ class APIConnection:
 
     async def run_forever(self) -> None:
         while True:
+            if self._frame_helper is None:
+                # Socket closed
+                break
             try:
                 await self._run_once()
             except APIConnectionError as err:
