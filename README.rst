@@ -40,10 +40,9 @@ The sample code below will connect to the device and retrieve details.
    
    async def main():
        """Connect to an ESPHome device and get details."""
-       loop = asyncio.get_running_loop()
-   
+
        # Establish connection 
-       api = aioesphomeapi.APIClient(loop, "api_test.local", 6053, "MyPassword")
+       api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
        await api.connect(login=True)
        
        # Get API version of the device's firmware

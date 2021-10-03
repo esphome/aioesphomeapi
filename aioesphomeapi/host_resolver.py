@@ -84,14 +84,13 @@ def _sync_zeroconf_get_service_info(
 
 
 async def _async_zeroconf_get_service_info(
-    eventloop: asyncio.events.AbstractEventLoop,
     zeroconf_instance: ZeroconfInstanceType,
     service_type: str,
     service_name: str,
     timeout: float,
 ) -> Optional["zeroconf.ServiceInfo"]:
     if not ZC_ASYNCIO:
-        return await eventloop.run_in_executor(
+        return await asyncio.get_event_loop().run_in_executor(
             None,
             functools.partial(
                 _sync_zeroconf_get_service_info,
@@ -138,7 +137,6 @@ async def _async_zeroconf_get_service_info(
 
 
 async def _async_resolve_host_zeroconf(
-    eventloop: asyncio.events.AbstractEventLoop,
     host: str,
     port: int,
     *,
@@ -149,7 +147,7 @@ async def _async_resolve_host_zeroconf(
     service_name = f"{host}.{service_type}"
 
     info = await _async_zeroconf_get_service_info(
-        eventloop, zeroconf_instance, service_type, service_name, timeout
+        zeroconf_instance, service_type, service_name, timeout
     )
 
     if info is None:
@@ -183,12 +181,10 @@ async def _async_resolve_host_zeroconf(
     return addrs
 
 
-async def _async_resolve_host_getaddrinfo(
-    eventloop: asyncio.events.AbstractEventLoop, host: str, port: int
-) -> List[AddrInfo]:
+async def _async_resolve_host_getaddrinfo(host: str, port: int) -> List[AddrInfo]:
     try:
         # Limit to TCP IP protocol and SOCK_STREAM
-        res = await eventloop.getaddrinfo(
+        res = await asyncio.get_event_loop().getaddrinfo(
             host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP
         )
     except OSError as err:
@@ -248,7 +244,6 @@ def _async_ip_address_to_addrs(host: str, port: int) -> List[AddrInfo]:
 
 
 async def async_resolve_host(
-    eventloop: asyncio.events.AbstractEventLoop,
     host: str,
     port: int,
     zeroconf_instance: ZeroconfInstanceType = None,
@@ -261,7 +256,7 @@ async def async_resolve_host(
         try:
             addrs.extend(
                 await _async_resolve_host_zeroconf(
-                    eventloop, name, port, zeroconf_instance=zeroconf_instance
+                    name, port, zeroconf_instance=zeroconf_instance
                 )
             )
         except APIConnectionError as err:
@@ -271,7 +266,7 @@ async def async_resolve_host(
         addrs.extend(_async_ip_address_to_addrs(host, port))
 
     if not addrs:
-        addrs.extend(await _async_resolve_host_getaddrinfo(eventloop, host, port))
+        addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
 
     if not addrs:
         if zc_error:

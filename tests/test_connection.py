@@ -13,7 +13,6 @@ from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 @pytest.fixture
 def connection_params() -> ConnectionParams:
     return ConnectionParams(
-        eventloop=asyncio.get_event_loop(),
         address="fake.address",
         port=6052,
         password=None,

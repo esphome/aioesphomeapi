@@ -47,7 +47,6 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class ConnectionParams:
-    eventloop: asyncio.events.AbstractEventLoop
     address: str
     port: int
     password: Optional[str]
@@ -133,7 +132,6 @@ class APIConnection:
         """Step 1 in connect process: resolve the address."""
         try:
             coro = hr.async_resolve_host(
-                self._params.eventloop,
                 self._params.address,
                 self._params.port,
                 self._params.zeroconf_instance,
@@ -162,7 +160,7 @@ class APIConnection:
         sockaddr = astuple(addr.sockaddr)
 
         try:
-            coro = self._params.eventloop.sock_connect(self._socket, sockaddr)
+            coro = asyncio.get_event_loop().sock_connect(self._socket, sockaddr)
             await asyncio.wait_for(coro, 30.0)
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
@@ -360,7 +358,7 @@ class APIConnection:
 
         :raises TimeoutAPIError: if a timeout occured
         """
-        fut = self._params.eventloop.create_future()
+        fut = asyncio.get_event_loop().create_future()
         responses = []
 
         def on_message(resp: message.Message) -> None:
