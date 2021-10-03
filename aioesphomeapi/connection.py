@@ -491,7 +491,9 @@ class APIConnection:
         await self.send_message_await_response(PingRequest(), PingResponse)
 
     async def disconnect(self) -> None:
-        self._check_connected()
+        if self._connection_state != ConnectionState.CONNECTED:
+            # already disconnected
+            return
 
         try:
             await self.send_message_await_response(
