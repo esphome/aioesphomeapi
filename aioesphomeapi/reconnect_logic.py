@@ -28,6 +28,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         on_disconnect: Callable[[], Awaitable[None]],
         zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
+        on_connect_error: Callable[[Exception], Awaitable[None]] = None,
     ) -> None:
         """Initialize ReconnectingLogic.
 
@@ -39,6 +40,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         self.name = name
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
+        self._on_connect_error_cb = on_connect_error
         self._zc = zeroconf_instance
         # Flag to check if the device is connected
         self._connected = True
@@ -121,6 +123,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         try:
             await self._cli.connect(on_stop=self._on_disconnect, login=True)
         except Exception as err:  # pylint: disable=broad-except
+            if self._on_connect_error_cb is not None:
+                await self._on_connect_error_cb(err)
             level = logging.WARNING if tries == 0 else logging.DEBUG
             _LOGGER.log(
                 level,
