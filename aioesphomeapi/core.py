@@ -83,11 +83,23 @@ class SocketAPIError(APIConnectionError):
     pass
 
 
+class SocketClosedAPIError(SocketAPIError):
+    pass
+
+
 class HandshakeAPIError(APIConnectionError):
     pass
 
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
+    pass
+
+
+class PingFailedAPIError(APIConnectionError):
+    pass
+
+
+class TimeoutAPIError(APIConnectionError):
     pass
 
 
