@@ -200,7 +200,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         await self._stop_zc_listen()
 
     def stop_callback(self) -> None:
-        asyncio.get_event_loop().create_task(self.stop())
+        asyncio.create_task(self.stop())
 
     async def _start_zc_listen(self) -> None:
         """Listen for mDNS records.
