@@ -118,13 +118,15 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
 
         try:
             await self._cli.connect(on_stop=self._on_disconnect, login=True)
-        except APIConnectionError as error:
+        except Exception as err:  # pylint: disable=broad-except
             level = logging.WARNING if tries == 0 else logging.DEBUG
             _LOGGER.log(
                 level,
                 "Can't connect to ESPHome API for %s: %s",
                 self._log_name,
-                error,
+                err,
+                # Print stacktrace if unhandled (not APIConnectionError)
+                exc_info=not isinstance(err, APIConnectionError),
             )
             await self._start_zc_listen()
             # Schedule re-connect in event loop in order not to delay HA

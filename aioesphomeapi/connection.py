@@ -86,6 +86,9 @@ class APIConnection:
 
         self._connection_state = ConnectionState.INITIALIZED
         self._is_authenticated = False
+        # Store whether connect() has completed
+        # Used so that on_stop is _not_ called if an error occurs during connect()
+        self._connect_complete = False
 
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: List[Callable[[message.Message], None]] = []
@@ -121,7 +124,7 @@ class APIConnection:
             self._read_task.cancel()
             self._read_task = None
 
-        if not self._on_stop_called:
+        if not self._on_stop_called and self._connect_complete:
             # Ensure on_stop is called
             asyncio.create_task(self.on_stop())
             self._on_stop_called = True
@@ -261,6 +264,8 @@ class APIConnection:
             self._connection_state = ConnectionState.CLOSED
             await self._cleanup()
             raise
+
+        self._connect_complete = True
 
     async def login(self) -> None:
         """Send a login (ConnectRequest) and await the response."""
