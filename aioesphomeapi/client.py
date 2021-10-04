@@ -128,6 +128,7 @@ class APIClient:
         keepalive: float = 15.0,
         zeroconf_instance: ZeroconfInstanceType = None,
         noise_psk: Optional[str] = None,
+        expected_name: Optional[str] = None,
     ):
         self._params = ConnectionParams(
             address=address,
@@ -138,9 +139,18 @@ class APIClient:
             zeroconf_instance=zeroconf_instance,
             # treat empty psk string as missing (like password)
             noise_psk=noise_psk or None,
+            expected_name=expected_name,
         )
         self._connection: Optional[APIConnection] = None
         self._cached_name: Optional[str] = None
+
+    @property
+    def expected_name(self) -> Optional[str]:
+        return self._params.expected_name
+
+    @expected_name.setter
+    def expected_name(self, value: Optional[str]) -> None:
+        self._params.expected_name = value
 
     @property
     def address(self) -> str:

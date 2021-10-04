@@ -91,6 +91,10 @@ class HandshakeAPIError(APIConnectionError):
     pass
 
 
+class BadNameAPIError(APIConnectionError):
+    pass
+
+
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
     pass
 

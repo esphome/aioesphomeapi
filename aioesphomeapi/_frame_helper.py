@@ -8,6 +8,7 @@ from typing import Optional
 from noise.connection import NoiseConnection  # type: ignore
 
 from .core import (
+    BadNameAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
@@ -178,9 +179,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         _LOGGER.debug("Received frame %s", frame.hex())
         return frame
 
-    async def perform_handshake(self) -> None:
+    async def perform_handshake(self, expected_name: Optional[str]) -> None:
         await self._write_frame(b"")  # ClientHello
         prologue = b"NoiseAPIInit" + b"\x00\x00"
+
         server_hello = await self._read_frame()  # ServerHello
         if not server_hello:
             raise HandshakeAPIError("ServerHello is empty")
@@ -189,6 +191,12 @@ class APINoiseFrameHelper(APIFrameHelper):
             raise HandshakeAPIError(
                 f"Unknown protocol selected by client {chosen_proto}"
             )
+        server_name_i = server_hello.find(b"\0", 1)
+        if server_name_i != -1:
+            # server name found
+            server_name = server_hello[1:server_name_i].decode()
+            if expected_name is not None and expected_name != server_name:
+                raise BadNameAPIError(f"Server sent a different name '{server_name}'")
 
         self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
         self._proto.set_as_initiator()

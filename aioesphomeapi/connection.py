@@ -32,6 +32,7 @@ from .api_pb2 import (  # type: ignore
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
+    BadNameAPIError,
     InvalidAuthAPIError,
     PingFailedAPIError,
     ProtocolAPIError,
@@ -55,6 +56,7 @@ class ConnectionParams:
     keepalive: float
     zeroconf_instance: hr.ZeroconfInstanceType
     noise_psk: Optional[str]
+    expected_name: Optional[str]
 
 
 class ConnectionState(enum.Enum):
@@ -174,7 +176,7 @@ class APIConnection:
             fh = self._frame_helper = APINoiseFrameHelper(
                 reader, writer, self._params.noise_psk
             )
-            await fh.perform_handshake()
+            await fh.perform_handshake(self._params.expected_name)
 
         self._connection_state = ConnectionState.SOCKET_OPENED
 
@@ -205,6 +207,13 @@ class APIConnection:
                 self._api_version.major,
             )
             raise APIConnectionError("Incompatible API version.")
+
+        if (
+            self._params.expected_name is not None
+            and resp.name != ""
+            and resp.name != self._params.expected_name
+        ):
+            raise BadNameAPIError(f"Server sent a different name '{resp.name}'")
 
         self._connection_state = ConnectionState.CONNECTED
 
