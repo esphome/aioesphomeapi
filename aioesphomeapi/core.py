@@ -103,6 +103,10 @@ class TimeoutAPIError(APIConnectionError):
     pass
 
 
+class ReadFailedAPIError(APIConnectionError):
+    pass
+
+
 MESSAGE_TYPE_TO_PROTO = {
     1: HelloRequest,
     2: HelloResponse,
