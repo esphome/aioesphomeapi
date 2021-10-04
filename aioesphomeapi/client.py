@@ -197,7 +197,10 @@ class APIClient:
     async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
             return
-        await self._connection.stop(force=force)
+        if force:
+            await self._connection.force_disconnect()
+        else:
+            await self._connection.disconnect()
 
     def _check_connected(self) -> None:
         if self._connection is None:

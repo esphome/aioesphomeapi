@@ -54,8 +54,8 @@ def socket_socket():
 async def test_connect(conn, resolve_host, socket_socket, event_loop):
     with patch.object(event_loop, "sock_connect"), patch(
         "asyncio.open_connection", return_value=(None, None)
-    ), patch.object(conn, "run_forever"), patch.object(
-        conn, "_start_ping"
+    ), patch.object(conn, "_read_loop"), patch.object(
+        conn, "_connect_start_ping"
     ), patch.object(
         conn, "send_message_await_response", return_value=HelloResponse()
     ):
