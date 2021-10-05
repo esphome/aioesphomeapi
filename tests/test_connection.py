@@ -5,8 +5,8 @@ import pytest
 from mock import AsyncMock, MagicMock, Mock, patch
 
 from aioesphomeapi.api_pb2 import ConnectResponse, HelloResponse
-from aioesphomeapi.connection import APIConnection, ConnectionParams
-from aioesphomeapi.core import APIConnectionError
+from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
+from aioesphomeapi.core import APIConnectionError, RequiresEncryptionAPIError
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
 
@@ -62,3 +62,18 @@ async def test_connect(conn, resolve_host, socket_socket, event_loop):
         await conn.connect()
 
     assert conn.is_connected
+
+
+@pytest.mark.asyncio
+async def test_requires_encryption_propagates(conn):
+    with patch("asyncio.open_connection") as openc:
+        reader = MagicMock()
+        writer = MagicMock()
+        openc.return_value = (reader, writer)
+        writer.drain = AsyncMock()
+        reader.readexactly = AsyncMock()
+        reader.readexactly.return_value = b"\x01"
+
+        await conn._connect_init_frame_helper()
+        with pytest.raises(RequiresEncryptionAPIError):
+            await conn._connect_hello()
