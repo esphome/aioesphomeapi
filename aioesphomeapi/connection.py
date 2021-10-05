@@ -546,6 +546,7 @@ class APIConnection:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             await self._report_fatal_error(err)
+            raise
 
     async def send_message_callback_response(
         self, send_msg: message.Message, on_message: Callable[[Any], None]
