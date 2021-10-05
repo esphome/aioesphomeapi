@@ -583,9 +583,10 @@ class APIConnection:
 
         def on_read_exception(exc: Exception) -> None:
             if not fut.done():
-                # Wrap error so that caller gets right stacktrace
-                new_exc = ReadFailedAPIError("Read failed")
-                new_exc.__cause__ = exc
+                new_exc = exc
+                if not isinstance(exc, APIConnectionError):
+                    new_exc = ReadFailedAPIError("Read failed")
+                    new_exc.__cause__ = exc
                 fut.set_exception(new_exc)
 
         self._message_handlers.append(on_message)
