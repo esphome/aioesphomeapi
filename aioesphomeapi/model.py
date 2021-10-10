@@ -113,6 +113,7 @@ class EntityInfo(APIModelBase):
     name: str = ""
     unique_id: str = ""
     disabled_by_default: bool = False
+    icon: str = ""
 
 
 @dataclass(frozen=True)
@@ -316,7 +317,6 @@ class LastResetType(APIIntEnum):
 
 @dataclass(frozen=True)
 class SensorInfo(EntityInfo):
-    icon: str = ""
     device_class: str = ""
     unit_of_measurement: str = ""
     accuracy_decimals: int = 0
@@ -338,7 +338,6 @@ class SensorState(EntityState):
 # ==================== SWITCH ====================
 @dataclass(frozen=True)
 class SwitchInfo(EntityInfo):
-    icon: str = ""
     assumed_state: bool = False
 
 
@@ -350,7 +349,7 @@ class SwitchState(EntityState):
 # ==================== TEXT SENSOR ====================
 @dataclass(frozen=True)
 class TextSensorInfo(EntityInfo):
-    icon: str = ""
+    pass
 
 
 @dataclass(frozen=True)
@@ -506,7 +505,6 @@ class ClimateState(EntityState):
 # ==================== NUMBER ====================
 @dataclass(frozen=True)
 class NumberInfo(EntityInfo):
-    icon: str = ""
     min_value: float = 0.0
     max_value: float = 0.0
     step: float = converter_field(
@@ -525,7 +523,6 @@ class NumberState(EntityState):
 # ==================== SELECT ====================
 @dataclass(frozen=True)
 class SelectInfo(EntityInfo):
-    icon: str = ""
     options: List[str] = converter_field(default_factory=list, converter=list)
 
 
@@ -538,7 +535,6 @@ class SelectState(EntityState):
 # ==================== SIREN ====================
 @dataclass(frozen=True)
 class SirenInfo(EntityInfo):
-    icon: str = ""
     tones: List[str] = converter_field(default_factory=list, converter=list)
     supports_volume: bool = False
     supports_duration: bool = False
