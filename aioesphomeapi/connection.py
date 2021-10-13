@@ -35,6 +35,7 @@ from .core import (
     InvalidAuthAPIError,
     PingFailedAPIError,
     ProtocolAPIError,
+    ReadFailedAPIError,
     ResolveAPIError,
     SocketAPIError,
     SocketClosedAPIError,
@@ -93,14 +94,11 @@ class APIConnection:
         self._message_handlers: List[Callable[[message.Message], None]] = []
         # The friendly name to show for this connection in the logs
         self.log_name = params.address
-        # The task that periodically requests a ping from the device, and closes
-        # the connection on a timeout
-        self._ping_task: Optional[asyncio.Task[None]] = None
-        # The task that reads from the socket and calls the message handlers
-        self._read_task: Optional[asyncio.Task[None]] = None
 
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
+
+        self._ping_stop_event = asyncio.Event()
 
     async def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
@@ -115,18 +113,15 @@ class APIConnection:
             self._socket.close()
             self._socket = None
 
-        if self._ping_task is not None:
-            self._ping_task.cancel()
-            self._ping_task = None
-
-        if self._read_task is not None:
-            self._read_task.cancel()
-            self._read_task = None
-
         if not self._on_stop_called and self._connect_complete:
             # Ensure on_stop is called
             asyncio.create_task(self.on_stop())
             self._on_stop_called = True
+
+        # Note: we don't explicitly cancel the ping/read task here
+        # That's because if not written right the ping/read task could cancel
+        # themself, effectively ending execution after _cleanup which may be unexpected
+        self._ping_stop_event.set()
 
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
@@ -160,7 +155,7 @@ class APIConnection:
         sockaddr = astuple(addr.sockaddr)
 
         try:
-            coro = asyncio.get_event_loop().sock_connect(self._socket, sockaddr)
+            coro = self._params.eventloop.sock_connect(self._socket, sockaddr)
             await asyncio.wait_for(coro, 30.0)
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
@@ -184,7 +179,7 @@ class APIConnection:
         self._connection_state = ConnectionState.SOCKET_OPENED
 
         # Create read loop
-        self._read_task = asyncio.create_task(self._read_loop())
+        asyncio.create_task(self._read_loop())
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
@@ -218,11 +213,20 @@ class APIConnection:
 
         async def func() -> None:
             while True:
-                if self._connection_state != ConnectionState.CONNECTED:
-                    # No longer connected but cleanup
+                if not self._is_socket_open:
                     return
 
-                await asyncio.sleep(self._params.keepalive)
+                # Wait for keepalive seconds, or ping stop event, whichever happens first
+                try:
+                    await asyncio.wait_for(
+                        self._ping_stop_event.wait(), self._params.keepalive
+                    )
+                except asyncio.TimeoutError:
+                    pass
+
+                # Re-check connection state
+                if not self._is_socket_open:
+                    return
 
                 try:
                     await self._ping()
@@ -243,7 +247,7 @@ class APIConnection:
                     await self._report_fatal_error(err)
                     return
 
-        self._ping_task = asyncio.create_task(func())
+        asyncio.create_task(func())
 
     async def connect(self) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
@@ -334,6 +338,7 @@ class APIConnection:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             await self._report_fatal_error(err)
+            raise
 
     async def send_message_callback_response(
         self, send_msg: message.Message, on_message: Callable[[Any], None]
@@ -358,7 +363,7 @@ class APIConnection:
 
         :raises TimeoutAPIError: if a timeout occured
         """
-        fut = asyncio.get_event_loop().create_future()
+        fut = self._params.eventloop.create_future()
         responses = []
 
         def on_message(resp: message.Message) -> None:
@@ -371,7 +376,11 @@ class APIConnection:
 
         def on_read_exception(exc: Exception) -> None:
             if not fut.done():
-                fut.set_exception(exc)
+                new_exc = exc
+                if not isinstance(exc, APIConnectionError):
+                    new_exc = ReadFailedAPIError("Read failed")
+                    new_exc.__cause__ = exc
+                fut.set_exception(new_exc)
 
         self._message_handlers.append(on_message)
         self._read_exception_handlers.append(on_read_exception)
