@@ -28,7 +28,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         on_disconnect: Callable[[], Awaitable[None]],
         zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
-        on_connect_error: Callable[[Exception], Awaitable[None]] = None,
+        on_connect_error: Optional[Callable[[Exception], Awaitable[None]]] = None,
     ) -> None:
         """Initialize ReconnectingLogic.
 
