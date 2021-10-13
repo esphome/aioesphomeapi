@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import (
     Any,
@@ -121,7 +120,6 @@ ExecuteServiceDataType = Dict[
 class APIClient:
     def __init__(
         self,
-        eventloop: asyncio.AbstractEventLoop,
         address: str,
         port: int,
         password: Optional[str],
@@ -132,7 +130,6 @@ class APIClient:
         noise_psk: Optional[str] = None,
     ):
         self._params = ConnectionParams(
-            eventloop=eventloop,
             address=address,
             port=port,
             password=password,

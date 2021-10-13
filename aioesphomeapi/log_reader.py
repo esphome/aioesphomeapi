@@ -33,7 +33,6 @@ async def main(argv: List[str]) -> None:
     )
 
     cli = APIClient(
-        asyncio.get_event_loop(),
         args.address,
         args.port,
         args.password or "",

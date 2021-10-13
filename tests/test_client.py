@@ -40,9 +40,8 @@ from aioesphomeapi.model import (
 
 
 @pytest.fixture
-def auth_client(event_loop):
+def auth_client():
     client = APIClient(
-        eventloop=event_loop,
         address="fake.address",
         port=6052,
         password=None,

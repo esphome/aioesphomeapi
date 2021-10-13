@@ -57,7 +57,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         self._wait_task_lock = asyncio.Lock()
         # Event for tracking when logic should stop
         self._stop_event = asyncio.Event()
-        self._event_loop: Optional[asyncio.events.AbstractEventLoop] = None
+
+        # Store the caller's event loop so the zeroconf can schedule it in the right one
+        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
 
     @property
     def _is_stopped(self) -> bool:
@@ -198,7 +200,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         await self._stop_zc_listen()
 
     def stop_callback(self) -> None:
-        asyncio.get_event_loop().create_task(self.stop())
+        asyncio.create_task(self.stop())
 
     async def _start_zc_listen(self) -> None:
         """Listen for mDNS records.
