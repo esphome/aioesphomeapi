@@ -220,35 +220,42 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
                 self._zc.async_remove_listener(self)
                 self._zc_listening = False
 
-    def _async_on_record(self, record: "zeroconf.DNSRecord") -> None:  # type: ignore[name-defined]
-        if not isinstance(record, zeroconf.DNSPointer):  # type: ignore[attr-defined]
-            # We only consider PTR records and match using the alias name
-            return
-        if self._is_stopped or self.name is None:
-            return
-        filter_alias = f"{self.name}._esphomelib._tcp.local."
-        if record.alias != filter_alias:
-            return
-
-        # This is a mDNS record from the device and could mean it just woke up
-        # Check if already connected, no lock needed for this access
-        if self._connected:
-            return
-
-        # Tell reconnection logic to retry connection attempt now (even before reconnect timer finishes)
-        _LOGGER.debug(
-            "%s: Triggering reconnect because of received mDNS record %s",
-            self._log_name,
-            record,
-        )
-        self._reconnect_event.set()
-
     def async_update_records(
         self,
         zc: "zeroconf.Zeroconf",  # pylint: disable=unused-argument
         now: float,  # pylint: disable=unused-argument
         records: List["zeroconf.RecordUpdate"],  # type: ignore[name-defined]
     ) -> None:
-        """Listen to zeroconf updated mDNS records. This must be called from the eventloop."""
-        for update in records:
-            self._async_on_record(update.new)
+        """Listen to zeroconf updated mDNS records. This must be called from the eventloop.
+
+        This is a mDNS record from the device and could mean it just woke up.
+        """
+
+        # Check if already connected, no lock needed for this access and
+        # bail if either the already stopped or we haven't received device info yet
+        if (
+            self._connected
+            or self._reconnect_event.is_set()
+            or self._is_stopped
+            or self.name is None
+        ):
+            return
+
+        filter_alias = f"{self.name}._esphomelib._tcp.local."
+
+        for record_update in records:
+            # We only consider PTR records and match using the alias name
+            if (
+                not isinstance(record_update.new, zeroconf.DNSPointer)  # type: ignore[attr-defined]
+                or record_update.new.alias != filter_alias
+            ):
+                continue
+
+            # Tell reconnection logic to retry connection attempt now (even before reconnect timer finishes)
+            _LOGGER.debug(
+                "%s: Triggering reconnect because of received mDNS record %s",
+                self._log_name,
+                record_update.new,
+            )
+            self._reconnect_event.set()
+            return
