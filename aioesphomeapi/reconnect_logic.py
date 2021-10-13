@@ -58,9 +58,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         # Event for tracking when logic should stop
         self._stop_event = asyncio.Event()
 
-        # Store the caller's event loop so the zeroconf can schedule it in the right one
-        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
-
     @property
     def _is_stopped(self) -> bool:
         return self._stop_event.is_set()
@@ -181,7 +178,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         """Start the reconnecting logic background task."""
         # Create reconnection loop outside of HA's tracked tasks in order
         # not to delay startup.
-        self._event_loop = asyncio.get_event_loop()
         self._loop_task = asyncio.create_task(self._reconnect_loop())
 
         async with self._connected_lock:
@@ -243,7 +239,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         )
         self._reconnect_event.set()
 
-    # From RecordUpdateListener for zeroconf>=0.32
     def async_update_records(
         self,
         zc: "zeroconf.Zeroconf",  # pylint: disable=unused-argument
@@ -253,18 +248,3 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         """Listen to zeroconf updated mDNS records. This must be called from the eventloop."""
         for update in records:
             self._async_on_record(update.new)
-
-    # From RecordUpdateListener for zeroconf<0.32
-    def update_record(
-        self,
-        zc: "zeroconf.Zeroconf",  # pylint: disable=unused-argument
-        now: float,  # pylint: disable=unused-argument
-        record: "zeroconf.DNSRecord",  # type: ignore[name-defined]
-    ) -> None:
-        assert self._event_loop is not None
-
-        async def corofunc() -> None:
-            self._async_on_record(record)
-
-        # Dispatch in event loop
-        asyncio.run_coroutine_threadsafe(corofunc(), self._event_loop)

@@ -1,23 +1,16 @@
 import asyncio
 import contextlib
-import functools
 import socket
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
 from typing import List, Optional, Tuple, Union, cast
 
 import zeroconf
-
-try:
-    import zeroconf.asyncio
-
-    ZC_ASYNCIO = True
-except ImportError:
-    ZC_ASYNCIO = False
+import zeroconf.asyncio
 
 from .core import APIConnectionError, ResolveAPIError
 
-ZeroconfInstanceType = Union[zeroconf.Zeroconf, "zeroconf.asyncio.AsyncZeroconf", None]
+ZeroconfInstanceType = Union[zeroconf.Zeroconf, zeroconf.asyncio.AsyncZeroconf, None]
 
 
 @dataclass(frozen=True)
@@ -47,60 +40,12 @@ class AddrInfo:
     sockaddr: Sockaddr
 
 
-def _sync_zeroconf_get_service_info(
-    zeroconf_instance: ZeroconfInstanceType,
-    service_type: str,
-    service_name: str,
-    timeout: float,
-) -> Optional["zeroconf.ServiceInfo"]:
-    # Use or create zeroconf instance, ensure it's an AsyncZeroconf
-    if zeroconf_instance is None:
-        try:
-            zc = zeroconf.Zeroconf()
-        except Exception:
-            raise ResolveAPIError(
-                "Cannot start mDNS sockets, is this a docker container without "
-                "host network mode?"
-            )
-        do_close = True
-    elif isinstance(zeroconf_instance, zeroconf.Zeroconf):
-        zc = zeroconf_instance
-        do_close = False
-    else:
-        raise ValueError(
-            f"Invalid type passed for zeroconf_instance: {type(zeroconf_instance)}"
-        )
-
-    try:
-        info = zc.get_service_info(service_type, service_name, int(timeout * 1000))
-    except Exception as exc:
-        raise ResolveAPIError(
-            f"Error resolving mDNS {service_name} via mDNS: {exc}"
-        ) from exc
-    finally:
-        if do_close:
-            zc.close()
-    return info
-
-
 async def _async_zeroconf_get_service_info(
     zeroconf_instance: ZeroconfInstanceType,
     service_type: str,
     service_name: str,
     timeout: float,
 ) -> Optional["zeroconf.ServiceInfo"]:
-    if not ZC_ASYNCIO:
-        return await asyncio.get_event_loop().run_in_executor(
-            None,
-            functools.partial(
-                _sync_zeroconf_get_service_info,
-                zeroconf_instance,
-                service_type,
-                service_name,
-                timeout,
-            ),
-        )
-
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     if zeroconf_instance is None:
         try:
