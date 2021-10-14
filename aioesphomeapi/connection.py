@@ -390,7 +390,7 @@ class APIConnection:
             await asyncio.wait_for(fut, timeout)
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError(
-                f"Timeout waiting for response for {send_msg}"
+                f"Timeout waiting for response for {type(send_msg)}"
             ) from err
         finally:
             with suppress(ValueError):
