@@ -92,7 +92,11 @@ class HandshakeAPIError(APIConnectionError):
 
 
 class BadNameAPIError(APIConnectionError):
-    pass
+    """Raised when a name received from the remote but does not much the expected name."""
+
+    def __init__(self, msg: str, received_name: str) -> None:
+        super().__init__(msg)
+        self.received_name = received_name
 
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):

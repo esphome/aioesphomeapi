@@ -130,6 +130,21 @@ class APIClient:
         noise_psk: Optional[str] = None,
         expected_name: Optional[str] = None,
     ):
+        """Create a client, this object is shared across sessions.
+
+        :param address: The address to connect to; for example an IP address
+          or .local name for mDNS lookup.
+        :param port: The port to connect to
+        :param password: Optional password to send to the device for authentication
+        :param client_info: User Agent string to send.
+        :param keepalive: The keepalive time in seconds (ping interval) for detecting stale connections.
+            Every keepalive seconds a ping is sent, if no pong is received the connection is closed.
+        :param zeroconf_instance: Pass a zeroconf instance to use if an mDNS lookup is necessary.
+        :param noise_psk: Encryption preshared key for noise transport encrypted sessions.
+        :param expected_name: Require the devices name to match the given expected name.
+            Can be used to prevent accidentally connecting to a different device if
+            IP passed as address but DHCP reassigned IP.
+        """
         self._params = ConnectionParams(
             address=address,
             port=port,

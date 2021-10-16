@@ -213,7 +213,9 @@ class APIConnection:
             and resp.name != ""
             and resp.name != self._params.expected_name
         ):
-            raise BadNameAPIError(f"Server sent a different name '{resp.name}'")
+            raise BadNameAPIError(
+                f"Server sent a different name '{resp.name}'", resp.name
+            )
 
         self._connection_state = ConnectionState.CONNECTED
 

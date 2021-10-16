@@ -186,17 +186,27 @@ class APINoiseFrameHelper(APIFrameHelper):
         server_hello = await self._read_frame()  # ServerHello
         if not server_hello:
             raise HandshakeAPIError("ServerHello is empty")
+
+        # First byte of server hello is the protocol the server chose
+        # for this session. Currently only 0x01 (Noise_NNpsk0_25519_ChaChaPoly_SHA256)
+        # exists.
         chosen_proto = server_hello[0]
         if chosen_proto != 0x01:
             raise HandshakeAPIError(
                 f"Unknown protocol selected by client {chosen_proto}"
             )
+
+        # Check name matches expected name (for noise sessions, this is done
+        # during hello phase before a connection is set up)
+        # Server name is encoded as a string followed by a zero byte after the chosen proto byte
         server_name_i = server_hello.find(b"\0", 1)
         if server_name_i != -1:
-            # server name found
+            # server name found, this extension was added in 2021.11
             server_name = server_hello[1:server_name_i].decode()
             if expected_name is not None and expected_name != server_name:
-                raise BadNameAPIError(f"Server sent a different name '{server_name}'")
+                raise BadNameAPIError(
+                    f"Server sent a different name '{server_name}'", server_name
+                )
 
         self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
         self._proto.set_as_initiator()
