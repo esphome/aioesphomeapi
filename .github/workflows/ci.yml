@@ -25,6 +25,8 @@ jobs:
             name: Check typing with mypy
           - id: pytest
             name: Run tests with pytest
+          - id: protoc
+            name: Check protobuf files match
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python
@@ -69,3 +71,14 @@ jobs:
         if: ${{ matrix.id == 'mypy' }}
       - run: pytest -vv --tb=native tests
         if: ${{ matrix.id == 'pytest' }}
+      - run: |
+          docker run \
+            -v "$PWD":/aioesphomeapi \
+            ghcr.io/esphome/aioesphomeapi-proto-builder:latest
+          if ! git diff --quiet; then
+            echo "You have altered the generated proto files but they do not match what is expected."
+            echo "Please run the following to update the generated files:"
+            echo 'docker run -v "$PWD":/aioesphomeapi ghcr.io/esphome/aioesphomeapi-proto-builder:latest'
+            exit 1
+          fi
+        if: ${{ matrix.id == 'protoc' }}
