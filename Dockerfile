@@ -4,6 +4,7 @@ RUN \
     apt-get update \
     && apt-get install -y --no-install-recommends \
         protobuf-compiler=3.12.4-1 \
+        libprotobuf-dev=3.12.4-1 \
     && rm -rf \
         /tmp/* \
         /var/{cache,log}/* \
