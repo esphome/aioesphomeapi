@@ -165,8 +165,12 @@ class CoverState(EntityState):
     legacy_state: Optional[LegacyCoverState] = converter_field(
         default=LegacyCoverState.OPEN, converter=LegacyCoverState.convert
     )
-    position: float = 0.0
-    tilt: float = 0.0
+    position: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    tilt: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     current_operation: Optional[CoverOperation] = converter_field(
         default=CoverOperation.IDLE, converter=CoverOperation.convert
     )
@@ -225,8 +229,12 @@ class LightInfo(EntityInfo):
     supported_color_modes: List[int] = converter_field(
         default_factory=list, converter=list
     )
-    min_mireds: float = 0.0
-    max_mireds: float = 0.0
+    min_mireds: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    max_mireds: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     effects: List[str] = converter_field(default_factory=list, converter=list)
 
     # deprecated, do not use
@@ -289,16 +297,34 @@ class LightInfo(EntityInfo):
 @dataclass(frozen=True)
 class LightState(EntityState):
     state: bool = False
-    brightness: float = 0.0
+    brightness: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     color_mode: int = 0
-    color_brightness: float = 0.0
-    red: float = 0.0
-    green: float = 0.0
-    blue: float = 0.0
-    white: float = 0.0
-    color_temperature: float = 0.0
-    cold_white: float = 0.0
-    warm_white: float = 0.0
+    color_brightness: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    red: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    green: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    blue: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    white: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    color_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    cold_white: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    warm_white: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     effect: str = ""
 
 
@@ -505,8 +531,12 @@ class ClimateState(EntityState):
 # ==================== NUMBER ====================
 @dataclass(frozen=True)
 class NumberInfo(EntityInfo):
-    min_value: float = 0.0
-    max_value: float = 0.0
+    min_value: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    max_value: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
     step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )

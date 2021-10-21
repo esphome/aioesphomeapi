@@ -1,7 +1,13 @@
-FROM python:3.9
+FROM python:3.10
 
-RUN apt-get update && \
-    apt-get install -y protobuf-compiler
+RUN \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        protobuf-compiler=3.12.4-1 \
+    && rm -rf \
+        /tmp/* \
+        /var/{cache,log}/* \
+        /var/lib/apt/lists/*
 
 WORKDIR /aioesphomeapi
 
