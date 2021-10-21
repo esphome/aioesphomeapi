@@ -360,8 +360,12 @@ class TextSensorState(EntityState):
 
 # ==================== CAMERA ====================
 @dataclass(frozen=True)
-class CameraInfo(EntityInfo):
-    pass
+class CameraInfo(APIModelBase):
+    object_id: str = ""
+    key: int = 0
+    name: str = ""
+    unique_id: str = ""
+    disabled_by_default: bool = False
 
 
 @dataclass(frozen=True)
