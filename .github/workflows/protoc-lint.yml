@@ -7,6 +7,7 @@ on:
       - aioesphomeapi/api_pb2.py
       - api.proto
       - api_options.proto
+      - Dockerfile
 
 jobs:
   protoc-update:
