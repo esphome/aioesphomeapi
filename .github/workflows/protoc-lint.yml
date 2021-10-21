@@ -5,33 +5,26 @@ on:
     paths:
       - aioesphomeapi/api_options_pb2.py
       - aioesphomeapi/api_pb2.py
+      - api.proto
+      - api_options.proto
 
 jobs:
   protoc-update:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.7'
-      - name: Install protoc
-        run: |
-          sudo apt-get install protobuf-compiler
-      - name: Set up Python environment
-        run: |
-          pip3 install -e .
-          pip3 install -r requirements_test.txt
 
       - name: Generate protoc
         run: |
-          script/gen-protoc
+          docker run \
+            -v "$PWD":/aioesphomeapi \
+            ghcr.io/esphome/aioesphomeapi-proto-builder:latest
 
       - name: Check changes
         run: |
           if ! git diff --quiet; then
             echo "You have altered the generated proto files but they do not match what is expected."
-            echo "Please check your local protobuf-compiler version."
-            protoc --version
+            echo "Please run the following to update the generated files:"
+            echo 'docker run -v "$PWD":/aioesphomeapi ghcr.io/esphome/aioesphomeapi-proto-builder:latest'
             exit 1
           fi
