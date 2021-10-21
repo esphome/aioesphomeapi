@@ -5,8 +5,8 @@ on:
     paths:
       - aioesphomeapi/api_options_pb2.py
       - aioesphomeapi/api_pb2.py
-      - api.proto
-      - api_options.proto
+      - aioesphomeapi/api.proto
+      - aioesphomeapi/api_options.proto
       - Dockerfile
 
 jobs:
