@@ -357,9 +357,7 @@ class SensorInfo(EntityInfo):
 
 @dataclass(frozen=True)
 class SensorState(EntityState):
-    state: float = converter_field(
-        default=0.0, converter=fix_float_single_double_conversion
-    )
+    state: float = 0.0
     missing_state: bool = False
 
 
