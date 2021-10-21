@@ -249,7 +249,7 @@ class APIConnection:
 
         asyncio.create_task(func())
 
-    async def connect(self) -> None:
+    async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
@@ -261,6 +261,8 @@ class APIConnection:
             await self._connect_init_frame_helper()
             await self._connect_hello()
             await self._connect_start_ping()
+            if login:
+                self.login()
         except Exception:  # pylint: disable=broad-except
             # Always clean up the connection if an error occured during connect
             self._connection_state = ConnectionState.CLOSED

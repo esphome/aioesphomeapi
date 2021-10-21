@@ -160,26 +160,17 @@ class APIClient:
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
-        connected = False
-        stopped = False
-
         async def _on_stop() -> None:
-            nonlocal stopped
-
-            if stopped:
-                return
-            stopped = True
+            # Hook into on_stop handler to clear connection when stopped
             self._connection = None
-            if connected and on_stop is not None:
+            if on_stop is not None:
                 await on_stop()
 
         self._connection = APIConnection(self._params, _on_stop)
         self._connection.log_name = self._log_name
 
         try:
-            await self._connection.connect()
-            if login:
-                await self._connection.login()
+            await self._connection.connect(login=login)
         except APIConnectionError:
             await _on_stop()
             raise
@@ -188,8 +179,6 @@ class APIClient:
             raise APIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
-
-        connected = True
 
     async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
