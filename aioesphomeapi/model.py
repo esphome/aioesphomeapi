@@ -113,6 +113,10 @@ class EntityInfo(APIModelBase):
     name: str = ""
     unique_id: str = ""
     disabled_by_default: bool = False
+
+
+@dataclass(frozen=True)
+class EntityWithIconInfo(EntityInfo):
     icon: str = ""
 
 
@@ -123,7 +127,7 @@ class EntityState(APIModelBase):
 
 # ==================== BINARY SENSOR ====================
 @dataclass(frozen=True)
-class BinarySensorInfo(EntityInfo):
+class BinarySensorInfo(EntityWithIconInfo):
     device_class: str = ""
     is_status_binary_sensor: bool = False
 
@@ -136,7 +140,7 @@ class BinarySensorState(EntityState):
 
 # ==================== COVER ====================
 @dataclass(frozen=True)
-class CoverInfo(EntityInfo):
+class CoverInfo(EntityWithIconInfo):
     assumed_state: bool = False
     supports_position: bool = False
     supports_tilt: bool = False
@@ -179,7 +183,7 @@ class CoverState(EntityState):
 
 # ==================== FAN ====================
 @dataclass(frozen=True)
-class FanInfo(EntityInfo):
+class FanInfo(EntityWithIconInfo):
     supports_oscillation: bool = False
     supports_speed: bool = False
     supports_direction: bool = False
@@ -221,7 +225,7 @@ class LightColorCapability(enum.IntFlag):
 
 
 @dataclass(frozen=True)
-class LightInfo(EntityInfo):
+class LightInfo(EntityWithIconInfo):
     supported_color_modes: List[int] = converter_field(
         default_factory=list, converter=list
     )
@@ -316,7 +320,7 @@ class LastResetType(APIIntEnum):
 
 
 @dataclass(frozen=True)
-class SensorInfo(EntityInfo):
+class SensorInfo(EntityWithIconInfo):
     device_class: str = ""
     unit_of_measurement: str = ""
     accuracy_decimals: int = 0
@@ -337,7 +341,7 @@ class SensorState(EntityState):
 
 # ==================== SWITCH ====================
 @dataclass(frozen=True)
-class SwitchInfo(EntityInfo):
+class SwitchInfo(EntityWithIconInfo):
     assumed_state: bool = False
 
 
@@ -348,7 +352,7 @@ class SwitchState(EntityState):
 
 # ==================== TEXT SENSOR ====================
 @dataclass(frozen=True)
-class TextSensorInfo(EntityInfo):
+class TextSensorInfo(EntityWithIconInfo):
     pass
 
 
@@ -360,12 +364,8 @@ class TextSensorState(EntityState):
 
 # ==================== CAMERA ====================
 @dataclass(frozen=True)
-class CameraInfo(APIModelBase):
-    object_id: str = ""
-    key: int = 0
-    name: str = ""
-    unique_id: str = ""
-    disabled_by_default: bool = False
+class CameraInfo(EntityInfo):
+    pass
 
 
 @dataclass(frozen=True)
@@ -424,7 +424,7 @@ class ClimatePreset(APIIntEnum):
 
 
 @dataclass(frozen=True)
-class ClimateInfo(EntityInfo):
+class ClimateInfo(EntityWithIconInfo):
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
     supported_modes: List[ClimateMode] = converter_field(
@@ -508,7 +508,7 @@ class ClimateState(EntityState):
 
 # ==================== NUMBER ====================
 @dataclass(frozen=True)
-class NumberInfo(EntityInfo):
+class NumberInfo(EntityWithIconInfo):
     min_value: float = 0.0
     max_value: float = 0.0
     step: float = converter_field(
@@ -526,7 +526,7 @@ class NumberState(EntityState):
 
 # ==================== SELECT ====================
 @dataclass(frozen=True)
-class SelectInfo(EntityInfo):
+class SelectInfo(EntityWithIconInfo):
     options: List[str] = converter_field(default_factory=list, converter=list)
 
 
@@ -538,7 +538,7 @@ class SelectState(EntityState):
 
 # ==================== SIREN ====================
 @dataclass(frozen=True)
-class SirenInfo(EntityInfo):
+class SirenInfo(EntityWithIconInfo):
     tones: List[str] = converter_field(default_factory=list, converter=list)
     supports_volume: bool = False
     supports_duration: bool = False
