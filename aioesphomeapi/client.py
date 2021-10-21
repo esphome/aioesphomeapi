@@ -172,10 +172,10 @@ class APIClient:
         try:
             await self._connection.connect(login=login)
         except APIConnectionError:
-            await _on_stop()
+            self._connection = None
             raise
         except Exception as e:
-            await _on_stop()
+            self._connection = None
             raise APIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
