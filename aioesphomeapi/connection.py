@@ -262,7 +262,7 @@ class APIConnection:
             await self._connect_hello()
             await self._connect_start_ping()
             if login:
-                self.login()
+                await self.login()
         except Exception:  # pylint: disable=broad-except
             # Always clean up the connection if an error occured during connect
             self._connection_state = ConnectionState.CLOSED
