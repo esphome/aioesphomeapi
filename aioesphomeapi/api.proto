@@ -202,6 +202,14 @@ message SubscribeStatesRequest {
   // Empty
 }
 
+// ==================== COMMON =====================
+
+enum EntityCategory {
+  ENTITY_CATEGORY_NONE = 0;
+  ENTITY_CATEGORY_CONFIG = 1;
+  ENTITY_CATEGORY_DIAGNOSTIC = 2;
+}
+
 // ==================== BINARY SENSOR ====================
 message ListEntitiesBinarySensorResponse {
   option (id) = 12;
@@ -217,6 +225,7 @@ message ListEntitiesBinarySensorResponse {
   bool is_status_binary_sensor = 6;
   bool disabled_by_default = 7;
   string icon = 8;
+  EntityCategory entity_category = 9;
 }
 message BinarySensorStateResponse {
   option (id) = 21;
@@ -468,6 +477,7 @@ message ListEntitiesSensorResponse {
   SensorStateClass state_class = 10;
   SensorLastResetType last_reset_type = 11;
   bool disabled_by_default = 12;
+  EntityCategory entity_category = 13;
 }
 message SensorStateResponse {
   option (id) = 25;
@@ -496,6 +506,7 @@ message ListEntitiesSwitchResponse {
   string icon = 5;
   bool assumed_state = 6;
   bool disabled_by_default = 7;
+  EntityCategory entity_category = 8;
 }
 message SwitchStateResponse {
   option (id) = 26;
@@ -529,6 +540,7 @@ message ListEntitiesTextSensorResponse {
 
   string icon = 5;
   bool disabled_by_default = 6;
+  EntityCategory entity_category = 7;
 }
 message TextSensorStateResponse {
   option (id) = 27;
@@ -852,6 +864,7 @@ message ListEntitiesNumberResponse {
   float max_value = 7;
   float step = 8;
   bool disabled_by_default = 9;
+  EntityCategory entity_category = 10;
 }
 message NumberStateResponse {
   option (id) = 50;
@@ -889,6 +902,7 @@ message ListEntitiesSelectResponse {
   string icon = 5;
   repeated string options = 6;
   bool disabled_by_default = 7;
+  EntityCategory entity_category = 8;
 }
 message SelectStateResponse {
   option (id) = 53;
