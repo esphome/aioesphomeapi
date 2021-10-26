@@ -106,6 +106,12 @@ class DeviceInfo(APIModelBase):
     project_version: str = ""
 
 
+class EntityCategory(APIIntEnum):
+    NONE = 0
+    CONFIG = 1
+    DIAGNOSTIC = 2
+
+
 @dataclass(frozen=True)
 class EntityInfo(APIModelBase):
     object_id: str = ""
@@ -114,6 +120,9 @@ class EntityInfo(APIModelBase):
     unique_id: str = ""
     disabled_by_default: bool = False
     icon: str = ""
+    entity_category: Optional[EntityCategory] = converter_field(
+        default=EntityCategory.NONE, converter=EntityCategory.convert
+    )
 
 
 @dataclass(frozen=True)
@@ -121,22 +130,9 @@ class EntityState(APIModelBase):
     key: int = 0
 
 
-class EntityCategory(APIIntEnum):
-    NONE = 0
-    CONFIG = 1
-    DIAGNOSTIC = 2
-
-
-@dataclass(frozen=True)
-class CategoricEntity(APIModelBase):
-    entity_category: Optional[EntityCategory] = converter_field(
-        default=EntityCategory.NONE, converter=EntityCategory.convert
-    )
-
-
 # ==================== BINARY SENSOR ====================
 @dataclass(frozen=True)
-class BinarySensorInfo(EntityInfo, CategoricEntity):
+class BinarySensorInfo(EntityInfo):
     device_class: str = ""
     is_status_binary_sensor: bool = False
 
@@ -355,7 +351,7 @@ class LastResetType(APIIntEnum):
 
 
 @dataclass(frozen=True)
-class SensorInfo(EntityInfo, CategoricEntity):
+class SensorInfo(EntityInfo):
     device_class: str = ""
     unit_of_measurement: str = ""
     accuracy_decimals: int = 0
@@ -376,7 +372,7 @@ class SensorState(EntityState):
 
 # ==================== SWITCH ====================
 @dataclass(frozen=True)
-class SwitchInfo(EntityInfo, CategoricEntity):
+class SwitchInfo(EntityInfo):
     assumed_state: bool = False
 
 
@@ -387,7 +383,7 @@ class SwitchState(EntityState):
 
 # ==================== TEXT SENSOR ====================
 @dataclass(frozen=True)
-class TextSensorInfo(EntityInfo, CategoricEntity):
+class TextSensorInfo(EntityInfo):
     pass
 
 
@@ -543,7 +539,7 @@ class ClimateState(EntityState):
 
 # ==================== NUMBER ====================
 @dataclass(frozen=True)
-class NumberInfo(EntityInfo, CategoricEntity):
+class NumberInfo(EntityInfo):
     min_value: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
@@ -565,7 +561,7 @@ class NumberState(EntityState):
 
 # ==================== SELECT ====================
 @dataclass(frozen=True)
-class SelectInfo(EntityInfo, CategoricEntity):
+class SelectInfo(EntityInfo):
     options: List[str] = converter_field(default_factory=list, converter=list)
 
 

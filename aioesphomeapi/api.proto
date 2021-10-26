@@ -257,6 +257,7 @@ message ListEntitiesCoverResponse {
   string device_class = 8;
   bool disabled_by_default = 9;
   string icon = 10;
+  EntityCategory entity_category = 11;
 }
 
 enum LegacyCoverState {
@@ -326,6 +327,7 @@ message ListEntitiesFanResponse {
   int32 supported_speed_levels = 8;
   bool disabled_by_default = 9;
   string icon = 10;
+  EntityCategory entity_category = 11;
 }
 enum FanSpeed {
   FAN_SPEED_LOW = 0;
@@ -390,6 +392,7 @@ message ListEntitiesLightResponse {
   repeated string effects = 11;
   bool disabled_by_default = 13;
   string icon = 14;
+  EntityCategory entity_category = 15;
 }
 message LightStateResponse {
   option (id) = 24;
@@ -702,6 +705,7 @@ message ListEntitiesCameraResponse {
   string unique_id = 4;
   bool disabled_by_default = 5;
   string icon = 6;
+  EntityCategory entity_category = 7;
 }
 
 message CameraImageResponse {
@@ -796,6 +800,7 @@ message ListEntitiesClimateResponse {
   repeated string supported_custom_presets = 17;
   bool disabled_by_default = 18;
   string icon = 19;
+  EntityCategory entity_category = 20;
 }
 message ClimateStateResponse {
   option (id) = 47;
@@ -942,6 +947,7 @@ message ListEntitiesSirenResponse {
   repeated string tones = 7;
   bool supports_duration = 8;
   bool supports_volume = 9;
+  EntityCategory entity_category = 10;
 }
 message SirenStateResponse {
   option (id) = 56;
