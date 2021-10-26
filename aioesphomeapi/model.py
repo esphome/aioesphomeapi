@@ -106,6 +106,12 @@ class DeviceInfo(APIModelBase):
     project_version: str = ""
 
 
+class EntityCategory(APIIntEnum):
+    NONE = 0
+    CONFIG = 1
+    DIAGNOSTIC = 2
+
+
 @dataclass(frozen=True)
 class EntityInfo(APIModelBase):
     object_id: str = ""
@@ -114,6 +120,9 @@ class EntityInfo(APIModelBase):
     unique_id: str = ""
     disabled_by_default: bool = False
     icon: str = ""
+    entity_category: Optional[EntityCategory] = converter_field(
+        default=EntityCategory.NONE, converter=EntityCategory.convert
+    )
 
 
 @dataclass(frozen=True)
