@@ -128,7 +128,7 @@ class EntityCategory(APIIntEnum):
 
 
 @dataclass(frozen=True)
-class CatagoricEntity(APIModelBase):
+class CategoricEntity(APIModelBase):
     entity_category: Optional[EntityCategory] = converter_field(
         default=EntityCategory.NONE, converter=EntityCategory.convert
     )
@@ -136,7 +136,7 @@ class CatagoricEntity(APIModelBase):
 
 # ==================== BINARY SENSOR ====================
 @dataclass(frozen=True)
-class BinarySensorInfo(EntityInfo, CatagoricEntity):
+class BinarySensorInfo(EntityInfo, CategoricEntity):
     device_class: str = ""
     is_status_binary_sensor: bool = False
 
@@ -355,7 +355,7 @@ class LastResetType(APIIntEnum):
 
 
 @dataclass(frozen=True)
-class SensorInfo(EntityInfo, CatagoricEntity):
+class SensorInfo(EntityInfo, CategoricEntity):
     device_class: str = ""
     unit_of_measurement: str = ""
     accuracy_decimals: int = 0
@@ -376,7 +376,7 @@ class SensorState(EntityState):
 
 # ==================== SWITCH ====================
 @dataclass(frozen=True)
-class SwitchInfo(EntityInfo, CatagoricEntity):
+class SwitchInfo(EntityInfo, CategoricEntity):
     assumed_state: bool = False
 
 
@@ -387,7 +387,7 @@ class SwitchState(EntityState):
 
 # ==================== TEXT SENSOR ====================
 @dataclass(frozen=True)
-class TextSensorInfo(EntityInfo, CatagoricEntity):
+class TextSensorInfo(EntityInfo, CategoricEntity):
     pass
 
 
@@ -543,7 +543,7 @@ class ClimateState(EntityState):
 
 # ==================== NUMBER ====================
 @dataclass(frozen=True)
-class NumberInfo(EntityInfo, CatagoricEntity):
+class NumberInfo(EntityInfo, CategoricEntity):
     min_value: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
@@ -565,7 +565,7 @@ class NumberState(EntityState):
 
 # ==================== SELECT ====================
 @dataclass(frozen=True)
-class SelectInfo(EntityInfo, CatagoricEntity):
+class SelectInfo(EntityInfo, CategoricEntity):
     options: List[str] = converter_field(default_factory=list, converter=list)
 
 
