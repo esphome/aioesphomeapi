@@ -104,6 +104,7 @@ class DeviceInfo(APIModelBase):
     esphome_version: str = ""
     project_name: str = ""
     project_version: str = ""
+    webserver_port: int = 0
 
 
 class EntityCategory(APIIntEnum):
