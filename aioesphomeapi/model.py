@@ -111,6 +111,7 @@ class EntityCategory(APIIntEnum):
     NONE = 0
     CONFIG = 1
     DIAGNOSTIC = 2
+    SYSTEM = 3
 
 
 @dataclass(frozen=True)
