@@ -10,7 +10,7 @@ from .core import APIConnectionError
 _LOGGER = logging.getLogger(__name__)
 
 
-class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-defined]
+class ReconnectLogic(zeroconf.RecordUpdateListener):
     """Reconnectiong logic handler for ESPHome config entries.
 
     Contains two reconnect strategies:
@@ -224,7 +224,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):  # type: ignore[misc,name-d
         self,
         zc: "zeroconf.Zeroconf",  # pylint: disable=unused-argument
         now: float,  # pylint: disable=unused-argument
-        records: List["zeroconf.RecordUpdate"],  # type: ignore[name-defined]
+        records: List["zeroconf.RecordUpdate"],
     ) -> None:
         """Listen to zeroconf updated mDNS records. This must be called from the eventloop.
 
