@@ -611,7 +611,7 @@ class LockInfo(EntityInfo):
 
 @dataclass(frozen=True)
 class LockEntityState(EntityState):
-    state: LockState = converter_field(
+    state: Optional[LockState] = converter_field(
         default=LockState.LOCK_STATE_NONE, converter=LockState.convert
     )
 
