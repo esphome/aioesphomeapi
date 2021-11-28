@@ -1,5 +1,6 @@
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -24,6 +25,7 @@ from .api_pb2 import (  # type: ignore
     LightCommandRequest,
     LightStateResponse,
     ListEntitiesBinarySensorResponse,
+    ListEntitiesButtonResponse,
     ListEntitiesCameraResponse,
     ListEntitiesClimateResponse,
     ListEntitiesCoverResponse,
@@ -165,4 +167,6 @@ MESSAGE_TYPE_TO_PROTO = {
     55: ListEntitiesSirenResponse,
     56: SirenStateResponse,
     57: SirenCommandRequest,
+    61: ListEntitiesButtonResponse,
+    62: ButtonCommandRequest,
 }

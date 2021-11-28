@@ -585,6 +585,17 @@ class SirenState(EntityState):
     state: bool = False
 
 
+# ==================== BUTTON ====================
+@dataclass(frozen=True)
+class ButtonInfo(EntityInfo):
+    pass
+
+
+@dataclass(frozen=True)
+class ButtonState(EntityState):
+    pass
+
+
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
@@ -598,6 +609,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "number": NumberInfo,
     "select": SelectInfo,
     "siren": SirenInfo,
+    "button": ButtonInfo,
 }
 
 
