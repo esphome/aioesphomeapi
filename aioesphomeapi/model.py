@@ -616,6 +616,14 @@ class LockEntityState(EntityState):
     )
 
 
+# ==================== BUTTON ====================
+@dataclass(frozen=True)
+class ButtonInfo(EntityInfo):
+    pass
+
+
+# ==================== INFO MAP ====================
+
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
@@ -629,6 +637,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "number": NumberInfo,
     "select": SelectInfo,
     "siren": SirenInfo,
+    "button": ButtonInfo,
 }
 
 
