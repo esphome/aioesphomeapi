@@ -13,6 +13,7 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantServiceResponse,
     LightStateResponse,
     ListEntitiesBinarySensorResponse,
+    ListEntitiesButtonResponse,
     ListEntitiesClimateResponse,
     ListEntitiesCoverResponse,
     ListEntitiesFanResponse,
@@ -37,6 +38,7 @@ from aioesphomeapi.model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    ButtonInfo,
     ClimateInfo,
     ClimatePreset,
     ClimateState,
@@ -217,6 +219,7 @@ def test_api_version_ord():
         (HomeassistantServiceCall, HomeassistantServiceResponse),
         (UserServiceArg, ListEntitiesServicesArgument),
         (UserService, ListEntitiesServicesResponse),
+        (ButtonInfo, ListEntitiesButtonResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
