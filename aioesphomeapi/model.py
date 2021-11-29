@@ -591,10 +591,7 @@ class ButtonInfo(EntityInfo):
     pass
 
 
-@dataclass(frozen=True)
-class ButtonState(EntityState):
-    pass
-
+# ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
