@@ -16,6 +16,7 @@ from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -33,6 +34,7 @@ from .api_pb2 import (  # type: ignore
     LightCommandRequest,
     LightStateResponse,
     ListEntitiesBinarySensorResponse,
+    ListEntitiesButtonResponse,
     ListEntitiesCameraResponse,
     ListEntitiesClimateResponse,
     ListEntitiesCoverResponse,
@@ -71,6 +73,7 @@ from .model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    ButtonInfo,
     CameraInfo,
     CameraState,
     ClimateFanMode,
@@ -217,6 +220,7 @@ class APIClient:
         self._check_authenticated()
         response_types: Dict[Any, Optional[Type[EntityInfo]]] = {
             ListEntitiesBinarySensorResponse: BinarySensorInfo,
+            ListEntitiesButtonResponse: ButtonInfo,
             ListEntitiesCoverResponse: CoverInfo,
             ListEntitiesFanResponse: FanInfo,
             ListEntitiesLightResponse: LightInfo,
@@ -591,6 +595,14 @@ class APIClient:
         if duration is not None:
             req.duration = duration
             req.has_duration = True
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def button_command(self, key: int) -> None:
+        self._check_authenticated()
+
+        req = ButtonCommandRequest()
+        req.key = key
         assert self._connection is not None
         await self._connection.send_message(req)
 
