@@ -18,6 +18,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesCoverResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
+    ListEntitiesLockResponse,
     ListEntitiesNumberResponse,
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
@@ -25,6 +26,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesServicesResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    LockStateResponse,
     NumberStateResponse,
     SelectStateResponse,
     SensorStateResponse,
@@ -51,6 +53,8 @@ from aioesphomeapi.model import (
     LegacyCoverState,
     LightInfo,
     LightState,
+    LockEntityState,
+    LockInfo,
     NumberInfo,
     NumberState,
     SelectInfo,
@@ -220,6 +224,8 @@ def test_api_version_ord():
         (UserServiceArg, ListEntitiesServicesArgument),
         (UserService, ListEntitiesServicesResponse),
         (ButtonInfo, ListEntitiesButtonResponse),
+        (LockInfo, ListEntitiesLockResponse),
+        (LockEntityState, LockStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
