@@ -588,7 +588,7 @@ class SirenState(EntityState):
 # ==================== BUTTON ====================
 @dataclass(frozen=True)
 class ButtonInfo(EntityInfo):
-    pass
+    device_class: str = ""
 
 
 # ==================== INFO MAP ====================
