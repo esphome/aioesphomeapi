@@ -539,6 +539,12 @@ class ClimateState(EntityState):
 
 
 # ==================== NUMBER ====================
+class NumberMode(APIIntEnum):
+    AUTO = 0
+    BOX = 1
+    SLIDER = 2
+
+
 @dataclass(frozen=True)
 class NumberInfo(EntityInfo):
     min_value: float = converter_field(
@@ -551,6 +557,9 @@ class NumberInfo(EntityInfo):
         default=0.0, converter=fix_float_single_double_conversion
     )
     unit_of_measurement: str = ""
+    mode: Optional[NumberMode] = converter_field(
+        default=NumberMode.AUTO, converter=NumberMode.convert
+    )
 
 
 @dataclass(frozen=True)
