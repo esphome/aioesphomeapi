@@ -550,6 +550,7 @@ class NumberInfo(EntityInfo):
     step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
+    unit_of_measurement: str = ""
 
 
 @dataclass(frozen=True)
