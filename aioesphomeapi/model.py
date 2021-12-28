@@ -602,6 +602,26 @@ class ButtonInfo(EntityInfo):
     device_class: str = ""
 
 
+# ==================== LOCK ====================
+
+
+class LockAction(APIIntEnum):
+    UNLOCK = 0
+    LOCK = 1
+    OPEN = 2
+
+
+@dataclass(frozen=True)
+class LockInfo(EntityInfo):
+    assumed_state: bool = False
+    device_class: str = ""
+
+
+@dataclass(frozen=True)
+class LockState(EntityState):
+    state: bool = False
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
@@ -618,6 +638,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "select": SelectInfo,
     "siren": SirenInfo,
     "button": ButtonInfo,
+    "lock": LockInfo,
 }
 
 

@@ -16,6 +16,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
     ListEntitiesServicesResponse,
+    LockCommandRequest,
     NumberCommandRequest,
     SelectCommandRequest,
     SwitchCommandRequest,
@@ -33,6 +34,7 @@ from aioesphomeapi.model import (
     FanDirection,
     FanSpeed,
     LegacyCoverCommand,
+    LockAction,
     UserService,
     UserServiceArg,
     UserServiceArgType,
@@ -354,6 +356,22 @@ async def test_number_command(auth_client, cmd, req):
 
     await auth_client.number_command(**cmd)
     send.assert_called_once_with(NumberCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, state=LockAction.LOCK), dict(key=1, state=LockAction.LOCK)),
+        (dict(key=1, state=LockAction.UNLOCK), dict(key=1, state=LockAction.UNLOCK)),
+        (dict(key=1, state=LockAction.OPEN), dict(key=1, state=LockAction.OPEN)),
+    ],
+)
+async def test_lock_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.lock_command(**cmd)
+    send.assert_called_once_with(LockCommandRequest(**req))
 
 
 @pytest.mark.asyncio
