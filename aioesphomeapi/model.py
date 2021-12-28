@@ -375,6 +375,7 @@ class SensorState(EntityState):
 @dataclass(frozen=True)
 class SwitchInfo(EntityInfo):
     assumed_state: bool = False
+    device_class: str = ""
 
 
 @dataclass(frozen=True)
