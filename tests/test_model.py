@@ -53,8 +53,8 @@ from aioesphomeapi.model import (
     LegacyCoverState,
     LightInfo,
     LightState,
+    LockEntityState,
     LockInfo,
-    LockState,
     NumberInfo,
     NumberState,
     SelectInfo,
@@ -225,7 +225,7 @@ def test_api_version_ord():
         (UserService, ListEntitiesServicesResponse),
         (ButtonInfo, ListEntitiesButtonResponse),
         (LockInfo, ListEntitiesLockResponse),
-        (LockState, LockStateResponse),
+        (LockEntityState, LockStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):

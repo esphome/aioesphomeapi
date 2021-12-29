@@ -34,7 +34,7 @@ from aioesphomeapi.model import (
     FanDirection,
     FanSpeed,
     LegacyCoverCommand,
-    LockAction,
+    LockCommand,
     UserService,
     UserServiceArg,
     UserServiceArgType,
@@ -362,9 +362,12 @@ async def test_number_command(auth_client, cmd, req):
 @pytest.mark.parametrize(
     "cmd, req",
     [
-        (dict(key=1, state=LockAction.LOCK), dict(key=1, state=LockAction.LOCK)),
-        (dict(key=1, state=LockAction.UNLOCK), dict(key=1, state=LockAction.UNLOCK)),
-        (dict(key=1, state=LockAction.OPEN), dict(key=1, state=LockAction.OPEN)),
+        (dict(key=1, command=LockCommand.LOCK), dict(key=1, command=LockCommand.LOCK)),
+        (
+            dict(key=1, command=LockCommand.UNLOCK),
+            dict(key=1, command=LockCommand.UNLOCK),
+        ),
+        (dict(key=1, command=LockCommand.OPEN), dict(key=1, command=LockCommand.OPEN)),
     ],
 )
 async def test_lock_command(auth_client, cmd, req):

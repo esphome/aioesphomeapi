@@ -98,9 +98,9 @@ from .model import (
     LegacyCoverCommand,
     LightInfo,
     LightState,
-    LockAction,
+    LockCommand,
+    LockEntityState,
     LockInfo,
-    LockState,
     LogLevel,
     NumberInfo,
     NumberState,
@@ -283,7 +283,7 @@ class APIClient:
             SwitchStateResponse: SwitchState,
             TextSensorStateResponse: TextSensorState,
             ClimateStateResponse: ClimateState,
-            LockStateResponse: LockState,
+            LockStateResponse: LockEntityState,
         }
 
         image_stream: Dict[int, bytes] = {}
@@ -614,12 +614,19 @@ class APIClient:
         assert self._connection is not None
         await self._connection.send_message(req)
 
-    async def lock_command(self, key: int, state: LockAction) -> None:
+    async def lock_command(
+        self,
+        key: int,
+        command: LockCommand,
+        code: Optional[str] = None,
+    ) -> None:
         self._check_authenticated()
 
         req = LockCommandRequest()
         req.key = key
-        req.state = state
+        req.command = command
+        if code is not None:
+            req.code = code
         assert self._connection is not None
         await self._connection.send_message(req)
 
