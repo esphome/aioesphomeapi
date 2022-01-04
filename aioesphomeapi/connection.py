@@ -336,7 +336,7 @@ class APIConnection:
                     data=encoded,
                 )
             )
-        except Exception as err:  # pylint: disable=broad-except
+        except SocketAPIError as err:  # pylint: disable=broad-except
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             await self._report_fatal_error(err)
