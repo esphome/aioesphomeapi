@@ -170,9 +170,9 @@ MESSAGE_TYPE_TO_PROTO = {
     55: ListEntitiesSirenResponse,
     56: SirenStateResponse,
     57: SirenCommandRequest,
+    58: ListEntitiesLockResponse,
+    59: LockStateResponse,
+    60: LockCommandRequest,
     61: ListEntitiesButtonResponse,
     62: ButtonCommandRequest,
-    63: ListEntitiesLockResponse,
-    64: LockStateResponse,
-    65: LockCommandRequest,
 }
