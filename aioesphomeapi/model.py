@@ -73,12 +73,12 @@ class APIModelBase:
             for f in fields(cls)
             if f.name in data or (not ignore_missing)
         }
-        return cls(**init_args)  # type: ignore
+        return cls(**init_args)
 
     @classmethod
     def from_pb(cls: Type[_V], data: Any) -> _V:
         init_args = {f.name: getattr(data, f.name) for f in fields(cls)}
-        return cls(**init_args)  # type: ignore
+        return cls(**init_args)
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:

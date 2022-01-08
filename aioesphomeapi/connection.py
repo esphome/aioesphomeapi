@@ -226,7 +226,7 @@ class APIConnection:
 
                 # Re-check connection state
                 if not self._is_socket_open:
-                    return
+                    return  # type: ignore[unreachable]
 
                 try:
                     await self._ping()
