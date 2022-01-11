@@ -41,6 +41,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesDoneResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
+    ListEntitiesLockResponse,
     ListEntitiesNumberResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
@@ -49,6 +50,8 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesSirenResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    LockCommandRequest,
+    LockStateResponse,
     NumberCommandRequest,
     NumberStateResponse,
     SelectCommandRequest,
@@ -95,6 +98,9 @@ from .model import (
     LegacyCoverCommand,
     LightInfo,
     LightState,
+    LockCommand,
+    LockEntityState,
+    LockInfo,
     LogLevel,
     NumberInfo,
     NumberState,
@@ -233,6 +239,7 @@ class APIClient:
             ListEntitiesServicesResponse: None,
             ListEntitiesCameraResponse: CameraInfo,
             ListEntitiesClimateResponse: ClimateInfo,
+            ListEntitiesLockResponse: LockInfo,
         }
 
         def do_append(msg: message.Message) -> bool:
@@ -276,6 +283,7 @@ class APIClient:
             SwitchStateResponse: SwitchState,
             TextSensorStateResponse: TextSensorState,
             ClimateStateResponse: ClimateState,
+            LockStateResponse: LockEntityState,
         }
 
         image_stream: Dict[int, bytes] = {}
@@ -603,6 +611,22 @@ class APIClient:
 
         req = ButtonCommandRequest()
         req.key = key
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def lock_command(
+        self,
+        key: int,
+        command: LockCommand,
+        code: Optional[str] = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = LockCommandRequest()
+        req.key = key
+        req.command = command
+        if code is not None:
+            req.code = code
         assert self._connection is not None
         await self._connection.send_message(req)
 
