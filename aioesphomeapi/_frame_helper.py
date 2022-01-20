@@ -201,7 +201,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Server name is encoded as a string followed by a zero byte after the chosen proto byte
         server_name_i = server_hello.find(b"\0", 1)
         if server_name_i != -1:
-            # server name found, this extension was added in 2021.11
+            # server name found, this extension was added in 2022.2
             server_name = server_hello[1:server_name_i].decode()
             if expected_name is not None and expected_name != server_name:
                 raise BadNameAPIError(
