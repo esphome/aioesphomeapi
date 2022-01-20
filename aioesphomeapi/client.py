@@ -16,6 +16,7 @@ from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -33,12 +34,14 @@ from .api_pb2 import (  # type: ignore
     LightCommandRequest,
     LightStateResponse,
     ListEntitiesBinarySensorResponse,
+    ListEntitiesButtonResponse,
     ListEntitiesCameraResponse,
     ListEntitiesClimateResponse,
     ListEntitiesCoverResponse,
     ListEntitiesDoneResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
+    ListEntitiesLockResponse,
     ListEntitiesNumberResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
@@ -47,6 +50,8 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesSirenResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    LockCommandRequest,
+    LockStateResponse,
     NumberCommandRequest,
     NumberStateResponse,
     SelectCommandRequest,
@@ -71,6 +76,7 @@ from .model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    ButtonInfo,
     CameraInfo,
     CameraState,
     ClimateFanMode,
@@ -92,6 +98,9 @@ from .model import (
     LegacyCoverCommand,
     LightInfo,
     LightState,
+    LockCommand,
+    LockEntityState,
+    LockInfo,
     LogLevel,
     NumberInfo,
     NumberState,
@@ -185,36 +194,25 @@ class APIClient:
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
-        connected = False
-        stopped = False
-
         async def _on_stop() -> None:
-            nonlocal stopped
-
-            if stopped:
-                return
-            stopped = True
+            # Hook into on_stop handler to clear connection when stopped
             self._connection = None
-            if connected and on_stop is not None:
+            if on_stop is not None:
                 await on_stop()
 
         self._connection = APIConnection(self._params, _on_stop)
         self._connection.log_name = self._log_name
 
         try:
-            await self._connection.connect()
-            if login:
-                await self._connection.login()
+            await self._connection.connect(login=login)
         except APIConnectionError:
-            await _on_stop()
+            self._connection = None
             raise
         except Exception as e:
-            await _on_stop()
+            self._connection = None
             raise APIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
-
-        connected = True
 
     async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
@@ -253,6 +251,7 @@ class APIClient:
         self._check_authenticated()
         response_types: Dict[Any, Optional[Type[EntityInfo]]] = {
             ListEntitiesBinarySensorResponse: BinarySensorInfo,
+            ListEntitiesButtonResponse: ButtonInfo,
             ListEntitiesCoverResponse: CoverInfo,
             ListEntitiesFanResponse: FanInfo,
             ListEntitiesLightResponse: LightInfo,
@@ -265,6 +264,7 @@ class APIClient:
             ListEntitiesServicesResponse: None,
             ListEntitiesCameraResponse: CameraInfo,
             ListEntitiesClimateResponse: ClimateInfo,
+            ListEntitiesLockResponse: LockInfo,
         }
 
         def do_append(msg: message.Message) -> bool:
@@ -308,6 +308,7 @@ class APIClient:
             SwitchStateResponse: SwitchState,
             TextSensorStateResponse: TextSensorState,
             ClimateStateResponse: ClimateState,
+            LockStateResponse: LockEntityState,
         }
 
         image_stream: Dict[int, bytes] = {}
@@ -627,6 +628,30 @@ class APIClient:
         if duration is not None:
             req.duration = duration
             req.has_duration = True
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def button_command(self, key: int) -> None:
+        self._check_authenticated()
+
+        req = ButtonCommandRequest()
+        req.key = key
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def lock_command(
+        self,
+        key: int,
+        command: LockCommand,
+        code: Optional[str] = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = LockCommandRequest()
+        req.key = key
+        req.command = command
+        if code is not None:
+            req.code = code
         assert self._connection is not None
         await self._connection.send_message(req)
 

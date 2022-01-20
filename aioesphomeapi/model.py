@@ -73,12 +73,12 @@ class APIModelBase:
             for f in fields(cls)
             if f.name in data or (not ignore_missing)
         }
-        return cls(**init_args)  # type: ignore
+        return cls(**init_args)
 
     @classmethod
     def from_pb(cls: Type[_V], data: Any) -> _V:
         init_args = {f.name: getattr(data, f.name) for f in fields(cls)}
-        return cls(**init_args)  # type: ignore
+        return cls(**init_args)
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
@@ -104,6 +104,13 @@ class DeviceInfo(APIModelBase):
     esphome_version: str = ""
     project_name: str = ""
     project_version: str = ""
+    webserver_port: int = 0
+
+
+class EntityCategory(APIIntEnum):
+    NONE = 0
+    CONFIG = 1
+    DIAGNOSTIC = 2
 
 
 @dataclass(frozen=True)
@@ -114,6 +121,9 @@ class EntityInfo(APIModelBase):
     unique_id: str = ""
     disabled_by_default: bool = False
     icon: str = ""
+    entity_category: Optional[EntityCategory] = converter_field(
+        default=EntityCategory.NONE, converter=EntityCategory.convert
+    )
 
 
 @dataclass(frozen=True)
@@ -365,6 +375,7 @@ class SensorState(EntityState):
 @dataclass(frozen=True)
 class SwitchInfo(EntityInfo):
     assumed_state: bool = False
+    device_class: str = ""
 
 
 @dataclass(frozen=True)
@@ -529,6 +540,12 @@ class ClimateState(EntityState):
 
 
 # ==================== NUMBER ====================
+class NumberMode(APIIntEnum):
+    AUTO = 0
+    BOX = 1
+    SLIDER = 2
+
+
 @dataclass(frozen=True)
 class NumberInfo(EntityInfo):
     min_value: float = converter_field(
@@ -539,6 +556,10 @@ class NumberInfo(EntityInfo):
     )
     step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
+    )
+    unit_of_measurement: str = ""
+    mode: Optional[NumberMode] = converter_field(
+        default=NumberMode.AUTO, converter=NumberMode.convert
     )
 
 
@@ -575,6 +596,46 @@ class SirenState(EntityState):
     state: bool = False
 
 
+# ==================== BUTTON ====================
+@dataclass(frozen=True)
+class ButtonInfo(EntityInfo):
+    device_class: str = ""
+
+
+# ==================== LOCK ====================
+class LockState(APIIntEnum):
+    NONE = 0
+    LOCKED = 1
+    UNLOCKED = 3
+    JAMMED = 3
+    LOCKING = 4
+    UNLOCKING = 5
+
+
+class LockCommand(APIIntEnum):
+    UNLOCK = 0
+    LOCK = 1
+    OPEN = 2
+
+
+@dataclass(frozen=True)
+class LockInfo(EntityInfo):
+    supports_open: bool = False
+    assumed_state: bool = False
+
+    requires_code: bool = False
+    code_format: str = ""
+
+
+@dataclass(frozen=True)
+class LockEntityState(EntityState):
+    state: Optional[LockState] = converter_field(
+        default=LockState.NONE, converter=LockState.convert
+    )
+
+
+# ==================== INFO MAP ====================
+
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
@@ -588,6 +649,8 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "number": NumberInfo,
     "select": SelectInfo,
     "siren": SirenInfo,
+    "button": ButtonInfo,
+    "lock": LockInfo,
 }
 
 

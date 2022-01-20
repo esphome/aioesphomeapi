@@ -59,7 +59,7 @@ async def test_connect(conn, resolve_host, socket_socket, event_loop):
     ), patch.object(
         conn, "send_message_await_response", return_value=HelloResponse()
     ):
-        await conn.connect()
+        await conn.connect(login=False)
 
     assert conn.is_connected
 

@@ -67,7 +67,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 _LOGGER.debug("Sending plaintext frame %s", data.hex())
                 self._writer.write(data)
                 await self._writer.drain()
-        except OSError as err:
+        except (ConnectionResetError, OSError) as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
     async def read_packet(self) -> Packet:

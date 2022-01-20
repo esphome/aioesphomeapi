@@ -237,7 +237,7 @@ class APIConnection:
 
                 # Re-check connection state
                 if not self._is_socket_open:
-                    return
+                    return  # type: ignore[unreachable]
 
                 try:
                     await self._ping()
@@ -260,7 +260,7 @@ class APIConnection:
 
         asyncio.create_task(func())
 
-    async def connect(self) -> None:
+    async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
@@ -272,6 +272,8 @@ class APIConnection:
             await self._connect_init_frame_helper()
             await self._connect_hello()
             await self._connect_start_ping()
+            if login:
+                await self.login()
         except Exception:  # pylint: disable=broad-except
             # Always clean up the connection if an error occured during connect
             self._connection_state = ConnectionState.CLOSED
@@ -345,7 +347,7 @@ class APIConnection:
                     data=encoded,
                 )
             )
-        except Exception as err:  # pylint: disable=broad-except
+        except SocketAPIError as err:  # pylint: disable=broad-except
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             await self._report_fatal_error(err)

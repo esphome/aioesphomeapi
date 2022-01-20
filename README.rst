@@ -68,8 +68,7 @@ Subscribe to state changes of an ESPHome device.
    
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
-       loop = asyncio.get_running_loop()
-       cli = aioesphomeapi.APIClient(loop, "api_test.local", 6053, "MyPassword")
+       cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
        
        await cli.connect(login=True)
 
