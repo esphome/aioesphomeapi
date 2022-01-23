@@ -4,6 +4,7 @@ from .connection import APIConnection, ConnectionParams
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
+    BadNameAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
