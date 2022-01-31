@@ -102,7 +102,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # a long time for their device to show up in HA again (this was
         # mentioned a lot in early feedback)
         tries = min(tries, 10)  # prevent OverflowError
-        wait_time = int(round(min(1.8 ** tries, 60.0)))
+        wait_time = int(round(min(1.8**tries, 60.0)))
         if tries == 1:
             _LOGGER.info("Trying to reconnect to %s in the background", self._log_name)
         _LOGGER.debug("Retrying %s in %d seconds", self._log_name, wait_time)
