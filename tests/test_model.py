@@ -153,24 +153,18 @@ def test_api_model_base_to_dict():
 
 def test_api_model_base_from_dict():
     assert DummyAPIModel.from_dict({}) == DummyAPIModel()
-    assert (
-        DummyAPIModel.from_dict(
-            {
-                "val1": -1,
-                "val2": -1,
-            }
-        )
-        == DummyAPIModel(val1=-1, val2=None)
-    )
-    assert (
-        DummyAPIModel.from_dict(
-            {
-                "val1": -1,
-                "unknown": 100,
-            }
-        )
-        == DummyAPIModel(val1=-1)
-    )
+    assert DummyAPIModel.from_dict(
+        {
+            "val1": -1,
+            "val2": -1,
+        }
+    ) == DummyAPIModel(val1=-1, val2=None)
+    assert DummyAPIModel.from_dict(
+        {
+            "val1": -1,
+            "unknown": 100,
+        }
+    ) == DummyAPIModel(val1=-1)
     assert ListAPIModel.from_dict({}) == ListAPIModel()
     assert ListAPIModel.from_dict({"val": []}) == ListAPIModel()
 
