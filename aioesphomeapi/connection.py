@@ -164,7 +164,7 @@ class APIConnection:
         except asyncio.TimeoutError as err:
             raise SocketAPIError(f"Timeout while connecting to {sockaddr}") from err
 
-        _LOGGER.debug("%s: Opened socket for", self._params.address)
+        _LOGGER.debug("%s: Opened socket", self._params.address)
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
@@ -266,7 +266,7 @@ class APIConnection:
                 "Connection can only be used once, connection is not in init state"
             )
 
-        try:
+        async def _do_connect() -> None:
             addr = await self._connect_resolve_host()
             await self._connect_socket_connect(addr)
             await self._connect_init_frame_helper()
@@ -274,6 +274,12 @@ class APIConnection:
             await self._connect_start_ping()
             if login:
                 await self.login()
+
+        try:
+            # Allow 2 minutes for connect; this is only as a last measure
+            # to protect from issues if some part of the connect process mistakenly
+            # does not have a timeout
+            await asyncio.wait_for(_do_connect(), timeout=120.0)
         except Exception:  # pylint: disable=broad-except
             # Always clean up the connection if an error occured during connect
             self._connection_state = ConnectionState.CLOSED

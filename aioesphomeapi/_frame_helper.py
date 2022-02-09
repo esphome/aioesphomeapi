@@ -179,7 +179,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         _LOGGER.debug("Received frame %s", frame.hex())
         return frame
 
-    async def perform_handshake(self, expected_name: Optional[str]) -> None:
+    async def _perform_handshake(self, expected_name: Optional[str]) -> None:
         await self._write_frame(b"")  # ClientHello
         prologue = b"NoiseAPIInit" + b"\x00\x00"
 
@@ -235,6 +235,13 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         _LOGGER.debug("Handshake complete!")
         self._ready_event.set()
+
+    async def perform_handshake(self, expected_name: Optional[str]) -> None:
+        # Allow up to 60 seconds for handhsake
+        try:
+            await asyncio.wait_for(self._perform_handshake(expected_name), timeout=60.0)
+        except asyncio.TimeoutError as err:
+            raise HandshakeAPIError("Timeout during handshake") from err
 
     async def write_packet(self, packet: Packet) -> None:
         # Wait for handshake to complete
