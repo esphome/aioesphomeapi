@@ -634,6 +634,40 @@ class LockEntityState(EntityState):
     )
 
 
+# ==================== MEDIA PLAYER ====================
+class MediaPlayerState(APIIntEnum):
+    NONE = 0
+    IDLE = 1
+    PLAYING = 2
+    PAUSED = 3
+
+
+class MediaPlayerCommand(APIIntEnum):
+    PLAY = 0
+    PAUSE = 1
+    STOP = 2
+    MUTE = 3
+    UNMUTE = 4
+
+
+@dataclass(frozen=True)
+class MediaPlayerInfo(EntityInfo):
+    supports_pause: bool = False
+    supports_volume: bool = False
+    supports_mute: bool = False
+
+
+@dataclass(frozen=True)
+class MediaPlayerEntityState(EntityState):
+    state: Optional[MediaPlayerState] = converter_field(
+        default=MediaPlayerState.NONE, converter=MediaPlayerState.convert
+    )
+    volume: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    muted: bool = False
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
@@ -651,6 +685,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "siren": SirenInfo,
     "button": ButtonInfo,
     "lock": LockInfo,
+    "media_player": MediaPlayerInfo,
 }
 
 
