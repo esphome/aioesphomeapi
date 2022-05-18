@@ -653,8 +653,6 @@ class MediaPlayerCommand(APIIntEnum):
 @dataclass(frozen=True)
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
-    supports_volume: bool = False
-    supports_mute: bool = False
 
 
 @dataclass(frozen=True)
