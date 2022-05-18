@@ -57,7 +57,7 @@ async def main(argv: List[str]) -> None:
             )
             has_connects = True
         except APIConnectionError:
-            cli.disconnect()
+            await cli.disconnect()
 
     async def on_disconnect() -> None:
         _LOGGER.warning("Disconnected from API")

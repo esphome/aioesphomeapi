@@ -5,7 +5,7 @@ import socket
 import time
 from contextlib import suppress
 from dataclasses import astuple, dataclass
-from typing import Any, Awaitable, Callable, List, Optional
+from typing import Any, Callable, Coroutine, List, Optional
 
 from google.protobuf import message
 
@@ -77,7 +77,7 @@ class APIConnection:
     """
 
     def __init__(
-        self, params: ConnectionParams, on_stop: Callable[[], Awaitable[None]]
+        self, params: ConnectionParams, on_stop: Callable[[], Coroutine[Any, Any, None]]
     ):
         self._params = params
         self.on_stop = on_stop
