@@ -42,6 +42,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
+    ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
@@ -52,6 +53,8 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesTextSensorResponse,
     LockCommandRequest,
     LockStateResponse,
+    MediaPlayerCommandRequest,
+    MediaPlayerStateResponse,
     NumberCommandRequest,
     NumberStateResponse,
     SelectCommandRequest,
@@ -102,6 +105,9 @@ from .model import (
     LockEntityState,
     LockInfo,
     LogLevel,
+    MediaPlayerCommand,
+    MediaPlayerEntityState,
+    MediaPlayerInfo,
     NumberInfo,
     NumberState,
     SelectInfo,
@@ -265,6 +271,7 @@ class APIClient:
             ListEntitiesCameraResponse: CameraInfo,
             ListEntitiesClimateResponse: ClimateInfo,
             ListEntitiesLockResponse: LockInfo,
+            ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
         }
 
         def do_append(msg: message.Message) -> bool:
@@ -309,6 +316,7 @@ class APIClient:
             TextSensorStateResponse: TextSensorState,
             ClimateStateResponse: ClimateState,
             LockStateResponse: LockEntityState,
+            MediaPlayerStateResponse: MediaPlayerEntityState,
         }
 
         image_stream: Dict[int, bytes] = {}
@@ -652,6 +660,30 @@ class APIClient:
         req.command = command
         if code is not None:
             req.code = code
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def media_player_command(
+        self,
+        key: int,
+        *,
+        command: Optional[MediaPlayerCommand] = None,
+        volume: Optional[float] = None,
+        media_url: Optional[str] = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = MediaPlayerCommandRequest()
+        req.key = key
+        if command is not None:
+            req.command = command
+            req.has_command = True
+        if volume is not None:
+            req.volume = volume
+            req.has_volume = True
+        if media_url is not None:
+            req.media_url = media_url
+            req.has_media_url = True
         assert self._connection is not None
         await self._connection.send_message(req)
 

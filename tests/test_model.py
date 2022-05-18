@@ -19,6 +19,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
+    ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
@@ -27,6 +28,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
     LockStateResponse,
+    MediaPlayerStateResponse,
     NumberStateResponse,
     SelectStateResponse,
     SensorStateResponse,
@@ -55,6 +57,8 @@ from aioesphomeapi.model import (
     LightState,
     LockEntityState,
     LockInfo,
+    MediaPlayerEntityState,
+    MediaPlayerInfo,
     NumberInfo,
     NumberState,
     SelectInfo,
@@ -220,6 +224,8 @@ def test_api_version_ord():
         (ButtonInfo, ListEntitiesButtonResponse),
         (LockInfo, ListEntitiesLockResponse),
         (LockEntityState, LockStateResponse),
+        (MediaPlayerInfo, ListEntitiesMediaPlayerResponse),
+        (MediaPlayerEntityState, MediaPlayerStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):

@@ -17,6 +17,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesDoneResponse,
     ListEntitiesServicesResponse,
     LockCommandRequest,
+    MediaPlayerCommandRequest,
     NumberCommandRequest,
     SelectCommandRequest,
     SwitchCommandRequest,
@@ -35,6 +36,7 @@ from aioesphomeapi.model import (
     FanSpeed,
     LegacyCoverCommand,
     LockCommand,
+    MediaPlayerCommand,
     UserService,
     UserServiceArg,
     UserServiceArgType,
@@ -390,6 +392,31 @@ async def test_select_command(auth_client, cmd, req):
 
     await auth_client.select_command(**cmd)
     send.assert_called_once_with(SelectCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, command=MediaPlayerCommand.MUTE),
+            dict(key=1, has_command=True, command=MediaPlayerCommand.MUTE),
+        ),
+        (
+            dict(key=1, volume=1.0),
+            dict(key=1, has_volume=True, volume=1.0),
+        ),
+        (
+            dict(key=1, media_url="http://example.com"),
+            dict(key=1, has_media_url=True, media_url="http://example.com"),
+        ),
+    ],
+)
+async def test_media_player_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.media_player_command(**cmd)
+    send.assert_called_once_with(MediaPlayerCommandRequest(**req))
 
 
 @pytest.mark.asyncio
