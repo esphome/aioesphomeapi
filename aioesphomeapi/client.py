@@ -31,6 +31,8 @@ from .api_pb2 import (  # type: ignore
     FanStateResponse,
     HomeassistantServiceResponse,
     HomeAssistantStateResponse,
+    HumidifierCommandRequest,
+    HumidifierStateResponse,
     LightCommandRequest,
     LightStateResponse,
     ListEntitiesBinarySensorResponse,
@@ -40,6 +42,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesCoverResponse,
     ListEntitiesDoneResponse,
     ListEntitiesFanResponse,
+    ListEntitiesHumidifierResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
@@ -98,6 +101,10 @@ from .model import (
     FanSpeed,
     FanState,
     HomeassistantServiceCall,
+    HumidifierInfo,
+    HumidifierMode,
+    HumidifierPreset,
+    HumidifierState,
     LegacyCoverCommand,
     LightInfo,
     LightState,
@@ -272,6 +279,7 @@ class APIClient:
             ListEntitiesClimateResponse: ClimateInfo,
             ListEntitiesLockResponse: LockInfo,
             ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
+            ListEntitiesHumidifierResponse: HumidifierInfo,
         }
 
         def do_append(msg: message.Message) -> bool:
@@ -317,6 +325,7 @@ class APIClient:
             ClimateStateResponse: ClimateState,
             LockStateResponse: LockEntityState,
             MediaPlayerStateResponse: MediaPlayerEntityState,
+            HumidifierStateResponse: HumidifierState,
         }
 
         image_stream: Dict[int, bytes] = {}
@@ -591,6 +600,37 @@ class APIClient:
         if custom_preset is not None:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def humidifier_command(
+        self,
+        key: int,
+        mode: Optional[HumidifierMode] = None,
+        target_humidity: Optional[float] = None,
+        target_humidity_low: Optional[float] = None,
+        target_humidity_high: Optional[float] = None,
+        preset: Optional[HumidifierPreset] = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = HumidifierCommandRequest()
+        req.key = key
+        if mode is not None:
+            req.has_mode = True
+            req.mode = mode
+        if target_humidity is not None:
+            req.has_target_humidity = True
+            req.target_humidity = target_humidity
+        if target_humidity_low is not None:
+            req.has_target_humidity_low = True
+            req.target_humidity_low = target_humidity_low
+        if target_humidity_high is not None:
+            req.has_target_humidity_high = True
+            req.target_humidity_high = target_humidity_high
+        if preset is not None:
+            req.has_preset = True
+            req.preset = preset
         assert self._connection is not None
         await self._connection.send_message(req)
 

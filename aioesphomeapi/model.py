@@ -539,6 +539,80 @@ class ClimateState(EntityState):
         return self.preset
 
 
+# ==================== HUMIDIFIER ====================
+class HumidifierMode(APIIntEnum):
+    OFF = 0
+    HUMIDIFY_DEHUMIDIFY = 1
+    DEHUMIDIFY = 2
+    HUMIDIFY = 3
+    AUTO = 4
+
+
+class HumidifierAction(APIIntEnum):
+    OFF = 0
+    DEHUMIDIFYING = 2
+    HUMIDIFYING = 3
+    IDLE = 4
+
+
+class HumidifierPreset(APIIntEnum):
+    NONE = 0
+    HOME = 1
+    AWAY = 2
+    BOOST = 3
+    COMFORT = 4
+    ECO = 5
+    SLEEP = 6
+    ACTIVITY = 7
+
+
+@dataclass(frozen=True)
+class HumidifierInfo(EntityInfo):
+    supports_current_humidity: bool = False
+    supports_two_point_target_humidity: bool = False
+    supported_modes: List[HumidifierMode] = converter_field(
+        default_factory=list, converter=HumidifierMode.convert_list
+    )
+    visual_min_humidity: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_max_humidity: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_humidity_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    supports_action: bool = False
+    supported_presets: List[HumidifierPreset] = converter_field(
+        default_factory=list, converter=HumidifierPreset.convert_list
+    )
+
+
+@dataclass(frozen=True)
+class HumidifierState(EntityState):
+    mode: Optional[HumidifierMode] = converter_field(
+        default=HumidifierMode.OFF, converter=HumidifierMode.convert
+    )
+    action: Optional[HumidifierAction] = converter_field(
+        default=HumidifierAction.OFF, converter=HumidifierAction.convert
+    )
+    current_humidity: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_humidity: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_humidity_low: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_humidity_high: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    preset: Optional[HumidifierPreset] = converter_field(
+        default=HumidifierPreset.NONE, converter=HumidifierPreset.convert
+    )
+
+
 # ==================== NUMBER ====================
 class NumberMode(APIIntEnum):
     AUTO = 0
@@ -678,6 +752,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "text_sensor": TextSensorInfo,
     "camera": CameraInfo,
     "climate": ClimateInfo,
+    "humidifier": HumidifierInfo,
     "number": NumberInfo,
     "select": SelectInfo,
     "siren": SirenInfo,

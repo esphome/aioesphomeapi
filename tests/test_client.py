@@ -12,6 +12,7 @@ from aioesphomeapi.api_pb2 import (
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
+    HumidifierCommandRequest,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -34,6 +35,8 @@ from aioesphomeapi.model import (
     ClimateSwingMode,
     FanDirection,
     FanSpeed,
+    HumidifierMode,
+    HumidifierPreset,
     LegacyCoverCommand,
     LockCommand,
     MediaPlayerCommand,
@@ -343,6 +346,39 @@ async def test_climate_command(auth_client, cmd, req):
 
     await auth_client.climate_command(**cmd)
     send.assert_called_once_with(ClimateCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, mode=HumidifierMode.HUMIDIFY),
+            dict(key=1, has_mode=True, mode=HumidifierMode.HUMIDIFY),
+        ),
+        (
+            dict(key=1, target_humidity=40.0),
+            dict(key=1, has_target_humidity=True, target_humidity=40.0),
+        ),
+        (
+            dict(key=1, target_humidity_low=40.0),
+            dict(key=1, has_target_humidity_low=True, target_humidity_low=40.0),
+        ),
+        (
+            dict(key=1, target_humidity_high=40.0),
+            dict(key=1, has_target_humidity_high=True, target_humidity_high=40.0),
+        ),
+        (
+            dict(key=1, preset=HumidifierPreset.AWAY),
+            dict(key=1, has_preset=True, preset=HumidifierPreset.AWAY),
+        ),
+    ],
+)
+async def test_humidifier_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.humidifier_command(**cmd)
+    send.assert_called_once_with(HumidifierCommandRequest(**req))
 
 
 @pytest.mark.asyncio
