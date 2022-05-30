@@ -556,7 +556,7 @@ class HumidifierAction(APIIntEnum):
 
 
 class HumidifierPreset(APIIntEnum):
-    NONE = 0
+    NORMAL = 0
     HOME = 1
     AWAY = 2
     BOOST = 3
@@ -609,7 +609,7 @@ class HumidifierState(EntityState):
         default=0.0, converter=fix_float_single_double_conversion
     )
     preset: Optional[HumidifierPreset] = converter_field(
-        default=HumidifierPreset.NONE, converter=HumidifierPreset.convert
+        default=HumidifierPreset.NORMAL, converter=HumidifierPreset.convert
     )
 
 
