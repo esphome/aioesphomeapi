@@ -436,6 +436,7 @@ class ClimateFanMode(APIIntEnum):
     MIDDLE = 6
     FOCUS = 7
     DIFFUSE = 8
+    QUIET = 9
 
 
 class ClimateSwingMode(APIIntEnum):
