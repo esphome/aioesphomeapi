@@ -1,7 +1,9 @@
 import asyncio
 import socket
+from typing import List
 
 import pytest
+import zeroconf
 from mock import AsyncMock, MagicMock, patch
 
 import aioesphomeapi.host_resolver as hr
@@ -18,12 +20,6 @@ def async_zeroconf():
 def addr_infos():
     return [
         hr.AddrInfo(
-            family=socket.AF_INET,
-            type=socket.SOCK_STREAM,
-            proto=socket.IPPROTO_TCP,
-            sockaddr=hr.IPv4Sockaddr(address="10.0.0.42", port=6052),
-        ),
-        hr.AddrInfo(
             family=socket.AF_INET6,
             type=socket.SOCK_STREAM,
             proto=socket.IPPROTO_TCP,
@@ -34,16 +30,28 @@ def addr_infos():
                 scope_id=0,
             ),
         ),
+        hr.AddrInfo(
+            family=socket.AF_INET,
+            type=socket.SOCK_STREAM,
+            proto=socket.IPPROTO_TCP,
+            sockaddr=hr.IPv4Sockaddr(address="10.0.0.42", port=6052),
+        ),
     ]
 
 
 @pytest.mark.asyncio
 async def test_resolve_host_zeroconf(async_zeroconf, addr_infos):
+    def address_for_version(version: zeroconf.IPVersion) -> List[bytes]:
+        if version == zeroconf.IPVersion.V6Only:
+            return [
+                b"\x20\x01\x0d\xb8\x85\xa3\x00\x00\x00\x00\x8a\x2e\x03\x70\x73\x34",
+            ]
+        return [
+            b"\x0A\x00\x00\x2A",
+        ]
+
     info = MagicMock()
-    info.addresses_by_version.return_value = [
-        b"\n\x00\x00*",
-        b" \x01\r\xb8\x85\xa3\x00\x00\x00\x00\x8a.\x03ps4",
-    ]
+    info.addresses_by_version.side_effect = address_for_version
     async_zeroconf.async_get_service_info = AsyncMock(return_value=info)
     async_zeroconf.async_close = AsyncMock()
 
@@ -71,18 +79,18 @@ async def test_resolve_host_getaddrinfo(event_loop, addr_infos):
     with patch.object(event_loop, "getaddrinfo") as mock:
         mock.return_value = [
             (
-                socket.AF_INET,
-                socket.SOCK_STREAM,
-                socket.IPPROTO_TCP,
-                "canon1",
-                ("10.0.0.42", 6052),
-            ),
-            (
                 socket.AF_INET6,
                 socket.SOCK_STREAM,
                 socket.IPPROTO_TCP,
                 "canon2",
                 ("2001:db8:85a3::8a2e:370:7334", 6052, 0, 0),
+            ),
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon1",
+                ("10.0.0.42", 6052),
             ),
             (-1, socket.SOCK_STREAM, socket.IPPROTO_TCP, "canon3", ("10.0.0.42", 6052)),
         ]

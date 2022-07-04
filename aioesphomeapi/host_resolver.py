@@ -99,7 +99,10 @@ async def _async_resolve_host_zeroconf(
         return []
 
     addrs: List[AddrInfo] = []
-    for raw in info.addresses_by_version(zeroconf.IPVersion.All):
+    rawAddrs = info.addresses_by_version(
+        zeroconf.IPVersion.V6Only
+    ) + info.addresses_by_version(zeroconf.IPVersion.V4Only)
+    for raw in rawAddrs:
         is_ipv6 = len(raw) == 16
         sockaddr: Sockaddr
         if is_ipv6:
@@ -135,7 +138,8 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> List[AddrInfo
     except OSError as err:
         raise APIConnectionError(f"Error resolving IP address: {err}")
 
-    addrs: List[AddrInfo] = []
+    addrsV4: List[AddrInfo] = []
+    addrsV6: List[AddrInfo] = []
     for family, type_, proto, _, raw in res:
         sockaddr: Sockaddr
         if family == socket.AF_INET:
@@ -152,10 +156,13 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> List[AddrInfo
             # Unknown family
             continue
 
-        addrs.append(
-            AddrInfo(family=family, type=type_, proto=proto, sockaddr=sockaddr)
-        )
-    return addrs
+        addrInfo = AddrInfo(family=family, type=type_, proto=proto, sockaddr=sockaddr)
+        if family == socket.AF_INET6:
+            addrsV6.append(addrInfo)
+        else:
+            addrsV4.append(addrInfo)
+
+    return addrsV6 + addrsV4
 
 
 def _async_ip_address_to_addrs(host: str, port: int) -> List[AddrInfo]:
