@@ -343,6 +343,7 @@ class SensorStateClass(APIIntEnum):
     NONE = 0
     MEASUREMENT = 1
     TOTAL_INCREASING = 2
+    TOTAL = 3
 
 
 class LastResetType(APIIntEnum):
