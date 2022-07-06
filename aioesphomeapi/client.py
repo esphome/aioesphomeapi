@@ -282,7 +282,7 @@ class APIClient:
 
         assert self._connection is not None
         resp = await self._connection.send_message_await_response_complex(
-            ListEntitiesRequest(), do_append, do_stop, timeout=5
+            ListEntitiesRequest(), do_append, do_stop, timeout=30
         )
         entities: List[EntityInfo] = []
         services: List[UserService] = []
