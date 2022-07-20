@@ -2,7 +2,7 @@ pylint==2.14.4
 black==22.6.0
 flake8==4.0.1
 isort==5.10.1
-mypy==0.961
+mypy==0.971
 types-protobuf==3.19.22
 pytest>=6.2.4,<8
 pytest-asyncio>=0.15.1,<1
