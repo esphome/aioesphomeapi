@@ -7,6 +7,7 @@ from contextlib import suppress
 from dataclasses import astuple, dataclass
 from typing import Any, Callable, Coroutine, List, Optional
 
+import async_timeout
 from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
@@ -133,7 +134,8 @@ class APIConnection:
                 self._params.port,
                 self._params.zeroconf_instance,
             )
-            return await asyncio.wait_for(coro, 30.0)
+            async with async_timeout.timeout(30.0):
+                return await coro
         except asyncio.TimeoutError as err:
             raise ResolveAPIError(
                 f"Timeout while resolving IP address for {self.log_name}"
@@ -158,7 +160,8 @@ class APIConnection:
 
         try:
             coro = asyncio.get_event_loop().sock_connect(self._socket, sockaddr)
-            await asyncio.wait_for(coro, 30.0)
+            async with async_timeout.timeout(30.0):
+                await coro
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
         except asyncio.TimeoutError as err:
@@ -229,9 +232,8 @@ class APIConnection:
 
                 # Wait for keepalive seconds, or ping stop event, whichever happens first
                 try:
-                    await asyncio.wait_for(
-                        self._ping_stop_event.wait(), self._params.keepalive
-                    )
+                    async with async_timeout.timeout(self._params.keepalive):
+                        await self._ping_stop_event.wait()
                 except asyncio.TimeoutError:
                     pass
 
@@ -279,7 +281,8 @@ class APIConnection:
             # Allow 2 minutes for connect; this is only as a last measure
             # to protect from issues if some part of the connect process mistakenly
             # does not have a timeout
-            await asyncio.wait_for(_do_connect(), timeout=120.0)
+            async with async_timeout.timeout(120.0):
+                await _do_connect()
         except Exception:  # pylint: disable=broad-except
             # Always clean up the connection if an error occured during connect
             self._connection_state = ConnectionState.CLOSED
@@ -406,7 +409,8 @@ class APIConnection:
         await self.send_message(send_msg)
 
         try:
-            await asyncio.wait_for(fut, timeout)
+            async with async_timeout.timeout(timeout):
+                await fut
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError(
                 f"Timeout waiting for response for {type(send_msg)}"

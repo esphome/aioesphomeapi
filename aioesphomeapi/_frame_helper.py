@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
+import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
 
 from .core import (
@@ -239,7 +240,8 @@ class APINoiseFrameHelper(APIFrameHelper):
     async def perform_handshake(self, expected_name: Optional[str]) -> None:
         # Allow up to 60 seconds for handhsake
         try:
-            await asyncio.wait_for(self._perform_handshake(expected_name), timeout=60.0)
+            async with async_timeout.timeout(60.0):
+                await self._perform_handshake(expected_name)
         except asyncio.TimeoutError as err:
             raise HandshakeAPIError("Timeout during handshake") from err
 
