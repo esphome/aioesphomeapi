@@ -16,6 +16,7 @@ from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    BluetoothLEAdvertisementResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -62,6 +63,7 @@ from .api_pb2 import (  # type: ignore
     SensorStateResponse,
     SirenCommandRequest,
     SirenStateResponse,
+    SubscribeBluetoothLEAdvertisementsRequest,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
     SubscribeHomeAssistantStatesRequest,
@@ -79,6 +81,7 @@ from .model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothLEAdvertisement,
     ButtonInfo,
     CameraInfo,
     CameraState,
@@ -377,6 +380,20 @@ class APIClient:
         assert self._connection is not None
         await self._connection.send_message_callback_response(
             SubscribeHomeassistantServicesRequest(), on_msg
+        )
+
+    async def subscribe_bluetooth_le_advertisements(
+        self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
+    ) -> None:
+        self._check_authenticated()
+
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, BluetoothLEAdvertisementResponse):
+                on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))
+
+        assert self._connection is not None
+        await self._connection.send_message_callback_response(
+            SubscribeBluetoothLEAdvertisementsRequest(), on_msg
         )
 
     async def subscribe_home_assistant_states(

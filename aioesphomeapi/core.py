@@ -1,5 +1,6 @@
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    BluetoothLEAdvertisementResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -55,6 +56,7 @@ from .api_pb2 import (  # type: ignore
     SensorStateResponse,
     SirenCommandRequest,
     SirenStateResponse,
+    SubscribeBluetoothLEAdvertisementsRequest,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
     SubscribeHomeAssistantStatesRequest,
@@ -189,4 +191,6 @@ MESSAGE_TYPE_TO_PROTO = {
     63: ListEntitiesMediaPlayerResponse,
     64: MediaPlayerStateResponse,
     65: MediaPlayerCommandRequest,
+    66: SubscribeBluetoothLEAdvertisementsRequest,
+    67: BluetoothLEAdvertisementResponse,
 }
