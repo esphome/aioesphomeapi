@@ -17,7 +17,7 @@ from typing import (
 from .util import fix_float_single_double_conversion
 
 if TYPE_CHECKING:
-    from .api_pb2 import HomeassistantServiceMap, BluetoothServiceData  # type: ignore
+    from .api_pb2 import BluetoothServiceData, HomeassistantServiceMap  # type: ignore
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
