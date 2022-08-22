@@ -17,7 +17,7 @@ from typing import (
 from .util import fix_float_single_double_conversion
 
 if TYPE_CHECKING:
-    from .api_pb2 import HomeassistantServiceMap  # type: ignore
+    from .api_pb2 import HomeassistantServiceMap, BluetoothServiceData  # type: ignore
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
@@ -750,6 +750,49 @@ class UserService(APIModelBase):
     key: int = 0
     args: List[UserServiceArg] = converter_field(
         default_factory=list, converter=UserServiceArg.convert_list
+    )
+
+
+# ==================== BLUETOOTH ====================
+def _long_uuid(uuid: str) -> str:
+    """Convert a UUID to a long UUID."""
+    return f"0000{uuid[2:].lower()}-1000-8000-00805f9b34fb" if len(uuid) < 8 else uuid
+
+
+def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
+    return [_long_uuid(v) for v in value]  # type: ignore
+
+
+def _convert_bluetooth_le_service_data(
+    value: Union[Dict[str, bytes], Iterable["BluetoothServiceData"]],
+) -> Dict[str, bytes]:
+    if isinstance(value, dict):
+        return value
+    return {_long_uuid(v.uuid): bytes(v.data) for v in value}  # type: ignore
+
+
+def _convert_bluetooth_le_manufacturer_data(
+    value: Union[Dict[int, bytes], Iterable["BluetoothServiceData"]],
+) -> Dict[int, bytes]:
+    if isinstance(value, dict):
+        return value
+    return {v.uuid: bytes(v.data) for v in value}  # type: ignore
+
+
+@dataclass(frozen=True)
+class BluetoothLEAdvertisement(APIModelBase):
+    address: int = 0
+    name: str = ""
+    rssi: int = 0
+
+    service_uuids: List[str] = converter_field(
+        default_factory=list, converter=_convert_bluetooth_le_service_uuids
+    )
+    service_data: Dict[str, bytes] = converter_field(
+        default_factory=dict, converter=_convert_bluetooth_le_service_data
+    )
+    manufacturer_data: Dict[int, bytes] = converter_field(
+        default_factory=dict, converter=_convert_bluetooth_le_manufacturer_data
     )
 
 
