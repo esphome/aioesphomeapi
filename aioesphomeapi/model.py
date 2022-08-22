@@ -776,7 +776,7 @@ def _convert_bluetooth_le_manufacturer_data(
 ) -> Dict[int, bytes]:
     if isinstance(value, dict):
         return value
-    return {v.uuid: bytes(v.data) for v in value}  # type: ignore
+    return {int(v.uuid, 16): bytes(v.data) for v in value}  # type: ignore
 
 
 @dataclass(frozen=True)
