@@ -762,7 +762,7 @@ def _long_uuid(uuid: str) -> str:
 
 
 def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
-    return [_long_uuid(v) for v in value]  # type: ignore
+    return [_long_uuid(v) for v in value]
 
 
 def _convert_bluetooth_le_service_data(
