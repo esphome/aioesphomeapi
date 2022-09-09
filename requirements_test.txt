@@ -3,7 +3,7 @@ black==22.8.0
 flake8==5.0.4
 isort==5.10.1
 mypy==0.971
-types-protobuf==3.20.1
+types-protobuf==3.20.2
 pytest>=6.2.4,<8
 pytest-asyncio>=0.15.1,<1
 mock>=4.0.3,<5
