@@ -1,3 +1,5 @@
+import asyncio
+import async_timeout
 import logging
 from typing import (
     Any,
@@ -16,6 +18,14 @@ from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    BluetoothDeviceConnectionResponse,
+    BluetoothDeviceRequest,
+    BluetoothGATTGetServicesRequest,
+    BluetoothGATTGetServicesResponse,
+    BluetoothGATTReadRequest,
+    BluetoothGATTReadResponse,
+    BluetoothGATTWriteRequest,
+    BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -75,12 +85,17 @@ from .api_pb2 import (  # type: ignore
     TextSensorStateResponse,
 )
 from .connection import APIConnection, ConnectionParams
-from .core import APIConnectionError
+from .core import APIConnectionError, TimeoutAPIError
 from .host_resolver import ZeroconfInstanceType
 from .model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothDeviceConnection,
+    BluetoothDeviceRequestType,
+    BluetoothGATTRead,
+    BluetoothGATTServices,
+    BluetoothGATTWrite,
     BluetoothLEAdvertisement,
     ButtonInfo,
     CameraInfo,
@@ -395,6 +410,98 @@ class APIClient:
         await self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(), on_msg
         )
+
+    async def bluetooth_device_connect(
+        self,
+        address: int,
+        on_bluetooth_connection_state: Callable[[bool], None],
+        timeout: float = 10.0,
+    ) -> None:
+        self._check_authenticated()
+
+        fut = asyncio.get_event_loop().create_future()
+
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, BluetoothDeviceConnectionResponse):
+                resp = BluetoothDeviceConnection.from_pb(msg)
+                if address == resp.address:
+                    on_bluetooth_connection_state(resp.connected)
+
+        assert self._connection is not None
+        await self._connection.send_message_callback_response(
+            BluetoothDeviceRequest(
+                address=address,
+                request_type=BluetoothDeviceRequestType.CONNECT,
+            ),
+            on_msg,
+        )
+
+        try:
+            async with async_timeout.timeout(timeout):
+                await fut
+        except asyncio.TimeoutError as err:
+            raise TimeoutAPIError(f"Timeout waiting for connect response") from err
+
+    async def bluetooth_device_disconnect(self, address: int) -> None:
+        self._check_authenticated()
+
+        assert self._connection is not None
+        await self._connection.send_message(
+            BluetoothDeviceRequest(
+                address=address,
+                request_type=BluetoothDeviceRequestType.DISCONNECT,
+            )
+        )
+
+    async def bluetooth_gatt_get_services(self, address: int) -> BluetoothGATTServices:
+        self._check_authenticated()
+
+        assert self._connection is not None
+        resp = await self._connection.send_message_await_response(
+            BluetoothGATTGetServicesRequest(address=address),
+            BluetoothGATTGetServicesResponse,
+        )
+        return BluetoothGATTServices.from_pb(resp)
+
+    async def bluetooth_gatt_read(
+        self, address: int, service: str, characteristic: str
+    ) -> bytearray:
+        self._check_authenticated()
+
+        req = BluetoothGATTReadRequest()
+        req.address = address
+        req.service = service
+        req.characteristic = characteristic
+        req.is_descriptor = False
+
+        assert self._connection is not None
+        resp = await self._connection.send_message_await_response(
+            req, BluetoothGATTReadResponse
+        )
+
+        read_response = BluetoothGATTRead.from_pb(resp)
+        if (
+            read_response.address == address
+            and (service == "" or read_response.service == service)
+            and read_response.characteristic == characteristic
+        ):
+            return bytearray(read_response.data)
+        return None
+
+    async def bluetooth_gatt_write(
+        self, address: int, service: str, characteristic: str, data: bytes
+    ) -> None:
+        self._check_authenticated()
+
+        req = BluetoothGATTWriteRequest()
+        req.address = address
+        req.service = service
+        req.characteristic = characteristic
+        req.is_descriptor = False
+        req.data = data
+
+        assert self._connection is not None
+        await self._connection.send_message(req)
 
     async def subscribe_home_assistant_states(
         self, on_state_sub: Callable[[str, Optional[str]], None]
