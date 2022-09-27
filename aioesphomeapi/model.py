@@ -803,21 +803,15 @@ class BluetoothLEAdvertisement(APIModelBase):
 class BluetoothDeviceConnection(APIModelBase):
     address: int = 0
     connected: bool = False
+    mtu: int = 0
 
 
 @dataclass(frozen=True)
 class BluetoothGATTRead(APIModelBase):
     address: int = 0
-    is_descriptor: bool = False
-    service_uuid: str = ""
-    characteristic_uuid: str = ""
+    handle: int = 0
 
     data: bytes = converter_field(default_factory=bytes, converter=bytes)
-
-
-@dataclass(frozen=True)
-class BluetoothGATTWrite(APIModelBase):
-    pass
 
 
 @dataclass(frozen=True)

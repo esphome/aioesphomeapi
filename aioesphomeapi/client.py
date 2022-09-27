@@ -20,8 +20,12 @@ from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDeviceRequest,
+    BluetoothGATTReadDescriptorRequest,
+    BluetoothGATTWriteDescriptorRequest,
     BluetoothGATTGetServicesRequest,
     BluetoothGATTGetServicesResponse,
+    BluetoothGATTNotifyRequest,
+    BluetoothGATTNotifyDataResponse,
     BluetoothGATTReadRequest,
     BluetoothGATTReadResponse,
     BluetoothGATTWriteRequest,
@@ -412,7 +416,7 @@ class APIClient:
     async def bluetooth_device_connect(
         self,
         address: int,
-        on_bluetooth_connection_state: Callable[[bool], None],
+        on_bluetooth_connection_state: Callable[[bool, int], None],
         timeout: float = 10.0,
     ) -> None:
         self._check_authenticated()
@@ -423,7 +427,7 @@ class APIClient:
             if isinstance(msg, BluetoothDeviceConnectionResponse):
                 resp = BluetoothDeviceConnection.from_pb(msg)
                 if address == resp.address:
-                    on_bluetooth_connection_state(resp.connected)
+                    on_bluetooth_connection_state(resp.connected, resp.mtu)
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
@@ -462,44 +466,127 @@ class APIClient:
         return BluetoothGATTServices.from_pb(resp)
 
     async def bluetooth_gatt_read(
-        self, address: int, service: str, characteristic: str
+        self, address: int, characteristic_handle: int, timeout: float = 10.0
     ) -> bytearray:
         self._check_authenticated()
 
         req = BluetoothGATTReadRequest()
         req.address = address
-        req.service = service
-        req.characteristic = characteristic
-        req.is_descriptor = False
+        req.handle = characteristic_handle
+
+        def is_response(msg: message.Message) -> bool:
+            if isinstance(msg, BluetoothGATTReadResponse):
+                read = BluetoothGATTRead.from_pb(msg)
+
+                if read.address == address and read.handle == characteristic_handle:
+                    return True
+            return False
 
         assert self._connection is not None
-        resp = await self._connection.send_message_await_response(
-            req, BluetoothGATTReadResponse
+        resp = await self._connection.send_message_await_response_complex(
+            req, is_response, is_response, timeout=timeout
         )
 
-        read_response = BluetoothGATTRead.from_pb(resp)
-        if (
-            read_response.address == address
-            and (service == "" or read_response.service_uuid == service)
-            and read_response.characteristic_uuid == characteristic
-        ):
-            return bytearray(read_response.data)
-        return bytearray()
+        if len(resp) != 1:
+            raise APIConnectionError(f"Expected one result, got {len(resp)}")
+
+        read_response = BluetoothGATTRead.from_pb(resp[0])
+
+        return bytearray(read_response.data)
 
     async def bluetooth_gatt_write(
-        self, address: int, service: str, characteristic: str, data: bytes
+        self,
+        address: int,
+        characteristic_handle: int,
+        data: bytes,
+        response: bool,
     ) -> None:
         self._check_authenticated()
 
         req = BluetoothGATTWriteRequest()
         req.address = address
-        req.service = service
-        req.characteristic = characteristic
-        req.is_descriptor = False
+        req.handle = characteristic_handle
+        req.response = response
         req.data = data
 
         assert self._connection is not None
         await self._connection.send_message(req)
+
+    async def bluetooth_gatt_read_descriptor(
+        self,
+        address: int,
+        handle: int,
+        timeout: float = 10.0,
+    ) -> bytearray:
+        self._check_authenticated()
+
+        req = BluetoothGATTReadDescriptorRequest()
+        req.address = address
+        req.handle = handle
+
+        def is_response(msg: message.Message) -> bool:
+            if isinstance(msg, BluetoothGATTReadResponse):
+                read = BluetoothGATTRead.from_pb(msg)
+
+                if read.address == address and read.handle == handle:
+                    return True
+            return False
+
+        assert self._connection is not None
+        resp = await self._connection.send_message_await_response_complex(
+            req, is_response, is_response, timeout=timeout
+        )
+
+        if len(resp) != 1:
+            raise APIConnectionError(f"Expected one result, got {len(resp)}")
+
+        read_response = BluetoothGATTRead.from_pb(resp[0])
+
+        return bytearray(read_response.data)
+
+    async def bluetooth_gatt_write_descriptor(
+        self,
+        address: int,
+        handle: int,
+        data: bytes,
+    ) -> None:
+        self._check_authenticated()
+
+        req = BluetoothGATTWriteDescriptorRequest()
+        req.address = address
+        req.handle = handle
+        req.data = data
+
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def bluetooth_gatt_start_notify(
+        self,
+        address: int,
+        handle: int,
+        on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
+    ) -> None:
+        self._check_authenticated()
+
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, BluetoothGATTNotifyDataResponse):
+                notify = BluetoothGATTRead.from_pb(msg)
+                if address == notify.address and handle == notify.handle:
+                    on_bluetooth_gatt_notify(handle, bytearray(notify.data))
+
+        assert self._connection is not None
+        await self._connection.send_message_callback_response(
+            BluetoothGATTNotifyRequest(address=address, handle=handle, enable=True),
+            on_msg,
+        )
+
+    async def bluetooth_gatt_stop_notify(self, address: int, handle: int) -> None:
+        self._check_authenticated()
+
+        assert self._connection is not None
+        await self._connection.send_message(
+            BluetoothGATTNotifyRequest(address=address, handle=handle, enable=False)
+        )
 
     async def subscribe_home_assistant_states(
         self, on_state_sub: Callable[[str, Optional[str]], None]
