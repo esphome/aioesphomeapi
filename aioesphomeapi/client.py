@@ -404,7 +404,7 @@ class APIClient:
 
     async def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
-    ) -> Callable([], None):
+    ) -> Callable[[], None]:
         self._check_authenticated()
 
         def on_msg(msg: message.Message) -> None:
@@ -448,7 +448,7 @@ class APIClient:
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int], None],
         timeout: float = 10.0,
-    ) -> Callable([], None):
+    ) -> Callable[[], None]:
         self._check_authenticated()
 
         fut = asyncio.get_event_loop().create_future()
@@ -601,7 +601,7 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
-    ) -> Callable([], None):
+    ) -> Callable[[], None]:
         self._check_authenticated()
 
         def on_msg(msg: message.Message) -> None:
