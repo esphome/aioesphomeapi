@@ -447,6 +447,7 @@ class APIClient:
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int], None],
+        on_bluetooth_connection_failed: Callable[[], None],
         timeout: float = 10.0,
     ) -> Callable[[], None]:
         self._check_authenticated()
@@ -458,6 +459,8 @@ class APIClient:
                 resp = BluetoothDeviceConnection.from_pb(msg)
                 if address == resp.address:
                     on_bluetooth_connection_state(resp.connected, resp.mtu)
+                    if resp.failed:
+                        on_bluetooth_connection_failed()
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
