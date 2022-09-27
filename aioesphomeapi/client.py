@@ -1,6 +1,8 @@
 import asyncio
-import async_timeout
 import logging
+
+import async_timeout
+
 from typing import (
     Any,
     Awaitable,
@@ -480,8 +482,8 @@ class APIClient:
         read_response = BluetoothGATTRead.from_pb(resp)
         if (
             read_response.address == address
-            and (service == "" or read_response.service == service)
-            and read_response.characteristic == characteristic
+            and (service == "" or read_response.service_uuid == service)
+            and read_response.characteristic_uuid == characteristic
         ):
             return bytearray(read_response.data)
         return None
