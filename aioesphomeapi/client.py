@@ -1,8 +1,5 @@
 import asyncio
 import logging
-
-import async_timeout
-
 from typing import (
     Any,
     Awaitable,
@@ -16,6 +13,7 @@ from typing import (
     cast,
 )
 
+import async_timeout
 from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
