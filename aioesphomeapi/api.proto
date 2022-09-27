@@ -1187,7 +1187,7 @@ message BluetoothDeviceConnectionResponse {
   uint64 address = 1;
   bool connected = 2;
   uint32 mtu = 3;
-  int error = 4;
+  int32 error = 4;
 }
 
 message BluetoothGATTGetServicesRequest {
