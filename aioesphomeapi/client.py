@@ -452,13 +452,14 @@ class APIClient:
     ) -> Callable[[], None]:
         self._check_authenticated()
 
-        fut = asyncio.get_event_loop().create_future()
+        event = asyncio.Event()
 
         def on_msg(msg: message.Message) -> None:
             if isinstance(msg, BluetoothDeviceConnectionResponse):
                 resp = BluetoothDeviceConnection.from_pb(msg)
                 if address == resp.address:
                     on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
+                    event.set()
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
@@ -471,7 +472,7 @@ class APIClient:
 
         try:
             async with async_timeout.timeout(timeout):
-                await fut
+                await event.wait()
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError("Timeout waiting for connect response") from err
 
