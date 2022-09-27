@@ -27,7 +27,6 @@ service APIConnection {
   rpc subscribe_logs (SubscribeLogsRequest) returns (void) {}
   rpc subscribe_homeassistant_services (SubscribeHomeassistantServicesRequest) returns (void) {}
   rpc subscribe_home_assistant_states (SubscribeHomeAssistantStatesRequest) returns (void) {}
-  rpc subscribe_bluetooth_le_advertisements (SubscribeBluetoothLEAdvertisementsRequest) returns (void) {}
   rpc get_time (GetTimeRequest) returns (GetTimeResponse) {
     option (needs_authentication) = false;
   }
@@ -45,6 +44,15 @@ service APIConnection {
   rpc button_command (ButtonCommandRequest) returns (void) {}
   rpc lock_command (LockCommandRequest) returns (void) {}
   rpc media_player_command (MediaPlayerCommandRequest) returns (void) {}
+
+  rpc subscribe_bluetooth_le_advertisements (SubscribeBluetoothLEAdvertisementsRequest) returns (void) {}
+  rpc bluetooth_device_request(BluetoothDeviceRequest) returns (void) {}
+  rpc bluetooth_gatt_get_services(BluetoothGATTGetServicesRequest) returns (BluetoothGATTGetServicesResponse) {}
+  rpc bluetooth_gatt_read(BluetoothGATTReadRequest) returns (void) {}
+  rpc bluetooth_gatt_write(BluetoothGATTWriteRequest) returns (void) {}
+  rpc bluetooth_gatt_read_descriptor(BluetoothGATTReadDescriptorRequest) returns (void) {}
+  rpc bluetooth_gatt_write_descriptor(BluetoothGATTWriteDescriptorRequest) returns (void) {}
+  rpc bluetooth_gatt_notify(BluetoothGATTNotifyRequest) returns (void) {}
 }
 
 
