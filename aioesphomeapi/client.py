@@ -484,7 +484,7 @@ class APIClient:
             and read_response.characteristic_uuid == characteristic
         ):
             return bytearray(read_response.data)
-        return None
+        return bytearray()
 
     async def bluetooth_gatt_write(
         self, address: int, service: str, characteristic: str, data: bytes
