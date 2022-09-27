@@ -1,5 +1,6 @@
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDeviceRequest,
     BluetoothGATTGetServicesRequest,
@@ -67,6 +68,7 @@ from .api_pb2 import (  # type: ignore
     SensorStateResponse,
     SirenCommandRequest,
     SirenStateResponse,
+    SubscribeBluetoothConnectionsFreeRequest,
     SubscribeBluetoothLEAdvertisementsRequest,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -215,4 +217,6 @@ MESSAGE_TYPE_TO_PROTO = {
     76: BluetoothGATTWriteDescriptorRequest,
     77: BluetoothGATTNotifyRequest,
     78: BluetoothGATTNotifyDataResponse,
+    79: SubscribeBluetoothConnectionsFreeRequest,
+    80: BluetoothConnectionsFreeResponse,
 }

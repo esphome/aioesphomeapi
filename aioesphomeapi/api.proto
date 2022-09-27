@@ -1291,3 +1291,18 @@ message BluetoothGATTNotifyDataResponse {
 
   repeated uint32 data = 3 [packed=true];
 }
+
+message SubscribeBluetoothConnectionsFreeRequest {
+  option (id) = 79;
+  option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_BLUETOOTH_PROXY";
+}
+
+message BluetoothConnectionsFreeResponse {
+  option (id) = 80;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_BLUETOOTH_PROXY";
+
+  uint32 free = 1;
+  uint32 limit = 2;
+}

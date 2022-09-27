@@ -879,6 +879,12 @@ class BluetoothGATTServices(APIModelBase):
     )
 
 
+@dataclass(frozen=True)
+class BluetoothConnectionsFree(APIModelBase):
+    free: int = 0
+    limit: int = 0
+
+
 class BluetoothDeviceRequestType(APIIntEnum):
     CONNECT = 0
     DISCONNECT = 1

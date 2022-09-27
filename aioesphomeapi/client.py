@@ -18,16 +18,17 @@ from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDeviceRequest,
-    BluetoothGATTReadDescriptorRequest,
-    BluetoothGATTWriteDescriptorRequest,
     BluetoothGATTGetServicesRequest,
     BluetoothGATTGetServicesResponse,
-    BluetoothGATTNotifyRequest,
     BluetoothGATTNotifyDataResponse,
+    BluetoothGATTNotifyRequest,
+    BluetoothGATTReadDescriptorRequest,
     BluetoothGATTReadRequest,
     BluetoothGATTReadResponse,
+    BluetoothGATTWriteDescriptorRequest,
     BluetoothGATTWriteRequest,
     BluetoothLEAdvertisementResponse,
     ButtonCommandRequest,
@@ -76,6 +77,7 @@ from .api_pb2 import (  # type: ignore
     SensorStateResponse,
     SirenCommandRequest,
     SirenStateResponse,
+    SubscribeBluetoothConnectionsFreeRequest,
     SubscribeBluetoothLEAdvertisementsRequest,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -94,6 +96,7 @@ from .model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothConnectionsFree,
     BluetoothDeviceConnection,
     BluetoothDeviceRequestType,
     BluetoothGATTRead,
@@ -401,7 +404,7 @@ class APIClient:
 
     async def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
-    ) -> None:
+    ) -> Callable([], None):
         self._check_authenticated()
 
         def on_msg(msg: message.Message) -> None:
@@ -413,12 +416,39 @@ class APIClient:
             SubscribeBluetoothLEAdvertisementsRequest(), on_msg
         )
 
+        def unsub() -> None:
+            assert self._connection is not None
+            self._connection.remove_message_callback(on_msg)
+
+        return unsub
+
+    async def subscribe_bluetooth_connections_free(
+        self, on_bluetooth_connections_free_update: Callable[[int, int], None]
+    ) -> Callable[[], None]:
+        self._check_authenticated()
+
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, BluetoothConnectionsFreeResponse):
+                resp = BluetoothConnectionsFree.from_pb(msg)
+                on_bluetooth_connections_free_update(resp.free, resp.limit)
+
+        assert self._connection is not None
+        await self._connection.send_message_callback_response(
+            SubscribeBluetoothConnectionsFreeRequest(), on_msg
+        )
+
+        def unsub() -> None:
+            assert self._connection is not None
+            self._connection.remove_message_callback(on_msg)
+
+        return unsub
+
     async def bluetooth_device_connect(
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int], None],
         timeout: float = 10.0,
-    ) -> None:
+    ) -> Callable([], None):
         self._check_authenticated()
 
         fut = asyncio.get_event_loop().create_future()
@@ -443,6 +473,12 @@ class APIClient:
                 await fut
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError("Timeout waiting for connect response") from err
+
+        def unsub() -> None:
+            assert self._connection is not None
+            self._connection.remove_message_callback(on_msg)
+
+        return unsub
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
@@ -565,7 +601,7 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
-    ) -> None:
+    ) -> Callable([], None):
         self._check_authenticated()
 
         def on_msg(msg: message.Message) -> None:
@@ -580,13 +616,17 @@ class APIClient:
             on_msg,
         )
 
-    async def bluetooth_gatt_stop_notify(self, address: int, handle: int) -> None:
-        self._check_authenticated()
+        async def stop_notify() -> None:
+            assert self._connection is not None
+            self._connection.remove_message_callback(on_msg)
 
-        assert self._connection is not None
-        await self._connection.send_message(
-            BluetoothGATTNotifyRequest(address=address, handle=handle, enable=False)
-        )
+            self._check_authenticated()
+
+            await self._connection.send_message(
+                BluetoothGATTNotifyRequest(address=address, handle=handle, enable=False)
+            )
+
+        return stop_notify
 
     async def subscribe_home_assistant_states(
         self, on_state_sub: Callable[[str, Optional[str]], None]
