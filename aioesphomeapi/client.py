@@ -25,7 +25,6 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTReadRequest,
     BluetoothGATTReadResponse,
     BluetoothGATTWriteRequest,
-    BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -95,7 +94,6 @@ from .model import (
     BluetoothDeviceRequestType,
     BluetoothGATTRead,
     BluetoothGATTServices,
-    BluetoothGATTWrite,
     BluetoothLEAdvertisement,
     ButtonInfo,
     CameraInfo,
@@ -440,7 +438,7 @@ class APIClient:
             async with async_timeout.timeout(timeout):
                 await fut
         except asyncio.TimeoutError as err:
-            raise TimeoutAPIError(f"Timeout waiting for connect response") from err
+            raise TimeoutAPIError("Timeout waiting for connect response") from err
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
