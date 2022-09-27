@@ -446,8 +446,7 @@ class APIClient:
     async def bluetooth_device_connect(
         self,
         address: int,
-        on_bluetooth_connection_state: Callable[[bool, int], None],
-        on_bluetooth_connection_failed: Callable[[], None],
+        on_bluetooth_connection_state: Callable[[bool, int, int], None],
         timeout: float = 10.0,
     ) -> Callable[[], None]:
         self._check_authenticated()
@@ -458,9 +457,7 @@ class APIClient:
             if isinstance(msg, BluetoothDeviceConnectionResponse):
                 resp = BluetoothDeviceConnection.from_pb(msg)
                 if address == resp.address:
-                    on_bluetooth_connection_state(resp.connected, resp.mtu)
-                    if resp.failed:
-                        on_bluetooth_connection_failed()
+                    on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
 
         assert self._connection is not None
         await self._connection.send_message_callback_response(
