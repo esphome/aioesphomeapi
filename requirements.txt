@@ -1,3 +1,4 @@
 protobuf>=3.12.2,<4.0
 zeroconf>=0.36.0,<1.0
 noiseprotocol>=0.3.1,<1.0
+async_timeout>=4.0.2
