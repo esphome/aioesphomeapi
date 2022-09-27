@@ -4,6 +4,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    Coroutine,
     Dict,
     List,
     Optional,
@@ -601,7 +602,7 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
-    ) -> Callable[[], None]:
+    ) -> Coroutine[Any, Any, None]:
         self._check_authenticated()
 
         def on_msg(msg: message.Message) -> None:
