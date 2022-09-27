@@ -804,6 +804,7 @@ class BluetoothDeviceConnection(APIModelBase):
     address: int = 0
     connected: bool = False
     mtu: int = 0
+    failed: bool = False
 
 
 @dataclass(frozen=True)
