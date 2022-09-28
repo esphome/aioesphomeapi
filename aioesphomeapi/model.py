@@ -771,7 +771,7 @@ def _convert_bluetooth_le_service_data(
 ) -> Dict[str, bytes]:
     if isinstance(value, dict):
         return value
-    return {_long_uuid(v.uuid): bytes(v.data) for v in value}  # type: ignore
+    return {_long_uuid(v.uuid): v.data for v in value}  # type: ignore
 
 
 def _convert_bluetooth_le_manufacturer_data(
@@ -779,7 +779,7 @@ def _convert_bluetooth_le_manufacturer_data(
 ) -> Dict[int, bytes]:
     if isinstance(value, dict):
         return value
-    return {int(v.uuid, 16): bytes(v.data) for v in value}  # type: ignore
+    return {int(v.uuid, 16): v.data for v in value}  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -812,7 +812,7 @@ class BluetoothGATTRead(APIModelBase):
     address: int = 0
     handle: int = 0
 
-    data: bytes = converter_field(default_factory=bytes, converter=bytes)
+    data: bytes = b""
 
 
 @dataclass(frozen=True)
