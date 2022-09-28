@@ -759,7 +759,7 @@ def _long_uuid(uuid: str) -> str:
     """Convert a UUID to a long UUID."""
     return (
         f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb" if len(uuid) < 8 else uuid
-    )
+    ).lower()
 
 
 def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
