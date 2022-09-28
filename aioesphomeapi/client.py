@@ -119,6 +119,7 @@ from .model import (
     DeviceInfo,
     EntityInfo,
     EntityState,
+    ESPHomeBluetoothGATTServices,
     FanDirection,
     FanInfo,
     FanSpeed,
@@ -495,7 +496,9 @@ class APIClient:
             )
         )
 
-    async def bluetooth_gatt_get_services(self, address: int) -> BluetoothGATTServices:
+    async def bluetooth_gatt_get_services(
+        self, address: int
+    ) -> ESPHomeBluetoothGATTServices:
         self._check_authenticated()
 
         def do_append(msg: message.Message) -> bool:
@@ -511,7 +514,7 @@ class APIClient:
         services = []
         for msg in resp:
             services.extend(BluetoothGATTServices.from_pb(msg).services)
-        return BluetoothGATTServices(address=address, services=services)
+        return ESPHomeBluetoothGATTServices(address=address, services=services)
 
     async def bluetooth_gatt_read(
         self, address: int, characteristic_handle: int, timeout: float = 10.0
