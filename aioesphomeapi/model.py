@@ -817,7 +817,7 @@ class BluetoothGATTRead(APIModelBase):
 
 @dataclass(frozen=True)
 class BluetoothGATTDescriptor(APIModelBase):
-    uuid: str = ""
+    uuid: str = converter_field(default="", converter=_long_uuid)
     handle: int = 0
     description: str = ""
 
@@ -825,15 +825,16 @@ class BluetoothGATTDescriptor(APIModelBase):
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTDescriptor"]:
         ret = []
         for x in value:
-            instance = cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x)
-            instance.uuid = _long_uuid(instance.uuid)
-            ret.append(instance)
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
         return ret
 
 
 @dataclass(frozen=True)
 class BluetoothGATTCharacteristic(APIModelBase):
-    uuid: str = ""
+    uuid: str = converter_field(default="", converter=_long_uuid)
     handle: int = 0
     properties: int = 0
 
@@ -845,15 +846,16 @@ class BluetoothGATTCharacteristic(APIModelBase):
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTCharacteristic"]:
         ret = []
         for x in value:
-            instance = cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x)
-            instance.uuid = _long_uuid(instance.uuid)
-            ret.append(instance)
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
         return ret
 
 
 @dataclass(frozen=True)
 class BluetoothGATTService(APIModelBase):
-    uuid: str = ""
+    uuid: str = converter_field(default="", converter=_long_uuid)
     handle: int = 0
     characteristics: List[BluetoothGATTCharacteristic] = converter_field(
         default_factory=list, converter=BluetoothGATTCharacteristic.convert_list
@@ -863,9 +865,10 @@ class BluetoothGATTService(APIModelBase):
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTService"]:
         ret = []
         for x in value:
-            instance = cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x)
-            instance.uuid = _long_uuid(instance.uuid)
-            ret.append(instance)
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
         return ret
 
 
