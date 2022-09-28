@@ -765,7 +765,7 @@ def _long_uuid(uuid: str) -> str:
 
 def _join_split_uuid(value: List[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return str(uuid.UUID(int=(value[0] << 64) | value[1]))
+    return str(uuid.UUID(int=((value[0] << 64) | value[1])))
 
 
 def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
@@ -884,6 +884,12 @@ class BluetoothGATTServices(APIModelBase):
     services: List[BluetoothGATTService] = converter_field(
         default_factory=list, converter=BluetoothGATTService.convert_list
     )
+
+
+@dataclass(frozen=True)
+class ESPHomeBluetoothGATTServices:
+    address: int = 0
+    services: List[BluetoothGATTService] = []
 
 
 @dataclass(frozen=True)
