@@ -23,6 +23,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothDeviceConnectionResponse,
     BluetoothDeviceRequest,
     BluetoothGATTGetServicesRequest,
+    BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTNotifyDataResponse,
     BluetoothGATTNotifyRequest,
@@ -496,12 +497,20 @@ class APIClient:
     async def bluetooth_gatt_get_services(self, address: int) -> BluetoothGATTServices:
         self._check_authenticated()
 
+        def do_append(msg: message.Message) -> None:
+            return isinstance(msg, BluetoothGATTGetServicesResponse)
+
+        def do_stop(msg: message.Message) -> bool:
+            return isinstance(msg, BluetoothGATTGetServicesDoneResponse)
+
         assert self._connection is not None
-        resp = await self._connection.send_message_await_response(
-            BluetoothGATTGetServicesRequest(address=address),
-            BluetoothGATTGetServicesResponse,
+        resp = await self._connection.send_message_await_response_complex(
+            BluetoothGATTGetServicesRequest(address=address), do_append, do_stop
         )
-        return BluetoothGATTServices.from_pb(resp)
+        services = []
+        for msg in resp:
+            services.extend(BluetoothGATTServices.from_pb(msg).services)
+        return BluetoothGATTServices(address=address, services=services)
 
     async def bluetooth_gatt_read(
         self, address: int, characteristic_handle: int, timeout: float = 10.0
