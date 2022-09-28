@@ -545,7 +545,7 @@ class APIClient:
         req.address = address
         req.handle = characteristic_handle
         req.response = response
-        req.data = data
+        req.data.extend(data)
 
         assert self._connection is not None
         await self._connection.send_message(req)
@@ -593,7 +593,7 @@ class APIClient:
         req = BluetoothGATTWriteDescriptorRequest()
         req.address = address
         req.handle = handle
-        req.data = data
+        req.data.extend(data)
 
         assert self._connection is not None
         await self._connection.send_message(req)
