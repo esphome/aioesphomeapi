@@ -825,10 +825,9 @@ class BluetoothGATTDescriptor(APIModelBase):
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTDescriptor"]:
         ret = []
         for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
+            instance = cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x)
+            instance.uuid = _long_uuid(instance.uuid)
+            ret.append(instance)
         return ret
 
 
@@ -846,10 +845,9 @@ class BluetoothGATTCharacteristic(APIModelBase):
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTCharacteristic"]:
         ret = []
         for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
+            instance = cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x)
+            instance.uuid = _long_uuid(instance.uuid)
+            ret.append(instance)
         return ret
 
 
@@ -865,10 +863,9 @@ class BluetoothGATTService(APIModelBase):
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTService"]:
         ret = []
         for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
+            instance = cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x)
+            instance.uuid = _long_uuid(instance.uuid)
+            ret.append(instance)
         return ret
 
 
