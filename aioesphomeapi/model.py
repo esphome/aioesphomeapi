@@ -826,7 +826,6 @@ class BluetoothGATTRead(APIModelBase):
 class BluetoothGATTDescriptor(APIModelBase):
     uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
-    description: str = ""
 
     @classmethod
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTDescriptor"]:
