@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 import asyncio
 import logging
 from typing import (
@@ -22,8 +23,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDeviceRequest,
-    BluetoothGATTGetServicesRequest,
     BluetoothGATTGetServicesDoneResponse,
+    BluetoothGATTGetServicesRequest,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTNotifyDataResponse,
     BluetoothGATTNotifyRequest,
@@ -497,7 +498,7 @@ class APIClient:
     async def bluetooth_gatt_get_services(self, address: int) -> BluetoothGATTServices:
         self._check_authenticated()
 
-        def do_append(msg: message.Message) -> None:
+        def do_append(msg: message.Message) -> bool:
             return isinstance(msg, BluetoothGATTGetServicesResponse)
 
         def do_stop(msg: message.Message) -> bool:
@@ -612,7 +613,7 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
-    ) -> Coroutine[Any, Any, None]:
+    ) -> Callable[[], Coroutine[Any, Any, None]]:
         self._check_authenticated()
 
         def on_msg(msg: message.Message) -> None:
