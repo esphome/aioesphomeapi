@@ -759,7 +759,7 @@ def _long_uuid(uuid: str) -> str:
     """Convert a UUID to a long UUID."""
     return (
         f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb" if len(uuid) < 8 else uuid
-    )
+    ).lower()
 
 
 def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
@@ -771,6 +771,7 @@ def _convert_bluetooth_le_service_data(
 ) -> Dict[str, bytes]:
     if isinstance(value, dict):
         return value
+
     return {_long_uuid(v.uuid): bytes(v.data) for v in value}  # type: ignore
 
 
@@ -797,6 +798,100 @@ class BluetoothLEAdvertisement(APIModelBase):
     manufacturer_data: Dict[int, bytes] = converter_field(
         default_factory=dict, converter=_convert_bluetooth_le_manufacturer_data
     )
+
+
+@dataclass(frozen=True)
+class BluetoothDeviceConnection(APIModelBase):
+    address: int = 0
+    connected: bool = False
+    mtu: int = 0
+    error: int = 0
+
+
+@dataclass(frozen=True)
+class BluetoothGATTRead(APIModelBase):
+    address: int = 0
+    handle: int = 0
+
+    data: bytes = b""
+
+
+@dataclass(frozen=True)
+class BluetoothGATTDescriptor(APIModelBase):
+    uuid: str = converter_field(default="", converter=_long_uuid)
+    handle: int = 0
+    description: str = ""
+
+    @classmethod
+    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTDescriptor"]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
+        return ret
+
+
+@dataclass(frozen=True)
+class BluetoothGATTCharacteristic(APIModelBase):
+    uuid: str = converter_field(default="", converter=_long_uuid)
+    handle: int = 0
+    properties: int = 0
+
+    descriptors: List[BluetoothGATTDescriptor] = converter_field(
+        default_factory=list, converter=BluetoothGATTDescriptor.convert_list
+    )
+
+    @classmethod
+    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTCharacteristic"]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
+        return ret
+
+
+@dataclass(frozen=True)
+class BluetoothGATTService(APIModelBase):
+    uuid: str = converter_field(default="", converter=_long_uuid)
+    handle: int = 0
+    characteristics: List[BluetoothGATTCharacteristic] = converter_field(
+        default_factory=list, converter=BluetoothGATTCharacteristic.convert_list
+    )
+
+    @classmethod
+    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTService"]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
+        return ret
+
+
+@dataclass(frozen=True)
+class BluetoothGATTServices(APIModelBase):
+    address: int = 0
+    services: List[BluetoothGATTService] = converter_field(
+        default_factory=list, converter=BluetoothGATTService.convert_list
+    )
+
+
+@dataclass(frozen=True)
+class BluetoothConnectionsFree(APIModelBase):
+    free: int = 0
+    limit: int = 0
+
+
+class BluetoothDeviceRequestType(APIIntEnum):
+    CONNECT = 0
+    DISCONNECT = 1
+    PAIR = 2
+    UNPAIR = 3
 
 
 class LogLevel(APIIntEnum):
