@@ -778,7 +778,7 @@ def _convert_bluetooth_le_service_data(
     if isinstance(value, dict):
         return value
 
-    return {_long_uuid(v.uuid): bytes(v.data) for v in value}  # type: ignore
+    return {_long_uuid(v.uuid): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
 
 
 def _convert_bluetooth_le_manufacturer_data(
@@ -786,7 +786,8 @@ def _convert_bluetooth_le_manufacturer_data(
 ) -> Dict[int, bytes]:
     if isinstance(value, dict):
         return value
-    return {int(v.uuid, 16): bytes(v.data) for v in value}  # type: ignore
+    # v.data if v.data else v.legacy_data is backwards compatable with ESPHome devices before 2022.10.0
+    return {int(v.uuid, 16): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
 
 
 @dataclass(frozen=True)
