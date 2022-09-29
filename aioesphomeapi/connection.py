@@ -173,7 +173,7 @@ class APIConnection:
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
-        reader, writer = await asyncio.open_connection(sock=self._socket)
+        reader, writer = await asyncio.open_connection(sock=self._socket, limit=1024*1024) # Set buffer limit to 1MB
 
         if self._params.noise_psk is None:
             self._frame_helper = APIPlaintextFrameHelper(reader, writer)
