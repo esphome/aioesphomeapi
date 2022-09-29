@@ -13,7 +13,7 @@ from typing import (
     Union,
     cast,
 )
-import uuid
+from uuid import UUID
 
 from .util import fix_float_single_double_conversion
 
@@ -765,7 +765,7 @@ def _long_uuid(uuid: str) -> str:
 
 def _join_split_uuid(value: List[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return str(uuid.UUID(int=((value[0] << 64) | value[1])))
+    return str(UUID(int=((value[0] << 64) | value[1])))
 
 
 def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
