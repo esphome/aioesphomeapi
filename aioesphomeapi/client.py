@@ -473,15 +473,18 @@ class APIClient:
             on_msg,
         )
 
-        try:
-            async with async_timeout.timeout(timeout):
-                await event.wait()
-        except asyncio.TimeoutError as err:
-            raise TimeoutAPIError("Timeout waiting for connect response") from err
 
         def unsub() -> None:
             assert self._connection is not None
             self._connection.remove_message_callback(on_msg)
+
+        try:
+            async with async_timeout.timeout(timeout):
+                await event.wait()
+        except asyncio.TimeoutError as err:
+            unsub()
+            raise TimeoutAPIError("Timeout waiting for connect response") from err
+
 
         return unsub
 
