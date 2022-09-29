@@ -13,6 +13,7 @@ from typing import (
     Union,
     cast,
 )
+from uuid import UUID
 
 from .util import fix_float_single_double_conversion
 
@@ -762,6 +763,11 @@ def _long_uuid(uuid: str) -> str:
     ).lower()
 
 
+def _join_split_uuid(value: List[int]) -> str:
+    """Convert a high/low uuid into a single string."""
+    return str(UUID(int=((value[0] << 64) | value[1])))
+
+
 def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
     return [_long_uuid(v) for v in value]
 
@@ -818,9 +824,8 @@ class BluetoothGATTRead(APIModelBase):
 
 @dataclass(frozen=True)
 class BluetoothGATTDescriptor(APIModelBase):
-    uuid: str = converter_field(default="", converter=_long_uuid)
+    uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
-    description: str = ""
 
     @classmethod
     def convert_list(cls, value: List[Any]) -> List["BluetoothGATTDescriptor"]:
@@ -835,7 +840,7 @@ class BluetoothGATTDescriptor(APIModelBase):
 
 @dataclass(frozen=True)
 class BluetoothGATTCharacteristic(APIModelBase):
-    uuid: str = converter_field(default="", converter=_long_uuid)
+    uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
     properties: int = 0
 
@@ -856,7 +861,7 @@ class BluetoothGATTCharacteristic(APIModelBase):
 
 @dataclass(frozen=True)
 class BluetoothGATTService(APIModelBase):
-    uuid: str = converter_field(default="", converter=_long_uuid)
+    uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
     characteristics: List[BluetoothGATTCharacteristic] = converter_field(
         default_factory=list, converter=BluetoothGATTCharacteristic.convert_list
@@ -879,6 +884,12 @@ class BluetoothGATTServices(APIModelBase):
     services: List[BluetoothGATTService] = converter_field(
         default_factory=list, converter=BluetoothGATTService.convert_list
     )
+
+
+@dataclass(frozen=True)
+class ESPHomeBluetoothGATTServices:
+    address: int = 0
+    services: List[BluetoothGATTService] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
