@@ -106,7 +106,7 @@ class DeviceInfo(APIModelBase):
     project_name: str = ""
     project_version: str = ""
     webserver_port: int = 0
-    has_bluetooth_proxy: bool = False
+    bluetooth_proxy_version: int = 0
 
 
 class EntityCategory(APIIntEnum):
