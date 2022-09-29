@@ -473,7 +473,6 @@ class APIClient:
             on_msg,
         )
 
-
         def unsub() -> None:
             assert self._connection is not None
             self._connection.remove_message_callback(on_msg)
@@ -484,7 +483,6 @@ class APIClient:
         except asyncio.TimeoutError as err:
             unsub()
             raise TimeoutAPIError("Timeout waiting for connect response") from err
-
 
         return unsub
 
