@@ -488,8 +488,6 @@ class APIConnection:
                 break
 
             msg = await self._to_process.get()
-            if msg is None:
-                break
 
             for handler in self._message_handlers[:]:
                 handler(msg)
