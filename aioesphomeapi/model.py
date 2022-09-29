@@ -819,7 +819,7 @@ class BluetoothGATTRead(APIModelBase):
     address: int = 0
     handle: int = 0
 
-    data: bytes = b""
+    data: bytes = field(default_factory=bytes)
 
 
 @dataclass(frozen=True)
