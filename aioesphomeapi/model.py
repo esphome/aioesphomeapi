@@ -889,7 +889,7 @@ class BluetoothGATTServices(APIModelBase):
 @dataclass(frozen=True)
 class ESPHomeBluetoothGATTServices:
     address: int = 0
-    services: List[BluetoothGATTService] = []
+    services: List[BluetoothGATTService] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
