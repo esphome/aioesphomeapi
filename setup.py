@@ -45,6 +45,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=REQUIRES,
-    python_requires=">=3.7",
+    python_requires=">=3.9",
     test_suite="tests",
 )
