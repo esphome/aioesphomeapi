@@ -190,6 +190,8 @@ class APIConnection:
         """Step 4 in connect process: send hello and get api version."""
         hello = HelloRequest()
         hello.client_info = self._params.client_info
+        hello.api_version_major = 1
+        hello.api_version_minor = 7
         try:
             resp = await self.send_message_await_response(hello, HelloResponse)
         except TimeoutAPIError as err:
