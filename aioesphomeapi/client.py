@@ -421,8 +421,8 @@ class APIClient:
         )
 
         def unsub() -> None:
-            assert self._connection is not None
-            self._connection.remove_message_callback(on_msg)
+            if self._connection is not None:
+                self._connection.remove_message_callback(on_msg)
 
         return unsub
 
@@ -474,8 +474,8 @@ class APIClient:
         )
 
         def unsub() -> None:
-            assert self._connection is not None
-            self._connection.remove_message_callback(on_msg)
+            if self._connection is not None:
+                self._connection.remove_message_callback(on_msg)
 
         try:
             async with async_timeout.timeout(timeout):
@@ -633,7 +633,9 @@ class APIClient:
         )
 
         async def stop_notify() -> None:
-            assert self._connection is not None
+            if self._connection is None:
+                return
+
             self._connection.remove_message_callback(on_msg)
 
             self._check_authenticated()
