@@ -47,6 +47,8 @@ from .model import APIVersion
 
 _LOGGER = logging.getLogger(__name__)
 
+BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
+
 
 @dataclass
 class ConnectionParams:
@@ -150,6 +152,16 @@ class APIConnection:
         )
         self._socket.setblocking(False)
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # Try to reduce the pressure on esphome device as it measures
+        # ram in bytes and we measure ram in megabytes.
+        try:
+            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
+        except OSError as err:
+            _LOGGER.warning(
+                "%s: Failed to set socket receive buffer size: %s",
+                self.log_name,
+                err,
+            )
 
         _LOGGER.debug(
             "%s: Connecting to %s:%s (%s)",
@@ -174,7 +186,7 @@ class APIConnection:
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
         reader, writer = await asyncio.open_connection(
-            sock=self._socket, limit=1024 * 1024
+            sock=self._socket, limit=BUFFER_SIZE
         )  # Set buffer limit to 1MB
 
         if self._params.noise_psk is None:
