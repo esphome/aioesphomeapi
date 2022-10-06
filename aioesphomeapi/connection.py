@@ -107,6 +107,8 @@ class APIConnection:
 
         self._to_process: asyncio.Queue[message.Message] = asyncio.Queue()
 
+        self._process_task: Optional[asyncio.Task[None]] = None
+
     async def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
 
@@ -115,6 +117,12 @@ class APIConnection:
         if self._frame_helper is not None:
             await self._frame_helper.close()
             self._frame_helper = None
+
+        if self._process_task is not None:
+            self._process_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._process_task
+            self._process_task = None
 
         if self._socket is not None:
             self._socket.close()
@@ -202,7 +210,7 @@ class APIConnection:
         # Create read loop
         asyncio.create_task(self._read_loop())
         # Create process loop
-        asyncio.create_task(self._process_loop())
+        self._process_task = asyncio.create_task(self._process_loop())
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
