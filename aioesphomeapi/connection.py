@@ -122,7 +122,7 @@ class APIConnection:
             self._process_task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._process_task
-                self._process_task = None
+            self._process_task = None
 
         if self._socket is not None:
             self._socket.close()
