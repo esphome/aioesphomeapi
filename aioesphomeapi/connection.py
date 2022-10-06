@@ -107,7 +107,7 @@ class APIConnection:
 
         self._to_process: asyncio.Queue[message.Message] = asyncio.Queue()
 
-        self._process_task: Optional[asyncio.Task] = None
+        self._process_task: Optional[asyncio.Task[None]] = None
 
     async def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
