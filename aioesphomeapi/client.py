@@ -93,7 +93,7 @@ from .api_pb2 import (  # type: ignore
     TextSensorStateResponse,
 )
 from .connection import APIConnection, ConnectionParams
-from .core import APIConnectionError, TimeoutAPIError
+from .core import APIConnectionError, BluetoothGATTAPIError, TimeoutAPIError
 from .host_resolver import ZeroconfInstanceType
 from .model import (
     APIVersion,
@@ -102,6 +102,7 @@ from .model import (
     BluetoothConnectionsFree,
     BluetoothDeviceConnection,
     BluetoothDeviceRequestType,
+    BluetoothGATTError,
     BluetoothGATTRead,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
@@ -156,6 +157,21 @@ _LOGGER = logging.getLogger(__name__)
 ExecuteServiceDataType = Dict[
     str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
 ]
+
+
+def handle_bluetooth_gatt_error(
+    address: int, handle: int, func: Callable[[message.Message], bool]
+) -> Callable[[message.Message], bool]:
+    """Decorator to handle Bluetooth GATT errors."""
+
+    def wrapper(msg: message.Message) -> bool:
+        if isinstance(msg, BluetoothGATTError):
+            resp = BluetoothGATTError.from_pb(msg)
+            if resp.address == address and resp.handle == handle:
+                return True
+        return func(msg)
+
+    return wrapper
 
 
 # pylint: disable=too-many-public-methods
@@ -502,9 +518,11 @@ class APIClient:
     ) -> ESPHomeBluetoothGATTServices:
         self._check_authenticated()
 
+        @handle_bluetooth_gatt_error(address, 0)
         def do_append(msg: message.Message) -> bool:
             return isinstance(msg, BluetoothGATTGetServicesResponse)
 
+        @handle_bluetooth_gatt_error(address, 0)
         def do_stop(msg: message.Message) -> bool:
             return isinstance(msg, BluetoothGATTGetServicesDoneResponse)
 
@@ -514,6 +532,8 @@ class APIClient:
         )
         services = []
         for msg in resp:
+            if isinstance(msg, BluetoothGATTError):
+                raise BluetoothGATTAPIError(msg)
             services.extend(BluetoothGATTServices.from_pb(msg).services)
         return ESPHomeBluetoothGATTServices(address=address, services=services)
 
@@ -526,6 +546,7 @@ class APIClient:
         req.address = address
         req.handle = characteristic_handle
 
+        @handle_bluetooth_gatt_error(address, characteristic_handle)
         def is_response(msg: message.Message) -> bool:
             if isinstance(msg, BluetoothGATTReadResponse):
                 read = BluetoothGATTRead.from_pb(msg)
@@ -541,6 +562,9 @@ class APIClient:
 
         if len(resp) != 1:
             raise APIConnectionError(f"Expected one result, got {len(resp)}")
+
+        if isinstance(resp[0], BluetoothGATTError):
+            raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp[0]))
 
         read_response = BluetoothGATTRead.from_pb(resp[0])
 

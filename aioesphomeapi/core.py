@@ -1,3 +1,4 @@
+from aioesphomeapi.model import BluetoothGATTError
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
@@ -139,6 +140,10 @@ class ReadFailedAPIError(APIConnectionError):
     pass
 
 
+class BluetoothGATTAPIError(APIConnectionError):
+    pass
+
+
 MESSAGE_TYPE_TO_PROTO = {
     1: HelloRequest,
     2: HelloResponse,
@@ -221,4 +226,5 @@ MESSAGE_TYPE_TO_PROTO = {
     79: BluetoothGATTNotifyDataResponse,
     80: SubscribeBluetoothConnectionsFreeRequest,
     81: BluetoothConnectionsFreeResponse,
+    82: BluetoothGATTError,
 }
