@@ -151,6 +151,7 @@ class BinarySensorState(EntityState):
 @dataclass(frozen=True)
 class CoverInfo(EntityInfo):
     assumed_state: bool = False
+    supports_stop: bool = False
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
