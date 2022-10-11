@@ -4,16 +4,19 @@ from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDeviceRequest,
+    BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesRequest,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTNotifyDataResponse,
     BluetoothGATTNotifyRequest,
+    BluetoothGATTNotifyResponse,
     BluetoothGATTReadDescriptorRequest,
     BluetoothGATTReadRequest,
     BluetoothGATTReadResponse,
     BluetoothGATTWriteDescriptorRequest,
     BluetoothGATTWriteRequest,
+    BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -141,7 +144,11 @@ class ReadFailedAPIError(APIConnectionError):
 
 
 class BluetoothGATTAPIError(APIConnectionError):
-    pass
+    def __init__(self, error: BluetoothGATTError) -> None:
+        super().__init__(
+            f"Bluetooth GATT Error address={error.address} handle={error.handle} error={error.error}"
+        )
+        self.error = error
 
 
 MESSAGE_TYPE_TO_PROTO = {
@@ -226,5 +233,7 @@ MESSAGE_TYPE_TO_PROTO = {
     79: BluetoothGATTNotifyDataResponse,
     80: SubscribeBluetoothConnectionsFreeRequest,
     81: BluetoothConnectionsFreeResponse,
-    82: BluetoothGATTError,
+    82: BluetoothGATTErrorResponse,
+    83: BluetoothGATTWriteResponse,
+    84: BluetoothGATTNotifyResponse,
 }

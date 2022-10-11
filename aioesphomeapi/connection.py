@@ -390,6 +390,17 @@ class APIConnection:
             await self._report_fatal_error(err)
             raise
 
+    def add_message_callback(
+        self, on_message: Callable[[Any], None]
+    ) -> Callable[[], None]:
+        """Add a message callback."""
+        self._message_handlers.append(on_message)
+
+        def unsub() -> None:
+            self._message_handlers.remove(on_message)
+
+        return unsub
+
     def remove_message_callback(self, on_message: Callable[[Any], None]) -> None:
         """Remove a message callback."""
         self._message_handlers.remove(on_message)
