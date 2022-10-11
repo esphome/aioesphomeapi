@@ -99,7 +99,6 @@ from .connection import APIConnection, ConnectionParams
 from .core import APIConnectionError, BluetoothGATTAPIError, TimeoutAPIError
 from .host_resolver import ZeroconfInstanceType
 from .model import (
-    APIModelBase,
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
@@ -417,14 +416,14 @@ class APIClient:
         handle: int,
         request: message.Message,
         response_type: Type[message.Message],
-        timeout: Optional[float] = None,
+        timeout: float = 10.0,
     ) -> message.Message:
         self._check_authenticated()
         assert self._connection is not None
 
         def is_response(msg: message.Message) -> bool:
             if isinstance(msg, (BluetoothGATTErrorResponse, response_type)):
-                if msg.address == address and msg.handle == handle:
+                if msg.address == address and msg.handle == handle:  # type: ignore
                     return True
 
             return False
@@ -432,8 +431,6 @@ class APIClient:
         resp = await self._connection.send_message_await_response_complex(
             request, is_response, is_response, timeout=timeout
         )
-
-        print(resp)
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
             raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp[0]))
@@ -668,6 +665,7 @@ class APIClient:
                 if address == notify.address and handle == notify.handle:
                     on_bluetooth_gatt_notify(handle, bytearray(notify.data))
 
+        assert self._connection is not None
         remove_callback = self._connection.add_message_callback(on_msg)
 
         async def stop_notify() -> None:

@@ -415,10 +415,10 @@ class APIConnection:
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
-        do_append: Callable[[Any], bool],
-        do_stop: Callable[[Any], bool],
+        do_append: Callable[[message.Message], bool],
+        do_stop: Callable[[message.Message], bool],
         timeout: float = 10.0,
-    ) -> List[Any]:
+    ) -> List[message.Message]:
         """Send a message to the remote and build up a list response.
 
         :param send_msg: The message (request) to send.

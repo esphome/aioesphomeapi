@@ -1,4 +1,5 @@
 from aioesphomeapi.model import BluetoothGATTError
+
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
