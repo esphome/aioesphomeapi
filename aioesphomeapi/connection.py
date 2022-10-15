@@ -110,13 +110,15 @@ class APIConnection:
         self._process_task: Optional[asyncio.Task[None]] = None
 
         self._connect_lock: asyncio.Lock = asyncio.Lock()
+        self._cleanup_task: Optional[asyncio.Task[None]] = None
 
     async def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
 
         Safe to call multiple times.
         """
-        async def _do_cleanup():
+
+        async def _do_cleanup() -> None:
             async with self._connect_lock:
                 if self._frame_helper is not None:
                     await self._frame_helper.close()
@@ -142,7 +144,8 @@ class APIConnection:
                 # themself, effectively ending execution after _cleanup which may be unexpected
                 self._ping_stop_event.set()
 
-        asyncio.create_task(_do_cleanup())
+        if not self._cleanup_task or not self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(_do_cleanup())
 
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
