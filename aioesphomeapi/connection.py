@@ -109,34 +109,43 @@ class APIConnection:
 
         self._process_task: Optional[asyncio.Task[None]] = None
 
+        self._connect_lock: asyncio.Lock = asyncio.Lock()
+        self._cleanup_task: Optional[asyncio.Task[None]] = None
+
     async def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
 
         Safe to call multiple times.
         """
-        if self._frame_helper is not None:
-            await self._frame_helper.close()
-            self._frame_helper = None
 
-        if self._process_task is not None:
-            self._process_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await self._process_task
-            self._process_task = None
+        async def _do_cleanup() -> None:
+            async with self._connect_lock:
+                if self._frame_helper is not None:
+                    await self._frame_helper.close()
+                    self._frame_helper = None
 
-        if self._socket is not None:
-            self._socket.close()
-            self._socket = None
+                if self._process_task is not None:
+                    self._process_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await self._process_task
+                    self._process_task = None
 
-        if not self._on_stop_called and self._connect_complete:
-            # Ensure on_stop is called
-            asyncio.create_task(self.on_stop())
-            self._on_stop_called = True
+                if self._socket is not None:
+                    self._socket.close()
+                    self._socket = None
 
-        # Note: we don't explicitly cancel the ping/read task here
-        # That's because if not written right the ping/read task could cancel
-        # themself, effectively ending execution after _cleanup which may be unexpected
-        self._ping_stop_event.set()
+                if not self._on_stop_called and self._connect_complete:
+                    # Ensure on_stop is called
+                    asyncio.create_task(self.on_stop())
+                    self._on_stop_called = True
+
+                # Note: we don't explicitly cancel the ping/read task here
+                # That's because if not written right the ping/read task could cancel
+                # themself, effectively ending execution after _cleanup which may be unexpected
+                self._ping_stop_event.set()
+
+        if not self._cleanup_task or not self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(_do_cleanup())
 
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
@@ -305,19 +314,23 @@ class APIConnection:
             if login:
                 await self.login()
 
-        try:
-            # Allow 2 minutes for connect; this is only as a last measure
-            # to protect from issues if some part of the connect process mistakenly
-            # does not have a timeout
-            async with async_timeout.timeout(120.0):
-                await _do_connect()
-        except Exception:  # pylint: disable=broad-except
-            # Always clean up the connection if an error occured during connect
-            self._connection_state = ConnectionState.CLOSED
-            await self._cleanup()
-            raise
+        # A connection lock must be created to avoid potential issues where
+        # connect has succeeded but not yet returned, followed by a disconnect.
+        # See esphome/aioesphomeapi#258 for more information
+        async with self._connect_lock:
+            try:
+                # Allow 2 minutes for connect; this is only as a last measure
+                # to protect from issues if some part of the connect process mistakenly
+                # does not have a timeout
+                async with async_timeout.timeout(120.0):
+                    await _do_connect()
+            except Exception:  # pylint: disable=broad-except
+                # Always clean up the connection if an error occured during connect
+                self._connection_state = ConnectionState.CLOSED
+                await self._cleanup()
+                raise
 
-        self._connect_complete = True
+            self._connect_complete = True
 
     async def login(self) -> None:
         """Send a login (ConnectRequest) and await the response."""
