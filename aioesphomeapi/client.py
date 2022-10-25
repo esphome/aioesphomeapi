@@ -486,8 +486,11 @@ class APIClient:
             unsub()
             raise TimeoutAPIError("Timeout waiting for connect response") from err
         finally:
+            _LOGGER.warning("finished connect finally")
             if not event.is_set():
+                _LOGGER.warning("connect failed, disconnecting")
                 await self.bluetooth_device_disconnect(address)
+                _LOGGER.warning("connect failed, finished disconnecting")
 
         return unsub
 
