@@ -101,6 +101,7 @@ class DeviceInfo(APIModelBase):
     mac_address: str = ""
     compilation_time: str = ""
     model: str = ""
+    manufacturer: str = ""
     has_deep_sleep: bool = False
     esphome_version: str = ""
     project_name: str = ""
