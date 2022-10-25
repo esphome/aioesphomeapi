@@ -153,6 +153,8 @@ from .model import (
 
 _LOGGER = logging.getLogger(__name__)
 
+DEFAULT_BLE_TIMEOUT = 30.0
+
 ExecuteServiceDataType = Dict[
     str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
 ]
@@ -451,7 +453,7 @@ class APIClient:
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
-        timeout: float = 10.0,
+        timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> Callable[[], None]:
         self._check_authenticated()
 
@@ -513,7 +515,10 @@ class APIClient:
 
         assert self._connection is not None
         resp = await self._connection.send_message_await_response_complex(
-            BluetoothGATTGetServicesRequest(address=address), do_append, do_stop
+            BluetoothGATTGetServicesRequest(address=address),
+            do_append,
+            do_stop,
+            timeout=DEFAULT_BLE_TIMEOUT,
         )
         services = []
         for msg in resp:
@@ -521,7 +526,10 @@ class APIClient:
         return ESPHomeBluetoothGATTServices(address=address, services=services)
 
     async def bluetooth_gatt_read(
-        self, address: int, characteristic_handle: int, timeout: float = 10.0
+        self,
+        address: int,
+        characteristic_handle: int,
+        timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> bytearray:
         self._check_authenticated()
 
@@ -571,7 +579,7 @@ class APIClient:
         self,
         address: int,
         handle: int,
-        timeout: float = 10.0,
+        timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> bytearray:
         self._check_authenticated()
 
