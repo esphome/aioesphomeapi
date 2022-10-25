@@ -150,7 +150,7 @@ class ReadFailedAPIError(APIConnectionError):
 
 def to_human_readable_address(address: int) -> str:
     """Convert a MAC address to a human readable format."""
-    return ":".join(TWO_CHAR.findall("%012X" % address))
+    return ":".join(TWO_CHAR.findall(f"{address:012X}"))
 
 
 class BluetoothGATTAPIError(APIConnectionError):
