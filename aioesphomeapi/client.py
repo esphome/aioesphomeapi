@@ -426,8 +426,8 @@ class APIClient:
         def is_response(msg: message.Message) -> bool:
             return (
                 isinstance(msg, (BluetoothGATTErrorResponse, response_type))
-                and msg.address == address
-                and msg.handle == handle  # type: ignore
+                and msg.address == address  # type: ignore[union-attr]
+                and msg.handle == handle
             )
 
         resp = await self._connection.send_message_await_response_complex(
