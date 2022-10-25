@@ -2,7 +2,6 @@ import re
 
 from aioesphomeapi.model import BluetoothGATTError
 
-TWO_CHAR = re.compile(r".{2}")
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
@@ -89,6 +88,8 @@ from .api_pb2 import (  # type: ignore
     SwitchStateResponse,
     TextSensorStateResponse,
 )
+
+TWO_CHAR = re.compile(r".{2}")
 
 
 class APIConnectionError(Exception):
