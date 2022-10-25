@@ -1,5 +1,8 @@
+import re
+
 from aioesphomeapi.model import BluetoothGATTError
 
+TWO_CHAR = re.compile(r".{2}")
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
@@ -144,10 +147,15 @@ class ReadFailedAPIError(APIConnectionError):
     pass
 
 
+def to_human_readable_address(address: int) -> str:
+    """Convert a MAC address to a human readable format."""
+    return ":".join(TWO_CHAR.findall("%012X" % address))
+
+
 class BluetoothGATTAPIError(APIConnectionError):
     def __init__(self, error: BluetoothGATTError) -> None:
         super().__init__(
-            f"Bluetooth GATT Error address={error.address} handle={error.handle} error={error.error}"
+            f"Bluetooth GATT Error address={to_human_readable_address(error.address)} handle={error.handle} error={error.error}"
         )
         self.error = error
 
