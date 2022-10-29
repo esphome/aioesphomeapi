@@ -424,11 +424,11 @@ class APIClient:
         assert self._connection is not None
 
         def is_response(msg: message.Message) -> bool:
-            if isinstance(msg, (BluetoothGATTErrorResponse, response_type)):
-                if msg.address == address and msg.handle == handle:  # type: ignore
-                    return True
-
-            return False
+            return (
+                isinstance(msg, (BluetoothGATTErrorResponse, response_type))
+                and msg.address == address  # type: ignore[union-attr]
+                and msg.handle == handle  # type: ignore[union-attr]
+            )
 
         resp = await self._connection.send_message_await_response_complex(
             request, is_response, is_response, timeout=timeout
@@ -536,20 +536,21 @@ class APIClient:
         self._check_authenticated()
 
         def do_append(msg: message.Message) -> bool:
-            if isinstance(
-                msg, (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
-            ):
-                if msg.address == address:
-                    return True
-            return False
+            return (
+                isinstance(
+                    msg, (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
+                )
+                and msg.address == address
+            )
 
         def do_stop(msg: message.Message) -> bool:
-            if isinstance(
-                msg, (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse)
-            ):
-                if msg.address == address:
-                    return True
-            return False
+            return (
+                isinstance(
+                    msg,
+                    (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse),
+                )
+                and msg.address == address
+            )
 
         assert self._connection is not None
         resp = await self._connection.send_message_await_response_complex(
