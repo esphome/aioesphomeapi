@@ -1,18 +1,25 @@
+import re
+
+from aioesphomeapi.model import BluetoothGATTError
+
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDeviceRequest,
+    BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesRequest,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTNotifyDataResponse,
     BluetoothGATTNotifyRequest,
+    BluetoothGATTNotifyResponse,
     BluetoothGATTReadDescriptorRequest,
     BluetoothGATTReadRequest,
     BluetoothGATTReadResponse,
     BluetoothGATTWriteDescriptorRequest,
     BluetoothGATTWriteRequest,
+    BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -82,6 +89,8 @@ from .api_pb2 import (  # type: ignore
     TextSensorStateResponse,
 )
 
+TWO_CHAR = re.compile(r".{2}")
+
 
 class APIConnectionError(Exception):
     pass
@@ -137,6 +146,19 @@ class TimeoutAPIError(APIConnectionError):
 
 class ReadFailedAPIError(APIConnectionError):
     pass
+
+
+def to_human_readable_address(address: int) -> str:
+    """Convert a MAC address to a human readable format."""
+    return ":".join(TWO_CHAR.findall(f"{address:012X}"))
+
+
+class BluetoothGATTAPIError(APIConnectionError):
+    def __init__(self, error: BluetoothGATTError) -> None:
+        super().__init__(
+            f"Bluetooth GATT Error address={to_human_readable_address(error.address)} handle={error.handle} error={error.error}"
+        )
+        self.error = error
 
 
 MESSAGE_TYPE_TO_PROTO = {
@@ -221,4 +243,7 @@ MESSAGE_TYPE_TO_PROTO = {
     79: BluetoothGATTNotifyDataResponse,
     80: SubscribeBluetoothConnectionsFreeRequest,
     81: BluetoothConnectionsFreeResponse,
+    82: BluetoothGATTErrorResponse,
+    83: BluetoothGATTWriteResponse,
+    84: BluetoothGATTNotifyResponse,
 }

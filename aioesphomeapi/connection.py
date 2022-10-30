@@ -403,6 +403,17 @@ class APIConnection:
             await self._report_fatal_error(err)
             raise
 
+    def add_message_callback(
+        self, on_message: Callable[[Any], None]
+    ) -> Callable[[], None]:
+        """Add a message callback."""
+        self._message_handlers.append(on_message)
+
+        def unsub() -> None:
+            self._message_handlers.remove(on_message)
+
+        return unsub
+
     def remove_message_callback(self, on_message: Callable[[Any], None]) -> None:
         """Remove a message callback."""
         self._message_handlers.remove(on_message)
@@ -417,10 +428,10 @@ class APIConnection:
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
-        do_append: Callable[[Any], bool],
-        do_stop: Callable[[Any], bool],
+        do_append: Callable[[message.Message], bool],
+        do_stop: Callable[[message.Message], bool],
         timeout: float = 10.0,
-    ) -> List[Any]:
+    ) -> List[message.Message]:
         """Send a message to the remote and build up a list response.
 
         :param send_msg: The message (request) to send.

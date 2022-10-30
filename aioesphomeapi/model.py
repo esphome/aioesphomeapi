@@ -900,6 +900,13 @@ class BluetoothConnectionsFree(APIModelBase):
     limit: int = 0
 
 
+@dataclass(frozen=True)
+class BluetoothGATTError(APIModelBase):
+    address: int = 0
+    handle: int = 0
+    error: int = 0
+
+
 class BluetoothDeviceRequestType(APIIntEnum):
     CONNECT = 0
     DISCONNECT = 1
