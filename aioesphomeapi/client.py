@@ -515,10 +515,11 @@ class APIClient:
                 await event.wait()
         except asyncio.TimeoutError as err:
             unsub()
+            # Disconnect before raising the exception to ensure
+            # the slot is recovered before the timeout is raised
+            # to avoid race were we run out even though we have a slot.
+            await self.bluetooth_device_disconnect(address)
             raise TimeoutAPIError("Timeout waiting for connect response") from err
-        finally:
-            if not event.is_set():
-                await self.bluetooth_device_disconnect(address)
 
         return unsub
 
