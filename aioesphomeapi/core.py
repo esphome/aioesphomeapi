@@ -91,9 +91,51 @@ from .api_pb2 import (  # type: ignore
 
 TWO_CHAR = re.compile(r".{2}")
 
-
+# Taken from esp_gatt_status_t in esp_gatt_defs.h
 ESPHOME_GATT_ERRORS = {
-    -1: "Not connected",
+    -1: "Not connected",  # Custom ESPHome error
+    1: "Invalid handle",
+    2: "Read not permitted",
+    3: "Write not permitted",
+    4: "Invalid PDU",
+    5: "Insufficient authentication",
+    6: "Request not supported",
+    7: "Invalid offset",
+    8: "Insufficient authorization",
+    9: "Prepare queue full",
+    10: "Attribute not found",
+    11: "Attribute not long",
+    12: "Insufficient key size",
+    13: "Invalid attribute length",
+    14: "Unlikely error",
+    15: "Insufficient encryption",
+    16: "Unsupported group type",
+    17: "Insufficient resources",
+    128: "Application error",
+    129: "Internal error",
+    130: "Wrong state",
+    131: "Database full",
+    132: "Busy",
+    133: "Error",
+    134: "Command started",
+    135: "Illegal parameter",
+    136: "Pending",
+    137: "Auth fail",
+    138: "More",
+    139: "Invalid configuration",
+    140: "Service started",
+    141: "Encrypted no mitm",
+    142: "Not encrypted",
+    143: "Congested",
+    144: "Duplicate registration",
+    145: "Already open",
+    146: "Cancel",
+    224: "Stack RSP",
+    225: "App RSP",
+    239: "Unknown error",
+    253: "CCC config error",
+    254: "Procedure already in progress",
+    255: "Out of range",
 }
 
 
