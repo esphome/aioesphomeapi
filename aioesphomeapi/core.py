@@ -94,7 +94,6 @@ TWO_CHAR = re.compile(r".{2}")
 
 ESPHOME_GATT_ERRORS = {
     -1: "Not connected",
-    -2: "Wrong address",
 }
 
 
