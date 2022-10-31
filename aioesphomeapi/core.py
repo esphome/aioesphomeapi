@@ -92,6 +92,12 @@ from .api_pb2 import (  # type: ignore
 TWO_CHAR = re.compile(r".{2}")
 
 
+ESPHOME_GATT_ERRORS = {
+    -1: "Not connected",
+    -2: "Wrong address",
+}
+
+
 class APIConnectionError(Exception):
     pass
 
@@ -153,10 +159,19 @@ def to_human_readable_address(address: int) -> str:
     return ":".join(TWO_CHAR.findall(f"{address:012X}"))
 
 
+def to_human_readable_gatt_error(error: int) -> str:
+    """Convert a GATT error to a human readable format."""
+    return ESPHOME_GATT_ERRORS.get(error, "Unknown error")
+
+
 class BluetoothGATTAPIError(APIConnectionError):
     def __init__(self, error: BluetoothGATTError) -> None:
         super().__init__(
-            f"Bluetooth GATT Error address={to_human_readable_address(error.address)} handle={error.handle} error={error.error}"
+            f"Bluetooth GATT Error "
+            f"address={to_human_readable_address(error.address)} "
+            f"handle={error.handle} "
+            f"error={error.error} "
+            f"description={to_human_readable_gatt_error(error.error)}"
         )
         self.error = error
 
