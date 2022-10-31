@@ -96,7 +96,12 @@ from .api_pb2 import (  # type: ignore
     TextSensorStateResponse,
 )
 from .connection import APIConnection, ConnectionParams
-from .core import APIConnectionError, BluetoothGATTAPIError, TimeoutAPIError
+from .core import (
+    APIConnectionError,
+    BluetoothGATTAPIError,
+    TimeoutAPIError,
+    to_human_readable_address,
+)
 from .host_resolver import ZeroconfInstanceType
 from .model import (
     APIVersion,
@@ -514,12 +519,20 @@ class APIClient:
             async with async_timeout.timeout(timeout):
                 await event.wait()
         except asyncio.TimeoutError as err:
-            unsub()
+            try:
+                unsub()
+            except ValueError:
+                _LOGGER.warning(
+                    "%s: Bluetooth device connection timed out but already unsubscribed",
+                    to_human_readable_address(address),
+                )
             # Disconnect before raising the exception to ensure
             # the slot is recovered before the timeout is raised
             # to avoid race were we run out even though we have a slot.
             await self.bluetooth_device_disconnect(address)
-            raise TimeoutAPIError("Timeout waiting for connect response") from err
+            raise TimeoutAPIError(
+                f"Timeout waiting for connect response while connecting to {to_human_readable_address(address)}"
+            ) from err
 
         return unsub
 
