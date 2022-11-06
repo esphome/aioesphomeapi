@@ -531,7 +531,7 @@ class APIClient:
             # to avoid race were we run out even though we have a slot.
             await self.bluetooth_device_disconnect(address)
             raise TimeoutAPIError(
-                f"Timeout waiting for connect response while connecting to {to_human_readable_address(address)}"
+                f"Timeout waiting for connect response while connecting to {to_human_readable_address(address)} after {timeout}s"
             ) from err
 
         return unsub
@@ -613,7 +613,7 @@ class APIClient:
         handle: int,
         data: bytes,
         response: bool,
-        timeout: float = 10.0,
+        timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> None:
         req = BluetoothGATTWriteRequest()
         req.address = address
@@ -656,7 +656,7 @@ class APIClient:
         address: int,
         handle: int,
         data: bytes,
-        timeout: float = 10.0,
+        timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> None:
         req = BluetoothGATTWriteDescriptorRequest()
         req.address = address

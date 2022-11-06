@@ -469,7 +469,7 @@ class APIConnection:
                 await fut
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError(
-                f"Timeout waiting for response for {type(send_msg)}"
+                f"Timeout waiting for response for {type(send_msg)} after {timeout}s"
             ) from err
         finally:
             with suppress(ValueError):
