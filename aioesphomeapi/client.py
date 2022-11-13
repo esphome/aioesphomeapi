@@ -83,6 +83,7 @@ from .api_pb2 import (  # type: ignore
     SensorStateResponse,
     SirenCommandRequest,
     SirenStateResponse,
+    StateAttributesResponse,
     SubscribeBluetoothConnectionsFreeRequest,
     SubscribeBluetoothLEAdvertisementsRequest,
     SubscribeHomeassistantServicesRequest,
@@ -90,6 +91,7 @@ from .api_pb2 import (  # type: ignore
     SubscribeHomeAssistantStatesRequest,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
+    SubscribeStateAttributesRequest,
     SubscribeStatesRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
@@ -128,6 +130,7 @@ from .model import (
     DeviceInfo,
     EntityInfo,
     EntityState,
+    EntityStateAttributes,
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanInfo,
@@ -381,6 +384,18 @@ class APIClient:
         assert self._connection is not None
         await self._connection.send_message_callback_response(
             SubscribeStatesRequest(), on_msg
+        )
+
+    async def subscribe_state_attributes(
+        self, on_state_attributes: Callable[[EntityStateAttributes], None]
+    ):
+        def on_msg(msg: message.Message) -> None:
+            if isinstance(msg, StateAttributesResponse):
+                on_state_attributes(EntityStateAttributes.from_pb(msg))
+
+        assert self._connection is not None
+        await self._connection.send_message_callback_response(
+            SubscribeStateAttributesRequest(), on_msg
         )
 
     async def subscribe_logs(

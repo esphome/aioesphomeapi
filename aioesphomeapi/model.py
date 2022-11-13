@@ -116,6 +116,19 @@ class EntityCategory(APIIntEnum):
     DIAGNOSTIC = 2
 
 
+def convert_entity_state_attributes(value: List[Any]) -> Dict[str, str]:
+    ret = {x.key: x.value for x in value}
+    return ret
+
+
+@dataclass(frozen=True)
+class EntityStateAttributes(APIModelBase):
+    key: int = 0
+    attributes: Dict[str, str] = converter_field(
+        default_factory=dict, converter=convert_entity_state_attributes
+    )
+
+
 @dataclass(frozen=True)
 class EntityInfo(APIModelBase):
     object_id: str = ""

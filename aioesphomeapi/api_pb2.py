@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\tapi.proto\x1a\x11\x61pi_options.proto\"d\n\x0cHelloRequest\x12\x13\n\x0b\x63lient_info\x18\x01 \x01(\t\x12\x19\n\x11\x61pi_version_major\x18\x02 \x01(\r\x12\x19\n\x11\x61pi_version_minor\x18\x03 \x01(\r:\t\xe0@\x01\xe8@\x02\x80\x41\x01\"s\n\rHelloResponse\x12\x19\n\x11\x61pi_version_major\x18\x01 \x01(\r\x12\x19\n\x11\x61pi_version_minor\x18\x02 \x01(\r\x12\x13\n\x0bserver_info\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t:\t\xe0@\x02\xe8@\x01\x80\x41\x01\"-\n\x0e\x43onnectRequest\x12\x10\n\x08password\x18\x01 \x01(\t:\t\xe0@\x03\xe8@\x02\x80\x41\x01\"6\n\x0f\x43onnectResponse\x12\x18\n\x10invalid_password\x18\x01 \x01(\x08:\t\xe0@\x04\xe8@\x01\x80\x41\x01\"\x1e\n\x11\x44isconnectRequest:\t\xe0@\x05\xe8@\x00\x80\x41\x01\"\x1f\n\x12\x44isconnectResponse:\t\xe0@\x06\xe8@\x00\x80\x41\x01\"\x15\n\x0bPingRequest:\x06\xe0@\x07\xe8@\x00\"\x16\n\x0cPingResponse:\x06\xe0@\x08\xe8@\x00\"\x1b\n\x11\x44\x65viceInfoRequest:\x06\xe0@\t\xe8@\x02\"\xae\x02\n\x12\x44\x65viceInfoResponse\x12\x15\n\ruses_password\x18\x01 \x01(\x08\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0bmac_address\x18\x03 \x01(\t\x12\x17\n\x0f\x65sphome_version\x18\x04 \x01(\t\x12\x18\n\x10\x63ompilation_time\x18\x05 \x01(\t\x12\r\n\x05model\x18\x06 \x01(\t\x12\x16\n\x0ehas_deep_sleep\x18\x07 \x01(\x08\x12\x14\n\x0cproject_name\x18\x08 \x01(\t\x12\x17\n\x0fproject_version\x18\t \x01(\t\x12\x16\n\x0ewebserver_port\x18\n \x01(\r\x12\x1f\n\x17\x62luetooth_proxy_version\x18\x0b \x01(\r\x12\x14\n\x0cmanufacturer\x18\x0c \x01(\t:\x06\xe0@\n\xe8@\x01\"\x1d\n\x13ListEntitiesRequest:\x06\xe0@\x0b\xe8@\x02\"%\n\x18ListEntitiesDoneResponse:\t\xe0@\x13\xe8@\x01\x80\x41\x01\" \n\x16SubscribeStatesRequest:\x06\xe0@\x14\xe8@\x02\"\x8b\x02\n ListEntitiesBinarySensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x14\n\x0c\x64\x65vice_class\x18\x05 \x01(\t\x12\x1f\n\x17is_status_binary_sensor\x18\x06 \x01(\x08\x12\x1b\n\x13\x64isabled_by_default\x18\x07 \x01(\x08\x12\x0c\n\x04icon\x18\x08 \x01(\t\x12(\n\x0f\x65ntity_category\x18\t \x01(\x0e\x32\x0f.EntityCategory:\x1a\xe0@\x0c\xe8@\x01\xf2@\x11USE_BINARY_SENSOR\"m\n\x19\x42inarySensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x1d\xe0@\x15\xe8@\x01\xf2@\x11USE_BINARY_SENSOR\x80\x41\x01\"\xa4\x02\n\x19ListEntitiesCoverResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x15\n\rassumed_state\x18\x05 \x01(\x08\x12\x19\n\x11supports_position\x18\x06 \x01(\x08\x12\x15\n\rsupports_tilt\x18\x07 \x01(\x08\x12\x14\n\x0c\x64\x65vice_class\x18\x08 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\t \x01(\x08\x12\x0c\n\x04icon\x18\n \x01(\t\x12(\n\x0f\x65ntity_category\x18\x0b \x01(\x0e\x32\x0f.EntityCategory:\x12\xe0@\r\xe8@\x01\xf2@\tUSE_COVER\"\xad\x01\n\x12\x43overStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\'\n\x0clegacy_state\x18\x02 \x01(\x0e\x32\x11.LegacyCoverState\x12\x10\n\x08position\x18\x03 \x01(\x02\x12\x0c\n\x04tilt\x18\x04 \x01(\x02\x12*\n\x11\x63urrent_operation\x18\x05 \x01(\x0e\x32\x0f.CoverOperation:\x15\xe0@\x16\xe8@\x01\xf2@\tUSE_COVER\x80\x41\x01\"\xd8\x01\n\x13\x43overCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x1a\n\x12has_legacy_command\x18\x02 \x01(\x08\x12+\n\x0elegacy_command\x18\x03 \x01(\x0e\x32\x13.LegacyCoverCommand\x12\x14\n\x0chas_position\x18\x04 \x01(\x08\x12\x10\n\x08position\x18\x05 \x01(\x02\x12\x10\n\x08has_tilt\x18\x06 \x01(\x08\x12\x0c\n\x04tilt\x18\x07 \x01(\x02\x12\x0c\n\x04stop\x18\x08 \x01(\x08:\x15\xe0@\x1e\xe8@\x02\xf2@\tUSE_COVER\x80\x41\x01\"\xb3\x02\n\x17ListEntitiesFanResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1c\n\x14supports_oscillation\x18\x05 \x01(\x08\x12\x16\n\x0esupports_speed\x18\x06 \x01(\x08\x12\x1a\n\x12supports_direction\x18\x07 \x01(\x08\x12\x1e\n\x16supported_speed_levels\x18\x08 \x01(\x05\x12\x1b\n\x13\x64isabled_by_default\x18\t \x01(\x08\x12\x0c\n\x04icon\x18\n \x01(\t\x12(\n\x0f\x65ntity_category\x18\x0b \x01(\x0e\x32\x0f.EntityCategory:\x10\xe0@\x0e\xe8@\x01\xf2@\x07USE_FAN\"\xad\x01\n\x10\x46\x61nStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x13\n\x0boscillating\x18\x03 \x01(\x08\x12\x1c\n\x05speed\x18\x04 \x01(\x0e\x32\t.FanSpeedB\x02\x18\x01\x12 \n\tdirection\x18\x05 \x01(\x0e\x32\r.FanDirection\x12\x13\n\x0bspeed_level\x18\x06 \x01(\x05:\x13\xe0@\x17\xe8@\x01\xf2@\x07USE_FAN\x80\x41\x01\"\xa1\x02\n\x11\x46\x61nCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x15\n\thas_speed\x18\x04 \x01(\x08\x42\x02\x18\x01\x12\x1c\n\x05speed\x18\x05 \x01(\x0e\x32\t.FanSpeedB\x02\x18\x01\x12\x17\n\x0fhas_oscillating\x18\x06 \x01(\x08\x12\x13\n\x0boscillating\x18\x07 \x01(\x08\x12\x15\n\rhas_direction\x18\x08 \x01(\x08\x12 \n\tdirection\x18\t \x01(\x0e\x32\r.FanDirection\x12\x17\n\x0fhas_speed_level\x18\n \x01(\x08\x12\x13\n\x0bspeed_level\x18\x0b \x01(\x05:\x13\xe0@\x1f\xe8@\x02\xf2@\x07USE_FAN\x80\x41\x01\"\xbe\x03\n\x19ListEntitiesLightResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1d\n\x15supported_color_modes\x18\x0c \x03(\x05\x12&\n\x1alegacy_supports_brightness\x18\x05 \x01(\x08\x42\x02\x18\x01\x12\x1f\n\x13legacy_supports_rgb\x18\x06 \x01(\x08\x42\x02\x18\x01\x12\'\n\x1blegacy_supports_white_value\x18\x07 \x01(\x08\x42\x02\x18\x01\x12-\n!legacy_supports_color_temperature\x18\x08 \x01(\x08\x42\x02\x18\x01\x12\x12\n\nmin_mireds\x18\t \x01(\x02\x12\x12\n\nmax_mireds\x18\n \x01(\x02\x12\x0f\n\x07\x65\x66\x66\x65\x63ts\x18\x0b \x03(\t\x12\x1b\n\x13\x64isabled_by_default\x18\r \x01(\x08\x12\x0c\n\x04icon\x18\x0e \x01(\t\x12(\n\x0f\x65ntity_category\x18\x0f \x01(\x0e\x32\x0f.EntityCategory:\x12\xe0@\x0f\xe8@\x01\xf2@\tUSE_LIGHT\"\x95\x02\n\x12LightStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x12\n\nbrightness\x18\x03 \x01(\x02\x12\x12\n\ncolor_mode\x18\x0b \x01(\x05\x12\x18\n\x10\x63olor_brightness\x18\n \x01(\x02\x12\x0b\n\x03red\x18\x04 \x01(\x02\x12\r\n\x05green\x18\x05 \x01(\x02\x12\x0c\n\x04\x62lue\x18\x06 \x01(\x02\x12\r\n\x05white\x18\x07 \x01(\x02\x12\x19\n\x11\x63olor_temperature\x18\x08 \x01(\x02\x12\x12\n\ncold_white\x18\x0c \x01(\x02\x12\x12\n\nwarm_white\x18\r \x01(\x02\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\t \x01(\t:\x15\xe0@\x18\xe8@\x01\xf2@\tUSE_LIGHT\x80\x41\x01\"\xe8\x04\n\x13LightCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x16\n\x0ehas_brightness\x18\x04 \x01(\x08\x12\x12\n\nbrightness\x18\x05 \x01(\x02\x12\x16\n\x0ehas_color_mode\x18\x16 \x01(\x08\x12\x12\n\ncolor_mode\x18\x17 \x01(\x05\x12\x1c\n\x14has_color_brightness\x18\x14 \x01(\x08\x12\x18\n\x10\x63olor_brightness\x18\x15 \x01(\x02\x12\x0f\n\x07has_rgb\x18\x06 \x01(\x08\x12\x0b\n\x03red\x18\x07 \x01(\x02\x12\r\n\x05green\x18\x08 \x01(\x02\x12\x0c\n\x04\x62lue\x18\t \x01(\x02\x12\x11\n\thas_white\x18\n \x01(\x08\x12\r\n\x05white\x18\x0b \x01(\x02\x12\x1d\n\x15has_color_temperature\x18\x0c \x01(\x08\x12\x19\n\x11\x63olor_temperature\x18\r \x01(\x02\x12\x16\n\x0ehas_cold_white\x18\x18 \x01(\x08\x12\x12\n\ncold_white\x18\x19 \x01(\x02\x12\x16\n\x0ehas_warm_white\x18\x1a \x01(\x08\x12\x12\n\nwarm_white\x18\x1b \x01(\x02\x12\x1d\n\x15has_transition_length\x18\x0e \x01(\x08\x12\x19\n\x11transition_length\x18\x0f \x01(\r\x12\x18\n\x10has_flash_length\x18\x10 \x01(\x08\x12\x14\n\x0c\x66lash_length\x18\x11 \x01(\r\x12\x12\n\nhas_effect\x18\x12 \x01(\x08\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\x13 \x01(\t:\x15\xe0@ \xe8@\x02\xf2@\tUSE_LIGHT\x80\x41\x01\"\x82\x03\n\x1aListEntitiesSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13unit_of_measurement\x18\x06 \x01(\t\x12\x19\n\x11\x61\x63\x63uracy_decimals\x18\x07 \x01(\x05\x12\x14\n\x0c\x66orce_update\x18\x08 \x01(\x08\x12\x14\n\x0c\x64\x65vice_class\x18\t \x01(\t\x12&\n\x0bstate_class\x18\n \x01(\x0e\x32\x11.SensorStateClass\x12-\n\x0flast_reset_type\x18\x0b \x01(\x0e\x32\x14.SensorLastResetType\x12\x1b\n\x13\x64isabled_by_default\x18\x0c \x01(\x08\x12(\n\x0f\x65ntity_category\x18\r \x01(\x0e\x32\x0f.EntityCategory:\x13\xe0@\x10\xe8@\x01\xf2@\nUSE_SENSOR\"`\n\x13SensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x16\xe0@\x19\xe8@\x01\xf2@\nUSE_SENSOR\x80\x41\x01\"\xf4\x01\n\x1aListEntitiesSwitchResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x15\n\rassumed_state\x18\x06 \x01(\x08\x12\x1b\n\x13\x64isabled_by_default\x18\x07 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x08 \x01(\x0e\x32\x0f.EntityCategory\x12\x14\n\x0c\x64\x65vice_class\x18\t \x01(\t:\x13\xe0@\x11\xe8@\x01\xf2@\nUSE_SWITCH\"I\n\x13SwitchStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08:\x16\xe0@\x1a\xe8@\x01\xf2@\nUSE_SWITCH\x80\x41\x01\"J\n\x14SwitchCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08:\x16\xe0@!\xe8@\x02\xf2@\nUSE_SWITCH\x80\x41\x01\"\xd0\x01\n\x1eListEntitiesTextSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory:\x18\xe0@\x12\xe8@\x01\xf2@\x0fUSE_TEXT_SENSOR\"i\n\x17TextSensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x1b\xe0@\x1b\xe8@\x01\xf2@\x0fUSE_TEXT_SENSOR\x80\x41\x01\"M\n\x14SubscribeLogsRequest\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x13\n\x0b\x64ump_config\x18\x02 \x01(\x08:\x06\xe0@\x1c\xe8@\x02\"e\n\x15SubscribeLogsResponse\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x0f\n\x07message\x18\x03 \x01(\x0c\x12\x13\n\x0bsend_failed\x18\x04 \x01(\x08:\x0c\xe0@\x1d\xe8@\x01\xf8@\x00\x80\x41\x00\"/\n%SubscribeHomeassistantServicesRequest:\x06\xe0@\"\xe8@\x02\"5\n\x17HomeassistantServiceMap\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xd2\x01\n\x1cHomeassistantServiceResponse\x12\x0f\n\x07service\x18\x01 \x01(\t\x12&\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x18.HomeassistantServiceMap\x12/\n\rdata_template\x18\x03 \x03(\x0b\x32\x18.HomeassistantServiceMap\x12+\n\tvariables\x18\x04 \x03(\x0b\x32\x18.HomeassistantServiceMap\x12\x10\n\x08is_event\x18\x05 \x01(\x08:\t\xe0@#\xe8@\x01\x80\x41\x01\"-\n#SubscribeHomeAssistantStatesRequest:\x06\xe0@&\xe8@\x02\"S\n#SubscribeHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x11\n\tattribute\x18\x02 \x01(\t:\x06\xe0@\'\xe8@\x01\"\\\n\x1aHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\r\n\x05state\x18\x02 \x01(\t\x12\x11\n\tattribute\x18\x03 \x01(\t:\t\xe0@(\xe8@\x02\x80\x41\x01\"\x18\n\x0eGetTimeRequest:\x06\xe0@$\xe8@\x00\"3\n\x0fGetTimeResponse\x12\x15\n\repoch_seconds\x18\x01 \x01(\x07:\t\xe0@%\xe8@\x00\x80\x41\x01\"K\n\x1cListEntitiesServicesArgument\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1d\n\x04type\x18\x02 \x01(\x0e\x32\x0f.ServiceArgType\"n\n\x1cListEntitiesServicesResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12+\n\x04\x61rgs\x18\x03 \x03(\x0b\x32\x1d.ListEntitiesServicesArgument:\x06\xe0@)\xe8@\x01\"\xc8\x01\n\x16\x45xecuteServiceArgument\x12\r\n\x05\x62ool_\x18\x01 \x01(\x08\x12\x12\n\nlegacy_int\x18\x02 \x01(\x05\x12\x0e\n\x06\x66loat_\x18\x03 \x01(\x02\x12\x0f\n\x07string_\x18\x04 \x01(\t\x12\x0c\n\x04int_\x18\x05 \x01(\x11\x12\x16\n\nbool_array\x18\x06 \x03(\x08\x42\x02\x10\x00\x12\x15\n\tint_array\x18\x07 \x03(\x11\x42\x02\x10\x00\x12\x17\n\x0b\x66loat_array\x18\x08 \x03(\x02\x42\x02\x10\x00\x12\x14\n\x0cstring_array\x18\t \x03(\t\"V\n\x15\x45xecuteServiceRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12%\n\x04\x61rgs\x18\x02 \x03(\x0b\x32\x17.ExecuteServiceArgument:\t\xe0@*\xe8@\x02\x80\x41\x01\"\xcd\x01\n\x1aListEntitiesCameraResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x05 \x01(\x08\x12\x0c\n\x04icon\x18\x06 \x01(\t\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory:\x19\xe0@+\xe8@\x01\xf2@\x10USE_ESP32_CAMERA\"Y\n\x13\x43\x61meraImageResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x0c\n\x04\x64one\x18\x03 \x01(\x08:\x19\xe0@,\xe8@\x01\xf2@\x10USE_ESP32_CAMERA\"R\n\x12\x43\x61meraImageRequest\x12\x0e\n\x06single\x18\x01 \x01(\x08\x12\x0e\n\x06stream\x18\x02 \x01(\x08:\x1c\xe0@-\xe8@\x02\xf2@\x10USE_ESP32_CAMERA\x80\x41\x01\"\xae\x05\n\x1bListEntitiesClimateResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12$\n\x1csupports_current_temperature\x18\x05 \x01(\x08\x12-\n%supports_two_point_target_temperature\x18\x06 \x01(\x08\x12%\n\x0fsupported_modes\x18\x07 \x03(\x0e\x32\x0c.ClimateMode\x12\x1e\n\x16visual_min_temperature\x18\x08 \x01(\x02\x12\x1e\n\x16visual_max_temperature\x18\t \x01(\x02\x12\x1f\n\x17visual_temperature_step\x18\n \x01(\x02\x12\x1c\n\x14legacy_supports_away\x18\x0b \x01(\x08\x12\x17\n\x0fsupports_action\x18\x0c \x01(\x08\x12,\n\x13supported_fan_modes\x18\r \x03(\x0e\x32\x0f.ClimateFanMode\x12\x30\n\x15supported_swing_modes\x18\x0e \x03(\x0e\x32\x11.ClimateSwingMode\x12\"\n\x1asupported_custom_fan_modes\x18\x0f \x03(\t\x12)\n\x11supported_presets\x18\x10 \x03(\x0e\x32\x0e.ClimatePreset\x12 \n\x18supported_custom_presets\x18\x11 \x03(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x12 \x01(\x08\x12\x0c\n\x04icon\x18\x13 \x01(\t\x12(\n\x0f\x65ntity_category\x18\x14 \x01(\x0e\x32\x0f.EntityCategory:\x14\xe0@.\xe8@\x01\xf2@\x0bUSE_CLIMATE\"\xa1\x03\n\x14\x43limateStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x1a\n\x04mode\x18\x02 \x01(\x0e\x32\x0c.ClimateMode\x12\x1b\n\x13\x63urrent_temperature\x18\x03 \x01(\x02\x12\x1a\n\x12target_temperature\x18\x04 \x01(\x02\x12\x1e\n\x16target_temperature_low\x18\x05 \x01(\x02\x12\x1f\n\x17target_temperature_high\x18\x06 \x01(\x02\x12\x13\n\x0blegacy_away\x18\x07 \x01(\x08\x12\x1e\n\x06\x61\x63tion\x18\x08 \x01(\x0e\x32\x0e.ClimateAction\x12!\n\x08\x66\x61n_mode\x18\t \x01(\x0e\x32\x0f.ClimateFanMode\x12%\n\nswing_mode\x18\n \x01(\x0e\x32\x11.ClimateSwingMode\x12\x17\n\x0f\x63ustom_fan_mode\x18\x0b \x01(\t\x12\x1e\n\x06preset\x18\x0c \x01(\x0e\x32\x0e.ClimatePreset\x12\x15\n\rcustom_preset\x18\r \x01(\t:\x17\xe0@/\xe8@\x01\xf2@\x0bUSE_CLIMATE\x80\x41\x01\"\xf3\x04\n\x15\x43limateCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x10\n\x08has_mode\x18\x02 \x01(\x08\x12\x1a\n\x04mode\x18\x03 \x01(\x0e\x32\x0c.ClimateMode\x12\x1e\n\x16has_target_temperature\x18\x04 \x01(\x08\x12\x1a\n\x12target_temperature\x18\x05 \x01(\x02\x12\"\n\x1ahas_target_temperature_low\x18\x06 \x01(\x08\x12\x1e\n\x16target_temperature_low\x18\x07 \x01(\x02\x12#\n\x1bhas_target_temperature_high\x18\x08 \x01(\x08\x12\x1f\n\x17target_temperature_high\x18\t \x01(\x02\x12\x17\n\x0fhas_legacy_away\x18\n \x01(\x08\x12\x13\n\x0blegacy_away\x18\x0b \x01(\x08\x12\x14\n\x0chas_fan_mode\x18\x0c \x01(\x08\x12!\n\x08\x66\x61n_mode\x18\r \x01(\x0e\x32\x0f.ClimateFanMode\x12\x16\n\x0ehas_swing_mode\x18\x0e \x01(\x08\x12%\n\nswing_mode\x18\x0f \x01(\x0e\x32\x11.ClimateSwingMode\x12\x1b\n\x13has_custom_fan_mode\x18\x10 \x01(\x08\x12\x17\n\x0f\x63ustom_fan_mode\x18\x11 \x01(\t\x12\x12\n\nhas_preset\x18\x12 \x01(\x08\x12\x1e\n\x06preset\x18\x13 \x01(\x0e\x32\x0e.ClimatePreset\x12\x19\n\x11has_custom_preset\x18\x14 \x01(\x08\x12\x15\n\rcustom_preset\x18\x15 \x01(\t:\x17\xe0@0\xe8@\x02\xf2@\x0bUSE_CLIMATE\x80\x41\x01\"\xb3\x02\n\x1aListEntitiesNumberResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x11\n\tmin_value\x18\x06 \x01(\x02\x12\x11\n\tmax_value\x18\x07 \x01(\x02\x12\x0c\n\x04step\x18\x08 \x01(\x02\x12\x1b\n\x13\x64isabled_by_default\x18\t \x01(\x08\x12(\n\x0f\x65ntity_category\x18\n \x01(\x0e\x32\x0f.EntityCategory\x12\x1b\n\x13unit_of_measurement\x18\x0b \x01(\t\x12\x19\n\x04mode\x18\x0c \x01(\x0e\x32\x0b.NumberMode:\x13\xe0@1\xe8@\x01\xf2@\nUSE_NUMBER\"`\n\x13NumberStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x16\xe0@2\xe8@\x01\xf2@\nUSE_NUMBER\x80\x41\x01\"J\n\x14NumberCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02:\x16\xe0@3\xe8@\x02\xf2@\nUSE_NUMBER\x80\x41\x01\"\xd8\x01\n\x1aListEntitiesSelectResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x0f\n\x07options\x18\x06 \x03(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x07 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x08 \x01(\x0e\x32\x0f.EntityCategory:\x13\xe0@4\xe8@\x01\xf2@\nUSE_SELECT\"`\n\x13SelectStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x16\xe0@5\xe8@\x01\xf2@\nUSE_SELECT\x80\x41\x01\"J\n\x14SelectCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t:\x16\xe0@6\xe8@\x02\xf2@\nUSE_SELECT\x80\x41\x01\"\x88\x02\n\x19ListEntitiesSirenResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12\r\n\x05tones\x18\x07 \x03(\t\x12\x19\n\x11supports_duration\x18\x08 \x01(\x08\x12\x17\n\x0fsupports_volume\x18\t \x01(\x08\x12(\n\x0f\x65ntity_category\x18\n \x01(\x0e\x32\x0f.EntityCategory:\x12\xe0@7\xe8@\x01\xf2@\tUSE_SIREN\"G\n\x12SirenStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08:\x15\xe0@8\xe8@\x01\xf2@\tUSE_SIREN\x80\x41\x01\"\xc7\x01\n\x13SirenCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x10\n\x08has_tone\x18\x04 \x01(\x08\x12\x0c\n\x04tone\x18\x05 \x01(\t\x12\x14\n\x0chas_duration\x18\x06 \x01(\x08\x12\x10\n\x08\x64uration\x18\x07 \x01(\r\x12\x12\n\nhas_volume\x18\x08 \x01(\x08\x12\x0e\n\x06volume\x18\t \x01(\x02:\x15\xe0@9\xe8@\x02\xf2@\tUSE_SIREN\x80\x41\x01\"\x9d\x02\n\x18ListEntitiesLockResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory\x12\x15\n\rassumed_state\x18\x08 \x01(\x08\x12\x15\n\rsupports_open\x18\t \x01(\x08\x12\x15\n\rrequires_code\x18\n \x01(\x08\x12\x13\n\x0b\x63ode_format\x18\x0b \x01(\t:\x11\xe0@:\xe8@\x01\xf2@\x08USE_LOCK\"Q\n\x11LockStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x19\n\x05state\x18\x02 \x01(\x0e\x32\n.LockState:\x14\xe0@;\xe8@\x01\xf2@\x08USE_LOCK\x80\x41\x01\"v\n\x12LockCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x1d\n\x07\x63ommand\x18\x02 \x01(\x0e\x32\x0c.LockCommand\x12\x10\n\x08has_code\x18\x03 \x01(\x08\x12\x0c\n\x04\x63ode\x18\x04 \x01(\t:\x14\xe0@<\xe8@\x02\xf2@\x08USE_LOCK\x80\x41\x01\"\xdd\x01\n\x1aListEntitiesButtonResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory\x12\x14\n\x0c\x64\x65vice_class\x18\x08 \x01(\t:\x13\xe0@=\xe8@\x01\xf2@\nUSE_BUTTON\";\n\x14\x42uttonCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07:\x16\xe0@>\xe8@\x02\xf2@\nUSE_BUTTON\x80\x41\x01\"\xea\x01\n\x1fListEntitiesMediaPlayerResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory\x12\x16\n\x0esupports_pause\x18\x08 \x01(\x08:\x19\xe0@?\xe8@\x01\xf2@\x10USE_MEDIA_PLAYER\"\x86\x01\n\x18MediaPlayerStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12 \n\x05state\x18\x02 \x01(\x0e\x32\x11.MediaPlayerState\x12\x0e\n\x06volume\x18\x03 \x01(\x02\x12\r\n\x05muted\x18\x04 \x01(\x08:\x1c\xe0@@\xe8@\x01\xf2@\x10USE_MEDIA_PLAYER\x80\x41\x01\"\xcf\x01\n\x19MediaPlayerCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x13\n\x0bhas_command\x18\x02 \x01(\x08\x12$\n\x07\x63ommand\x18\x03 \x01(\x0e\x32\x13.MediaPlayerCommand\x12\x12\n\nhas_volume\x18\x04 \x01(\x08\x12\x0e\n\x06volume\x18\x05 \x01(\x02\x12\x15\n\rhas_media_url\x18\x06 \x01(\x08\x12\x11\n\tmedia_url\x18\x07 \x01(\t:\x1c\xe0@A\xe8@\x02\xf2@\x10USE_MEDIA_PLAYER\x80\x41\x01\"3\n)SubscribeBluetoothLEAdvertisementsRequest:\x06\xe0@B\xe8@\x02\"K\n\x14\x42luetoothServiceData\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x17\n\x0blegacy_data\x18\x02 \x03(\rB\x02\x10\x01\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"\xe6\x01\n BluetoothLEAdvertisementResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04rssi\x18\x03 \x01(\x11\x12\x15\n\rservice_uuids\x18\x04 \x03(\t\x12+\n\x0cservice_data\x18\x05 \x03(\x0b\x32\x15.BluetoothServiceData\x12\x30\n\x11manufacturer_data\x18\x06 \x03(\x0b\x32\x15.BluetoothServiceData:\x1f\xe0@C\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\x80\x41\x01\"z\n\x16\x42luetoothDeviceRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x31\n\x0crequest_type\x18\x02 \x01(\x0e\x32\x1b.BluetoothDeviceRequestType:\x1c\xe0@D\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"\x81\x01\n!BluetoothDeviceConnectionResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x11\n\tconnected\x18\x02 \x01(\x08\x12\x0b\n\x03mtu\x18\x03 \x01(\r\x12\r\n\x05\x65rror\x18\x04 \x01(\x05:\x1c\xe0@E\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"P\n\x1f\x42luetoothGATTGetServicesRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04:\x1c\xe0@F\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"7\n\x17\x42luetoothGATTDescriptor\x12\x0c\n\x04uuid\x18\x01 \x03(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\"~\n\x1b\x42luetoothGATTCharacteristic\x12\x0c\n\x04uuid\x18\x01 \x03(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x12\n\nproperties\x18\x03 \x01(\r\x12-\n\x0b\x64\x65scriptors\x18\x04 \x03(\x0b\x32\x18.BluetoothGATTDescriptor\"k\n\x14\x42luetoothGATTService\x12\x0c\n\x04uuid\x18\x01 \x03(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x35\n\x0f\x63haracteristics\x18\x03 \x03(\x0b\x32\x1c.BluetoothGATTCharacteristic\"z\n BluetoothGATTGetServicesResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\'\n\x08services\x18\x02 \x03(\x0b\x32\x15.BluetoothGATTService:\x1c\xe0@G\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"U\n$BluetoothGATTGetServicesDoneResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04:\x1c\xe0@H\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"Y\n\x18\x42luetoothGATTReadRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@I\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"h\n\x19\x42luetoothGATTReadResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c:\x1c\xe0@J\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"z\n\x19\x42luetoothGATTWriteRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x10\n\x08response\x18\x03 \x01(\x08\x12\x0c\n\x04\x64\x61ta\x18\x04 \x01(\x0c:\x1c\xe0@K\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"c\n\"BluetoothGATTReadDescriptorRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@L\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"r\n#BluetoothGATTWriteDescriptorRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c:\x1c\xe0@M\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"k\n\x1a\x42luetoothGATTNotifyRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0e\n\x06\x65nable\x18\x03 \x01(\x08:\x1c\xe0@N\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"n\n\x1f\x42luetoothGATTNotifyDataResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c:\x1c\xe0@O\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"H\n(SubscribeBluetoothConnectionsFreeRequest:\x1c\xe0@P\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"]\n BluetoothConnectionsFreeResponse\x12\x0c\n\x04\x66ree\x18\x01 \x01(\r\x12\r\n\x05limit\x18\x02 \x01(\r:\x1c\xe0@Q\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"j\n\x1a\x42luetoothGATTErrorResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\r\n\x05\x65rror\x18\x03 \x01(\x05:\x1c\xe0@R\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"[\n\x1a\x42luetoothGATTWriteResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@S\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"\\\n\x1b\x42luetoothGATTNotifyResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@T\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY*f\n\x0e\x45ntityCategory\x12\x18\n\x14\x45NTITY_CATEGORY_NONE\x10\x00\x12\x1a\n\x16\x45NTITY_CATEGORY_CONFIG\x10\x01\x12\x1e\n\x1a\x45NTITY_CATEGORY_DIAGNOSTIC\x10\x02*N\n\x10LegacyCoverState\x12\x1b\n\x17LEGACY_COVER_STATE_OPEN\x10\x00\x12\x1d\n\x19LEGACY_COVER_STATE_CLOSED\x10\x01*j\n\x0e\x43overOperation\x12\x18\n\x14\x43OVER_OPERATION_IDLE\x10\x00\x12\x1e\n\x1a\x43OVER_OPERATION_IS_OPENING\x10\x01\x12\x1e\n\x1a\x43OVER_OPERATION_IS_CLOSING\x10\x02*r\n\x12LegacyCoverCommand\x12\x1d\n\x19LEGACY_COVER_COMMAND_OPEN\x10\x00\x12\x1e\n\x1aLEGACY_COVER_COMMAND_CLOSE\x10\x01\x12\x1d\n\x19LEGACY_COVER_COMMAND_STOP\x10\x02*G\n\x08\x46\x61nSpeed\x12\x11\n\rFAN_SPEED_LOW\x10\x00\x12\x14\n\x10\x46\x41N_SPEED_MEDIUM\x10\x01\x12\x12\n\x0e\x46\x41N_SPEED_HIGH\x10\x02*D\n\x0c\x46\x61nDirection\x12\x19\n\x15\x46\x41N_DIRECTION_FORWARD\x10\x00\x12\x19\n\x15\x46\x41N_DIRECTION_REVERSE\x10\x01*~\n\x10SensorStateClass\x12\x14\n\x10STATE_CLASS_NONE\x10\x00\x12\x1b\n\x17STATE_CLASS_MEASUREMENT\x10\x01\x12 \n\x1cSTATE_CLASS_TOTAL_INCREASING\x10\x02\x12\x15\n\x11STATE_CLASS_TOTAL\x10\x03*U\n\x13SensorLastResetType\x12\x13\n\x0fLAST_RESET_NONE\x10\x00\x12\x14\n\x10LAST_RESET_NEVER\x10\x01\x12\x13\n\x0fLAST_RESET_AUTO\x10\x02*\xb9\x01\n\x08LogLevel\x12\x12\n\x0eLOG_LEVEL_NONE\x10\x00\x12\x13\n\x0fLOG_LEVEL_ERROR\x10\x01\x12\x12\n\x0eLOG_LEVEL_WARN\x10\x02\x12\x12\n\x0eLOG_LEVEL_INFO\x10\x03\x12\x14\n\x10LOG_LEVEL_CONFIG\x10\x04\x12\x13\n\x0fLOG_LEVEL_DEBUG\x10\x05\x12\x15\n\x11LOG_LEVEL_VERBOSE\x10\x06\x12\x1a\n\x16LOG_LEVEL_VERY_VERBOSE\x10\x07*\x84\x02\n\x0eServiceArgType\x12\x19\n\x15SERVICE_ARG_TYPE_BOOL\x10\x00\x12\x18\n\x14SERVICE_ARG_TYPE_INT\x10\x01\x12\x1a\n\x16SERVICE_ARG_TYPE_FLOAT\x10\x02\x12\x1b\n\x17SERVICE_ARG_TYPE_STRING\x10\x03\x12\x1f\n\x1bSERVICE_ARG_TYPE_BOOL_ARRAY\x10\x04\x12\x1e\n\x1aSERVICE_ARG_TYPE_INT_ARRAY\x10\x05\x12 \n\x1cSERVICE_ARG_TYPE_FLOAT_ARRAY\x10\x06\x12!\n\x1dSERVICE_ARG_TYPE_STRING_ARRAY\x10\x07*\xb5\x01\n\x0b\x43limateMode\x12\x14\n\x10\x43LIMATE_MODE_OFF\x10\x00\x12\x1a\n\x16\x43LIMATE_MODE_HEAT_COOL\x10\x01\x12\x15\n\x11\x43LIMATE_MODE_COOL\x10\x02\x12\x15\n\x11\x43LIMATE_MODE_HEAT\x10\x03\x12\x19\n\x15\x43LIMATE_MODE_FAN_ONLY\x10\x04\x12\x14\n\x10\x43LIMATE_MODE_DRY\x10\x05\x12\x15\n\x11\x43LIMATE_MODE_AUTO\x10\x06*\xda\x01\n\x0e\x43limateFanMode\x12\x12\n\x0e\x43LIMATE_FAN_ON\x10\x00\x12\x13\n\x0f\x43LIMATE_FAN_OFF\x10\x01\x12\x14\n\x10\x43LIMATE_FAN_AUTO\x10\x02\x12\x13\n\x0f\x43LIMATE_FAN_LOW\x10\x03\x12\x16\n\x12\x43LIMATE_FAN_MEDIUM\x10\x04\x12\x14\n\x10\x43LIMATE_FAN_HIGH\x10\x05\x12\x16\n\x12\x43LIMATE_FAN_MIDDLE\x10\x06\x12\x15\n\x11\x43LIMATE_FAN_FOCUS\x10\x07\x12\x17\n\x13\x43LIMATE_FAN_DIFFUSE\x10\x08*{\n\x10\x43limateSwingMode\x12\x15\n\x11\x43LIMATE_SWING_OFF\x10\x00\x12\x16\n\x12\x43LIMATE_SWING_BOTH\x10\x01\x12\x1a\n\x16\x43LIMATE_SWING_VERTICAL\x10\x02\x12\x1c\n\x18\x43LIMATE_SWING_HORIZONTAL\x10\x03*\xab\x01\n\rClimateAction\x12\x16\n\x12\x43LIMATE_ACTION_OFF\x10\x00\x12\x1a\n\x16\x43LIMATE_ACTION_COOLING\x10\x02\x12\x1a\n\x16\x43LIMATE_ACTION_HEATING\x10\x03\x12\x17\n\x13\x43LIMATE_ACTION_IDLE\x10\x04\x12\x19\n\x15\x43LIMATE_ACTION_DRYING\x10\x05\x12\x16\n\x12\x43LIMATE_ACTION_FAN\x10\x06*\xdf\x01\n\rClimatePreset\x12\x17\n\x13\x43LIMATE_PRESET_NONE\x10\x00\x12\x17\n\x13\x43LIMATE_PRESET_HOME\x10\x01\x12\x17\n\x13\x43LIMATE_PRESET_AWAY\x10\x02\x12\x18\n\x14\x43LIMATE_PRESET_BOOST\x10\x03\x12\x1a\n\x16\x43LIMATE_PRESET_COMFORT\x10\x04\x12\x16\n\x12\x43LIMATE_PRESET_ECO\x10\x05\x12\x18\n\x14\x43LIMATE_PRESET_SLEEP\x10\x06\x12\x1b\n\x17\x43LIMATE_PRESET_ACTIVITY\x10\x07*O\n\nNumberMode\x12\x14\n\x10NUMBER_MODE_AUTO\x10\x00\x12\x13\n\x0fNUMBER_MODE_BOX\x10\x01\x12\x16\n\x12NUMBER_MODE_SLIDER\x10\x02*\x99\x01\n\tLockState\x12\x13\n\x0fLOCK_STATE_NONE\x10\x00\x12\x15\n\x11LOCK_STATE_LOCKED\x10\x01\x12\x17\n\x13LOCK_STATE_UNLOCKED\x10\x02\x12\x15\n\x11LOCK_STATE_JAMMED\x10\x03\x12\x16\n\x12LOCK_STATE_LOCKING\x10\x04\x12\x18\n\x14LOCK_STATE_UNLOCKING\x10\x05*<\n\x0bLockCommand\x12\x0f\n\x0bLOCK_UNLOCK\x10\x00\x12\r\n\tLOCK_LOCK\x10\x01\x12\r\n\tLOCK_OPEN\x10\x02*\x8b\x01\n\x10MediaPlayerState\x12\x1b\n\x17MEDIA_PLAYER_STATE_NONE\x10\x00\x12\x1b\n\x17MEDIA_PLAYER_STATE_IDLE\x10\x01\x12\x1e\n\x1aMEDIA_PLAYER_STATE_PLAYING\x10\x02\x12\x1d\n\x19MEDIA_PLAYER_STATE_PAUSED\x10\x03*\xb2\x01\n\x12MediaPlayerCommand\x12\x1d\n\x19MEDIA_PLAYER_COMMAND_PLAY\x10\x00\x12\x1e\n\x1aMEDIA_PLAYER_COMMAND_PAUSE\x10\x01\x12\x1d\n\x19MEDIA_PLAYER_COMMAND_STOP\x10\x02\x12\x1d\n\x19MEDIA_PLAYER_COMMAND_MUTE\x10\x03\x12\x1f\n\x1bMEDIA_PLAYER_COMMAND_UNMUTE\x10\x04*\xc7\x01\n\x1a\x42luetoothDeviceRequestType\x12)\n%BLUETOOTH_DEVICE_REQUEST_TYPE_CONNECT\x10\x00\x12,\n(BLUETOOTH_DEVICE_REQUEST_TYPE_DISCONNECT\x10\x01\x12&\n\"BLUETOOTH_DEVICE_REQUEST_TYPE_PAIR\x10\x02\x12(\n$BLUETOOTH_DEVICE_REQUEST_TYPE_UNPAIR\x10\x03\x32\xd5\x0e\n\rAPIConnection\x12.\n\x05hello\x12\r.HelloRequest\x1a\x0e.HelloResponse\"\x06\xf0@\x00\xf8@\x00\x12\x34\n\x07\x63onnect\x12\x0f.ConnectRequest\x1a\x10.ConnectResponse\"\x06\xf0@\x00\xf8@\x00\x12=\n\ndisconnect\x12\x12.DisconnectRequest\x1a\x13.DisconnectResponse\"\x06\xf0@\x00\xf8@\x00\x12+\n\x04ping\x12\x0c.PingRequest\x1a\r.PingResponse\"\x06\xf0@\x00\xf8@\x00\x12;\n\x0b\x64\x65vice_info\x12\x12.DeviceInfoRequest\x1a\x13.DeviceInfoResponse\"\x03\xf8@\x00\x12.\n\rlist_entities\x12\x14.ListEntitiesRequest\x1a\x05.void\"\x00\x12\x34\n\x10subscribe_states\x12\x17.SubscribeStatesRequest\x1a\x05.void\"\x00\x12\x30\n\x0esubscribe_logs\x12\x15.SubscribeLogsRequest\x1a\x05.void\"\x00\x12S\n subscribe_homeassistant_services\x12&.SubscribeHomeassistantServicesRequest\x1a\x05.void\"\x00\x12P\n\x1fsubscribe_home_assistant_states\x12$.SubscribeHomeAssistantStatesRequest\x1a\x05.void\"\x00\x12\x32\n\x08get_time\x12\x0f.GetTimeRequest\x1a\x10.GetTimeResponse\"\x03\xf8@\x00\x12\x32\n\x0f\x65xecute_service\x12\x16.ExecuteServiceRequest\x1a\x05.void\"\x00\x12.\n\rcover_command\x12\x14.CoverCommandRequest\x1a\x05.void\"\x00\x12*\n\x0b\x66\x61n_command\x12\x12.FanCommandRequest\x1a\x05.void\"\x00\x12.\n\rlight_command\x12\x14.LightCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0eswitch_command\x12\x15.SwitchCommandRequest\x1a\x05.void\"\x00\x12,\n\x0c\x63\x61mera_image\x12\x13.CameraImageRequest\x1a\x05.void\"\x00\x12\x32\n\x0f\x63limate_command\x12\x16.ClimateCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0enumber_command\x12\x15.NumberCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0eselect_command\x12\x15.SelectCommandRequest\x1a\x05.void\"\x00\x12.\n\rsiren_command\x12\x14.SirenCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0e\x62utton_command\x12\x15.ButtonCommandRequest\x1a\x05.void\"\x00\x12,\n\x0clock_command\x12\x13.LockCommandRequest\x1a\x05.void\"\x00\x12;\n\x14media_player_command\x12\x1a.MediaPlayerCommandRequest\x1a\x05.void\"\x00\x12\\\n%subscribe_bluetooth_le_advertisements\x12*.SubscribeBluetoothLEAdvertisementsRequest\x1a\x05.void\"\x00\x12<\n\x18\x62luetooth_device_request\x12\x17.BluetoothDeviceRequest\x1a\x05.void\"\x00\x12H\n\x1b\x62luetooth_gatt_get_services\x12 .BluetoothGATTGetServicesRequest\x1a\x05.void\"\x00\x12\x39\n\x13\x62luetooth_gatt_read\x12\x19.BluetoothGATTReadRequest\x1a\x05.void\"\x00\x12;\n\x14\x62luetooth_gatt_write\x12\x1a.BluetoothGATTWriteRequest\x1a\x05.void\"\x00\x12N\n\x1e\x62luetooth_gatt_read_descriptor\x12#.BluetoothGATTReadDescriptorRequest\x1a\x05.void\"\x00\x12P\n\x1f\x62luetooth_gatt_write_descriptor\x12$.BluetoothGATTWriteDescriptorRequest\x1a\x05.void\"\x00\x12=\n\x15\x62luetooth_gatt_notify\x12\x1b.BluetoothGATTNotifyRequest\x1a\x05.void\"\x00\x62\x06proto3'
+  serialized_pb=b'\n\tapi.proto\x1a\x11\x61pi_options.proto\"d\n\x0cHelloRequest\x12\x13\n\x0b\x63lient_info\x18\x01 \x01(\t\x12\x19\n\x11\x61pi_version_major\x18\x02 \x01(\r\x12\x19\n\x11\x61pi_version_minor\x18\x03 \x01(\r:\t\xe0@\x01\xe8@\x02\x80\x41\x01\"s\n\rHelloResponse\x12\x19\n\x11\x61pi_version_major\x18\x01 \x01(\r\x12\x19\n\x11\x61pi_version_minor\x18\x02 \x01(\r\x12\x13\n\x0bserver_info\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t:\t\xe0@\x02\xe8@\x01\x80\x41\x01\"-\n\x0e\x43onnectRequest\x12\x10\n\x08password\x18\x01 \x01(\t:\t\xe0@\x03\xe8@\x02\x80\x41\x01\"6\n\x0f\x43onnectResponse\x12\x18\n\x10invalid_password\x18\x01 \x01(\x08:\t\xe0@\x04\xe8@\x01\x80\x41\x01\"\x1e\n\x11\x44isconnectRequest:\t\xe0@\x05\xe8@\x00\x80\x41\x01\"\x1f\n\x12\x44isconnectResponse:\t\xe0@\x06\xe8@\x00\x80\x41\x01\"\x15\n\x0bPingRequest:\x06\xe0@\x07\xe8@\x00\"\x16\n\x0cPingResponse:\x06\xe0@\x08\xe8@\x00\"\x1b\n\x11\x44\x65viceInfoRequest:\x06\xe0@\t\xe8@\x02\"\xae\x02\n\x12\x44\x65viceInfoResponse\x12\x15\n\ruses_password\x18\x01 \x01(\x08\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0bmac_address\x18\x03 \x01(\t\x12\x17\n\x0f\x65sphome_version\x18\x04 \x01(\t\x12\x18\n\x10\x63ompilation_time\x18\x05 \x01(\t\x12\r\n\x05model\x18\x06 \x01(\t\x12\x16\n\x0ehas_deep_sleep\x18\x07 \x01(\x08\x12\x14\n\x0cproject_name\x18\x08 \x01(\t\x12\x17\n\x0fproject_version\x18\t \x01(\t\x12\x16\n\x0ewebserver_port\x18\n \x01(\r\x12\x1f\n\x17\x62luetooth_proxy_version\x18\x0b \x01(\r\x12\x14\n\x0cmanufacturer\x18\x0c \x01(\t:\x06\xe0@\n\xe8@\x01\"\x1d\n\x13ListEntitiesRequest:\x06\xe0@\x0b\xe8@\x02\"%\n\x18ListEntitiesDoneResponse:\t\xe0@\x13\xe8@\x01\x80\x41\x01\" \n\x16SubscribeStatesRequest:\x06\xe0@\x14\xe8@\x02\")\n\x1fSubscribeStateAttributesRequest:\x06\xe0@U\xe8@\x02\"0\n\x12StateAttributesMap\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"W\n\x17StateAttributesResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\'\n\nattributes\x18\x02 \x03(\x0b\x32\x13.StateAttributesMap:\x06\xe0@V\xe8@\x01\"\x8b\x02\n ListEntitiesBinarySensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x14\n\x0c\x64\x65vice_class\x18\x05 \x01(\t\x12\x1f\n\x17is_status_binary_sensor\x18\x06 \x01(\x08\x12\x1b\n\x13\x64isabled_by_default\x18\x07 \x01(\x08\x12\x0c\n\x04icon\x18\x08 \x01(\t\x12(\n\x0f\x65ntity_category\x18\t \x01(\x0e\x32\x0f.EntityCategory:\x1a\xe0@\x0c\xe8@\x01\xf2@\x11USE_BINARY_SENSOR\"m\n\x19\x42inarySensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x1d\xe0@\x15\xe8@\x01\xf2@\x11USE_BINARY_SENSOR\x80\x41\x01\"\xa4\x02\n\x19ListEntitiesCoverResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x15\n\rassumed_state\x18\x05 \x01(\x08\x12\x19\n\x11supports_position\x18\x06 \x01(\x08\x12\x15\n\rsupports_tilt\x18\x07 \x01(\x08\x12\x14\n\x0c\x64\x65vice_class\x18\x08 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\t \x01(\x08\x12\x0c\n\x04icon\x18\n \x01(\t\x12(\n\x0f\x65ntity_category\x18\x0b \x01(\x0e\x32\x0f.EntityCategory:\x12\xe0@\r\xe8@\x01\xf2@\tUSE_COVER\"\xad\x01\n\x12\x43overStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\'\n\x0clegacy_state\x18\x02 \x01(\x0e\x32\x11.LegacyCoverState\x12\x10\n\x08position\x18\x03 \x01(\x02\x12\x0c\n\x04tilt\x18\x04 \x01(\x02\x12*\n\x11\x63urrent_operation\x18\x05 \x01(\x0e\x32\x0f.CoverOperation:\x15\xe0@\x16\xe8@\x01\xf2@\tUSE_COVER\x80\x41\x01\"\xd8\x01\n\x13\x43overCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x1a\n\x12has_legacy_command\x18\x02 \x01(\x08\x12+\n\x0elegacy_command\x18\x03 \x01(\x0e\x32\x13.LegacyCoverCommand\x12\x14\n\x0chas_position\x18\x04 \x01(\x08\x12\x10\n\x08position\x18\x05 \x01(\x02\x12\x10\n\x08has_tilt\x18\x06 \x01(\x08\x12\x0c\n\x04tilt\x18\x07 \x01(\x02\x12\x0c\n\x04stop\x18\x08 \x01(\x08:\x15\xe0@\x1e\xe8@\x02\xf2@\tUSE_COVER\x80\x41\x01\"\xb3\x02\n\x17ListEntitiesFanResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1c\n\x14supports_oscillation\x18\x05 \x01(\x08\x12\x16\n\x0esupports_speed\x18\x06 \x01(\x08\x12\x1a\n\x12supports_direction\x18\x07 \x01(\x08\x12\x1e\n\x16supported_speed_levels\x18\x08 \x01(\x05\x12\x1b\n\x13\x64isabled_by_default\x18\t \x01(\x08\x12\x0c\n\x04icon\x18\n \x01(\t\x12(\n\x0f\x65ntity_category\x18\x0b \x01(\x0e\x32\x0f.EntityCategory:\x10\xe0@\x0e\xe8@\x01\xf2@\x07USE_FAN\"\xad\x01\n\x10\x46\x61nStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x13\n\x0boscillating\x18\x03 \x01(\x08\x12\x1c\n\x05speed\x18\x04 \x01(\x0e\x32\t.FanSpeedB\x02\x18\x01\x12 \n\tdirection\x18\x05 \x01(\x0e\x32\r.FanDirection\x12\x13\n\x0bspeed_level\x18\x06 \x01(\x05:\x13\xe0@\x17\xe8@\x01\xf2@\x07USE_FAN\x80\x41\x01\"\xa1\x02\n\x11\x46\x61nCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x15\n\thas_speed\x18\x04 \x01(\x08\x42\x02\x18\x01\x12\x1c\n\x05speed\x18\x05 \x01(\x0e\x32\t.FanSpeedB\x02\x18\x01\x12\x17\n\x0fhas_oscillating\x18\x06 \x01(\x08\x12\x13\n\x0boscillating\x18\x07 \x01(\x08\x12\x15\n\rhas_direction\x18\x08 \x01(\x08\x12 \n\tdirection\x18\t \x01(\x0e\x32\r.FanDirection\x12\x17\n\x0fhas_speed_level\x18\n \x01(\x08\x12\x13\n\x0bspeed_level\x18\x0b \x01(\x05:\x13\xe0@\x1f\xe8@\x02\xf2@\x07USE_FAN\x80\x41\x01\"\xbe\x03\n\x19ListEntitiesLightResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1d\n\x15supported_color_modes\x18\x0c \x03(\x05\x12&\n\x1alegacy_supports_brightness\x18\x05 \x01(\x08\x42\x02\x18\x01\x12\x1f\n\x13legacy_supports_rgb\x18\x06 \x01(\x08\x42\x02\x18\x01\x12\'\n\x1blegacy_supports_white_value\x18\x07 \x01(\x08\x42\x02\x18\x01\x12-\n!legacy_supports_color_temperature\x18\x08 \x01(\x08\x42\x02\x18\x01\x12\x12\n\nmin_mireds\x18\t \x01(\x02\x12\x12\n\nmax_mireds\x18\n \x01(\x02\x12\x0f\n\x07\x65\x66\x66\x65\x63ts\x18\x0b \x03(\t\x12\x1b\n\x13\x64isabled_by_default\x18\r \x01(\x08\x12\x0c\n\x04icon\x18\x0e \x01(\t\x12(\n\x0f\x65ntity_category\x18\x0f \x01(\x0e\x32\x0f.EntityCategory:\x12\xe0@\x0f\xe8@\x01\xf2@\tUSE_LIGHT\"\x95\x02\n\x12LightStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08\x12\x12\n\nbrightness\x18\x03 \x01(\x02\x12\x12\n\ncolor_mode\x18\x0b \x01(\x05\x12\x18\n\x10\x63olor_brightness\x18\n \x01(\x02\x12\x0b\n\x03red\x18\x04 \x01(\x02\x12\r\n\x05green\x18\x05 \x01(\x02\x12\x0c\n\x04\x62lue\x18\x06 \x01(\x02\x12\r\n\x05white\x18\x07 \x01(\x02\x12\x19\n\x11\x63olor_temperature\x18\x08 \x01(\x02\x12\x12\n\ncold_white\x18\x0c \x01(\x02\x12\x12\n\nwarm_white\x18\r \x01(\x02\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\t \x01(\t:\x15\xe0@\x18\xe8@\x01\xf2@\tUSE_LIGHT\x80\x41\x01\"\xe8\x04\n\x13LightCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x16\n\x0ehas_brightness\x18\x04 \x01(\x08\x12\x12\n\nbrightness\x18\x05 \x01(\x02\x12\x16\n\x0ehas_color_mode\x18\x16 \x01(\x08\x12\x12\n\ncolor_mode\x18\x17 \x01(\x05\x12\x1c\n\x14has_color_brightness\x18\x14 \x01(\x08\x12\x18\n\x10\x63olor_brightness\x18\x15 \x01(\x02\x12\x0f\n\x07has_rgb\x18\x06 \x01(\x08\x12\x0b\n\x03red\x18\x07 \x01(\x02\x12\r\n\x05green\x18\x08 \x01(\x02\x12\x0c\n\x04\x62lue\x18\t \x01(\x02\x12\x11\n\thas_white\x18\n \x01(\x08\x12\r\n\x05white\x18\x0b \x01(\x02\x12\x1d\n\x15has_color_temperature\x18\x0c \x01(\x08\x12\x19\n\x11\x63olor_temperature\x18\r \x01(\x02\x12\x16\n\x0ehas_cold_white\x18\x18 \x01(\x08\x12\x12\n\ncold_white\x18\x19 \x01(\x02\x12\x16\n\x0ehas_warm_white\x18\x1a \x01(\x08\x12\x12\n\nwarm_white\x18\x1b \x01(\x02\x12\x1d\n\x15has_transition_length\x18\x0e \x01(\x08\x12\x19\n\x11transition_length\x18\x0f \x01(\r\x12\x18\n\x10has_flash_length\x18\x10 \x01(\x08\x12\x14\n\x0c\x66lash_length\x18\x11 \x01(\r\x12\x12\n\nhas_effect\x18\x12 \x01(\x08\x12\x0e\n\x06\x65\x66\x66\x65\x63t\x18\x13 \x01(\t:\x15\xe0@ \xe8@\x02\xf2@\tUSE_LIGHT\x80\x41\x01\"\x82\x03\n\x1aListEntitiesSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13unit_of_measurement\x18\x06 \x01(\t\x12\x19\n\x11\x61\x63\x63uracy_decimals\x18\x07 \x01(\x05\x12\x14\n\x0c\x66orce_update\x18\x08 \x01(\x08\x12\x14\n\x0c\x64\x65vice_class\x18\t \x01(\t\x12&\n\x0bstate_class\x18\n \x01(\x0e\x32\x11.SensorStateClass\x12-\n\x0flast_reset_type\x18\x0b \x01(\x0e\x32\x14.SensorLastResetType\x12\x1b\n\x13\x64isabled_by_default\x18\x0c \x01(\x08\x12(\n\x0f\x65ntity_category\x18\r \x01(\x0e\x32\x0f.EntityCategory:\x13\xe0@\x10\xe8@\x01\xf2@\nUSE_SENSOR\"`\n\x13SensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x16\xe0@\x19\xe8@\x01\xf2@\nUSE_SENSOR\x80\x41\x01\"\xf4\x01\n\x1aListEntitiesSwitchResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x15\n\rassumed_state\x18\x06 \x01(\x08\x12\x1b\n\x13\x64isabled_by_default\x18\x07 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x08 \x01(\x0e\x32\x0f.EntityCategory\x12\x14\n\x0c\x64\x65vice_class\x18\t \x01(\t:\x13\xe0@\x11\xe8@\x01\xf2@\nUSE_SWITCH\"I\n\x13SwitchStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08:\x16\xe0@\x1a\xe8@\x01\xf2@\nUSE_SWITCH\x80\x41\x01\"J\n\x14SwitchCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08:\x16\xe0@!\xe8@\x02\xf2@\nUSE_SWITCH\x80\x41\x01\"\xd0\x01\n\x1eListEntitiesTextSensorResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory:\x18\xe0@\x12\xe8@\x01\xf2@\x0fUSE_TEXT_SENSOR\"i\n\x17TextSensorStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x1b\xe0@\x1b\xe8@\x01\xf2@\x0fUSE_TEXT_SENSOR\x80\x41\x01\"M\n\x14SubscribeLogsRequest\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x13\n\x0b\x64ump_config\x18\x02 \x01(\x08:\x06\xe0@\x1c\xe8@\x02\"e\n\x15SubscribeLogsResponse\x12\x18\n\x05level\x18\x01 \x01(\x0e\x32\t.LogLevel\x12\x0f\n\x07message\x18\x03 \x01(\x0c\x12\x13\n\x0bsend_failed\x18\x04 \x01(\x08:\x0c\xe0@\x1d\xe8@\x01\xf8@\x00\x80\x41\x00\"/\n%SubscribeHomeassistantServicesRequest:\x06\xe0@\"\xe8@\x02\"5\n\x17HomeassistantServiceMap\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xd2\x01\n\x1cHomeassistantServiceResponse\x12\x0f\n\x07service\x18\x01 \x01(\t\x12&\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x18.HomeassistantServiceMap\x12/\n\rdata_template\x18\x03 \x03(\x0b\x32\x18.HomeassistantServiceMap\x12+\n\tvariables\x18\x04 \x03(\x0b\x32\x18.HomeassistantServiceMap\x12\x10\n\x08is_event\x18\x05 \x01(\x08:\t\xe0@#\xe8@\x01\x80\x41\x01\"-\n#SubscribeHomeAssistantStatesRequest:\x06\xe0@&\xe8@\x02\"S\n#SubscribeHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x11\n\tattribute\x18\x02 \x01(\t:\x06\xe0@\'\xe8@\x01\"\\\n\x1aHomeAssistantStateResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\r\n\x05state\x18\x02 \x01(\t\x12\x11\n\tattribute\x18\x03 \x01(\t:\t\xe0@(\xe8@\x02\x80\x41\x01\"\x18\n\x0eGetTimeRequest:\x06\xe0@$\xe8@\x00\"3\n\x0fGetTimeResponse\x12\x15\n\repoch_seconds\x18\x01 \x01(\x07:\t\xe0@%\xe8@\x00\x80\x41\x01\"K\n\x1cListEntitiesServicesArgument\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1d\n\x04type\x18\x02 \x01(\x0e\x32\x0f.ServiceArgType\"n\n\x1cListEntitiesServicesResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12+\n\x04\x61rgs\x18\x03 \x03(\x0b\x32\x1d.ListEntitiesServicesArgument:\x06\xe0@)\xe8@\x01\"\xc8\x01\n\x16\x45xecuteServiceArgument\x12\r\n\x05\x62ool_\x18\x01 \x01(\x08\x12\x12\n\nlegacy_int\x18\x02 \x01(\x05\x12\x0e\n\x06\x66loat_\x18\x03 \x01(\x02\x12\x0f\n\x07string_\x18\x04 \x01(\t\x12\x0c\n\x04int_\x18\x05 \x01(\x11\x12\x16\n\nbool_array\x18\x06 \x03(\x08\x42\x02\x10\x00\x12\x15\n\tint_array\x18\x07 \x03(\x11\x42\x02\x10\x00\x12\x17\n\x0b\x66loat_array\x18\x08 \x03(\x02\x42\x02\x10\x00\x12\x14\n\x0cstring_array\x18\t \x03(\t\"V\n\x15\x45xecuteServiceRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12%\n\x04\x61rgs\x18\x02 \x03(\x0b\x32\x17.ExecuteServiceArgument:\t\xe0@*\xe8@\x02\x80\x41\x01\"\xcd\x01\n\x1aListEntitiesCameraResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x05 \x01(\x08\x12\x0c\n\x04icon\x18\x06 \x01(\t\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory:\x19\xe0@+\xe8@\x01\xf2@\x10USE_ESP32_CAMERA\"Y\n\x13\x43\x61meraImageResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x0c\n\x04\x64one\x18\x03 \x01(\x08:\x19\xe0@,\xe8@\x01\xf2@\x10USE_ESP32_CAMERA\"R\n\x12\x43\x61meraImageRequest\x12\x0e\n\x06single\x18\x01 \x01(\x08\x12\x0e\n\x06stream\x18\x02 \x01(\x08:\x1c\xe0@-\xe8@\x02\xf2@\x10USE_ESP32_CAMERA\x80\x41\x01\"\xae\x05\n\x1bListEntitiesClimateResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12$\n\x1csupports_current_temperature\x18\x05 \x01(\x08\x12-\n%supports_two_point_target_temperature\x18\x06 \x01(\x08\x12%\n\x0fsupported_modes\x18\x07 \x03(\x0e\x32\x0c.ClimateMode\x12\x1e\n\x16visual_min_temperature\x18\x08 \x01(\x02\x12\x1e\n\x16visual_max_temperature\x18\t \x01(\x02\x12\x1f\n\x17visual_temperature_step\x18\n \x01(\x02\x12\x1c\n\x14legacy_supports_away\x18\x0b \x01(\x08\x12\x17\n\x0fsupports_action\x18\x0c \x01(\x08\x12,\n\x13supported_fan_modes\x18\r \x03(\x0e\x32\x0f.ClimateFanMode\x12\x30\n\x15supported_swing_modes\x18\x0e \x03(\x0e\x32\x11.ClimateSwingMode\x12\"\n\x1asupported_custom_fan_modes\x18\x0f \x03(\t\x12)\n\x11supported_presets\x18\x10 \x03(\x0e\x32\x0e.ClimatePreset\x12 \n\x18supported_custom_presets\x18\x11 \x03(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x12 \x01(\x08\x12\x0c\n\x04icon\x18\x13 \x01(\t\x12(\n\x0f\x65ntity_category\x18\x14 \x01(\x0e\x32\x0f.EntityCategory:\x14\xe0@.\xe8@\x01\xf2@\x0bUSE_CLIMATE\"\xa1\x03\n\x14\x43limateStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x1a\n\x04mode\x18\x02 \x01(\x0e\x32\x0c.ClimateMode\x12\x1b\n\x13\x63urrent_temperature\x18\x03 \x01(\x02\x12\x1a\n\x12target_temperature\x18\x04 \x01(\x02\x12\x1e\n\x16target_temperature_low\x18\x05 \x01(\x02\x12\x1f\n\x17target_temperature_high\x18\x06 \x01(\x02\x12\x13\n\x0blegacy_away\x18\x07 \x01(\x08\x12\x1e\n\x06\x61\x63tion\x18\x08 \x01(\x0e\x32\x0e.ClimateAction\x12!\n\x08\x66\x61n_mode\x18\t \x01(\x0e\x32\x0f.ClimateFanMode\x12%\n\nswing_mode\x18\n \x01(\x0e\x32\x11.ClimateSwingMode\x12\x17\n\x0f\x63ustom_fan_mode\x18\x0b \x01(\t\x12\x1e\n\x06preset\x18\x0c \x01(\x0e\x32\x0e.ClimatePreset\x12\x15\n\rcustom_preset\x18\r \x01(\t:\x17\xe0@/\xe8@\x01\xf2@\x0bUSE_CLIMATE\x80\x41\x01\"\xf3\x04\n\x15\x43limateCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x10\n\x08has_mode\x18\x02 \x01(\x08\x12\x1a\n\x04mode\x18\x03 \x01(\x0e\x32\x0c.ClimateMode\x12\x1e\n\x16has_target_temperature\x18\x04 \x01(\x08\x12\x1a\n\x12target_temperature\x18\x05 \x01(\x02\x12\"\n\x1ahas_target_temperature_low\x18\x06 \x01(\x08\x12\x1e\n\x16target_temperature_low\x18\x07 \x01(\x02\x12#\n\x1bhas_target_temperature_high\x18\x08 \x01(\x08\x12\x1f\n\x17target_temperature_high\x18\t \x01(\x02\x12\x17\n\x0fhas_legacy_away\x18\n \x01(\x08\x12\x13\n\x0blegacy_away\x18\x0b \x01(\x08\x12\x14\n\x0chas_fan_mode\x18\x0c \x01(\x08\x12!\n\x08\x66\x61n_mode\x18\r \x01(\x0e\x32\x0f.ClimateFanMode\x12\x16\n\x0ehas_swing_mode\x18\x0e \x01(\x08\x12%\n\nswing_mode\x18\x0f \x01(\x0e\x32\x11.ClimateSwingMode\x12\x1b\n\x13has_custom_fan_mode\x18\x10 \x01(\x08\x12\x17\n\x0f\x63ustom_fan_mode\x18\x11 \x01(\t\x12\x12\n\nhas_preset\x18\x12 \x01(\x08\x12\x1e\n\x06preset\x18\x13 \x01(\x0e\x32\x0e.ClimatePreset\x12\x19\n\x11has_custom_preset\x18\x14 \x01(\x08\x12\x15\n\rcustom_preset\x18\x15 \x01(\t:\x17\xe0@0\xe8@\x02\xf2@\x0bUSE_CLIMATE\x80\x41\x01\"\xb3\x02\n\x1aListEntitiesNumberResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x11\n\tmin_value\x18\x06 \x01(\x02\x12\x11\n\tmax_value\x18\x07 \x01(\x02\x12\x0c\n\x04step\x18\x08 \x01(\x02\x12\x1b\n\x13\x64isabled_by_default\x18\t \x01(\x08\x12(\n\x0f\x65ntity_category\x18\n \x01(\x0e\x32\x0f.EntityCategory\x12\x1b\n\x13unit_of_measurement\x18\x0b \x01(\t\x12\x19\n\x04mode\x18\x0c \x01(\x0e\x32\x0b.NumberMode:\x13\xe0@1\xe8@\x01\xf2@\nUSE_NUMBER\"`\n\x13NumberStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x16\xe0@2\xe8@\x01\xf2@\nUSE_NUMBER\x80\x41\x01\"J\n\x14NumberCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x02:\x16\xe0@3\xe8@\x02\xf2@\nUSE_NUMBER\x80\x41\x01\"\xd8\x01\n\x1aListEntitiesSelectResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x0f\n\x07options\x18\x06 \x03(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x07 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x08 \x01(\x0e\x32\x0f.EntityCategory:\x13\xe0@4\xe8@\x01\xf2@\nUSE_SELECT\"`\n\x13SelectStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t\x12\x15\n\rmissing_state\x18\x03 \x01(\x08:\x16\xe0@5\xe8@\x01\xf2@\nUSE_SELECT\x80\x41\x01\"J\n\x14SelectCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\t:\x16\xe0@6\xe8@\x02\xf2@\nUSE_SELECT\x80\x41\x01\"\x88\x02\n\x19ListEntitiesSirenResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12\r\n\x05tones\x18\x07 \x03(\t\x12\x19\n\x11supports_duration\x18\x08 \x01(\x08\x12\x17\n\x0fsupports_volume\x18\t \x01(\x08\x12(\n\x0f\x65ntity_category\x18\n \x01(\x0e\x32\x0f.EntityCategory:\x12\xe0@7\xe8@\x01\xf2@\tUSE_SIREN\"G\n\x12SirenStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\r\n\x05state\x18\x02 \x01(\x08:\x15\xe0@8\xe8@\x01\xf2@\tUSE_SIREN\x80\x41\x01\"\xc7\x01\n\x13SirenCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x11\n\thas_state\x18\x02 \x01(\x08\x12\r\n\x05state\x18\x03 \x01(\x08\x12\x10\n\x08has_tone\x18\x04 \x01(\x08\x12\x0c\n\x04tone\x18\x05 \x01(\t\x12\x14\n\x0chas_duration\x18\x06 \x01(\x08\x12\x10\n\x08\x64uration\x18\x07 \x01(\r\x12\x12\n\nhas_volume\x18\x08 \x01(\x08\x12\x0e\n\x06volume\x18\t \x01(\x02:\x15\xe0@9\xe8@\x02\xf2@\tUSE_SIREN\x80\x41\x01\"\x9d\x02\n\x18ListEntitiesLockResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory\x12\x15\n\rassumed_state\x18\x08 \x01(\x08\x12\x15\n\rsupports_open\x18\t \x01(\x08\x12\x15\n\rrequires_code\x18\n \x01(\x08\x12\x13\n\x0b\x63ode_format\x18\x0b \x01(\t:\x11\xe0@:\xe8@\x01\xf2@\x08USE_LOCK\"Q\n\x11LockStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x19\n\x05state\x18\x02 \x01(\x0e\x32\n.LockState:\x14\xe0@;\xe8@\x01\xf2@\x08USE_LOCK\x80\x41\x01\"v\n\x12LockCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x1d\n\x07\x63ommand\x18\x02 \x01(\x0e\x32\x0c.LockCommand\x12\x10\n\x08has_code\x18\x03 \x01(\x08\x12\x0c\n\x04\x63ode\x18\x04 \x01(\t:\x14\xe0@<\xe8@\x02\xf2@\x08USE_LOCK\x80\x41\x01\"\xdd\x01\n\x1aListEntitiesButtonResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory\x12\x14\n\x0c\x64\x65vice_class\x18\x08 \x01(\t:\x13\xe0@=\xe8@\x01\xf2@\nUSE_BUTTON\";\n\x14\x42uttonCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07:\x16\xe0@>\xe8@\x02\xf2@\nUSE_BUTTON\x80\x41\x01\"\xea\x01\n\x1fListEntitiesMediaPlayerResponse\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x07\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x11\n\tunique_id\x18\x04 \x01(\t\x12\x0c\n\x04icon\x18\x05 \x01(\t\x12\x1b\n\x13\x64isabled_by_default\x18\x06 \x01(\x08\x12(\n\x0f\x65ntity_category\x18\x07 \x01(\x0e\x32\x0f.EntityCategory\x12\x16\n\x0esupports_pause\x18\x08 \x01(\x08:\x19\xe0@?\xe8@\x01\xf2@\x10USE_MEDIA_PLAYER\"\x86\x01\n\x18MediaPlayerStateResponse\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12 \n\x05state\x18\x02 \x01(\x0e\x32\x11.MediaPlayerState\x12\x0e\n\x06volume\x18\x03 \x01(\x02\x12\r\n\x05muted\x18\x04 \x01(\x08:\x1c\xe0@@\xe8@\x01\xf2@\x10USE_MEDIA_PLAYER\x80\x41\x01\"\xcf\x01\n\x19MediaPlayerCommandRequest\x12\x0b\n\x03key\x18\x01 \x01(\x07\x12\x13\n\x0bhas_command\x18\x02 \x01(\x08\x12$\n\x07\x63ommand\x18\x03 \x01(\x0e\x32\x13.MediaPlayerCommand\x12\x12\n\nhas_volume\x18\x04 \x01(\x08\x12\x0e\n\x06volume\x18\x05 \x01(\x02\x12\x15\n\rhas_media_url\x18\x06 \x01(\x08\x12\x11\n\tmedia_url\x18\x07 \x01(\t:\x1c\xe0@A\xe8@\x02\xf2@\x10USE_MEDIA_PLAYER\x80\x41\x01\"3\n)SubscribeBluetoothLEAdvertisementsRequest:\x06\xe0@B\xe8@\x02\"K\n\x14\x42luetoothServiceData\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x17\n\x0blegacy_data\x18\x02 \x03(\rB\x02\x10\x01\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"\xe6\x01\n BluetoothLEAdvertisementResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04rssi\x18\x03 \x01(\x11\x12\x15\n\rservice_uuids\x18\x04 \x03(\t\x12+\n\x0cservice_data\x18\x05 \x03(\x0b\x32\x15.BluetoothServiceData\x12\x30\n\x11manufacturer_data\x18\x06 \x03(\x0b\x32\x15.BluetoothServiceData:\x1f\xe0@C\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\x80\x41\x01\"z\n\x16\x42luetoothDeviceRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x31\n\x0crequest_type\x18\x02 \x01(\x0e\x32\x1b.BluetoothDeviceRequestType:\x1c\xe0@D\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"\x81\x01\n!BluetoothDeviceConnectionResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x11\n\tconnected\x18\x02 \x01(\x08\x12\x0b\n\x03mtu\x18\x03 \x01(\r\x12\r\n\x05\x65rror\x18\x04 \x01(\x05:\x1c\xe0@E\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"P\n\x1f\x42luetoothGATTGetServicesRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04:\x1c\xe0@F\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"7\n\x17\x42luetoothGATTDescriptor\x12\x0c\n\x04uuid\x18\x01 \x03(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\"~\n\x1b\x42luetoothGATTCharacteristic\x12\x0c\n\x04uuid\x18\x01 \x03(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x12\n\nproperties\x18\x03 \x01(\r\x12-\n\x0b\x64\x65scriptors\x18\x04 \x03(\x0b\x32\x18.BluetoothGATTDescriptor\"k\n\x14\x42luetoothGATTService\x12\x0c\n\x04uuid\x18\x01 \x03(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x35\n\x0f\x63haracteristics\x18\x03 \x03(\x0b\x32\x1c.BluetoothGATTCharacteristic\"z\n BluetoothGATTGetServicesResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\'\n\x08services\x18\x02 \x03(\x0b\x32\x15.BluetoothGATTService:\x1c\xe0@G\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"U\n$BluetoothGATTGetServicesDoneResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04:\x1c\xe0@H\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"Y\n\x18\x42luetoothGATTReadRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@I\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"h\n\x19\x42luetoothGATTReadResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c:\x1c\xe0@J\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"z\n\x19\x42luetoothGATTWriteRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x10\n\x08response\x18\x03 \x01(\x08\x12\x0c\n\x04\x64\x61ta\x18\x04 \x01(\x0c:\x1c\xe0@K\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"c\n\"BluetoothGATTReadDescriptorRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@L\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"r\n#BluetoothGATTWriteDescriptorRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c:\x1c\xe0@M\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"k\n\x1a\x42luetoothGATTNotifyRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0e\n\x06\x65nable\x18\x03 \x01(\x08:\x1c\xe0@N\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"n\n\x1f\x42luetoothGATTNotifyDataResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c:\x1c\xe0@O\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"H\n(SubscribeBluetoothConnectionsFreeRequest:\x1c\xe0@P\xe8@\x02\xf2@\x13USE_BLUETOOTH_PROXY\"]\n BluetoothConnectionsFreeResponse\x12\x0c\n\x04\x66ree\x18\x01 \x01(\r\x12\r\n\x05limit\x18\x02 \x01(\r:\x1c\xe0@Q\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"j\n\x1a\x42luetoothGATTErrorResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r\x12\r\n\x05\x65rror\x18\x03 \x01(\x05:\x1c\xe0@R\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"[\n\x1a\x42luetoothGATTWriteResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@S\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY\"\\\n\x1b\x42luetoothGATTNotifyResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\x04\x12\x0e\n\x06handle\x18\x02 \x01(\r:\x1c\xe0@T\xe8@\x01\xf2@\x13USE_BLUETOOTH_PROXY*f\n\x0e\x45ntityCategory\x12\x18\n\x14\x45NTITY_CATEGORY_NONE\x10\x00\x12\x1a\n\x16\x45NTITY_CATEGORY_CONFIG\x10\x01\x12\x1e\n\x1a\x45NTITY_CATEGORY_DIAGNOSTIC\x10\x02*N\n\x10LegacyCoverState\x12\x1b\n\x17LEGACY_COVER_STATE_OPEN\x10\x00\x12\x1d\n\x19LEGACY_COVER_STATE_CLOSED\x10\x01*j\n\x0e\x43overOperation\x12\x18\n\x14\x43OVER_OPERATION_IDLE\x10\x00\x12\x1e\n\x1a\x43OVER_OPERATION_IS_OPENING\x10\x01\x12\x1e\n\x1a\x43OVER_OPERATION_IS_CLOSING\x10\x02*r\n\x12LegacyCoverCommand\x12\x1d\n\x19LEGACY_COVER_COMMAND_OPEN\x10\x00\x12\x1e\n\x1aLEGACY_COVER_COMMAND_CLOSE\x10\x01\x12\x1d\n\x19LEGACY_COVER_COMMAND_STOP\x10\x02*G\n\x08\x46\x61nSpeed\x12\x11\n\rFAN_SPEED_LOW\x10\x00\x12\x14\n\x10\x46\x41N_SPEED_MEDIUM\x10\x01\x12\x12\n\x0e\x46\x41N_SPEED_HIGH\x10\x02*D\n\x0c\x46\x61nDirection\x12\x19\n\x15\x46\x41N_DIRECTION_FORWARD\x10\x00\x12\x19\n\x15\x46\x41N_DIRECTION_REVERSE\x10\x01*~\n\x10SensorStateClass\x12\x14\n\x10STATE_CLASS_NONE\x10\x00\x12\x1b\n\x17STATE_CLASS_MEASUREMENT\x10\x01\x12 \n\x1cSTATE_CLASS_TOTAL_INCREASING\x10\x02\x12\x15\n\x11STATE_CLASS_TOTAL\x10\x03*U\n\x13SensorLastResetType\x12\x13\n\x0fLAST_RESET_NONE\x10\x00\x12\x14\n\x10LAST_RESET_NEVER\x10\x01\x12\x13\n\x0fLAST_RESET_AUTO\x10\x02*\xb9\x01\n\x08LogLevel\x12\x12\n\x0eLOG_LEVEL_NONE\x10\x00\x12\x13\n\x0fLOG_LEVEL_ERROR\x10\x01\x12\x12\n\x0eLOG_LEVEL_WARN\x10\x02\x12\x12\n\x0eLOG_LEVEL_INFO\x10\x03\x12\x14\n\x10LOG_LEVEL_CONFIG\x10\x04\x12\x13\n\x0fLOG_LEVEL_DEBUG\x10\x05\x12\x15\n\x11LOG_LEVEL_VERBOSE\x10\x06\x12\x1a\n\x16LOG_LEVEL_VERY_VERBOSE\x10\x07*\x84\x02\n\x0eServiceArgType\x12\x19\n\x15SERVICE_ARG_TYPE_BOOL\x10\x00\x12\x18\n\x14SERVICE_ARG_TYPE_INT\x10\x01\x12\x1a\n\x16SERVICE_ARG_TYPE_FLOAT\x10\x02\x12\x1b\n\x17SERVICE_ARG_TYPE_STRING\x10\x03\x12\x1f\n\x1bSERVICE_ARG_TYPE_BOOL_ARRAY\x10\x04\x12\x1e\n\x1aSERVICE_ARG_TYPE_INT_ARRAY\x10\x05\x12 \n\x1cSERVICE_ARG_TYPE_FLOAT_ARRAY\x10\x06\x12!\n\x1dSERVICE_ARG_TYPE_STRING_ARRAY\x10\x07*\xb5\x01\n\x0b\x43limateMode\x12\x14\n\x10\x43LIMATE_MODE_OFF\x10\x00\x12\x1a\n\x16\x43LIMATE_MODE_HEAT_COOL\x10\x01\x12\x15\n\x11\x43LIMATE_MODE_COOL\x10\x02\x12\x15\n\x11\x43LIMATE_MODE_HEAT\x10\x03\x12\x19\n\x15\x43LIMATE_MODE_FAN_ONLY\x10\x04\x12\x14\n\x10\x43LIMATE_MODE_DRY\x10\x05\x12\x15\n\x11\x43LIMATE_MODE_AUTO\x10\x06*\xda\x01\n\x0e\x43limateFanMode\x12\x12\n\x0e\x43LIMATE_FAN_ON\x10\x00\x12\x13\n\x0f\x43LIMATE_FAN_OFF\x10\x01\x12\x14\n\x10\x43LIMATE_FAN_AUTO\x10\x02\x12\x13\n\x0f\x43LIMATE_FAN_LOW\x10\x03\x12\x16\n\x12\x43LIMATE_FAN_MEDIUM\x10\x04\x12\x14\n\x10\x43LIMATE_FAN_HIGH\x10\x05\x12\x16\n\x12\x43LIMATE_FAN_MIDDLE\x10\x06\x12\x15\n\x11\x43LIMATE_FAN_FOCUS\x10\x07\x12\x17\n\x13\x43LIMATE_FAN_DIFFUSE\x10\x08*{\n\x10\x43limateSwingMode\x12\x15\n\x11\x43LIMATE_SWING_OFF\x10\x00\x12\x16\n\x12\x43LIMATE_SWING_BOTH\x10\x01\x12\x1a\n\x16\x43LIMATE_SWING_VERTICAL\x10\x02\x12\x1c\n\x18\x43LIMATE_SWING_HORIZONTAL\x10\x03*\xab\x01\n\rClimateAction\x12\x16\n\x12\x43LIMATE_ACTION_OFF\x10\x00\x12\x1a\n\x16\x43LIMATE_ACTION_COOLING\x10\x02\x12\x1a\n\x16\x43LIMATE_ACTION_HEATING\x10\x03\x12\x17\n\x13\x43LIMATE_ACTION_IDLE\x10\x04\x12\x19\n\x15\x43LIMATE_ACTION_DRYING\x10\x05\x12\x16\n\x12\x43LIMATE_ACTION_FAN\x10\x06*\xdf\x01\n\rClimatePreset\x12\x17\n\x13\x43LIMATE_PRESET_NONE\x10\x00\x12\x17\n\x13\x43LIMATE_PRESET_HOME\x10\x01\x12\x17\n\x13\x43LIMATE_PRESET_AWAY\x10\x02\x12\x18\n\x14\x43LIMATE_PRESET_BOOST\x10\x03\x12\x1a\n\x16\x43LIMATE_PRESET_COMFORT\x10\x04\x12\x16\n\x12\x43LIMATE_PRESET_ECO\x10\x05\x12\x18\n\x14\x43LIMATE_PRESET_SLEEP\x10\x06\x12\x1b\n\x17\x43LIMATE_PRESET_ACTIVITY\x10\x07*O\n\nNumberMode\x12\x14\n\x10NUMBER_MODE_AUTO\x10\x00\x12\x13\n\x0fNUMBER_MODE_BOX\x10\x01\x12\x16\n\x12NUMBER_MODE_SLIDER\x10\x02*\x99\x01\n\tLockState\x12\x13\n\x0fLOCK_STATE_NONE\x10\x00\x12\x15\n\x11LOCK_STATE_LOCKED\x10\x01\x12\x17\n\x13LOCK_STATE_UNLOCKED\x10\x02\x12\x15\n\x11LOCK_STATE_JAMMED\x10\x03\x12\x16\n\x12LOCK_STATE_LOCKING\x10\x04\x12\x18\n\x14LOCK_STATE_UNLOCKING\x10\x05*<\n\x0bLockCommand\x12\x0f\n\x0bLOCK_UNLOCK\x10\x00\x12\r\n\tLOCK_LOCK\x10\x01\x12\r\n\tLOCK_OPEN\x10\x02*\x8b\x01\n\x10MediaPlayerState\x12\x1b\n\x17MEDIA_PLAYER_STATE_NONE\x10\x00\x12\x1b\n\x17MEDIA_PLAYER_STATE_IDLE\x10\x01\x12\x1e\n\x1aMEDIA_PLAYER_STATE_PLAYING\x10\x02\x12\x1d\n\x19MEDIA_PLAYER_STATE_PAUSED\x10\x03*\xb2\x01\n\x12MediaPlayerCommand\x12\x1d\n\x19MEDIA_PLAYER_COMMAND_PLAY\x10\x00\x12\x1e\n\x1aMEDIA_PLAYER_COMMAND_PAUSE\x10\x01\x12\x1d\n\x19MEDIA_PLAYER_COMMAND_STOP\x10\x02\x12\x1d\n\x19MEDIA_PLAYER_COMMAND_MUTE\x10\x03\x12\x1f\n\x1bMEDIA_PLAYER_COMMAND_UNMUTE\x10\x04*\xc7\x01\n\x1a\x42luetoothDeviceRequestType\x12)\n%BLUETOOTH_DEVICE_REQUEST_TYPE_CONNECT\x10\x00\x12,\n(BLUETOOTH_DEVICE_REQUEST_TYPE_DISCONNECT\x10\x01\x12&\n\"BLUETOOTH_DEVICE_REQUEST_TYPE_PAIR\x10\x02\x12(\n$BLUETOOTH_DEVICE_REQUEST_TYPE_UNPAIR\x10\x03\x32\x9e\x0f\n\rAPIConnection\x12.\n\x05hello\x12\r.HelloRequest\x1a\x0e.HelloResponse\"\x06\xf0@\x00\xf8@\x00\x12\x34\n\x07\x63onnect\x12\x0f.ConnectRequest\x1a\x10.ConnectResponse\"\x06\xf0@\x00\xf8@\x00\x12=\n\ndisconnect\x12\x12.DisconnectRequest\x1a\x13.DisconnectResponse\"\x06\xf0@\x00\xf8@\x00\x12+\n\x04ping\x12\x0c.PingRequest\x1a\r.PingResponse\"\x06\xf0@\x00\xf8@\x00\x12;\n\x0b\x64\x65vice_info\x12\x12.DeviceInfoRequest\x1a\x13.DeviceInfoResponse\"\x03\xf8@\x00\x12.\n\rlist_entities\x12\x14.ListEntitiesRequest\x1a\x05.void\"\x00\x12\x34\n\x10subscribe_states\x12\x17.SubscribeStatesRequest\x1a\x05.void\"\x00\x12G\n\x1asubscribe_state_attributes\x12 .SubscribeStateAttributesRequest\x1a\x05.void\"\x00\x12\x30\n\x0esubscribe_logs\x12\x15.SubscribeLogsRequest\x1a\x05.void\"\x00\x12S\n subscribe_homeassistant_services\x12&.SubscribeHomeassistantServicesRequest\x1a\x05.void\"\x00\x12P\n\x1fsubscribe_home_assistant_states\x12$.SubscribeHomeAssistantStatesRequest\x1a\x05.void\"\x00\x12\x32\n\x08get_time\x12\x0f.GetTimeRequest\x1a\x10.GetTimeResponse\"\x03\xf8@\x00\x12\x32\n\x0f\x65xecute_service\x12\x16.ExecuteServiceRequest\x1a\x05.void\"\x00\x12.\n\rcover_command\x12\x14.CoverCommandRequest\x1a\x05.void\"\x00\x12*\n\x0b\x66\x61n_command\x12\x12.FanCommandRequest\x1a\x05.void\"\x00\x12.\n\rlight_command\x12\x14.LightCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0eswitch_command\x12\x15.SwitchCommandRequest\x1a\x05.void\"\x00\x12,\n\x0c\x63\x61mera_image\x12\x13.CameraImageRequest\x1a\x05.void\"\x00\x12\x32\n\x0f\x63limate_command\x12\x16.ClimateCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0enumber_command\x12\x15.NumberCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0eselect_command\x12\x15.SelectCommandRequest\x1a\x05.void\"\x00\x12.\n\rsiren_command\x12\x14.SirenCommandRequest\x1a\x05.void\"\x00\x12\x30\n\x0e\x62utton_command\x12\x15.ButtonCommandRequest\x1a\x05.void\"\x00\x12,\n\x0clock_command\x12\x13.LockCommandRequest\x1a\x05.void\"\x00\x12;\n\x14media_player_command\x12\x1a.MediaPlayerCommandRequest\x1a\x05.void\"\x00\x12\\\n%subscribe_bluetooth_le_advertisements\x12*.SubscribeBluetoothLEAdvertisementsRequest\x1a\x05.void\"\x00\x12<\n\x18\x62luetooth_device_request\x12\x17.BluetoothDeviceRequest\x1a\x05.void\"\x00\x12H\n\x1b\x62luetooth_gatt_get_services\x12 .BluetoothGATTGetServicesRequest\x1a\x05.void\"\x00\x12\x39\n\x13\x62luetooth_gatt_read\x12\x19.BluetoothGATTReadRequest\x1a\x05.void\"\x00\x12;\n\x14\x62luetooth_gatt_write\x12\x1a.BluetoothGATTWriteRequest\x1a\x05.void\"\x00\x12N\n\x1e\x62luetooth_gatt_read_descriptor\x12#.BluetoothGATTReadDescriptorRequest\x1a\x05.void\"\x00\x12P\n\x1f\x62luetooth_gatt_write_descriptor\x12$.BluetoothGATTWriteDescriptorRequest\x1a\x05.void\"\x00\x12=\n\x15\x62luetooth_gatt_notify\x12\x1b.BluetoothGATTNotifyRequest\x1a\x05.void\"\x00\x62\x06proto3'
   ,
   dependencies=[api__options__pb2.DESCRIPTOR,])
 
@@ -51,8 +51,8 @@ _ENTITYCATEGORY = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=13918,
-  serialized_end=14020,
+  serialized_start=14100,
+  serialized_end=14202,
 )
 _sym_db.RegisterEnumDescriptor(_ENTITYCATEGORY)
 
@@ -77,8 +77,8 @@ _LEGACYCOVERSTATE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14022,
-  serialized_end=14100,
+  serialized_start=14204,
+  serialized_end=14282,
 )
 _sym_db.RegisterEnumDescriptor(_LEGACYCOVERSTATE)
 
@@ -108,8 +108,8 @@ _COVEROPERATION = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14102,
-  serialized_end=14208,
+  serialized_start=14284,
+  serialized_end=14390,
 )
 _sym_db.RegisterEnumDescriptor(_COVEROPERATION)
 
@@ -139,8 +139,8 @@ _LEGACYCOVERCOMMAND = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14210,
-  serialized_end=14324,
+  serialized_start=14392,
+  serialized_end=14506,
 )
 _sym_db.RegisterEnumDescriptor(_LEGACYCOVERCOMMAND)
 
@@ -170,8 +170,8 @@ _FANSPEED = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14326,
-  serialized_end=14397,
+  serialized_start=14508,
+  serialized_end=14579,
 )
 _sym_db.RegisterEnumDescriptor(_FANSPEED)
 
@@ -196,8 +196,8 @@ _FANDIRECTION = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14399,
-  serialized_end=14467,
+  serialized_start=14581,
+  serialized_end=14649,
 )
 _sym_db.RegisterEnumDescriptor(_FANDIRECTION)
 
@@ -232,8 +232,8 @@ _SENSORSTATECLASS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14469,
-  serialized_end=14595,
+  serialized_start=14651,
+  serialized_end=14777,
 )
 _sym_db.RegisterEnumDescriptor(_SENSORSTATECLASS)
 
@@ -263,8 +263,8 @@ _SENSORLASTRESETTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14597,
-  serialized_end=14682,
+  serialized_start=14779,
+  serialized_end=14864,
 )
 _sym_db.RegisterEnumDescriptor(_SENSORLASTRESETTYPE)
 
@@ -319,8 +319,8 @@ _LOGLEVEL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14685,
-  serialized_end=14870,
+  serialized_start=14867,
+  serialized_end=15052,
 )
 _sym_db.RegisterEnumDescriptor(_LOGLEVEL)
 
@@ -375,8 +375,8 @@ _SERVICEARGTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=14873,
-  serialized_end=15133,
+  serialized_start=15055,
+  serialized_end=15315,
 )
 _sym_db.RegisterEnumDescriptor(_SERVICEARGTYPE)
 
@@ -426,8 +426,8 @@ _CLIMATEMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=15136,
-  serialized_end=15317,
+  serialized_start=15318,
+  serialized_end=15499,
 )
 _sym_db.RegisterEnumDescriptor(_CLIMATEMODE)
 
@@ -487,8 +487,8 @@ _CLIMATEFANMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=15320,
-  serialized_end=15538,
+  serialized_start=15502,
+  serialized_end=15720,
 )
 _sym_db.RegisterEnumDescriptor(_CLIMATEFANMODE)
 
@@ -523,8 +523,8 @@ _CLIMATESWINGMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=15540,
-  serialized_end=15663,
+  serialized_start=15722,
+  serialized_end=15845,
 )
 _sym_db.RegisterEnumDescriptor(_CLIMATESWINGMODE)
 
@@ -569,8 +569,8 @@ _CLIMATEACTION = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=15666,
-  serialized_end=15837,
+  serialized_start=15848,
+  serialized_end=16019,
 )
 _sym_db.RegisterEnumDescriptor(_CLIMATEACTION)
 
@@ -625,8 +625,8 @@ _CLIMATEPRESET = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=15840,
-  serialized_end=16063,
+  serialized_start=16022,
+  serialized_end=16245,
 )
 _sym_db.RegisterEnumDescriptor(_CLIMATEPRESET)
 
@@ -656,8 +656,8 @@ _NUMBERMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=16065,
-  serialized_end=16144,
+  serialized_start=16247,
+  serialized_end=16326,
 )
 _sym_db.RegisterEnumDescriptor(_NUMBERMODE)
 
@@ -702,8 +702,8 @@ _LOCKSTATE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=16147,
-  serialized_end=16300,
+  serialized_start=16329,
+  serialized_end=16482,
 )
 _sym_db.RegisterEnumDescriptor(_LOCKSTATE)
 
@@ -733,8 +733,8 @@ _LOCKCOMMAND = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=16302,
-  serialized_end=16362,
+  serialized_start=16484,
+  serialized_end=16544,
 )
 _sym_db.RegisterEnumDescriptor(_LOCKCOMMAND)
 
@@ -769,8 +769,8 @@ _MEDIAPLAYERSTATE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=16365,
-  serialized_end=16504,
+  serialized_start=16547,
+  serialized_end=16686,
 )
 _sym_db.RegisterEnumDescriptor(_MEDIAPLAYERSTATE)
 
@@ -810,8 +810,8 @@ _MEDIAPLAYERCOMMAND = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=16507,
-  serialized_end=16685,
+  serialized_start=16689,
+  serialized_end=16867,
 )
 _sym_db.RegisterEnumDescriptor(_MEDIAPLAYERCOMMAND)
 
@@ -846,8 +846,8 @@ _BLUETOOTHDEVICEREQUESTTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=16688,
-  serialized_end=16887,
+  serialized_start=16870,
+  serialized_end=17069,
 )
 _sym_db.RegisterEnumDescriptor(_BLUETOOTHDEVICEREQUESTTYPE)
 
@@ -1425,6 +1425,109 @@ _SUBSCRIBESTATESREQUEST = _descriptor.Descriptor(
 )
 
 
+_SUBSCRIBESTATEATTRIBUTESREQUEST = _descriptor.Descriptor(
+  name='SubscribeStateAttributesRequest',
+  full_name='SubscribeStateAttributesRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'\340@U\350@\002',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=904,
+  serialized_end=945,
+)
+
+
+_STATEATTRIBUTESMAP = _descriptor.Descriptor(
+  name='StateAttributesMap',
+  full_name='StateAttributesMap',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='StateAttributesMap.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='StateAttributesMap.value', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=947,
+  serialized_end=995,
+)
+
+
+_STATEATTRIBUTESRESPONSE = _descriptor.Descriptor(
+  name='StateAttributesResponse',
+  full_name='StateAttributesResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='StateAttributesResponse.key', index=0,
+      number=1, type=7, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='attributes', full_name='StateAttributesResponse.attributes', index=1,
+      number=2, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'\340@V\350@\001',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=997,
+  serialized_end=1084,
+)
+
+
 _LISTENTITIESBINARYSENSORRESPONSE = _descriptor.Descriptor(
   name='ListEntitiesBinarySensorResponse',
   full_name='ListEntitiesBinarySensorResponse',
@@ -1508,8 +1611,8 @@ _LISTENTITIESBINARYSENSORRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=905,
-  serialized_end=1172,
+  serialized_start=1087,
+  serialized_end=1354,
 )
 
 
@@ -1554,8 +1657,8 @@ _BINARYSENSORSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1174,
-  serialized_end=1283,
+  serialized_start=1356,
+  serialized_end=1465,
 )
 
 
@@ -1656,8 +1759,8 @@ _LISTENTITIESCOVERRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1286,
-  serialized_end=1578,
+  serialized_start=1468,
+  serialized_end=1760,
 )
 
 
@@ -1716,8 +1819,8 @@ _COVERSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1581,
-  serialized_end=1754,
+  serialized_start=1763,
+  serialized_end=1936,
 )
 
 
@@ -1797,8 +1900,8 @@ _COVERCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1757,
-  serialized_end=1973,
+  serialized_start=1939,
+  serialized_end=2155,
 )
 
 
@@ -1899,8 +2002,8 @@ _LISTENTITIESFANRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1976,
-  serialized_end=2283,
+  serialized_start=2158,
+  serialized_end=2465,
 )
 
 
@@ -1966,8 +2069,8 @@ _FANSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2286,
-  serialized_end=2459,
+  serialized_start=2468,
+  serialized_end=2641,
 )
 
 
@@ -2068,8 +2171,8 @@ _FANCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2462,
-  serialized_end=2751,
+  serialized_start=2644,
+  serialized_end=2933,
 )
 
 
@@ -2198,8 +2301,8 @@ _LISTENTITIESLIGHTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2754,
-  serialized_end=3200,
+  serialized_start=2936,
+  serialized_end=3382,
 )
 
 
@@ -2314,8 +2417,8 @@ _LIGHTSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3203,
-  serialized_end=3480,
+  serialized_start=3385,
+  serialized_end=3662,
 )
 
 
@@ -2528,8 +2631,8 @@ _LIGHTCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3483,
-  serialized_end=4099,
+  serialized_start=3665,
+  serialized_end=4281,
 )
 
 
@@ -2644,8 +2747,8 @@ _LISTENTITIESSENSORRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4102,
-  serialized_end=4488,
+  serialized_start=4284,
+  serialized_end=4670,
 )
 
 
@@ -2690,8 +2793,8 @@ _SENSORSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4490,
-  serialized_end=4586,
+  serialized_start=4672,
+  serialized_end=4768,
 )
 
 
@@ -2778,8 +2881,8 @@ _LISTENTITIESSWITCHRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4589,
-  serialized_end=4833,
+  serialized_start=4771,
+  serialized_end=5015,
 )
 
 
@@ -2817,8 +2920,8 @@ _SWITCHSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4835,
-  serialized_end=4908,
+  serialized_start=5017,
+  serialized_end=5090,
 )
 
 
@@ -2856,8 +2959,8 @@ _SWITCHCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4910,
-  serialized_end=4984,
+  serialized_start=5092,
+  serialized_end=5166,
 )
 
 
@@ -2930,8 +3033,8 @@ _LISTENTITIESTEXTSENSORRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4987,
-  serialized_end=5195,
+  serialized_start=5169,
+  serialized_end=5377,
 )
 
 
@@ -2976,8 +3079,8 @@ _TEXTSENSORSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5197,
-  serialized_end=5302,
+  serialized_start=5379,
+  serialized_end=5484,
 )
 
 
@@ -3015,8 +3118,8 @@ _SUBSCRIBELOGSREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5304,
-  serialized_end=5381,
+  serialized_start=5486,
+  serialized_end=5563,
 )
 
 
@@ -3061,8 +3164,8 @@ _SUBSCRIBELOGSRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5383,
-  serialized_end=5484,
+  serialized_start=5565,
+  serialized_end=5666,
 )
 
 
@@ -3086,8 +3189,8 @@ _SUBSCRIBEHOMEASSISTANTSERVICESREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5486,
-  serialized_end=5533,
+  serialized_start=5668,
+  serialized_end=5715,
 )
 
 
@@ -3125,8 +3228,8 @@ _HOMEASSISTANTSERVICEMAP = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5535,
-  serialized_end=5588,
+  serialized_start=5717,
+  serialized_end=5770,
 )
 
 
@@ -3185,8 +3288,8 @@ _HOMEASSISTANTSERVICERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5591,
-  serialized_end=5801,
+  serialized_start=5773,
+  serialized_end=5983,
 )
 
 
@@ -3210,8 +3313,8 @@ _SUBSCRIBEHOMEASSISTANTSTATESREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5803,
-  serialized_end=5848,
+  serialized_start=5985,
+  serialized_end=6030,
 )
 
 
@@ -3249,8 +3352,8 @@ _SUBSCRIBEHOMEASSISTANTSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5850,
-  serialized_end=5933,
+  serialized_start=6032,
+  serialized_end=6115,
 )
 
 
@@ -3295,8 +3398,8 @@ _HOMEASSISTANTSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=5935,
-  serialized_end=6027,
+  serialized_start=6117,
+  serialized_end=6209,
 )
 
 
@@ -3320,8 +3423,8 @@ _GETTIMEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6029,
-  serialized_end=6053,
+  serialized_start=6211,
+  serialized_end=6235,
 )
 
 
@@ -3352,8 +3455,8 @@ _GETTIMERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6055,
-  serialized_end=6106,
+  serialized_start=6237,
+  serialized_end=6288,
 )
 
 
@@ -3391,8 +3494,8 @@ _LISTENTITIESSERVICESARGUMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6108,
-  serialized_end=6183,
+  serialized_start=6290,
+  serialized_end=6365,
 )
 
 
@@ -3437,8 +3540,8 @@ _LISTENTITIESSERVICESRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6185,
-  serialized_end=6295,
+  serialized_start=6367,
+  serialized_end=6477,
 )
 
 
@@ -3525,8 +3628,8 @@ _EXECUTESERVICEARGUMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6298,
-  serialized_end=6498,
+  serialized_start=6480,
+  serialized_end=6680,
 )
 
 
@@ -3564,8 +3667,8 @@ _EXECUTESERVICEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6500,
-  serialized_end=6586,
+  serialized_start=6682,
+  serialized_end=6768,
 )
 
 
@@ -3638,8 +3741,8 @@ _LISTENTITIESCAMERARESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6589,
-  serialized_end=6794,
+  serialized_start=6771,
+  serialized_end=6976,
 )
 
 
@@ -3684,8 +3787,8 @@ _CAMERAIMAGERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6796,
-  serialized_end=6885,
+  serialized_start=6978,
+  serialized_end=7067,
 )
 
 
@@ -3723,8 +3826,8 @@ _CAMERAIMAGEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6887,
-  serialized_end=6969,
+  serialized_start=7069,
+  serialized_end=7151,
 )
 
 
@@ -3888,8 +3991,8 @@ _LISTENTITIESCLIMATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=6972,
-  serialized_end=7658,
+  serialized_start=7154,
+  serialized_end=7840,
 )
 
 
@@ -4004,8 +4107,8 @@ _CLIMATESTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=7661,
-  serialized_end=8078,
+  serialized_start=7843,
+  serialized_end=8260,
 )
 
 
@@ -4176,8 +4279,8 @@ _CLIMATECOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=8081,
-  serialized_end=8708,
+  serialized_start=8263,
+  serialized_end=8890,
 )
 
 
@@ -4285,8 +4388,8 @@ _LISTENTITIESNUMBERRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=8711,
-  serialized_end=9018,
+  serialized_start=8893,
+  serialized_end=9200,
 )
 
 
@@ -4331,8 +4434,8 @@ _NUMBERSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9020,
-  serialized_end=9116,
+  serialized_start=9202,
+  serialized_end=9298,
 )
 
 
@@ -4370,8 +4473,8 @@ _NUMBERCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9118,
-  serialized_end=9192,
+  serialized_start=9300,
+  serialized_end=9374,
 )
 
 
@@ -4451,8 +4554,8 @@ _LISTENTITIESSELECTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9195,
-  serialized_end=9411,
+  serialized_start=9377,
+  serialized_end=9593,
 )
 
 
@@ -4497,8 +4600,8 @@ _SELECTSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9413,
-  serialized_end=9509,
+  serialized_start=9595,
+  serialized_end=9691,
 )
 
 
@@ -4536,8 +4639,8 @@ _SELECTCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9511,
-  serialized_end=9585,
+  serialized_start=9693,
+  serialized_end=9767,
 )
 
 
@@ -4631,8 +4734,8 @@ _LISTENTITIESSIRENRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9588,
-  serialized_end=9852,
+  serialized_start=9770,
+  serialized_end=10034,
 )
 
 
@@ -4670,8 +4773,8 @@ _SIRENSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9854,
-  serialized_end=9925,
+  serialized_start=10036,
+  serialized_end=10107,
 )
 
 
@@ -4758,8 +4861,8 @@ _SIRENCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=9928,
-  serialized_end=10127,
+  serialized_start=10110,
+  serialized_end=10309,
 )
 
 
@@ -4860,8 +4963,8 @@ _LISTENTITIESLOCKRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=10130,
-  serialized_end=10415,
+  serialized_start=10312,
+  serialized_end=10597,
 )
 
 
@@ -4899,8 +5002,8 @@ _LOCKSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=10417,
-  serialized_end=10498,
+  serialized_start=10599,
+  serialized_end=10680,
 )
 
 
@@ -4952,8 +5055,8 @@ _LOCKCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=10500,
-  serialized_end=10618,
+  serialized_start=10682,
+  serialized_end=10800,
 )
 
 
@@ -5033,8 +5136,8 @@ _LISTENTITIESBUTTONRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=10621,
-  serialized_end=10842,
+  serialized_start=10803,
+  serialized_end=11024,
 )
 
 
@@ -5065,8 +5168,8 @@ _BUTTONCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=10844,
-  serialized_end=10903,
+  serialized_start=11026,
+  serialized_end=11085,
 )
 
 
@@ -5146,8 +5249,8 @@ _LISTENTITIESMEDIAPLAYERRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=10906,
-  serialized_end=11140,
+  serialized_start=11088,
+  serialized_end=11322,
 )
 
 
@@ -5199,8 +5302,8 @@ _MEDIAPLAYERSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=11143,
-  serialized_end=11277,
+  serialized_start=11325,
+  serialized_end=11459,
 )
 
 
@@ -5273,8 +5376,8 @@ _MEDIAPLAYERCOMMANDREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=11280,
-  serialized_end=11487,
+  serialized_start=11462,
+  serialized_end=11669,
 )
 
 
@@ -5298,8 +5401,8 @@ _SUBSCRIBEBLUETOOTHLEADVERTISEMENTSREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=11489,
-  serialized_end=11540,
+  serialized_start=11671,
+  serialized_end=11722,
 )
 
 
@@ -5344,8 +5447,8 @@ _BLUETOOTHSERVICEDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=11542,
-  serialized_end=11617,
+  serialized_start=11724,
+  serialized_end=11799,
 )
 
 
@@ -5411,8 +5514,8 @@ _BLUETOOTHLEADVERTISEMENTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=11620,
-  serialized_end=11850,
+  serialized_start=11802,
+  serialized_end=12032,
 )
 
 
@@ -5450,8 +5553,8 @@ _BLUETOOTHDEVICEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=11852,
-  serialized_end=11974,
+  serialized_start=12034,
+  serialized_end=12156,
 )
 
 
@@ -5503,8 +5606,8 @@ _BLUETOOTHDEVICECONNECTIONRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=11977,
-  serialized_end=12106,
+  serialized_start=12159,
+  serialized_end=12288,
 )
 
 
@@ -5535,8 +5638,8 @@ _BLUETOOTHGATTGETSERVICESREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12108,
-  serialized_end=12188,
+  serialized_start=12290,
+  serialized_end=12370,
 )
 
 
@@ -5574,8 +5677,8 @@ _BLUETOOTHGATTDESCRIPTOR = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12190,
-  serialized_end=12245,
+  serialized_start=12372,
+  serialized_end=12427,
 )
 
 
@@ -5627,8 +5730,8 @@ _BLUETOOTHGATTCHARACTERISTIC = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12247,
-  serialized_end=12373,
+  serialized_start=12429,
+  serialized_end=12555,
 )
 
 
@@ -5673,8 +5776,8 @@ _BLUETOOTHGATTSERVICE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12375,
-  serialized_end=12482,
+  serialized_start=12557,
+  serialized_end=12664,
 )
 
 
@@ -5712,8 +5815,8 @@ _BLUETOOTHGATTGETSERVICESRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12484,
-  serialized_end=12606,
+  serialized_start=12666,
+  serialized_end=12788,
 )
 
 
@@ -5744,8 +5847,8 @@ _BLUETOOTHGATTGETSERVICESDONERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12608,
-  serialized_end=12693,
+  serialized_start=12790,
+  serialized_end=12875,
 )
 
 
@@ -5783,8 +5886,8 @@ _BLUETOOTHGATTREADREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12695,
-  serialized_end=12784,
+  serialized_start=12877,
+  serialized_end=12966,
 )
 
 
@@ -5829,8 +5932,8 @@ _BLUETOOTHGATTREADRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12786,
-  serialized_end=12890,
+  serialized_start=12968,
+  serialized_end=13072,
 )
 
 
@@ -5882,8 +5985,8 @@ _BLUETOOTHGATTWRITEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=12892,
-  serialized_end=13014,
+  serialized_start=13074,
+  serialized_end=13196,
 )
 
 
@@ -5921,8 +6024,8 @@ _BLUETOOTHGATTREADDESCRIPTORREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13016,
-  serialized_end=13115,
+  serialized_start=13198,
+  serialized_end=13297,
 )
 
 
@@ -5967,8 +6070,8 @@ _BLUETOOTHGATTWRITEDESCRIPTORREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13117,
-  serialized_end=13231,
+  serialized_start=13299,
+  serialized_end=13413,
 )
 
 
@@ -6013,8 +6116,8 @@ _BLUETOOTHGATTNOTIFYREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13233,
-  serialized_end=13340,
+  serialized_start=13415,
+  serialized_end=13522,
 )
 
 
@@ -6059,8 +6162,8 @@ _BLUETOOTHGATTNOTIFYDATARESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13342,
-  serialized_end=13452,
+  serialized_start=13524,
+  serialized_end=13634,
 )
 
 
@@ -6084,8 +6187,8 @@ _SUBSCRIBEBLUETOOTHCONNECTIONSFREEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13454,
-  serialized_end=13526,
+  serialized_start=13636,
+  serialized_end=13708,
 )
 
 
@@ -6123,8 +6226,8 @@ _BLUETOOTHCONNECTIONSFREERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13528,
-  serialized_end=13621,
+  serialized_start=13710,
+  serialized_end=13803,
 )
 
 
@@ -6169,8 +6272,8 @@ _BLUETOOTHGATTERRORRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13623,
-  serialized_end=13729,
+  serialized_start=13805,
+  serialized_end=13911,
 )
 
 
@@ -6208,8 +6311,8 @@ _BLUETOOTHGATTWRITERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13731,
-  serialized_end=13822,
+  serialized_start=13913,
+  serialized_end=14004,
 )
 
 
@@ -6247,10 +6350,11 @@ _BLUETOOTHGATTNOTIFYRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=13824,
-  serialized_end=13916,
+  serialized_start=14006,
+  serialized_end=14098,
 )
 
+_STATEATTRIBUTESRESPONSE.fields_by_name['attributes'].message_type = _STATEATTRIBUTESMAP
 _LISTENTITIESBINARYSENSORRESPONSE.fields_by_name['entity_category'].enum_type = _ENTITYCATEGORY
 _LISTENTITIESCOVERRESPONSE.fields_by_name['entity_category'].enum_type = _ENTITYCATEGORY
 _COVERSTATERESPONSE.fields_by_name['legacy_state'].enum_type = _LEGACYCOVERSTATE
@@ -6320,6 +6424,9 @@ DESCRIPTOR.message_types_by_name['DeviceInfoResponse'] = _DEVICEINFORESPONSE
 DESCRIPTOR.message_types_by_name['ListEntitiesRequest'] = _LISTENTITIESREQUEST
 DESCRIPTOR.message_types_by_name['ListEntitiesDoneResponse'] = _LISTENTITIESDONERESPONSE
 DESCRIPTOR.message_types_by_name['SubscribeStatesRequest'] = _SUBSCRIBESTATESREQUEST
+DESCRIPTOR.message_types_by_name['SubscribeStateAttributesRequest'] = _SUBSCRIBESTATEATTRIBUTESREQUEST
+DESCRIPTOR.message_types_by_name['StateAttributesMap'] = _STATEATTRIBUTESMAP
+DESCRIPTOR.message_types_by_name['StateAttributesResponse'] = _STATEATTRIBUTESRESPONSE
 DESCRIPTOR.message_types_by_name['ListEntitiesBinarySensorResponse'] = _LISTENTITIESBINARYSENSORRESPONSE
 DESCRIPTOR.message_types_by_name['BinarySensorStateResponse'] = _BINARYSENSORSTATERESPONSE
 DESCRIPTOR.message_types_by_name['ListEntitiesCoverResponse'] = _LISTENTITIESCOVERRESPONSE
@@ -6511,6 +6618,27 @@ SubscribeStatesRequest = _reflection.GeneratedProtocolMessageType('SubscribeStat
   # @@protoc_insertion_point(class_scope:SubscribeStatesRequest)
   })
 _sym_db.RegisterMessage(SubscribeStatesRequest)
+
+SubscribeStateAttributesRequest = _reflection.GeneratedProtocolMessageType('SubscribeStateAttributesRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SUBSCRIBESTATEATTRIBUTESREQUEST,
+  '__module__' : 'api_pb2'
+  # @@protoc_insertion_point(class_scope:SubscribeStateAttributesRequest)
+  })
+_sym_db.RegisterMessage(SubscribeStateAttributesRequest)
+
+StateAttributesMap = _reflection.GeneratedProtocolMessageType('StateAttributesMap', (_message.Message,), {
+  'DESCRIPTOR' : _STATEATTRIBUTESMAP,
+  '__module__' : 'api_pb2'
+  # @@protoc_insertion_point(class_scope:StateAttributesMap)
+  })
+_sym_db.RegisterMessage(StateAttributesMap)
+
+StateAttributesResponse = _reflection.GeneratedProtocolMessageType('StateAttributesResponse', (_message.Message,), {
+  'DESCRIPTOR' : _STATEATTRIBUTESRESPONSE,
+  '__module__' : 'api_pb2'
+  # @@protoc_insertion_point(class_scope:StateAttributesResponse)
+  })
+_sym_db.RegisterMessage(StateAttributesResponse)
 
 ListEntitiesBinarySensorResponse = _reflection.GeneratedProtocolMessageType('ListEntitiesBinarySensorResponse', (_message.Message,), {
   'DESCRIPTOR' : _LISTENTITIESBINARYSENSORRESPONSE,
@@ -7072,6 +7200,8 @@ _DEVICEINFORESPONSE._options = None
 _LISTENTITIESREQUEST._options = None
 _LISTENTITIESDONERESPONSE._options = None
 _SUBSCRIBESTATESREQUEST._options = None
+_SUBSCRIBESTATEATTRIBUTESREQUEST._options = None
+_STATEATTRIBUTESRESPONSE._options = None
 _LISTENTITIESBINARYSENSORRESPONSE._options = None
 _BINARYSENSORSTATERESPONSE._options = None
 _LISTENTITIESCOVERRESPONSE._options = None
@@ -7162,8 +7292,8 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=16890,
-  serialized_end=18767,
+  serialized_start=17072,
+  serialized_end=19022,
   methods=[
   _descriptor.MethodDescriptor(
     name='hello',
@@ -7236,9 +7366,19 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
     create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
+    name='subscribe_state_attributes',
+    full_name='APIConnection.subscribe_state_attributes',
+    index=7,
+    containing_service=None,
+    input_type=_SUBSCRIBESTATEATTRIBUTESREQUEST,
+    output_type=api__options__pb2._VOID,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
     name='subscribe_logs',
     full_name='APIConnection.subscribe_logs',
-    index=7,
+    index=8,
     containing_service=None,
     input_type=_SUBSCRIBELOGSREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7248,7 +7388,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='subscribe_homeassistant_services',
     full_name='APIConnection.subscribe_homeassistant_services',
-    index=8,
+    index=9,
     containing_service=None,
     input_type=_SUBSCRIBEHOMEASSISTANTSERVICESREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7258,7 +7398,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='subscribe_home_assistant_states',
     full_name='APIConnection.subscribe_home_assistant_states',
-    index=9,
+    index=10,
     containing_service=None,
     input_type=_SUBSCRIBEHOMEASSISTANTSTATESREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7268,7 +7408,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_time',
     full_name='APIConnection.get_time',
-    index=10,
+    index=11,
     containing_service=None,
     input_type=_GETTIMEREQUEST,
     output_type=_GETTIMERESPONSE,
@@ -7278,7 +7418,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='execute_service',
     full_name='APIConnection.execute_service',
-    index=11,
+    index=12,
     containing_service=None,
     input_type=_EXECUTESERVICEREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7288,7 +7428,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='cover_command',
     full_name='APIConnection.cover_command',
-    index=12,
+    index=13,
     containing_service=None,
     input_type=_COVERCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7298,7 +7438,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='fan_command',
     full_name='APIConnection.fan_command',
-    index=13,
+    index=14,
     containing_service=None,
     input_type=_FANCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7308,7 +7448,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='light_command',
     full_name='APIConnection.light_command',
-    index=14,
+    index=15,
     containing_service=None,
     input_type=_LIGHTCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7318,7 +7458,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='switch_command',
     full_name='APIConnection.switch_command',
-    index=15,
+    index=16,
     containing_service=None,
     input_type=_SWITCHCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7328,7 +7468,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='camera_image',
     full_name='APIConnection.camera_image',
-    index=16,
+    index=17,
     containing_service=None,
     input_type=_CAMERAIMAGEREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7338,7 +7478,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='climate_command',
     full_name='APIConnection.climate_command',
-    index=17,
+    index=18,
     containing_service=None,
     input_type=_CLIMATECOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7348,7 +7488,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='number_command',
     full_name='APIConnection.number_command',
-    index=18,
+    index=19,
     containing_service=None,
     input_type=_NUMBERCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7358,7 +7498,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='select_command',
     full_name='APIConnection.select_command',
-    index=19,
+    index=20,
     containing_service=None,
     input_type=_SELECTCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7368,7 +7508,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='siren_command',
     full_name='APIConnection.siren_command',
-    index=20,
+    index=21,
     containing_service=None,
     input_type=_SIRENCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7378,7 +7518,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='button_command',
     full_name='APIConnection.button_command',
-    index=21,
+    index=22,
     containing_service=None,
     input_type=_BUTTONCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7388,7 +7528,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='lock_command',
     full_name='APIConnection.lock_command',
-    index=22,
+    index=23,
     containing_service=None,
     input_type=_LOCKCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7398,7 +7538,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='media_player_command',
     full_name='APIConnection.media_player_command',
-    index=23,
+    index=24,
     containing_service=None,
     input_type=_MEDIAPLAYERCOMMANDREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7408,7 +7548,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='subscribe_bluetooth_le_advertisements',
     full_name='APIConnection.subscribe_bluetooth_le_advertisements',
-    index=24,
+    index=25,
     containing_service=None,
     input_type=_SUBSCRIBEBLUETOOTHLEADVERTISEMENTSREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7418,7 +7558,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='bluetooth_device_request',
     full_name='APIConnection.bluetooth_device_request',
-    index=25,
+    index=26,
     containing_service=None,
     input_type=_BLUETOOTHDEVICEREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7428,7 +7568,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='bluetooth_gatt_get_services',
     full_name='APIConnection.bluetooth_gatt_get_services',
-    index=26,
+    index=27,
     containing_service=None,
     input_type=_BLUETOOTHGATTGETSERVICESREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7438,7 +7578,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='bluetooth_gatt_read',
     full_name='APIConnection.bluetooth_gatt_read',
-    index=27,
+    index=28,
     containing_service=None,
     input_type=_BLUETOOTHGATTREADREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7448,7 +7588,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='bluetooth_gatt_write',
     full_name='APIConnection.bluetooth_gatt_write',
-    index=28,
+    index=29,
     containing_service=None,
     input_type=_BLUETOOTHGATTWRITEREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7458,7 +7598,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='bluetooth_gatt_read_descriptor',
     full_name='APIConnection.bluetooth_gatt_read_descriptor',
-    index=29,
+    index=30,
     containing_service=None,
     input_type=_BLUETOOTHGATTREADDESCRIPTORREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7468,7 +7608,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='bluetooth_gatt_write_descriptor',
     full_name='APIConnection.bluetooth_gatt_write_descriptor',
-    index=30,
+    index=31,
     containing_service=None,
     input_type=_BLUETOOTHGATTWRITEDESCRIPTORREQUEST,
     output_type=api__options__pb2._VOID,
@@ -7478,7 +7618,7 @@ _APICONNECTION = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='bluetooth_gatt_notify',
     full_name='APIConnection.bluetooth_gatt_notify',
-    index=31,
+    index=32,
     containing_service=None,
     input_type=_BLUETOOTHGATTNOTIFYREQUEST,
     output_type=api__options__pb2._VOID,
