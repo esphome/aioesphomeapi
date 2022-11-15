@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Generate proto files",
+      "type": "shell",
+      "command": "script/gen-protoc",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "never",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
