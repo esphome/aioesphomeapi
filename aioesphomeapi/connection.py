@@ -531,7 +531,10 @@ class APIConnection:
                 # Socket closed but task isn't cancelled yet
                 break
 
-            msg = await self._to_process.get()
+            try:
+                msg = await self._to_process.get()
+            except RuntimeError:
+                break
 
             for handler in self._message_handlers[:]:
                 handler(msg)
