@@ -1,5 +1,6 @@
 # pylint: disable=too-many-lines
 import asyncio
+import contextlib
 import logging
 from typing import (
     Any,
@@ -519,19 +520,27 @@ class APIClient:
             async with async_timeout.timeout(timeout):
                 await event.wait()
         except asyncio.TimeoutError as err:
+            # Disconnect before raising the exception to ensure
+            # the slot is recovered before the timeout is raised
+            # to avoid race were we run out even though we have a slot.
+            await self.bluetooth_device_disconnect(address)
+            disconnect_timed_out = True
+            addr = to_human_readable_address(address)
+            _LOGGER.warning("%s: Connecting timed out, waiting for disconnect", addr)
+            with contextlib.suppress(Exception, asyncio.TimeoutError):
+                async with async_timeout.timeout(timeout):
+                    await event.wait()
+                    disconnect_timed_out = False
+            _LOGGER.warning("%s: Disconnect timed out: %s", addr, disconnect_timed_out)
             try:
                 unsub()
             except ValueError:
                 _LOGGER.warning(
                     "%s: Bluetooth device connection timed out but already unsubscribed",
                     to_human_readable_address(address),
-                )
-            # Disconnect before raising the exception to ensure
-            # the slot is recovered before the timeout is raised
-            # to avoid race were we run out even though we have a slot.
-            await self.bluetooth_device_disconnect(address)
+                )            
             raise TimeoutAPIError(
-                f"Timeout waiting for connect response while connecting to {to_human_readable_address(address)} after {timeout}s"
+                f"Timeout waiting for connect response while connecting to {to_human_readable_address(address)} after {timeout}s, disconnect timed out: {disconnect_timed_out}"
             ) from err
 
         return unsub
