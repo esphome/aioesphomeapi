@@ -528,12 +528,12 @@ class APIClient:
             await self.bluetooth_device_disconnect(address)
             disconnect_timed_out = True
             addr = to_human_readable_address(address)
-            _LOGGER.warning("%s: Connecting timed out, waiting for disconnect", addr)
+            _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
             with contextlib.suppress(Exception, asyncio.TimeoutError):
                 async with async_timeout.timeout(disconnect_timeout):
                     await event.wait()
                     disconnect_timed_out = False
-            _LOGGER.warning("%s: Disconnect timed out: %s", addr, disconnect_timed_out)
+            _LOGGER.debug("%s: Disconnect timed out: %s", addr, disconnect_timed_out)
             try:
                 unsub()
             except ValueError:
