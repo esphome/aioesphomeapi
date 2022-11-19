@@ -164,6 +164,7 @@ from .model import (
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
+DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
 
 ExecuteServiceDataType = Dict[
     str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
@@ -491,6 +492,7 @@ class APIClient:
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         timeout: float = DEFAULT_BLE_TIMEOUT,
+        disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
     ) -> Callable[[], None]:
         self._check_authenticated()
 
@@ -528,7 +530,7 @@ class APIClient:
             addr = to_human_readable_address(address)
             _LOGGER.warning("%s: Connecting timed out, waiting for disconnect", addr)
             with contextlib.suppress(Exception, asyncio.TimeoutError):
-                async with async_timeout.timeout(timeout):
+                async with async_timeout.timeout(disconnect_timeout):
                     await event.wait()
                     disconnect_timed_out = False
             _LOGGER.warning("%s: Disconnect timed out: %s", addr, disconnect_timed_out)
@@ -538,7 +540,7 @@ class APIClient:
                 _LOGGER.warning(
                     "%s: Bluetooth device connection timed out but already unsubscribed",
                     to_human_readable_address(address),
-                )            
+                )
             raise TimeoutAPIError(
                 f"Timeout waiting for connect response while connecting to {to_human_readable_address(address)} after {timeout}s, disconnect timed out: {disconnect_timed_out}"
             ) from err
