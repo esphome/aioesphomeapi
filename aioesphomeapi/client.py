@@ -1,6 +1,5 @@
 # pylint: disable=too-many-lines
 import asyncio
-import contextlib
 import logging
 from typing import (
     Any,
@@ -526,13 +525,14 @@ class APIClient:
             # the slot is recovered before the timeout is raised
             # to avoid race were we run out even though we have a slot.
             await self.bluetooth_device_disconnect(address)
-            disconnect_timed_out = True
             addr = to_human_readable_address(address)
             _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
-            with contextlib.suppress(Exception, asyncio.TimeoutError):
+            try:
                 async with async_timeout.timeout(disconnect_timeout):
                     await event.wait()
                     disconnect_timed_out = False
+            except asyncio.TimeoutError:
+                disconnect_timed_out = True
             _LOGGER.debug("%s: Disconnect timed out: %s", addr, disconnect_timed_out)
             try:
                 unsub()
