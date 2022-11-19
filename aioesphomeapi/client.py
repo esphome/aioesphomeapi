@@ -539,10 +539,12 @@ class APIClient:
             except ValueError:
                 _LOGGER.warning(
                     "%s: Bluetooth device connection timed out but already unsubscribed",
-                    to_human_readable_address(address),
+                    addr,
                 )
             raise TimeoutAPIError(
-                f"Timeout waiting for connect response while connecting to {to_human_readable_address(address)} after {timeout}s, disconnect timed out: {disconnect_timed_out}"
+                f"Timeout waiting for connect response while connecting to "{addr} "
+                f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
+                " after {disconnect_timeout}s"
             ) from err
 
         return unsub
