@@ -542,7 +542,7 @@ class APIClient:
                     addr,
                 )
             raise TimeoutAPIError(
-                f"Timeout waiting for connect response while connecting to "{addr} "
+                f"Timeout waiting for connect response while connecting to {addr} "
                 f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
                 f" after {disconnect_timeout}s"
             ) from err
