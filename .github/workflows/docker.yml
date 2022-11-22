@@ -52,4 +52,4 @@ jobs:
           pull: true
           cache-to: type=inline
           cache-from: ghcr.io/esphome/aioesphomeapi-proto-builder:latest
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm64
