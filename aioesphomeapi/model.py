@@ -565,6 +565,7 @@ class NumberInfo(EntityInfo):
     mode: Optional[NumberMode] = converter_field(
         default=NumberMode.AUTO, converter=NumberMode.convert
     )
+    device_class: str = ""
 
 
 @dataclass(frozen=True)
