@@ -557,7 +557,6 @@ class APIClient:
                     "%s: Bluetooth device connection canceled but already unsubscribed",
                     addr,
                 )
-            await self.bluetooth_device_disconnect(address)
             raise
 
         return unsub
