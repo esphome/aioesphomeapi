@@ -492,6 +492,7 @@ class APIClient:
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         timeout: float = DEFAULT_BLE_TIMEOUT,
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
+        resolve_services: bool = True,
     ) -> Callable[[], None]:
         self._check_authenticated()
 
@@ -505,11 +506,11 @@ class APIClient:
                     event.set()
 
         assert self._connection is not None
+        request_type = BluetoothDeviceRequestType.CONNECT
+        if not resolve_services:
+            request_type = BluetoothDeviceRequestType.CONNECT_WITHOUT_RESOLVE_SERVICES
         await self._connection.send_message_callback_response(
-            BluetoothDeviceRequest(
-                address=address,
-                request_type=BluetoothDeviceRequestType.CONNECT,
-            ),
+            BluetoothDeviceRequest(address=address, request_type=request_type),
             on_msg,
         )
 
