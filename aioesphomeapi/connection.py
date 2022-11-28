@@ -423,7 +423,11 @@ class APIConnection:
     ) -> None:
         """Send a message to the remote and register the given message handler."""
         self._message_handlers.append(on_message)
-        await self.send_message(send_msg)
+        try:
+            await self.send_message(send_msg)
+        except asyncio.CancelledError:
+            self._message_handlers.remove(on_message)
+            raise
 
     async def send_message_await_response_complex(
         self,

@@ -321,7 +321,7 @@ class APIClient:
 
         assert self._connection is not None
         resp = await self._connection.send_message_await_response_complex(
-            ListEntitiesRequest(), do_append, do_stop, timeout=30
+            ListEntitiesRequest(), do_append, do_stop, timeout=60
         )
         entities: List[EntityInfo] = []
         services: List[UserService] = []
@@ -531,34 +531,46 @@ class APIClient:
                 self._connection.remove_message_callback(on_msg)
 
         try:
-            async with async_timeout.timeout(timeout):
-                await event.wait()
-        except asyncio.TimeoutError as err:
-            # Disconnect before raising the exception to ensure
-            # the slot is recovered before the timeout is raised
-            # to avoid race were we run out even though we have a slot.
-            await self.bluetooth_device_disconnect(address)
-            addr = to_human_readable_address(address)
-            _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
             try:
-                async with async_timeout.timeout(disconnect_timeout):
+                async with async_timeout.timeout(timeout):
                     await event.wait()
-                    disconnect_timed_out = False
-            except asyncio.TimeoutError:
-                disconnect_timed_out = True
-            _LOGGER.debug("%s: Disconnect timed out: %s", addr, disconnect_timed_out)
+            except asyncio.TimeoutError as err:
+                # Disconnect before raising the exception to ensure
+                # the slot is recovered before the timeout is raised
+                # to avoid race were we run out even though we have a slot.
+                await self.bluetooth_device_disconnect(address)
+                addr = to_human_readable_address(address)
+                _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
+                try:
+                    async with async_timeout.timeout(disconnect_timeout):
+                        await event.wait()
+                        disconnect_timed_out = False
+                except asyncio.TimeoutError:
+                    disconnect_timed_out = True
+                _LOGGER.debug(
+                    "%s: Disconnect timed out: %s", addr, disconnect_timed_out
+                )
+                try:
+                    unsub()
+                except ValueError:
+                    _LOGGER.warning(
+                        "%s: Bluetooth device connection timed out but already unsubscribed",
+                        addr,
+                    )
+                raise TimeoutAPIError(
+                    f"Timeout waiting for connect response while connecting to {addr} "
+                    f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
+                    f" after {disconnect_timeout}s"
+                ) from err
+        except asyncio.CancelledError:
             try:
                 unsub()
             except ValueError:
                 _LOGGER.warning(
-                    "%s: Bluetooth device connection timed out but already unsubscribed",
+                    "%s: Bluetooth device connection canceled but already unsubscribed",
                     addr,
                 )
-            raise TimeoutAPIError(
-                f"Timeout waiting for connect response while connecting to {addr} "
-                f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
-                f" after {disconnect_timeout}s"
-            ) from err
+            raise
 
         return unsub
 
