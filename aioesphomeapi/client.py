@@ -677,11 +677,17 @@ class APIClient:
         handle: int,
         data: bytes,
         timeout: float = DEFAULT_BLE_TIMEOUT,
+        response: bool = True,
     ) -> None:
         req = BluetoothGATTWriteDescriptorRequest()
         req.address = address
         req.handle = handle
         req.data = data
+
+        if not response:
+            assert self._connection is not None
+            await self._connection.send_message(req)
+            return
 
         await self._send_bluetooth_message_await_response(
             address,
