@@ -913,7 +913,8 @@ class BluetoothDeviceRequestType(APIIntEnum):
     DISCONNECT = 1
     PAIR = 2
     UNPAIR = 3
-    CONNECT_WITH_CACHE = 4
+    CONNECT_V2_WITH_CACHE = 4
+    CONNECT_V2_WITHOUT_CACHE = 5
 
 
 class LogLevel(APIIntEnum):

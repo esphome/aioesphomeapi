@@ -492,6 +492,7 @@ class APIClient:
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         timeout: float = DEFAULT_BLE_TIMEOUT,
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
+        version: int = 1,
         has_cache: bool = False,
     ) -> Callable[[], None]:
         self._check_authenticated()
@@ -507,12 +508,17 @@ class APIClient:
 
         assert self._connection is not None
         if has_cache:
-            # If the client does not need the resolve services or
-            # configure the MTU it can use the cached connection.
-            _LOGGER.debug("%s: Using cached connection", address)
-            request_type = BluetoothDeviceRequestType.CONNECT_WITH_CACHE
+            # Version 2 with cache: requestor has services and mtu cached
+            _LOGGER.debug("%s: Using connection version 2 with cache", address)
+            request_type = BluetoothDeviceRequestType.CONNECT_V2_WITH_CACHE
+        elif version >= 2:
+            # Version 2 without cache: esp will wipe the service list after sending to save memory
+            _LOGGER.debug("%s: Using connection version 2 without cache", address)
+            request_type = BluetoothDeviceRequestType.CONNECT_V2_WITHOUT_CACHE
         else:
-            _LOGGER.debug("%s: Resolving services and mtu", address)
+            # Version 1 without cache: esp will hold the service list in memory for the duration
+            # of the connection. This can crash the esp if the service list is too large.
+            _LOGGER.debug("%s: Using connection version 1", address)
             request_type = BluetoothDeviceRequestType.CONNECT
 
         await self._connection.send_message_callback_response(
