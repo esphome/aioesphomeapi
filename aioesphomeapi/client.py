@@ -683,7 +683,6 @@ class APIClient:
         handle: int,
         data: bytes,
         timeout: float = DEFAULT_BLE_TIMEOUT,
-        response: bool = True,
         wait_for_response: bool = True,
     ) -> None:
         req = BluetoothGATTWriteDescriptorRequest()
