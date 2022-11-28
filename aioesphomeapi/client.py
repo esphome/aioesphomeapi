@@ -506,11 +506,15 @@ class APIClient:
                     event.set()
 
         assert self._connection is not None
-        request_type = BluetoothDeviceRequestType.CONNECT
         if has_cache:
             # If the client does not need the resolve services or
             # configure the MTU it can use the cached connection.
+            _LOGGER.debug("%s: Using cached connection", address)
             request_type = BluetoothDeviceRequestType.CONNECT_WITH_CACHE
+        else:
+            _LOGGER.debug("%s: Resolving services and mtu", address)
+            request_type = BluetoothDeviceRequestType.CONNECT
+
         await self._connection.send_message_callback_response(
             BluetoothDeviceRequest(address=address, request_type=request_type),
             on_msg,
