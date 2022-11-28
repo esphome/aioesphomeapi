@@ -689,7 +689,6 @@ class APIClient:
         req.address = address
         req.handle = handle
         req.data = data
-        # response is not used by the ESP32 currently
 
         if not wait_for_response:
             assert self._connection is not None
