@@ -508,15 +508,15 @@ class APIClient:
 
         assert self._connection is not None
         if has_cache:
-            # Version 2 with cache: requestor has services and mtu cached
+            # Version 3 with cache: requestor has services and mtu cached
             _LOGGER.debug("%s: Using connection version 2 with cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
         elif version >= 3:
-            # Version 2 without cache: esp will wipe the service list after sending to save memory
+            # Version 3 without cache: esp will wipe the service list after sending to save memory
             _LOGGER.debug("%s: Using connection version 2 without cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
         else:
-            # Version 1 without cache: esp will hold the service list in memory for the duration
+            # Older than v3 without cache: esp will hold the service list in memory for the duration
             # of the connection. This can crash the esp if the service list is too large.
             _LOGGER.debug("%s: Using connection version 1", address)
             request_type = BluetoothDeviceRequestType.CONNECT
