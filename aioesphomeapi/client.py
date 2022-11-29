@@ -494,7 +494,7 @@ class APIClient:
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
         version: int = 1,
         has_cache: bool = False,
-        address_type: int = 0,
+        address_type: int | None = None,
     ) -> Callable[[], None]:
         self._check_authenticated()
 
@@ -524,7 +524,10 @@ class APIClient:
 
         await self._connection.send_message_callback_response(
             BluetoothDeviceRequest(
-                address=address, request_type=request_type, address_type=address_type
+                address=address, 
+                request_type=request_type, 
+                has_address_type=address_type is not None,
+                address_type=address_type or 0
             ),
             on_msg,
         )
