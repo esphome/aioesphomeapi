@@ -524,10 +524,10 @@ class APIClient:
 
         await self._connection.send_message_callback_response(
             BluetoothDeviceRequest(
-                address=address, 
-                request_type=request_type, 
+                address=address,
+                request_type=request_type,
                 has_address_type=address_type is not None,
-                address_type=address_type or 0
+                address_type=address_type or 0,
             ),
             on_msg,
         )
