@@ -494,7 +494,7 @@ class APIClient:
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
         version: int = 1,
         has_cache: bool = False,
-        address_type: int | None = None,
+        address_type: Optional[int] = None,
     ) -> Callable[[], None]:
         self._check_authenticated()
 
