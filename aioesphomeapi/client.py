@@ -511,7 +511,7 @@ class APIClient:
             # Version 2 with cache: requestor has services and mtu cached
             _LOGGER.debug("%s: Using connection version 2 with cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
-        elif version >= 2:
+        elif version >= 3:
             # Version 2 without cache: esp will wipe the service list after sending to save memory
             _LOGGER.debug("%s: Using connection version 2 without cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
