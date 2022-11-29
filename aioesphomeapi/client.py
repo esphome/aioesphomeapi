@@ -492,6 +492,8 @@ class APIClient:
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         timeout: float = DEFAULT_BLE_TIMEOUT,
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
+        version: int = 1,
+        has_cache: bool = False,
     ) -> Callable[[], None]:
         self._check_authenticated()
 
@@ -505,11 +507,22 @@ class APIClient:
                     event.set()
 
         assert self._connection is not None
+        if has_cache:
+            # Version 3 with cache: requestor has services and mtu cached
+            _LOGGER.debug("%s: Using connection version 3 with cache", address)
+            request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
+        elif version >= 3:
+            # Version 3 without cache: esp will wipe the service list after sending to save memory
+            _LOGGER.debug("%s: Using connection version 3 without cache", address)
+            request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
+        else:
+            # Older than v3 without cache: esp will hold the service list in memory for the duration
+            # of the connection. This can crash the esp if the service list is too large.
+            _LOGGER.debug("%s: Using connection version 1", address)
+            request_type = BluetoothDeviceRequestType.CONNECT
+
         await self._connection.send_message_callback_response(
-            BluetoothDeviceRequest(
-                address=address,
-                request_type=BluetoothDeviceRequestType.CONNECT,
-            ),
+            BluetoothDeviceRequest(address=address, request_type=request_type),
             on_msg,
         )
 
@@ -682,11 +695,17 @@ class APIClient:
         handle: int,
         data: bytes,
         timeout: float = DEFAULT_BLE_TIMEOUT,
+        wait_for_response: bool = True,
     ) -> None:
         req = BluetoothGATTWriteDescriptorRequest()
         req.address = address
         req.handle = handle
         req.data = data
+
+        if not wait_for_response:
+            assert self._connection is not None
+            await self._connection.send_message(req)
+            return
 
         await self._send_bluetooth_message_await_response(
             address,
