@@ -797,6 +797,7 @@ class BluetoothLEAdvertisement(APIModelBase):
     address: int = 0
     name: str = ""
     rssi: int = 0
+    address_type: int = 0
 
     service_uuids: List[str] = converter_field(
         default_factory=list, converter=_convert_bluetooth_le_service_uuids
