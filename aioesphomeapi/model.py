@@ -758,11 +758,6 @@ class UserService(APIModelBase):
 
 
 # ==================== BLUETOOTH ====================
-def _long_uuid(uuid: str) -> str:
-    """Convert a UUID to a long UUID."""
-    return (
-        f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb" if len(uuid) < 8 else uuid
-    ).lower()
 
 
 def _join_split_uuid(value: List[int]) -> str:
@@ -771,7 +766,15 @@ def _join_split_uuid(value: List[int]) -> str:
 
 
 def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
-    return [_long_uuid(v) for v in value]
+    if not value:
+        # empty list, don't convert
+        return value
+
+    # Long UUID inlined to avoid call stack inside the list comprehension
+    return [
+        f"0000{v[2:].lower()}-0000-1000-8000-00805f9b34fb" if len(v) < 8 else v.lower()
+        for v in value
+    ]
 
 
 def _convert_bluetooth_le_service_data(
@@ -780,7 +783,14 @@ def _convert_bluetooth_le_service_data(
     if isinstance(value, dict):
         return value
 
-    return {_long_uuid(v.uuid): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
+    # Long UUID inlined to avoid call stack inside the dict comprehension
+    return {
+        f"0000{v.uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"  # type: ignore[union-attr]
+        if len(v.uuid) < 8  # type: ignore[union-attr]
+        # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
+        else v.uuid.lower(): bytes(v.data if v.data else v.legacy_data)  # type: ignore[union-attr]
+        for v in value
+    }
 
 
 def _convert_bluetooth_le_manufacturer_data(
@@ -788,7 +798,7 @@ def _convert_bluetooth_le_manufacturer_data(
 ) -> Dict[int, bytes]:
     if isinstance(value, dict):
         return value
-    # v.data if v.data else v.legacy_data is backwards compatable with ESPHome devices before 2022.10.0
+    # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
     return {int(v.uuid, 16): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
 
 
