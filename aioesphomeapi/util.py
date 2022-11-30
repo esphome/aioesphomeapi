@@ -23,9 +23,9 @@ def bytes_to_varuint(value: bytes) -> Optional[int]:
     bitpos = 0
     for val in value:
         result |= (val & 0x7F) << bitpos
-        bitpos += 7
         if (val & 0x80) == 0:
             return result
+        bitpos += 7
     return None
 
 
