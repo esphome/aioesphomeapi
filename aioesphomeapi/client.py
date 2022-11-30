@@ -665,6 +665,11 @@ class APIClient:
         req.response = response
         req.data = data
 
+        if not response:
+            assert self._connection is not None
+            await self._connection.send_message(req)
+            return
+
         await self._send_bluetooth_message_await_response(
             address,
             handle,
