@@ -765,6 +765,7 @@ def _join_split_uuid(value: List[int]) -> str:
     return str(UUID(int=((value[0] << 64) | value[1])))
 
 
+# value is likely a google.protobuf.pyext._message.RepeatedScalarContainer
 def _convert_bluetooth_le_service_uuids(value: Iterable[str]) -> List[str]:
     if not value:
         # empty list, don't convert
