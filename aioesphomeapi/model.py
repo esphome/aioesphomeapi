@@ -765,10 +765,10 @@ def _join_split_uuid(value: List[int]) -> str:
     return str(UUID(int=((value[0] << 64) | value[1])))
 
 
-def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
+def _convert_bluetooth_le_service_uuids(value: Iterable[str]) -> List[str]:
     if not value:
         # empty list, don't convert
-        return value
+        return []
 
     # Long UUID inlined to avoid call stack inside the list comprehension
     return [
