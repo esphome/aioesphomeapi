@@ -57,7 +57,7 @@ def auth_client():
 
 
 def patch_response_complex(client: APIClient, messages):
-    async def patched(req, app, stop, timeout=5.0):
+    async def patched(req, app, stop, msg_types, timeout=5.0):
         resp = []
         for msg in messages:
             if app(msg):
@@ -74,7 +74,7 @@ def patch_response_complex(client: APIClient, messages):
 def patch_response_callback(client: APIClient):
     on_message = None
 
-    async def patched(req, callback):
+    async def patched(req, callback, msg_types):
         nonlocal on_message
         on_message = callback
 
