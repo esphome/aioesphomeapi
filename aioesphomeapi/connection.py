@@ -49,6 +49,8 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 
+INTERNAL_MESSAGE_TYPES = (GetTimeRequest, PingRequest, DisconnectRequest)
+
 
 @dataclass
 class ConnectionParams:
@@ -105,7 +107,7 @@ class APIConnection:
 
         self._ping_stop_event = asyncio.Event()
 
-        self._to_process: asyncio.Queue[Packet] = asyncio.Queue()
+        self._to_process: asyncio.Queue[Optional[Packet]] = asyncio.Queue()
 
         self._process_task: Optional[asyncio.Task[None]] = None
 
@@ -120,6 +122,9 @@ class APIConnection:
 
         async def _do_cleanup() -> None:
             async with self._connect_lock:
+                # Tell the process loop to stop
+                self._to_process.put_nowait(None)
+
                 if self._frame_helper is not None:
                     await self._frame_helper.close()
                     self._frame_helper = None
@@ -388,10 +393,13 @@ class APIConnection:
         encoded = msg.SerializeToString()
         _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
 
+        frame_helper = self._frame_helper
+        assert frame_helper is not None
+        if not frame_helper.ready:
+            await frame_helper.wait_for_ready()
+
         try:
-            assert self._frame_helper is not None
-            # pylint: disable=undefined-loop-variable
-            await self._frame_helper.write_packet(
+            frame_helper.write_packet(
                 Packet(
                     type=message_type,
                     data=encoded,
@@ -512,48 +520,60 @@ class APIConnection:
         await self._cleanup()
 
     async def _process_loop(self) -> None:
+        to_process = self._to_process
         while True:
-            if not self._is_socket_open:
-                # Socket closed but task isn't cancelled yet
-                break
-
             try:
-                pkt = await self._to_process.get()
+                pkt = await to_process.get()
             except RuntimeError:
                 break
 
+            if pkt is None:
+                # Socket closed but task isn't cancelled yet
+                break
+
             msg_type = pkt.type
-            raw_msg = pkt.data
             if msg_type not in MESSAGE_TYPE_TO_PROTO:
                 _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type)
                 continue
 
             msg = MESSAGE_TYPE_TO_PROTO[msg_type]()
             try:
-                msg.ParseFromString(raw_msg)
+                msg.ParseFromString(pkt.data)
             except Exception as e:
                 await self._report_fatal_error(
                     ProtocolAPIError(f"Invalid protobuf message: {e}")
                 )
                 raise
+
             _LOGGER.debug(
                 "%s: Got message of type %s: %s", self.log_name, type(msg), msg
             )
 
             for handler in self._message_handlers[:]:
                 handler(msg)
-            await self._handle_internal_messages(msg)
+
+            # Pre-check the message type to avoid awaiting
+            # since most messages are not internal messages
+            if isinstance(msg, INTERNAL_MESSAGE_TYPES):
+                await self._handle_internal_messages(msg)
 
     async def _read_loop(self) -> None:
-        assert self._frame_helper is not None
+        frame_helper = self._frame_helper
+        assert frame_helper is not None
+        await frame_helper.wait_for_ready()
+        to_process = self._to_process
         try:
-            while True:
-                if not self._is_socket_open:
-                    # Socket closed but task isn't cancelled yet
-                    break
-                self._to_process.put_nowait(await self._frame_helper.read_packet())
+            # Once its ready, we hold the lock for the duration of the
+            # connection so we don't have to keep locking/unlocking
+            async with frame_helper.read_lock:
+                while True:
+                    to_process.put_nowait(await frame_helper.read_packet_with_lock())
         except SocketClosedAPIError as err:
             # don't log with info, if closed the site that closed the connection should log
+            if not self._is_socket_open:
+                # If we expected the socket to be closed, don't log
+                # the error.
+                return
             _LOGGER.debug(
                 "%s: Socket closed, stopping read loop",
                 self.log_name,
