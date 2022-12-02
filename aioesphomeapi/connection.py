@@ -5,7 +5,7 @@ import socket
 import time
 from contextlib import suppress
 from dataclasses import astuple, dataclass
-from typing import Any, Callable, Coroutine, List, Optional
+from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional, Type
 
 import async_timeout
 from google.protobuf import message
@@ -49,7 +49,9 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 
-INTERNAL_MESSAGE_TYPES = (GetTimeRequest, PingRequest, DisconnectRequest)
+INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
+
+PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 
 @dataclass
@@ -98,7 +100,7 @@ class APIConnection:
         self._connect_complete = False
 
         # Message handlers currently subscribed to incoming messages
-        self._message_handlers: List[Callable[[message.Message], None]] = []
+        self._message_handlers: Dict[Any, List[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
         self.log_name = params.address
 
@@ -384,12 +386,9 @@ class APIConnection:
         if not self._is_socket_open:
             raise APIConnectionError("Connection isn't established yet")
 
-        for message_type, klass in MESSAGE_TYPE_TO_PROTO.items():
-            if isinstance(msg, klass):
-                break
-        else:
+        message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
+        if not message_type:
             raise ValueError(f"Message type id not found for type {type(msg)}")
-
         encoded = msg.SerializeToString()
         _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
 
@@ -412,29 +411,39 @@ class APIConnection:
             raise
 
     def add_message_callback(
-        self, on_message: Callable[[Any], None]
+        self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
     ) -> Callable[[], None]:
         """Add a message callback."""
-        self._message_handlers.append(on_message)
+        for msg_type in msg_types:
+            self._message_handlers.setdefault(msg_type, []).append(on_message)
 
         def unsub() -> None:
-            self._message_handlers.remove(on_message)
+            for msg_type in msg_types:
+                self._message_handlers[msg_type].remove(on_message)
 
         return unsub
 
-    def remove_message_callback(self, on_message: Callable[[Any], None]) -> None:
+    def remove_message_callback(
+        self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
+    ) -> None:
         """Remove a message callback."""
-        self._message_handlers.remove(on_message)
+        for msg_type in msg_types:
+            self._message_handlers[msg_type].remove(on_message)
 
     async def send_message_callback_response(
-        self, send_msg: message.Message, on_message: Callable[[Any], None]
+        self,
+        send_msg: message.Message,
+        on_message: Callable[[Any], None],
+        msg_types: Iterable[Type[Any]],
     ) -> None:
         """Send a message to the remote and register the given message handler."""
-        self._message_handlers.append(on_message)
+        for msg_type in msg_types:
+            self._message_handlers.setdefault(msg_type, []).append(on_message)
         try:
             await self.send_message(send_msg)
         except asyncio.CancelledError:
-            self._message_handlers.remove(on_message)
+            for msg_type in msg_types:
+                self._message_handlers[msg_type].remove(on_message)
             raise
 
     async def send_message_await_response_complex(
@@ -442,6 +451,7 @@ class APIConnection:
         send_msg: message.Message,
         do_append: Callable[[message.Message], bool],
         do_stop: Callable[[message.Message], bool],
+        msg_types: Iterable[Type[Any]],
         timeout: float = 10.0,
     ) -> List[message.Message]:
         """Send a message to the remote and build up a list response.
@@ -472,11 +482,15 @@ class APIConnection:
                     new_exc.__cause__ = exc
                 fut.set_exception(new_exc)
 
-        self._message_handlers.append(on_message)
+        for msg_type in msg_types:
+            self._message_handlers.setdefault(msg_type, []).append(on_message)
         self._read_exception_handlers.append(on_read_exception)
-        await self.send_message(send_msg)
+        # We must not await without a finally or
+        # the message could fail to be removed if the
+        # the await is cancelled
 
         try:
+            await self.send_message(send_msg)
             async with async_timeout.timeout(timeout):
                 await fut
         except asyncio.TimeoutError as err:
@@ -485,7 +499,8 @@ class APIConnection:
             ) from err
         finally:
             with suppress(ValueError):
-                self._message_handlers.remove(on_message)
+                for msg_type in msg_types:
+                    self._message_handlers[msg_type].remove(on_message)
             with suppress(ValueError):
                 self._read_exception_handlers.remove(on_read_exception)
 
@@ -494,11 +509,12 @@ class APIConnection:
     async def send_message_await_response(
         self, send_msg: message.Message, response_type: Any, timeout: float = 10.0
     ) -> Any:
-        def is_response(msg: message.Message) -> bool:
-            return isinstance(msg, response_type)
-
         res = await self.send_message_await_response_complex(
-            send_msg, is_response, is_response, timeout=timeout
+            send_msg,
+            lambda msg: True,  # we will only get responses of `response_type`
+            lambda msg: True,  # we will only get responses of `response_type`
+            (response_type,),
+            timeout=timeout,
         )
         if len(res) != 1:
             raise APIConnectionError(f"Expected one result, got {len(res)}")
@@ -531,12 +547,14 @@ class APIConnection:
                 # Socket closed but task isn't cancelled yet
                 break
 
-            msg_type = pkt.type
-            if msg_type not in MESSAGE_TYPE_TO_PROTO:
-                _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type)
+            msg_type_proto = pkt.type
+            if msg_type_proto not in MESSAGE_TYPE_TO_PROTO:
+                _LOGGER.debug(
+                    "%s: Skipping message type %s", self.log_name, msg_type_proto
+                )
                 continue
 
-            msg = MESSAGE_TYPE_TO_PROTO[msg_type]()
+            msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
             try:
                 msg.ParseFromString(pkt.data)
             except Exception as e:
@@ -545,16 +563,18 @@ class APIConnection:
                 )
                 raise
 
+            msg_type = type(msg)
+
             _LOGGER.debug(
-                "%s: Got message of type %s: %s", self.log_name, type(msg), msg
+                "%s: Got message of type %s: %s", self.log_name, msg_type, msg
             )
 
-            for handler in self._message_handlers[:]:
+            for handler in self._message_handlers.get(msg_type, [])[:]:
                 handler(msg)
 
             # Pre-check the message type to avoid awaiting
             # since most messages are not internal messages
-            if isinstance(msg, INTERNAL_MESSAGE_TYPES):
+            if msg_type in INTERNAL_MESSAGE_TYPES:
                 await self._handle_internal_messages(msg)
 
     async def _read_loop(self) -> None:
