@@ -721,7 +721,17 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
-    ) -> Callable[[], Coroutine[Any, Any, None]]:
+    ) -> Tuple[Callable[[], Coroutine[Any, Any, None]], Callable[[], None]]:
+        """Start a notify session for a GATT characteristic.
+
+        Returns two functions that can be used to stop the notify.
+
+        The first function is a coroutine that can be awaited to stop the notify.
+
+        The second function is a callback that can be called to remove the notify
+        callbacks without stopping the notify session on the remote device, which
+        should be used when the connection is lost.
+        """
 
         await self._send_bluetooth_message_await_response(
             address,
@@ -752,7 +762,7 @@ class APIClient:
                 BluetoothGATTNotifyRequest(address=address, handle=handle, enable=False)
             )
 
-        return stop_notify
+        return stop_notify, remove_callback
 
     async def subscribe_home_assistant_states(
         self, on_state_sub: Callable[[str, Optional[str]], None]
