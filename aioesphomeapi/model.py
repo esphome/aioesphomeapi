@@ -54,7 +54,7 @@ class APIIntEnum(enum.IntEnum):
 
 # Fields do not change so we can cache the result
 # of calling fields() on the dataclass
-cached_fields = cache(fields)
+cached_fields = cache(fields, typed=True)
 
 
 @dataclass(frozen=True)
