@@ -538,10 +538,16 @@ class APIConnection:
     async def _process_loop(self) -> None:
         to_process = self._to_process
         while True:
-            try:
-                pkt = await to_process.get()
-            except RuntimeError:
-                break
+            if not to_process.empty():
+                # Drain the queue until it's empty
+                # and than switch to waiting for new data
+                pkt = to_process.get_nowait()
+            else:
+                # Wait for a packet to be available
+                try:
+                    pkt = await to_process.get()
+                except RuntimeError:
+                    break
 
             if pkt is None:
                 # Socket closed but task isn't cancelled yet
