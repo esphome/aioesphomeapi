@@ -783,6 +783,9 @@ def _convert_bluetooth_le_service_data(
     if isinstance(value, dict):
         return value
 
+    if not value:
+        return {}
+
     # Long UUID inlined to avoid call stack inside the dict comprehension
     return {
         f"0000{v.uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"  # type: ignore[union-attr]
@@ -798,6 +801,10 @@ def _convert_bluetooth_le_manufacturer_data(
 ) -> Dict[int, bytes]:
     if isinstance(value, dict):
         return value
+
+    if not value:
+        return {}
+
     # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
     return {int(v.uuid, 16): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
 
