@@ -1,6 +1,6 @@
 import enum
 from dataclasses import asdict, dataclass, field, fields
-from functools import cache
+from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -54,7 +54,7 @@ class APIIntEnum(enum.IntEnum):
 
 # Fields do not change so we can cache the result
 # of calling fields() on the dataclass
-cached_fields = cache(fields, typed=True)
+cached_fields = lru_cache(fields, maxsize=None, typed=True)
 
 
 @dataclass(frozen=True)
