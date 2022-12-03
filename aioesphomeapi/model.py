@@ -60,7 +60,7 @@ cached_fields = cache(fields)
 @dataclass(frozen=True)
 class APIModelBase:
     def __post_init__(self) -> None:
-        for field_ in cached_fields(type(self)): # type: ignore[arg-type]
+        for field_ in cached_fields(type(self)):  # type: ignore[arg-type]
             convert = field_.metadata.get("converter")
             if convert is None:
                 continue
