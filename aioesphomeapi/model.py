@@ -1,6 +1,6 @@
 import enum
 from dataclasses import asdict, dataclass, field, fields
-from functools import lru_cache
+from functools import cache
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -54,13 +54,13 @@ class APIIntEnum(enum.IntEnum):
 
 # Fields do not change so we can cache the result
 # of calling fields() on the dataclass
-cached_fields = lru_cache(maxsize=None, typed=True)(fields)
+cached_fields = cache(fields)
 
 
 @dataclass(frozen=True)
 class APIModelBase:
     def __post_init__(self) -> None:
-        for field_ in cached_fields(type(self)):
+        for field_ in cached_fields(type(self)): # type: ignore[arg-type]
             convert = field_.metadata.get("converter")
             if convert is None:
                 continue
@@ -77,14 +77,14 @@ class APIModelBase:
     ) -> _V:
         init_args = {
             f.name: data[f.name]
-            for f in cached_fields(cls)
+            for f in cached_fields(cls)  # type: ignore[arg-type]
             if f.name in data or (not ignore_missing)
         }
         return cls(**init_args)
 
     @classmethod
     def from_pb(cls: Type[_V], data: Any) -> _V:
-        return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})
+        return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
