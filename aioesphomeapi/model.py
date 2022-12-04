@@ -1,5 +1,6 @@
 import enum
 from dataclasses import asdict, dataclass, field, fields
+from functools import cache
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -51,10 +52,15 @@ class APIIntEnum(enum.IntEnum):
         return ret
 
 
+# Fields do not change so we can cache the result
+# of calling fields() on the dataclass
+cached_fields = cache(fields)
+
+
 @dataclass(frozen=True)
 class APIModelBase:
     def __post_init__(self) -> None:
-        for field_ in fields(type(self)):
+        for field_ in cached_fields(type(self)):  # type: ignore[arg-type]
             convert = field_.metadata.get("converter")
             if convert is None:
                 continue
@@ -71,14 +77,14 @@ class APIModelBase:
     ) -> _V:
         init_args = {
             f.name: data[f.name]
-            for f in fields(cls)
+            for f in cached_fields(cls)  # type: ignore[arg-type]
             if f.name in data or (not ignore_missing)
         }
         return cls(**init_args)
 
     @classmethod
     def from_pb(cls: Type[_V], data: Any) -> _V:
-        return cls(**{f.name: getattr(data, f.name) for f in fields(cls)})
+        return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
@@ -783,6 +789,9 @@ def _convert_bluetooth_le_service_data(
     if isinstance(value, dict):
         return value
 
+    if not value:
+        return {}
+
     # Long UUID inlined to avoid call stack inside the dict comprehension
     return {
         f"0000{v.uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"  # type: ignore[union-attr]
@@ -798,6 +807,10 @@ def _convert_bluetooth_le_manufacturer_data(
 ) -> Dict[int, bytes]:
     if isinstance(value, dict):
         return value
+
+    if not value:
+        return {}
+
     # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
     return {int(v.uuid, 16): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
 
