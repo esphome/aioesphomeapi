@@ -21,6 +21,13 @@ from .util import bytes_to_varuint, varuint_to_bytes
 
 _LOGGER = logging.getLogger(__name__)
 
+SOCKET_ERRORS = (
+    ConnectionResetError,
+    asyncio.IncompleteReadError,
+    OSError,
+    TimeoutError,
+)
+
 
 @dataclass
 class Packet:
@@ -143,7 +150,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
             data = await self._reader.readexactly(length_int)
             return Packet(type=msg_type_int, data=data)
-        except (asyncio.IncompleteReadError, OSError, TimeoutError) as err:
+        except SOCKET_ERRORS as err:
             if (
                 isinstance(err, asyncio.IncompleteReadError)
                 and self._closed_event.is_set()
@@ -227,7 +234,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 raise ProtocolAPIError(f"Marker byte invalid: {header[0]}")
             msg_size = (header[1] << 8) | header[2]
             frame = await self._reader.readexactly(msg_size)
-        except (asyncio.IncompleteReadError, OSError, TimeoutError) as err:
+        except SOCKET_ERRORS as err:
             if (
                 isinstance(err, asyncio.IncompleteReadError)
                 and self._closed_event.is_set()
