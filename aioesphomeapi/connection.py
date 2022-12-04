@@ -441,7 +441,7 @@ class APIConnection:
             self._message_handlers.setdefault(msg_type, []).append(on_message)
         try:
             await self.send_message(send_msg)
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, Exception):
             for msg_type in msg_types:
                 self._message_handlers[msg_type].remove(on_message)
             raise
@@ -498,8 +498,8 @@ class APIConnection:
                 f"Timeout waiting for response for {type(send_msg)} after {timeout}s"
             ) from err
         finally:
-            with suppress(ValueError):
-                for msg_type in msg_types:
+            for msg_type in msg_types:
+                with suppress(ValueError):
                     self._message_handlers[msg_type].remove(on_message)
             with suppress(ValueError):
                 self._read_exception_handlers.remove(on_read_exception)
