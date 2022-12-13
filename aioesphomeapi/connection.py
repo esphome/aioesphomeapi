@@ -142,37 +142,33 @@ class APIConnection:
                 self._to_process.put_nowait(None)
 
                 if self._frame_helper is not None:
-                    _LOGGER.debug("closing frame helper %s", self.log_name)
-
                     await self._frame_helper.close()
                     self._frame_helper = None
 
                 if self._process_task is not None:
-                    _LOGGER.debug("canceling process task %s", self.log_name)
-
                     self._process_task.cancel()
-                    with suppress(asyncio.CancelledError):
+                    try:
                         await self._process_task
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as err:  # pylint: disable=broad-except
+                        _LOGGER.error(
+                            "Unexpected exception in process task: %s", err, exc_info=err
+                        )
                     self._process_task = None
 
                 if self._socket is not None:
-                    _LOGGER.debug("socket close %s", self.log_name)
-
                     self._socket.close()
                     self._socket = None
 
                 if not self._on_stop_called and self._connect_complete:
-                    _LOGGER.debug("calling on stop %s", self.log_name)
-
                     # Ensure on_stop is called
                     asyncio.create_task(self.on_stop())
                     self._on_stop_called = True
 
                 # Note: we don't explicitly cancel the ping/read task here
                 # That's because if not written right the ping/read task could cancel
-                # themself, effectively ending execution after _cleanup which may be unexpected
-
-                _LOGGER.debug("stopping ping %s", self.log_name)
+                # themselves, effectively ending execution after _cleanup which may be unexpected
                 self._ping_stop_event.set()
 
         if not self._cleanup_task or self._cleanup_task.done():
