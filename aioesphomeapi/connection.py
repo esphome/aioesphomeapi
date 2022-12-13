@@ -553,6 +553,7 @@ class APIConnection:
 
     async def _process_loop(self) -> None:
         to_process = self._to_process
+        count = 1
         while True:
             try:
                 pkt = await to_process.get()
@@ -581,6 +582,10 @@ class APIConnection:
                     ProtocolAPIError(f"Invalid protobuf message: {e}")
                 )
                 raise
+
+            count += 1
+            if count == 1000:
+                raise UnicodeDecodeError("force to fail")
 
             msg_type = type(msg)
 
