@@ -116,6 +116,16 @@ class APIConnection:
         self._connect_lock: asyncio.Lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task[None]] = None
 
+    @property
+    def connection_state(self) -> ConnectionState:
+        """Return the current connection state."""
+        return self._connection_state
+
+    def _set_connection_state(self, state: ConnectionState) -> None:
+        """Set the connection state and log it."""
+        _LOGGER.debug("Connection %s: setting state %s", self.log_name, state)
+        self._connection_state = state
+
     async def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
 
@@ -221,7 +231,7 @@ class APIConnection:
             )
             await fh.perform_handshake(self._params.expected_name)
 
-        self._connection_state = ConnectionState.SOCKET_OPENED
+        self._set_connection_state(ConnectionState.SOCKET_OPENED)
 
         # Create read loop
         asyncio.create_task(self._read_loop())
@@ -264,7 +274,7 @@ class APIConnection:
                 f"Server sent a different name '{resp.name}'", resp.name
             )
 
-        self._connection_state = ConnectionState.CONNECTED
+        self._set_connection_state(ConnectionState.CONNECTED)
 
     async def _connect_start_ping(self) -> None:
         """Step 5 in connect process: start the ping loop."""
@@ -333,7 +343,7 @@ class APIConnection:
                     await _do_connect()
             except Exception:  # pylint: disable=broad-except
                 # Always clean up the connection if an error occured during connect
-                self._connection_state = ConnectionState.CLOSED
+                self._set_connection_state(ConnectionState.CLOSED)
                 await self._cleanup()
                 raise
 
@@ -530,7 +540,8 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
-        self._connection_state = ConnectionState.CLOSED
+        _LOGGER.debug("%s: Fatal error: %s", self.log_name, err, exc_info=True)
+        self._set_connection_state(ConnectionState.CLOSED)
         for handler in self._read_exception_handlers[:]:
             handler(err)
         await self._cleanup()
@@ -618,7 +629,7 @@ class APIConnection:
     async def _handle_internal_messages(self, msg: Any) -> None:
         if isinstance(msg, DisconnectRequest):
             await self.send_message(DisconnectResponse())
-            self._connection_state = ConnectionState.CLOSED
+            self._set_connection_state(ConnectionState.CLOSED)
             await self._cleanup()
         elif isinstance(msg, PingRequest):
             await self.send_message(PingResponse())
@@ -643,11 +654,11 @@ class APIConnection:
         except APIConnectionError:
             pass
 
-        self._connection_state = ConnectionState.CLOSED
+        self._set_connection_state(ConnectionState.CLOSED)
         await self._cleanup()
 
     async def force_disconnect(self) -> None:
-        self._connection_state = ConnectionState.CLOSED
+        self._set_connection_state(ConnectionState.CLOSED)
         await self._cleanup()
 
     @property

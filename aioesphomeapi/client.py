@@ -271,7 +271,10 @@ class APIClient:
         if self._connection is None:
             raise APIConnectionError(f"Not connected to {self._log_name}!")
         if not self._connection.is_connected:
-            raise APIConnectionError(f"Connection not done for {self._log_name}!")
+            raise APIConnectionError(
+                f"Connection not done for {self._log_name}; "
+                f"current state is {self._connection.connection_state}!"
+            )
 
     def _check_authenticated(self) -> None:
         self._check_connected()
