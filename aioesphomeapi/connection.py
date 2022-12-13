@@ -561,7 +561,6 @@ class APIConnection:
 
     async def _process_loop(self) -> None:
         to_process = self._to_process
-        count = 1
         while True:
             try:
                 pkt = await to_process.get()
@@ -584,16 +583,16 @@ class APIConnection:
                 msg.ParseFromString(pkt.data)
             except Exception as e:
                 _LOGGER.info(
-                    "%s: Invalid protobuf message: %s", self.log_name, e, exc_info=True
+                    "%s: Invalid protobuf message: %s: %s",
+                    self.log_name,
+                    pkt.data,
+                    e,
+                    exc_info=True,
                 )
                 await self._report_fatal_error(
                     ProtocolAPIError(f"Invalid protobuf message: {e}")
                 )
                 raise
-
-            count += 1
-            if count == 1000:
-                raise UnicodeDecodeError("force to fail")
 
             msg_type = type(msg)
 
