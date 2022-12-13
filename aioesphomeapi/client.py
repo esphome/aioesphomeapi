@@ -289,7 +289,6 @@ class APIClient:
         )
         info = DeviceInfo.from_pb(resp)
         self._cached_name = info.name
-        self._connection.log_name = self._log_name
         return info
 
     async def list_entities_services(
