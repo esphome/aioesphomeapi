@@ -815,13 +815,17 @@ def _convert_bluetooth_le_manufacturer_data(
     return {int(v.uuid, 16): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
 
 
+def _convert_bluetooth_le_name(value: bytes) -> str:
+    return value.decode("utf-8", errors="replace")
+
+
 @dataclass(frozen=True)
 class BluetoothLEAdvertisement(APIModelBase):
     address: int = 0
-    name: str = ""
     rssi: int = 0
     address_type: int = 0
 
+    name: str = converter_field(default="", converter=_convert_bluetooth_le_name)
     service_uuids: List[str] = converter_field(
         default_factory=list, converter=_convert_bluetooth_le_service_uuids
     )

@@ -1161,7 +1161,7 @@ message BluetoothLEAdvertisementResponse {
   option (no_delay) = true;
 
   uint64 address = 1;
-  string name = 2;
+  bytes name = 2;
   sint32 rssi = 3;
 
   repeated string service_uuids = 4;
