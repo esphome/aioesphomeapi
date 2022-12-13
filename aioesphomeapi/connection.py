@@ -102,7 +102,8 @@ class APIConnection:
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: Dict[Any, List[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
-        self.log_name = params.address
+        self.address = params.address
+        self._cached_name: str | None = None
 
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
@@ -120,6 +121,12 @@ class APIConnection:
     def connection_state(self) -> ConnectionState:
         """Return the current connection state."""
         return self._connection_state
+
+    @property
+    def log_name(self) -> str:
+        if self._cached_name is not None:
+            return f"{self._cached_name} @ {self.address}"
+        return self.address
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log it."""
@@ -265,6 +272,7 @@ class APIConnection:
             )
             raise APIConnectionError("Incompatible API version.")
 
+        self._cached_name = resp.name
         if (
             self._params.expected_name is not None
             and resp.name != ""
@@ -279,7 +287,7 @@ class APIConnection:
     async def _connect_start_ping(self) -> None:
         """Step 5 in connect process: start the ping loop."""
 
-        async def func() -> None:
+        async def _keep_alive_loop() -> None:
             while True:
                 if not self._is_socket_open:
                     return
@@ -314,7 +322,7 @@ class APIConnection:
                     await self._report_fatal_error(err)
                     return
 
-        asyncio.create_task(func())
+        asyncio.create_task(_keep_alive_loop())
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
