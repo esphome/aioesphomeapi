@@ -582,7 +582,9 @@ class APIConnection:
             try:
                 msg.ParseFromString(pkt.data)
             except Exception as e:
-                _LOGGER.info("%s: Invalid protobuf message: %s", self.log_name, e, exc_info=True)
+                _LOGGER.info(
+                    "%s: Invalid protobuf message: %s", self.log_name, e, exc_info=True
+                )
                 await self._report_fatal_error(
                     ProtocolAPIError(f"Invalid protobuf message: {e}")
                 )
