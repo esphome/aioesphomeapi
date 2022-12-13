@@ -245,6 +245,12 @@ class APIClient:
             if on_stop is not None:
                 await on_stop()
 
+        _LOGGER.warning(
+            "%s: Client trying to connect to %s:%s",
+            self._log_name,
+            self._params.address,
+            self._params.port,
+        )
         self._connection = APIConnection(self._params, _on_stop)
 
         try:

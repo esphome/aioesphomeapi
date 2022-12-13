@@ -326,6 +326,7 @@ class APIConnection:
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
+            _LOGGER.error("%s: Connection can only be used once, connection is not in init state", self.log_name)
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
             )
