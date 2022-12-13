@@ -84,8 +84,11 @@ class APIConnection:
     """
 
     def __init__(
-        self, params: ConnectionParams, on_stop: Callable[[], Coroutine[Any, Any, None]], log_name: Optional[str] = None
-    ):
+        self,
+        params: ConnectionParams,
+        on_stop: Callable[[], Coroutine[Any, Any, None]],
+        log_name: Optional[str] = None,
+    ) -> None:
         self._params = params
         self.on_stop = on_stop
         self._on_stop_called = False
@@ -269,7 +272,6 @@ class APIConnection:
             )
             raise APIConnectionError("Incompatible API version.")
 
-        self._cached_name = resp.name
         if (
             self._params.expected_name is not None
             and resp.name != ""
@@ -323,10 +325,6 @@ class APIConnection:
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
-            _LOGGER.error(
-                "%s: Connection can only be used once, connection is not in init state",
-                self.log_name,
-            )
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
             )

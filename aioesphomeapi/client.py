@@ -245,7 +245,9 @@ class APIClient:
             if on_stop is not None:
                 await on_stop()
 
-        self._connection = APIConnection(self._params, _on_stop)
+        self._connection = APIConnection(
+            self._params, _on_stop, log_name=self._log_name
+        )
 
         try:
             await self._connection.connect(login=login)
@@ -289,6 +291,7 @@ class APIClient:
         )
         info = DeviceInfo.from_pb(resp)
         self._cached_name = info.name
+        self._connection.set_log_name(self._log_name)
         return info
 
     async def list_entities_services(
