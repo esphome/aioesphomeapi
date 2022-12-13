@@ -130,7 +130,7 @@ class APIConnection:
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log it."""
-        _LOGGER.warning("Connection %s: setting state %s", self.log_name, state)
+        _LOGGER.debug("Connection %s: setting state %s", self.log_name, state)
         self._connection_state = state
 
     async def _cleanup(self) -> None:
@@ -334,42 +334,14 @@ class APIConnection:
                 "Connection can only be used once, connection is not in init state"
             )
 
-        _LOGGER.warning(
-            "%s: Connecting to %s:%s",
-            self.log_name,
-            self._params.address,
-            self._params.port,
-        )
-
         async def _do_connect() -> None:
-            _LOGGER.warning("%s: _do_connect %s", self.log_name, self._params.address)
             addr = await self._connect_resolve_host()
-            _LOGGER.warning(
-                "%s: did _connect_resolve_host %s", self.log_name, self._params.address
-            )
             await self._connect_socket_connect(addr)
-            _LOGGER.warning(
-                "%s: did _connect_socket_connect %s",
-                self.log_name,
-                self._params.address,
-            )
             await self._connect_init_frame_helper()
-            _LOGGER.warning(
-                "%s: did _connect_init_frame_helper %s",
-                self.log_name,
-                self._params.address,
-            )
             await self._connect_hello()
-            _LOGGER.warning(
-                "%s: did _connect_hello %s", self.log_name, self._params.address
-            )
             await self._connect_start_ping()
-            _LOGGER.warning(
-                "%s: did _connect_start_ping %s", self.log_name, self._params.address
-            )
             if login:
                 await self.login()
-            _LOGGER.warning("%s: did login %s", self.log_name, self._params.address)
 
         # A connection lock must be created to avoid potential issues where
         # connect has succeeded but not yet returned, followed by a disconnect.
@@ -404,6 +376,7 @@ class APIConnection:
             # After a timeout for connect the connection can no longer be used
             # We don't know what state the device may be in after ConnectRequest
             # was already sent
+            _LOGGER.debug("%s: Login timed out", self.log_name)
             await self._report_fatal_error(err)
             raise
 
@@ -457,6 +430,7 @@ class APIConnection:
         except SocketAPIError as err:  # pylint: disable=broad-except
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
+            _LOGGER.info("%s: Error writing packet: %s", self.log_name, err)
             await self._report_fatal_error(err)
             raise
 
@@ -572,7 +546,7 @@ class APIConnection:
         return res[0]
 
     async def _report_fatal_error(self, err: Exception) -> None:
-        """Report a fatal error that occured during an operation.
+        """Report a fatal error that occurred during an operation.
 
         This should only be called for errors that mean the connection
         can no longer be used.
@@ -580,7 +554,6 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
-        _LOGGER.warning("%s: Fatal error: %s", self.log_name, err, exc_info=True)
         self._set_connection_state(ConnectionState.CLOSED)
         for handler in self._read_exception_handlers[:]:
             handler(err)
@@ -609,6 +582,7 @@ class APIConnection:
             try:
                 msg.ParseFromString(pkt.data)
             except Exception as e:
+                _LOGGER.info("%s: Invalid protobuf message: %s", self.log_name, e, exc_info=True)
                 await self._report_fatal_error(
                     ProtocolAPIError(f"Invalid protobuf message: {e}")
                 )
