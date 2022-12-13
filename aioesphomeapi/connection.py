@@ -84,7 +84,7 @@ class APIConnection:
     """
 
     def __init__(
-        self, params: ConnectionParams, on_stop: Callable[[], Coroutine[Any, Any, None]]
+        self, params: ConnectionParams, on_stop: Callable[[], Coroutine[Any, Any, None]], log_name: Optional[str] = None
     ):
         self._params = params
         self.on_stop = on_stop
@@ -102,8 +102,7 @@ class APIConnection:
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: Dict[Any, List[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
-        self.address = params.address
-        self._cached_name: Optional[str] = None
+        self.log_name = log_name or params.address
 
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
@@ -122,11 +121,9 @@ class APIConnection:
         """Return the current connection state."""
         return self._connection_state
 
-    @property
-    def log_name(self) -> str:
-        if self._cached_name is not None:
-            return f"{self._cached_name} @ {self.address}"
-        return self.address
+    def set_log_name(self, name: str) -> None:
+        """Set the friendly log name for this connection."""
+        self.log_name = name
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log it."""
