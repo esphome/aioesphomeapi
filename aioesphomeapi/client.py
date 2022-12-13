@@ -246,7 +246,6 @@ class APIClient:
                 await on_stop()
 
         self._connection = APIConnection(self._params, _on_stop)
-        self._connection.log_name = self._log_name
 
         try:
             await self._connection.connect(login=login)
