@@ -342,13 +342,21 @@ class APIConnection:
         )
 
         async def _do_connect() -> None:
+            _LOGGER.warning("%s: _do_connect %s", self.log_name, self._params.address)
             addr = await self._connect_resolve_host()
+            _LOGGER.warning("%s: did _connect_resolve_host %s", self.log_name, self._params.address)
             await self._connect_socket_connect(addr)
+            _LOGGER.warning("%s: did _connect_socket_connect %s", self.log_name, self._params.address)
             await self._connect_init_frame_helper()
+            _LOGGER.warning("%s: did _connect_init_frame_helper %s", self.log_name, self._params.address)
             await self._connect_hello()
+            _LOGGER.warning("%s: did _connect_hello %s", self.log_name, self._params.address)
             await self._connect_start_ping()
+            _LOGGER.warning("%s: did _connect_start_ping %s", self.log_name, self._params.address)
             if login:
                 await self.login()
+            _LOGGER.warning("%s: did login %s", self.log_name, self._params.address)
+
 
         # A connection lock must be created to avoid potential issues where
         # connect has succeeded but not yet returned, followed by a disconnect.
