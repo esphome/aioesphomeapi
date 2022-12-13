@@ -72,8 +72,8 @@ class ConnectionState(enum.Enum):
     # Internal state,
     SOCKET_OPENED = 1
     # The connection has been established, data can be exchanged
-    CONNECTED = 1
-    CLOSED = 2
+    CONNECTED = 2
+    CLOSED = 3
 
 
 class APIConnection:
@@ -641,10 +641,6 @@ class APIConnection:
                     to_process.put_nowait(await frame_helper.read_packet_with_lock())
         except SocketClosedAPIError as err:
             # don't log with info, if closed the site that closed the connection should log
-            if not self._is_socket_open:
-                # If we expected the socket to be closed, don't log
-                # the error.
-                return
             _LOGGER.debug(
                 "%s: Socket closed, stopping read loop",
                 self.log_name,
