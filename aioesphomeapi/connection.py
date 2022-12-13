@@ -123,7 +123,7 @@ class APIConnection:
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log it."""
-        _LOGGER.debug("Connection %s: setting state %s", self.log_name, state)
+        _LOGGER.warning("Connection %s: setting state %s", self.log_name, state)
         self._connection_state = state
 
     async def _cleanup(self) -> None:
@@ -540,7 +540,7 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
-        _LOGGER.debug("%s: Fatal error: %s", self.log_name, err, exc_info=True)
+        _LOGGER.warning("%s: Fatal error: %s", self.log_name, err, exc_info=True)
         self._set_connection_state(ConnectionState.CLOSED)
         for handler in self._read_exception_handlers[:]:
             handler(err)
