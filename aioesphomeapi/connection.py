@@ -136,6 +136,8 @@ class APIConnection:
 
         async def _do_cleanup() -> None:
             async with self._connect_lock:
+                _LOGGER.debug("Cleaning up connection to %s", self.log_name)
+
                 # Tell the process loop to stop
                 self._to_process.put_nowait(None)
 
