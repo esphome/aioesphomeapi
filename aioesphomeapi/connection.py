@@ -153,7 +153,9 @@ class APIConnection:
                         pass
                     except Exception as err:  # pylint: disable=broad-except
                         _LOGGER.error(
-                            "Unexpected exception in process task: %s", err, exc_info=err
+                            "Unexpected exception in process task: %s",
+                            err,
+                            exc_info=err,
                         )
                     self._process_task = None
 
