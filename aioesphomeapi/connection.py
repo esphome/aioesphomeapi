@@ -330,7 +330,12 @@ class APIConnection:
                 "Connection can only be used once, connection is not in init state"
             )
 
-        _LOGGER.warning("%s: Connecting to %s:%s", self.log_name, self._params.address, self._params.port)
+        _LOGGER.warning(
+            "%s: Connecting to %s:%s",
+            self.log_name,
+            self._params.address,
+            self._params.port,
+        )
 
         async def _do_connect() -> None:
             addr = await self._connect_resolve_host()
