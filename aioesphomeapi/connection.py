@@ -168,7 +168,7 @@ class APIConnection:
                 # themself, effectively ending execution after _cleanup which may be unexpected
                 self._ping_stop_event.set()
 
-        if not self._cleanup_task or not self._cleanup_task.done():
+        if not self._cleanup_task or self._cleanup_task.done():
             self._cleanup_task = asyncio.create_task(_do_cleanup())
 
     async def _connect_resolve_host(self) -> hr.AddrInfo:
