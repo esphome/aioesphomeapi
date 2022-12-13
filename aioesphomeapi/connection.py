@@ -103,7 +103,7 @@ class APIConnection:
         self._message_handlers: Dict[Any, List[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
         self.address = params.address
-        self._cached_name: str | None = None
+        self._cached_name: Optional[str] = None
 
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
