@@ -583,8 +583,9 @@ class APIConnection:
                 msg.ParseFromString(pkt.data)
             except Exception as e:
                 _LOGGER.info(
-                    "%s: Invalid protobuf message: %s: %s",
+                    "%s: Invalid protobuf message: type=%s data=%s: %s",
                     self.log_name,
+                    pkt.type,
                     pkt.data,
                     e,
                     exc_info=True,
