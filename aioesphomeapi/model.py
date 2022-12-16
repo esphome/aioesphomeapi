@@ -676,6 +676,29 @@ class MediaPlayerEntityState(EntityState):
     muted: bool = False
 
 
+# ==================== TEXT ====================
+class TextMode(APIIntEnum):
+    AUTO = 0
+    PASSWORD = 1
+
+
+@dataclass(frozen=True)
+class TextInfo(EntityInfo):
+    min_value: int = 0
+    max_value: int = 255
+    pattern: str = ""
+    unit_of_measurement: str = ""
+    mode: Optional[TextMode] = converter_field(
+        default=TextMode.AUTO, converter=TextMode.convert
+    )
+
+
+@dataclass(frozen=True)
+class TextState(EntityState):
+    state: str = ""
+    missing_state: bool = False
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
@@ -694,6 +717,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "button": ButtonInfo,
     "lock": LockInfo,
     "media_player": MediaPlayerInfo,
+    "text": TextInfo,
 }
 
 

@@ -56,6 +56,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
+    ListEntitiesTextResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
@@ -86,6 +87,8 @@ from .api_pb2 import (  # type: ignore
     SubscribeStatesRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
+    TextCommandRequest,
+    TextStateResponse,
     TextSensorStateResponse,
 )
 
@@ -302,4 +305,7 @@ MESSAGE_TYPE_TO_PROTO = {
     82: BluetoothGATTErrorResponse,
     83: BluetoothGATTWriteResponse,
     84: BluetoothGATTNotifyResponse,
+    85: ListEntitiesTextResponse,
+    86: TextStateResponse,
+    87: TextCommandRequest,
 }

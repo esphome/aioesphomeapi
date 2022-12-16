@@ -71,6 +71,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesServicesResponse,
     ListEntitiesSirenResponse,
     ListEntitiesSwitchResponse,
+    ListEntitiesTextResponse,
     ListEntitiesTextSensorResponse,
     LockCommandRequest,
     LockStateResponse,
@@ -93,6 +94,8 @@ from .api_pb2 import (  # type: ignore
     SubscribeStatesRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
+    TextCommandRequest,
+    TextStateResponse,
     TextSensorStateResponse,
 )
 from .connection import APIConnection, ConnectionParams
@@ -154,6 +157,8 @@ from .model import (
     SirenState,
     SwitchInfo,
     SwitchState,
+    TextInfo,
+    TextState,
     TextSensorInfo,
     TextSensorState,
     UserService,
@@ -309,6 +314,7 @@ class APIClient:
             ListEntitiesSensorResponse: SensorInfo,
             ListEntitiesSirenResponse: SirenInfo,
             ListEntitiesSwitchResponse: SwitchInfo,
+            ListEntitiesTextResponse: TextInfo,
             ListEntitiesTextSensorResponse: TextSensorInfo,
             ListEntitiesServicesResponse: None,
             ListEntitiesCameraResponse: CameraInfo,
@@ -352,6 +358,7 @@ class APIClient:
             SensorStateResponse: SensorState,
             SirenStateResponse: SirenState,
             SwitchStateResponse: SwitchState,
+            TextStateResponse: TextState,
             TextSensorStateResponse: TextSensorState,
             ClimateStateResponse: ClimateState,
             LockStateResponse: LockEntityState,
@@ -1074,6 +1081,15 @@ class APIClient:
         if media_url is not None:
             req.media_url = media_url
             req.has_media_url = True
+        assert self._connection is not None
+        await self._connection.send_message(req)
+
+    async def text_command(self, key: int, state: str) -> None:
+        self._check_authenticated()
+
+        req = TextCommandRequest()
+        req.key = key
+        req.state = state
         assert self._connection is not None
         await self._connection.send_message(req)
 
