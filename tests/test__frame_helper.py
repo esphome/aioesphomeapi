@@ -1,10 +1,10 @@
-from unittest.mock import MagicMock
 import asyncio
+from unittest.mock import MagicMock
+
 import pytest
 
-from aioesphomeapi.util import varuint_to_bytes
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
-
+from aioesphomeapi.util import varuint_to_bytes
 
 PREAMBLE = b"\x00"
 
