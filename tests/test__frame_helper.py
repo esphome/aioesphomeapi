@@ -49,12 +49,14 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
     stream_reader = asyncio.StreamReader()
     stream_writer = MagicMock()
 
-    stream_reader.feed_data(in_bytes)
+    for _ in range(5):
 
-    helper = APIPlaintextFrameHelper(stream_reader, stream_writer)
+        stream_reader.feed_data(in_bytes)
 
-    async with helper.read_lock:
-        pkt = await helper.read_packet_with_lock()
+        helper = APIPlaintextFrameHelper(stream_reader, stream_writer)
 
-    assert pkt.type == pkt_type
-    assert pkt.data == pkt_data
+        async with helper.read_lock:
+            pkt = await helper.read_packet_with_lock()
+
+        assert pkt.type == pkt_type
+        assert pkt.data == pkt_data
