@@ -679,7 +679,8 @@ class MediaPlayerEntityState(EntityState):
 # ==================== TEXT ====================
 class TextMode(APIIntEnum):
     AUTO = 0
-    PASSWORD = 1
+    TEXT = 1
+    PASSWORD = 2
 
 
 @dataclass(frozen=True)
