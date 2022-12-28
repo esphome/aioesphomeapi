@@ -688,7 +688,6 @@ class TextInfo(EntityInfo):
     min_value: int = 0
     max_value: int = 255
     pattern: str = ""
-    unit_of_measurement: str = ""
     mode: Optional[TextMode] = converter_field(
         default=TextMode.AUTO, converter=TextMode.convert
     )

@@ -95,8 +95,8 @@ from .api_pb2 import (  # type: ignore
     SwitchCommandRequest,
     SwitchStateResponse,
     TextCommandRequest,
-    TextStateResponse,
     TextSensorStateResponse,
+    TextStateResponse,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -158,9 +158,9 @@ from .model import (
     SwitchInfo,
     SwitchState,
     TextInfo,
-    TextState,
     TextSensorInfo,
     TextSensorState,
+    TextState,
     UserService,
     UserServiceArgType,
 )

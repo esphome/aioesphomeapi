@@ -945,12 +945,11 @@ message ListEntitiesTextResponse {
   string unique_id = 4;
 
   string icon = 5;
-  float min_value = 6;
-  float max_value = 7;
-  float step = 8;
+  uint32 min_value = 6;
+  uint32 max_value = 7;
+  string pattern = 8;
   bool disabled_by_default = 9;
   EntityCategory entity_category = 10;
-  string unit_of_measurement = 11;
   TextMode mode = 12;
 }
 message TextStateResponse {
@@ -960,7 +959,7 @@ message TextStateResponse {
   option (no_delay) = true;
 
   fixed32 key = 1;
-  float state = 2;
+  string state = 2;
   // If the Text does not have a valid state yet.
   // Equivalent to `!obj->has_state()` - inverse logic to make state packets smaller
   bool missing_state = 3;
@@ -972,7 +971,7 @@ message TextCommandRequest {
   option (no_delay) = true;
 
   fixed32 key = 1;
-  float state = 2;
+  string state = 2;
 }
 
 // ==================== SELECT ====================

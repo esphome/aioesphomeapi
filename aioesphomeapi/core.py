@@ -56,13 +56,13 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
-    ListEntitiesTextResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
     ListEntitiesServicesResponse,
     ListEntitiesSirenResponse,
     ListEntitiesSwitchResponse,
+    ListEntitiesTextResponse,
     ListEntitiesTextSensorResponse,
     LockCommandRequest,
     LockStateResponse,
@@ -88,8 +88,8 @@ from .api_pb2 import (  # type: ignore
     SwitchCommandRequest,
     SwitchStateResponse,
     TextCommandRequest,
-    TextStateResponse,
     TextSensorStateResponse,
+    TextStateResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
