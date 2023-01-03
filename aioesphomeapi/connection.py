@@ -114,10 +114,9 @@ class APIConnection:
 
         self._to_process: asyncio.Queue[Optional[Packet]] = asyncio.Queue()
 
-        self._process_task: Optional[asyncio.Task[None]] = None
-
         self._connect_lock: asyncio.Lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task[None]] = None
+        self.loop = asyncio.get_event_loop()
 
     @property
     def connection_state(self) -> ConnectionState:
@@ -144,20 +143,6 @@ class APIConnection:
                 if self._frame_helper is not None:
                     await self._frame_helper.close()
                     self._frame_helper = None
-
-                if self._process_task is not None:
-                    self._process_task.cancel()
-                    try:
-                        await self._process_task
-                    except asyncio.CancelledError:
-                        pass
-                    except Exception as err:  # pylint: disable=broad-except
-                        _LOGGER.error(
-                            "Unexpected exception in process task: %s",
-                            err,
-                            exc_info=err,
-                        )
-                    self._process_task = None
 
                 if self._socket is not None:
                     self._socket.close()
@@ -231,24 +216,29 @@ class APIConnection:
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
-        reader, writer = await asyncio.open_connection(
-            sock=self._socket, limit=BUFFER_SIZE
-        )  # Set buffer limit to 1MB
-
         if self._params.noise_psk is None:
-            self._frame_helper = APIPlaintextFrameHelper(reader, writer)
+            _, fh = await self.loop.create_connection(
+                lambda: APIPlaintextFrameHelper(
+                    on_pkt=self._process_packet,
+                    on_error=self._handle_fatal_error_and_cleanup,
+                ),
+                sock=self._socket,
+            )
+            self._frame_helper = APIPlaintextFrameHelper()
         else:
-            fh = self._frame_helper = APINoiseFrameHelper(
-                reader, writer, self._params.noise_psk
+            _, fh = await self.loop.create_connection(
+                lambda: APINoiseFrameHelper(
+                    self._params.noise_psk,
+                    on_pkt=self._process_packet,
+                    on_error=self._handle_fatal_error_and_cleanup,
+                ),
+                sock=self._socket,
             )
             await fh.perform_handshake(self._params.expected_name)
 
+        self._frame_helper = fh
         self._connection_state = ConnectionState.SOCKET_OPENED
-
-        # Create read loop
-        asyncio.create_task(self._read_loop())
-        # Create process loop
-        self._process_task = asyncio.create_task(self._process_loop())
+        await fh.wait_for_ready()
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
@@ -545,8 +535,8 @@ class APIConnection:
 
         return res[0]
 
-    async def _report_fatal_error(self, err: Exception) -> None:
-        """Report a fatal error that occurred during an operation.
+    def _handle_fatal_error(self, err: Exception) -> None:
+        """Handle a fatal error that occurred during an operation.
 
         This should only be called for errors that mean the connection
         can no longer be used.
@@ -557,91 +547,68 @@ class APIConnection:
         self._connection_state = ConnectionState.CLOSED
         for handler in self._read_exception_handlers[:]:
             handler(err)
+
+    def _handle_fatal_error_and_cleanup(self, err: Exception) -> None:
+        """Handle a fatal error that occurred during an operation.
+
+        This should only be called for errors that mean the connection
+        can no longer be used.
+
+        The connection will be closed, all exception handlers notified.
+        This method does not log the error, the call site should do so.
+        """
+        self._handle_fatal_error(err)
+        asyncio.create_task(self._cleanup())
+
+    async def _report_fatal_error(self, err: Exception) -> None:
+        """Report a fatal error that occurred during an operation.
+
+        This should only be called for errors that mean the connection
+        can no longer be used.
+
+        The connection will be closed, all exception handlers notified.
+        This method does not log the error, the call site should do so.
+        """
+        self._handle_fatal_error()
         await self._cleanup()
 
-    async def _process_loop(self) -> None:
-        to_process = self._to_process
-        while True:
-            try:
-                pkt = await to_process.get()
-            except RuntimeError:
-                break
+    def _process_packet(self, pkt: Packet) -> None:
+        """Process a packet from the socket."""
+        msg_type_proto = pkt.type
+        if msg_type_proto not in MESSAGE_TYPE_TO_PROTO:
+            _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type_proto)
+            return
 
-            if pkt is None:
-                # Socket closed but task isn't cancelled yet
-                break
-
-            msg_type_proto = pkt.type
-            if msg_type_proto not in MESSAGE_TYPE_TO_PROTO:
-                _LOGGER.debug(
-                    "%s: Skipping message type %s", self.log_name, msg_type_proto
-                )
-                continue
-
-            msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
-            try:
-                msg.ParseFromString(pkt.data)
-            except Exception as e:
-                _LOGGER.info(
-                    "%s: Invalid protobuf message: type=%s data=%s: %s",
-                    self.log_name,
-                    pkt.type,
-                    pkt.data,
-                    e,
-                    exc_info=True,
-                )
-                await self._report_fatal_error(
-                    ProtocolAPIError(f"Invalid protobuf message: {e}")
-                )
-                raise
-
-            msg_type = type(msg)
-
-            _LOGGER.debug(
-                "%s: Got message of type %s: %s", self.log_name, msg_type, msg
-            )
-
-            for handler in self._message_handlers.get(msg_type, [])[:]:
-                handler(msg)
-
-            # Pre-check the message type to avoid awaiting
-            # since most messages are not internal messages
-            if msg_type in INTERNAL_MESSAGE_TYPES:
-                await self._handle_internal_messages(msg)
-
-    async def _read_loop(self) -> None:
-        frame_helper = self._frame_helper
-        assert frame_helper is not None
-        await frame_helper.wait_for_ready()
-        to_process = self._to_process
+        msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
         try:
-            # Once its ready, we hold the lock for the duration of the
-            # connection so we don't have to keep locking/unlocking
-            async with frame_helper.read_lock:
-                while True:
-                    to_process.put_nowait(await frame_helper.read_packet_with_lock())
-        except SocketClosedAPIError as err:
-            # don't log with info, if closed the site that closed the connection should log
-            _LOGGER.debug(
-                "%s: Socket closed, stopping read loop",
-                self.log_name,
-            )
-            await self._report_fatal_error(err)
-        except APIConnectionError as err:
+            msg.ParseFromString(pkt.data)
+        except Exception as e:
             _LOGGER.info(
-                "%s: Error while reading incoming messages: %s",
+                "%s: Invalid protobuf message: type=%s data=%s: %s",
                 self.log_name,
-                err,
-            )
-            await self._report_fatal_error(err)
-        except Exception as err:  # pylint: disable=broad-except
-            _LOGGER.warning(
-                "%s: Unexpected error while reading incoming messages: %s",
-                self.log_name,
-                err,
+                pkt.type,
+                pkt.data,
+                e,
                 exc_info=True,
             )
-            await self._report_fatal_error(err)
+            asyncio.create_task(
+                self._report_fatal_error(
+                    ProtocolAPIError(f"Invalid protobuf message: {e}")
+                )
+            )
+            raise
+
+        msg_type = type(msg)
+
+        _LOGGER.debug("%s: Got message of type %s: %s", self.log_name, msg_type, msg)
+
+        for handler in self._message_handlers.get(msg_type, [])[:]:
+            handler(msg)
+
+        # Pre-check the message type to avoid awaiting
+        # since most messages are not internal messages
+        if msg_type in INTERNAL_MESSAGE_TYPES:
+            asyncio.create_task(self._handle_internal_messages(msg))
 
     async def _handle_internal_messages(self, msg: Any) -> None:
         if isinstance(msg, DisconnectRequest):

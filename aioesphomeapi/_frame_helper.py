@@ -1,9 +1,10 @@
 import asyncio
 import base64
+import contextlib
 import logging
-from abc import ABC, abstractmethod, abstractproperty
+from abc import abstractmethod, abstractproperty
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
@@ -35,23 +36,52 @@ class Packet:
     data: bytes
 
 
-class APIFrameHelper(ABC):
+class MissingBytesAPIError(SocketAPIError):
+    """Error when not enough bytes are available."""
+
+    def __init__(self, expected: int, actual: int) -> None:
+        """Initialize the error."""
+        super().__init__(f"Expected {expected} bytes, got {actual}")
+
+
+class APIFrameHelper(asyncio.Protocol):
     """Helper class to handle the API frame protocol."""
 
     def __init__(
         self,
-        reader: asyncio.StreamReader,
-        writer: asyncio.StreamWriter,
+        on_error: Callable[[Optional[Exception]], None],
+        on_pkt: Callable[[Packet], None],
     ) -> None:
         """Initialize the API frame helper."""
-        self._reader = reader
-        self._writer = writer
+        self._on_pkt = on_pkt
+        self._on_error = on_error
+        self._transport: Optional[asyncio.Transport] = None
         self.read_lock = asyncio.Lock()
         self._closed_event = asyncio.Event()
+        self._buffer = bytearray()
+        self._pos = 0
 
     @abstractproperty  # pylint: disable=deprecated-decorator
     def ready(self) -> bool:
         """Return if the connection is ready."""
+
+    def _init_read(self, length: int) -> None:
+        """Start reading a packet from the buffer."""
+        self._pos = 0
+        self._read_exactly(length)
+
+    def _complete_read(self) -> None:
+        """Complete reading a packet from the buffer."""
+        del self._buffer[: self._pos]
+
+    def _read_exactly(self, length: int) -> bytes:
+        """Read exactly length bytes from the buffer."""
+        original_pos = self._pos
+        new_pos = original_pos + length
+        if len(self._buffer) < new_pos:
+            raise MissingBytesAPIError(self._buffer, new_pos)
+        self._pos = new_pos
+        return self._buffer[original_pos:new_pos]
 
     @abstractmethod
     async def close(self) -> None:
@@ -69,14 +99,30 @@ class APIFrameHelper(ABC):
     async def wait_for_ready(self) -> None:
         """Wait for the connection to be ready."""
 
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        """Handle a new connection."""
+        self._transport = transport
 
-class APIPlaintextFrameHelper(APIFrameHelper):
-    """Frame helper for plaintext API connections."""
+    def _handle_error(self, exc: Optional[Exception]) -> None:
+        self._closed_event.set()
+        self._on_error(exc)
+
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        self._handle_error(exc)
+        return super().connection_lost(exc)
+
+    def eof_received(self) -> bool | None:
+        self._on_error(SocketClosedAPIError("Connection closed"))
+        return super().eof_received()
 
     async def close(self) -> None:
         """Close the connection."""
         self._closed_event.set()
-        self._writer.close()
+        self._transport.close()
+
+
+class APIPlaintextFrameHelper(APIFrameHelper):
+    """Frame helper for plaintext API connections."""
 
     @property
     def ready(self) -> bool:
@@ -99,7 +145,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         _LOGGER.debug("Sending plaintext frame %s", data.hex())
 
         try:
-            self._writer.write(data)
+            self._transport.write(data)
         except (ConnectionResetError, OSError) as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
@@ -107,14 +153,15 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         """Wait for the connection to be ready."""
         # No handshake for plaintext
 
-    async def read_packet_with_lock(self) -> Packet:
-        """Read a packet from the socket, the caller is responsible for having the lock."""
-        assert self.read_lock.locked(), "read_packet_with_lock called without lock"
+    def data_received(self, data: bytes) -> None:
+        self._buffer += data
+        if len(self._buffer) < 3:
+            return
         try:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
             # to avoid multiple calls to readexactly
-            init_bytes = await self._reader.readexactly(3)
+            init_bytes = self._init_read(3)
             if init_bytes[0] != 0x00:
                 if init_bytes[0] == 0x01:
                     raise RequiresEncryptionAPIError("Connection requires encryption")
@@ -133,12 +180,12 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
             # If the message is long, we need to read the rest of the length
             while length[-1] & 0x80 == 0x80:
-                length += await self._reader.readexactly(1)
+                length += self._read_exactly(1)
 
             # If the message length was longer than 1 byte, we need to read the
             # message type
             while not msg_type or (msg_type[-1] & 0x80) == 0x80:
-                msg_type += await self._reader.readexactly(1)
+                msg_type += self._read_exactly(1)
 
             length_int = bytes_to_varuint(length)
             assert length_int is not None
@@ -146,19 +193,17 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             assert msg_type_int is not None
 
             if length_int == 0:
+                self._complete_read()
                 return Packet(type=msg_type_int, data=b"")
 
-            data = await self._reader.readexactly(length_int)
+            data = self._read_exactly(length_int)
+            self._complete_read()
             return Packet(type=msg_type_int, data=data)
-        except SOCKET_ERRORS as err:
-            if (
-                isinstance(err, asyncio.IncompleteReadError)
-                and self._closed_event.is_set()
-            ):
-                raise SocketClosedAPIError(
-                    f"Socket closed while reading data: {err}"
-                ) from err
-            raise SocketAPIError(f"Error while reading data: {err}") from err
+        except MissingBytesAPIError:
+            # Not enough data to read
+            return
+        except Exception as exc:
+            self._handle_error(exc)
 
 
 def _decode_noise_psk(psk: str) -> bytes:
@@ -181,12 +226,12 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def __init__(
         self,
-        reader: asyncio.StreamReader,
-        writer: asyncio.StreamWriter,
+        on_pkt: Callable[[Packet], None],
+        on_error: Callable[[Exception], None],
         noise_psk: str,
     ) -> None:
         """Initialize the API frame helper."""
-        super().__init__(reader, writer)
+        super().__init__(on_pkt, on_error)
         self._ready_event = asyncio.Event()
         self._proto: Optional[NoiseConnection] = None
         self._noise_psk = noise_psk
@@ -202,8 +247,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # so that we don't block forever on the ready event if we
         # are waiting for the handshake to complete.
         self._ready_event.set()
-        self._closed_event.set()
-        self._writer.close()
+        await super().close()
 
     def _write_frame(self, frame: bytes) -> None:
         """Write a packet to the socket, the caller should not have the lock.
@@ -221,7 +265,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                     len(frame) & 0xFF,
                 ]
             )
-            self._writer.write(header + frame)
+            self._transport.write(header + frame)
         except OSError as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
