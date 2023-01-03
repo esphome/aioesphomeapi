@@ -224,7 +224,6 @@ class APIConnection:
                 ),
                 sock=self._socket,
             )
-            self._frame_helper = APIPlaintextFrameHelper()
         else:
             _, fh = await self.loop.create_connection(
                 lambda: APINoiseFrameHelper(
@@ -569,7 +568,7 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
-        self._handle_fatal_error()
+        self._handle_fatal_error(err)
         await self._cleanup()
 
     def _process_packet(self, pkt: Packet) -> None:

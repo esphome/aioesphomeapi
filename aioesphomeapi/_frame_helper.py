@@ -49,8 +49,8 @@ class APIFrameHelper(asyncio.Protocol):
 
     def __init__(
         self,
-        on_error: Callable[[Optional[Exception]], None],
         on_pkt: Callable[[Packet], None],
+        on_error: Callable[[Exception], None],
     ) -> None:
         """Initialize the API frame helper."""
         self._on_pkt = on_pkt
@@ -58,6 +58,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._transport: Optional[asyncio.Transport] = None
         self.read_lock = asyncio.Lock()
         self._closed_event = asyncio.Event()
+        self._connected_event = asyncio.Event()
         self._buffer = bytearray()
         self._pos = 0
 
@@ -65,14 +66,15 @@ class APIFrameHelper(asyncio.Protocol):
     def ready(self) -> bool:
         """Return if the connection is ready."""
 
-    def _init_read(self, length: int) -> None:
+    def _init_read(self, length: int) -> bytes:
         """Start reading a packet from the buffer."""
         self._pos = 0
-        self._read_exactly(length)
+        return self._read_exactly(length)
 
-    def _complete_read(self) -> None:
+    def _callback_packet(self, packet: Packet) -> None:
         """Complete reading a packet from the buffer."""
         del self._buffer[: self._pos]
+        self._on_pkt(packet)
 
     def _read_exactly(self, length: int) -> bytes:
         """Read exactly length bytes from the buffer."""
@@ -102,6 +104,7 @@ class APIFrameHelper(asyncio.Protocol):
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""
         self._transport = transport
+        self._connected_event.set()
 
     def _handle_error(self, exc: Optional[Exception]) -> None:
         self._closed_event.set()
@@ -112,7 +115,7 @@ class APIFrameHelper(asyncio.Protocol):
         return super().connection_lost(exc)
 
     def eof_received(self) -> bool | None:
-        self._on_error(SocketClosedAPIError("Connection closed"))
+        self._handle_error(SocketClosedAPIError("Connection closed"))
         return super().eof_received()
 
     async def close(self) -> None:
@@ -127,8 +130,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     @property
     def ready(self) -> bool:
         """Return if the connection is ready."""
-        # Plaintext is always ready
-        return True
+        return self._connected_event.is_set()
 
     def write_packet(self, packet: Packet) -> None:
         """Write a packet to the socket, the caller should not have the lock.
@@ -151,59 +153,62 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
     async def wait_for_ready(self) -> None:
         """Wait for the connection to be ready."""
-        # No handshake for plaintext
+        await self._connected_event.wait()
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
-        if len(self._buffer) < 3:
-            return
-        try:
-            # Read preamble, which should always 0x00
-            # Also try to get the length and msg type
-            # to avoid multiple calls to readexactly
-            init_bytes = self._init_read(3)
-            if init_bytes[0] != 0x00:
-                if init_bytes[0] == 0x01:
-                    raise RequiresEncryptionAPIError("Connection requires encryption")
-                raise ProtocolAPIError(f"Invalid preamble {init_bytes[0]:02x}")
+        while len(self._buffer) >= 3:
+            try:
+                # Read preamble, which should always 0x00
+                # Also try to get the length and msg type
+                # to avoid multiple calls to readexactly
+                init_bytes = self._init_read(3)
+                if init_bytes[0] != 0x00:
+                    if init_bytes[0] == 0x01:
+                        raise RequiresEncryptionAPIError(
+                            "Connection requires encryption"
+                        )
+                    raise ProtocolAPIError(f"Invalid preamble {init_bytes[0]:02x}")
 
-            if init_bytes[1] & 0x80 == 0x80:
-                # Length is longer than 1 byte
-                length = init_bytes[1:3]
-                msg_type = b""
-            else:
-                # This is the most common case with 99% of messages
-                # needing a single byte for length and type which means
-                # we avoid 2 calls to readexactly
-                length = init_bytes[1:2]
-                msg_type = init_bytes[2:3]
+                if init_bytes[1] & 0x80 == 0x80:
+                    # Length is longer than 1 byte
+                    length = init_bytes[1:3]
+                    msg_type = b""
+                else:
+                    # This is the most common case with 99% of messages
+                    # needing a single byte for length and type which means
+                    # we avoid 2 calls to readexactly
+                    length = init_bytes[1:2]
+                    msg_type = init_bytes[2:3]
 
-            # If the message is long, we need to read the rest of the length
-            while length[-1] & 0x80 == 0x80:
-                length += self._read_exactly(1)
+                # If the message is long, we need to read the rest of the length
+                while length[-1] & 0x80 == 0x80:
+                    length += self._read_exactly(1)
 
-            # If the message length was longer than 1 byte, we need to read the
-            # message type
-            while not msg_type or (msg_type[-1] & 0x80) == 0x80:
-                msg_type += self._read_exactly(1)
+                # If the message length was longer than 1 byte, we need to read the
+                # message type
+                while not msg_type or (msg_type[-1] & 0x80) == 0x80:
+                    msg_type += self._read_exactly(1)
 
-            length_int = bytes_to_varuint(length)
-            assert length_int is not None
-            msg_type_int = bytes_to_varuint(msg_type)
-            assert msg_type_int is not None
+                length_int = bytes_to_varuint(length)
+                assert length_int is not None
+                msg_type_int = bytes_to_varuint(msg_type)
+                assert msg_type_int is not None
 
-            if length_int == 0:
-                self._complete_read()
-                return Packet(type=msg_type_int, data=b"")
-
-            data = self._read_exactly(length_int)
-            self._complete_read()
-            return Packet(type=msg_type_int, data=data)
-        except MissingBytesAPIError:
-            # Not enough data to read
-            return
-        except Exception as exc:
-            self._handle_error(exc)
+                if length_int == 0:
+                    self._callback_packet(Packet(type=msg_type_int, data=b""))
+                else:
+                    self._callback_packet(
+                        Packet(type=msg_type_int, data=self._read_exactly(length_int))
+                    )
+            except MissingBytesAPIError as exc:
+                # Not enough data to read yet, wait for more
+                return
+            except Exception as exc:
+                self._handle_error(exc)
+                if self._transport is not None:
+                    self._transport.close()
+                raise
 
 
 def _decode_noise_psk(psk: str) -> bytes:
