@@ -4,11 +4,11 @@ import socket
 import pytest
 from mock import AsyncMock, MagicMock, Mock, patch
 
+from aioesphomeapi._frame_helper import APIPlaintextFrameHelper, Packet
 from aioesphomeapi.api_pb2 import ConnectResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import APIConnectionError, RequiresEncryptionAPIError
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper, Packet
 
 
 @pytest.fixture
