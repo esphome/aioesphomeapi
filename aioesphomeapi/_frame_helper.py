@@ -240,7 +240,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         on_pkt: Callable[[Packet], None],
         on_error: Callable[[Exception], None],
         noise_psk: str,
-        expected_name: str,
+        expected_name: Optional[str],
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(on_pkt, on_error)

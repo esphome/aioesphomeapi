@@ -407,7 +407,6 @@ class APIConnection:
         encoded = msg.SerializeToString()
         _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
 
-        frame_helper = self._frame_helper
         try:
             frame_helper.write_packet(
                 Packet(
