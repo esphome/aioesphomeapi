@@ -140,7 +140,7 @@ class APIConnection:
                 self._to_process.put_nowait(None)
 
                 if self._frame_helper is not None:
-                    await self._frame_helper.close()
+                    self._frame_helper.close()
                     self._frame_helper = None
 
                 if self._socket is not None:

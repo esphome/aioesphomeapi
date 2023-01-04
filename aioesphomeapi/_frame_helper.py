@@ -101,7 +101,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._handle_error(exc)
         self.close()
 
-    def _handle_error(self, exc: Optional[Exception]) -> None:
+    def _handle_error(self, exc: Exception) -> None:
         self._closed_event.set()
         self._on_error(exc)
 
@@ -113,7 +113,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._handle_error(SocketClosedAPIError("EOF received"))
         return super().eof_received()
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close the connection."""
         self._closed_event.set()
         self._transport.close()
