@@ -112,7 +112,8 @@ class APIFrameHelper(asyncio.Protocol):
     def close(self) -> None:
         """Close the connection."""
         self._closed_event.set()
-        self._transport.close()
+        if self._transport:
+            self._transport.close()
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
