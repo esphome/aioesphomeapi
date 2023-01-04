@@ -838,7 +838,7 @@ class BluetoothLEAdvertisement(APIModelBase):
 
     @classmethod
     def from_pb(  # type: ignore[misc]
-        cls: "BluetoothLEAdvertisement", data: BluetoothLEAdvertisementResponse
+        cls: "BluetoothLEAdvertisement", data: "BluetoothLEAdvertisementResponse"
     ) -> "BluetoothLEAdvertisement":
         return cls(  # type: ignore[operator, no-any-return]
             address=data.address,
