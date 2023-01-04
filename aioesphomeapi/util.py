@@ -1,6 +1,6 @@
 import math
-from typing import Optional
 from functools import lru_cache
+from typing import Optional
 
 
 @lru_cache(maxsize=1024)

@@ -19,8 +19,11 @@ from uuid import UUID
 from .util import fix_float_single_double_conversion
 
 if TYPE_CHECKING:
-    from .api_pb2 import BluetoothServiceData, HomeassistantServiceMap  # type: ignore
-    from .api_pb2 import BluetoothLEAdvertisementResponse
+    from .api_pb2 import (  # type: ignore
+        BluetoothLEAdvertisementResponse,
+        BluetoothServiceData,
+        HomeassistantServiceMap,
+    )
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible

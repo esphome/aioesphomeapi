@@ -3,7 +3,7 @@ import base64
 import logging
 from abc import abstractmethod, abstractproperty
 from dataclasses import dataclass
-from typing import Callable, Optional, cast, Union
+from typing import Callable, Optional, Union, cast
 
 import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
