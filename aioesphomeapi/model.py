@@ -837,7 +837,9 @@ class BluetoothLEAdvertisement(APIModelBase):
     manufacturer_data: Dict[int, bytes]
 
     @classmethod
-    def from_pb(cls: Type[_V], data: Any) -> _V:
+    def from_pb(  # type: ignore[misc]
+        cls: "BluetoothLEAdvertisement", data: BluetoothLEAdvertisementResponse
+    ) -> "BluetoothLEAdvertisement":
         return cls(  # type: ignore[operator, no-any-return]
             address=data.address,
             rssi=data.rssi,

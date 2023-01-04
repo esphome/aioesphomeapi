@@ -111,11 +111,8 @@ class APIConnection:
 
         self._ping_stop_event = asyncio.Event()
 
-        self._to_process: asyncio.Queue[Optional[Packet]] = asyncio.Queue()
-
         self._connect_lock: asyncio.Lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task[None]] = None
-        self.loop = asyncio.get_event_loop()
 
     @property
     def connection_state(self) -> ConnectionState:
@@ -135,9 +132,6 @@ class APIConnection:
         async def _do_cleanup() -> None:
             async with self._connect_lock:
                 _LOGGER.debug("Cleaning up connection to %s", self.log_name)
-
-                # Tell the process loop to stop
-                self._to_process.put_nowait(None)
 
                 if self._frame_helper is not None:
                     self._frame_helper.close()
@@ -216,8 +210,10 @@ class APIConnection:
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
         fh: Union[APIPlaintextFrameHelper, APINoiseFrameHelper]
+        loop = asyncio.get_event_loop()
+
         if self._params.noise_psk is None:
-            _, fh = await self.loop.create_connection(
+            _, fh = await loop.create_connection(
                 lambda: APIPlaintextFrameHelper(
                     on_pkt=self._process_packet,
                     on_error=self._handle_fatal_error_and_cleanup,
@@ -225,7 +221,7 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
-            _, fh = await self.loop.create_connection(
+            _, fh = await loop.create_connection(
                 lambda: APINoiseFrameHelper(
                     noise_psk=self._params.noise_psk,
                     expected_name=self._params.expected_name,
