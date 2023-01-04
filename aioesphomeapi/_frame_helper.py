@@ -3,7 +3,7 @@ import base64
 import logging
 from abc import abstractmethod, abstractproperty
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 
 import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
@@ -57,7 +57,7 @@ class APIFrameHelper(asyncio.Protocol):
     def ready(self) -> bool:
         """Return if the connection is ready."""
 
-    def _init_read(self, length: int) -> bytes:
+    def _init_read(self, length: int) -> Optional[bytes]:
         """Start reading a packet from the buffer."""
         self._pos = 0
         return self._read_exactly(length)
@@ -77,7 +77,7 @@ class APIFrameHelper(asyncio.Protocol):
         return self._buffer[original_pos:new_pos]
 
     @abstractmethod
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close the connection."""
 
     @abstractmethod
@@ -94,7 +94,7 @@ class APIFrameHelper(asyncio.Protocol):
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""
-        self._transport = transport
+        self._transport = cast(asyncio.Transport, transport)
         self._connected_event.set()
 
     def _handle_error_and_close(self, exc: Exception) -> None:
@@ -249,13 +249,13 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Return if the connection is ready."""
         return self._ready_event.is_set()
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close the connection."""
         # Make sure we set the ready event if its not already set
         # so that we don't block forever on the ready event if we
         # are waiting for the handshake to complete.
         self._ready_event.set()
-        await super().close()
+        super().close()
 
     def _write_frame(self, frame: bytes) -> None:
         """Write a packet to the socket, the caller should not have the lock.
