@@ -403,7 +403,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         data = msg[4 : 4 + data_len]
         return self._on_pkt(Packet(pkt_type, data))
 
-    def _handle_closed(self, frame: bytearray) -> None:
+    def _handle_closed(
+        self, frame: bytearray
+    ) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError("Connection closed"))
 

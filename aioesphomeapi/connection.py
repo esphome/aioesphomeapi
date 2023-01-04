@@ -5,7 +5,7 @@ import socket
 import time
 from contextlib import suppress
 from dataclasses import astuple, dataclass
-from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional, Type
+from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional, Type, Union
 
 import async_timeout
 from google.protobuf import message
@@ -215,6 +215,7 @@ class APIConnection:
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
+        fh: Union[APIPlaintextFrameHelper, APINoiseFrameHelper]
         if self._params.noise_psk is None:
             _, fh = await self.loop.create_connection(
                 lambda: APIPlaintextFrameHelper(
