@@ -277,10 +277,7 @@ class APIConnection:
         """Step 5 in connect process: start the ping loop."""
 
         async def _keep_alive_loop() -> None:
-            while True:
-                if not self._is_socket_open:
-                    return
-
+            while self._is_socket_open:
                 # Wait for keepalive seconds, or ping stop event, whichever happens first
                 try:
                     async with async_timeout.timeout(self._params.keepalive):

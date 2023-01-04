@@ -74,7 +74,7 @@ def patch_response_complex(client: APIClient, messages):
 def patch_response_callback(client: APIClient):
     on_message = None
 
-    async def patched(req, callback, msg_types):
+    def patched(req, callback, msg_types):
         nonlocal on_message
         on_message = callback
 
