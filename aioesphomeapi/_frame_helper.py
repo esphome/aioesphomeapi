@@ -271,6 +271,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         to avoid locking.
         """
         _LOGGER.debug("Sending frame %s", frame.hex())
+        assert self._transport is not None, "Transport is not set"
 
         try:
             header = bytes(
