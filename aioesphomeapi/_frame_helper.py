@@ -315,14 +315,6 @@ class APINoiseFrameHelper(APIFrameHelper):
             finally:
                 del self._buffer[: self._pos]
 
-    def _setup_proto(self) -> None:
-        """Set up the noise protocol."""
-        self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
-        self._proto.set_as_initiator()
-        self._proto.set_psks(_decode_noise_psk(self._noise_psk))
-        self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
-        self._proto.start_handshake()
-
     def _send_hello(self) -> None:
         """Send a ClientHello to the server."""
         self._write_frame(b"")  # ClientHello
@@ -355,6 +347,14 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         self._state = NoiseConnectionState.HANDSHAKE
         self._send_handshake()
+
+    def _setup_proto(self) -> None:
+        """Set up the noise protocol."""
+        self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
+        self._proto.set_as_initiator()
+        self._proto.set_psks(_decode_noise_psk(self._noise_psk))
+        self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
+        self._proto.start_handshake()
 
     def _send_handshake(self) -> None:
         """Send the handshake message."""
