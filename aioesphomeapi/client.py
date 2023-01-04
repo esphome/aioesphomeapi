@@ -448,7 +448,7 @@ class APIClient:
         msg_types = (BluetoothLEAdvertisementResponse,)
 
         def on_msg(msg: BluetoothLEAdvertisementResponse) -> None:
-            on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))
+            on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
