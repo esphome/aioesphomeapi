@@ -127,6 +127,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         The entire packet must be written in a single call to write
         to avoid locking.
         """
+        assert self._transport is not None, "Transport should be set"
         data = (
             b"\0"
             + varuint_to_bytes(len(packet.data))
@@ -372,7 +373,6 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def write_packet(self, packet: Packet) -> None:
         """Write a packet to the socket."""
-        padding = 0
         self._write_frame(
             self._proto.encrypt(
                 (
@@ -385,7 +385,6 @@ class APINoiseFrameHelper(APIFrameHelper):
                         ]
                     )
                     + packet.data
-                    + b"\x00" * padding
                 )
             )
         )
