@@ -3,12 +3,14 @@ import base64
 import logging
 from abc import abstractmethod, abstractproperty
 from dataclasses import dataclass
+from enum import Enum
 from typing import Callable, Optional, Union, cast
 
 import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
-from enum import Enum
+
 from .core import (
+    APIConnectionError,
     BadNameAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
@@ -62,11 +64,6 @@ class APIFrameHelper(asyncio.Protocol):
         self._pos = 0
         return self._read_exactly(length)
 
-    def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
-        """Complete reading a packet from the buffer."""
-        del self._buffer[: self._pos]
-        self._on_pkt(Packet(type_, data))
-
     def _read_exactly(self, length: int) -> Optional[bytearray]:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
@@ -119,6 +116,11 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     def ready(self) -> bool:
         """Return if the connection is ready."""
         return self._connected_event.is_set()
+
+    def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
+        """Complete reading a packet from the buffer."""
+        del self._buffer[: self._pos]
+        self._on_pkt(Packet(type_, data))
 
     def write_packet(self, packet: Packet) -> None:
         """Write a packet to the socket, the caller should not have the lock.
@@ -227,6 +229,7 @@ class NoiseConnectionState(Enum):
     HELLO = 1
     HANDSHAKE = 2
     READY = 3
+    CLOSED = 4
 
 
 class APINoiseFrameHelper(APIFrameHelper):
@@ -259,6 +262,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # so that we don't block forever on the ready event if we
         # are waiting for the handshake to complete.
         self._ready_event.set()
+        self._state = NoiseConnectionState.CLOSED
         super().close()
 
     def _write_frame(self, frame: bytes) -> None:
@@ -304,23 +308,12 @@ class APINoiseFrameHelper(APIFrameHelper):
             if frame is None:
                 return
 
-            if self._state == NoiseConnectionState.READY:
-                try:
-                    self._handle_frame(frame)
-                except ProtocolAPIError as err:
-                    self._handle_error_and_close(err)
-
-            elif self._state == NoiseConnectionState.HELLO:
-                try:
-                    self._handle_hello(frame)
-                except (HandshakeAPIError, BadNameAPIError) as err:
-                    self._handle_error_and_close(err)
-
-            elif self._state == NoiseConnectionState.HANDSHAKE:
-                try:
-                    self._handle_handshake(frame)
-                except (HandshakeAPIError, InvalidEncryptionKeyAPIError) as err:
-                    self._handle_error_and_close(err)
+            try:
+                self.STATE_TO_CALLABLE[self._state](self, frame)
+            except APIConnectionError as err:
+                self._handle_error_and_close(err)
+            finally:
+                del self._buffer[: self._pos]
 
     def _setup_proto(self) -> None:
         """Set up the noise protocol."""
@@ -368,14 +361,15 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._write_frame(b"\x00" + self._proto.write_message())
 
     def _handle_handshake(self, msg: bytearray) -> None:
-        _LOGGER.debug("Starting handshake...")
+        _LOGGER.debug("Starting handshake...msg=%s", msg)
         if msg[0] != 0:
             explanation = msg[1:].decode()
             if explanation == "Handshake MAC failure":
                 raise InvalidEncryptionKeyAPIError("Invalid encryption key")
             raise HandshakeAPIError(f"Handshake failure: {explanation}")
-        self._proto.read_message(msg[1:])
-        _LOGGER.debug("Handshake complete!")
+        _LOGGER.debug("Reading message...: %s", msg[1:])
+        result = self._proto.read_message(msg[1:])
+        _LOGGER.debug("Handshake complete: %s!", result)
         self._state = NoiseConnectionState.READY
         self._ready_event.set()
 
@@ -398,10 +392,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         frame = self._proto.encrypt(data)
         self._write_frame(frame)
 
-    async def _handle_frame(self, frame: bytearray) -> None:
+    def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
         assert self._proto is not None
-        msg = self._proto.decrypt(frame)
+        msg = self._proto.decrypt(bytes(frame))
         if len(msg) < 4:
             raise ProtocolAPIError(f"Bad packet frame: {msg}")
         pkt_type = (msg[0] << 8) | msg[1]
@@ -409,4 +403,15 @@ class APINoiseFrameHelper(APIFrameHelper):
         if data_len + 4 > len(msg):
             raise ProtocolAPIError(f"Bad data len: {data_len} vs {len(msg)}")
         data = msg[4 : 4 + data_len]
-        return self._callback_packet(pkt_type, data)
+        return self._on_pkt(Packet(pkt_type, data))
+
+    def _handle_closed(self, frame: bytearray) -> None:
+        """Handle a closed frame."""
+        self._handle_error(ProtocolAPIError("Connection closed"))
+
+    STATE_TO_CALLABLE = {
+        NoiseConnectionState.HELLO: _handle_hello,
+        NoiseConnectionState.HANDSHAKE: _handle_handshake,
+        NoiseConnectionState.READY: _handle_frame,
+        NoiseConnectionState.CLOSED: _handle_closed,
+    }
