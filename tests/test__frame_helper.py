@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper import APIPlaintextFrameHelper, Packet
 from aioesphomeapi.util import varuint_to_bytes
 
 PREAMBLE = b"\x00"
@@ -46,17 +46,20 @@ PREAMBLE = b"\x00"
 )
 async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
 
-    stream_reader = asyncio.StreamReader()
-    stream_writer = MagicMock()
-
     for _ in range(5):
+        packets = []
 
-        stream_reader.feed_data(in_bytes)
+        def _packet(pkt: Packet):
+            packets.append(pkt)
 
-        helper = APIPlaintextFrameHelper(stream_reader, stream_writer)
+        def _on_error(exc: Exception):
+            raise exc
 
-        async with helper.read_lock:
-            pkt = await helper.read_packet_with_lock()
+        helper = APIPlaintextFrameHelper(on_pkt=_packet, on_error=_on_error)
+
+        helper.data_received(in_bytes)
+
+        pkt = packets.pop()
 
         assert pkt.type == pkt_type
         assert pkt.data == pkt_data
