@@ -226,7 +226,7 @@ class APIConnection:
         else:
             _, fh = await self.loop.create_connection(
                 lambda: APINoiseFrameHelper(
-                    self._params.noise_psk,
+                    noise_psk=self._params.noise_psk,
                     on_pkt=self._process_packet,
                     on_error=self._handle_fatal_error_and_cleanup,
                 ),
@@ -392,20 +392,14 @@ class APIConnection:
     def is_authenticated(self) -> bool:
         return self.is_connected and self._is_authenticated
 
-    async def send_message(self, msg: message.Message) -> None:
+    def _send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._is_socket_open:
             raise APIConnectionError("Connection isn't established yet")
 
         frame_helper = self._frame_helper
         assert frame_helper is not None
-        if not frame_helper.ready:
-            await frame_helper.wait_for_ready()
-
-        self._send_message(msg)
-
-    def _send_message(self, msg: message.Message) -> None:
-        """Send a protobuf message to the remote."""
+        assert frame_helper.ready, "Frame helper not ready"
         message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
         if not message_type:
             raise ValueError(f"Message type id not found for type {type(msg)}")
@@ -447,7 +441,7 @@ class APIConnection:
         for msg_type in msg_types:
             self._message_handlers[msg_type].remove(on_message)
 
-    async def send_message_callback_response(
+    def send_message_callback_response(
         self,
         send_msg: message.Message,
         on_message: Callable[[Any], None],
@@ -457,7 +451,7 @@ class APIConnection:
         for msg_type in msg_types:
             self._message_handlers.setdefault(msg_type, []).append(on_message)
         try:
-            await self.send_message(send_msg)
+            self._send_message(send_msg)
         except (asyncio.CancelledError, Exception):
             for msg_type in msg_types:
                 self._message_handlers[msg_type].remove(on_message)
@@ -507,8 +501,8 @@ class APIConnection:
         # the await is cancelled
 
         try:
-            await self.send_message(send_msg)
             async with async_timeout.timeout(timeout):
+                self._send_message(send_msg)
                 await fut
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError(

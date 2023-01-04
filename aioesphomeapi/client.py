@@ -373,7 +373,7 @@ class APIClient:
                     image_stream[msg.key] = data
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeStatesRequest(), on_msg, msg_types
         )
 
@@ -394,7 +394,7 @@ class APIClient:
         if dump_config is not None:
             req.dump_config = dump_config
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             req, on_msg, (SubscribeLogsResponse,)
         )
 
@@ -407,7 +407,7 @@ class APIClient:
             on_service_call(HomeassistantServiceCall.from_pb(msg))
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
             on_msg,
             (HomeassistantServiceResponse,),
@@ -451,7 +451,7 @@ class APIClient:
             on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(), on_msg, msg_types
         )
 
@@ -472,7 +472,7 @@ class APIClient:
             on_bluetooth_connections_free_update(resp.free, resp.limit)
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(), on_msg, msg_types
         )
 
@@ -518,7 +518,7 @@ class APIClient:
             _LOGGER.debug("%s: Using connection version 1", address)
             request_type = BluetoothDeviceRequestType.CONNECT
 
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=request_type,
@@ -777,7 +777,7 @@ class APIClient:
             on_state_sub(msg.entity_id, msg.attribute)
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
             on_msg,
             (SubscribeHomeAssistantStateResponse,),

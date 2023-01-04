@@ -197,19 +197,22 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     return
                 msg_type += add_msg_type
 
-            length_int = bytes_to_varuint(length)
+            length_int = bytes_to_varuint(bytes(length))
             assert length_int is not None
-            msg_type_int = bytes_to_varuint(msg_type)
+            msg_type_int = bytes_to_varuint(bytes(msg_type))
             assert msg_type_int is not None
 
             if length_int == 0:
                 self._callback_packet(Packet(type=msg_type_int, data=b""))
-                return
+                # If we have more data, continue processing
+                continue
 
             data = self._read_exactly(length_int)
             if data is None:
                 return
+
             self._callback_packet(Packet(type=msg_type_int, data=data))
+            # If we have more data, continue processing
 
 
 def _decode_noise_psk(psk: str) -> bytes:
