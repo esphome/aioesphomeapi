@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import contextlib
 import logging
 from abc import abstractmethod, abstractproperty
 from dataclasses import dataclass
@@ -110,7 +109,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._handle_error(exc or SocketClosedAPIError("Connection lost"))
         return super().connection_lost(exc)
 
-    def eof_received(self) -> bool | None:
+    def eof_received(self) -> Optional[bool]:
         self._handle_error(SocketClosedAPIError("EOF received"))
         return super().eof_received()
 
