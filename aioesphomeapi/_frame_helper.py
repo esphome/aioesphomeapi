@@ -7,7 +7,7 @@ from typing import Callable, Optional, Union, cast
 
 import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
-
+from enum import Enum
 from .core import (
     BadNameAPIError,
     HandshakeAPIError,
@@ -77,16 +77,12 @@ class APIFrameHelper(asyncio.Protocol):
         return self._buffer[original_pos:new_pos]
 
     @abstractmethod
+    async def perform_handshake(self) -> None:
+        """Perform the handshake."""
+
+    @abstractmethod
     def write_packet(self, packet: Packet) -> None:
         """Write a packet to the socket."""
-
-    @abstractmethod
-    async def read_packet_with_lock(self) -> Packet:
-        """Read a packet from the socket, the caller is responsible for having the lock."""
-
-    @abstractmethod
-    async def wait_for_ready(self) -> None:
-        """Wait for the connection to be ready."""
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""
@@ -143,8 +139,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         except (ConnectionResetError, OSError) as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
-    async def wait_for_ready(self) -> None:
-        """Wait for the connection to be ready."""
+    async def perform_handshake(self) -> None:
+        """Perform the handshake."""
         await self._connected_event.wait()
 
     def data_received(self, data: bytes) -> None:
@@ -154,8 +150,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # Also try to get the length and msg type
             # to avoid multiple calls to readexactly
             init_bytes = self._init_read(3)
-            if init_bytes is None:
-                return
+            assert init_bytes is not None, "Buffer should have at least 3 bytes"
             if init_bytes[0] != 0x00:
                 if init_bytes[0] == 0x01:
                     self._handle_error_and_close(
@@ -226,6 +221,14 @@ def _decode_noise_psk(psk: str) -> bytes:
     return psk_bytes
 
 
+class NoiseConnectionState(Enum):
+    """Noise connection state."""
+
+    HELLO = 1
+    HANDSHAKE = 2
+    READY = 3
+
+
 class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
 
@@ -234,12 +237,16 @@ class APINoiseFrameHelper(APIFrameHelper):
         on_pkt: Callable[[Packet], None],
         on_error: Callable[[Exception], None],
         noise_psk: str,
+        expected_name: str,
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(on_pkt, on_error)
         self._ready_event = asyncio.Event()
         self._proto: Optional[NoiseConnection] = None
         self._noise_psk = noise_psk
+        self._expected_name = expected_name
+        self._state = NoiseConnectionState.HELLO
+        self._setup_proto()
 
     @property
     def ready(self) -> bool:
@@ -274,35 +281,61 @@ class APINoiseFrameHelper(APIFrameHelper):
         except OSError as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
-    async def _read_frame_with_lock(self) -> bytes:
-        """Read a frame from the socket, the caller is responsible for having the lock."""
-        assert self.read_lock.locked(), "_read_frame_with_lock called without lock"
+    async def perform_handshake(self) -> None:
+        """Perform the handshake with the server."""
+        self._send_hello()
         try:
-            header = await self._reader.readexactly(3)
+            async with async_timeout.timeout(60.0):
+                await self._ready_event.wait()
+        except asyncio.TimeoutError as err:
+            raise HandshakeAPIError("Timeout during handshake") from err
+
+    def data_received(self, data: bytes) -> None:
+        self._buffer += data
+        while len(self._buffer) >= 3:
+            header = self._init_read(3)
+            assert header is not None, "Buffer should have at least 3 bytes"
             if header[0] != 0x01:
-                raise ProtocolAPIError(f"Marker byte invalid: {header[0]}")
+                self._handle_error_and_close(
+                    ProtocolAPIError(f"Marker byte invalid: {header[0]}")
+                )
             msg_size = (header[1] << 8) | header[2]
-            frame = await self._reader.readexactly(msg_size)
-        except SOCKET_ERRORS as err:
-            if (
-                isinstance(err, asyncio.IncompleteReadError)
-                and self._closed_event.is_set()
-            ):
-                raise SocketClosedAPIError(
-                    f"Socket closed while reading data: {err}"
-                ) from err
-            raise SocketAPIError(f"Error while reading data: {err}") from err
+            frame = self._read_exactly(msg_size)
+            if frame is None:
+                return
 
-        _LOGGER.debug("Received frame %s", frame.hex())
-        return frame
+            if self._state == NoiseConnectionState.READY:
+                try:
+                    self._handle_frame(frame)
+                except ProtocolAPIError as err:
+                    self._handle_error_and_close(err)
 
-    async def _perform_handshake(self, expected_name: Optional[str]) -> None:
-        """Perform the handshake with the server, the caller is responsible for having the lock."""
-        assert self.read_lock.locked(), "_perform_handshake called without lock"
+            elif self._state == NoiseConnectionState.HELLO:
+                try:
+                    self._handle_hello(frame)
+                except (HandshakeAPIError, BadNameAPIError) as err:
+                    self._handle_error_and_close(err)
+
+            elif self._state == NoiseConnectionState.HANDSHAKE:
+                try:
+                    self._handle_handshake(frame)
+                except (HandshakeAPIError, InvalidEncryptionKeyAPIError) as err:
+                    self._handle_error_and_close(err)
+
+    def _setup_proto(self) -> None:
+        """Set up the noise protocol."""
+        self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
+        self._proto.set_as_initiator()
+        self._proto.set_psks(_decode_noise_psk(self._noise_psk))
+        self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
+        self._proto.start_handshake()
+
+    def _send_hello(self) -> None:
+        """Send a ClientHello to the server."""
         self._write_frame(b"")  # ClientHello
-        prologue = b"NoiseAPIInit" + b"\x00\x00"
 
-        server_hello = await self._read_frame_with_lock()  # ServerHello
+    def _handle_hello(self, server_hello: bytearray) -> None:
+        """Perform the handshake with the server, the caller is responsible for having the lock."""
         if not server_hello:
             raise HandshakeAPIError("ServerHello is empty")
 
@@ -322,47 +355,29 @@ class APINoiseFrameHelper(APIFrameHelper):
         if server_name_i != -1:
             # server name found, this extension was added in 2022.2
             server_name = server_hello[1:server_name_i].decode()
-            if expected_name is not None and expected_name != server_name:
+            if self._expected_name is not None and self._expected_name != server_name:
                 raise BadNameAPIError(
                     f"Server sent a different name '{server_name}'", server_name
                 )
 
-        self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
-        self._proto.set_as_initiator()
-        self._proto.set_psks(_decode_noise_psk(self._noise_psk))
-        self._proto.set_prologue(prologue)
-        self._proto.start_handshake()
+        self._state = NoiseConnectionState.HANDSHAKE
+        self._send_handshake()
 
+    def _send_handshake(self) -> None:
+        """Send the handshake message."""
+        self._write_frame(b"\x00" + self._proto.write_message())
+
+    def _handle_handshake(self, msg: bytearray) -> None:
         _LOGGER.debug("Starting handshake...")
-        do_write = True
-        while not self._proto.handshake_finished:
-            if do_write:
-                msg = self._proto.write_message()
-                self._write_frame(b"\x00" + msg)
-            else:
-                msg = await self._read_frame_with_lock()
-                if not msg:
-                    raise HandshakeAPIError("Handshake message too short")
-                if msg[0] != 0:
-                    explanation = msg[1:].decode()
-                    if explanation == "Handshake MAC failure":
-                        raise InvalidEncryptionKeyAPIError("Invalid encryption key")
-                    raise HandshakeAPIError(f"Handshake failure: {explanation}")
-                self._proto.read_message(msg[1:])
-
-            do_write = not do_write
-
+        if msg[0] != 0:
+            explanation = msg[1:].decode()
+            if explanation == "Handshake MAC failure":
+                raise InvalidEncryptionKeyAPIError("Invalid encryption key")
+            raise HandshakeAPIError(f"Handshake failure: {explanation}")
+        self._proto.read_message(msg[1:])
         _LOGGER.debug("Handshake complete!")
+        self._state = NoiseConnectionState.READY
         self._ready_event.set()
-
-    async def perform_handshake(self, expected_name: Optional[str]) -> None:
-        """Perform the handshake with the server."""
-        # Allow up to 60 seconds for handhsake
-        try:
-            async with self.read_lock, async_timeout.timeout(60.0):
-                await self._perform_handshake(expected_name)
-        except asyncio.TimeoutError as err:
-            raise HandshakeAPIError("Timeout during handshake") from err
 
     def write_packet(self, packet: Packet) -> None:
         """Write a packet to the socket."""
@@ -383,13 +398,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         frame = self._proto.encrypt(data)
         self._write_frame(frame)
 
-    async def wait_for_ready(self) -> None:
-        """Wait for the connection to be ready."""
-        await self._ready_event.wait()
-
-    async def read_packet_with_lock(self) -> Packet:
-        """Read a packet from the socket, the caller is responsible for having the lock."""
-        frame = await self._read_frame_with_lock()
+    async def _handle_frame(self, frame: bytearray) -> None:
+        """Handle an incoming frame."""
         assert self._proto is not None
         msg = self._proto.decrypt(frame)
         if len(msg) < 4:
@@ -399,4 +409,4 @@ class APINoiseFrameHelper(APIFrameHelper):
         if data_len + 4 > len(msg):
             raise ProtocolAPIError(f"Bad data len: {data_len} vs {len(msg)}")
         data = msg[4 : 4 + data_len]
-        return Packet(type=pkt_type, data=data)
+        return self._callback_packet(pkt_type, data)

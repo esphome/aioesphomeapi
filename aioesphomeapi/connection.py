@@ -227,16 +227,16 @@ class APIConnection:
             _, fh = await self.loop.create_connection(
                 lambda: APINoiseFrameHelper(
                     noise_psk=self._params.noise_psk,
+                    expected_name=self._params.expected_name,
                     on_pkt=self._process_packet,
                     on_error=self._handle_fatal_error_and_cleanup,
                 ),
                 sock=self._socket,
             )
-            await fh.perform_handshake(self._params.expected_name)
 
         self._frame_helper = fh
         self._connection_state = ConnectionState.SOCKET_OPENED
-        await fh.wait_for_ready()
+        await fh.perform_handshake()
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
