@@ -36,14 +36,6 @@ class Packet:
     data: bytes
 
 
-class MissingBytesAPIError(SocketAPIError):
-    """Error when not enough bytes are available."""
-
-    def __init__(self, expected: int, actual: int) -> None:
-        """Initialize the error."""
-        super().__init__(f"Expected {expected} bytes, got {actual}")
-
-
 class APIFrameHelper(asyncio.Protocol):
     """Helper class to handle the API frame protocol."""
 
@@ -76,12 +68,12 @@ class APIFrameHelper(asyncio.Protocol):
         del self._buffer[: self._pos]
         self._on_pkt(packet)
 
-    def _read_exactly(self, length: int) -> bytes:
-        """Read exactly length bytes from the buffer."""
+    def _read_exactly(self, length: int) -> Optional[bytes]:
+        """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
         if len(self._buffer) < new_pos:
-            raise MissingBytesAPIError(self._buffer, new_pos)
+            return None
         self._pos = new_pos
         return self._buffer[original_pos:new_pos]
 
@@ -105,6 +97,10 @@ class APIFrameHelper(asyncio.Protocol):
         """Handle a new connection."""
         self._transport = transport
         self._connected_event.set()
+
+    def _handle_error_and_close(self, exc: Exception) -> None:
+        self._handle_error(exc)
+        self.close()
 
     def _handle_error(self, exc: Optional[Exception]) -> None:
         self._closed_event.set()
@@ -157,58 +153,63 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
-        try:
-            while len(self._buffer) >= 3:
-                # Read preamble, which should always 0x00
-                # Also try to get the length and msg type
-                # to avoid multiple calls to readexactly
-                init_bytes = self._init_read(3)
-                if init_bytes[0] != 0x00:
-                    if init_bytes[0] == 0x01:
-                        raise RequiresEncryptionAPIError(
-                            "Connection requires encryption"
-                        )
-                    raise ProtocolAPIError(f"Invalid preamble {init_bytes[0]:02x}")
-
-                if init_bytes[1] & 0x80 == 0x80:
-                    # Length is longer than 1 byte
-                    length = init_bytes[1:3]
-                    msg_type = b""
-                else:
-                    # This is the most common case with 99% of messages
-                    # needing a single byte for length and type which means
-                    # we avoid 2 calls to readexactly
-                    length = init_bytes[1:2]
-                    msg_type = init_bytes[2:3]
-
-                # If the message is long, we need to read the rest of the length
-                while length[-1] & 0x80 == 0x80:
-                    length += self._read_exactly(1)
-
-                # If the message length was longer than 1 byte, we need to read the
-                # message type
-                while not msg_type or (msg_type[-1] & 0x80) == 0x80:
-                    msg_type += self._read_exactly(1)
-
-                length_int = bytes_to_varuint(length)
-                assert length_int is not None
-                msg_type_int = bytes_to_varuint(msg_type)
-                assert msg_type_int is not None
-
-                if length_int == 0:
-                    self._callback_packet(Packet(type=msg_type_int, data=b""))
-                else:
-                    self._callback_packet(
-                        Packet(type=msg_type_int, data=self._read_exactly(length_int))
+        while len(self._buffer) >= 3:
+            # Read preamble, which should always 0x00
+            # Also try to get the length and msg type
+            # to avoid multiple calls to readexactly
+            init_bytes = self._init_read(3)
+            if init_bytes is None:
+                return
+            if init_bytes[0] != 0x00:
+                if init_bytes[0] == 0x01:
+                    self._handle_error_and_close(
+                        RequiresEncryptionAPIError("Connection requires encryption")
                     )
-        except MissingBytesAPIError as exc:
-            # Not enough data to read yet, wait for more
-            return
-        except Exception as exc:
-            self._handle_error(exc)
-            if self._transport is not None:
-                self._transport.close()
-            raise
+                    return
+                self._handle_error_and_close(
+                    ProtocolAPIError(f"Invalid preamble {init_bytes[0]:02x}")
+                )
+                return
+
+            if init_bytes[1] & 0x80 == 0x80:
+                # Length is longer than 1 byte
+                length = init_bytes[1:3]
+                msg_type = b""
+            else:
+                # This is the most common case with 99% of messages
+                # needing a single byte for length and type which means
+                # we avoid 2 calls to readexactly
+                length = init_bytes[1:2]
+                msg_type = init_bytes[2:3]
+
+            # If the message is long, we need to read the rest of the length
+            while length[-1] & 0x80 == 0x80:
+                add_length = self._read_exactly(1)
+                if add_length is None:
+                    return
+                length += add_length
+
+            # If the message length was longer than 1 byte, we need to read the
+            # message type
+            while not msg_type or (msg_type[-1] & 0x80) == 0x80:
+                add_msg_type = self._read_exactly(1)
+                if add_msg_type is None:
+                    return
+                msg_type += add_msg_type
+
+            length_int = bytes_to_varuint(length)
+            assert length_int is not None
+            msg_type_int = bytes_to_varuint(msg_type)
+            assert msg_type_int is not None
+
+            if length_int == 0:
+                self._callback_packet(Packet(type=msg_type_int, data=b""))
+                return
+
+            data = self._read_exactly(length_int)
+            if data is None:
+                return
+            self._callback_packet(Packet(type=msg_type_int, data=data))
 
 
 def _decode_noise_psk(psk: str) -> bytes:
