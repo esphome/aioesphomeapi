@@ -3,7 +3,7 @@ import base64
 import logging
 from abc import abstractmethod, abstractproperty
 from dataclasses import dataclass
-from typing import Callable, Optional, cast
+from typing import Callable, Optional, cast, Union
 
 import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
@@ -32,7 +32,7 @@ SOCKET_ERRORS = (
 @dataclass
 class Packet:
     type: int
-    data: bytes
+    data: bytes | bytearray
 
 
 class APIFrameHelper(asyncio.Protocol):
@@ -57,17 +57,17 @@ class APIFrameHelper(asyncio.Protocol):
     def ready(self) -> bool:
         """Return if the connection is ready."""
 
-    def _init_read(self, length: int) -> Optional[bytes]:
+    def _init_read(self, length: int) -> Optional[bytearray]:
         """Start reading a packet from the buffer."""
         self._pos = 0
         return self._read_exactly(length)
 
-    def _callback_packet(self, packet: Packet) -> None:
+    def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
         """Complete reading a packet from the buffer."""
         del self._buffer[: self._pos]
-        self._on_pkt(packet)
+        self._on_pkt(Packet(type_, data))
 
-    def _read_exactly(self, length: int) -> Optional[bytes]:
+    def _read_exactly(self, length: int) -> Optional[bytearray]:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
@@ -199,7 +199,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             assert msg_type_int is not None
 
             if length_int == 0:
-                self._callback_packet(Packet(type=msg_type_int, data=b""))
+                self._callback_packet(msg_type_int, b"")
                 # If we have more data, continue processing
                 continue
 
@@ -207,7 +207,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if data is None:
                 return
 
-            self._callback_packet(Packet(type=msg_type_int, data=data))
+            self._callback_packet(msg_type_int, data)
             # If we have more data, continue processing
 
 
