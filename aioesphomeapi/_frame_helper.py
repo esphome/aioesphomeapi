@@ -77,10 +77,6 @@ class APIFrameHelper(asyncio.Protocol):
         return self._buffer[original_pos:new_pos]
 
     @abstractmethod
-    def close(self) -> None:
-        """Close the connection."""
-
-    @abstractmethod
     def write_packet(self, packet: Packet) -> None:
         """Write a packet to the socket."""
 
