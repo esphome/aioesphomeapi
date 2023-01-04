@@ -20,6 +20,7 @@ from .util import fix_float_single_double_conversion
 
 if TYPE_CHECKING:
     from .api_pb2 import BluetoothServiceData, HomeassistantServiceMap  # type: ignore
+    from .api_pb2 import BluetoothLEAdvertisementResponse
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
@@ -821,20 +822,29 @@ def _convert_bluetooth_le_name(value: bytes) -> str:
 
 @dataclass(frozen=True)
 class BluetoothLEAdvertisement(APIModelBase):
-    address: int = 0
-    rssi: int = 0
-    address_type: int = 0
+    address: int
+    rssi: int
+    address_type: int
+    name: str
+    service_uuids: List[str]
+    service_data: Dict[str, bytes]
+    manufacturer_data: Dict[int, bytes]
 
-    name: str = converter_field(default="", converter=_convert_bluetooth_le_name)
-    service_uuids: List[str] = converter_field(
-        default_factory=list, converter=_convert_bluetooth_le_service_uuids
-    )
-    service_data: Dict[str, bytes] = converter_field(
-        default_factory=dict, converter=_convert_bluetooth_le_service_data
-    )
-    manufacturer_data: Dict[int, bytes] = converter_field(
-        default_factory=dict, converter=_convert_bluetooth_le_manufacturer_data
-    )
+    @classmethod
+    def from_pb(
+        cls: "BluetoothLEAdvertisement", data: "BluetoothLEAdvertisementResponse"
+    ) -> "BluetoothLEAdvertisement":
+        return cls(
+            address=data.address,
+            rssi=data.rssi,
+            address_type=data.address_type,
+            name=_convert_bluetooth_le_name(data.name),
+            service_uuids=_convert_bluetooth_le_service_uuids(data.service_uuids),
+            service_data=_convert_bluetooth_le_service_data(data.service_data),
+            manufacturer_data=_convert_bluetooth_le_manufacturer_data(
+                data.manufacturer_data
+            ),
+        )
 
 
 @dataclass(frozen=True)
