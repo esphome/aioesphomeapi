@@ -216,7 +216,7 @@ class APIConnection:
             _, fh = await loop.create_connection(
                 lambda: APIPlaintextFrameHelper(
                     on_pkt=self._process_packet,
-                    on_error=self._handle_fatal_error_and_cleanup,
+                    on_error=self._report_fatal_error_and_cleanup_task,
                 ),
                 sock=self._socket,
             )
@@ -226,7 +226,7 @@ class APIConnection:
                     noise_psk=self._params.noise_psk,
                     expected_name=self._params.expected_name,
                     on_pkt=self._process_packet,
-                    on_error=self._handle_fatal_error_and_cleanup,
+                    on_error=self._report_fatal_error_and_cleanup_task,
                 ),
                 sock=self._socket,
             )
@@ -414,7 +414,7 @@ class APIConnection:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             _LOGGER.info("%s: Error writing packet: %s", self.log_name, err)
-            asyncio.create_task(self._report_fatal_error(err))
+            self._report_fatal_error_and_cleanup_task(err)
             raise
 
     def add_message_callback(
@@ -529,19 +529,13 @@ class APIConnection:
         return res[0]
 
     def _handle_fatal_error(self, err: Exception) -> None:
-        """Handle a fatal error that occurred during an operation.
-
-        This should only be called for errors that mean the connection
-        can no longer be used.
-
-        The connection will be closed, all exception handlers notified.
-        This method does not log the error, the call site should do so.
-        """
+        """Handle a fatal error that occurred during an operation."""
         self._connection_state = ConnectionState.CLOSED
         for handler in self._read_exception_handlers[:]:
             handler(err)
+        self._read_exception_handlers.clear()
 
-    def _handle_fatal_error_and_cleanup(self, err: Exception) -> None:
+    def _report_fatal_error_and_cleanup_task(self, err: Exception) -> None:
         """Handle a fatal error that occurred during an operation.
 
         This should only be called for errors that mean the connection
@@ -584,10 +578,8 @@ class APIConnection:
                 e,
                 exc_info=True,
             )
-            asyncio.create_task(
-                self._report_fatal_error(
-                    ProtocolAPIError(f"Invalid protobuf message: {e}")
-                )
+            self._report_fatal_error_and_cleanup_task(
+                ProtocolAPIError(f"Invalid protobuf message: {e}")
             )
             raise
 
