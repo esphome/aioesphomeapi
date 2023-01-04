@@ -10,7 +10,6 @@ import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
 
 from .core import (
-    APIConnectionError,
     BadNameAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
@@ -245,7 +244,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Initialize the API frame helper."""
         super().__init__(on_pkt, on_error)
         self._ready_event = asyncio.Event()
-        self._proto: Optional[NoiseConnection] = None
         self._noise_psk = noise_psk
         self._expected_name = expected_name
         self._state = NoiseConnectionState.HELLO
@@ -375,21 +373,22 @@ class APINoiseFrameHelper(APIFrameHelper):
     def write_packet(self, packet: Packet) -> None:
         """Write a packet to the socket."""
         padding = 0
-        data = (
-            bytes(
-                [
-                    (packet.type >> 8) & 0xFF,
-                    (packet.type >> 0) & 0xFF,
-                    (len(packet.data) >> 8) & 0xFF,
-                    (len(packet.data) >> 0) & 0xFF,
-                ]
+        self._write_frame(
+            self._proto.encrypt(
+                (
+                    bytes(
+                        [
+                            (packet.type >> 8) & 0xFF,
+                            (packet.type >> 0) & 0xFF,
+                            (len(packet.data) >> 8) & 0xFF,
+                            (len(packet.data) >> 0) & 0xFF,
+                        ]
+                    )
+                    + packet.data
+                    + b"\x00" * padding
+                )
             )
-            + packet.data
-            + b"\x00" * padding
         )
-        assert self._proto is not None
-        frame = self._proto.encrypt(data)
-        self._write_frame(frame)
 
     def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
