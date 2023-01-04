@@ -200,11 +200,11 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 # If we have more data, continue processing
                 continue
 
-            data = self._read_exactly(length_int)
-            if data is None:
+            packet_data = self._read_exactly(length_int)
+            if packet_data is None:
                 return
 
-            self._callback_packet(msg_type_int, data)
+            self._callback_packet(msg_type_int, packet_data)
             # If we have more data, continue processing
 
 
