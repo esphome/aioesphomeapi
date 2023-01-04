@@ -361,15 +361,14 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._write_frame(b"\x00" + self._proto.write_message())
 
     def _handle_handshake(self, msg: bytearray) -> None:
-        _LOGGER.debug("Starting handshake...msg=%s", msg)
+        _LOGGER.debug("Starting handshake...")
         if msg[0] != 0:
             explanation = msg[1:].decode()
             if explanation == "Handshake MAC failure":
                 raise InvalidEncryptionKeyAPIError("Invalid encryption key")
             raise HandshakeAPIError(f"Handshake failure: {explanation}")
-        _LOGGER.debug("Reading message...: %s", msg[1:])
-        result = self._proto.read_message(msg[1:])
-        _LOGGER.debug("Handshake complete: %s!", result)
+        self._proto.read_message(msg[1:])
+        _LOGGER.debug("Handshake complete")
         self._state = NoiseConnectionState.READY
         self._ready_event.set()
 
