@@ -40,7 +40,6 @@ from .core import (
     ReadFailedAPIError,
     ResolveAPIError,
     SocketAPIError,
-    SocketClosedAPIError,
     TimeoutAPIError,
 )
 from .model import APIVersion
@@ -398,6 +397,15 @@ class APIConnection:
         if not self._is_socket_open:
             raise APIConnectionError("Connection isn't established yet")
 
+        frame_helper = self._frame_helper
+        assert frame_helper is not None
+        if not frame_helper.ready:
+            await frame_helper.wait_for_ready()
+
+        self._send_message(msg)
+
+    def _send_message(self, msg: message.Message) -> None:
+        """Send a protobuf message to the remote."""
         message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
         if not message_type:
             raise ValueError(f"Message type id not found for type {type(msg)}")
@@ -405,10 +413,6 @@ class APIConnection:
         _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
 
         frame_helper = self._frame_helper
-        assert frame_helper is not None
-        if not frame_helper.ready:
-            await frame_helper.wait_for_ready()
-
         try:
             frame_helper.write_packet(
                 Packet(
@@ -420,7 +424,7 @@ class APIConnection:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             _LOGGER.info("%s: Error writing packet: %s", self.log_name, err)
-            await self._report_fatal_error(err)
+            asyncio.create_task(self._report_fatal_error(err))
             raise
 
     def add_message_callback(
@@ -606,20 +610,19 @@ class APIConnection:
 
         # Pre-check the message type to avoid awaiting
         # since most messages are not internal messages
-        if msg_type in INTERNAL_MESSAGE_TYPES:
-            asyncio.create_task(self._handle_internal_messages(msg))
+        if msg_type not in INTERNAL_MESSAGE_TYPES:
+            return
 
-    async def _handle_internal_messages(self, msg: Any) -> None:
         if isinstance(msg, DisconnectRequest):
-            await self.send_message(DisconnectResponse())
+            self._send_message(DisconnectResponse())
             self._connection_state = ConnectionState.CLOSED
-            await self._cleanup()
+            asyncio.create_task(self._cleanup())
         elif isinstance(msg, PingRequest):
-            await self.send_message(PingResponse())
+            self._send_message(PingResponse())
         elif isinstance(msg, GetTimeRequest):
             resp = GetTimeResponse()
             resp.epoch_seconds = int(time.time())
-            await self.send_message(resp)
+            self._send_message(resp)
 
     async def _ping(self) -> None:
         self._check_connected()

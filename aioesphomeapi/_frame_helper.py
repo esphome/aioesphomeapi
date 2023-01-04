@@ -111,11 +111,11 @@ class APIFrameHelper(asyncio.Protocol):
         self._on_error(exc)
 
     def connection_lost(self, exc: Optional[Exception]) -> None:
-        self._handle_error(exc)
+        self._handle_error(exc or SocketClosedAPIError("Connection lost"))
         return super().connection_lost(exc)
 
     def eof_received(self) -> bool | None:
-        self._handle_error(SocketClosedAPIError("Connection closed"))
+        self._handle_error(SocketClosedAPIError("EOF received"))
         return super().eof_received()
 
     async def close(self) -> None:
