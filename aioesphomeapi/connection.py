@@ -392,7 +392,7 @@ class APIConnection:
     def is_authenticated(self) -> bool:
         return self.is_connected and self._is_authenticated
 
-    def _send_message(self, msg: message.Message) -> None:
+    def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._is_socket_open:
             raise APIConnectionError("Connection isn't established yet")
@@ -451,7 +451,7 @@ class APIConnection:
         for msg_type in msg_types:
             self._message_handlers.setdefault(msg_type, []).append(on_message)
         try:
-            self._send_message(send_msg)
+            self.send_message(send_msg)
         except (asyncio.CancelledError, Exception):
             for msg_type in msg_types:
                 self._message_handlers[msg_type].remove(on_message)
@@ -501,8 +501,8 @@ class APIConnection:
         # the await is cancelled
 
         try:
+            self.send_message(send_msg)
             async with async_timeout.timeout(timeout):
-                self._send_message(send_msg)
                 await fut
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError(
@@ -608,15 +608,15 @@ class APIConnection:
             return
 
         if isinstance(msg, DisconnectRequest):
-            self._send_message(DisconnectResponse())
+            self.send_message(DisconnectResponse())
             self._connection_state = ConnectionState.CLOSED
             asyncio.create_task(self._cleanup())
         elif isinstance(msg, PingRequest):
-            self._send_message(PingResponse())
+            self.send_message(PingResponse())
         elif isinstance(msg, GetTimeRequest):
             resp = GetTimeResponse()
             resp.epoch_seconds = int(time.time())
-            self._send_message(resp)
+            self.send_message(resp)
 
     async def _ping(self) -> None:
         self._check_connected()
