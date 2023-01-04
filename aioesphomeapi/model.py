@@ -822,6 +822,9 @@ def _convert_bluetooth_le_name(value: bytes) -> str:
 
 @dataclass(frozen=True)
 class BluetoothLEAdvertisement(APIModelBase):
+    def __post_init__(self) -> None:
+        """Post init hook disabled."""
+
     address: int
     rssi: int
     address_type: int
