@@ -310,7 +310,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
             try:
                 self.STATE_TO_CALLABLE[self._state](self, frame)
-            except APIConnectionError as err:
+            except Exception as err:  # pylint: disable=broad-except
                 self._handle_error_and_close(err)
             finally:
                 del self._buffer[: self._pos]
