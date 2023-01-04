@@ -157,8 +157,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
-        while len(self._buffer) >= 3:
-            try:
+        try:
+            while len(self._buffer) >= 3:
                 # Read preamble, which should always 0x00
                 # Also try to get the length and msg type
                 # to avoid multiple calls to readexactly
@@ -201,14 +201,14 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     self._callback_packet(
                         Packet(type=msg_type_int, data=self._read_exactly(length_int))
                     )
-            except MissingBytesAPIError as exc:
-                # Not enough data to read yet, wait for more
-                return
-            except Exception as exc:
-                self._handle_error(exc)
-                if self._transport is not None:
-                    self._transport.close()
-                raise
+        except MissingBytesAPIError as exc:
+            # Not enough data to read yet, wait for more
+            return
+        except Exception as exc:
+            self._handle_error(exc)
+            if self._transport is not None:
+                self._transport.close()
+            raise
 
 
 def _decode_noise_psk(psk: str) -> bytes:
