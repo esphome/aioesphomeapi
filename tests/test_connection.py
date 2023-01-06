@@ -4,6 +4,7 @@ import socket
 import pytest
 from mock import AsyncMock, MagicMock, Mock, patch
 
+from aioesphomeapi._frame_helper import APIPlaintextFrameHelper, Packet
 from aioesphomeapi.api_pb2 import ConnectResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import APIConnectionError, RequiresEncryptionAPIError
@@ -50,13 +51,26 @@ def socket_socket():
         yield func
 
 
+def _get_mock_protocol():
+    def _on_packet(pkt: Packet):
+        pass
+
+    def _on_error(exc: Exception):
+        raise exc
+
+    protocol = APIPlaintextFrameHelper(on_pkt=_on_packet, on_error=_on_error)
+    protocol._connected_event.set()
+    protocol._transport = MagicMock()
+    return protocol
+
+
 @pytest.mark.asyncio
 async def test_connect(conn, resolve_host, socket_socket, event_loop):
-    with patch.object(event_loop, "sock_connect"), patch(
-        "asyncio.open_connection", return_value=(None, None)
-    ), patch.object(conn, "_read_loop"), patch.object(
-        conn, "_connect_start_ping"
-    ), patch.object(
+    loop = asyncio.get_event_loop()
+    protocol = _get_mock_protocol()
+    with patch.object(event_loop, "sock_connect"), patch.object(
+        loop, "create_connection", return_value=(MagicMock(), protocol)
+    ), patch.object(conn, "_connect_start_ping"), patch.object(
         conn, "send_message_await_response", return_value=HelloResponse()
     ):
         await conn.connect(login=False)
@@ -66,14 +80,15 @@ async def test_connect(conn, resolve_host, socket_socket, event_loop):
 
 @pytest.mark.asyncio
 async def test_requires_encryption_propagates(conn):
-    with patch("asyncio.open_connection") as openc:
-        reader = MagicMock()
-        writer = MagicMock()
-        openc.return_value = (reader, writer)
-        writer.drain = AsyncMock()
-        reader.readexactly = AsyncMock()
-        reader.readexactly.return_value = b"\x01"
+    loop = asyncio.get_event_loop()
+    protocol = _get_mock_protocol()
+    with patch.object(loop, "create_connection") as create_connection, patch.object(
+        protocol, "perform_handshake"
+    ):
+        create_connection.return_value = (MagicMock(), protocol)
 
         await conn._connect_init_frame_helper()
+
         with pytest.raises(RequiresEncryptionAPIError):
+            protocol.data_received(b"\x01\x00\x00")
             await conn._connect_hello()

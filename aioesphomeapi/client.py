@@ -373,7 +373,7 @@ class APIClient:
                     image_stream[msg.key] = data
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeStatesRequest(), on_msg, msg_types
         )
 
@@ -394,7 +394,7 @@ class APIClient:
         if dump_config is not None:
             req.dump_config = dump_config
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             req, on_msg, (SubscribeLogsResponse,)
         )
 
@@ -407,7 +407,7 @@ class APIClient:
             on_service_call(HomeassistantServiceCall.from_pb(msg))
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
             on_msg,
             (HomeassistantServiceResponse,),
@@ -451,7 +451,7 @@ class APIClient:
             on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(), on_msg, msg_types
         )
 
@@ -472,7 +472,7 @@ class APIClient:
             on_bluetooth_connections_free_update(resp.free, resp.limit)
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(), on_msg, msg_types
         )
 
@@ -518,7 +518,7 @@ class APIClient:
             _LOGGER.debug("%s: Using connection version 1", address)
             request_type = BluetoothDeviceRequestType.CONNECT
 
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=request_type,
@@ -581,7 +581,7 @@ class APIClient:
         self._check_authenticated()
 
         assert self._connection is not None
-        await self._connection.send_message(
+        self._connection.send_message(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=BluetoothDeviceRequestType.DISCONNECT,
@@ -661,7 +661,7 @@ class APIClient:
 
         if not response:
             assert self._connection is not None
-            await self._connection.send_message(req)
+            self._connection.send_message(req)
             return
 
         await self._send_bluetooth_message_await_response(
@@ -709,7 +709,7 @@ class APIClient:
 
         if not wait_for_response:
             assert self._connection is not None
-            await self._connection.send_message(req)
+            self._connection.send_message(req)
             return
 
         await self._send_bluetooth_message_await_response(
@@ -762,7 +762,7 @@ class APIClient:
 
             self._check_authenticated()
 
-            await self._connection.send_message(
+            self._connection.send_message(
                 BluetoothGATTNotifyRequest(address=address, handle=handle, enable=False)
             )
 
@@ -777,7 +777,7 @@ class APIClient:
             on_state_sub(msg.entity_id, msg.attribute)
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
             on_msg,
             (SubscribeHomeAssistantStateResponse,),
@@ -789,7 +789,7 @@ class APIClient:
         self._check_authenticated()
 
         assert self._connection is not None
-        await self._connection.send_message(
+        self._connection.send_message(
             HomeAssistantStateResponse(
                 entity_id=entity_id,
                 state=state,
@@ -829,7 +829,7 @@ class APIClient:
                 req.legacy_command = LegacyCoverCommand.CLOSE
                 req.has_legacy_command = True
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def fan_command(
         self,
@@ -860,7 +860,7 @@ class APIClient:
             req.has_direction = True
             req.direction = direction
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def light_command(
         self,
@@ -921,7 +921,7 @@ class APIClient:
             req.has_effect = True
             req.effect = effect
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def switch_command(self, key: int, state: bool) -> None:
         self._check_authenticated()
@@ -930,7 +930,7 @@ class APIClient:
         req.key = key
         req.state = state
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def climate_command(
         self,
@@ -982,7 +982,7 @@ class APIClient:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
         self._check_authenticated()
@@ -991,7 +991,7 @@ class APIClient:
         req.key = key
         req.state = state
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def select_command(self, key: int, state: str) -> None:
         self._check_authenticated()
@@ -1000,7 +1000,7 @@ class APIClient:
         req.key = key
         req.state = state
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def siren_command(
         self,
@@ -1027,7 +1027,7 @@ class APIClient:
             req.duration = duration
             req.has_duration = True
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def button_command(self, key: int) -> None:
         self._check_authenticated()
@@ -1035,7 +1035,7 @@ class APIClient:
         req = ButtonCommandRequest()
         req.key = key
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def lock_command(
         self,
@@ -1051,7 +1051,7 @@ class APIClient:
         if code is not None:
             req.code = code
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def media_player_command(
         self,
@@ -1075,7 +1075,7 @@ class APIClient:
             req.media_url = media_url
             req.has_media_url = True
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def execute_service(
         self, service: UserService, data: ExecuteServiceDataType
@@ -1113,7 +1113,7 @@ class APIClient:
         # pylint: disable=no-member
         req.args.extend(args)
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def _request_image(
         self, *, single: bool = False, stream: bool = False
@@ -1122,7 +1122,7 @@ class APIClient:
         req.single = single
         req.stream = stream
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def request_single_image(self) -> None:
         await self._request_image(single=True)
