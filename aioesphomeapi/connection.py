@@ -325,7 +325,7 @@ class APIConnection:
             await self._connect_hello()
             await self._connect_start_ping()
             if login:
-                await self.login()
+                await self.login(check_connected=False)
 
         self._connect_task = asyncio.create_task(_do_connect())
 
@@ -350,9 +350,13 @@ class APIConnection:
             self._connection_state = ConnectionState.CONNECTED
             self._connect_complete = True
 
-    async def login(self) -> None:
+    async def login(self, check_connected: bool = True) -> None:
         """Send a login (ConnectRequest) and await the response."""
-        self._check_connected()
+        if check_connected:
+            # On first connect, we don't want to check if we're connected
+            # because we don't set the connection state until after login
+            # is complete
+            self._check_connected()
         if self._is_authenticated:
             raise APIConnectionError("Already logged in!")
 
