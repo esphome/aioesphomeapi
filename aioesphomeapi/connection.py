@@ -114,6 +114,7 @@ class APIConnection:
 
         self._connect_task: Optional[asyncio.Task[None]] = None
         self._fatal_exception: Optional[Exception] = None
+        self._expected_disconnect = False
 
     @property
     def connection_state(self) -> ConnectionState:
@@ -288,21 +289,21 @@ class APIConnection:
                     pass
 
                 # Re-check connection state
-                if not self._is_socket_open:
-                    return  # type: ignore[unreachable]
+                if not self._is_socket_open or self._ping_stop_event.is_set():
+                    return
 
                 try:
                     await self._ping()
                 except TimeoutAPIError:
-                    _LOGGER.info("%s: Ping timed out!", self.log_name)
+                    _LOGGER.debug("%s: Ping timed out!", self.log_name)
                     self._report_fatal_error(PingFailedAPIError())
                     return
                 except APIConnectionError as err:
-                    _LOGGER.info("%s: Ping Failed: %s", self.log_name, err)
+                    _LOGGER.debug("%s: Ping Failed: %s", self.log_name, err)
                     self._report_fatal_error(err)
                     return
                 except Exception as err:  # pylint: disable=broad-except
-                    _LOGGER.info(
+                    _LOGGER.error(
                         "%s: Unexpected error during ping:",
                         self.log_name,
                         exc_info=True,
@@ -404,7 +405,6 @@ class APIConnection:
 
         frame_helper = self._frame_helper
         assert frame_helper is not None
-        assert frame_helper.ready, "Frame helper not ready"
         message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
         if not message_type:
             raise ValueError(f"Message type id not found for type {type(msg)}")
@@ -545,6 +545,14 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
+        if not self._expected_disconnect and not self._fatal_exception:
+            # Only log the first error
+            _LOGGER.warning(
+                "%s: Connection error occurred: %s",
+                self.log_name,
+                err or type(err),
+                exc_info=not str(err),  # Log the full stack on empty error string
+            )
         self._fatal_exception = err
         self._connection_state = ConnectionState.CLOSED
         for handler in self._read_exception_handlers[:]:
@@ -589,6 +597,7 @@ class APIConnection:
         if isinstance(msg, DisconnectRequest):
             self.send_message(DisconnectResponse())
             self._connection_state = ConnectionState.CLOSED
+            self._expected_disconnect = True
             self._cleanup()
         elif isinstance(msg, PingRequest):
             self.send_message(PingResponse())
@@ -606,6 +615,7 @@ class APIConnection:
             # already disconnected
             return
 
+        self._expected_disconnect = True
         try:
             await self.send_message_await_response(
                 DisconnectRequest(), DisconnectResponse
@@ -618,6 +628,7 @@ class APIConnection:
 
     async def force_disconnect(self) -> None:
         self._connection_state = ConnectionState.CLOSED
+        self._expected_disconnect = True
         self._cleanup()
 
     @property

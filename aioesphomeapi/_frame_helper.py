@@ -49,14 +49,9 @@ class APIFrameHelper(asyncio.Protocol):
         self._on_error = on_error
         self._transport: Optional[asyncio.Transport] = None
         self.read_lock = asyncio.Lock()
-        self._closed_event = asyncio.Event()
         self._connected_event = asyncio.Event()
         self._buffer = bytearray()
         self._pos = 0
-
-    @abstractproperty  # pylint: disable=deprecated-decorator
-    def ready(self) -> bool:
-        """Return if the connection is ready."""
 
     def _init_read(self, length: int) -> Optional[bytearray]:
         """Start reading a packet from the buffer."""
@@ -90,7 +85,6 @@ class APIFrameHelper(asyncio.Protocol):
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
-        self._closed_event.set()
         self._on_error(exc)
 
     def connection_lost(self, exc: Optional[Exception]) -> None:
@@ -103,18 +97,12 @@ class APIFrameHelper(asyncio.Protocol):
 
     def close(self) -> None:
         """Close the connection."""
-        self._closed_event.set()
         if self._transport:
             self._transport.close()
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
     """Frame helper for plaintext API connections."""
-
-    @property
-    def ready(self) -> bool:
-        """Return if the connection is ready."""
-        return self._connected_event.is_set()
 
     def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
         """Complete reading a packet from the buffer."""
@@ -138,7 +126,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
         try:
             self._transport.write(data)
-        except (ConnectionResetError, OSError) as err:
+        except (RuntimeError, ConnectionResetError, OSError) as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
     async def perform_handshake(self) -> None:
@@ -250,11 +238,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._state = NoiseConnectionState.HELLO
         self._setup_proto()
 
-    @property
-    def ready(self) -> bool:
-        """Return if the connection is ready."""
-        return self._ready_event.is_set()
-
     def close(self) -> None:
         """Close the connection."""
         # Make sure we set the ready event if its not already set
@@ -282,7 +265,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 ]
             )
             self._transport.write(header + frame)
-        except OSError as err:
+        except (RuntimeError, ConnectionResetError, OSError) as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
     async def perform_handshake(self) -> None:

@@ -557,7 +557,8 @@ class APIClient:
                     unsub()
                 except (KeyError, ValueError):
                     _LOGGER.warning(
-                        "%s: Bluetooth device connection timed out but already unsubscribed",
+                        "%s: Bluetooth device connection timed out but already unsubscribed "
+                        "(likely due to unexpected disconnect)",
                         addr,
                     )
                 raise TimeoutAPIError(
