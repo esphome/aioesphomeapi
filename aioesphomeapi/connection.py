@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import enum
 import logging
 import socket
@@ -52,6 +53,8 @@ BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
+in_do_connect = contextvars.ContextVar("in_do_connect")
 
 
 @dataclass
@@ -131,7 +134,10 @@ class APIConnection:
         Safe to call multiple times.
         """
         _LOGGER.debug("Cleaning up connection to %s", self.log_name)
-        if self._connect_task is not None:
+        # If we are being called from do_connect we
+        # need to make sure we don't cancel the task
+        # that called us
+        if self._connect_task is not None and not in_do_connect.get(False):
             self._connect_task.cancel()
             self._connect_task = None
 
@@ -320,6 +326,7 @@ class APIConnection:
             )
 
         async def _do_connect() -> None:
+            in_do_connect.set(True)
             addr = await self._connect_resolve_host()
             await self._connect_socket_connect(addr)
             await self._connect_init_frame_helper()
