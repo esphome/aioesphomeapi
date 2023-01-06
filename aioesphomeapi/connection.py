@@ -54,7 +54,9 @@ INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
-in_do_connect = contextvars.ContextVar("in_do_connect")
+in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
+    "in_do_connect"
+)
 
 
 @dataclass
