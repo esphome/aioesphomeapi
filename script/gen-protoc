@@ -1,25 +1,37 @@
 #!/usr/bin/env python3
+from subprocess import check_call  # import the check_call function
+from pathlib import Path  # import the Path class
+import os  # import the os module
 
-from subprocess import check_call
-from pathlib import Path
-import os
-
+# get the parent directory of the directory containing the current file
+# and set it as the current working directory
 root_dir = Path(__file__).absolute().parent.parent
 os.chdir(root_dir)
 
+# call the check_call function with a list of arguments:
+#  - "protoc", the command to run
+#  - "--python_out=aioesphomeapi", an option to specify the output directory for the generated Python code
+#  - "-I", an option to specify the directories to search for imported .proto files
+#  - "aioesphomeapi", the directory to search for imported .proto files
+#  - "aioesphomeapi/api.proto", the input .proto file to compile
+#  - "aioesphomeapi/api_options.proto", another input .proto file to compile
 check_call([
     "protoc", "--python_out=aioesphomeapi", "-I", "aioesphomeapi",
     "aioesphomeapi/api.proto", "aioesphomeapi/api_options.proto"
 ])
 
-# https://github.com/protocolbuffers/protobuf/issues/1491
+# open the file api_pb2.py in the aioesphomeapi directory,
+# read its contents, and replace a string with another string
 api_file = root_dir / 'aioesphomeapi' / 'api_pb2.py'
 content = api_file.read_text().replace(
     "import api_options_pb2 as api__options__pb2",
     "from . import api_options_pb2 as api__options__pb2"
 )
+
+# write the modified text back to the api_pb2.py file
 api_file.write_text(content)
 
+# repeat the above process for the file api_options_pb2.py
 for fname in ['api_pb2.py', 'api_options_pb2.py']:
     file = root_dir / 'aioesphomeapi' / fname
     content = '# type: ignore\n' + file.read_text()
