@@ -1,4 +1,4 @@
-protobuf>=4.21.11
+protobuf>=3.19.0
 zeroconf>=0.36.0,<1.0
 noiseprotocol>=0.3.1,<1.0
 async-timeout>=4.0
