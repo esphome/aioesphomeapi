@@ -5,7 +5,7 @@ import pytest
 from mock import MagicMock, patch
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
-from aioesphomeapi.api_pb2 import HelloResponse, DeviceInfoResponse
+from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import RequiresEncryptionAPIError
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr

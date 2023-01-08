@@ -33,8 +33,7 @@ SOCKET_ERRORS = (
 @dataclass
 class Packet:
     type: int
-    data: Union[bytes, bytearray]
-
+    data: bytes
 
 class APIFrameHelper(asyncio.Protocol):
     """Helper class to handle the API frame protocol."""
