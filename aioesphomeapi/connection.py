@@ -95,8 +95,7 @@ class APIConnection:
         log_name: Optional[str] = None,
     ) -> None:
         self._params = params
-        self.on_stop = on_stop
-        self._on_stop_called = False
+        self.on_stop: Optional[Callable[[], Coroutine[Any, Any, None]]] = on_stop
         self._socket: Optional[socket.socket] = None
         self._frame_helper: Optional[APIFrameHelper] = None
         self._api_version: Optional[APIVersion] = None
@@ -151,10 +150,10 @@ class APIConnection:
             self._socket.close()
             self._socket = None
 
-        if not self._on_stop_called and self._connect_complete:
-            # Ensure on_stop is called
+        if self.on_stop and self._connect_complete:
+            # Ensure on_stop is called only once
             asyncio.create_task(self.on_stop())
-            self._on_stop_called = True
+            self.on_stop = None
 
         # Note: we don't explicitly cancel the ping/read task here
         # That's because if not written right the ping/read task could cancel
