@@ -595,7 +595,7 @@ class APIConnection:
             )
             self._report_fatal_error(
                 ProtocolAPIError(
-                    f"Invalid protobuf message: type={pkt.type} data={pkt.data}: {e}"
+                    f"Invalid protobuf message: type={pkt.type} data={pkt.data!r}: {e}"
                 )
             )
             raise
