@@ -33,7 +33,7 @@ SOCKET_ERRORS = (
 @dataclass
 class Packet:
     type: int
-    data: bytes
+    data: Union[bytes, bytearray]
 
 
 class APIFrameHelper(asyncio.Protocol):
@@ -48,7 +48,6 @@ class APIFrameHelper(asyncio.Protocol):
         self._on_pkt = on_pkt
         self._on_error = on_error
         self._transport: Optional[asyncio.Transport] = None
-        self.read_lock = asyncio.Lock()
         self._connected_event = asyncio.Event()
         self._buffer = bytearray()
         self._pos = 0
@@ -192,7 +191,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if packet_data is None:
                 return
 
-            self._callback_packet(msg_type_int, bytes(packet_data))
+            self._callback_packet(msg_type_int, packet_data)
             # If we have more data, continue processing
 
 
