@@ -35,6 +35,7 @@ class Packet:
     type: int
     data: bytes
 
+
 class APIFrameHelper(asyncio.Protocol):
     """Helper class to handle the API frame protocol."""
 
