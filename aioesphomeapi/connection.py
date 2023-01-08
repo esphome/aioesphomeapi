@@ -410,7 +410,9 @@ class APIConnection:
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._is_socket_open:
-            raise APIConnectionError("Connection isn't established yet")
+            raise APIConnectionError(
+                f"Connection isn't established yet ({self._connection_state})"
+            )
 
         frame_helper = self._frame_helper
         assert frame_helper is not None
@@ -578,7 +580,10 @@ class APIConnection:
 
         msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
         try:
-            msg.ParseFromString(pkt.data)
+            # MergeFromString instead of ParseFromString since
+            # ParseFromString will clear the message first and
+            # the msg is already empty.
+            msg.MergeFromString(pkt.data)
         except Exception as e:
             _LOGGER.info(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
@@ -588,7 +593,11 @@ class APIConnection:
                 e,
                 exc_info=True,
             )
-            self._report_fatal_error(ProtocolAPIError(f"Invalid protobuf message: {e}"))
+            self._report_fatal_error(
+                ProtocolAPIError(
+                    f"Invalid protobuf message: type={pkt.type} data={pkt.data}: {e}"
+                )
+            )
             raise
 
         msg_type = type(msg)
