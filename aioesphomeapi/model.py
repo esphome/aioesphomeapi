@@ -685,8 +685,8 @@ class TextMode(APIIntEnum):
 
 @dataclass(frozen=True)
 class TextInfo(EntityInfo):
-    min: int = 0
-    max: int = 255
+    min_length: int = 0
+    max_length: int = 255
     pattern: str = ""
     mode: Optional[TextMode] = converter_field(
         default=TextMode.AUTO, converter=TextMode.convert
