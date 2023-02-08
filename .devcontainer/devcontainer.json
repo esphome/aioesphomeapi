@@ -1,38 +1,42 @@
 {
     "name": "ESPHome API Client Dev",
     "image": "ghcr.io/esphome/aioesphomeapi-proto-builder:latest",
-    "extensions": [
-        "ms-python.python",
-        "visualstudioexptteam.vscodeintellicode",
-        // yaml
-        "redhat.vscode-yaml",
-        // editorconfig
-        "editorconfig.editorconfig",
-        // protobuf
-        "pbkit.vscode-pbkit"
-    ],
-    "postCreateCommand": "pip3 install -e .",
-    "settings": {
-        "python.languageServer": "Pylance",
-        "python.pythonPath": "/usr/bin/python3",
-        "python.linting.pylintEnabled": true,
-        "python.linting.enabled": true,
-        "python.formatting.provider": "black",
-        "editor.formatOnPaste": false,
-        "editor.formatOnSave": true,
-        "editor.formatOnType": true,
-        "files.trimTrailingWhitespace": true,
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "files.exclude": {
-            "**/.git": true,
-            "**/.DS_Store": true,
-            "**/*.pyc": {
-                "when": "$(basename).py"
-            },
-            "**/__pycache__": true
-        },
-        "files.associations": {
-            "**/.vscode/*.json": "jsonc"
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "visualstudioexptteam.vscodeintellicode",
+                // yaml
+                "redhat.vscode-yaml",
+                // editorconfig
+                "editorconfig.editorconfig",
+                // protobuf
+                "pbkit.vscode-pbkit"
+            ],
+            "settings": {
+                "python.languageServer": "Pylance",
+                "python.pythonPath": "/usr/bin/python3",
+                "python.linting.pylintEnabled": true,
+                "python.linting.enabled": true,
+                "python.formatting.provider": "black",
+                "editor.formatOnPaste": false,
+                "editor.formatOnSave": true,
+                "editor.formatOnType": true,
+                "files.trimTrailingWhitespace": true,
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "files.exclude": {
+                    "**/.git": true,
+                    "**/.DS_Store": true,
+                    "**/*.pyc": {
+                        "when": "$(basename).py"
+                    },
+                    "**/__pycache__": true
+                },
+                "files.associations": {
+                    "**/.vscode/*.json": "jsonc"
+                }
+            }
         }
-    }
+    },
+    "postCreateCommand": "pip3 install -e ."
 }
