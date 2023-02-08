@@ -773,7 +773,7 @@ class UserService(APIModelBase):
 
 def _join_split_uuid(value: List[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return str(UUID(int=((value[0] << 64) | value[1])))
+    return str(UUID(int=(value[0] << 64) | value[1]))
 
 
 # value is likely a google.protobuf.pyext._message.RepeatedScalarContainer

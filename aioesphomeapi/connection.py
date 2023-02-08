@@ -355,9 +355,9 @@ class APIConnection:
             self._connection_state = ConnectionState.CLOSED
             self._cleanup()
             raise
-        else:
-            self._connection_state = ConnectionState.CONNECTED
-            self._connect_complete = True
+
+        self._connection_state = ConnectionState.CONNECTED
+        self._connect_complete = True
 
     async def login(self, check_connected: bool = True) -> None:
         """Send a login (ConnectRequest) and await the response."""
