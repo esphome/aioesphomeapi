@@ -45,7 +45,6 @@ PREAMBLE = b"\x00"
     ],
 )
 async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
-
     for _ in range(5):
         packets = []
 
