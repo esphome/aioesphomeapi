@@ -107,6 +107,7 @@ class APIVersion(APIModelBase):
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
     name: str = ""
+    friendly_name: str = ""
     mac_address: str = ""
     compilation_time: str = ""
     model: str = ""
