@@ -384,10 +384,6 @@ class APIClient:
         dump_config: Optional[bool] = None,
     ) -> None:
         self._check_authenticated()
-
-        def on_msg(msg: SubscribeLogsResponse) -> None:
-            on_log(msg)
-
         req = SubscribeLogsRequest()
         if log_level is not None:
             req.level = log_level
@@ -395,7 +391,7 @@ class APIClient:
             req.dump_config = dump_config
         assert self._connection is not None
         self._connection.send_message_callback_response(
-            req, on_msg, (SubscribeLogsResponse,)
+            req, on_log, (SubscribeLogsResponse,)
         )
 
     async def subscribe_service_calls(
