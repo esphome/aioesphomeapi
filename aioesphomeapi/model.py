@@ -1,5 +1,6 @@
 import enum
 from dataclasses import asdict, dataclass, field, fields
+from functools import cache
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -18,7 +19,11 @@ from uuid import UUID
 from .util import fix_float_single_double_conversion
 
 if TYPE_CHECKING:
-    from .api_pb2 import BluetoothServiceData, HomeassistantServiceMap  # type: ignore
+    from .api_pb2 import (  # type: ignore
+        BluetoothLEAdvertisementResponse,
+        BluetoothServiceData,
+        HomeassistantServiceMap,
+    )
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
@@ -51,10 +56,15 @@ class APIIntEnum(enum.IntEnum):
         return ret
 
 
+# Fields do not change so we can cache the result
+# of calling fields() on the dataclass
+cached_fields = cache(fields)
+
+
 @dataclass(frozen=True)
 class APIModelBase:
     def __post_init__(self) -> None:
-        for field_ in fields(type(self)):
+        for field_ in cached_fields(type(self)):  # type: ignore[arg-type]
             convert = field_.metadata.get("converter")
             if convert is None:
                 continue
@@ -71,15 +81,14 @@ class APIModelBase:
     ) -> _V:
         init_args = {
             f.name: data[f.name]
-            for f in fields(cls)
+            for f in cached_fields(cls)  # type: ignore[arg-type]
             if f.name in data or (not ignore_missing)
         }
         return cls(**init_args)
 
     @classmethod
     def from_pb(cls: Type[_V], data: Any) -> _V:
-        init_args = {f.name: getattr(data, f.name) for f in fields(cls)}
-        return cls(**init_args)
+        return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
@@ -98,6 +107,7 @@ class APIVersion(APIModelBase):
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
     name: str = ""
+    friendly_name: str = ""
     mac_address: str = ""
     compilation_time: str = ""
     model: str = ""
@@ -432,6 +442,7 @@ class ClimateFanMode(APIIntEnum):
     MIDDLE = 6
     FOCUS = 7
     DIFFUSE = 8
+    QUIET = 9
 
 
 class ClimateSwingMode(APIIntEnum):
@@ -566,6 +577,7 @@ class NumberInfo(EntityInfo):
     mode: Optional[NumberMode] = converter_field(
         default=NumberMode.AUTO, converter=NumberMode.convert
     )
+    device_class: str = ""
 
 
 @dataclass(frozen=True)
@@ -758,20 +770,24 @@ class UserService(APIModelBase):
 
 
 # ==================== BLUETOOTH ====================
-def _long_uuid(uuid: str) -> str:
-    """Convert a UUID to a long UUID."""
-    return (
-        f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb" if len(uuid) < 8 else uuid
-    ).lower()
 
 
 def _join_split_uuid(value: List[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return str(UUID(int=((value[0] << 64) | value[1])))
+    return str(UUID(int=(value[0] << 64) | value[1]))
 
 
-def _convert_bluetooth_le_service_uuids(value: List[str]) -> List[str]:
-    return [_long_uuid(v) for v in value]
+# value is likely a google.protobuf.pyext._message.RepeatedScalarContainer
+def _convert_bluetooth_le_service_uuids(value: Iterable[str]) -> List[str]:
+    if not value:
+        # empty list, don't convert
+        return []
+
+    # Long UUID inlined to avoid call stack inside the list comprehension
+    return [
+        f"0000{v[2:].lower()}-0000-1000-8000-00805f9b34fb" if len(v) < 8 else v.lower()
+        for v in value
+    ]
 
 
 def _convert_bluetooth_le_service_data(
@@ -780,7 +796,17 @@ def _convert_bluetooth_le_service_data(
     if isinstance(value, dict):
         return value
 
-    return {_long_uuid(v.uuid): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
+    if not value:
+        return {}
+
+    # Long UUID inlined to avoid call stack inside the dict comprehension
+    return {
+        f"0000{v.uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"  # type: ignore[union-attr]
+        if len(v.uuid) < 8  # type: ignore[union-attr]
+        # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
+        else v.uuid.lower(): bytes(v.data if v.data else v.legacy_data)  # type: ignore[union-attr]
+        for v in value
+    }
 
 
 def _convert_bluetooth_le_manufacturer_data(
@@ -788,25 +814,46 @@ def _convert_bluetooth_le_manufacturer_data(
 ) -> Dict[int, bytes]:
     if isinstance(value, dict):
         return value
-    # v.data if v.data else v.legacy_data is backwards compatable with ESPHome devices before 2022.10.0
+
+    if not value:
+        return {}
+
+    # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
     return {int(v.uuid, 16): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
+
+
+def _convert_bluetooth_le_name(value: bytes) -> str:
+    return value.decode("utf-8", errors="replace")
 
 
 @dataclass(frozen=True)
 class BluetoothLEAdvertisement(APIModelBase):
-    address: int = 0
-    name: str = ""
-    rssi: int = 0
+    def __post_init__(self) -> None:
+        """Post init hook disabled."""
 
-    service_uuids: List[str] = converter_field(
-        default_factory=list, converter=_convert_bluetooth_le_service_uuids
-    )
-    service_data: Dict[str, bytes] = converter_field(
-        default_factory=dict, converter=_convert_bluetooth_le_service_data
-    )
-    manufacturer_data: Dict[int, bytes] = converter_field(
-        default_factory=dict, converter=_convert_bluetooth_le_manufacturer_data
-    )
+    address: int
+    rssi: int
+    address_type: int
+    name: str
+    service_uuids: List[str]
+    service_data: Dict[str, bytes]
+    manufacturer_data: Dict[int, bytes]
+
+    @classmethod
+    def from_pb(  # type: ignore[misc]
+        cls: "BluetoothLEAdvertisement", data: "BluetoothLEAdvertisementResponse"
+    ) -> "BluetoothLEAdvertisement":
+        return cls(  # type: ignore[operator, no-any-return]
+            address=data.address,
+            rssi=data.rssi,
+            address_type=data.address_type,
+            name=_convert_bluetooth_le_name(data.name),
+            service_uuids=_convert_bluetooth_le_service_uuids(data.service_uuids),
+            service_data=_convert_bluetooth_le_service_data(data.service_data),
+            manufacturer_data=_convert_bluetooth_le_manufacturer_data(
+                data.manufacturer_data
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -913,6 +960,8 @@ class BluetoothDeviceRequestType(APIIntEnum):
     DISCONNECT = 1
     PAIR = 2
     UNPAIR = 3
+    CONNECT_V3_WITH_CACHE = 4
+    CONNECT_V3_WITHOUT_CACHE = 5
 
 
 class LogLevel(APIIntEnum):

@@ -1,14 +1,20 @@
 FROM python:3.10
 
-RUN \
-    apt-get update \
-    && apt-get install -y --no-install-recommends \
-        protobuf-compiler=3.12.4-1 \
-        libprotobuf-dev=3.12.4-1 \
-    && rm -rf \
-        /tmp/* \
-        /var/{cache,log}/* \
-        /var/lib/apt/lists/*
+ENV PROTOC_VERSION 3.19.6
+
+ARG TARGETARCH
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        arch="x86_64"; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        arch="aarch_64"; \
+    else \
+        exit 1; \
+    fi \
+    && curl -o /tmp/protoc.zip -L \
+        https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${arch}.zip \
+    && unzip /tmp/protoc.zip -d /usr -x readme.txt \
+    && rm /tmp/protoc.zip
 
 WORKDIR /aioesphomeapi
 
