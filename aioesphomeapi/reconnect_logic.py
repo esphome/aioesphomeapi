@@ -200,7 +200,17 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         await self._stop_zc_listen()
 
     def stop_callback(self) -> None:
-        asyncio.create_task(self.stop())
+        def _remove_stop_task() -> None:
+            """Remove the stop task from the reconnect loop.
+
+            We need to do this because the asyncio does not hold
+            a strong reference to the task, so it can be garbage
+            collected unexpectedly.
+            """
+            self._stop_task = None
+
+        self._stop_task = asyncio.create_task(self.stop())
+        self._stop_task.add_done_callback(_remove_stop_task)
 
     async def _start_zc_listen(self) -> None:
         """Listen for mDNS records.
