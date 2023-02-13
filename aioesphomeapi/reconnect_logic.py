@@ -201,7 +201,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         await self._stop_zc_listen()
 
     def stop_callback(self) -> None:
-        def _remove_stop_task() -> None:
+        def _remove_stop_task(_fut: asyncio.Future) -> None:
             """Remove the stop task from the reconnect loop.
 
             We need to do this because the asyncio does not hold

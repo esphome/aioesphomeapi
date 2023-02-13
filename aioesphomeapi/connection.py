@@ -158,7 +158,7 @@ class APIConnection:
 
         if self.on_stop and self._connect_complete:
 
-            def _remove_on_stop_task():
+            def _remove_on_stop_task(_fut: asyncio.Future) -> None:
                 """Remove the stop task from the reconnect loop.
 
                 We need to do this because the asyncio does not hold
