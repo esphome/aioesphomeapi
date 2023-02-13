@@ -59,6 +59,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._wait_task_lock = asyncio.Lock()
         # Event for tracking when logic should stop
         self._stop_event = asyncio.Event()
+        self._stop_task: Optional[asyncio.Task[None]] = None
 
     @property
     def _is_stopped(self) -> bool:

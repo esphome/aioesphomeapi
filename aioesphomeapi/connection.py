@@ -118,6 +118,7 @@ class APIConnection:
         self._ping_stop_event = asyncio.Event()
 
         self._connect_task: Optional[asyncio.Task[None]] = None
+        self._keep_alive_task: Optional[asyncio.Task[None]] = None
         self._fatal_exception: Optional[Exception] = None
         self._expected_disconnect = False
 
