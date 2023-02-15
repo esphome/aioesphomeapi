@@ -485,7 +485,10 @@ class ClimateInfo(EntityInfo):
     visual_max_temperature: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-    visual_temperature_step: float = converter_field(
+    visual_target_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_current_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
     legacy_supports_away: bool = False
