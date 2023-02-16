@@ -161,7 +161,10 @@ class BinarySensorState(EntityState):
 @dataclass(frozen=True)
 class CoverInfo(EntityInfo):
     assumed_state: bool = False
-    supports_stop: bool = False
+    # "True" by default for backwards compatibility.
+    # Prior to https://github.com/esphome/esphome/pull/3897, all ESPHome covers
+    # were assumed to support stop.
+    supports_stop: bool = True
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
