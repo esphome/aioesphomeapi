@@ -576,23 +576,30 @@ class APIClient:
 
         return unsub
 
-    async def bluetooth_device_pair(self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT) -> BluetoothDevicePairing:
+    async def bluetooth_device_pair(
+        self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
+    ) -> BluetoothDevicePairing:
         self._check_authenticated()
 
         assert self._connection is not None
 
-        msg = await self._connection.send_message_await_response_complex(
+        def check_func(msg: BluetoothDevicePairingResponse) -> bool:
+            return bool(msg.address == address)
+
+        res = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
-                address=address,
-                request_type=BluetoothDeviceRequestType.PAIR
+                address=address, request_type=BluetoothDeviceRequestType.PAIR
             ),
-            lambda msg: address == msg.address,
-            lambda msg: address == msg.address,
+            check_func,
+            check_func,
             (BluetoothDevicePairingResponse,),
             timeout=timeout,
         )
 
-        return BluetoothDevicePairing.from_pb(msg)
+        if len(res) != 1:
+            raise APIConnectionError(f"Expected one result, got {len(res)}")
+
+        return BluetoothDevicePairing.from_pb(res[0])
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
