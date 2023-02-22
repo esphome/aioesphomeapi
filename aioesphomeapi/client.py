@@ -574,6 +574,17 @@ class APIClient:
 
         return unsub
 
+    async def bluetooth_device_pair(self, address: int) -> None:
+        self._check_authenticated()
+
+        assert self._connection is not None
+        self._connection.send_message(
+            BluetoothDeviceRequest(
+                address=address,
+                request_type=BluetoothDeviceRequestType.PAIR,
+            )
+        )
+
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
 
