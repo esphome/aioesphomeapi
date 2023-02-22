@@ -1204,6 +1204,7 @@ message BluetoothDeviceConnectionResponse {
   bool connected = 2;
   uint32 mtu = 3;
   int32 error = 4;
+  bool paired = 5;
 }
 
 message BluetoothGATTGetServicesRequest {

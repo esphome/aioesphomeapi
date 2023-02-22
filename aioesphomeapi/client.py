@@ -574,16 +574,24 @@ class APIClient:
 
         return unsub
 
-    async def bluetooth_device_pair(self, address: int) -> None:
+    async def bluetooth_device_pair(self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT) -> None:
         self._check_authenticated()
 
         assert self._connection is not None
-        self._connection.send_message(
+
+        msg = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address,
-                request_type=BluetoothDeviceRequestType.PAIR,
-            )
+                request_type=BluetoothDeviceRequestType.PAIR
+            ),
+            lambda msg: address == msg.address,
+            lambda msg: address == msg.address,
+            (BluetoothDeviceConnectionResponse,),
+            timeout=timeout,
         )
+
+        resp = BluetoothDeviceConnection.from_pb(msg)
+        return resp.paired
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
