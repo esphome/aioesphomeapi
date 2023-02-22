@@ -22,6 +22,7 @@ from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
+    BluetoothDevicePairingResponse,
     BluetoothDeviceRequest,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
@@ -109,6 +110,7 @@ from .model import (
     BinarySensorState,
     BluetoothConnectionsFree,
     BluetoothDeviceConnection,
+    BluetoothDevicePairing,
     BluetoothDeviceRequestType,
     BluetoothGATTError,
     BluetoothGATTRead,
@@ -574,7 +576,7 @@ class APIClient:
 
         return unsub
 
-    async def bluetooth_device_pair(self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT) -> None:
+    async def bluetooth_device_pair(self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT) -> BluetoothDevicePairing:
         self._check_authenticated()
 
         assert self._connection is not None
@@ -586,12 +588,11 @@ class APIClient:
             ),
             lambda msg: address == msg.address,
             lambda msg: address == msg.address,
-            (BluetoothDeviceConnectionResponse,),
+            (BluetoothDevicePairingResponse,),
             timeout=timeout,
         )
 
-        resp = BluetoothDeviceConnection.from_pb(msg)
-        return resp.paired
+        return BluetoothDevicePairing.from_pb(msg)
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
