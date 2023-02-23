@@ -587,7 +587,7 @@ class APIClient:
             if msg.address != address:
                 return False
             if isinstance(msg, BluetoothDeviceConnectionResponse) and not msg.connected:
-                raise APIConnectionError(f"Peripheral disconnected while pairing")
+                raise APIConnectionError("Peripheral disconnected while pairing")
             return True
 
         res = await self._connection.send_message_await_response_complex(
