@@ -23,8 +23,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
-    BluetoothDeviceUnpairingResponse,
     BluetoothDeviceRequest,
+    BluetoothDeviceUnpairingResponse,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesRequest,
@@ -112,8 +112,8 @@ from .model import (
     BluetoothConnectionsFree,
     BluetoothDeviceConnection,
     BluetoothDevicePairing,
-    BluetoothDeviceUnpairing,
     BluetoothDeviceRequestType,
+    BluetoothDeviceUnpairing,
     BluetoothGATTError,
     BluetoothGATTRead,
     BluetoothGATTServices,
@@ -582,10 +582,15 @@ class APIClient:
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDevicePairing:
         self._check_authenticated()
+        msg_types = (
+            BluetoothDevicePairingResponse,
+            BluetoothDeviceConnectionResponse,
+        )
 
         assert self._connection is not None
 
-        def check_func(msg: message.Message) -> bool:
+        def predicate_func(msg: message.Message) -> bool:
+            assert isinstance(msg, msg_types)
             if msg.address != address:
                 return False
             if isinstance(msg, BluetoothDeviceConnectionResponse):
@@ -594,43 +599,45 @@ class APIClient:
                 )
             return True
 
-        res = await self._connection.send_message_await_response_complex(
+        responses = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address, request_type=BluetoothDeviceRequestType.PAIR
             ),
-            check_func,
-            check_func,
-            (
-                BluetoothDevicePairingResponse,
-                BluetoothDeviceConnectionResponse,
-            ),
+            predicate_func,
+            predicate_func,
+            msg_types,
             timeout=timeout,
         )
 
-        assert len(res) == 1
-        res = res[0]
+        assert len(responses) == 1
+        response = responses[0]
 
-        return BluetoothDevicePairing.from_pb(res)
+        return BluetoothDevicePairing.from_pb(response)
 
     async def bluetooth_device_unpair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDeviceUnpairing:
         self._check_authenticated()
 
-        res = await self._connection.send_message_await_response_complex(
+        assert self._connection is not None
+
+        def predicate_func(msg: BluetoothDeviceUnpairingResponse) -> bool:
+            return bool(msg.address == address)
+
+        responses = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address, request_type=BluetoothDeviceRequestType.UNPAIR
             ),
-            lambda msg: bool(msg.address == address),
-            lambda msg: bool(msg.address == address),
+            predicate_func,
+            predicate_func,
             (BluetoothDeviceUnpairingResponse,),
             timeout=timeout,
         )
 
-        assert len(res) == 1
-        res = res[0]
+        assert len(responses) == 1
+        response = responses[0]
 
-        return BluetoothDeviceUnpairing.from_pb(res)
+        return BluetoothDeviceUnpairing.from_pb(response)
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
