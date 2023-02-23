@@ -8,6 +8,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceRequest,
+    BluetoothDeviceUnpairingResponse,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesRequest,
@@ -304,4 +305,5 @@ MESSAGE_TYPE_TO_PROTO = {
     83: BluetoothGATTWriteResponse,
     84: BluetoothGATTNotifyResponse,
     85: BluetoothDevicePairingResponse,
+    86: BluetoothDeviceUnpairingResponse,
 }

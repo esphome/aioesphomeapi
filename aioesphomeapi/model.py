@@ -875,6 +875,13 @@ class BluetoothDevicePairing(APIModelBase):
 
 
 @dataclass(frozen=True)
+class BluetoothDeviceUnpairing(APIModelBase):
+    address: int = 0
+    success: bool = False
+    error: int = 0
+
+
+@dataclass(frozen=True)
 class BluetoothGATTRead(APIModelBase):
     address: int = 0
     handle: int = 0

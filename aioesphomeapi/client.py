@@ -23,6 +23,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
+    BluetoothDeviceUnpairingResponse,
     BluetoothDeviceRequest,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
@@ -111,6 +112,7 @@ from .model import (
     BluetoothConnectionsFree,
     BluetoothDeviceConnection,
     BluetoothDevicePairing,
+    BluetoothDeviceUnpairing,
     BluetoothDeviceRequestType,
     BluetoothGATTError,
     BluetoothGATTRead,
@@ -604,6 +606,26 @@ class APIClient:
         res = res[0]
 
         return BluetoothDevicePairing.from_pb(res)
+
+    async def bluetooth_device_unpair(
+        self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
+    ) -> BluetoothDeviceUnpairing:
+        self._check_authenticated()
+
+        res = await self._connection.send_message_await_response_complex(
+            BluetoothDeviceRequest(
+                address=address, request_type=BluetoothDeviceRequestType.UNPAIR
+            ),
+            lambda msg: bool(msg.address == address),
+            lambda msg: bool(msg.address == address),
+            (BluetoothDeviceUnpairingResponse,),
+            timeout=timeout,
+        )
+
+        assert len(res) == 1
+        res = res[0]
+
+        return BluetoothDeviceUnpairing.from_pb(res)
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
