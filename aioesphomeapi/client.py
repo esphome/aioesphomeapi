@@ -588,8 +588,10 @@ class APIClient:
         def check_func(msg: message.Message) -> bool:
             if msg.address != address:
                 return False
-            elif isinstance(msg, BluetoothDeviceConnectionResponse):
-                raise APIConnectionError(f"Peripheral changed connections status while pairing")
+            if isinstance(msg, BluetoothDeviceConnectionResponse):
+                raise APIConnectionError(
+                    "Peripheral changed connections status while pairing"
+                )
             return True
 
         res = await self._connection.send_message_await_response_complex(
@@ -598,11 +600,14 @@ class APIClient:
             ),
             check_func,
             check_func,
-            (BluetoothDevicePairingResponse, BluetoothDeviceConnectionResponse,),
+            (
+                BluetoothDevicePairingResponse,
+                BluetoothDeviceConnectionResponse,
+            ),
             timeout=timeout,
         )
 
-        assert(len(res) == 1)
+        assert len(res) == 1
         res = res[0]
 
         return BluetoothDevicePairing.from_pb(res)
