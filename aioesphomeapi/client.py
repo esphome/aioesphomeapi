@@ -583,8 +583,12 @@ class APIClient:
 
         assert self._connection is not None
 
-        def check_func(msg: BluetoothDevicePairingResponse) -> bool:
-            return bool(msg.address == address)
+        def check_func(msg: message.Message) -> bool:
+            if msg.address != address:
+                return False
+            if isinstance(msg, BluetoothDeviceConnectionResponse) and not msg.connected:
+                raise APIConnectionError(f"Peripheral disconnected while pairing")
+            return True
 
         res = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
@@ -592,14 +596,14 @@ class APIClient:
             ),
             check_func,
             check_func,
-            (BluetoothDevicePairingResponse,),
+            (BluetoothDevicePairingResponse, BluetoothDeviceConnectionResponse,),
             timeout=timeout,
         )
 
-        if len(res) != 1:
-            raise APIConnectionError(f"Expected one result, got {len(res)}")
+        assert(len(res) == 1)
+        res = res[0]
 
-        return BluetoothDevicePairing.from_pb(res[0])
+        return BluetoothDevicePairing.from_pb(res)
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
