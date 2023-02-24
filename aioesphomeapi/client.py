@@ -497,7 +497,8 @@ class APIClient:
             resp = BluetoothDeviceConnection.from_pb(msg)
             if address == resp.address:
                 on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
-                event.set()
+                if resp.connected:
+                    event.set()
 
         assert self._connection is not None
         if has_cache:
