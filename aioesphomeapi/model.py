@@ -69,6 +69,8 @@ class APIModelBase:
             if convert is None:
                 continue
             val = getattr(self, field_.name)
+            if val is None:
+                val = field_.default
             # use this setattr to prevent FrozenInstanceError
             super().__setattr__(field_.name, convert(val))
 
