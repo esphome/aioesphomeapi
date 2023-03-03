@@ -50,7 +50,9 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 
-INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
+PING_PONG_TIMEOUT = 10.0
+
+INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, PingResponse, DisconnectRequest}
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
@@ -115,7 +117,9 @@ class APIConnection:
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
 
-        self._ping_stop_event = asyncio.Event()
+        self._loop = asyncio.get_running_loop()
+        self._ping_timer: Optional[asyncio.TimerHandle] = None
+        self._pong_timer: Optional[asyncio.TimerHandle] = None
 
         self._connect_task: Optional[asyncio.Task[None]] = None
         self._keep_alive_task: Optional[asyncio.Task[None]] = None
@@ -156,6 +160,12 @@ class APIConnection:
             self._socket.close()
             self._socket = None
 
+        self._async_cancel_pong_timer()
+        
+        if self._ping_timer is not None:
+            self._ping_timer.cancel()
+            self._ping_timer = None
+
         if self.on_stop and self._connect_complete:
 
             def _remove_on_stop_task(_fut: asyncio.Future[None]) -> None:
@@ -171,11 +181,6 @@ class APIConnection:
             self._on_stop_task = asyncio.create_task(self.on_stop())
             self._on_stop_task.add_done_callback(_remove_on_stop_task)
             self.on_stop = None
-
-        # Note: we don't explicitly cancel the ping/read task here
-        # That's because if not written right the ping/read task could cancel
-        # themselves, effectively ending execution after _cleanup which may be unexpected
-        self._ping_stop_event.set()
 
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
@@ -302,40 +307,29 @@ class APIConnection:
 
     async def _connect_start_ping(self) -> None:
         """Step 5 in connect process: start the ping loop."""
+        self._async_schedule_keep_alive()
 
-        async def _keep_alive_loop() -> None:
-            while self._is_socket_open:
-                # Wait for keepalive seconds, or ping stop event, whichever happens first
-                try:
-                    async with async_timeout.timeout(self._params.keepalive):
-                        await self._ping_stop_event.wait()
-                except asyncio.TimeoutError:
-                    pass
+    def _async_schedule_keep_alive(self) -> None:
+        """Start the keep alive task."""
+        self._ping_timer = self._loop.call_later(self._params.keepalive, self._async_send_keep_alive)
 
-                # Re-check connection state
-                if not self._is_socket_open or self._ping_stop_event.is_set():
-                    return
+    def _async_send_keep_alive(self) -> None:
+        """Send a keep alive message."""
+        if not self._is_socket_open:
+            return
+        self.send_message(PingRequest())
+        self._pong_timer = self._loop.call_later(PING_PONG_TIMEOUT, self._async_pong_not_received)
+        self._async_schedule_keep_alive()
 
-                try:
-                    await self._ping()
-                except TimeoutAPIError:
-                    _LOGGER.debug("%s: Ping timed out!", self.log_name)
-                    self._report_fatal_error(PingFailedAPIError())
-                    return
-                except APIConnectionError as err:
-                    _LOGGER.debug("%s: Ping Failed: %s", self.log_name, err)
-                    self._report_fatal_error(err)
-                    return
-                except Exception as err:  # pylint: disable=broad-except
-                    _LOGGER.error(
-                        "%s: Unexpected error during ping:",
-                        self.log_name,
-                        exc_info=True,
-                    )
-                    self._report_fatal_error(err)
-                    return
+    def _async_cancel_pong_timer(self) -> None:
+        """Cancel the pong timer."""
+        if self._pong_timer is not None:
+            self._pong_timer.cancel()
+            self._pong_timer = None
 
-        self._keep_alive_task = asyncio.create_task(_keep_alive_loop())
+    def _async_pong_not_received(self) -> None:
+        """Ping not received."""
+        self._report_fatal_error(PingFailedAPIError())
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
@@ -628,14 +622,16 @@ class APIConnection:
         if msg_type not in INTERNAL_MESSAGE_TYPES:
             return
 
-        if isinstance(msg, DisconnectRequest):
+        if msg_type is PingResponse:
+            self._async_cancel_pong_timer()
+        elif msg_type is DisconnectRequest:
             self.send_message(DisconnectResponse())
             self._connection_state = ConnectionState.CLOSED
             self._expected_disconnect = True
             self._cleanup()
-        elif isinstance(msg, PingRequest):
+        elif msg_type is PingRequest:
             self.send_message(PingResponse())
-        elif isinstance(msg, GetTimeRequest):
+        elif msg_type is GetTimeRequest:
             resp = GetTimeResponse()
             resp.epoch_seconds = int(time.time())
             self.send_message(resp)
