@@ -647,10 +647,6 @@ class APIConnection:
             resp.epoch_seconds = int(time.time())
             self.send_message(resp)
 
-    async def _ping(self) -> None:
-        self._check_connected()
-        await self.send_message_await_response(PingRequest(), PingResponse)
-
     async def disconnect(self) -> None:
         if self._connection_state != ConnectionState.CONNECTED:
             # already disconnected
