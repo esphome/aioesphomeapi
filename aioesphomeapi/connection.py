@@ -333,6 +333,13 @@ class APIConnection:
 
     def _async_pong_not_received(self) -> None:
         """Ping not received."""
+        if not self._is_socket_open:
+            return
+        _LOGGER.debug(
+            "%s: Ping response not received after %s seconds",
+            self.log_name,
+            PING_PONG_TIMEOUT,
+        )
         self._report_fatal_error(PingFailedAPIError())
 
     async def connect(self, *, login: bool) -> None:
