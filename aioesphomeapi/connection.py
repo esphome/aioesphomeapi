@@ -161,7 +161,7 @@ class APIConnection:
             self._socket = None
 
         self._async_cancel_pong_timer()
-        
+
         if self._ping_timer is not None:
             self._ping_timer.cancel()
             self._ping_timer = None
@@ -311,14 +311,18 @@ class APIConnection:
 
     def _async_schedule_keep_alive(self) -> None:
         """Start the keep alive task."""
-        self._ping_timer = self._loop.call_later(self._params.keepalive, self._async_send_keep_alive)
+        self._ping_timer = self._loop.call_later(
+            self._params.keepalive, self._async_send_keep_alive
+        )
 
     def _async_send_keep_alive(self) -> None:
         """Send a keep alive message."""
         if not self._is_socket_open:
             return
         self.send_message(PingRequest())
-        self._pong_timer = self._loop.call_later(PING_PONG_TIMEOUT, self._async_pong_not_received)
+        self._pong_timer = self._loop.call_later(
+            PING_PONG_TIMEOUT, self._async_pong_not_received
+        )
         self._async_schedule_keep_alive()
 
     def _async_cancel_pong_timer(self) -> None:
