@@ -306,11 +306,10 @@ class APIConnection:
 
     async def _connect_start_ping(self) -> None:
         """Step 5 in connect process: start the ping loop."""
-        self._async_schedule_keep_alive()
+        self._async_schedule_keep_alive(asyncio.get_running_loop())
 
-    def _async_schedule_keep_alive(self) -> None:
+    def _async_schedule_keep_alive(self, loop: asyncio.AbstractEventLoop) -> None:
         """Start the keep alive task."""
-        loop = asyncio.get_running_loop()
         self._ping_timer = loop.call_later(
             self._params.keepalive, self._async_send_keep_alive
         )
@@ -324,7 +323,7 @@ class APIConnection:
         self._pong_timer = loop.call_later(
             PING_PONG_TIMEOUT, self._async_pong_not_received
         )
-        self._async_schedule_keep_alive()
+        self._async_schedule_keep_alive(loop)
 
     def _async_cancel_pong_timer(self) -> None:
         """Cancel the pong timer."""
