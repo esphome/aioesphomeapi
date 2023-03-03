@@ -117,7 +117,6 @@ class APIConnection:
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
 
-        self._loop = asyncio.get_running_loop()
         self._ping_timer: Optional[asyncio.TimerHandle] = None
         self._pong_timer: Optional[asyncio.TimerHandle] = None
 
@@ -311,7 +310,8 @@ class APIConnection:
 
     def _async_schedule_keep_alive(self) -> None:
         """Start the keep alive task."""
-        self._ping_timer = self._loop.call_later(
+        loop = asyncio.get_running_loop()
+        self._ping_timer = loop.call_later(
             self._params.keepalive, self._async_send_keep_alive
         )
 
@@ -320,7 +320,8 @@ class APIConnection:
         if not self._is_socket_open:
             return
         self.send_message(PingRequest())
-        self._pong_timer = self._loop.call_later(
+        loop = asyncio.get_running_loop()
+        self._pong_timer = loop.call_later(
             PING_PONG_TIMEOUT, self._async_pong_not_received
         )
         self._async_schedule_keep_alive()
