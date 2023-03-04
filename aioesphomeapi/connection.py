@@ -57,6 +57,14 @@ PING_REQUEST_MESSAGE = PingRequest()
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
+KEEP_ALIVE_TIMEOUT_RATIO = 2.5
+#
+# We use 2.5x the keepalive time as the timeout for the pong
+# to match the esphome design
+#
+# https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
+#
+
 in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
     "in_do_connect"
 )
@@ -120,9 +128,10 @@ class APIConnection:
 
         self._ping_timer: Optional[asyncio.TimerHandle] = None
         self._pong_timer: Optional[asyncio.TimerHandle] = None
+        self._keep_alive_interval = params.keepalive
+        self._keep_alive_timeout = params.keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
         self._connect_task: Optional[asyncio.Task[None]] = None
-        self._keep_alive_task: Optional[asyncio.Task[None]] = None
         self._fatal_exception: Optional[Exception] = None
         self._expected_disconnect = False
 
@@ -147,10 +156,6 @@ class APIConnection:
         if self._connect_task is not None and not in_do_connect.get(False):
             self._connect_task.cancel()
             self._connect_task = None
-
-        if self._keep_alive_task is not None:
-            self._keep_alive_task.cancel()
-            self._keep_alive_task = None
 
         if self._frame_helper is not None:
             self._frame_helper.close()
@@ -312,7 +317,7 @@ class APIConnection:
     def _async_schedule_keep_alive(self, loop: asyncio.AbstractEventLoop) -> None:
         """Start the keep alive task."""
         self._ping_timer = loop.call_later(
-            self._params.keepalive, self._async_send_keep_alive
+            self._keep_alive_interval, self._async_send_keep_alive
         )
 
     def _async_send_keep_alive(self) -> None:
@@ -332,20 +337,14 @@ class APIConnection:
                 "since last keep alive after %s seconds; "
                 "rescheduling keep alive",
                 self.log_name,
-                self._params.keepalive,
+                self._keep_alive_interval,
             )
             self._async_schedule_keep_alive(loop)
             return
 
         self.send_message(PING_REQUEST_MESSAGE)
-        #
-        # We use 2.5x the keepalive time as the timeout for the pong
-        # to match the esphome design
-        #
-        # https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
-        #
         self._pong_timer = loop.call_later(
-            self._params.keepalive * 2.5, self._async_pong_not_received
+            self._keep_alive_timeout, self._async_pong_not_received
         )
         self._async_schedule_keep_alive(loop)
 
@@ -362,11 +361,11 @@ class APIConnection:
         _LOGGER.debug(
             "%s: Ping response not received after %s seconds",
             self.log_name,
-            self._params.keepalive * 2.5,
+            self._keep_alive_timeout,
         )
         self._report_fatal_error(
             PingFailedAPIError(
-                f"Ping response not received after {self._params.keepalive * 2.5} seconds"
+                f"Ping response not received after {self._keep_alive_timeout} seconds"
             )
         )
 
