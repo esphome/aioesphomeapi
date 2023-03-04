@@ -179,7 +179,7 @@ class APIClient:
         password: Optional[str],
         *,
         client_info: str = "aioesphomeapi",
-        keepalive: float = 15.0,
+        keepalive: float = 20.0,
         zeroconf_instance: ZeroconfInstanceType = None,
         noise_psk: Optional[str] = None,
         expected_name: Optional[str] = None,
