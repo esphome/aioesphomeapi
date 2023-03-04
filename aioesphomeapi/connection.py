@@ -365,7 +365,11 @@ class APIConnection:
             self.log_name,
             PING_PONG_TIMEOUT,
         )
-        self._report_fatal_error(PingFailedAPIError())
+        self._report_fatal_error(
+            PingFailedAPIError(
+                f"Ping response not received after {PING_PONG_TIMEOUT} seconds"
+            )
+        )
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
