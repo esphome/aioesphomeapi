@@ -66,6 +66,13 @@ KEEP_ALIVE_TIMEOUT_RATIO = 2.5
 # https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
 #
 
+HANDSHAKE_TIMEOUT = 30.0
+RESOLVE_TIMEOUT = 30.0
+
+# The connect timeout should be the maximum time we expect the esp to take
+# to reboot and connect to the network/WiFi.
+CONNECT_TIMEOUT = 60.0
+
 in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
     "in_do_connect"
 )
@@ -196,7 +203,7 @@ class APIConnection:
                 self._params.port,
                 self._params.zeroconf_instance,
             )
-            async with async_timeout.timeout(30.0):
+            async with async_timeout.timeout(RESOLVE_TIMEOUT):
                 return await coro
         except asyncio.TimeoutError as err:
             raise ResolveAPIError(
@@ -232,7 +239,7 @@ class APIConnection:
 
         try:
             coro = asyncio.get_event_loop().sock_connect(self._socket, sockaddr)
-            async with async_timeout.timeout(30.0):
+            async with async_timeout.timeout(CONNECT_TIMEOUT):
                 await coro
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
@@ -268,7 +275,7 @@ class APIConnection:
         self._frame_helper = fh
         self._connection_state = ConnectionState.SOCKET_OPENED
         try:
-            async with async_timeout.timeout(30.0):
+            async with async_timeout.timeout(HANDSHAKE_TIMEOUT):
                 await fh.perform_handshake()
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
