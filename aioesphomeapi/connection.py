@@ -50,14 +50,6 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 
-#
-# Historically the ping-pong timeout was 10 seconds, but this was changed to 30 seconds
-# since this was a bit aggressive for poor WiFi connections. The esphome code itself
-# uses a timeout of 150 seconds.
-#
-# https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
-#
-PING_PONG_TIMEOUT = 30.0
 
 INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, PingResponse, DisconnectRequest}
 
@@ -346,8 +338,14 @@ class APIConnection:
             return
 
         self.send_message(PING_REQUEST_MESSAGE)
+        #
+        # We use 2.5x the keepalive time as the timeout for the pong
+        # to match the esphome design
+        #
+        # https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
+        #
         self._pong_timer = loop.call_later(
-            PING_PONG_TIMEOUT, self._async_pong_not_received
+            self._params.keepalive * 2.5, self._async_pong_not_received
         )
         self._async_schedule_keep_alive(loop)
 
@@ -364,11 +362,11 @@ class APIConnection:
         _LOGGER.debug(
             "%s: Ping response not received after %s seconds",
             self.log_name,
-            PING_PONG_TIMEOUT,
+            self._params.keepalive * 2.5,
         )
         self._report_fatal_error(
             PingFailedAPIError(
-                f"Ping response not received after {PING_PONG_TIMEOUT} seconds"
+                f"Ping response not received after {self._params.keepalive * 2.5} seconds"
             )
         )
 
