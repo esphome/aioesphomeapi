@@ -329,8 +329,8 @@ class APIConnection:
             # so we reschedule the keep alive
             _LOGGER.debug(
                 "%s: PingResponse (pong) was not received "
-                "since last keep alive after %s seconds; ",
-                "rescheduling keep alive"
+                "since last keep alive after %s seconds; "
+                "rescheduling keep alive",
                 self.log_name,
                 self._params.keepalive,
             )
