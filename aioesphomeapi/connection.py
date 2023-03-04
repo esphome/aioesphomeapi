@@ -54,6 +54,7 @@ BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, PingResponse, DisconnectRequest}
 
 PING_REQUEST_MESSAGE = PingRequest()
+PING_RESPONSE_MESSAGE = PingResponse()
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
@@ -670,7 +671,7 @@ class APIConnection:
             self._expected_disconnect = True
             self._cleanup()
         elif msg_type is PingRequest:
-            self.send_message(PingResponse())
+            self.send_message(PING_RESPONSE_MESSAGE)
         elif msg_type is GetTimeRequest:
             resp = GetTimeResponse()
             resp.epoch_seconds = int(time.time())
