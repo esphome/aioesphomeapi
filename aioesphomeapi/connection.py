@@ -50,9 +50,18 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 
-PING_PONG_TIMEOUT = 10.0
+#
+# Historically the ping-pong timeout was 10 seconds, but this was changed to 30 seconds
+# since this was a bit aggressive for poor WiFi connections. The esphome code itself
+# uses a timeout of 150 seconds.
+#
+# https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
+#
+PING_PONG_TIMEOUT = 30.0
 
 INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, PingResponse, DisconnectRequest}
+
+PING_REQUEST_MESSAGE = PingRequest()
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
@@ -318,8 +327,24 @@ class APIConnection:
         """Send a keep alive message."""
         if not self._is_socket_open:
             return
-        self.send_message(PingRequest())
+
         loop = asyncio.get_running_loop()
+
+        if self._pong_timer is not None:
+            # We haven't reached the PING_PONG_TIMEOUT yet
+            # and we haven't seen a response to the last ping
+            # so we don't need to send another ping right now
+            # so we reschedule the keep alive
+            _LOGGER.debug(
+                "%s: PingResponse (pong) was not received"
+                "since last keep alive after %s seconds; ",
+                self.log_name,
+                self._params.keepalive,
+            )
+            self._async_schedule_keep_alive(loop)
+            return
+
+        self.send_message(PING_REQUEST_MESSAGE)
         self._pong_timer = loop.call_later(
             PING_PONG_TIMEOUT, self._async_pong_not_received
         )
@@ -634,6 +659,8 @@ class APIConnection:
             return
 
         if msg_type is PingResponse:
+            # We got a pong so we know the ESP is alive, cancel the timer
+            # that will disconnect us
             self._async_cancel_pong_timer()
         elif msg_type is DisconnectRequest:
             self.send_message(DisconnectResponse())
