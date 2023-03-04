@@ -164,6 +164,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
+KEEP_ALIVE_FREQUENCY = 30.0
 
 ExecuteServiceDataType = Dict[
     str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
@@ -179,7 +180,7 @@ class APIClient:
         password: Optional[str],
         *,
         client_info: str = "aioesphomeapi",
-        keepalive: float = 20.0,
+        keepalive: float = KEEP_ALIVE_FREQUENCY,
         zeroconf_instance: ZeroconfInstanceType = None,
         noise_psk: Optional[str] = None,
         expected_name: Optional[str] = None,
