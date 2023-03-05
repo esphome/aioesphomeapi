@@ -164,11 +164,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
-
-# The keep alive frequency is 60 seconds which aligns with the esphome
-# codebase:
-# https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
-KEEP_ALIVE_FREQUENCY = 60.0
+KEEP_ALIVE_FREQUENCY = 30.0
 
 ExecuteServiceDataType = Dict[
     str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
