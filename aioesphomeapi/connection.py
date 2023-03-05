@@ -334,12 +334,24 @@ class APIConnection:
             return
 
         loop = asyncio.get_running_loop()
+        self.send_message(PING_REQUEST_MESSAGE)
 
-        if self._pong_timer is not None:
-            # We haven't reached the PING_PONG_TIMEOUT yet
+        if self._pong_timer is None:
+            # Do not reset the timer if it's already set
+            # since the only thing we want to reset the timer
+            # is if we receive a pong.
+            self._pong_timer = loop.call_later(
+                self._keep_alive_timeout, self._async_pong_not_received
+            )
+        else:
+            #
+            # We haven't reached the ping response (pong) timeout yet
             # and we haven't seen a response to the last ping
-            # so we don't need to send another ping right now
-            # so we reschedule the keep alive
+            #
+            # We send another ping in case the device has
+            # rebooted and dropped the connection without telling
+            # us to force a TCP RST aka connection reset by peer.
+            #
             _LOGGER.debug(
                 "%s: PingResponse (pong) was not received "
                 "since last keep alive after %s seconds; "
@@ -347,13 +359,7 @@ class APIConnection:
                 self.log_name,
                 self._keep_alive_interval,
             )
-            self._async_schedule_keep_alive(loop)
-            return
 
-        self.send_message(PING_REQUEST_MESSAGE)
-        self._pong_timer = loop.call_later(
-            self._keep_alive_timeout, self._async_pong_not_received
-        )
         self._async_schedule_keep_alive(loop)
 
     def _async_cancel_pong_timer(self) -> None:
