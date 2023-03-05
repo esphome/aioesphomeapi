@@ -164,7 +164,11 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
-KEEP_ALIVE_FREQUENCY = 30.0
+
+# We send a ping every 35 seconds, and the timeout ratio is 2.5x the
+# ping interval. This means that if we don't receive a ping for 87.5
+# seconds, we'll consider the connection dead and reconnect.
+KEEP_ALIVE_FREQUENCY = 35.0
 
 ExecuteServiceDataType = Dict[
     str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
