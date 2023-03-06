@@ -645,8 +645,11 @@ class APIConnection:
         await self.send_message_await_response(PingRequest(), PingResponse)
 
     async def disconnect(self) -> None:
-        if self._connection_state != ConnectionState.CONNECTED:
-            # already disconnected
+        if not self._is_socket_open or not self._frame_helper:
+            # We still want to send a disconnect request even
+            # if the hello phase isn't finished to ensure we
+            # the esp will clean up the connection as soon
+            # as possible.
             return
 
         self._expected_disconnect = True
