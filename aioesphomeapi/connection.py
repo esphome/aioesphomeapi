@@ -70,6 +70,7 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
 HANDSHAKE_TIMEOUT = 30.0
 RESOLVE_TIMEOUT = 30.0
+CONNECT_REQUEST_TIMEOUT = 30.0
 
 # The connect timeout should be the maximum time we expect the esp to take
 # to reboot and connect to the network/WiFi.
@@ -438,7 +439,9 @@ class APIConnection:
         if self._params.password is not None:
             connect.password = self._params.password
         try:
-            resp = await self.send_message_await_response(connect, ConnectResponse)
+            resp = await self.send_message_await_response(
+                connect, ConnectResponse, timeout=CONNECT_REQUEST_TIMEOUT
+            )
         except TimeoutAPIError as err:
             # After a timeout for connect the connection can no longer be used
             # We don't know what state the device may be in after ConnectRequest
