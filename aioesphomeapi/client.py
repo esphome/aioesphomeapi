@@ -233,17 +233,17 @@ class APIClient:
 
     async def connect(
         self,
-        on_stop: Optional[Callable[[], Awaitable[None]]] = None,
+        on_stop: Optional[Callable[[bool], Awaitable[None]]] = None,
         login: bool = False,
     ) -> None:
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
-        async def _on_stop() -> None:
+        async def _on_stop(expected_disconnect: bool) -> None:
             # Hook into on_stop handler to clear connection when stopped
             self._connection = None
             if on_stop is not None:
-                await on_stop()
+                await on_stop(expected_disconnect)
 
         self._connection = APIConnection(
             self._params, _on_stop, log_name=self._log_name
