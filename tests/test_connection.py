@@ -27,7 +27,7 @@ def connection_params() -> ConnectionParams:
 
 @pytest.fixture
 def conn(connection_params) -> APIConnection:
-    async def on_stop():
+    async def on_stop(expected_disconnect: bool) -> None:
         pass
 
     return APIConnection(connection_params, on_stop)
