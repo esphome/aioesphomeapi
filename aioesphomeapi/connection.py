@@ -58,12 +58,14 @@ PING_RESPONSE_MESSAGE = PingResponse()
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
-KEEP_ALIVE_TIMEOUT_RATIO = 2.5
+KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 #
-# We use 2.5x the keepalive time as the timeout for the pong
-# to match the esphome design
-#
-# https://github.com/esphome/esphome/blob/df3f13ded884682dfbcbba542d79aedb1e100b0a/esphome/components/api/api_connection.cpp#L99
+# We use 4.5x the keep-alive time as the timeout for the pong
+# since the default ping interval is 20s which is about the time
+# a device takes to reboot and reconnect to the network making
+# the maximum time it has to respond to a ping at 90s which is
+# enough time to know that the device has truly disconnected
+# from the network.
 #
 
 HANDSHAKE_TIMEOUT = 30.0
