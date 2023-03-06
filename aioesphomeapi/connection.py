@@ -91,11 +91,11 @@ class APIConnection:
     def __init__(
         self,
         params: ConnectionParams,
-        on_stop: Callable[[], Coroutine[Any, Any, None]],
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]],
         log_name: Optional[str] = None,
     ) -> None:
         self._params = params
-        self.on_stop: Optional[Callable[[], Coroutine[Any, Any, None]]] = on_stop
+        self.on_stop: Optional[Callable[[bool], Coroutine[Any, Any, None]]] = on_stop
         self._on_stop_task: Optional[asyncio.Task[None]] = None
         self._socket: Optional[socket.socket] = None
         self._frame_helper: Optional[APIFrameHelper] = None
@@ -168,7 +168,9 @@ class APIConnection:
                 self._on_stop_task = None
 
             # Ensure on_stop is called only once
-            self._on_stop_task = asyncio.create_task(self.on_stop())
+            self._on_stop_task = asyncio.create_task(
+                self.on_stop(self._expected_disconnect)
+            )
             self._on_stop_task.add_done_callback(_remove_on_stop_task)
             self.on_stop = None
 
@@ -228,7 +230,13 @@ class APIConnection:
         except asyncio.TimeoutError as err:
             raise SocketAPIError(f"Timeout while connecting to {sockaddr}") from err
 
-        _LOGGER.debug("%s: Opened socket", self._params.address)
+        _LOGGER.debug(
+            "%s: Opened socket to %s:%s (%s)",
+            self.log_name,
+            self._params.address,
+            self._params.port,
+            addr,
+        )
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""

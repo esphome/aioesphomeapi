@@ -9,6 +9,8 @@ from .core import APIConnectionError
 
 _LOGGER = logging.getLogger(__name__)
 
+EXPECTED_DISCONNECT_COOLDOWN = 3.0
+
 
 class ReconnectLogic(zeroconf.RecordUpdateListener):
     """Reconnectiong logic handler for ESPHome config entries.
@@ -71,7 +73,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             return f"{self.name} @ {self._cli.address}"
         return self._cli.address
 
-    async def _on_disconnect(self) -> None:
+    async def _on_disconnect(self, expected_disconnect: bool) -> None:
         """Log and issue callbacks when disconnecting."""
         if self._is_stopped:
             return
@@ -79,11 +81,15 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # So therefore all these connection warnings are logged
         # as infos. The "unavailable" logic will still trigger so the
         # user knows if the device is not connected.
-        _LOGGER.info("Disconnected from ESPHome API for %s", self._log_name)
+        disconnect_type = "expected" if expected_disconnect else "unexpected"
+        _LOGGER.info(
+            "Processing %s disconnect from ESPHome API for %s",
+            disconnect_type,
+            self._log_name,
+        )
 
         # Run disconnect hook
         await self._on_disconnect_cb()
-        await self._start_zc_listen()
 
         # Reset tries
         async with self._tries_lock:
@@ -91,7 +97,21 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # Connected needs to be reset before the reconnect event (opposite order of check)
         async with self._connected_lock:
             self._connected = False
+
+        if expected_disconnect:
+            # If we expected the disconnect we need
+            # to cooldown before reconnecting in case the remote
+            # is rebooting so we don't establish a connection right
+            # before its about to reboot in the event we are too fast.
+            await asyncio.sleep(EXPECTED_DISCONNECT_COOLDOWN)
+
         self._reconnect_event.set()
+
+        # Start listening for zeroconf records
+        # only after setting the reconnect_event
+        # since we only want to accept zeroconf records
+        # after the reconnect has failed.
+        await self._start_zc_listen()
 
     async def _wait_and_start_reconnect(self) -> None:
         """Wait for exponentially increasing time to issue next reconnect event."""
@@ -197,7 +217,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         async with self._wait_task_lock:
             if self._wait_task is not None:
                 self._wait_task.cancel()
-            self._wait_task = None
+                self._wait_task = None
         await self._stop_zc_listen()
 
     def stop_callback(self) -> None:
