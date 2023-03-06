@@ -165,6 +165,16 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
 
+# We send a ping every 20 seconds, and the timeout ratio is 4.5x the
+# ping interval. This means that if we don't receive a ping for 90.0
+# seconds, we'll consider the connection dead and reconnect.
+#
+# This was chosen because the 20s is around the expected time for a
+# device to reboot and reconnect to wifi, and 90 seconds is the absolute
+# maximum time a device can take to respond when its behind + the WiFi
+# connection is poor.
+KEEP_ALIVE_FREQUENCY = 20.0
+
 ExecuteServiceDataType = Dict[
     str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
 ]
@@ -179,7 +189,7 @@ class APIClient:
         password: Optional[str],
         *,
         client_info: str = "aioesphomeapi",
-        keepalive: float = 15.0,
+        keepalive: float = KEEP_ALIVE_FREQUENCY,
         zeroconf_instance: ZeroconfInstanceType = None,
         noise_psk: Optional[str] = None,
         expected_name: Optional[str] = None,

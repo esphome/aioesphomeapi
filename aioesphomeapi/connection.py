@@ -50,9 +50,31 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 
-INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
+
+INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, PingResponse, DisconnectRequest}
+
+PING_REQUEST_MESSAGE = PingRequest()
+PING_RESPONSE_MESSAGE = PingResponse()
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
+KEEP_ALIVE_TIMEOUT_RATIO = 4.5
+#
+# We use 4.5x the keep-alive time as the timeout for the pong
+# since the default ping interval is 20s which is about the time
+# a device takes to reboot and reconnect to the network making
+# the maximum time it has to respond to a ping at 90s which is
+# enough time to know that the device has truly disconnected
+# from the network.
+#
+
+HANDSHAKE_TIMEOUT = 30.0
+RESOLVE_TIMEOUT = 30.0
+CONNECT_REQUEST_TIMEOUT = 30.0
+
+# The connect timeout should be the maximum time we expect the esp to take
+# to reboot and connect to the network/WiFi.
+CONNECT_TIMEOUT = 60.0
 
 in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
     "in_do_connect"
@@ -115,10 +137,12 @@ class APIConnection:
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
 
-        self._ping_stop_event = asyncio.Event()
+        self._ping_timer: Optional[asyncio.TimerHandle] = None
+        self._pong_timer: Optional[asyncio.TimerHandle] = None
+        self._keep_alive_interval = params.keepalive
+        self._keep_alive_timeout = params.keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
         self._connect_task: Optional[asyncio.Task[None]] = None
-        self._keep_alive_task: Optional[asyncio.Task[None]] = None
         self._fatal_exception: Optional[Exception] = None
         self._expected_disconnect = False
 
@@ -144,10 +168,6 @@ class APIConnection:
             self._connect_task.cancel()
             self._connect_task = None
 
-        if self._keep_alive_task is not None:
-            self._keep_alive_task.cancel()
-            self._keep_alive_task = None
-
         if self._frame_helper is not None:
             self._frame_helper.close()
             self._frame_helper = None
@@ -155,6 +175,12 @@ class APIConnection:
         if self._socket is not None:
             self._socket.close()
             self._socket = None
+
+        self._async_cancel_pong_timer()
+
+        if self._ping_timer is not None:
+            self._ping_timer.cancel()
+            self._ping_timer = None
 
         if self.on_stop and self._connect_complete:
 
@@ -174,11 +200,6 @@ class APIConnection:
             self._on_stop_task.add_done_callback(_remove_on_stop_task)
             self.on_stop = None
 
-        # Note: we don't explicitly cancel the ping/read task here
-        # That's because if not written right the ping/read task could cancel
-        # themselves, effectively ending execution after _cleanup which may be unexpected
-        self._ping_stop_event.set()
-
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
         try:
@@ -187,7 +208,7 @@ class APIConnection:
                 self._params.port,
                 self._params.zeroconf_instance,
             )
-            async with async_timeout.timeout(30.0):
+            async with async_timeout.timeout(RESOLVE_TIMEOUT):
                 return await coro
         except asyncio.TimeoutError as err:
             raise ResolveAPIError(
@@ -223,7 +244,7 @@ class APIConnection:
 
         try:
             coro = asyncio.get_event_loop().sock_connect(self._socket, sockaddr)
-            async with async_timeout.timeout(30.0):
+            async with async_timeout.timeout(CONNECT_TIMEOUT):
                 await coro
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
@@ -265,7 +286,7 @@ class APIConnection:
         self._frame_helper = fh
         self._connection_state = ConnectionState.SOCKET_OPENED
         try:
-            async with async_timeout.timeout(30.0):
+            async with async_timeout.timeout(HANDSHAKE_TIMEOUT):
                 await fh.perform_handshake()
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
@@ -310,40 +331,68 @@ class APIConnection:
 
     async def _connect_start_ping(self) -> None:
         """Step 5 in connect process: start the ping loop."""
+        self._async_schedule_keep_alive(asyncio.get_running_loop())
 
-        async def _keep_alive_loop() -> None:
-            while self._is_socket_open:
-                # Wait for keepalive seconds, or ping stop event, whichever happens first
-                try:
-                    async with async_timeout.timeout(self._params.keepalive):
-                        await self._ping_stop_event.wait()
-                except asyncio.TimeoutError:
-                    pass
+    def _async_schedule_keep_alive(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Start the keep alive task."""
+        self._ping_timer = loop.call_later(
+            self._keep_alive_interval, self._async_send_keep_alive
+        )
 
-                # Re-check connection state
-                if not self._is_socket_open or self._ping_stop_event.is_set():
-                    return
+    def _async_send_keep_alive(self) -> None:
+        """Send a keep alive message."""
+        if not self._is_socket_open:
+            return
 
-                try:
-                    await self._ping()
-                except TimeoutAPIError:
-                    _LOGGER.debug("%s: Ping timed out!", self.log_name)
-                    self._report_fatal_error(PingFailedAPIError())
-                    return
-                except APIConnectionError as err:
-                    _LOGGER.debug("%s: Ping Failed: %s", self.log_name, err)
-                    self._report_fatal_error(err)
-                    return
-                except Exception as err:  # pylint: disable=broad-except
-                    _LOGGER.error(
-                        "%s: Unexpected error during ping:",
-                        self.log_name,
-                        exc_info=True,
-                    )
-                    self._report_fatal_error(err)
-                    return
+        loop = asyncio.get_running_loop()
+        self.send_message(PING_REQUEST_MESSAGE)
 
-        self._keep_alive_task = asyncio.create_task(_keep_alive_loop())
+        if self._pong_timer is None:
+            # Do not reset the timer if it's already set
+            # since the only thing we want to reset the timer
+            # is if we receive a pong.
+            self._pong_timer = loop.call_later(
+                self._keep_alive_timeout, self._async_pong_not_received
+            )
+        else:
+            #
+            # We haven't reached the ping response (pong) timeout yet
+            # and we haven't seen a response to the last ping
+            #
+            # We send another ping in case the device has
+            # rebooted and dropped the connection without telling
+            # us to force a TCP RST aka connection reset by peer.
+            #
+            _LOGGER.debug(
+                "%s: PingResponse (pong) was not received "
+                "since last keep alive after %s seconds; "
+                "rescheduling keep alive",
+                self.log_name,
+                self._keep_alive_interval,
+            )
+
+        self._async_schedule_keep_alive(loop)
+
+    def _async_cancel_pong_timer(self) -> None:
+        """Cancel the pong timer."""
+        if self._pong_timer is not None:
+            self._pong_timer.cancel()
+            self._pong_timer = None
+
+    def _async_pong_not_received(self) -> None:
+        """Ping not received."""
+        if not self._is_socket_open:
+            return
+        _LOGGER.debug(
+            "%s: Ping response not received after %s seconds",
+            self.log_name,
+            self._keep_alive_timeout,
+        )
+        self._report_fatal_error(
+            PingFailedAPIError(
+                f"Ping response not received after {self._keep_alive_timeout} seconds"
+            )
+        )
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
@@ -398,7 +447,9 @@ class APIConnection:
         if self._params.password is not None:
             connect.password = self._params.password
         try:
-            resp = await self.send_message_await_response(connect, ConnectResponse)
+            resp = await self.send_message_await_response(
+                connect, ConnectResponse, timeout=CONNECT_REQUEST_TIMEOUT
+            )
         except TimeoutAPIError as err:
             # After a timeout for connect the connection can no longer be used
             # We don't know what state the device may be in after ConnectRequest
@@ -636,21 +687,21 @@ class APIConnection:
         if msg_type not in INTERNAL_MESSAGE_TYPES:
             return
 
-        if isinstance(msg, DisconnectRequest):
+        if msg_type is PingResponse:
+            # We got a pong so we know the ESP is alive, cancel the timer
+            # that will disconnect us
+            self._async_cancel_pong_timer()
+        elif msg_type is DisconnectRequest:
             self.send_message(DisconnectResponse())
             self._connection_state = ConnectionState.CLOSED
             self._expected_disconnect = True
             self._cleanup()
-        elif isinstance(msg, PingRequest):
-            self.send_message(PingResponse())
-        elif isinstance(msg, GetTimeRequest):
+        elif msg_type is PingRequest:
+            self.send_message(PING_RESPONSE_MESSAGE)
+        elif msg_type is GetTimeRequest:
             resp = GetTimeResponse()
             resp.epoch_seconds = int(time.time())
             self.send_message(resp)
-
-    async def _ping(self) -> None:
-        self._check_connected()
-        await self.send_message_await_response(PingRequest(), PingResponse)
 
     async def disconnect(self) -> None:
         if not self._is_socket_open or not self._frame_helper:
