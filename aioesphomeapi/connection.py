@@ -51,7 +51,7 @@ _LOGGER = logging.getLogger(__name__)
 BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
 
 
-INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, PingResponse, DisconnectRequest}
+INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
 
 PING_REQUEST_MESSAGE = PingRequest()
 PING_RESPONSE_MESSAGE = PingResponse()
@@ -679,6 +679,11 @@ class APIConnection:
 
         _LOGGER.debug("%s: Got message of type %s: %s", self.log_name, msg_type, msg)
 
+        if self._pong_timer:
+            # Any valid message from the remote cancels the pong timer
+            # as we know the connection is still alive
+            self._async_cancel_pong_timer()
+
         for handler in self._message_handlers.get(msg_type, [])[:]:
             handler(msg)
 
@@ -687,11 +692,7 @@ class APIConnection:
         if msg_type not in INTERNAL_MESSAGE_TYPES:
             return
 
-        if msg_type is PingResponse:
-            # We got a pong so we know the ESP is alive, cancel the timer
-            # that will disconnect us
-            self._async_cancel_pong_timer()
-        elif msg_type is DisconnectRequest:
+        if msg_type is DisconnectRequest:
             self.send_message(DisconnectResponse())
             self._connection_state = ConnectionState.CLOSED
             self._expected_disconnect = True
