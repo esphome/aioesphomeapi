@@ -48,7 +48,6 @@ class APIFrameHelper(asyncio.Protocol):
         self._on_pkt = on_pkt
         self._on_error = on_error
         self._transport: Optional[asyncio.Transport] = None
-        self.read_lock = asyncio.Lock()
         self._connected_event = asyncio.Event()
         self._buffer = bytearray()
         self._pos = 0
