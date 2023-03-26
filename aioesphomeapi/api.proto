@@ -53,6 +53,8 @@ service APIConnection {
   rpc bluetooth_gatt_read_descriptor(BluetoothGATTReadDescriptorRequest) returns (void) {}
   rpc bluetooth_gatt_write_descriptor(BluetoothGATTWriteDescriptorRequest) returns (void) {}
   rpc bluetooth_gatt_notify(BluetoothGATTNotifyRequest) returns (void) {}
+  rpc unsubscribe_bluetooth_le_advertisements(UnsubscribeBluetoothLEAdvertisementsRequest) returns (void) {}
+
 }
 
 
@@ -1387,8 +1389,13 @@ message BluetoothDeviceUnpairingResponse {
   int32 error = 3;
 }
 
-message BluetoothDeviceClearCacheResponse {
+message UnsubscribeBluetoothLEAdvertisementsRequest {
   option (id) = 87;
+  option (source) = SOURCE_CLIENT;
+}
+
+message BluetoothDeviceClearCacheResponse {
+  option (id) = 89;
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_BLUETOOTH_PROXY";
 
