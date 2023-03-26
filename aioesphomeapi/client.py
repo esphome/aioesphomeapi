@@ -654,7 +654,7 @@ class APIClient:
 
     async def bluetooth_device_clear_cache(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
-    ) -> bool:
+    ) -> BluetoothDeviceClearCache:
         self._check_authenticated()
 
         assert self._connection is not None
