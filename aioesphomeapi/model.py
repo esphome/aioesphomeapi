@@ -882,6 +882,13 @@ class BluetoothDeviceUnpairing(APIModelBase):
 
 
 @dataclass(frozen=True)
+class BluetoothDeviceClearCache(APIModelBase):
+    address: int = 0
+    success: bool = False
+    error: int = 0
+
+
+@dataclass(frozen=True)
 class BluetoothGATTRead(APIModelBase):
     address: int = 0
     handle: int = 0
@@ -979,6 +986,7 @@ class BluetoothDeviceRequestType(APIIntEnum):
     UNPAIR = 3
     CONNECT_V3_WITH_CACHE = 4
     CONNECT_V3_WITHOUT_CACHE = 5
+    CLEAR_CACHE = 6
 
 
 class LogLevel(APIIntEnum):
