@@ -89,6 +89,7 @@ from .api_pb2 import (  # type: ignore
     SwitchCommandRequest,
     SwitchStateResponse,
     TextSensorStateResponse,
+    UnsubscribeBluetoothLEAdvertisementsRequest,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -306,4 +307,5 @@ MESSAGE_TYPE_TO_PROTO = {
     84: BluetoothGATTNotifyResponse,
     85: BluetoothDevicePairingResponse,
     86: BluetoothDeviceUnpairingResponse,
+    87: UnsubscribeBluetoothLEAdvertisementsRequest,
 }
