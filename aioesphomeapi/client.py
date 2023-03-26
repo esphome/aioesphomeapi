@@ -21,6 +21,7 @@ from google.protobuf import message
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
+    BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceRequest,
@@ -110,6 +111,7 @@ from .model import (
     BinarySensorInfo,
     BinarySensorState,
     BluetoothConnectionsFree,
+    BluetoothDeviceClearCache,
     BluetoothDeviceConnection,
     BluetoothDevicePairing,
     BluetoothDeviceRequestType,
@@ -649,6 +651,31 @@ class APIClient:
         response = responses[0]
 
         return BluetoothDeviceUnpairing.from_pb(response)
+
+    async def bluetooth_device_clear_cache(
+        self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
+    ) -> bool:
+        self._check_authenticated()
+
+        assert self._connection is not None
+
+        def predicate_func(msg: BluetoothDeviceClearCacheResponse) -> bool:
+            return bool(msg.address == address)
+
+        responses = await self._connection.send_message_await_response_complex(
+            BluetoothDeviceRequest(
+                address=address, request_type=BluetoothDeviceRequestType.CLEAR_CACHE
+            ),
+            predicate_func,
+            predicate_func,
+            (BluetoothDeviceClearCacheResponse,),
+            timeout=timeout,
+        )
+
+        assert len(responses) == 1
+        response = responses[0]
+
+        return BluetoothDeviceClearCache.from_pb(response)
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
