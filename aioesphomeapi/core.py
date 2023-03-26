@@ -5,6 +5,7 @@ from aioesphomeapi.model import BluetoothGATTError
 from .api_pb2 import (  # type: ignore
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
+    BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceRequest,
@@ -308,4 +309,5 @@ MESSAGE_TYPE_TO_PROTO = {
     85: BluetoothDevicePairingResponse,
     86: BluetoothDeviceUnpairingResponse,
     87: UnsubscribeBluetoothLEAdvertisementsRequest,
+    88: BluetoothDeviceClearCacheResponse,
 }
