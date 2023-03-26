@@ -96,6 +96,7 @@ from .api_pb2 import (  # type: ignore
     SwitchCommandRequest,
     SwitchStateResponse,
     TextSensorStateResponse,
+    UnsubscribeBluetoothLEAdvertisementsRequest,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -468,6 +469,9 @@ class APIClient:
         def unsub() -> None:
             if self._connection is not None:
                 self._connection.remove_message_callback(on_msg, msg_types)
+                self._connection.send_message(
+                    UnsubscribeBluetoothLEAdvertisementsRequest()
+                )
 
         return unsub
 
