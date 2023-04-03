@@ -1245,6 +1245,13 @@ class APIClient:
         return self._connection.api_version
 
     async def subscribe_voice_assistant(self, handle_start: Callable[[], Coroutine[Any, Any, int]], handle_stop: Callable[[], Coroutine[Any, Any, None]]) -> Callable[[], None]:
+        """Subscribes to voice assistant messages from the device.
+
+        handle_start: called when the devices requests a server to send audio data to.
+                      This callback is asyncronous and returns the port number the server is started on.
+
+        handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
+        """
         self._check_authenticated()
 
         t: asyncio.Task = None
