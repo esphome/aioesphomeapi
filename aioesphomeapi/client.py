@@ -1244,13 +1244,19 @@ class APIClient:
             return None
         return self._connection.api_version
 
-    async def subscribe_voice_assistant(self, handle_start: Callable[[], Coroutine[Any, Any, int]], handle_stop: Callable[[], Coroutine[Any, Any, None]]) -> Callable[[], None]:
+    async def subscribe_voice_assistant(
+        self,
+        handle_start: Callable[[], Coroutine[Any, Any, int]],
+        handle_stop: Callable[[], Coroutine[Any, Any, None]],
+    ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
 
         handle_start: called when the devices requests a server to send audio data to.
                       This callback is asyncronous and returns the port number the server is started on.
 
         handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
+
+        Returns a callback to unsubscribe.
         """
         self._check_authenticated()
 
@@ -1274,12 +1280,16 @@ class APIClient:
 
         self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
 
-        remove_callback = self._connection.add_message_callback(on_msg, (VoiceAssistantRequest,))
+        remove_callback = self._connection.add_message_callback(
+            on_msg, (VoiceAssistantRequest,)
+        )
 
         def unsub() -> None:
             if self._connection is not None:
                 remove_callback()
-                self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=False))
+                self._connection.send_message(
+                    SubscribeVoiceAssistantRequest(subscribe=False)
+                )
 
             if t is not None and not t.cancelled():
                 t.cancel()
