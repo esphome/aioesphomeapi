@@ -92,8 +92,8 @@ from .api_pb2 import (  # type: ignore
     SwitchStateResponse,
     TextSensorStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
-    VoiceAssistantResponse,
     VoiceAssistantRequest,
+    VoiceAssistantResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")

@@ -98,8 +98,8 @@ from .api_pb2 import (  # type: ignore
     SwitchStateResponse,
     TextSensorStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
-    VoiceAssistantResponse,
     VoiceAssistantRequest,
+    VoiceAssistantResponse,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
