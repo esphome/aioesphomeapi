@@ -27,4 +27,5 @@ disable = [
   "raise-missing-from",
   "bad-mcs-classmethod-argument",
   "duplicate-code",
+  "too-many-lines",
 ]
