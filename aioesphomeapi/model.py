@@ -118,6 +118,7 @@ class DeviceInfo(APIModelBase):
     project_version: str = ""
     webserver_port: int = 0
     bluetooth_proxy_version: int = 0
+    voice_assistant_version: int = 0
 
 
 class EntityCategory(APIIntEnum):
@@ -987,6 +988,11 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CONNECT_V3_WITH_CACHE = 4
     CONNECT_V3_WITHOUT_CACHE = 5
     CLEAR_CACHE = 6
+
+
+@dataclass(frozen=True)
+class VoiceAssistantCommand(APIModelBase):
+    start: bool = False
 
 
 class LogLevel(APIIntEnum):

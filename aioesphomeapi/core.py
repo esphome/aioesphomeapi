@@ -87,10 +87,13 @@ from .api_pb2 import (  # type: ignore
     SubscribeLogsRequest,
     SubscribeLogsResponse,
     SubscribeStatesRequest,
+    SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
     TextSensorStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantResponse,
+    VoiceAssistantRequest,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -310,4 +313,7 @@ MESSAGE_TYPE_TO_PROTO = {
     86: BluetoothDeviceUnpairingResponse,
     87: UnsubscribeBluetoothLEAdvertisementsRequest,
     88: BluetoothDeviceClearCacheResponse,
+    89: SubscribeVoiceAssistantRequest,
+    90: VoiceAssistantRequest,
+    91: VoiceAssistantResponse,
 }

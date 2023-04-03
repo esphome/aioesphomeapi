@@ -94,10 +94,13 @@ from .api_pb2 import (  # type: ignore
     SubscribeLogsRequest,
     SubscribeLogsResponse,
     SubscribeStatesRequest,
+    SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
     TextSensorStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantResponse,
+    VoiceAssistantRequest,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -165,6 +168,7 @@ from .model import (
     TextSensorState,
     UserService,
     UserServiceArgType,
+    VoiceAssistantCommand,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -1239,3 +1243,38 @@ class APIClient:
         if self._connection is None:
             return None
         return self._connection.api_version
+
+    async def subscribe_voice_assistant(self, handle_start: Callable[[], Coroutine[Any, Any, int]], handle_stop: Callable[[], Coroutine[Any, Any, None]]) -> Callable[[], None]:
+        self._check_authenticated()
+
+        t: asyncio.Task = None
+
+        def _started(fut: asyncio.Task[int]) -> None:
+            if not fut.cancelled():
+                port = fut.result()
+                self._connection.send_message(VoiceAssistantResponse(port=port))
+
+        def on_msg(msg: VoiceAssistantRequest) -> None:
+            command = VoiceAssistantCommand.from_pb(msg)
+            loop = asyncio.get_running_loop()
+            if command.start:
+                t = loop.create_task(handle_start())
+                t.add_done_callback(_started)
+            else:
+                loop.create_task(handle_stop())
+
+        assert self._connection is not None
+
+        self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
+
+        remove_callback = self._connection.add_message_callback(on_msg, (VoiceAssistantRequest,))
+
+        def unsub() -> None:
+            if self._connection is not None:
+                remove_callback()
+                self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=False))
+
+            if t is not None and not t.cancelled():
+                t.cancel()
+
+        return unsub
