@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 import asyncio
 import logging
 from typing import (
