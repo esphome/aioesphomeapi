@@ -1263,8 +1263,8 @@ class APIClient:
 
         def _started(fut: asyncio.Task[int]) -> None:
             if self._connection is not None and not fut.cancelled():
-                    port = fut.result()
-                    self._connection.send_message(VoiceAssistantResponse(port=port))
+                port = fut.result()
+                self._connection.send_message(VoiceAssistantResponse(port=port))
 
         def on_msg(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
