@@ -1,13 +1,13 @@
 import enum
 from dataclasses import asdict, dataclass, field, fields
-from functools import cache
+from functools import cache, lru_cache
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Collection,
     Dict,
     Iterable,
-    Collection,
     List,
     Optional,
     Type,
@@ -15,7 +15,6 @@ from typing import (
     Union,
     cast,
 )
-from functools import lru_cache
 from uuid import UUID
 
 from .util import fix_float_single_double_conversion
