@@ -1,10 +1,11 @@
 import enum
 from dataclasses import asdict, dataclass, field, fields
-from functools import cache
+from functools import cache, lru_cache
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Collection,
     Dict,
     Iterable,
     List,
@@ -780,49 +781,64 @@ def _join_split_uuid(value: List[int]) -> str:
     return str(UUID(int=(value[0] << 64) | value[1]))
 
 
+def _uuid_converter(uuid: str) -> str:
+    return (
+        f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"
+        if len(uuid) < 8
+        else uuid.lower()
+    )
+
+
+_cached_uuid_converter = lru_cache(maxsize=128)(_uuid_converter)
+
+
 # value is likely a google.protobuf.pyext._message.RepeatedScalarContainer
 def _convert_bluetooth_le_service_uuids(value: Iterable[str]) -> List[str]:
     if not value:
         # empty list, don't convert
         return []
 
-    # Long UUID inlined to avoid call stack inside the list comprehension
-    return [
-        f"0000{v[2:].lower()}-0000-1000-8000-00805f9b34fb" if len(v) < 8 else v.lower()
-        for v in value
-    ]
+    return [_cached_uuid_converter(v) for v in value]
 
 
 def _convert_bluetooth_le_service_data(
-    value: Union[Dict[str, bytes], Iterable["BluetoothServiceData"]],
+    value: Union[Dict[str, bytes], Collection["BluetoothServiceData"]],
 ) -> Dict[str, bytes]:
-    if isinstance(value, dict):
-        return value
-
-    if not value:
-        return {}
-
-    # Long UUID inlined to avoid call stack inside the dict comprehension
-    return {
-        f"0000{v.uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"  # type: ignore[union-attr]
-        if len(v.uuid) < 8  # type: ignore[union-attr]
-        # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
-        else v.uuid.lower(): bytes(v.data if v.data else v.legacy_data)  # type: ignore[union-attr]
-        for v in value
-    }
-
-
-def _convert_bluetooth_le_manufacturer_data(
-    value: Union[Dict[int, bytes], Iterable["BluetoothServiceData"]],
-) -> Dict[int, bytes]:
-    if isinstance(value, dict):
+    # We literally mean is a `dict` not any other class
+    if type(value) is dict:  # pylint: disable=unidiomatic-typecheck
         return value
 
     if not value:
         return {}
 
     # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
-    return {int(v.uuid, 16): bytes(v.data if v.data else v.legacy_data) for v in value}  # type: ignore
+    if value[0].data:  # type: ignore
+        return {
+            _cached_uuid_converter(v.uuid): bytes(v.data)  # type: ignore[union-attr]
+            for v in value
+        }
+
+    return {
+        _cached_uuid_converter(v.uuid): bytes(v.legacy_data)  # type: ignore[union-attr]
+        for v in value
+    }
+
+
+def _convert_bluetooth_le_manufacturer_data(
+    value: Union[Dict[int, bytes], Collection["BluetoothServiceData"]],
+) -> Dict[int, bytes]:
+    # We literally mean is a `dict` not any other class
+    if type(value) is dict:  # pylint: disable=unidiomatic-typecheck
+        return value
+
+    if not value:
+        return {}
+
+    # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
+    if value[0].data:  # type: ignore
+        return {int(v.uuid, 16): bytes(v.data) for v in value}  # type: ignore
+
+    return {int(v.uuid, 16): bytes(v.legacy_data) for v in value}  # type: ignore
 
 
 def _convert_bluetooth_le_name(value: bytes) -> str:
