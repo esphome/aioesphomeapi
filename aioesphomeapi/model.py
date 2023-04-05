@@ -804,7 +804,8 @@ def _convert_bluetooth_le_service_uuids(value: Iterable[str]) -> List[str]:
 def _convert_bluetooth_le_service_data(
     value: Union[Dict[str, bytes], Collection["BluetoothServiceData"]],
 ) -> Dict[str, bytes]:
-    if type(value) is dict:
+    # We literally mean is a `dict` not any other class
+    if type(value) is dict:  # pylint: disable=unidiomatic-typecheck
         return value
 
     if not value:
@@ -826,7 +827,8 @@ def _convert_bluetooth_le_service_data(
 def _convert_bluetooth_le_manufacturer_data(
     value: Union[Dict[int, bytes], Collection["BluetoothServiceData"]],
 ) -> Dict[int, bytes]:
-    if type(value) is dict:
+    # We literally mean is a `dict` not any other class
+    if type(value) is dict:  # pylint: disable=unidiomatic-typecheck
         return value
 
     if not value:
