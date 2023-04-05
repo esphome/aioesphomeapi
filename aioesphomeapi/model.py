@@ -781,11 +781,15 @@ def _join_split_uuid(value: List[int]) -> str:
     return str(UUID(int=(value[0] << 64) | value[1]))
 
 
-_cached_uuid_converter = lru_cache(maxsize=128)(
-    lambda uuid: f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"
-    if len(uuid) < 8
-    else uuid.lower()
-)
+def _uuid_converter(uuid: str) -> str:
+    return (
+        f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"
+        if len(uuid) < 8
+        else uuid.lower()
+    )
+
+
+_cached_uuid_converter = lru_cache(maxsize=128)(_uuid_converter)
 
 
 # value is likely a google.protobuf.pyext._message.RepeatedScalarContainer
