@@ -94,6 +94,7 @@ from .api_pb2 import (  # type: ignore
     UnsubscribeBluetoothLEAdvertisementsRequest,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantEventResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -316,4 +317,5 @@ MESSAGE_TYPE_TO_PROTO = {
     89: SubscribeVoiceAssistantRequest,
     90: VoiceAssistantRequest,
     91: VoiceAssistantResponse,
+    92: VoiceAssistantEventResponse,
 }

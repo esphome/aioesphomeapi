@@ -100,6 +100,8 @@ from .api_pb2 import (  # type: ignore
     UnsubscribeBluetoothLEAdvertisementsRequest,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantEventData,
+    VoiceAssistantEventResponse,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -168,6 +170,7 @@ from .model import (
     UserService,
     UserServiceArgType,
     VoiceAssistantCommand,
+    VoiceAssistantEventType,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -1245,7 +1248,7 @@ class APIClient:
 
     async def subscribe_voice_assistant(
         self,
-        handle_start: Callable[[], Coroutine[Any, Any, int]],
+        handle_start: Callable[[], Coroutine[Any, Any, Optional[int]]],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
@@ -1259,12 +1262,17 @@ class APIClient:
         """
         self._check_authenticated()
 
-        t: Optional[asyncio.Task[int]] = None
+        t: Optional[asyncio.Task[Optional[int]]] = None
 
-        def _started(fut: asyncio.Task[int]) -> None:
+        def _started(fut: asyncio.Task[Optional[int]]) -> None:
             if self._connection is not None and not fut.cancelled():
                 port = fut.result()
-                self._connection.send_message(VoiceAssistantResponse(port=port))
+                if port is not None:
+                    self._connection.send_message(VoiceAssistantResponse(port=port))
+                else:
+                    _LOGGER.error("Server could not be started")
+                    self._connection.send_message(VoiceAssistantResponse(error=True))
+
 
         def on_msg(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
@@ -1294,3 +1302,22 @@ class APIClient:
                 t.cancel()
 
         return unsub
+
+    def send_voice_assistant_event(self, event_type: VoiceAssistantEventType, data: Optional[dict[str, str]]) -> None:
+        self._check_authenticated()
+
+        req = VoiceAssistantEventResponse()
+        req.event_type = event_type
+
+        data_args = []
+        if data is not None:
+            for name, value in data.items():
+                arg = VoiceAssistantEventData()
+                arg.name = name
+                arg.value = value
+                data_args.append(arg)
+
+        req.data.extend(data_args)
+
+        assert self._connection is not None
+        self._connection.send_message(req)
