@@ -1273,7 +1273,6 @@ class APIClient:
                     _LOGGER.error("Server could not be started")
                     self._connection.send_message(VoiceAssistantResponse(error=True))
 
-
         def on_msg(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
             loop = asyncio.get_running_loop()
@@ -1303,7 +1302,9 @@ class APIClient:
 
         return unsub
 
-    def send_voice_assistant_event(self, event_type: VoiceAssistantEventType, data: Optional[dict[str, str]]) -> None:
+    def send_voice_assistant_event(
+        self, event_type: VoiceAssistantEventType, data: Optional[dict[str, str]]
+    ) -> None:
         self._check_authenticated()
 
         req = VoiceAssistantEventResponse()

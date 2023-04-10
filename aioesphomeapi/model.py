@@ -1005,6 +1005,7 @@ class LogLevel(APIIntEnum):
     LOG_LEVEL_VERBOSE = 6
     LOG_LEVEL_VERY_VERBOSE = 7
 
+
 class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_ERROR = 0
     VOICE_ASSISTANT_RUN_START = 1
