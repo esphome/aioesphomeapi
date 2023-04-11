@@ -93,10 +93,15 @@ from .api_pb2 import (  # type: ignore
     SubscribeLogsRequest,
     SubscribeLogsResponse,
     SubscribeStatesRequest,
+    SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
     TextSensorStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantEventData,
+    VoiceAssistantEventResponse,
+    VoiceAssistantRequest,
+    VoiceAssistantResponse,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -164,6 +169,8 @@ from .model import (
     TextSensorState,
     UserService,
     UserServiceArgType,
+    VoiceAssistantCommand,
+    VoiceAssistantEventType,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -1238,3 +1245,81 @@ class APIClient:
         if self._connection is None:
             return None
         return self._connection.api_version
+
+    async def subscribe_voice_assistant(
+        self,
+        handle_start: Callable[[], Coroutine[Any, Any, Optional[int]]],
+        handle_stop: Callable[[], Coroutine[Any, Any, None]],
+    ) -> Callable[[], None]:
+        """Subscribes to voice assistant messages from the device.
+
+        handle_start: called when the devices requests a server to send audio data to.
+                      This callback is asyncronous and returns the port number the server is started on.
+
+        handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
+
+        Returns a callback to unsubscribe.
+        """
+        self._check_authenticated()
+
+        t: Optional[asyncio.Task[Optional[int]]] = None
+
+        def _started(fut: asyncio.Task[Optional[int]]) -> None:
+            if self._connection is not None and not fut.cancelled():
+                port = fut.result()
+                if port is not None:
+                    self._connection.send_message(VoiceAssistantResponse(port=port))
+                else:
+                    _LOGGER.error("Server could not be started")
+                    self._connection.send_message(VoiceAssistantResponse(error=True))
+
+        def on_msg(msg: VoiceAssistantRequest) -> None:
+            command = VoiceAssistantCommand.from_pb(msg)
+            loop = asyncio.get_running_loop()
+            if command.start:
+                t = loop.create_task(handle_start())
+                t.add_done_callback(_started)
+            else:
+                loop.create_task(handle_stop())
+
+        assert self._connection is not None
+
+        self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
+
+        remove_callback = self._connection.add_message_callback(
+            on_msg, (VoiceAssistantRequest,)
+        )
+
+        def unsub() -> None:
+            if self._connection is not None:
+                remove_callback()
+                self._connection.send_message(
+                    SubscribeVoiceAssistantRequest(subscribe=False)
+                )
+
+            if t is not None and not t.cancelled():
+                t.cancel()
+
+        return unsub
+
+    def send_voice_assistant_event(
+        self, event_type: VoiceAssistantEventType, data: Optional[dict[str, str]]
+    ) -> None:
+        self._check_authenticated()
+
+        req = VoiceAssistantEventResponse()
+        req.event_type = event_type
+
+        data_args = []
+        if data is not None:
+            for name, value in data.items():
+                arg = VoiceAssistantEventData()
+                arg.name = name
+                arg.value = value
+                data_args.append(arg)
+
+        # pylint: disable=no-member
+        req.data.extend(data_args)
+
+        assert self._connection is not None
+        self._connection.send_message(req)

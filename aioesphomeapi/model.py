@@ -119,6 +119,7 @@ class DeviceInfo(APIModelBase):
     project_version: str = ""
     webserver_port: int = 0
     bluetooth_proxy_version: int = 0
+    voice_assistant_version: int = 0
 
 
 class EntityCategory(APIIntEnum):
@@ -1005,6 +1006,11 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CLEAR_CACHE = 6
 
 
+@dataclass(frozen=True)
+class VoiceAssistantCommand(APIModelBase):
+    start: bool = False
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1
@@ -1014,3 +1020,15 @@ class LogLevel(APIIntEnum):
     LOG_LEVEL_DEBUG = 5
     LOG_LEVEL_VERBOSE = 6
     LOG_LEVEL_VERY_VERBOSE = 7
+
+
+class VoiceAssistantEventType(APIIntEnum):
+    VOICE_ASSISTANT_ERROR = 0
+    VOICE_ASSISTANT_RUN_START = 1
+    VOICE_ASSISTANT_RUN_END = 2
+    VOICE_ASSISTANT_STT_START = 3
+    VOICE_ASSISTANT_STT_END = 4
+    VOICE_ASSISTANT_INTENT_START = 5
+    VOICE_ASSISTANT_INTENT_END = 6
+    VOICE_ASSISTANT_TTS_START = 7
+    VOICE_ASSISTANT_TTS_END = 8
