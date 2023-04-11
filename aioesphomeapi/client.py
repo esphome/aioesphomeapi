@@ -1318,6 +1318,7 @@ class APIClient:
                 arg.value = value
                 data_args.append(arg)
 
+        # pylint: disable=no-member
         req.data.extend(data_args)
 
         assert self._connection is not None
