@@ -1408,7 +1408,7 @@ message BluetoothDeviceClearCacheResponse {
   int32 error = 3;
 }
 
-// ==================== PUSH TO TALK ====================
+// ==================== VOICE ASSISTANT ====================
 message SubscribeVoiceAssistantRequest {
   option (id) = 89;
   option (source) = SOURCE_CLIENT;
