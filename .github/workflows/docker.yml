@@ -13,6 +13,11 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  # yamllint disable-line rule:line-length
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-image:
     runs-on: ubuntu-latest
