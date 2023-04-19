@@ -17,7 +17,6 @@ from ._frame_helper import (
     APIFrameHelper,
     APINoiseFrameHelper,
     APIPlaintextFrameHelper,
-    Packet,
 )
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
