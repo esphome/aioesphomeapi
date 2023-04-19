@@ -349,8 +349,8 @@ class APINoiseFrameHelper(APIFrameHelper):
                 (
                     bytes(
                         [
-                            (type >> 8) & 0xFF,
-                            (type >> 0) & 0xFF,
+                            (type_ >> 8) & 0xFF,
+                            (type_ >> 0) & 0xFF,
                             (len(data) >> 8) & 0xFF,
                             (len(data) >> 0) & 0xFF,
                         ]
