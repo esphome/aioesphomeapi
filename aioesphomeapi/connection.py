@@ -13,11 +13,7 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper import (
-    APIFrameHelper,
-    APINoiseFrameHelper,
-    APIPlaintextFrameHelper,
-)
+from ._frame_helper import APIFrameHelper, APINoiseFrameHelper, APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
