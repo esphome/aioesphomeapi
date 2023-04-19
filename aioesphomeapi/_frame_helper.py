@@ -30,18 +30,12 @@ SOCKET_ERRORS = (
 )
 
 
-@dataclass
-class Packet:
-    type: int
-    data: bytes
-
-
 class APIFrameHelper(asyncio.Protocol):
     """Helper class to handle the API frame protocol."""
 
     def __init__(
         self,
-        on_pkt: Callable[[Packet], None],
+        on_pkt: Callable[[int, bytes], None],
         on_error: Callable[[Exception], None],
     ) -> None:
         """Initialize the API frame helper."""
@@ -71,7 +65,7 @@ class APIFrameHelper(asyncio.Protocol):
         """Perform the handshake."""
 
     @abstractmethod
-    def write_packet(self, packet: Packet) -> None:
+    def write_packet(self, type_: int, data: bytes) -> None:
         """Write a packet to the socket."""
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -106,21 +100,16 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
         """Complete reading a packet from the buffer."""
         del self._buffer[: self._pos]
-        self._on_pkt(Packet(type_, data))
+        self._on_pkt(type_, data)
 
-    def write_packet(self, packet: Packet) -> None:
+    def write_packet(self, type_: int, data: bytes) -> None:
         """Write a packet to the socket, the caller should not have the lock.
 
         The entire packet must be written in a single call to write
         to avoid locking.
         """
         assert self._transport is not None, "Transport should be set"
-        data = (
-            b"\0"
-            + varuint_to_bytes(len(packet.data))
-            + varuint_to_bytes(packet.type)
-            + packet.data
-        )
+        data = b"\0" + varuint_to_bytes(len(data)) + varuint_to_bytes(type_) + data
         _LOGGER.debug("Sending plaintext frame %s", data.hex())
 
         try:
@@ -224,7 +213,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def __init__(
         self,
-        on_pkt: Callable[[Packet], None],
+        on_pkt: Callable[[int, bytes], None],
         on_error: Callable[[Exception], None],
         noise_psk: str,
         expected_name: Optional[str],
@@ -354,20 +343,20 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._state = NoiseConnectionState.READY
         self._ready_event.set()
 
-    def write_packet(self, packet: Packet) -> None:
+    def write_packet(self, type_: int, data: bytes) -> None:
         """Write a packet to the socket."""
         self._write_frame(
             self._proto.encrypt(
                 (
                     bytes(
                         [
-                            (packet.type >> 8) & 0xFF,
-                            (packet.type >> 0) & 0xFF,
-                            (len(packet.data) >> 8) & 0xFF,
-                            (len(packet.data) >> 0) & 0xFF,
+                            (type >> 8) & 0xFF,
+                            (type >> 0) & 0xFF,
+                            (len(data) >> 8) & 0xFF,
+                            (len(data) >> 0) & 0xFF,
                         ]
                     )
-                    + packet.data
+                    + data
                 )
             )
         )
@@ -383,7 +372,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         if data_len + 4 > len(msg):
             raise ProtocolAPIError(f"Bad data len: {data_len} vs {len(msg)}")
         data = msg[4 : 4 + data_len]
-        return self._on_pkt(Packet(pkt_type, data))
+        return self._on_pkt(pkt_type, data)
 
     def _handle_closed(  # pylint: disable=unused-argument
         self, frame: bytearray
