@@ -1,4 +1,5 @@
 import enum
+import sys
 from dataclasses import asdict, dataclass, field, fields
 from functools import cache, lru_cache
 from typing import (
@@ -18,6 +19,13 @@ from typing import (
 from uuid import UUID
 
 from .util import fix_float_single_double_conversion
+
+if sys.version_info[:2] < (3, 10):
+    _dataclass_decorator = dataclass()
+else:
+    _dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
+        slots=True
+    )
 
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
@@ -842,11 +850,8 @@ def _convert_bluetooth_le_manufacturer_data(
     return {int(v.uuid, 16): bytes(v.legacy_data) for v in value}  # type: ignore
 
 
-@dataclass(frozen=True)
-class BluetoothLEAdvertisement(APIModelBase):
-    def __post_init__(self) -> None:
-        """Post init hook disabled."""
-
+@_dataclass_decorator
+class BluetoothLEAdvertisement:
     address: int
     rssi: int
     address_type: int
