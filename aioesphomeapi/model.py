@@ -850,10 +850,6 @@ def _convert_bluetooth_le_manufacturer_data(
     return {int(v.uuid, 16): bytes(v.legacy_data) for v in value}  # type: ignore
 
 
-def _convert_bluetooth_le_name(value: bytes) -> str:
-    return value.decode("utf-8", errors="replace")
-
-
 @_dataclass_decorator
 class BluetoothLEAdvertisement:
     address: int
@@ -872,7 +868,7 @@ class BluetoothLEAdvertisement:
             address=data.address,
             rssi=data.rssi,
             address_type=data.address_type,
-            name=_convert_bluetooth_le_name(data.name),
+            name=data.name.decode("utf-8", errors="replace"),
             service_uuids=_convert_bluetooth_le_service_uuids(data.service_uuids),
             service_data=_convert_bluetooth_le_service_data(data.service_data),
             manufacturer_data=_convert_bluetooth_le_manufacturer_data(
