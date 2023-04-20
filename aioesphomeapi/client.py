@@ -1281,7 +1281,7 @@ class APIClient:
                 task.add_done_callback(_started)
             else:
                 task = asyncio.create_task(handle_stop())
-            self._background_tasks.add(t)
+            self._background_tasks.add(task)
             task.add_done_callback(self._background_tasks.discard)
 
         assert self._connection is not None
