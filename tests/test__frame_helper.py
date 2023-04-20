@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper, Packet
+from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.util import varuint_to_bytes
 
 PREAMBLE = b"\x00"
@@ -48,8 +48,8 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
     for _ in range(5):
         packets = []
 
-        def _packet(pkt: Packet):
-            packets.append(pkt)
+        def _packet(type_: int, data: bytes):
+            packets.append((type_, data))
 
         def _on_error(exc: Exception):
             raise exc
@@ -59,6 +59,7 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
         helper.data_received(in_bytes)
 
         pkt = packets.pop()
+        type_, data = pkt
 
-        assert pkt.type == pkt_type
-        assert pkt.data == pkt_data
+        assert type_ == pkt_type
+        assert data == pkt_data
