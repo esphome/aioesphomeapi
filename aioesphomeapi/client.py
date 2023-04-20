@@ -235,6 +235,7 @@ class APIClient:
         )
         self._connection: Optional[APIConnection] = None
         self._cached_name: Optional[str] = None
+        self._background_tasks: set[asyncio.Task] = set()
 
     @property
     def expected_name(self) -> Optional[str]:
@@ -1254,7 +1255,7 @@ class APIClient:
         """Subscribes to voice assistant messages from the device.
 
         handle_start: called when the devices requests a server to send audio data to.
-                      This callback is asyncronous and returns the port number the server is started on.
+                      This callback is asynchronous and returns the port number the server is started on.
 
         handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
 
@@ -1275,12 +1276,13 @@ class APIClient:
 
         def on_msg(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
-            loop = asyncio.get_running_loop()
             if command.start:
-                t = loop.create_task(handle_start())
-                t.add_done_callback(_started)
+                task = asyncio.create_task(handle_start())
+                task.add_done_callback(_started)
             else:
-                loop.create_task(handle_stop())
+                task = asyncio.create_task(handle_stop())
+            self._background_tasks.add(t)
+            task.add_done_callback(self._background_tasks.discard)
 
         assert self._connection is not None
 
