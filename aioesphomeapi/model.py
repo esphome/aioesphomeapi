@@ -24,8 +24,8 @@ if sys.version_info[:2] < (3, 10):
     _dataclass_decorator = dataclass()
 else:
     _dataclass_decorator = dataclass(
-        slots=True # pylint: disable=unexpected-keyword-arg
-    )  
+        slots=True  # pylint: disable=unexpected-keyword-arg
+    )
 
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
