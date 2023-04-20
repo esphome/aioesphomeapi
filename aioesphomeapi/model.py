@@ -23,8 +23,8 @@ from .util import fix_float_single_double_conversion
 if sys.version_info[:2] < (3, 10):
     _dataclass_decorator = dataclass()
 else:
-    _dataclass_decorator = dataclass(
-        slots=True  # pylint: disable=unexpected-keyword-arg
+    _dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
+        slots=True
     )
 
 if TYPE_CHECKING:
