@@ -235,7 +235,7 @@ class APIClient:
         )
         self._connection: Optional[APIConnection] = None
         self._cached_name: Optional[str] = None
-        self._background_tasks: set[asyncio.Task] = set()
+        self._background_tasks: set[asyncio.Task[Any]] = set()
 
     @property
     def expected_name(self) -> Optional[str]:
