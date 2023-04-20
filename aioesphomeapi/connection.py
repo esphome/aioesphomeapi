@@ -13,12 +13,7 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper import (
-    APIFrameHelper,
-    APINoiseFrameHelper,
-    APIPlaintextFrameHelper,
-    Packet,
-)
+from ._frame_helper import APIFrameHelper, APINoiseFrameHelper, APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
@@ -498,12 +493,7 @@ class APIConnection:
         _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
 
         try:
-            frame_helper.write_packet(
-                Packet(
-                    type=message_type,
-                    data=encoded,
-                )
-            )
+            frame_helper.write_packet(message_type, encoded)
         except SocketAPIError as err:  # pylint: disable=broad-except
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
@@ -646,9 +636,8 @@ class APIConnection:
         self._read_exception_handlers.clear()
         self._cleanup()
 
-    def _process_packet(self, pkt: Packet) -> None:
+    def _process_packet(self, msg_type_proto: int, data: bytes) -> None:
         """Process a packet from the socket."""
-        msg_type_proto = pkt.type
         if msg_type_proto not in MESSAGE_TYPE_TO_PROTO:
             _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type_proto)
             return
@@ -658,19 +647,19 @@ class APIConnection:
             # MergeFromString instead of ParseFromString since
             # ParseFromString will clear the message first and
             # the msg is already empty.
-            msg.MergeFromString(pkt.data)
+            msg.MergeFromString(data)
         except Exception as e:
             _LOGGER.info(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
                 self.log_name,
-                pkt.type,
-                pkt.data,
+                msg_type_proto,
+                data,
                 e,
                 exc_info=True,
             )
             self._report_fatal_error(
                 ProtocolAPIError(
-                    f"Invalid protobuf message: type={pkt.type} data={pkt.data!r}: {e}"
+                    f"Invalid protobuf message: type={msg_type_proto} data={data!r}: {e}"
                 )
             )
             raise
