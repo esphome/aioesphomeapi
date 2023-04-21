@@ -235,7 +235,6 @@ class APIClient:
         )
         self._connection: Optional[APIConnection] = None
         self._cached_name: Optional[str] = None
-        self._background_tasks: set[asyncio.Task[Any]] = set()
 
     @property
     def expected_name(self) -> Optional[str]:
@@ -1281,8 +1280,6 @@ class APIClient:
                 task.add_done_callback(_started)
             else:
                 task = asyncio.create_task(handle_stop())
-            self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
 
         assert self._connection is not None
 
