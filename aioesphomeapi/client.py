@@ -1263,7 +1263,7 @@ class APIClient:
         """
         self._check_authenticated()
 
-        t: Optional[asyncio.Task[Optional[int]]] = None
+        task: Optional[asyncio.Task[Optional[int]]] = None
 
         def _started(fut: asyncio.Task[Optional[int]]) -> None:
             if self._connection is not None and not fut.cancelled():
@@ -1299,8 +1299,8 @@ class APIClient:
                     SubscribeVoiceAssistantRequest(subscribe=False)
                 )
 
-            if t is not None and not t.cancelled():
-                t.cancel()
+            if task is not None and not task.cancelled():
+                task.cancel()
 
         return unsub
 
