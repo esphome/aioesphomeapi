@@ -1263,7 +1263,7 @@ class APIClient:
         """
         self._check_authenticated()
 
-        task: Optional[asyncio.Task[Optional[int]]] = None
+        start_task: Optional[asyncio.Task[Optional[int]]] = None
 
         def _started(fut: asyncio.Task[Optional[int]]) -> None:
             if self._connection is not None and not fut.cancelled():
@@ -1277,12 +1277,14 @@ class APIClient:
         def on_msg(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
-                task = asyncio.create_task(handle_start())
-                task.add_done_callback(_started)
+                start_task = asyncio.create_task(handle_start())
+                start_task.add_done_callback(_started)
+                # We hold a reference to the start_task in unsub function
+                # so we don't need to add it to the background tasks.
             else:
-                task = asyncio.create_task(handle_stop())
-            self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
+                stop_task = asyncio.create_task(handle_stop())
+                self._background_tasks.add(stop_task)
+                stop_task.add_done_callback(self._background_tasks.discard)
 
         assert self._connection is not None
 
@@ -1299,8 +1301,8 @@ class APIClient:
                     SubscribeVoiceAssistantRequest(subscribe=False)
                 )
 
-            if task is not None and not task.cancelled():
-                task.cancel()
+            if start_task is not None and not start_task.cancelled():
+                start_task.cancel()
 
         return unsub
 
