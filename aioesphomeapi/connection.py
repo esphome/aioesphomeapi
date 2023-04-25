@@ -190,7 +190,8 @@ class APIConnection:
 
             # Ensure on_stop is called only once
             self._on_stop_task = asyncio.create_task(
-                self.on_stop(self._expected_disconnect)
+                self.on_stop(self._expected_disconnect),
+                f"{self.log_name} aioesphomeapi connection on_stop",
             )
             self._on_stop_task.add_done_callback(_remove_on_stop_task)
             self.on_stop = None
@@ -405,7 +406,9 @@ class APIConnection:
             if login:
                 await self.login(check_connected=False)
 
-        self._connect_task = asyncio.create_task(_do_connect())
+        self._connect_task = asyncio.create_task(
+            _do_connect(), name=f"{self.log_name}: aioesphomeapi do_connect"
+        )
 
         try:
             # Allow 2 minutes for connect; this is only as a last measure
