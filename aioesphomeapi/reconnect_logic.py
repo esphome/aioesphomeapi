@@ -174,13 +174,12 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if await self._try_connect():
                 return
             self._start_zc_listen()
-
-        tries = min(self._tries, 10)  # prevent OverflowError
-        wait_time = int(round(min(1.8**tries, 60.0)))
-        if tries == 1:
-            _LOGGER.info("Trying to reconnect to %s in the background", self._log_name)
-        _LOGGER.debug("Retrying %s in %d seconds", self._log_name, wait_time)
-        self._schedule_reconnect(wait_time)
+            tries = min(self._tries, 10)  # prevent OverflowError
+            wait_time = int(round(min(1.8**tries, 60.0)))
+            if tries == 1:
+                _LOGGER.info("Trying to reconnect to %s in the background", self._log_name)
+            _LOGGER.debug("Retrying %s in %d seconds", self._log_name, wait_time)
+            self._schedule_reconnect(wait_time)
 
     async def start(self) -> None:
         """Start the reconnecting logic background task."""
@@ -195,8 +194,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     async def stop(self) -> None:
         """Stop the reconnecting logic background task. Does not disconnect the client."""
+        self._cancel_reconnect()
         async with self._connected_lock:
             self._is_stopped = True
+            # Cancel again while holding the lock
             self._cancel_reconnect()
 
     def _start_zc_listen(self) -> None:
