@@ -212,6 +212,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         received mDNS record indicates the node is up again.
         """
         if not self._zc_listening and self.name:
+            _LOGGER.debug("Starting zeroconf listener for %s", self.name)
             self._filter_alias = f"{self.name}._esphomelib._tcp.local."
             self._zc.async_add_listener(self, None)
             self._zc_listening = True
@@ -219,6 +220,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     def _stop_zc_listen(self) -> None:
         """Stop listening for zeroconf updates."""
         if self._zc_listening:
+            _LOGGER.debug("Removing zeroconf listener for %s", self.name)
             self._zc.async_remove_listener(self)
             self._zc_listening = False
 
