@@ -64,23 +64,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             return f"{self.name} @ {self._cli.address}"
         return self._cli.address
 
-    def stop_callback(self) -> None:
-        """Stop the connect logic."""
-
-        def _remove_stop_task(_fut: asyncio.Future[None]) -> None:
-            """Remove the stop task from the connect loop.
-            We need to do this because the asyncio does not hold
-            a strong reference to the task, so it can be garbage
-            collected unexpectedly.
-            """
-            self._stop_task = None
-
-        self._stop_task = asyncio.create_task(
-            self.stop(),
-            name=f"{self._log_name}: aioesphomeapi reconnect_logic stop_callback",
-        )
-        self._stop_task.add_done_callback(_remove_stop_task)
-
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
         """Log and issue callbacks when disconnecting."""
         if self._is_stopped:
@@ -183,6 +166,23 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 # If we are waiting, start listening for mDNS records
                 self._start_zc_listen()
             self._schedule_connect(wait_time)
+
+    def stop_callback(self) -> None:
+        """Stop the connect logic."""
+
+        def _remove_stop_task(_fut: asyncio.Future[None]) -> None:
+            """Remove the stop task from the connect loop.
+            We need to do this because the asyncio does not hold
+            a strong reference to the task, so it can be garbage
+            collected unexpectedly.
+            """
+            self._stop_task = None
+
+        self._stop_task = asyncio.create_task(
+            self.stop(),
+            name=f"{self._log_name}: aioesphomeapi reconnect_logic stop_callback",
+        )
+        self._stop_task.add_done_callback(_remove_stop_task)
 
     async def start(self) -> None:
         """Start the connecting logic background task."""
