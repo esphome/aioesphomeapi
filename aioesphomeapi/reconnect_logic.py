@@ -133,7 +133,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         await self._on_connect_cb()
         return True
 
-    def _schedule_connect(self, delay: int) -> None:
+    def _schedule_connect(self, delay: float) -> None:
         """Schedule a connect attempt."""
         self._cancel_connect()
         if not delay:
