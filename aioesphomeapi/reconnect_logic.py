@@ -45,6 +45,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
         self._zc = zeroconf_instance
+        self._filter_alias: Optional[str] = None
         # Flag to check if the device is connected
         self._connected = False
         self._connected_lock = asyncio.Lock()
@@ -159,6 +160,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if self._connect_task:
             self._connect_task.cancel()
             self._connect_task = None
+        self._stop_zc_listen()
 
     async def _connect_once_or_reschedule(self) -> None:
         """Connect once or schedule connect.
@@ -209,7 +211,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         This listener allows us to schedule a connect as soon as a
         received mDNS record indicates the node is up again.
         """
-        if not self._zc_listening:
+        if not self._zc_listening and self.name:
+            self._filter_alias = f"{self.name}._esphomelib._tcp.local."
             self._zc.async_add_listener(self, None)
             self._zc_listening = True
 
@@ -232,16 +235,14 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         # Check if already connected, no lock needed for this access and
         # bail if either the already stopped or we haven't received device info yet
-        if self._connected or self._is_stopped or self.name is None:
+        if self._connected or self._is_stopped or self._filter_alias is None:
             return
-
-        filter_alias = f"{self.name}._esphomelib._tcp.local."
 
         for record_update in records:
             # We only consider PTR records and match using the alias name
             if (
                 not isinstance(record_update.new, zeroconf.DNSPointer)  # type: ignore[attr-defined]
-                or record_update.new.alias != filter_alias
+                or record_update.new.alias != self._filter_alias
             ):
                 continue
 
