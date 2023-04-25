@@ -55,6 +55,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # Event for tracking when logic should stop
         self._reconnect_task: Optional[asyncio.Task[None]] = None
         self._reconnect_timer: Optional[asyncio.TimerHandle] = None
+        self._stop_task: Optional[asyncio.Task[None]] = None
 
     @property
     def _log_name(self) -> str:
