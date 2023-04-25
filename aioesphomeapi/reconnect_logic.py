@@ -185,7 +185,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     async def start(self) -> None:
         """Start the connecting logic background task."""
-        self._cli.set_cached_name_if_unset(self.name)
+        if self.name:
+            self._cli.set_cached_name_if_unset(self.name)
         async with self._connected_lock:
             self._is_stopped = False
             if self._connected:
