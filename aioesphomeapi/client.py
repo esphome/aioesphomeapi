@@ -255,6 +255,11 @@ class APIClient:
             return f"{self._cached_name} @ {self.address}"
         return self.address
 
+    def set_cached_name_if_unset(self, name: str) -> None:
+        """Set the cached name of the device if not set."""
+        if not self._cached_name:
+            self._cached_name = name
+
     async def connect(
         self,
         on_stop: Optional[Callable[[bool], Awaitable[None]]] = None,
