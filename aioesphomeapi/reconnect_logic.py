@@ -50,11 +50,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
         self._zc_listening = False
-        # How many reconnect attempts have there been already, used for exponential wait time
+        # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
         # Event for tracking when logic should stop
-        self._reconnect_task: Optional[asyncio.Task[None]] = None
-        self._reconnect_timer: Optional[asyncio.TimerHandle] = None
+        self._connect_task: Optional[asyncio.Task[None]] = None
+        self._connect_timer: Optional[asyncio.TimerHandle] = None
         self._stop_task: Optional[asyncio.Task[None]] = None
 
     @property
@@ -64,10 +64,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         return self._cli.address
 
     def stop_callback(self) -> None:
-        """Stop the reconnect logic."""
+        """Stop the connect logic."""
 
         def _remove_stop_task(_fut: asyncio.Future[None]) -> None:
-            """Remove the stop task from the reconnect loop.
+            """Remove the stop task from the connect loop.
             We need to do this because the asyncio does not hold
             a strong reference to the task, so it can be garbage
             collected unexpectedly.
@@ -98,17 +98,15 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # Run disconnect hook
         await self._on_disconnect_cb()
 
-        # Reset tries
-        # Connected needs to be reset before the reconnect event (opposite order of check)
         async with self._connected_lock:
             self._connected = False
 
         wait = EXPECTED_DISCONNECT_COOLDOWN if expected_disconnect else 0
         # If we expected the disconnect we need
-        # to cooldown before reconnecting in case the remote
+        # to cooldown before connecting in case the remote
         # is rebooting so we don't establish a connection right
         # before its about to reboot in the event we are too fast.
-        self._schedule_reconnect(wait)
+        self._schedule_connect(wait)
 
     async def _try_connect(self) -> bool:
         """Try connecting to the API client."""
@@ -135,37 +133,37 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         await self._on_connect_cb()
         return True
 
-    def _schedule_reconnect(self, delay: Optional[int]) -> None:
-        """Schedule a reconnect attempt."""
-        self._cancel_reconnect()
+    def _schedule_connect(self, delay: Optional[int]) -> None:
+        """Schedule a connect attempt."""
+        self._cancel_connect()
         if delay == 0:
-            self._call_reconnect_once()
+            self._call_connect_once()
             return
-        self._reconnect_timer = self.loop.call_later(delay, self._call_reconnect_once)
+        self._connect_timer = self.loop.call_later(delay, self._call_connect_once)
 
-    def _call_reconnect_once(self) -> None:
-        """Call the reconnect logic once.
+    def _call_connect_once(self) -> None:
+        """Call the connect logic once.
 
-        Must only be called from _schedule_reconnect.
+        Must only be called from _schedule_connect.
         """
-        self._reconnect_task = asyncio.create_task(
-            self._reconnect_once_or_reschedule(),
-            name=f"{self._log_name}: aioesphomeapi reconnect",
+        self._connect_task = asyncio.create_task(
+            self._connect_once_or_reschedule(),
+            name=f"{self._log_name}: aioesphomeapi connect",
         )
 
-    def _cancel_reconnect(self) -> None:
-        """Cancel the reconnect."""
-        if self._reconnect_timer:
-            self._reconnect_timer.cancel()
-            self._reconnect_timer = None
-        if self._reconnect_task:
-            self._reconnect_task.cancel()
-            self._reconnect_task = None
+    def _cancel_connect(self) -> None:
+        """Cancel the connect."""
+        if self._connect_timer:
+            self._connect_timer.cancel()
+            self._connect_timer = None
+        if self._connect_task:
+            self._connect_task.cancel()
+            self._connect_task = None
 
-    async def _reconnect_once_or_reschedule(self) -> None:
-        """Reconnect once or schedule reconnect.
+    async def _connect_once_or_reschedule(self) -> None:
+        """Connect once or schedule connect.
 
-        Must only be called from _call_reconnect_once
+        Must only be called from _call_connect_once
         """
         async with self._connected_lock:
             self._stop_zc_listen()
@@ -173,37 +171,39 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 return
             if await self._try_connect():
                 return
-            self._start_zc_listen()
             tries = min(self._tries, 10)  # prevent OverflowError
             wait_time = int(round(min(1.8**tries, 60.0)))
             if tries == 1:
-                _LOGGER.info("Trying to reconnect to %s in the background", self._log_name)
+                _LOGGER.info(
+                    "Trying to connect to %s in the background", self._log_name
+                )
             _LOGGER.debug("Retrying %s in %d seconds", self._log_name, wait_time)
-            self._schedule_reconnect(wait_time)
+            if wait_time:
+                # If we are waiting, start listening for mDNS records
+                self._start_zc_listen()
+            self._schedule_connect(wait_time)
 
     async def start(self) -> None:
-        """Start the reconnecting logic background task."""
-        # Create reconnection loop outside of HA's tracked tasks in order
-        # not to delay startup.
+        """Start the connecting logic background task."""
         async with self._connected_lock:
             self._is_stopped = False
             if self._connected:
                 return
             self._tries = 0
-            self._schedule_reconnect(0)
+            self._schedule_connect(0)
 
     async def stop(self) -> None:
-        """Stop the reconnecting logic background task. Does not disconnect the client."""
-        self._cancel_reconnect()
+        """Stop the connecting logic background task. Does not disconnect the client."""
+        self._cancel_connect()
         async with self._connected_lock:
             self._is_stopped = True
             # Cancel again while holding the lock
-            self._cancel_reconnect()
+            self._cancel_connect()
 
     def _start_zc_listen(self) -> None:
         """Listen for mDNS records.
 
-        This listener allows us to schedule a reconnect as soon as a
+        This listener allows us to schedule a connect as soon as a
         received mDNS record indicates the node is up again.
         """
         if not self._zc_listening:
@@ -242,11 +242,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             ):
                 continue
 
-            # Tell reconnection logic to retry connection attempt now (even before reconnect timer finishes)
+            # Tell connection logic to retry connection attempt now (even before connect timer finishes)
             _LOGGER.debug(
-                "%s: Triggering reconnect because of received mDNS record %s",
+                "%s: Triggering connect because of received mDNS record %s",
                 self._log_name,
                 record_update.new,
             )
-            self._schedule_reconnect(0)
+            self._schedule_connect(0)
             return
