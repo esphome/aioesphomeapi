@@ -65,6 +65,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def stop_callback(self) -> None:
         """Stop the reconnect logic."""
+
         def _remove_stop_task(_fut: asyncio.Future[None]) -> None:
             """Remove the stop task from the reconnect loop.
             We need to do this because the asyncio does not hold
@@ -73,7 +74,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             """
             self._stop_task = None
 
-        self._stop_task = asyncio.create_task(self.stop())
+        self._stop_task = asyncio.create_task(
+            self.stop(),
+            name=f"{self._log_name}: aioesphomeapi reconnect_logic stop_callback",
+        )
         self._stop_task.add_done_callback(_remove_stop_task)
 
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
@@ -144,7 +148,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _schedule_reconnect.
         """
-        self._reconnect_task = asyncio.create_task(self._reconnect_once_or_schedule_reconnect())
+        self._reconnect_task = asyncio.create_task(
+            self._reconnect_once_or_schedule_reconnect(),
+            name=f"{self._log_name}: aioesphomeapi reconnect",
+        )
 
     def _cancel_reconnect(self) -> None:
         """Cancel the reconnect."""
