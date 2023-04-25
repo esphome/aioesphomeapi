@@ -130,7 +130,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _schedule_reconnect.
         """
-        self._reconnect_task = asyncio.create_task(self._call_reconnect_once())
+        self._reconnect_task = asyncio.create_task(self._reconnect_once_or_schedule_reconnect())
 
     def _cancel_reconnect(self) -> None:
         """Cancel the reconnect."""
