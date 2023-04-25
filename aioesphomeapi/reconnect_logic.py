@@ -62,6 +62,19 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             return f"{self.name} @ {self._cli.address}"
         return self._cli.address
 
+    def stop_callback(self) -> None:
+        """Stop the reconnect logic."""
+        def _remove_stop_task(_fut: asyncio.Future[None]) -> None:
+            """Remove the stop task from the reconnect loop.
+            We need to do this because the asyncio does not hold
+            a strong reference to the task, so it can be garbage
+            collected unexpectedly.
+            """
+            self._stop_task = None
+
+        self._stop_task = asyncio.create_task(self.stop())
+        self._stop_task.add_done_callback(_remove_stop_task)
+
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
         """Log and issue callbacks when disconnecting."""
         if self._is_stopped:
