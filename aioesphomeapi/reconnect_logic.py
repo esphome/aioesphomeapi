@@ -133,10 +133,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         await self._on_connect_cb()
         return True
 
-    def _schedule_connect(self, delay: Optional[int]) -> None:
+    def _schedule_connect(self, delay: int) -> None:
         """Schedule a connect attempt."""
         self._cancel_connect()
-        if delay == 0:
+        if not delay:
             self._call_connect_once()
             return
         self._connect_timer = self.loop.call_later(delay, self._call_connect_once)
@@ -190,7 +190,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if self._connected:
                 return
             self._tries = 0
-            self._schedule_connect(0)
+            self._schedule_connect(0.0)
 
     async def stop(self) -> None:
         """Stop the connecting logic background task. Does not disconnect the client."""
@@ -249,5 +249,5 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._log_name,
                 record_update.new,
             )
-            self._schedule_connect(0)
+            self._schedule_connect(0.0)
             return
