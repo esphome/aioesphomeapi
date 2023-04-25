@@ -160,7 +160,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if self._connect_task:
             self._connect_task.cancel()
             self._connect_task = None
-        self._stop_zc_listen()
 
     async def _connect_once_or_reschedule(self) -> None:
         """Connect once or schedule connect.
@@ -254,5 +253,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._log_name,
                 record_update.new,
             )
+            self._stop_zc_listen()
             self._schedule_connect(0.0)
             return
