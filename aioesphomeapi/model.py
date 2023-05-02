@@ -696,6 +696,44 @@ class MediaPlayerEntityState(EntityState):
     muted: bool = False
 
 
+# ==================== ALARM CONTROL PANEL ====================
+class AlarmControlPanelState(APIIntEnum):
+    DISARMED = 0
+    ARMED_HOME = 1
+    ARMED_AWAY = 2
+    ARMED_NIGHT = 3
+    ARMED_VACATION = 4
+    ARMED_CUSTOM_BYPASS = 5
+    PENDING = 6
+    ARMING = 7
+    DISARMING = 8
+    TRIGGERED = 9
+
+
+class AlarmControlPanelCommand(APIIntEnum):
+    DISARM = 0
+    ARM_AWAY = 1
+    ARM_HOME = 2
+    ARM_NIGHT = 3
+    ARM_VACATION = 4
+    ARM_CUSTOM_BYPASS = 5
+
+
+@dataclass(frozen=True)
+class AlarmControlPanelInfo(EntityInfo):
+    supported_features: int = 0
+    requires_code: bool = False
+    requires_code_to_arm: bool = False
+
+
+@dataclass(frozen=True)
+class AlarmControlPanelEntityState(EntityState):
+    state: Optional[AlarmControlPanelState] = converter_field(
+        default=AlarmControlPanelState.DISARMED,
+        converter=AlarmControlPanelState.convert,
+    )
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
@@ -714,6 +752,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "button": ButtonInfo,
     "lock": LockInfo,
     "media_player": MediaPlayerInfo,
+    "alarm_control_panel": AlarmControlPanelInfo,
 }
 
 

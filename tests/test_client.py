@@ -4,6 +4,7 @@ import pytest
 from mock import AsyncMock, MagicMock, call, patch
 
 from aioesphomeapi.api_pb2 import (
+    AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
     CameraImageRequest,
     CameraImageResponse,
@@ -24,6 +25,7 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.model import (
+    AlarmControlPanelCommand,
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
@@ -535,3 +537,28 @@ async def test_request_image_stream(auth_client):
 
     await auth_client.request_image_stream()
     send.assert_called_once_with(CameraImageRequest(single=False, stream=True))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY),
+            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY, code=None),
+        ),
+        (
+            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME),
+            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME, code=None),
+        ),
+        (
+            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
+            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
+        ),
+    ],
+)
+async def test_alarm_panel_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.alarm_control_panel_command(**cmd)
+    send.assert_called_once_with(AlarmControlPanelCommandRequest(**req))
