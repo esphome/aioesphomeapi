@@ -344,6 +344,8 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def write_packet(self, type_: int, data: bytes) -> None:
         """Write a packet to the socket."""
+        if self._state != NoiseConnectionState.READY:
+            raise HandshakeAPIError("Noise connection is not ready")
         self._write_frame(
             self._proto.encrypt(
                 (
