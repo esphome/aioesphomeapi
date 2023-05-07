@@ -581,17 +581,18 @@ class APIClient:
                     )
                 except TimeoutAPIError:
                     disconnect_timed_out = True
-                _LOGGER.debug(
-                    "%s: Disconnect timed out: %s", addr, disconnect_timed_out
-                )
-                try:
-                    unsub()
-                except (KeyError, ValueError):
-                    _LOGGER.warning(
-                        "%s: Bluetooth device connection timed out but already unsubscribed "
-                        "(likely due to unexpected disconnect)",
-                        addr,
+                    _LOGGER.debug(
+                        "%s: Disconnect timed out: %s", addr, disconnect_timed_out
                     )
+                finally:
+                    try:
+                        unsub()
+                    except (KeyError, ValueError):
+                        _LOGGER.warning(
+                            "%s: Bluetooth device connection timed out but already unsubscribed "
+                            "(likely due to unexpected disconnect)",
+                            addr,
+                        )
                 raise TimeoutAPIError(
                     f"Timeout waiting for connect response while connecting to {addr} "
                     f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
