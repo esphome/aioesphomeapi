@@ -597,7 +597,7 @@ class APIClient:
                     f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
                     f" after {disconnect_timeout}s"
                 ) from err
-        finally:
+        except asyncio.CancelledError:
             try:
                 unsub()
             except (KeyError, ValueError):
@@ -605,6 +605,7 @@ class APIClient:
                     "%s: Bluetooth device connection canceled but already unsubscribed",
                     addr,
                 )
+            raise
 
         return unsub
 
