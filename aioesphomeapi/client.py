@@ -693,7 +693,7 @@ class APIClient:
         return BluetoothDeviceClearCache.from_pb(response)
 
     async def bluetooth_device_disconnect(
-        self, address: int, timeout: int = DEFAULT_BLE_DISCONNECT_TIMEOUT
+        self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT
     ) -> None:
         self._check_authenticated()
 
