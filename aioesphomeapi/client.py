@@ -704,7 +704,6 @@ class APIClient:
         def predicate_func(msg: BluetoothDeviceConnectionResponse) -> bool:
             return bool(msg.address == address and not msg.connected)
 
-        now = asyncio.get_event_loop().time()
         assert self._connection is not None
         await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
@@ -715,12 +714,6 @@ class APIClient:
             predicate_func,
             (BluetoothDeviceConnectionResponse,),
             timeout=timeout,
-        )
-        done = asyncio.get_event_loop().time()
-        _LOGGER.warning(
-            "%s: Bluetooth device disconnected after %ss",
-            to_human_readable_address(address),
-            done - now,
         )
 
     async def bluetooth_gatt_get_services(
