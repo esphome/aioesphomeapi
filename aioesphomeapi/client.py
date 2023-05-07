@@ -527,7 +527,10 @@ class APIClient:
 
         def on_msg(msg: BluetoothDeviceConnectionResponse) -> None:
             resp = BluetoothDeviceConnection.from_pb(msg)
+
             if address == resp.address:
+
+                _LOGGER.warning("on_bluetooth_connection_state address=%s resp=%s", address, resp)
                 on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
                 if resp.connected:
                     event.set()
