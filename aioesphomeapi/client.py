@@ -701,7 +701,7 @@ class APIClient:
             return bool(msg.address == address and not msg.connected)
 
         assert self._connection is not None
-        self._connection.send_message_await_response_complex(
+        await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=BluetoothDeviceRequestType.DISCONNECT,
