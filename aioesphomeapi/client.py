@@ -570,14 +570,14 @@ class APIClient:
                 # Disconnect before raising the exception to ensure
                 # the slot is recovered before the timeout is raised
                 # to avoid race were we run out even though we have a slot.
-                await self.bluetooth_device_disconnect(address)
                 addr = to_human_readable_address(address)
                 _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
+                disconnect_timed_out = False
                 try:
-                    async with async_timeout.timeout(disconnect_timeout):
-                        await event.wait()
-                        disconnect_timed_out = False
-                except asyncio.TimeoutError:
+                    await self.bluetooth_device_disconnect(
+                        address, timeout=disconnect_timeout
+                    )
+                except TimeoutAPIError:
                     disconnect_timed_out = True
                 _LOGGER.debug(
                     "%s: Disconnect timed out: %s", addr, disconnect_timed_out
@@ -693,11 +693,14 @@ class APIClient:
 
         return BluetoothDeviceClearCache.from_pb(response)
 
-    async def bluetooth_device_disconnect(self, address: int) -> None:
+    async def bluetooth_device_disconnect(
+        self, address: int, timeout: int = DEFAULT_BLE_DISCONNECT_TIMEOUT
+    ) -> None:
         self._check_authenticated()
+
         def predicate_func(msg: BluetoothDeviceConnectionResponse) -> bool:
-            return bool(msg.address == address)
-        
+            return bool(msg.address == address and not msg.connected)
+
         assert self._connection is not None
         self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
@@ -707,7 +710,7 @@ class APIClient:
             predicate_func,
             predicate_func,
             (BluetoothDeviceConnectionResponse,),
-            timeout=3           
+            timeout=timeout,
         )
 
     async def bluetooth_gatt_get_services(
