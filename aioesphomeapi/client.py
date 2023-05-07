@@ -529,6 +529,9 @@ class APIClient:
             resp = BluetoothDeviceConnection.from_pb(msg)
             if address == resp.address:
                 on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
+                # Resolve on ANY connection state since we do not want
+                # to wait the whole timeout if the device disconnects
+                # or we get an error.
                 event.set()
 
         assert self._connection is not None
