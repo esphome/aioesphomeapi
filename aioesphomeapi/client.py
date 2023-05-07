@@ -529,11 +529,8 @@ class APIClient:
             resp = BluetoothDeviceConnection.from_pb(msg)
 
             if address == resp.address:
-
-                _LOGGER.warning("on_bluetooth_connection_state address=%s resp=%s", address, resp)
                 on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
-                if resp.connected:
-                    event.set()
+                event.set()
 
         assert self._connection is not None
         if has_cache:
@@ -698,13 +695,19 @@ class APIClient:
 
     async def bluetooth_device_disconnect(self, address: int) -> None:
         self._check_authenticated()
-
+        def predicate_func(msg: BluetoothDeviceConnectionResponse) -> bool:
+            return bool(msg.address == address)
+        
         assert self._connection is not None
-        self._connection.send_message(
+        self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=BluetoothDeviceRequestType.DISCONNECT,
-            )
+            ),
+            predicate_func,
+            predicate_func,
+            (BluetoothDeviceConnectionResponse,),
+            timeout=3           
         )
 
     async def bluetooth_gatt_get_services(
