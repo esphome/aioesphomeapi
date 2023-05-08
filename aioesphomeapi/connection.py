@@ -651,11 +651,11 @@ class APIConnection:
 
     def _process_packet(self, msg_type_proto: int, data: bytes) -> None:
         """Process a packet from the socket."""
-        if msg_type_proto not in MESSAGE_TYPE_TO_PROTO:
+        if not (class_ := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)):
             _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type_proto)
             return
 
-        msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
+        msg = class_()
         try:
             # MergeFromString instead of ParseFromString since
             # ParseFromString will clear the message first and
