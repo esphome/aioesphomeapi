@@ -839,7 +839,7 @@ class BluetoothLEAdvertisement:
                     for v in raw_service_data
                 }
         else:
-            service_data = []
+            service_data = {}
 
         if raw_service_uuids := data.service_uuids:
             service_uuids = [_uuid_convert(v) for v in raw_service_uuids]
