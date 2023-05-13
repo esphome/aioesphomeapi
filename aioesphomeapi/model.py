@@ -6,7 +6,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Collection,
     Dict,
     Iterable,
     List,
@@ -30,7 +29,6 @@ else:
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
-        BluetoothServiceData,
         HomeassistantServiceMap,
     )
 
@@ -818,24 +816,25 @@ class BluetoothLEAdvertisement:
         _uuid_convert = _cached_uuid_converter
 
         if raw_manufacturer_data := data.manufacturer_data:
-            if raw_manufacturer_data[0].data:  # type: ignore
-                manufacturer_data = {int(v.uuid, 16): v.data for v in raw_manufacturer_data}  # type: ignore
+            if raw_manufacturer_data[0].data:
+                manufacturer_data = {
+                    int(v.uuid, 16): v.data for v in raw_manufacturer_data
+                }
             else:
                 # Legacy data
-                manufacturer_data = {int(v.uuid, 16): bytes(v.legacy_data) for v in raw_manufacturer_data}  # type: ignore
+                manufacturer_data = {
+                    int(v.uuid, 16): bytes(v.legacy_data) for v in raw_manufacturer_data
+                }
         else:
             manufacturer_data = {}
 
         if raw_service_data := data.raw_service_data:
-            if raw_service_data.data:  # type: ignore
-                service_data = {
-                    _uuid_convert(v.uuid): v.data  # type: ignore[union-attr]
-                    for v in raw_service_data
-                }
+            if raw_service_data.data:
+                service_data = {_uuid_convert(v.uuid): v.data for v in raw_service_data}
             else:
                 # Legacy data
                 service_data = {
-                    _uuid_convert(v.uuid): bytes(v.legacy_data)  # type: ignore[union-attr]
+                    _uuid_convert(v.uuid): bytes(v.legacy_data)
                     for v in raw_service_data
                 }
         else:
