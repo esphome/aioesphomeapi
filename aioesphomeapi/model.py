@@ -823,7 +823,7 @@ def _convert_bluetooth_le_service_data(
     # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
     if value[0].data:  # type: ignore
         return {
-            _cached_uuid_converter(v.uuid): bytes(v.data)  # type: ignore[union-attr]
+            _cached_uuid_converter(v.uuid): v.data  # type: ignore[union-attr]
             for v in value
         }
 
@@ -845,7 +845,7 @@ def _convert_bluetooth_le_manufacturer_data(
 
     # v.data if v.data else v.legacy_data is backwards compatible with ESPHome devices before 2022.10.0
     if value[0].data:  # type: ignore
-        return {int(v.uuid, 16): bytes(v.data) for v in value}  # type: ignore
+        return {int(v.uuid, 16): v.data for v in value}  # type: ignore
 
     return {int(v.uuid, 16): bytes(v.legacy_data) for v in value}  # type: ignore
 
