@@ -829,7 +829,7 @@ class BluetoothLEAdvertisement:
             manufacturer_data = {}
 
         if raw_service_data := data.service_data:
-            if raw_service_data.data:
+            if raw_service_data[0].data:
                 service_data = {_uuid_convert(v.uuid): v.data for v in raw_service_data}
             else:
                 # Legacy data
