@@ -989,6 +989,7 @@ class BluetoothDeviceRequestType(APIIntEnum):
 @dataclass(frozen=True)
 class VoiceAssistantCommand(APIModelBase):
     start: bool = False
+    conversation_id: str = ""
 
 
 class LogLevel(APIIntEnum):
