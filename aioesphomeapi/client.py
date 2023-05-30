@@ -1294,7 +1294,9 @@ class APIClient:
         def on_msg(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
-                start_task = asyncio.create_task(handle_start(command.conversation_id, command.use_vad))
+                start_task = asyncio.create_task(
+                    handle_start(command.conversation_id, command.use_vad)
+                )
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
