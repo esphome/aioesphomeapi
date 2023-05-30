@@ -1424,6 +1424,7 @@ message VoiceAssistantRequest {
 
   bool start = 1;
   string conversation_id = 2;
+  bool use_vad = 3;
 }
 
 message VoiceAssistantResponse {
