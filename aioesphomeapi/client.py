@@ -1266,7 +1266,7 @@ class APIClient:
 
     async def subscribe_voice_assistant(
         self,
-        handle_start: Callable[[str], Coroutine[Any, Any, Optional[int]]],
+        handle_start: Callable[[str, bool], Coroutine[Any, Any, Optional[int]]],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
@@ -1294,7 +1294,7 @@ class APIClient:
         def on_msg(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
-                start_task = asyncio.create_task(handle_start(command.conversation_id))
+                start_task = asyncio.create_task(handle_start(command.conversation_id, command.use_vad))
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.

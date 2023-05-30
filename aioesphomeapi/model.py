@@ -990,6 +990,7 @@ class BluetoothDeviceRequestType(APIIntEnum):
 class VoiceAssistantCommand(APIModelBase):
     start: bool = False
     conversation_id: str = ""
+    use_vad: bool = False
 
 
 class LogLevel(APIIntEnum):
