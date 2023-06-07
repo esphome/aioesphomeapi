@@ -121,6 +121,10 @@ class BluetoothProxyFeature(enum.IntFlag):
     RAW_ADVERTISEMENTS = 1 << 5
 
 
+class BluetoothProxySubscriptionFlag(enum.IntFlag):
+    RAW_ADVERTISEMENTS = 1 << 0
+
+
 @dataclass(frozen=True)
 class DeviceInfo(APIModelBase):
     uses_password: bool = False

@@ -128,6 +128,7 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisements,
+    BluetoothProxySubscriptionFlag,
     ButtonInfo,
     CameraInfo,
     CameraState,
@@ -480,7 +481,7 @@ class APIClient:
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
-            SubscribeBluetoothLEAdvertisementsRequest(raw_advertisements=False),
+            SubscribeBluetoothLEAdvertisementsRequest(flags=0),
             on_msg,
             msg_types,
         )
@@ -505,7 +506,9 @@ class APIClient:
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
-            SubscribeBluetoothLEAdvertisementsRequest(raw_advertisements=True),
+            SubscribeBluetoothLEAdvertisementsRequest(
+                flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
+            ),
             on_msg,
             msg_types,
         )
