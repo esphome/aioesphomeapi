@@ -29,6 +29,8 @@ else:
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
+        BluetoothLERawAdvertisement as BluetoothLERawAdvertisementProto,
+        BluetoothLERawAdvertisementsResponse,
         HomeassistantServiceMap,
     )
 
@@ -110,6 +112,15 @@ class APIVersion(APIModelBase):
     minor: int = 0
 
 
+class BluetoothProxyFeature(enum.IntFlag):
+    PASSIVE_SCAN = 1 << 0
+    ACTIVE_CONNECTIONS = 1 << 1
+    REMOTE_CACHING = 1 << 2
+    PAIRING = 1 << 3
+    CACHE_CLEARING = 1 << 4
+    RAW_ADVERTISEMENTS = 1 << 5
+
+
 @dataclass(frozen=True)
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
@@ -124,8 +135,25 @@ class DeviceInfo(APIModelBase):
     project_name: str = ""
     project_version: str = ""
     webserver_port: int = 0
-    bluetooth_proxy_version: int = 0
     voice_assistant_version: int = 0
+    legacy_bluetooth_proxy_version: int = 0
+    bluetooth_proxy_feature_flags: int = 0
+
+    def bluetoth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 9):
+            flags: int = 0
+            if self.legacy_bluetooth_proxy_version >= 1:
+                flags |= BluetoothProxyFeature.PASSIVE_SCAN
+            if self.legacy_bluetooth_proxy_version >= 2:
+                flags |= BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            if self.legacy_bluetooth_proxy_version >= 3:
+                flags |= BluetoothProxyFeature.REMOTE_CACHING
+            if self.legacy_bluetooth_proxy_version >= 4:
+                flags |= BluetoothProxyFeature.PAIRING
+            if self.legacy_bluetooth_proxy_version >= 5:
+                flags |= BluetoothProxyFeature.CACHE_CLEARING
+            return flags
+        return self.bluetooth_proxy_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -853,6 +881,33 @@ class BluetoothLEAdvertisement:
             service_uuids=service_uuids,
             service_data=service_data,
             manufacturer_data=manufacturer_data,
+        )
+
+
+@_dataclass_decorator
+class BluetoothLERawAdvertisement:
+    address: int
+    rssi: int
+    address_type: int
+    data: bytes = field(default_factory=bytes)
+
+
+@_dataclass_decorator
+class BluetoothLERawAdvertisements:
+    advertisements: List[BluetoothLERawAdvertisement]
+
+    @classmethod
+    def from_pb(  # type: ignore[misc]
+        cls: "BluetoothLERawAdvertisements",
+        data: "BluetoothLERawAdvertisementsResponse",
+    ) -> "BluetoothLERawAdvertisements":
+        return cls(
+            advertisements=[
+                BluetoothLERawAdvertisement(
+                    adv.address, adv.rssi, adv.address_type, adv.data
+                )
+                for adv in data.advertisements
+            ]
         )
 
 

@@ -39,6 +39,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteRequest,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
+    BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -125,6 +126,8 @@ from .model import (
     BluetoothGATTRead,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
+    BluetoothLERawAdvertisement,
+    BluetoothLERawAdvertisements,
     ButtonInfo,
     CameraInfo,
     CameraState,
@@ -477,7 +480,36 @@ class APIClient:
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
-            SubscribeBluetoothLEAdvertisementsRequest(), on_msg, msg_types
+            SubscribeBluetoothLEAdvertisementsRequest(raw_advertisements=False),
+            on_msg,
+            msg_types,
+        )
+
+        def unsub() -> None:
+            if self._connection is not None:
+                self._connection.remove_message_callback(on_msg, msg_types)
+                self._connection.send_message(
+                    UnsubscribeBluetoothLEAdvertisementsRequest()
+                )
+
+        return unsub
+
+    async def subscribe_bluetooth_le_raw_advertisements(
+        self, on_advertisements: Callable[[List[BluetoothLERawAdvertisement]], None]
+    ) -> Callable[[], None]:
+        self._check_authenticated()
+        msg_types = (BluetoothLERawAdvertisementsResponse,)
+
+        _LOGGER.error("subscribe_bluetooth_le_raw_advertisements")
+
+        def on_msg(msg: BluetoothLERawAdvertisementsResponse) -> None:
+            on_advertisements(BluetoothLERawAdvertisements.from_pb(msg).advertisements)  # type: ignore[misc]
+
+        assert self._connection is not None
+        self._connection.send_message_callback_response(
+            SubscribeBluetoothLEAdvertisementsRequest(raw_advertisements=True),
+            on_msg,
+            msg_types,
         )
 
         def unsub() -> None:
