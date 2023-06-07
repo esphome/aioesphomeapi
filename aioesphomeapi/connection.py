@@ -303,7 +303,7 @@ class APIConnection:
         hello = HelloRequest()
         hello.client_info = self._params.client_info
         hello.api_version_major = 1
-        hello.api_version_minor = 7
+        hello.api_version_minor = 9
         try:
             resp = await self.send_message_await_response(hello, HelloResponse)
         except TimeoutAPIError as err:

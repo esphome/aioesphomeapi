@@ -39,6 +39,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteRequest,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
+    BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -125,6 +126,10 @@ from .model import (
     BluetoothGATTRead,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
+    BluetoothLERawAdvertisement,
+    BluetoothLERawAdvertisements,
+    BluetoothProxyFeature,
+    BluetoothProxySubscriptionFlag,
     ButtonInfo,
     CameraInfo,
     CameraState,
@@ -477,7 +482,36 @@ class APIClient:
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
-            SubscribeBluetoothLEAdvertisementsRequest(), on_msg, msg_types
+            SubscribeBluetoothLEAdvertisementsRequest(flags=0),
+            on_msg,
+            msg_types,
+        )
+
+        def unsub() -> None:
+            if self._connection is not None:
+                self._connection.remove_message_callback(on_msg, msg_types)
+                self._connection.send_message(
+                    UnsubscribeBluetoothLEAdvertisementsRequest()
+                )
+
+        return unsub
+
+    async def subscribe_bluetooth_le_raw_advertisements(
+        self, on_advertisements: Callable[[List[BluetoothLERawAdvertisement]], None]
+    ) -> Callable[[], None]:
+        self._check_authenticated()
+        msg_types = (BluetoothLERawAdvertisementsResponse,)
+
+        def on_msg(msg: BluetoothLERawAdvertisementsResponse) -> None:
+            on_advertisements(BluetoothLERawAdvertisements.from_pb(msg).advertisements)  # type: ignore[misc]
+
+        assert self._connection is not None
+        self._connection.send_message_callback_response(
+            SubscribeBluetoothLEAdvertisementsRequest(
+                flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
+            ),
+            on_msg,
+            msg_types,
         )
 
         def unsub() -> None:
@@ -516,7 +550,7 @@ class APIClient:
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         timeout: float = DEFAULT_BLE_TIMEOUT,
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
-        version: int = 1,
+        feature_flags: int = 0,
         has_cache: bool = False,
         address_type: Optional[int] = None,
     ) -> Callable[[], None]:
@@ -536,15 +570,15 @@ class APIClient:
 
         assert self._connection is not None
         if has_cache:
-            # Version 3 with cache: requestor has services and mtu cached
+            # REMOTE_CACHING feature with cache: requestor has services and mtu cached
             _LOGGER.debug("%s: Using connection version 3 with cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
-        elif version >= 3:
-            # Version 3 without cache: esp will wipe the service list after sending to save memory
+        elif feature_flags & BluetoothProxyFeature.REMOTE_CACHING:
+            # REMOTE_CACHING feature without cache: esp will wipe the service list after sending to save memory
             _LOGGER.debug("%s: Using connection version 3 without cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
         else:
-            # Older than v3 without cache: esp will hold the service list in memory for the duration
+            # Device doesnt support REMOTE_CACHING feature: esp will hold the service list in memory for the duration
             # of the connection. This can crash the esp if the service list is too large.
             _LOGGER.debug("%s: Using connection version 1", address)
             request_type = BluetoothDeviceRequestType.CONNECT
