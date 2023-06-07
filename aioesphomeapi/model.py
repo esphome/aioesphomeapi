@@ -143,7 +143,7 @@ class DeviceInfo(APIModelBase):
     legacy_bluetooth_proxy_version: int = 0
     bluetooth_proxy_feature_flags: int = 0
 
-    def bluetoth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+    def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 9):
             flags: int = 0
             if self.legacy_bluetooth_proxy_version >= 1:
