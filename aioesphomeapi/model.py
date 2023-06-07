@@ -906,7 +906,7 @@ class BluetoothLERawAdvertisements:
     ) -> "BluetoothLERawAdvertisements":
         return cls(  # type: ignore[operator, no-any-return]
             advertisements=[
-                BluetoothLERawAdvertisement(
+                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
                     adv.address, adv.rssi, adv.address_type, adv.data
                 )
                 for adv in data.advertisements
