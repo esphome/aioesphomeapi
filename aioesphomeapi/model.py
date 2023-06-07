@@ -29,7 +29,6 @@ else:
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
-        BluetoothLERawAdvertisement as BluetoothLERawAdvertisementProto,
         BluetoothLERawAdvertisementsResponse,
         HomeassistantServiceMap,
     )
@@ -905,7 +904,7 @@ class BluetoothLERawAdvertisements:
         cls: "BluetoothLERawAdvertisements",
         data: "BluetoothLERawAdvertisementsResponse",
     ) -> "BluetoothLERawAdvertisements":
-        return cls(
+        return cls(  # type: ignore[operator, no-any-return]
             advertisements=[
                 BluetoothLERawAdvertisement(
                     adv.address, adv.rssi, adv.address_type, adv.data
