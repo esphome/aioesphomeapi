@@ -500,8 +500,6 @@ class APIClient:
         self._check_authenticated()
         msg_types = (BluetoothLERawAdvertisementsResponse,)
 
-        _LOGGER.error("subscribe_bluetooth_le_raw_advertisements")
-
         def on_msg(msg: BluetoothLERawAdvertisementsResponse) -> None:
             on_advertisements(BluetoothLERawAdvertisements.from_pb(msg).advertisements)  # type: ignore[misc]
 
