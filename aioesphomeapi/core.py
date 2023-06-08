@@ -323,4 +323,7 @@ MESSAGE_TYPE_TO_PROTO = {
     91: VoiceAssistantResponse,
     92: VoiceAssistantEventResponse,
     93: BluetoothLERawAdvertisementsResponse,
+    94: ListEntitiesAlarmControlPanelResponse,
+    95: AlarmControlPanelStateResponse,
+    96: AlarmControlPanelCommandRequest,
 }
