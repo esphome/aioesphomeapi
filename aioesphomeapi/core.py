@@ -26,6 +26,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteRequest,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
+    BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -321,7 +322,5 @@ MESSAGE_TYPE_TO_PROTO = {
     90: VoiceAssistantRequest,
     91: VoiceAssistantResponse,
     92: VoiceAssistantEventResponse,
-    93: ListEntitiesAlarmControlPanelResponse,
-    94: AlarmControlPanelStateResponse,
-    95: AlarmControlPanelCommandRequest,
+    93: BluetoothLERawAdvertisementsResponse,
 }
