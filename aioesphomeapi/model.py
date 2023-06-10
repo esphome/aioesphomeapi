@@ -746,6 +746,7 @@ class AlarmControlPanelCommand(APIIntEnum):
     ARM_NIGHT = 3
     ARM_VACATION = 4
     ARM_CUSTOM_BYPASS = 5
+    TRIGGER = 6
 
 
 @dataclass(frozen=True)
