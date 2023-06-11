@@ -18,6 +18,8 @@ import async_timeout
 from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
+    AlarmControlPanelCommandRequest,
+    AlarmControlPanelStateResponse,
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,
@@ -57,6 +59,7 @@ from .api_pb2 import (  # type: ignore
     HomeAssistantStateResponse,
     LightCommandRequest,
     LightStateResponse,
+    ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
     ListEntitiesButtonResponse,
     ListEntitiesCameraResponse,
@@ -113,6 +116,9 @@ from .core import (
 )
 from .host_resolver import ZeroconfInstanceType
 from .model import (
+    AlarmControlPanelCommand,
+    AlarmControlPanelEntityState,
+    AlarmControlPanelInfo,
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
@@ -349,6 +355,7 @@ class APIClient:
             ListEntitiesClimateResponse: ClimateInfo,
             ListEntitiesLockResponse: LockInfo,
             ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
+            ListEntitiesAlarmControlPanelResponse: AlarmControlPanelInfo,
         }
         msg_types = (ListEntitiesDoneResponse, *response_types)
 
@@ -390,6 +397,7 @@ class APIClient:
             ClimateStateResponse: ClimateState,
             LockStateResponse: LockEntityState,
             MediaPlayerStateResponse: MediaPlayerEntityState,
+            AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
         }
         msg_types = (*response_types, CameraImageResponse)
 
@@ -1378,5 +1386,21 @@ class APIClient:
         # pylint: disable=no-member
         req.data.extend(data_args)
 
+        assert self._connection is not None
+        self._connection.send_message(req)
+
+    async def alarm_control_panel_command(
+        self,
+        key: int,
+        command: AlarmControlPanelCommand,
+        code: Optional[str] = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = AlarmControlPanelCommandRequest()
+        req.key = key
+        req.command = command
+        if code is not None:
+            req.code = code
         assert self._connection is not None
         self._connection.send_message(req)

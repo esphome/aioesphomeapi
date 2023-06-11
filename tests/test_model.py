@@ -4,6 +4,7 @@ from typing import List, Optional
 import pytest
 
 from aioesphomeapi.api_pb2 import (
+    AlarmControlPanelStateResponse,
     BinarySensorStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
@@ -12,6 +13,7 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantServiceMap,
     HomeassistantServiceResponse,
     LightStateResponse,
+    ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
     ListEntitiesButtonResponse,
     ListEntitiesClimateResponse,
@@ -37,6 +39,8 @@ from aioesphomeapi.api_pb2 import (
     TextSensorStateResponse,
 )
 from aioesphomeapi.model import (
+    AlarmControlPanelEntityState,
+    AlarmControlPanelInfo,
     APIIntEnum,
     APIModelBase,
     APIVersion,
@@ -226,6 +230,8 @@ def test_api_version_ord():
         (LockEntityState, LockStateResponse),
         (MediaPlayerInfo, ListEntitiesMediaPlayerResponse),
         (MediaPlayerEntityState, MediaPlayerStateResponse),
+        (AlarmControlPanelInfo, ListEntitiesAlarmControlPanelResponse),
+        (AlarmControlPanelEntityState, AlarmControlPanelStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):

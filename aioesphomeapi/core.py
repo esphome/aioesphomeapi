@@ -3,6 +3,8 @@ import re
 from aioesphomeapi.model import BluetoothGATTError
 
 from .api_pb2 import (  # type: ignore
+    AlarmControlPanelCommandRequest,
+    AlarmControlPanelStateResponse,
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,
@@ -49,6 +51,7 @@ from .api_pb2 import (  # type: ignore
     HomeAssistantStateResponse,
     LightCommandRequest,
     LightStateResponse,
+    ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
     ListEntitiesButtonResponse,
     ListEntitiesCameraResponse,
@@ -320,4 +323,7 @@ MESSAGE_TYPE_TO_PROTO = {
     91: VoiceAssistantResponse,
     92: VoiceAssistantEventResponse,
     93: BluetoothLERawAdvertisementsResponse,
+    94: ListEntitiesAlarmControlPanelResponse,
+    95: AlarmControlPanelStateResponse,
+    96: AlarmControlPanelCommandRequest,
 }
