@@ -68,7 +68,7 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
 
 @pytest.mark.asyncio
 async def test_noise_frame_helper_incorrect_key():
-    """Test that the noise frame helper can perform a handshake with the ESPHome device."""
+    """Test that the noise frame helper raises InvalidEncryptionKeyAPIError on bad key."""
     outgoing_packets = [
         "010000",  # hello packet
         "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
