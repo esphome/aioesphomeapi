@@ -112,7 +112,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 "Can't connect to ESPHome API for %s: %s (%s)",
                 self._log_name,
                 err,
-                type(err),
+                type(err).__name__,
                 # Print stacktrace if unhandled (not APIConnectionError)
                 exc_info=not isinstance(err, APIConnectionError),
             )
