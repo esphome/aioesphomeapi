@@ -398,7 +398,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
             return
         data = msg[4 : 4 + data_len]
-        return self._on_pkt(pkt_type, data)
+        self._on_pkt(pkt_type, data)
 
     def _handle_closed(  # pylint: disable=unused-argument
         self, frame: bytearray
