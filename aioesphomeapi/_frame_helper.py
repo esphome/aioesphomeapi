@@ -280,8 +280,6 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
-        import pprint
-        pprint.pprint(['data_received',data])
         while len(self._buffer) >= 3:
             header = self._init_read(3)
             assert header is not None, "Buffer should have at least 3 bytes"
@@ -295,9 +293,6 @@ class APINoiseFrameHelper(APIFrameHelper):
 
             if _LOGGER.isEnabledFor(logging.DEBUG):
                 _LOGGER.debug("Read frame with header: [%s]", (header + frame).hex())
-
-            import pprint
-            pprint.pprint(['frame',frame])
 
             if frame is None:
                 return
