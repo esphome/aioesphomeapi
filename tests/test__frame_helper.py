@@ -3,9 +3,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper, APINoiseFrameHelper
-from aioesphomeapi.util import varuint_to_bytes
+from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi.core import InvalidEncryptionKeyAPIError
+from aioesphomeapi.util import varuint_to_bytes
+
 PREAMBLE = b"\x00"
 
 
@@ -65,17 +66,16 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
         assert data == pkt_data
 
 
-
 @pytest.mark.asyncio
 async def test_noise_frame_helper_incorrect_key():
     """Test that the noise frame helper can perform a handshake with the ESPHome device."""
     outgoing_packets = [
-        "010000", # hello packet
-        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4"
+        "010000",  # hello packet
+        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
     ]
     incoming_packets = [
         "01000d01736572766963657465737400",
-        "0100160148616e647368616b65204d4143206661696c757265"
+        "0100160148616e647368616b65204d4143206661696c757265",
     ]
     packets = []
 
@@ -85,14 +85,19 @@ async def test_noise_frame_helper_incorrect_key():
     def _on_error(exc: Exception):
         raise exc
 
-    helper = APINoiseFrameHelper(on_pkt=_packet, on_error=_on_error, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=", expected_name="servicetest")
+    helper = APINoiseFrameHelper(
+        on_pkt=_packet,
+        on_error=_on_error,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+    )
     helper._transport = MagicMock()
 
     for pkt in outgoing_packets:
         helper._write_frame(bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
-        for pkt in incoming_packets:    
+        for pkt in incoming_packets:
             helper.data_received(bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):

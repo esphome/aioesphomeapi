@@ -291,9 +291,6 @@ class APINoiseFrameHelper(APIFrameHelper):
             msg_size = (header[1] << 8) | header[2]
             frame = self._read_exactly(msg_size)
 
-            if _LOGGER.isEnabledFor(logging.DEBUG):
-                _LOGGER.debug("Read frame with header: [%s]", (header + frame).hex())
-
             if frame is None:
                 return
 
