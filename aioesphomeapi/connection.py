@@ -29,8 +29,8 @@ from .api_pb2 import (  # type: ignore
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
-    ConnectionNotEstablishedAPIError,
     BadNameAPIError,
+    ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
     PingFailedAPIError,
