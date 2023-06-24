@@ -5,13 +5,12 @@ from typing import Awaitable, Callable, List, Optional
 import zeroconf
 
 from .client import APIClient
-from .core import APIConnectionError
 from .core import (
+    APIConnectionError,
+    InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
     RequiresEncryptionAPIError,
-    InvalidAuthAPIError,
 )
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -110,9 +109,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             level = logging.WARNING if self._tries == 0 else logging.DEBUG
             _LOGGER.log(
                 level,
-                "Can't connect to ESPHome API for %s: %s",
+                "Can't connect to ESPHome API for %s: %s (%s)",
                 self._log_name,
                 err,
+                type(err),
                 # Print stacktrace if unhandled (not APIConnectionError)
                 exc_info=not isinstance(err, APIConnectionError),
             )
