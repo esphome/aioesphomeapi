@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi.core import InvalidEncryptionKeyAPIError
+from aioesphomeapi.core import InvalidEncryptionKeyAPIError, BadNameAPIError
 from aioesphomeapi.util import varuint_to_bytes
 
 PREAMBLE = b"\x00"
@@ -101,4 +101,43 @@ async def test_noise_frame_helper_incorrect_key():
             helper.data_received(bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
+        await helper.perform_handshake()
+
+
+
+@pytest.mark.asyncio
+async def test_noise_incorrect_name():
+    """Test we raise on bad name."""
+    outgoing_packets = [
+        "010000",  # hello packet
+        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
+    ]
+    incoming_packets = [
+        "01000d01736572766963657465737400",
+        "0100160148616e647368616b65204d4143206661696c757265",
+    ]
+    packets = []
+
+    def _packet(type_: int, data: bytes):
+        packets.append((type_, data))
+
+    def _on_error(exc: Exception):
+        raise exc
+
+    helper = APINoiseFrameHelper(
+        on_pkt=_packet,
+        on_error=_on_error,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="wrongname",
+    )
+    helper._transport = MagicMock()
+
+    for pkt in outgoing_packets:
+        helper._write_frame(bytes.fromhex(pkt))
+
+    with pytest.raises(BadNameAPIError):
+        for pkt in incoming_packets:
+            helper.data_received(bytes.fromhex(pkt))
+
+    with pytest.raises(BadNameAPIError):
         await helper.perform_handshake()
