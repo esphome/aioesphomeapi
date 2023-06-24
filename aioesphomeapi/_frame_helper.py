@@ -250,9 +250,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         The entire packet must be written in a single call to write
         to avoid locking.
         """
-        debug = _LOGGER.isEnabledFor(logging.DEBUG)
         assert self._transport is not None, "Transport is not set"
-        if debug:
+        if _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("Sending frame: [%s]", frame.hex())
 
         try:
