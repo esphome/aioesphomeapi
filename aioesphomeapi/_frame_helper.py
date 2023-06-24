@@ -292,15 +292,15 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _handle_hello(self, server_hello: bytearray) -> None:
         """Perform the handshake with the server, the caller is responsible for having the lock."""
         if not server_hello:
-            raise HandshakeAPIError("ServerHello is empty")
+            self._handle_error_and_close(HandshakeAPIError("ServerHello is empty"))
 
         # First byte of server hello is the protocol the server chose
         # for this session. Currently only 0x01 (Noise_NNpsk0_25519_ChaChaPoly_SHA256)
         # exists.
         chosen_proto = server_hello[0]
         if chosen_proto != 0x01:
-            raise HandshakeAPIError(
-                f"Unknown protocol selected by client {chosen_proto}"
+            self._handle_error_and_close(
+                HandshakeAPIError(f"Unknown protocol selected by client {chosen_proto}")
             )
 
         # Check name matches expected name (for noise sessions, this is done
@@ -311,8 +311,10 @@ class APINoiseFrameHelper(APIFrameHelper):
             # server name found, this extension was added in 2022.2
             server_name = server_hello[1:server_name_i].decode()
             if self._expected_name is not None and self._expected_name != server_name:
-                raise BadNameAPIError(
-                    f"Server sent a different name '{server_name}'", server_name
+                self._handle_error_and_close(
+                    BadNameAPIError(
+                        f"Server sent a different name '{server_name}'", server_name
+                    )
                 )
 
         self._state = NoiseConnectionState.HANDSHAKE
@@ -335,8 +337,12 @@ class APINoiseFrameHelper(APIFrameHelper):
         if msg[0] != 0:
             explanation = msg[1:].decode()
             if explanation == "Handshake MAC failure":
-                raise InvalidEncryptionKeyAPIError("Invalid encryption key")
-            raise HandshakeAPIError(f"Handshake failure: {explanation}")
+                self._handle_error_and_close(
+                    InvalidEncryptionKeyAPIError("Invalid encryption key")
+                )
+            self._handle_error_and_close(
+                HandshakeAPIError(f"Handshake failure: {explanation}")
+            )
         self._proto.read_message(msg[1:])
         _LOGGER.debug("Handshake complete")
         self._state = NoiseConnectionState.READY
@@ -367,11 +373,13 @@ class APINoiseFrameHelper(APIFrameHelper):
         assert self._proto is not None
         msg = self._proto.decrypt(bytes(frame))
         if len(msg) < 4:
-            raise ProtocolAPIError(f"Bad packet frame: {msg}")
+            self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg}"))
         pkt_type = (msg[0] << 8) | msg[1]
         data_len = (msg[2] << 8) | msg[3]
         if data_len + 4 > len(msg):
-            raise ProtocolAPIError(f"Bad data len: {data_len} vs {len(msg)}")
+            self._handle_error_and_close(
+                ProtocolAPIError(f"Bad data len: {data_len} vs {len(msg)}")
+            )
         data = msg[4 : 4 + data_len]
         return self._on_pkt(pkt_type, data)
 
