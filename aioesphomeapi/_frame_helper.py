@@ -6,9 +6,9 @@ from enum import Enum
 from typing import Callable, Optional, Union, cast
 
 import async_timeout
+from cryptography.exceptions import InvalidTag
 from noise.connection import NoiseConnection  # type: ignore
 
-from cryptography.exceptions import InvalidTag  
 from .core import (
     APIConnectionError,
     BadNameAPIError,
