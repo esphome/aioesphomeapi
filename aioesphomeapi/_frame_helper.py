@@ -231,12 +231,14 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Make sure we set the ready event if its not already set
         # so that we don't block forever on the ready event if we
         # are waiting for the handshake to complete.
-        self._ready_future.set_exception(APIConnectionError("Connection closed"))
+        if not self._ready_future.done():
+            self._ready_future.set_exception(APIConnectionError("Connection closed"))
         self._state = NoiseConnectionState.CLOSED
         super().close()
 
     def _handle_error_and_close(self, exc: Exception) -> None:
-        self._ready_future.set_exception(exc)
+        if not self._ready_future.done():
+            self._ready_future.set_exception(exc)
         super()._handle_error_and_close(exc)
 
     def _write_frame(self, frame: bytes) -> None:
