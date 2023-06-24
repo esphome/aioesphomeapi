@@ -30,6 +30,7 @@ from .core import (
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
     BadNameAPIError,
+    ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
     PingFailedAPIError,
@@ -432,7 +433,7 @@ class APIConnection:
             self._cleanup()
             raise self._fatal_exception or APIConnectionError("Connection cancelled")
         except Exception:  # pylint: disable=broad-except
-            # Always clean up the connection if an error occured during connect
+            # Always clean up the connection if an error occurred during connect
             self._connection_state = ConnectionState.CLOSED
             self._cleanup()
             raise
@@ -493,7 +494,12 @@ class APIConnection:
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._is_socket_open:
-            raise APIConnectionError(
+            if in_do_connect.get(False):
+                # If we are in the do_connect task, we can't raise an error
+                # because it would obscure the original exception (ie encrypt error).
+                _LOGGER.debug("%s: Connection isn't established yet", self.log_name)
+                return
+            raise ConnectionNotEstablishedAPIError(
                 f"Connection isn't established yet ({self._connection_state})"
             )
 

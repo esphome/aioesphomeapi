@@ -5,11 +5,17 @@ from typing import Awaitable, Callable, List, Optional
 import zeroconf
 
 from .client import APIClient
-from .core import APIConnectionError
+from .core import (
+    APIConnectionError,
+    InvalidAuthAPIError,
+    InvalidEncryptionKeyAPIError,
+    RequiresEncryptionAPIError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 EXPECTED_DISCONNECT_COOLDOWN = 3.0
+MAXIMUM_BACKOFF_TRIES = 100
 
 
 class ReconnectLogic(zeroconf.RecordUpdateListener):
@@ -103,13 +109,26 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             level = logging.WARNING if self._tries == 0 else logging.DEBUG
             _LOGGER.log(
                 level,
-                "Can't connect to ESPHome API for %s: %s",
+                "Can't connect to ESPHome API for %s: %s (%s)",
                 self._log_name,
                 err,
+                type(err).__name__,
                 # Print stacktrace if unhandled (not APIConnectionError)
                 exc_info=not isinstance(err, APIConnectionError),
             )
-            self._tries += 1
+            if isinstance(
+                err,
+                (
+                    RequiresEncryptionAPIError,
+                    InvalidEncryptionKeyAPIError,
+                    InvalidAuthAPIError,
+                ),
+            ):
+                # If we get an encryption or password error,
+                # backoff for the maximum amount of time
+                self._tries = MAXIMUM_BACKOFF_TRIES
+            else:
+                self._tries += 1
             return False
         _LOGGER.info("Successfully connected to %s", self._log_name)
         self._connected = True
