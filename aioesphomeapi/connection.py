@@ -433,7 +433,7 @@ class APIConnection:
             self._cleanup()
             raise self._fatal_exception or APIConnectionError("Connection cancelled")
         except Exception:  # pylint: disable=broad-except
-            # Always clean up the connection if an error occured during connect
+            # Always clean up the connection if an error occurred during connect
             self._connection_state = ConnectionState.CLOSED
             self._cleanup()
             raise
@@ -494,6 +494,11 @@ class APIConnection:
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._is_socket_open:
+            if in_do_connect.get(False):
+                # If we are in the do_connect task, we can't raise an error
+                # because it would obscure the original exception (ie encrypt error).
+                _LOGGER.debug("%s: Connection isn't established yet", self.log_name)
+                return
             raise ConnectionNotEstablishedAPIError(
                 f"Connection isn't established yet ({self._connection_state})"
             )
@@ -641,7 +646,7 @@ class APIConnection:
                 "%s: Connection error occurred: %s",
                 self.log_name,
                 err or type(err),
-                exc_info=not str(err),  # Log the full stack on empty error string
+                exc_info=True,  # not str(err),  # Log the full stack on empty error string
             )
         self._fatal_exception = err
         self._connection_state = ConnectionState.CLOSED
