@@ -8,7 +8,7 @@ root_dir = Path(__file__).absolute().parent.parent
 os.chdir(root_dir)
 
 check_call([
-    "protoc", "--python_out=aioesphomeapi", "-I", "aioesphomeapi", 
+    "protoc", "--python_out=aioesphomeapi", "-I", "aioesphomeapi",
     "aioesphomeapi/api.proto", "aioesphomeapi/api_options.proto"
 ])
 

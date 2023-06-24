@@ -1,7 +1,9 @@
 import math
+from functools import lru_cache
 from typing import Optional
 
 
+@lru_cache(maxsize=1024)
 def varuint_to_bytes(value: int) -> bytes:
     if value <= 0x7F:
         return bytes([value])
@@ -18,14 +20,15 @@ def varuint_to_bytes(value: int) -> bytes:
     return ret
 
 
+@lru_cache(maxsize=1024)
 def bytes_to_varuint(value: bytes) -> Optional[int]:
     result = 0
     bitpos = 0
     for val in value:
         result |= (val & 0x7F) << bitpos
-        bitpos += 7
         if (val & 0x80) == 0:
             return result
+        bitpos += 7
     return None
 
 

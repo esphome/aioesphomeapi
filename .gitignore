@@ -81,7 +81,8 @@ share/*
 ctags.tmp
 
 # Visual Studio Code
-.vscode
+.vscode/
+!.vscode/tasks.json
 
 # Built docs
 docs/build

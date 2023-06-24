@@ -1,5 +1,7 @@
 import enum
+import sys
 from dataclasses import asdict, dataclass, field, fields
+from functools import cache, lru_cache
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -13,11 +15,23 @@ from typing import (
     Union,
     cast,
 )
+from uuid import UUID
 
 from .util import fix_float_single_double_conversion
 
+if sys.version_info[:2] < (3, 10):
+    _dataclass_decorator = dataclass()
+else:
+    _dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
+        slots=True
+    )
+
 if TYPE_CHECKING:
-    from .api_pb2 import HomeassistantServiceMap  # type: ignore
+    from .api_pb2 import (  # type: ignore
+        BluetoothLEAdvertisementResponse,
+        BluetoothLERawAdvertisementsResponse,
+        HomeassistantServiceMap,
+    )
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
@@ -50,10 +64,15 @@ class APIIntEnum(enum.IntEnum):
         return ret
 
 
+# Fields do not change so we can cache the result
+# of calling fields() on the dataclass
+cached_fields = cache(fields)
+
+
 @dataclass(frozen=True)
 class APIModelBase:
     def __post_init__(self) -> None:
-        for field_ in fields(type(self)):
+        for field_ in cached_fields(type(self)):  # type: ignore[arg-type]
             convert = field_.metadata.get("converter")
             if convert is None:
                 continue
@@ -70,15 +89,14 @@ class APIModelBase:
     ) -> _V:
         init_args = {
             f.name: data[f.name]
-            for f in fields(cls)
+            for f in cached_fields(cls)  # type: ignore[arg-type]
             if f.name in data or (not ignore_missing)
         }
         return cls(**init_args)
 
     @classmethod
     def from_pb(cls: Type[_V], data: Any) -> _V:
-        init_args = {f.name: getattr(data, f.name) for f in fields(cls)}
-        return cls(**init_args)
+        return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
@@ -93,18 +111,52 @@ class APIVersion(APIModelBase):
     minor: int = 0
 
 
+class BluetoothProxyFeature(enum.IntFlag):
+    PASSIVE_SCAN = 1 << 0
+    ACTIVE_CONNECTIONS = 1 << 1
+    REMOTE_CACHING = 1 << 2
+    PAIRING = 1 << 3
+    CACHE_CLEARING = 1 << 4
+    RAW_ADVERTISEMENTS = 1 << 5
+
+
+class BluetoothProxySubscriptionFlag(enum.IntFlag):
+    RAW_ADVERTISEMENTS = 1 << 0
+
+
 @dataclass(frozen=True)
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
     name: str = ""
+    friendly_name: str = ""
     mac_address: str = ""
     compilation_time: str = ""
     model: str = ""
+    manufacturer: str = ""
     has_deep_sleep: bool = False
     esphome_version: str = ""
     project_name: str = ""
     project_version: str = ""
     webserver_port: int = 0
+    voice_assistant_version: int = 0
+    legacy_bluetooth_proxy_version: int = 0
+    bluetooth_proxy_feature_flags: int = 0
+
+    def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 9):
+            flags: int = 0
+            if self.legacy_bluetooth_proxy_version >= 1:
+                flags |= BluetoothProxyFeature.PASSIVE_SCAN
+            if self.legacy_bluetooth_proxy_version >= 2:
+                flags |= BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            if self.legacy_bluetooth_proxy_version >= 3:
+                flags |= BluetoothProxyFeature.REMOTE_CACHING
+            if self.legacy_bluetooth_proxy_version >= 4:
+                flags |= BluetoothProxyFeature.PAIRING
+            if self.legacy_bluetooth_proxy_version >= 5:
+                flags |= BluetoothProxyFeature.CACHE_CLEARING
+            return flags
+        return self.bluetooth_proxy_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -148,6 +200,7 @@ class BinarySensorState(EntityState):
 @dataclass(frozen=True)
 class CoverInfo(EntityInfo):
     assumed_state: bool = False
+    supports_stop: bool = False
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
@@ -343,6 +396,7 @@ class SensorStateClass(APIIntEnum):
     NONE = 0
     MEASUREMENT = 1
     TOTAL_INCREASING = 2
+    TOTAL = 3
 
 
 class LastResetType(APIIntEnum):
@@ -427,6 +481,7 @@ class ClimateFanMode(APIIntEnum):
     MIDDLE = 6
     FOCUS = 7
     DIFFUSE = 8
+    QUIET = 9
 
 
 class ClimateSwingMode(APIIntEnum):
@@ -469,7 +524,10 @@ class ClimateInfo(EntityInfo):
     visual_max_temperature: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-    visual_temperature_step: float = converter_field(
+    visual_target_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_current_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
     legacy_supports_away: bool = False
@@ -561,6 +619,7 @@ class NumberInfo(EntityInfo):
     mode: Optional[NumberMode] = converter_field(
         default=NumberMode.AUTO, converter=NumberMode.convert
     )
+    device_class: str = ""
 
 
 @dataclass(frozen=True)
@@ -666,6 +725,45 @@ class MediaPlayerEntityState(EntityState):
     muted: bool = False
 
 
+# ==================== ALARM CONTROL PANEL ====================
+class AlarmControlPanelState(APIIntEnum):
+    DISARMED = 0
+    ARMED_HOME = 1
+    ARMED_AWAY = 2
+    ARMED_NIGHT = 3
+    ARMED_VACATION = 4
+    ARMED_CUSTOM_BYPASS = 5
+    PENDING = 6
+    ARMING = 7
+    DISARMING = 8
+    TRIGGERED = 9
+
+
+class AlarmControlPanelCommand(APIIntEnum):
+    DISARM = 0
+    ARM_AWAY = 1
+    ARM_HOME = 2
+    ARM_NIGHT = 3
+    ARM_VACATION = 4
+    ARM_CUSTOM_BYPASS = 5
+    TRIGGER = 6
+
+
+@dataclass(frozen=True)
+class AlarmControlPanelInfo(EntityInfo):
+    supported_features: int = 0
+    requires_code: bool = False
+    requires_code_to_arm: bool = False
+
+
+@dataclass(frozen=True)
+class AlarmControlPanelEntityState(EntityState):
+    state: Optional[AlarmControlPanelState] = converter_field(
+        default=AlarmControlPanelState.DISARMED,
+        converter=AlarmControlPanelState.convert,
+    )
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
@@ -684,6 +782,7 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
     "button": ButtonInfo,
     "lock": LockInfo,
     "media_player": MediaPlayerInfo,
+    "alarm_control_panel": AlarmControlPanelInfo,
 }
 
 
@@ -752,6 +851,246 @@ class UserService(APIModelBase):
     )
 
 
+# ==================== BLUETOOTH ====================
+
+
+def _join_split_uuid(value: List[int]) -> str:
+    """Convert a high/low uuid into a single string."""
+    return str(UUID(int=(value[0] << 64) | value[1]))
+
+
+def _uuid_converter(uuid: str) -> str:
+    return (
+        f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"
+        if len(uuid) < 8
+        else uuid.lower()
+    )
+
+
+_cached_uuid_converter = lru_cache(maxsize=128)(_uuid_converter)
+
+
+@_dataclass_decorator
+class BluetoothLEAdvertisement:
+    address: int
+    rssi: int
+    address_type: int
+    name: str
+    service_uuids: List[str]
+    service_data: Dict[str, bytes]
+    manufacturer_data: Dict[int, bytes]
+
+    @classmethod
+    def from_pb(  # type: ignore[misc]
+        cls: "BluetoothLEAdvertisement", data: "BluetoothLEAdvertisementResponse"
+    ) -> "BluetoothLEAdvertisement":
+        _uuid_convert = _cached_uuid_converter
+
+        if raw_manufacturer_data := data.manufacturer_data:
+            if raw_manufacturer_data[0].data:
+                manufacturer_data = {
+                    int(v.uuid, 16): v.data for v in raw_manufacturer_data
+                }
+            else:
+                # Legacy data
+                manufacturer_data = {
+                    int(v.uuid, 16): bytes(v.legacy_data) for v in raw_manufacturer_data
+                }
+        else:
+            manufacturer_data = {}
+
+        if raw_service_data := data.service_data:
+            if raw_service_data[0].data:
+                service_data = {_uuid_convert(v.uuid): v.data for v in raw_service_data}
+            else:
+                # Legacy data
+                service_data = {
+                    _uuid_convert(v.uuid): bytes(v.legacy_data)
+                    for v in raw_service_data
+                }
+        else:
+            service_data = {}
+
+        if raw_service_uuids := data.service_uuids:
+            service_uuids = [_uuid_convert(v) for v in raw_service_uuids]
+        else:
+            service_uuids = []
+
+        return cls(  # type: ignore[operator, no-any-return]
+            address=data.address,
+            rssi=data.rssi,
+            address_type=data.address_type,
+            name=data.name.decode("utf-8", errors="replace"),
+            service_uuids=service_uuids,
+            service_data=service_data,
+            manufacturer_data=manufacturer_data,
+        )
+
+
+@_dataclass_decorator
+class BluetoothLERawAdvertisement:
+    address: int
+    rssi: int
+    address_type: int
+    data: bytes = field(default_factory=bytes)
+
+
+@_dataclass_decorator
+class BluetoothLERawAdvertisements:
+    advertisements: List[BluetoothLERawAdvertisement]
+
+    @classmethod
+    def from_pb(  # type: ignore[misc]
+        cls: "BluetoothLERawAdvertisements",
+        data: "BluetoothLERawAdvertisementsResponse",
+    ) -> "BluetoothLERawAdvertisements":
+        return cls(  # type: ignore[operator, no-any-return]
+            advertisements=[
+                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
+                    adv.address, adv.rssi, adv.address_type, adv.data
+                )
+                for adv in data.advertisements
+            ]
+        )
+
+
+@dataclass(frozen=True)
+class BluetoothDeviceConnection(APIModelBase):
+    address: int = 0
+    connected: bool = False
+    mtu: int = 0
+    error: int = 0
+
+
+@dataclass(frozen=True)
+class BluetoothDevicePairing(APIModelBase):
+    address: int = 0
+    paired: bool = False
+    error: int = 0
+
+
+@dataclass(frozen=True)
+class BluetoothDeviceUnpairing(APIModelBase):
+    address: int = 0
+    success: bool = False
+    error: int = 0
+
+
+@dataclass(frozen=True)
+class BluetoothDeviceClearCache(APIModelBase):
+    address: int = 0
+    success: bool = False
+    error: int = 0
+
+
+@dataclass(frozen=True)
+class BluetoothGATTRead(APIModelBase):
+    address: int = 0
+    handle: int = 0
+
+    data: bytes = field(default_factory=bytes)
+
+
+@dataclass(frozen=True)
+class BluetoothGATTDescriptor(APIModelBase):
+    uuid: str = converter_field(default="", converter=_join_split_uuid)
+    handle: int = 0
+
+    @classmethod
+    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTDescriptor"]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
+        return ret
+
+
+@dataclass(frozen=True)
+class BluetoothGATTCharacteristic(APIModelBase):
+    uuid: str = converter_field(default="", converter=_join_split_uuid)
+    handle: int = 0
+    properties: int = 0
+
+    descriptors: List[BluetoothGATTDescriptor] = converter_field(
+        default_factory=list, converter=BluetoothGATTDescriptor.convert_list
+    )
+
+    @classmethod
+    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTCharacteristic"]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
+        return ret
+
+
+@dataclass(frozen=True)
+class BluetoothGATTService(APIModelBase):
+    uuid: str = converter_field(default="", converter=_join_split_uuid)
+    handle: int = 0
+    characteristics: List[BluetoothGATTCharacteristic] = converter_field(
+        default_factory=list, converter=BluetoothGATTCharacteristic.convert_list
+    )
+
+    @classmethod
+    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTService"]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(cls.from_dict(x))
+            else:
+                ret.append(cls.from_pb(x))
+        return ret
+
+
+@dataclass(frozen=True)
+class BluetoothGATTServices(APIModelBase):
+    address: int = 0
+    services: List[BluetoothGATTService] = converter_field(
+        default_factory=list, converter=BluetoothGATTService.convert_list
+    )
+
+
+@dataclass(frozen=True)
+class ESPHomeBluetoothGATTServices:
+    address: int = 0
+    services: List[BluetoothGATTService] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BluetoothConnectionsFree(APIModelBase):
+    free: int = 0
+    limit: int = 0
+
+
+@dataclass(frozen=True)
+class BluetoothGATTError(APIModelBase):
+    address: int = 0
+    handle: int = 0
+    error: int = 0
+
+
+class BluetoothDeviceRequestType(APIIntEnum):
+    CONNECT = 0
+    DISCONNECT = 1
+    PAIR = 2
+    UNPAIR = 3
+    CONNECT_V3_WITH_CACHE = 4
+    CONNECT_V3_WITHOUT_CACHE = 5
+    CLEAR_CACHE = 6
+
+
+@dataclass(frozen=True)
+class VoiceAssistantCommand(APIModelBase):
+    start: bool = False
+    conversation_id: str = ""
+    use_vad: bool = False
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1
@@ -761,3 +1100,15 @@ class LogLevel(APIIntEnum):
     LOG_LEVEL_DEBUG = 5
     LOG_LEVEL_VERBOSE = 6
     LOG_LEVEL_VERY_VERBOSE = 7
+
+
+class VoiceAssistantEventType(APIIntEnum):
+    VOICE_ASSISTANT_ERROR = 0
+    VOICE_ASSISTANT_RUN_START = 1
+    VOICE_ASSISTANT_RUN_END = 2
+    VOICE_ASSISTANT_STT_START = 3
+    VOICE_ASSISTANT_STT_END = 4
+    VOICE_ASSISTANT_INTENT_START = 5
+    VOICE_ASSISTANT_INTENT_END = 6
+    VOICE_ASSISTANT_TTS_START = 7
+    VOICE_ASSISTANT_TTS_END = 8

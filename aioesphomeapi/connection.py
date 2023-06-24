@@ -1,22 +1,19 @@
 import asyncio
+import contextvars
 import enum
 import logging
 import socket
 import time
 from contextlib import suppress
 from dataclasses import astuple, dataclass
-from typing import Any, Callable, Coroutine, List, Optional
+from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional, Type, Union
 
+import async_timeout
 from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper import (
-    APIFrameHelper,
-    APINoiseFrameHelper,
-    APIPlaintextFrameHelper,
-    Packet,
-)
+from ._frame_helper import APIFrameHelper, APINoiseFrameHelper, APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
@@ -33,18 +30,60 @@ from .core import (
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
     BadNameAPIError,
+    ConnectionNotEstablishedAPIError,
+    HandshakeAPIError,
     InvalidAuthAPIError,
     PingFailedAPIError,
     ProtocolAPIError,
     ReadFailedAPIError,
     ResolveAPIError,
     SocketAPIError,
-    SocketClosedAPIError,
     TimeoutAPIError,
 )
 from .model import APIVersion
 
 _LOGGER = logging.getLogger(__name__)
+
+BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
+
+
+INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
+
+PING_REQUEST_MESSAGE = PingRequest()
+PING_RESPONSE_MESSAGE = PingResponse()
+
+PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
+KEEP_ALIVE_TIMEOUT_RATIO = 4.5
+#
+# We use 4.5x the keep-alive time as the timeout for the pong
+# since the default ping interval is 20s which is about the time
+# a device takes to reboot and reconnect to the network making
+# the maximum time it has to respond to a ping at 90s which is
+# enough time to know that the device has truly disconnected
+# from the network.
+#
+
+HANDSHAKE_TIMEOUT = 30.0
+RESOLVE_TIMEOUT = 30.0
+CONNECT_REQUEST_TIMEOUT = 30.0
+
+# The connect timeout should be the maximum time we expect the esp to take
+# to reboot and connect to the network/WiFi.
+TCP_CONNECT_TIMEOUT = 60.0
+
+# The maximum time for the whole connect process to complete
+CONNECT_AND_SETUP_TIMEOUT = 120.0
+
+# How long to wait for an existing connection to finish being
+# setup when requesting a disconnect so we can try to disconnect
+# gracefully without closing the socket out from under the
+# the esp device
+DISCONNECT_WAIT_CONNECT_TIMEOUT = 5.0
+
+in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
+    "in_do_connect"
+)
 
 
 @dataclass
@@ -65,8 +104,8 @@ class ConnectionState(enum.Enum):
     # Internal state,
     SOCKET_OPENED = 1
     # The connection has been established, data can be exchanged
-    CONNECTED = 1
-    CLOSED = 2
+    CONNECTED = 2
+    CLOSED = 3
 
 
 class APIConnection:
@@ -77,11 +116,14 @@ class APIConnection:
     """
 
     def __init__(
-        self, params: ConnectionParams, on_stop: Callable[[], Coroutine[Any, Any, None]]
-    ):
+        self,
+        params: ConnectionParams,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]],
+        log_name: Optional[str] = None,
+    ) -> None:
         self._params = params
-        self.on_stop = on_stop
-        self._on_stop_called = False
+        self.on_stop: Optional[Callable[[bool], Coroutine[Any, Any, None]]] = on_stop
+        self._on_stop_task: Optional[asyncio.Task[None]] = None
         self._socket: Optional[socket.socket] = None
         self._frame_helper: Optional[APIFrameHelper] = None
         self._api_version: Optional[APIVersion] = None
@@ -93,37 +135,76 @@ class APIConnection:
         self._connect_complete = False
 
         # Message handlers currently subscribed to incoming messages
-        self._message_handlers: List[Callable[[message.Message], None]] = []
+        self._message_handlers: Dict[Any, List[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
-        self.log_name = params.address
+        self.log_name = log_name or params.address
 
         # Handlers currently subscribed to exceptions in the read task
         self._read_exception_handlers: List[Callable[[Exception], None]] = []
 
-        self._ping_stop_event = asyncio.Event()
+        self._ping_timer: Optional[asyncio.TimerHandle] = None
+        self._pong_timer: Optional[asyncio.TimerHandle] = None
+        self._keep_alive_interval = params.keepalive
+        self._keep_alive_timeout = params.keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
-    async def _cleanup(self) -> None:
+        self._connect_task: Optional[asyncio.Task[None]] = None
+        self._fatal_exception: Optional[Exception] = None
+        self._expected_disconnect = False
+
+    @property
+    def connection_state(self) -> ConnectionState:
+        """Return the current connection state."""
+        return self._connection_state
+
+    def set_log_name(self, name: str) -> None:
+        """Set the friendly log name for this connection."""
+        self.log_name = name
+
+    def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
 
         Safe to call multiple times.
         """
+        _LOGGER.debug("Cleaning up connection to %s", self.log_name)
+        # If we are being called from do_connect we
+        # need to make sure we don't cancel the task
+        # that called us
+        if self._connect_task is not None and not in_do_connect.get(False):
+            self._connect_task.cancel()
+            self._connect_task = None
+
         if self._frame_helper is not None:
-            await self._frame_helper.close()
+            self._frame_helper.close()
             self._frame_helper = None
 
         if self._socket is not None:
             self._socket.close()
             self._socket = None
 
-        if not self._on_stop_called and self._connect_complete:
-            # Ensure on_stop is called
-            asyncio.create_task(self.on_stop())
-            self._on_stop_called = True
+        self._async_cancel_pong_timer()
 
-        # Note: we don't explicitly cancel the ping/read task here
-        # That's because if not written right the ping/read task could cancel
-        # themself, effectively ending execution after _cleanup which may be unexpected
-        self._ping_stop_event.set()
+        if self._ping_timer is not None:
+            self._ping_timer.cancel()
+            self._ping_timer = None
+
+        if self.on_stop and self._connect_complete:
+
+            def _remove_on_stop_task(_fut: asyncio.Future[None]) -> None:
+                """Remove the stop task.
+
+                We need to do this because the asyncio does not hold
+                a strong reference to the task, so it can be garbage
+                collected unexpectedly.
+                """
+                self._on_stop_task = None
+
+            # Ensure on_stop is called only once
+            self._on_stop_task = asyncio.create_task(
+                self.on_stop(self._expected_disconnect),
+                name=f"{self.log_name} aioesphomeapi connection on_stop",
+            )
+            self._on_stop_task.add_done_callback(_remove_on_stop_task)
+            self.on_stop = None
 
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
@@ -133,7 +214,8 @@ class APIConnection:
                 self._params.port,
                 self._params.zeroconf_instance,
             )
-            return await asyncio.wait_for(coro, 30.0)
+            async with async_timeout.timeout(RESOLVE_TIMEOUT):
+                return await coro
         except asyncio.TimeoutError as err:
             raise ResolveAPIError(
                 f"Timeout while resolving IP address for {self.log_name}"
@@ -146,6 +228,16 @@ class APIConnection:
         )
         self._socket.setblocking(False)
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # Try to reduce the pressure on esphome device as it measures
+        # ram in bytes and we measure ram in megabytes.
+        try:
+            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
+        except OSError as err:
+            _LOGGER.warning(
+                "%s: Failed to set socket receive buffer size: %s",
+                self.log_name,
+                err,
+            )
 
         _LOGGER.debug(
             "%s: Connecting to %s:%s (%s)",
@@ -158,35 +250,61 @@ class APIConnection:
 
         try:
             coro = asyncio.get_event_loop().sock_connect(self._socket, sockaddr)
-            await asyncio.wait_for(coro, 30.0)
+            async with async_timeout.timeout(TCP_CONNECT_TIMEOUT):
+                await coro
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
         except asyncio.TimeoutError as err:
             raise SocketAPIError(f"Timeout while connecting to {sockaddr}") from err
 
-        _LOGGER.debug("%s: Opened socket", self._params.address)
+        _LOGGER.debug(
+            "%s: Opened socket to %s:%s (%s)",
+            self.log_name,
+            self._params.address,
+            self._params.port,
+            addr,
+        )
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
-        reader, writer = await asyncio.open_connection(sock=self._socket)
+        fh: Union[APIPlaintextFrameHelper, APINoiseFrameHelper]
+        loop = asyncio.get_event_loop()
 
         if self._params.noise_psk is None:
-            self._frame_helper = APIPlaintextFrameHelper(reader, writer)
-        else:
-            fh = self._frame_helper = APINoiseFrameHelper(
-                reader, writer, self._params.noise_psk
+            _, fh = await loop.create_connection(
+                lambda: APIPlaintextFrameHelper(
+                    on_pkt=self._process_packet,
+                    on_error=self._report_fatal_error,
+                ),
+                sock=self._socket,
             )
-            await fh.perform_handshake(self._params.expected_name)
+        else:
+            _, fh = await loop.create_connection(
+                lambda: APINoiseFrameHelper(
+                    noise_psk=self._params.noise_psk,
+                    expected_name=self._params.expected_name,
+                    on_pkt=self._process_packet,
+                    on_error=self._report_fatal_error,
+                ),
+                sock=self._socket,
+            )
 
+        self._frame_helper = fh
         self._connection_state = ConnectionState.SOCKET_OPENED
-
-        # Create read loop
-        asyncio.create_task(self._read_loop())
+        try:
+            async with async_timeout.timeout(HANDSHAKE_TIMEOUT):
+                await fh.perform_handshake()
+        except OSError as err:
+            raise HandshakeAPIError(f"Handshake failed: {err}") from err
+        except asyncio.TimeoutError as err:
+            raise TimeoutAPIError("Handshake timed out") from err
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
         hello = HelloRequest()
         hello.client_info = self._params.client_info
+        hello.api_version_major = 1
+        hello.api_version_minor = 9
         try:
             resp = await self.send_message_await_response(hello, HelloResponse)
         except TimeoutAPIError as err:
@@ -217,48 +335,70 @@ class APIConnection:
                 f"Server sent a different name '{resp.name}'", resp.name
             )
 
-        self._connection_state = ConnectionState.CONNECTED
-
     async def _connect_start_ping(self) -> None:
         """Step 5 in connect process: start the ping loop."""
+        self._async_schedule_keep_alive(asyncio.get_running_loop())
 
-        async def func() -> None:
-            while True:
-                if not self._is_socket_open:
-                    return
+    def _async_schedule_keep_alive(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Start the keep alive task."""
+        self._ping_timer = loop.call_later(
+            self._keep_alive_interval, self._async_send_keep_alive
+        )
 
-                # Wait for keepalive seconds, or ping stop event, whichever happens first
-                try:
-                    await asyncio.wait_for(
-                        self._ping_stop_event.wait(), self._params.keepalive
-                    )
-                except asyncio.TimeoutError:
-                    pass
+    def _async_send_keep_alive(self) -> None:
+        """Send a keep alive message."""
+        if not self._is_socket_open:
+            return
 
-                # Re-check connection state
-                if not self._is_socket_open:
-                    return  # type: ignore[unreachable]
+        loop = asyncio.get_running_loop()
+        self.send_message(PING_REQUEST_MESSAGE)
 
-                try:
-                    await self._ping()
-                except TimeoutAPIError:
-                    _LOGGER.info("%s: Ping timed out!", self.log_name)
-                    await self._report_fatal_error(PingFailedAPIError())
-                    return
-                except APIConnectionError as err:
-                    _LOGGER.info("%s: Ping Failed: %s", self.log_name, err)
-                    await self._report_fatal_error(err)
-                    return
-                except Exception as err:  # pylint: disable=broad-except
-                    _LOGGER.info(
-                        "%s: Unexpected error during ping:",
-                        self.log_name,
-                        exc_info=True,
-                    )
-                    await self._report_fatal_error(err)
-                    return
+        if self._pong_timer is None:
+            # Do not reset the timer if it's already set
+            # since the only thing we want to reset the timer
+            # is if we receive a pong.
+            self._pong_timer = loop.call_later(
+                self._keep_alive_timeout, self._async_pong_not_received
+            )
+        else:
+            #
+            # We haven't reached the ping response (pong) timeout yet
+            # and we haven't seen a response to the last ping
+            #
+            # We send another ping in case the device has
+            # rebooted and dropped the connection without telling
+            # us to force a TCP RST aka connection reset by peer.
+            #
+            _LOGGER.debug(
+                "%s: PingResponse (pong) was not received "
+                "since last keep alive after %s seconds; "
+                "rescheduling keep alive",
+                self.log_name,
+                self._keep_alive_interval,
+            )
 
-        asyncio.create_task(func())
+        self._async_schedule_keep_alive(loop)
+
+    def _async_cancel_pong_timer(self) -> None:
+        """Cancel the pong timer."""
+        if self._pong_timer is not None:
+            self._pong_timer.cancel()
+            self._pong_timer = None
+
+    def _async_pong_not_received(self) -> None:
+        """Ping not received."""
+        if not self._is_socket_open:
+            return
+        _LOGGER.debug(
+            "%s: Ping response not received after %s seconds",
+            self.log_name,
+            self._keep_alive_timeout,
+        )
+        self._report_fatal_error(
+            PingFailedAPIError(
+                f"Ping response not received after {self._keep_alive_timeout} seconds"
+            )
+        )
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
@@ -267,30 +407,48 @@ class APIConnection:
             )
 
         async def _do_connect() -> None:
+            in_do_connect.set(True)
             addr = await self._connect_resolve_host()
             await self._connect_socket_connect(addr)
             await self._connect_init_frame_helper()
             await self._connect_hello()
             await self._connect_start_ping()
             if login:
-                await self.login()
+                await self.login(check_connected=False)
+
+        self._connect_task = asyncio.create_task(
+            _do_connect(), name=f"{self.log_name}: aioesphomeapi do_connect"
+        )
 
         try:
-            # Allow 2 minutes for connect; this is only as a last measure
+            # Allow 2 minutes for connect and setup; this is only as a last measure
             # to protect from issues if some part of the connect process mistakenly
             # does not have a timeout
-            await asyncio.wait_for(_do_connect(), timeout=120.0)
-        except Exception:  # pylint: disable=broad-except
-            # Always clean up the connection if an error occured during connect
+            async with async_timeout.timeout(CONNECT_AND_SETUP_TIMEOUT):
+                await self._connect_task
+        except asyncio.CancelledError:
+            # If the task was cancelled, we need to clean up the connection
+            # and raise the CancelledError
             self._connection_state = ConnectionState.CLOSED
-            await self._cleanup()
+            self._cleanup()
+            raise self._fatal_exception or APIConnectionError("Connection cancelled")
+        except Exception:  # pylint: disable=broad-except
+            # Always clean up the connection if an error occurred during connect
+            self._connection_state = ConnectionState.CLOSED
+            self._cleanup()
             raise
 
+        self._connect_task = None
+        self._connection_state = ConnectionState.CONNECTED
         self._connect_complete = True
 
-    async def login(self) -> None:
+    async def login(self, check_connected: bool = True) -> None:
         """Send a login (ConnectRequest) and await the response."""
-        self._check_connected()
+        if check_connected:
+            # On first connect, we don't want to check if we're connected
+            # because we don't set the connection state until after login
+            # is complete
+            self._check_connected()
         if self._is_authenticated:
             raise APIConnectionError("Already logged in!")
 
@@ -298,12 +456,15 @@ class APIConnection:
         if self._params.password is not None:
             connect.password = self._params.password
         try:
-            resp = await self.send_message_await_response(connect, ConnectResponse)
+            resp = await self.send_message_await_response(
+                connect, ConnectResponse, timeout=CONNECT_REQUEST_TIMEOUT
+            )
         except TimeoutAPIError as err:
             # After a timeout for connect the connection can no longer be used
             # We don't know what state the device may be in after ConnectRequest
             # was already sent
-            await self._report_fatal_error(err)
+            _LOGGER.debug("%s: Login timed out", self.log_name)
+            self._report_fatal_error(err)
             raise
 
         if resp.invalid_password:
@@ -330,49 +491,79 @@ class APIConnection:
     def is_authenticated(self) -> bool:
         return self.is_connected and self._is_authenticated
 
-    async def send_message(self, msg: message.Message) -> None:
+    def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._is_socket_open:
-            raise APIConnectionError("Connection isn't established yet")
+            if in_do_connect.get(False):
+                # If we are in the do_connect task, we can't raise an error
+                # because it would obscure the original exception (ie encrypt error).
+                _LOGGER.debug("%s: Connection isn't established yet", self.log_name)
+                return
+            raise ConnectionNotEstablishedAPIError(
+                f"Connection isn't established yet ({self._connection_state})"
+            )
 
-        for message_type, klass in MESSAGE_TYPE_TO_PROTO.items():
-            if isinstance(msg, klass):
-                break
-        else:
+        frame_helper = self._frame_helper
+        assert frame_helper is not None
+        message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
+        if not message_type:
             raise ValueError(f"Message type id not found for type {type(msg)}")
-
         encoded = msg.SerializeToString()
         _LOGGER.debug("%s: Sending %s: %s", self._params.address, type(msg), str(msg))
 
         try:
-            assert self._frame_helper is not None
-            # pylint: disable=undefined-loop-variable
-            await self._frame_helper.write_packet(
-                Packet(
-                    type=message_type,
-                    data=encoded,
-                )
-            )
+            frame_helper.write_packet(message_type, encoded)
         except SocketAPIError as err:  # pylint: disable=broad-except
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
-            await self._report_fatal_error(err)
+            _LOGGER.info("%s: Error writing packet: %s", self.log_name, err)
+            self._report_fatal_error(err)
             raise
 
-    async def send_message_callback_response(
-        self, send_msg: message.Message, on_message: Callable[[Any], None]
+    def add_message_callback(
+        self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
+    ) -> Callable[[], None]:
+        """Add a message callback."""
+        for msg_type in msg_types:
+            self._message_handlers.setdefault(msg_type, []).append(on_message)
+
+        def unsub() -> None:
+            for msg_type in msg_types:
+                self._message_handlers[msg_type].remove(on_message)
+
+        return unsub
+
+    def remove_message_callback(
+        self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
+    ) -> None:
+        """Remove a message callback."""
+        for msg_type in msg_types:
+            self._message_handlers[msg_type].remove(on_message)
+
+    def send_message_callback_response(
+        self,
+        send_msg: message.Message,
+        on_message: Callable[[Any], None],
+        msg_types: Iterable[Type[Any]],
     ) -> None:
         """Send a message to the remote and register the given message handler."""
-        self._message_handlers.append(on_message)
-        await self.send_message(send_msg)
+        for msg_type in msg_types:
+            self._message_handlers.setdefault(msg_type, []).append(on_message)
+        try:
+            self.send_message(send_msg)
+        except (asyncio.CancelledError, Exception):
+            for msg_type in msg_types:
+                self._message_handlers[msg_type].remove(on_message)
+            raise
 
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
-        do_append: Callable[[Any], bool],
-        do_stop: Callable[[Any], bool],
+        do_append: Callable[[message.Message], bool],
+        do_stop: Callable[[message.Message], bool],
+        msg_types: Iterable[Type[Any]],
         timeout: float = 10.0,
-    ) -> List[Any]:
+    ) -> List[message.Message]:
         """Send a message to the remote and build up a list response.
 
         :param send_msg: The message (request) to send.
@@ -401,19 +592,25 @@ class APIConnection:
                     new_exc.__cause__ = exc
                 fut.set_exception(new_exc)
 
-        self._message_handlers.append(on_message)
+        for msg_type in msg_types:
+            self._message_handlers.setdefault(msg_type, []).append(on_message)
         self._read_exception_handlers.append(on_read_exception)
-        await self.send_message(send_msg)
+        # We must not await without a finally or
+        # the message could fail to be removed if the
+        # the await is cancelled
 
         try:
-            await asyncio.wait_for(fut, timeout)
+            self.send_message(send_msg)
+            async with async_timeout.timeout(timeout):
+                await fut
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError(
-                f"Timeout waiting for response for {type(send_msg)}"
+                f"Timeout waiting for response for {type(send_msg)} after {timeout}s"
             ) from err
         finally:
-            with suppress(ValueError):
-                self._message_handlers.remove(on_message)
+            for msg_type in msg_types:
+                with suppress(ValueError):
+                    self._message_handlers[msg_type].remove(on_message)
             with suppress(ValueError):
                 self._read_exception_handlers.remove(on_read_exception)
 
@@ -422,19 +619,20 @@ class APIConnection:
     async def send_message_await_response(
         self, send_msg: message.Message, response_type: Any, timeout: float = 10.0
     ) -> Any:
-        def is_response(msg: message.Message) -> bool:
-            return isinstance(msg, response_type)
-
         res = await self.send_message_await_response_complex(
-            send_msg, is_response, is_response, timeout=timeout
+            send_msg,
+            lambda msg: True,  # we will only get responses of `response_type`
+            lambda msg: True,  # we will only get responses of `response_type`
+            (response_type,),
+            timeout=timeout,
         )
         if len(res) != 1:
             raise APIConnectionError(f"Expected one result, got {len(res)}")
 
         return res[0]
 
-    async def _report_fatal_error(self, err: Exception) -> None:
-        """Report a fatal error that occured during an operation.
+    def _report_fatal_error(self, err: Exception) -> None:
+        """Report a fatal error that occurred during an operation.
 
         This should only be called for errors that mean the connection
         can no longer be used.
@@ -442,98 +640,106 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
+        if not self._expected_disconnect and not self._fatal_exception:
+            # Only log the first error
+            _LOGGER.warning(
+                "%s: Connection error occurred: %s",
+                self.log_name,
+                err or type(err),
+                exc_info=not str(err),  # Log the full stack on empty error string
+            )
+        self._fatal_exception = err
         self._connection_state = ConnectionState.CLOSED
         for handler in self._read_exception_handlers[:]:
             handler(err)
-        await self._cleanup()
+        self._read_exception_handlers.clear()
+        self._cleanup()
 
-    async def _read_once(self) -> None:
-        assert self._frame_helper is not None
-        pkt = await self._frame_helper.read_packet()
-
-        msg_type = pkt.type
-        raw_msg = pkt.data
-        if msg_type not in MESSAGE_TYPE_TO_PROTO:
-            _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type)
+    def _process_packet(self, msg_type_proto: int, data: bytes) -> None:
+        """Process a packet from the socket."""
+        if not (class_ := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)):
+            _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type_proto)
             return
 
-        msg = MESSAGE_TYPE_TO_PROTO[msg_type]()
+        msg = class_()
         try:
-            msg.ParseFromString(raw_msg)
+            # MergeFromString instead of ParseFromString since
+            # ParseFromString will clear the message first and
+            # the msg is already empty.
+            msg.MergeFromString(data)
         except Exception as e:
-            raise ProtocolAPIError(f"Invalid protobuf message: {e}") from e
-        _LOGGER.debug("%s: Got message of type %s: %s", self.log_name, type(msg), msg)
-        for msg_handler in self._message_handlers[:]:
-            msg_handler(msg)
-        await self._handle_internal_messages(msg)
+            _LOGGER.info(
+                "%s: Invalid protobuf message: type=%s data=%s: %s",
+                self.log_name,
+                msg_type_proto,
+                data,
+                e,
+                exc_info=True,
+            )
+            self._report_fatal_error(
+                ProtocolAPIError(
+                    f"Invalid protobuf message: type={msg_type_proto} data={data!r}: {e}"
+                )
+            )
+            raise
 
-    async def _read_loop(self) -> None:
-        while True:
-            if not self._is_socket_open:
-                # Socket closed but task isn't cancelled yet
-                break
-            try:
-                await self._read_once()
-            except SocketClosedAPIError as err:
-                # don't log with info, if closed the site that closed the connection should log
-                _LOGGER.debug(
-                    "%s: Socket closed, stopping read loop",
-                    self.log_name,
-                )
-                await self._report_fatal_error(err)
-                break
-            except APIConnectionError as err:
-                _LOGGER.info(
-                    "%s: Error while reading incoming messages: %s",
-                    self.log_name,
-                    err,
-                )
-                await self._report_fatal_error(err)
-                break
-            except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.warning(
-                    "%s: Unexpected error while reading incoming messages: %s",
-                    self.log_name,
-                    err,
-                    exc_info=True,
-                )
-                await self._report_fatal_error(err)
-                break
+        msg_type = type(msg)
 
-    async def _handle_internal_messages(self, msg: Any) -> None:
-        if isinstance(msg, DisconnectRequest):
-            await self.send_message(DisconnectResponse())
+        _LOGGER.debug("%s: Got message of type %s: %s", self.log_name, msg_type, msg)
+
+        if self._pong_timer:
+            # Any valid message from the remote cancels the pong timer
+            # as we know the connection is still alive
+            self._async_cancel_pong_timer()
+
+        for handler in self._message_handlers.get(msg_type, [])[:]:
+            handler(msg)
+
+        # Pre-check the message type to avoid awaiting
+        # since most messages are not internal messages
+        if msg_type not in INTERNAL_MESSAGE_TYPES:
+            return
+
+        if msg_type is DisconnectRequest:
+            self.send_message(DisconnectResponse())
             self._connection_state = ConnectionState.CLOSED
-            await self._cleanup()
-        elif isinstance(msg, PingRequest):
-            await self.send_message(PingResponse())
-        elif isinstance(msg, GetTimeRequest):
+            self._expected_disconnect = True
+            self._cleanup()
+        elif msg_type is PingRequest:
+            self.send_message(PING_RESPONSE_MESSAGE)
+        elif msg_type is GetTimeRequest:
             resp = GetTimeResponse()
             resp.epoch_seconds = int(time.time())
-            await self.send_message(resp)
-
-    async def _ping(self) -> None:
-        self._check_connected()
-        await self.send_message_await_response(PingRequest(), PingResponse)
+            self.send_message(resp)
 
     async def disconnect(self) -> None:
-        if self._connection_state != ConnectionState.CONNECTED:
-            # already disconnected
-            return
+        """Disconnect from the API."""
+        if self._connect_task:
+            # Try to wait for the handshake to finish so we can send
+            # a disconnect request. If it doesn't finish in time
+            # we will just close the socket.
+            await asyncio.wait([self._connect_task], timeout=5.0)
 
-        try:
-            await self.send_message_await_response(
-                DisconnectRequest(), DisconnectResponse
-            )
-        except APIConnectionError:
-            pass
+        self._expected_disconnect = True
+        if self._is_socket_open and self._frame_helper:
+            # We still want to send a disconnect request even
+            # if the hello phase isn't finished to ensure we
+            # the esp will clean up the connection as soon
+            # as possible.
+            try:
+                await self.send_message_await_response(
+                    DisconnectRequest(), DisconnectResponse
+                )
+            except APIConnectionError:
+                pass
 
         self._connection_state = ConnectionState.CLOSED
-        await self._cleanup()
+        self._cleanup()
 
     async def force_disconnect(self) -> None:
         self._connection_state = ConnectionState.CLOSED
-        await self._cleanup()
+        self._expected_disconnect = True
+        self._cleanup()
 
     @property
     def api_version(self) -> Optional[APIVersion]:

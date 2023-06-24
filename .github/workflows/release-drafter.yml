@@ -25,7 +25,7 @@ jobs:
         id: version
         run: |
           tag="${{ steps.release-draft.outputs.tag_name }}"
-          echo "::set-output name=version::${tag:1}"
+          echo "version=${tag:1}" >> $GITHUB_OUTPUT
 
       - name: Set setup.py version
         run: |
