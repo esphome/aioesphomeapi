@@ -29,6 +29,7 @@ from .api_pb2 import (  # type: ignore
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
+    ConnectionNotEstablishedAPIError,
     BadNameAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
@@ -493,7 +494,7 @@ class APIConnection:
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._is_socket_open:
-            raise APIConnectionError(
+            raise ConnectionNotEstablishedAPIError(
                 f"Connection isn't established yet ({self._connection_state})"
             )
 

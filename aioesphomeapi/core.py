@@ -183,6 +183,10 @@ class HandshakeAPIError(APIConnectionError):
     pass
 
 
+class ConnectionNotEstablishedAPIError(APIConnectionError):
+    pass
+
+
 class BadNameAPIError(APIConnectionError):
     """Raised when a name received from the remote but does not much the expected name."""
 
