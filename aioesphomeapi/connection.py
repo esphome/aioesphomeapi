@@ -646,7 +646,7 @@ class APIConnection:
                 "%s: Connection error occurred: %s",
                 self.log_name,
                 err or type(err),
-                exc_info=True,  # not str(err),  # Log the full stack on empty error string
+                exc_info=not str(err),  # Log the full stack on empty error string
             )
         self._fatal_exception = err
         self._connection_state = ConnectionState.CLOSED
