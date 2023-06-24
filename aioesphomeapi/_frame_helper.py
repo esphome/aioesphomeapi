@@ -8,6 +8,7 @@ from typing import Callable, Optional, Union, cast
 import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
 
+from cryptography.exceptions import InvalidTag  
 from .core import (
     APIConnectionError,
     BadNameAPIError,
@@ -249,8 +250,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         The entire packet must be written in a single call to write
         to avoid locking.
         """
-        _LOGGER.debug("Sending frame %s", frame.hex())
+        debug = _LOGGER.isEnabledFor(logging.DEBUG)
         assert self._transport is not None, "Transport is not set"
+        if debug:
+            _LOGGER.debug("Sending frame: [%s]", frame.hex())
 
         try:
             header = bytes(
@@ -261,6 +264,8 @@ class APINoiseFrameHelper(APIFrameHelper):
                 ]
             )
             self._transport.write(header + frame)
+            if debug:
+                _LOGGER.debug("Sending encrypted frame: [%s]", (header + frame).hex())
         except (RuntimeError, ConnectionResetError, OSError) as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
@@ -275,6 +280,8 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
+        import pprint
+        pprint.pprint(['data_received',data])
         while len(self._buffer) >= 3:
             header = self._init_read(3)
             assert header is not None, "Buffer should have at least 3 bytes"
@@ -285,6 +292,13 @@ class APINoiseFrameHelper(APIFrameHelper):
                 return
             msg_size = (header[1] << 8) | header[2]
             frame = self._read_exactly(msg_size)
+
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                _LOGGER.debug("Read frame with header: [%s]", (header + frame).hex())
+
+            import pprint
+            pprint.pprint(['frame',frame])
+
             if frame is None:
                 return
 
@@ -358,7 +372,13 @@ class APINoiseFrameHelper(APIFrameHelper):
                 HandshakeAPIError(f"Handshake failure: {explanation}")
             )
             return
-        self._proto.read_message(msg[1:])
+        try:
+            self._proto.read_message(msg[1:])
+        except InvalidTag as invalid_tag_exc:
+            ex = InvalidEncryptionKeyAPIError("Invalid encryption key")
+            ex.__cause__ = invalid_tag_exc
+            self._handle_error_and_close(ex)
+            return
         _LOGGER.debug("Handshake complete")
         self._state = NoiseConnectionState.READY
         self._ready_future.set_result(None)
