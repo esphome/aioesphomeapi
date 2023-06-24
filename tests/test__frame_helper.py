@@ -5,7 +5,7 @@ import pytest
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper, APINoiseFrameHelper
 from aioesphomeapi.util import varuint_to_bytes
-
+from aioesphomeapi.core import InvalidEncryptionKeyAPIError
 PREAMBLE = b"\x00"
 
 
@@ -100,10 +100,11 @@ async def test_noise_frame_helper_incorrect_key():
     """Test that the noise frame helper can perform a handshake with the ESPHome device."""
     outgoing_packets = [
         "010000", # hello packet
-        "01003100be5444d8e188e893963fea601d94c0aa557a9a5ea628e6405beba115f17a312c07d03c2985bf476b55790ea7e74d617d"
+        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4"
     ]
     incoming_packets = [
-        "0148616e647368616b65204d4143206661696c757265",
+        "01000d01736572766963657465737400",
+        "0100160148616e647368616b65204d4143206661696c757265"
     ]
     packets = []
 
@@ -119,9 +120,9 @@ async def test_noise_frame_helper_incorrect_key():
     for pkt in outgoing_packets:
         helper._write_frame(bytes.fromhex(pkt))
 
-    for pkt in incoming_packets:    
-        helper.data_received(bytes.fromhex(pkt))
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        for pkt in incoming_packets:    
+            helper.data_received(bytes.fromhex(pkt))
 
-    import pprint
-    pprint.pprint(['wait for handshake'])
-    await helper.perform_handshake()
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        await helper.perform_handshake()
