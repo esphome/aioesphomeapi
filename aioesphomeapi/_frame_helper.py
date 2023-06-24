@@ -264,8 +264,6 @@ class APINoiseFrameHelper(APIFrameHelper):
                 ]
             )
             self._transport.write(header + frame)
-            if debug:
-                _LOGGER.debug("Sending encrypted frame: [%s]", (header + frame).hex())
         except (RuntimeError, ConnectionResetError, OSError) as err:
             raise SocketAPIError(f"Error while writing data: {err}") from err
 
