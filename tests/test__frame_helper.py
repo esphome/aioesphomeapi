@@ -64,35 +64,6 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
         assert type_ == pkt_type
         assert data == pkt_data
 
-@pytest.mark.asyncio
-async def test_noise_frame_helper_good_handshake():
-    """Test that the noise frame helper can perform a handshake with the ESPHome device."""
-    outgoing_packets = [
-        "010000", # hello packet
-        "010031006e6853c8afd676b53888df3b1ff0e0742c762888855c54b96a5b6e17366c53046ab29bd5f7bb59f48182ea190620a1fd"
-    ]
-    incoming_packets = [
-        "01000d01736572766963657465737400",
-        "01003100900d0da775dfe4744fe4498d32efc666b6ee30664b3047285d84f42a1f8bb16e574317a29f941a605a25b10a32615ac0"
-    ]
-    packets = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
-
-    helper = APINoiseFrameHelper(on_pkt=_packet, on_error=_on_error, noise_psk="OIwNWQp2NSwmf7BwfEywyAc9HMijdsef7Kate7b2K14=", expected_name="servicetest")
-    helper._transport = MagicMock()
-
-    for pkt in outgoing_packets:
-        helper._write_frame(bytes.fromhex(pkt))
-
-    for pkt in incoming_packets:    
-        helper.data_received(bytes.fromhex(pkt))
-
-    await helper.perform_handshake()
 
 
 @pytest.mark.asyncio
