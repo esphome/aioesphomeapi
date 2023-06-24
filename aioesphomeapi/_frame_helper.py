@@ -9,6 +9,7 @@ import async_timeout
 from noise.connection import NoiseConnection  # type: ignore
 
 from .core import (
+    APIConnectionError,
     BadNameAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
@@ -16,7 +17,6 @@ from .core import (
     RequiresEncryptionAPIError,
     SocketAPIError,
     SocketClosedAPIError,
-    APIConnectionError,
 )
 from .util import bytes_to_varuint, varuint_to_bytes
 
