@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi.core import InvalidEncryptionKeyAPIError, BadNameAPIError
+from aioesphomeapi.core import BadNameAPIError, InvalidEncryptionKeyAPIError
 from aioesphomeapi.util import varuint_to_bytes
 
 PREAMBLE = b"\x00"
@@ -102,7 +102,6 @@ async def test_noise_frame_helper_incorrect_key():
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
         await helper.perform_handshake()
-
 
 
 @pytest.mark.asyncio
