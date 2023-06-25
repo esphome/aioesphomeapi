@@ -35,7 +35,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
         on_disconnect: Union[
-            Callable[[], Awaitable[None]], Callable[[], Awaitable[bool]]
+            Callable[[], Awaitable[None]], Callable[[bool], Awaitable[None]]
         ],
         zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
@@ -70,7 +70,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     def _make_disconnect_cb(
         self,
         on_disconnect: Union[
-            Callable[[], Awaitable[None]], Callable[[], Awaitable[bool]]
+            Callable[[], Awaitable[None]], Callable[[bool], Awaitable[None]]
         ],
     ) -> Callable[[], Awaitable[bool]]:
         """Wrap the on_disconnect callback in case it does not accept expected_disconnect.
