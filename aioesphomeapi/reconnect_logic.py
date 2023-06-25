@@ -1,9 +1,10 @@
 import asyncio
+import inspect
 import logging
 from typing import Awaitable, Callable, List, Optional
 
 import zeroconf
-import inspect
+
 from .client import APIClient
 from .core import (
     APIConnectionError,
