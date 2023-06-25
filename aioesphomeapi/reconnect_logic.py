@@ -92,10 +92,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         async def _wrapped(  # pylint: disable=unused-argument
             expected_disconnect: bool,
         ) -> None:
+            """Wrap the callback to accept expected_disconnect."""
+            nonlocal on_disconnect
             if TYPE_CHECKING:
-                on_disconnect = cast(
-                    "Callable[[], Awaitable[None]]", on_disconnect  # noqa: F823
-                )
+                on_disconnect = cast("Callable[[], Awaitable[None]]", on_disconnect)
             await on_disconnect()
 
         return _wrapped
