@@ -87,7 +87,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if inspect.getfullargspec(on_disconnect).args:
             return on_disconnect
 
-        async def _wrapped(expected_disconnect: bool) -> None:
+        async def _wrapped(
+            expected_disconnect: bool,
+        ) -> None:  # pylint: disable=unused-argument
             await on_disconnect()
 
         return _wrapped
