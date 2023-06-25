@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import logging
-from typing import Awaitable, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Awaitable, Callable, List, Optional, Union, cast
 
 import zeroconf
 
@@ -85,6 +85,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if a deep sleep device went to sleep or if the connection was lost unexpectedly.
         """
         if inspect.getfullargspec(on_disconnect).args:
+            if TYPE_CHECKING:
+                on_disconnect = cast("Callable[[bool], Awaitable[None]]", on_disconnect)
             return on_disconnect
 
         async def _wrapped(  # pylint: disable=unused-argument
