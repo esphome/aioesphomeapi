@@ -3,7 +3,7 @@ import logging
 from typing import Awaitable, Callable, List, Optional
 
 import zeroconf
-
+import inspect
 from .client import APIClient
 from .core import (
     APIConnectionError,
@@ -33,7 +33,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         *,
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
-        on_disconnect: Callable[[], Awaitable[None]],
+        on_disconnect: Callable[[], Awaitable[None]] | Callable[[], Awaitable[bool]],
         zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
         on_connect_error: Optional[Callable[[Exception], Awaitable[None]]] = None,
@@ -48,7 +48,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._cli = client
         self.name = name
         self._on_connect_cb = on_connect
-        self._on_disconnect_cb = on_disconnect
+        self._on_disconnect_cb = self._make_disconnect_cb(on_disconnect)
         self._on_connect_error_cb = on_connect_error
         self._zc = zeroconf_instance
         self._filter_alias: Optional[str] = None
@@ -63,6 +63,29 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._connect_task: Optional[asyncio.Task[None]] = None
         self._connect_timer: Optional[asyncio.TimerHandle] = None
         self._stop_task: Optional[asyncio.Task[None]] = None
+
+    def _make_disconnect_cb(
+        self,
+        on_disconnect: Callable[[], Awaitable[None]] | Callable[[], Awaitable[bool]],
+    ) -> Callable[[], Awaitable[bool]]:
+        """Wrap the on_disconnect callback in case it does not accept expected_disconnect.
+
+        The expected_disconnect parameter is used to indicate if the disconnect was expected
+        or not. This is used to determine if we should reconnect immediately or wait a bit.
+
+        For backwards compatibility, we wrap the callback to accept the expected_disconnect
+        parameter and ignore it if the callback does not accept it.
+
+        For consumers of this class, the expected_disconnect parameter is useful to determine
+        if a deep sleep device went to sleep or if the connection was lost unexpectedly.
+        """
+        if inspect.getfullargspec(on_disconnect).args:
+            return on_disconnect
+
+        async def _wrapped(expected_disconnect: bool) -> None:
+            await on_disconnect()
+
+        return _wrapped
 
     @property
     def _log_name(self) -> str:
@@ -86,7 +109,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
 
         # Run disconnect hook
-        await self._on_disconnect_cb()
+        await self._on_disconnect_cb(expected_disconnect)
 
         async with self._connected_lock:
             self._connected = False
