@@ -93,7 +93,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             expected_disconnect: bool,
         ) -> None:
             if TYPE_CHECKING:
-                on_disconnect = cast("Callable[[], Awaitable[None]]", on_disconnect)            
+                on_disconnect = cast("Callable[[], Awaitable[None]]", on_disconnect)
             await on_disconnect()
 
         return _wrapped
