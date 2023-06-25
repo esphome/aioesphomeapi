@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import logging
-from typing import Awaitable, Callable, List, Optional
+from typing import Awaitable, Callable, List, Optional, Union
 
 import zeroconf
 
@@ -34,7 +34,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         *,
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
-        on_disconnect: Callable[[], Awaitable[None]] | Callable[[], Awaitable[bool]],
+        on_disconnect: Union[
+            Callable[[], Awaitable[None]], Callable[[], Awaitable[bool]]
+        ],
         zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
         on_connect_error: Optional[Callable[[Exception], Awaitable[None]]] = None,
@@ -67,7 +69,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _make_disconnect_cb(
         self,
-        on_disconnect: Callable[[], Awaitable[None]] | Callable[[], Awaitable[bool]],
+        on_disconnect: Union[
+            Callable[[], Awaitable[None]], Callable[[], Awaitable[bool]]
+        ],
     ) -> Callable[[], Awaitable[bool]]:
         """Wrap the on_disconnect callback in case it does not accept expected_disconnect.
 
