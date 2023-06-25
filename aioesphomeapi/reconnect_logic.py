@@ -72,7 +72,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         on_disconnect: Union[
             Callable[[], Awaitable[None]], Callable[[bool], Awaitable[None]]
         ],
-    ) -> Callable[[bool], Awaitable[bool]]:
+    ) -> Callable[[bool], Awaitable[None]]:
         """Wrap the on_disconnect callback in case it does not accept expected_disconnect.
 
         The expected_disconnect parameter is used to indicate if the disconnect was expected
