@@ -96,8 +96,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             nonlocal on_disconnect
             if TYPE_CHECKING:
                 on_disconnect = cast(
-                    "Callable[[], Awaitable[None]]", on_disconnect
-                )  # noqa: F823
+                    "Callable[[], Awaitable[None]]", on_disconnect  # noqa: F823
+                )
             await on_disconnect()
 
         return _wrapped
