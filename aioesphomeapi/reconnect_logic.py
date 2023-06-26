@@ -1,7 +1,6 @@
 import asyncio
-import inspect
 import logging
-from typing import TYPE_CHECKING, Awaitable, Callable, List, Optional, Union, cast
+from typing import Awaitable, Callable, List, Optional
 
 import zeroconf
 
@@ -34,7 +33,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         *,
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
-        on_disconnect:  Callable[[bool], Awaitable[None]],
+        on_disconnect: Callable[[bool], Awaitable[None]],
         zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
         on_connect_error: Optional[Callable[[Exception], Awaitable[None]]] = None,
