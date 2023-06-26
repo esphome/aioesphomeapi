@@ -59,7 +59,9 @@ async def main(argv: List[str]) -> None:
         except APIConnectionError:
             await cli.disconnect()
 
-    async def on_disconnect(expected_disconnect: bool) -> None:  # pylint: disable=unused-argument
+    async def on_disconnect(
+        expected_disconnect: bool,
+    ) -> None:  # pylint: disable=unused-argument
         _LOGGER.warning("Disconnected from API")
 
     logic = ReconnectLogic(
