@@ -45,7 +45,7 @@ class ChaCha20CipherReuseable(ChaCha20Cipher):
 class ESPHomeNoiseBackend(DefaultNoiseBackend):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.ciphers["ChaChaPoly"] = ChaCha20CipherReuseable()
+        self.ciphers["ChaChaPoly"] = ChaCha20CipherReuseable
 
 
 ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
