@@ -3,11 +3,14 @@ import base64
 import logging
 from abc import abstractmethod
 from enum import Enum
-from typing import Callable, Optional, Union, cast
+from typing import Any, Callable, Optional, Union, cast
 
 import async_timeout
+from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
-from noise.connection import NoiseConnection  # type: ignore
+from noise.backends.default import DefaultNoiseBackend  # type: ignore[import]
+from noise.backends.default.ciphers import ChaCha20Cipher  # type: ignore[import]
+from noise.connection import NoiseConnection  # type: ignore[import]
 
 from .core import (
     APIConnectionError,
@@ -29,6 +32,21 @@ SOCKET_ERRORS = (
     OSError,
     TimeoutError,
 )
+
+
+class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
+    @property
+    def klass(self):  # type: ignore[no-untyped-def]
+        return ChaCha20Poly1305Reusable
+
+
+class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.ciphers["ChaChaPoly"] = ChaCha20CipherReuseable
+
+
+ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
 
 
 class APIFrameHelper(asyncio.Protocol):
@@ -338,7 +356,9 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _setup_proto(self) -> None:
         """Set up the noise protocol."""
-        self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
+        self._proto = NoiseConnection.from_name(
+            b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+        )
         self._proto.set_as_initiator()
         self._proto.set_psks(_decode_noise_psk(self._noise_psk))
         self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
