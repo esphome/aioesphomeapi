@@ -3,10 +3,13 @@ import base64
 import logging
 from abc import abstractmethod
 from enum import Enum
-from typing import Callable, Optional, Union, cast
+from typing import Any, Callable, Optional, Tuple, Union, cast
 
 import async_timeout
+from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
+from noise.backends.default import DefaultNoiseBackend
+from noise.backends.default.ciphers import ChaCha20Cipher
 from noise.connection import NoiseConnection  # type: ignore
 
 from .core import (
@@ -29,11 +32,6 @@ SOCKET_ERRORS = (
     OSError,
     TimeoutError,
 )
-from typing import Any, Optional, Tuple, Union
-
-from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
-from noise.backends.default import DefaultNoiseBackend
-from noise.backends.default.ciphers import ChaCha20Cipher
 
 
 class ChaCha20CipherReuseable(ChaCha20Cipher):
