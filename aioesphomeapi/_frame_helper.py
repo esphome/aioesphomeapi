@@ -3,7 +3,7 @@ import base64
 import logging
 from abc import abstractmethod
 from enum import Enum
-from typing import Any, Callable, Optional, Tuple, Union, cast
+from typing import Any, Callable, Optional, Union, cast
 
 import async_timeout
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
