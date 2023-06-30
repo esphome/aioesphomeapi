@@ -29,6 +29,26 @@ SOCKET_ERRORS = (
     OSError,
     TimeoutError,
 )
+from typing import Any, Optional, Tuple, Union
+
+from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
+from noise.backends.default import DefaultNoiseBackend
+from noise.backends.default.ciphers import ChaCha20Cipher
+
+
+class ChaCha20CipherReuseable(ChaCha20Cipher):
+    @property
+    def klass(self):
+        return ChaCha20Poly1305Reusable
+
+
+class ESPHomeNoiseBackend(DefaultNoiseBackend):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.ciphers["ChaChaPoly"] = ChaCha20CipherReuseable()
+
+
+ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
 
 
 class APIFrameHelper(asyncio.Protocol):
@@ -338,7 +358,9 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _setup_proto(self) -> None:
         """Set up the noise protocol."""
-        self._proto = NoiseConnection.from_name(b"Noise_NNpsk0_25519_ChaChaPoly_SHA256")
+        self._proto = NoiseConnection.from_name(
+            b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+        )
         self._proto.set_as_initiator()
         self._proto.set_psks(_decode_noise_psk(self._noise_psk))
         self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
