@@ -34,13 +34,13 @@ SOCKET_ERRORS = (
 )
 
 
-class ChaCha20CipherReuseable(ChaCha20Cipher):
+class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     @property
-    def klass(self):
+    def klass(self):  # type: ignore[no-untyped-def]
         return ChaCha20Poly1305Reusable
 
 
-class ESPHomeNoiseBackend(DefaultNoiseBackend):
+class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.ciphers["ChaChaPoly"] = ChaCha20CipherReuseable
