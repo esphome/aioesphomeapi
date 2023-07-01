@@ -173,32 +173,20 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 return
 
             if length_high & 0x80 != 0x80:
-                _LOGGER.warning("Using fast length path")
-                #
                 # Length is only 1 byte
                 #
                 # This is the most common case with 99% of messages
                 # needing a single byte for length and type which means
                 # we avoid 2 calls to readexactly
-                #
                 length_int = length_high
                 if maybe_msg_type & 0x80 != 0x80:
-                    _LOGGER.warning("Using fast msg type path")
-                    #
                     # Message type is also only 1 byte
-                    #
                     msg_type_int = maybe_msg_type
                 else:
-                    _LOGGER.warning("Using slow msg type path")
-                    #
                     # Message type is longer than 1 byte
-                    #
                     msg_type = bytes(init_bytes[2:3])
             else:
-                _LOGGER.warning("Using slow length path")
-                #
                 # Length is longer than 1 byte
-                #
                 length = bytes(init_bytes[1:3])
                 # If the message is long, we need to read the rest of the length
                 while length[-1] & 0x80 == 0x80:
@@ -211,7 +199,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
             # If the we do not have the message type yet, read it
             if msg_type_int is None:
-                _LOGGER.warning("Using slow msg type path for addl bytes")
                 while not msg_type or msg_type[-1] & 0x80 == 0x80:
                     add_msg_type = self._read_exactly(1)
                     if add_msg_type is None:
