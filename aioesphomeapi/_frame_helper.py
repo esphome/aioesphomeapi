@@ -345,7 +345,11 @@ class APINoiseFrameHelper(APIFrameHelper):
                 )
                 return
             frame = self._read_exactly((msg_size_high << 8) | msg_size_low)
-
+            # The complete frame is not yet available, wait for more data
+            # to arrive before continuing, since callback_packet has not
+            # been called yet the buffer will not be cleared and the next
+            # call to data_received will continue processing the packet
+            # at the start of the frame.
             if frame is None:
                 return
 
