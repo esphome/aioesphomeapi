@@ -470,7 +470,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Handle an incoming frame."""
         assert self._proto is not None
         try:
-            msg = self._proto.decrypt(frame)
+            msg = self._decrypt(frame)
         except InvalidTag as ex:
             self._handle_error_and_close(
                 ProtocolAPIError(f"Bad encryption frame {ex}: {msg}")
