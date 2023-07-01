@@ -157,6 +157,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # to avoid multiple calls to readexactly
             init_bytes = self._init_read(3)
             msg_type_int: Optional[int] = None
+            length_int: Optional[int] = None
             if TYPE_CHECKING:
                 assert init_bytes is not None, "Buffer should have at least 3 bytes"
             preamble, length_high, maybe_msg_type = init_bytes
