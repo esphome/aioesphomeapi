@@ -149,7 +149,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         """Perform the handshake."""
         await self._connected_event.wait()
 
-    def data_received(self, data: bytes) -> None:
+    def data_received(self, data: bytes) -> None: # pylint: disable=too-many-branches
         self._buffer += data
         while len(self._buffer) >= 3:
             # Read preamble, which should always 0x00
