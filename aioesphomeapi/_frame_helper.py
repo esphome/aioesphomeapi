@@ -173,6 +173,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 return
 
             if length_high & 0x80 != 0x80:
+                _LOGGER.warning("Using fast length path")
                 #
                 # Length is only 1 byte
                 #
@@ -182,16 +183,19 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 #
                 length_int = length_high
                 if maybe_msg_type & 0x80 != 0x80:
+                    _LOGGER.warning("Using fast msg type path")
                     #
                     # Message type is also only 1 byte
                     #
                     msg_type_int = maybe_msg_type
                 else:
+                    _LOGGER.warning("Using slow msg type path")
                     #
                     # Message type is longer than 1 byte
                     #
                     msg_type = bytes(init_bytes[2:3])
             else:
+                _LOGGER.warning("Using slow length path")
                 #
                 # Length is longer than 1 byte
                 #
@@ -207,6 +211,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
             # If the we do not have the message type yet, read it
             if msg_type_int is None:
+                _LOGGER.warning("Using slow msg type path for addl bytes")
                 while not msg_type or msg_type[-1] & 0x80 == 0x80:
                     add_msg_type = self._read_exactly(1)
                     if add_msg_type is None:
@@ -467,15 +472,15 @@ class APINoiseFrameHelper(APIFrameHelper):
         if msg_len < 4:
             self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg}"))
             return
-        pkg_type_high, pkg_type_low, data_len_high, data_len_low = msg[:4]
-        pkt_type = (pkg_type_high << 8) | pkg_type_low
+        msg_type_high, msg_type_low, data_len_high, data_len_low = msg[:4]
+        msg_type = (msg_type_high << 8) | msg_type_low
         data_len = (data_len_high << 8) | data_len_low
         if data_len + 4 != msg_len:
             self._handle_error_and_close(
                 ProtocolAPIError(f"Bad data len: {data_len} vs {msg_len}")
             )
             return
-        self._on_pkt(pkt_type, msg[4:])
+        self._on_pkt(msg_type, msg[4:])
 
     def _handle_closed(  # pylint: disable=unused-argument
         self, frame: bytearray
