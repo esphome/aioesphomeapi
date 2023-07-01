@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 from aioesphomeapi.model import BluetoothGATTError
 
@@ -196,7 +197,7 @@ class BadNameAPIError(APIConnectionError):
 
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
-    def __init__(self, msg: str, received_name: str | None) -> None:
+    def __init__(self, msg: str, received_name: Optional[str]) -> None:
         super().__init__(f"{msg}: received_name={received_name}")
         self.received_name = received_name
 

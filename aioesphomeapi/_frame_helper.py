@@ -212,7 +212,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # If we have more data, continue processing
 
 
-def _decode_noise_psk(psk: str, server_name: str | None) -> bytes:
+def _decode_noise_psk(psk: str, server_name: Optional[str]) -> bytes:
     """Decode the given noise psk from base64 format to raw bytes."""
     try:
         psk_bytes = base64.b64decode(psk)
