@@ -415,7 +415,7 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _send_handshake(self) -> None:
         """Send the handshake message."""
         self._write_frame(b"\x00" + self._proto.write_message())
-        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad
+        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad # type: ignore[no-member]
 
     def _handle_handshake(self, msg: bytearray) -> None:
         _LOGGER.debug("Starting handshake...")
@@ -473,7 +473,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             msg = self._decrypt(frame)
         except InvalidTag as ex:
             self._handle_error_and_close(
-                ProtocolAPIError(f"Bad encryption frame {ex}: {msg}")
+                ProtocolAPIError(f"Bad encryption frame: {ex}")
             )
             return
         msg_len = len(msg)
