@@ -197,7 +197,9 @@ class BadNameAPIError(APIConnectionError):
 
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
-    def __init__(self, msg: str, received_name: Optional[str]) -> None:
+    def __init__(
+        self, msg: Optional[str] = None, received_name: Optional[str] = None
+    ) -> None:
         super().__init__(f"{msg}: received_name={received_name}")
         self.received_name = received_name
 
