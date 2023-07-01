@@ -446,8 +446,12 @@ class APINoiseFrameHelper(APIFrameHelper):
         _LOGGER.debug("Handshake complete")
         self._state = NoiseConnectionState.READY
         noise_protocol = self._proto.noise_protocol
-        self._decrypt = partial(noise_protocol.cipher_state_decrypt.decrypt_with_ad, None)
-        self._encrypt = partial(noise_protocol.cipher_state_encrypt.encrypt_with_ad, None)
+        self._decrypt = partial(
+            noise_protocol.cipher_state_decrypt.decrypt_with_ad, None
+        )
+        self._encrypt = partial(
+            noise_protocol.cipher_state_encrypt.encrypt_with_ad, None
+        )
         self._ready_future.set_result(None)
 
     def write_packet(self, type_: int, data: bytes) -> None:
