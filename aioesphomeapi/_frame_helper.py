@@ -3,8 +3,9 @@ import base64
 import logging
 from abc import abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 from functools import partial
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+
 import async_timeout
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
@@ -456,17 +457,15 @@ class APINoiseFrameHelper(APIFrameHelper):
         data_len = len(data)
         self._write_frame(
             self._encrypt(
-                (
-                    bytes(
-                        [
-                            (type_ >> 8) & 0xFF,
-                            (type_ >> 0) & 0xFF,
-                            (data_len >> 8) & 0xFF,
-                            (data_len >> 0) & 0xFF,
-                        ]
-                    )
-                    + data
+                bytes(
+                    [
+                        (type_ >> 8) & 0xFF,
+                        (type_ >> 0) & 0xFF,
+                        (data_len >> 8) & 0xFF,
+                        (data_len >> 0) & 0xFF,
+                    ]
                 )
+                + data
             )
         )
 
