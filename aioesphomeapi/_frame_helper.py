@@ -3,7 +3,7 @@ import base64
 import logging
 from abc import abstractmethod
 from enum import Enum
-from typing import Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
 import async_timeout
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
@@ -156,48 +156,53 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # Also try to get the length and msg type
             # to avoid multiple calls to readexactly
             init_bytes = self._init_read(3)
+            msg_type_int = None
+            preamble, length_high, maybe_msg_type = init_bytes
             assert init_bytes is not None, "Buffer should have at least 3 bytes"
-            if init_bytes[0] != 0x00:
-                if init_bytes[0] == 0x01:
+            if preamble != 0x00:
+                if preamble == 0x01:
                     self._handle_error_and_close(
                         RequiresEncryptionAPIError("Connection requires encryption")
                     )
                     return
                 self._handle_error_and_close(
-                    ProtocolAPIError(f"Invalid preamble {init_bytes[0]:02x}")
+                    ProtocolAPIError(f"Invalid preamble {preamble:02x}")
                 )
                 return
 
-            if init_bytes[1] & 0x80 == 0x80:
-                # Length is longer than 1 byte
-                length = init_bytes[1:3]
-                msg_type = b""
-            else:
+            if length_high & 0x80 != 0x80:
                 # This is the most common case with 99% of messages
                 # needing a single byte for length and type which means
                 # we avoid 2 calls to readexactly
-                length = init_bytes[1:2]
-                msg_type = init_bytes[2:3]
+                length_int = length_high
+                if maybe_msg_type & 0x80 != 0x80:
+                    msg_type_int = maybe_msg_type
+                else:
+                    msg_type = init_bytes[2:3]
+            else:
+                # Length is longer than 1 byte
+                length = init_bytes[1:3]
+                msg_type = b""
+                # If the message is long, we need to read the rest of the length
+                while length[-1] & 0x80 == 0x80:
+                    add_length = self._read_exactly(1)
+                    if add_length is None:
+                        return
+                    length += add_length
+                length_int = bytes_to_varuint(length)
 
-            # If the message is long, we need to read the rest of the length
-            while length[-1] & 0x80 == 0x80:
-                add_length = self._read_exactly(1)
-                if add_length is None:
-                    return
-                length += add_length
+            # If the we do not have the message type yet, read it
+            if msg_type_int is None:
+                while not msg_type or msg_type[-1] & 0x80 == 0x80:
+                    add_msg_type = self._read_exactly(1)
+                    if add_msg_type is None:
+                        return
+                    msg_type += add_msg_type
+                msg_type_int = bytes_to_varuint(msg_type)
 
-            # If the message length was longer than 1 byte, we need to read the
-            # message type
-            while not msg_type or (msg_type[-1] & 0x80) == 0x80:
-                add_msg_type = self._read_exactly(1)
-                if add_msg_type is None:
-                    return
-                msg_type += add_msg_type
-
-            length_int = bytes_to_varuint(bytes(length))
-            assert length_int is not None
-            msg_type_int = bytes_to_varuint(bytes(msg_type))
-            assert msg_type_int is not None
+            if TYPE_CHECKING:
+                assert length_int is not None
+                assert msg_type_int is not None
 
             if length_int == 0:
                 self._callback_packet(msg_type_int, b"")
@@ -291,12 +296,13 @@ class APINoiseFrameHelper(APIFrameHelper):
         if _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("Sending frame: [%s]", frame.hex())
 
+        frame_len = len(frame)
         try:
             header = bytes(
                 [
                     0x01,
-                    (len(frame) >> 8) & 0xFF,
-                    len(frame) & 0xFF,
+                    (frame_len >> 8) & 0xFF,
+                    frame_len & 0xFF,
                 ]
             )
             self._transport.write(header + frame)
@@ -317,13 +323,13 @@ class APINoiseFrameHelper(APIFrameHelper):
         while len(self._buffer) >= 3:
             header = self._init_read(3)
             assert header is not None, "Buffer should have at least 3 bytes"
-            if header[0] != 0x01:
+            preamble, msg_size_high, msg_size_low = header
+            if preamble != 0x01:
                 self._handle_error_and_close(
                     ProtocolAPIError(f"Marker byte invalid: {header[0]}")
                 )
                 return
-            msg_size = (header[1] << 8) | header[2]
-            frame = self._read_exactly(msg_size)
+            frame = self._read_exactly((msg_size_high << 8) | msg_size_low)
 
             if frame is None:
                 return
@@ -421,6 +427,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Write a packet to the socket."""
         if self._state != NoiseConnectionState.READY:
             raise HandshakeAPIError("Noise connection is not ready")
+        data_len = len(data)
         self._write_frame(
             self._proto.encrypt(
                 (
@@ -428,8 +435,8 @@ class APINoiseFrameHelper(APIFrameHelper):
                         [
                             (type_ >> 8) & 0xFF,
                             (type_ >> 0) & 0xFF,
-                            (len(data) >> 8) & 0xFF,
-                            (len(data) >> 0) & 0xFF,
+                            (data_len >> 8) & 0xFF,
+                            (data_len >> 0) & 0xFF,
                         ]
                     )
                     + data
@@ -441,18 +448,19 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Handle an incoming frame."""
         assert self._proto is not None
         msg = self._proto.decrypt(bytes(frame))
-        if len(msg) < 4:
+        msg_len = len(msg)
+        if msg_len < 4:
             self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg}"))
             return
-        pkt_type = (msg[0] << 8) | msg[1]
-        data_len = (msg[2] << 8) | msg[3]
-        if data_len + 4 > len(msg):
+        pkg_type_high, pkg_type_low, data_len_high, data_len_low = msg[:4]
+        pkt_type = (pkg_type_high << 8) | pkg_type_low
+        data_len = (data_len_high << 8) | data_len_low
+        if data_len + 4 != msg_len:
             self._handle_error_and_close(
-                ProtocolAPIError(f"Bad data len: {data_len} vs {len(msg)}")
+                ProtocolAPIError(f"Bad data len: {data_len} vs {msg_len}")
             )
             return
-        data = msg[4 : 4 + data_len]
-        self._on_pkt(pkt_type, data)
+        self._on_pkt(pkt_type, msg[4:])
 
     def _handle_closed(  # pylint: disable=unused-argument
         self, frame: bytearray

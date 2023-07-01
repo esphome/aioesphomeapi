@@ -1,6 +1,6 @@
 import math
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, Union
 
 
 @lru_cache(maxsize=1024)
@@ -21,7 +21,7 @@ def varuint_to_bytes(value: int) -> bytes:
 
 
 @lru_cache(maxsize=1024)
-def bytes_to_varuint(value: bytes) -> Optional[int]:
+def bytes_to_varuint(value: Union[bytes, bytearray]) -> Optional[int]:
     result = 0
     bitpos = 0
     for val in value:
