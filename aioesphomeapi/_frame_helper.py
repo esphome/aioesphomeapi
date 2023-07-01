@@ -200,7 +200,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
             # If the we do not have the message type yet because the message
             # length was so long it did not fit into the first byte we need
-            # to read the rest of the message type
+            # to read the (rest) of the message type
             if msg_type_int is None:
                 while not msg_type or msg_type[-1] & 0x80 == 0x80:
                     add_msg_type = self._read_exactly(1)
