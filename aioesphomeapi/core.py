@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 from aioesphomeapi.model import BluetoothGATTError
 
@@ -191,12 +192,16 @@ class BadNameAPIError(APIConnectionError):
     """Raised when a name received from the remote but does not much the expected name."""
 
     def __init__(self, msg: str, received_name: str) -> None:
-        super().__init__(msg)
+        super().__init__(f"{msg}: received_name={received_name}")
         self.received_name = received_name
 
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
-    pass
+    def __init__(
+        self, msg: Optional[str] = None, received_name: Optional[str] = None
+    ) -> None:
+        super().__init__(f"{msg}: received_name={received_name}")
+        self.received_name = received_name
 
 
 class PingFailedAPIError(APIConnectionError):
