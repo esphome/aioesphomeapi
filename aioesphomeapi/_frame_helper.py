@@ -265,6 +265,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_state",
         "_server_name",
         "_proto",
+        "_decrypt",
     )
 
     def __init__(
@@ -281,6 +282,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._expected_name = expected_name
         self._state = NoiseConnectionState.HELLO
         self._server_name: Optional[str] = None
+        self._decrypt: Optional[Callable[[bytes, bytes], bytes]] = None
         self._setup_proto()
 
     def _set_ready_future_exception(self, exc: Exception) -> None:
@@ -409,6 +411,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._proto.set_psks(_decode_noise_psk(self._noise_psk, self._server_name))
         self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
         self._proto.start_handshake()
+        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad
 
     def _send_handshake(self) -> None:
         """Send the handshake message."""
@@ -466,7 +469,13 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
         assert self._proto is not None
-        msg = self._proto.decrypt(frame)
+        try:
+            msg = self._proto.decrypt(frame)
+        except InvalidTag as ex:
+            self._handle_error_and_close(
+                ProtocolAPIError(f"Bad encryption frame {ex}: {msg}")
+            )
+            return
         msg_len = len(msg)
         if msg_len < 4:
             self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg}"))
