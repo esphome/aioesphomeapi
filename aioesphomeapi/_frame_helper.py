@@ -156,6 +156,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # Also try to get the length and msg type
             # to avoid multiple calls to readexactly
             init_bytes = self._init_read(3)
+            msg_type_int: Optional[int] = None
             if TYPE_CHECKING:
                 assert init_bytes is not None, "Buffer should have at least 3 bytes"
             preamble, length_high, maybe_msg_type = init_bytes
@@ -183,12 +184,11 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     #
                     # Message type is also only 1 byte
                     #
-                    msg_type_int: Optional[int] = maybe_msg_type
+                    msg_type_int = maybe_msg_type
                 else:
                     #
                     # Message type is longer than 1 byte
                     #
-                    msg_type_int = None
                     msg_type = bytes(init_bytes[2:3])
             else:
                 #
@@ -202,7 +202,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                         return
                     length += add_length
                 length_int = bytes_to_varuint(length)
-                msg_type_int = None
                 msg_type = b""
 
             # If the we do not have the message type yet, read it
