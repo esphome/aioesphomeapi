@@ -446,14 +446,16 @@ class APINoiseFrameHelper(APIFrameHelper):
         _LOGGER.debug("Handshake complete")
         self._state = NoiseConnectionState.READY
         noise_protocol = self._proto.noise_protocol
-        self._decrypt = partial(noise_protocol.cipher_state_decrypt.decrypt_with_ad, None)  # type: ignore[no-member]
-        self._encrypt = partial(noise_protocol.cipher_state_encrypt.encrypt_with_ad, None)  # type: ignore[no-member]
+        self._decrypt = partial(noise_protocol.cipher_state_decrypt.decrypt_with_ad, None)
+        self._encrypt = partial(noise_protocol.cipher_state_encrypt.encrypt_with_ad, None)
         self._ready_future.set_result(None)
 
     def write_packet(self, type_: int, data: bytes) -> None:
         """Write a packet to the socket."""
         if self._state != NoiseConnectionState.READY:
             raise HandshakeAPIError("Noise connection is not ready")
+        if TYPE_CHECKING:
+            assert self._encrypt is not None, "Handshake should be complete"
         data_len = len(data)
         self._write_frame(
             self._encrypt(
@@ -471,7 +473,8 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
-        assert self._decrypt is not None, "Handshake should be complete"
+        if TYPE_CHECKING:
+            assert self._decrypt is not None, "Handshake should be complete"
         try:
             msg = self._decrypt(frame)
         except InvalidTag as ex:
