@@ -4,7 +4,7 @@ import logging
 from abc import abstractmethod
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
-
+from functools import partial
 import async_timeout
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
@@ -266,6 +266,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_server_name",
         "_proto",
         "_decrypt",
+        "_encrypt",
     )
 
     def __init__(
@@ -282,7 +283,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._expected_name = expected_name
         self._state = NoiseConnectionState.HELLO
         self._server_name: Optional[str] = None
-        self._decrypt: Optional[Callable[[bytes, bytes], bytes]] = None
+        self._decrypt: Optional[Callable[[Union[bytes, bytearray]], bytes]] = None
+        self._encrypt: Optional[Callable[[Union[bytes, bytearray]], bytes]] = None
         self._setup_proto()
 
     def _set_ready_future_exception(self, exc: Exception) -> None:
@@ -442,7 +444,9 @@ class APINoiseFrameHelper(APIFrameHelper):
             return
         _LOGGER.debug("Handshake complete")
         self._state = NoiseConnectionState.READY
-        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad  # type: ignore[no-member]
+        noise_protocol = self._proto.noise_protocol
+        self._decrypt = partial(noise_protocol.cipher_state_decrypt.decrypt_with_ad, None)  # type: ignore[no-member]
+        self._encrypt = partial(noise_protocol.cipher_state_encrypt.encrypt_with_ad, None)  # type: ignore[no-member]     
         self._ready_future.set_result(None)
 
     def write_packet(self, type_: int, data: bytes) -> None:
@@ -451,7 +455,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             raise HandshakeAPIError("Noise connection is not ready")
         data_len = len(data)
         self._write_frame(
-            self._proto.encrypt(
+            self._encrypt(
                 (
                     bytes(
                         [
