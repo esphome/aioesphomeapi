@@ -175,14 +175,14 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 # needing a single byte for length and type which means
                 # we avoid 2 calls to readexactly
                 length_int = length_high
-                if maybe_msg_type & 0x80 == 0x80:
-                    msg_type_int: Optional[int] = None
-                    msg_type = init_bytes[2:3]
-                else:
+                if maybe_msg_type & 0x80 != 0x80:
                     msg_type_int = maybe_msg_type
+                else:
+                    msg_type_int: Optional[int] = None
+                    msg_type = bytes(init_bytes[2:3])
             else:
                 # Length is longer than 1 byte
-                length = init_bytes[1:3]
+                length = bytes(init_bytes[1:3])
                 # If the message is long, we need to read the rest of the length
                 while length[-1] & 0x80 == 0x80:
                     add_length = self._read_exactly(1)
@@ -191,7 +191,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     length += add_length
                 length_int = bytes_to_varuint(length)
                 msg_type_int = None
-                msg_type = bytearray()
+                msg_type = b""
 
             # If the we do not have the message type yet, read it
             if msg_type_int is None:
