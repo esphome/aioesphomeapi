@@ -479,7 +479,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             msg = self._decrypt(frame)
         except InvalidTag as ex:
             self._handle_error_and_close(
-                ProtocolAPIError(f"Bad encryption frame: {ex}")
+                ProtocolAPIError(f"Bad encryption frame: {ex!r}")
             )
             return
         msg_len = len(msg)
