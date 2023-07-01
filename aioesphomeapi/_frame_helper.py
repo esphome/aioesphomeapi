@@ -335,7 +335,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._buffer += data
         while len(self._buffer) >= 3:
             header = self._init_read(3)
-            assert header is not None, "Buffer should have at least 3 bytes"
+            if TYPE_CHECKING:
+                assert header is not None, "Buffer should have at least 3 bytes"
             preamble, msg_size_high, msg_size_low = header
             if preamble != 0x01:
                 self._handle_error_and_close(
