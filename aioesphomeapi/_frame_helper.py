@@ -154,7 +154,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         while len(self._buffer) >= 3:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
-            # to avoid multiple calls to readexactly
+            # to avoid multiple calls to _read_exactly
             init_bytes = self._init_read(3)
             msg_type_int: Optional[int] = None
             length_int: Optional[int] = None
