@@ -284,8 +284,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._expected_name = expected_name
         self._state = NoiseConnectionState.HELLO
         self._server_name: Optional[str] = None
-        self._decrypt: Optional[Callable[[Union[bytes, bytearray]], bytes]] = None
-        self._encrypt: Optional[Callable[[Union[bytes, bytearray]], bytes]] = None
+        self._decrypt: Optional[Callable[[bytes], bytes]] = None
+        self._encrypt: Optional[Callable[[bytes], bytes]] = None
         self._setup_proto()
 
     def _set_ready_future_exception(self, exc: Exception) -> None:
