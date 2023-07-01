@@ -183,12 +183,12 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     #
                     # Message type is also only 1 byte
                     #
-                    msg_type_int = maybe_msg_type
+                    msg_type_int: Optional[int] = maybe_msg_type
                 else:
                     #
                     # Message type is longer than 1 byte
                     #
-                    msg_type_int: Optional[int] = None
+                    msg_type_int = None
                     msg_type = bytes(init_bytes[2:3])
             else:
                 #
