@@ -488,7 +488,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             return
         msg_len = len(msg)
         if msg_len < 4:
-            self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg}"))
+            self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg!r}"))
             return
         msg_type_high, msg_type_low, data_len_high, data_len_low = msg[:4]
         msg_type = (msg_type_high << 8) | msg_type_low
