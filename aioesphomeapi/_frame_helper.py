@@ -447,10 +447,12 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._state = NoiseConnectionState.READY
         noise_protocol = self._proto.noise_protocol
         self._decrypt = partial(
-            noise_protocol.cipher_state_decrypt.decrypt_with_ad, None
+            noise_protocol.cipher_state_decrypt.decrypt_with_ad,
+            None,  # pylint: disable=no-member
         )
         self._encrypt = partial(
-            noise_protocol.cipher_state_encrypt.encrypt_with_ad, None
+            noise_protocol.cipher_state_encrypt.encrypt_with_ad,
+            None,  # pylint: disable=no-member
         )
         self._ready_future.set_result(None)
 
