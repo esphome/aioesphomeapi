@@ -466,7 +466,7 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
         assert self._proto is not None
-        msg = self._proto.decrypt(bytes(frame))
+        msg = self._proto.decrypt(frame)
         msg_len = len(msg)
         if msg_len < 4:
             self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg}"))
