@@ -411,11 +411,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._proto.set_psks(_decode_noise_psk(self._noise_psk, self._server_name))
         self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
         self._proto.start_handshake()
-        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad
 
     def _send_handshake(self) -> None:
         """Send the handshake message."""
         self._write_frame(b"\x00" + self._proto.write_message())
+        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad
 
     def _handle_handshake(self, msg: bytearray) -> None:
         _LOGGER.debug("Starting handshake...")
@@ -468,7 +468,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
-        assert self._proto is not None
+        assert self._decrypt is not None, "Handshake should be complete"
         try:
             msg = self._decrypt(frame)
         except InvalidTag as ex:
