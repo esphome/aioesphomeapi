@@ -191,7 +191,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     length += add_length
                 length_int = bytes_to_varuint(length)
                 msg_type_int = None
-                msg_type = b""
+                msg_type = bytearray()
 
             # If the we do not have the message type yet, read it
             if msg_type_int is None:
