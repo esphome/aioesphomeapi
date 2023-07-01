@@ -415,7 +415,6 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _send_handshake(self) -> None:
         """Send the handshake message."""
         self._write_frame(b"\x00" + self._proto.write_message())
-        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad # type: ignore[no-member]
 
     def _handle_handshake(self, msg: bytearray) -> None:
         _LOGGER.debug("Starting handshake...")
@@ -443,6 +442,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             return
         _LOGGER.debug("Handshake complete")
         self._state = NoiseConnectionState.READY
+        self._decrypt = self._proto.noise_protocol.cipher_state_decrypt.decrypt_with_ad  # type: ignore[no-member]
         self._ready_future.set_result(None)
 
     def write_packet(self, type_: int, data: bytes) -> None:
