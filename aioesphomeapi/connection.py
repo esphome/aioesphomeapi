@@ -115,6 +115,28 @@ class APIConnection:
     a new instance should be established.
     """
 
+    __slots__ = (
+        "_params",
+        "on_stop",
+        "_on_stop_task",
+        "_socket",
+        "_frame_helper",
+        "_api_version",
+        "_connection_state",
+        "_is_authenticated",
+        "_connect_complete",
+        "_message_handlers",
+        "log_name",
+        "_read_exception_handlers",
+        "_ping_timer",
+        "_pong_timer",
+        "_keep_alive_interval",
+        "_keep_alive_timeout",
+        "_connect_task",
+        "_fatal_exception",
+        "_expected_disconnect",
+    )
+
     def __init__(
         self,
         params: ConnectionParams,
