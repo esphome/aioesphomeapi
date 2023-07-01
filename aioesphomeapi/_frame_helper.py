@@ -219,6 +219,11 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 continue
 
             packet_data = self._read_exactly(length_int)
+            # The packet data is not yet available, wait for more data
+            # to arrive before continuing, since callback_packet has not
+            # been called yet the buffer will not be cleared and the next
+            # call to data_received will continue processing the packet
+            # at the start of the frame.
             if packet_data is None:
                 return
 
