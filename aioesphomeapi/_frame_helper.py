@@ -152,15 +152,15 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
         self._buffer += data
-        while len(self._buffer) >= 3:
+        while self._buffer:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
             # to avoid multiple calls to _read_exactly
             init_bytes = self._init_read(3)
+            if init_bytes is None:
+                return
             msg_type_int: Optional[int] = None
             length_int: Optional[int] = None
-            if TYPE_CHECKING:
-                assert init_bytes is not None, "Buffer should have at least 3 bytes"
             preamble, length_high, maybe_msg_type = init_bytes
             if preamble != 0x00:
                 if preamble == 0x01:
@@ -339,10 +339,10 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
-        while len(self._buffer) >= 3:
+        while self._buffer:
             header = self._init_read(3)
-            if TYPE_CHECKING:
-                assert header is not None, "Buffer should have at least 3 bytes"
+            if header is None:
+                return
             preamble, msg_size_high, msg_size_low = header
             if preamble != 0x01:
                 self._handle_error_and_close(
