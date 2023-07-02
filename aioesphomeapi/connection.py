@@ -679,8 +679,12 @@ class APIConnection:
 
     def _process_packet(self, msg_type_proto: int, data: bytes) -> None:
         """Process a packet from the socket."""
+        debug = _LOGGER.isEnabledFor(logging.DEBUG)
         if not (class_ := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)):
-            _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type_proto)
+            if debug:
+                _LOGGER.debug(
+                    "%s: Skipping message type %s", self.log_name, msg_type_proto
+                )
             return
 
         msg = class_()
@@ -707,7 +711,10 @@ class APIConnection:
 
         msg_type = type(msg)
 
-        _LOGGER.debug("%s: Got message of type %s: %s", self.log_name, msg_type, msg)
+        if debug:
+            _LOGGER.debug(
+                "%s: Got message of type %s: %s", self.log_name, msg_type, msg
+            )
 
         if self._pong_timer:
             # Any valid message from the remote cancels the pong timer
