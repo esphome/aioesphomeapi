@@ -43,6 +43,19 @@ PREAMBLE = b"\x00"
             (b"\x42" * 256),
             256,
         ),
+        (
+            PREAMBLE + varuint_to_bytes(1) + varuint_to_bytes(32768) + b"\x42",
+            b"\x42",
+            32768,
+        ),
+        (
+            PREAMBLE
+            + varuint_to_bytes(32768)
+            + varuint_to_bytes(32768)
+            + (b"\x42" * 32768),
+            (b"\x42" * 32768),
+            32768,
+        ),
     ],
 )
 async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
