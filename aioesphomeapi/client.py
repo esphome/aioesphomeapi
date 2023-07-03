@@ -206,6 +206,13 @@ ExecuteServiceDataType = Dict[
 
 # pylint: disable=too-many-public-methods
 class APIClient:
+    __slots__ = (
+        "_params",
+        "_connection",
+        "_cached_name",
+        "_background_tasks",
+    )
+
     def __init__(
         self,
         address: str,

@@ -33,7 +33,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         *,
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
-        on_disconnect: Callable[[], Awaitable[None]],
+        on_disconnect: Callable[[bool], Awaitable[None]],
         zeroconf_instance: "zeroconf.Zeroconf",
         name: Optional[str] = None,
         on_connect_error: Optional[Callable[[Exception], Awaitable[None]]] = None,
@@ -86,7 +86,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
 
         # Run disconnect hook
-        await self._on_disconnect_cb()
+        await self._on_disconnect_cb(expected_disconnect)
 
         async with self._connected_lock:
             self._connected = False

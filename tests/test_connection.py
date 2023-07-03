@@ -1,5 +1,6 @@
 import asyncio
 import socket
+from typing import Optional
 
 import pytest
 from mock import MagicMock, patch
@@ -63,13 +64,39 @@ def _get_mock_protocol(conn: APIConnection):
 @pytest.mark.asyncio
 async def test_connect(conn, resolve_host, socket_socket, event_loop):
     loop = asyncio.get_event_loop()
-    protocol = _get_mock_protocol(conn)
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
     with patch.object(event_loop, "sock_connect"), patch.object(
-        loop, "create_connection", return_value=(MagicMock(), protocol)
-    ), patch.object(conn, "_connect_start_ping"), patch.object(
-        conn, "send_message_await_response", return_value=HelloResponse()
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        await conn.connect(login=False)
+        connect_task = asyncio.create_task(conn.connect(login=False))
+        await connected.wait()
+        protocol.data_received(
+            bytes.fromhex(
+                "003602080110091a216d6173746572617672656c61792028657"
+                "370686f6d652076323032332e362e3329220d6d617374657261"
+                "7672656c6179"
+            )
+        )
+        protocol.data_received(
+            bytes.fromhex(
+                "005b0a120d6d6173746572617672656c61791a1130383a33413a"
+                "46323a33453a35453a36302208323032332e362e332a154a756e"
+                "20323820323032332c2031383a31323a3236320965737033322d"
+                "65766250506209457370726573736966"
+            )
+        )
+
+        await connect_task
 
     assert conn.is_connected
 
@@ -99,6 +126,16 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
     loop = asyncio.get_event_loop()
     protocol = _get_mock_protocol(conn)
     messages = []
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
 
     def on_msg(msg):
         messages.append(msg)
@@ -106,13 +143,11 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
     remove = conn.add_message_callback(on_msg, {HelloResponse, DeviceInfoResponse})
     transport = MagicMock()
 
-    with patch.object(conn, "_connect_hello"), patch.object(
-        loop, "sock_connect"
-    ), patch.object(loop, "create_connection") as create_connection, patch.object(
-        protocol, "perform_handshake"
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        create_connection.return_value = (transport, protocol)
-        await conn.connect(login=False)
+        connect_task = asyncio.create_task(conn.connect(login=False))
+        await connected.wait()
 
     protocol.data_received(
         b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
@@ -127,6 +162,7 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
         b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
     )
     await asyncio.sleep(0)
+    await connect_task
     assert conn.is_connected
     assert len(messages) == 2
     assert isinstance(messages[0], HelloResponse)

@@ -115,6 +115,28 @@ class APIConnection:
     a new instance should be established.
     """
 
+    __slots__ = (
+        "_params",
+        "on_stop",
+        "_on_stop_task",
+        "_socket",
+        "_frame_helper",
+        "_api_version",
+        "_connection_state",
+        "_is_authenticated",
+        "_connect_complete",
+        "_message_handlers",
+        "log_name",
+        "_read_exception_handlers",
+        "_ping_timer",
+        "_pong_timer",
+        "_keep_alive_interval",
+        "_keep_alive_timeout",
+        "_connect_task",
+        "_fatal_exception",
+        "_expected_disconnect",
+    )
+
     def __init__(
         self,
         params: ConnectionParams,
@@ -657,8 +679,12 @@ class APIConnection:
 
     def _process_packet(self, msg_type_proto: int, data: bytes) -> None:
         """Process a packet from the socket."""
+        debug = _LOGGER.isEnabledFor(logging.DEBUG)
         if not (class_ := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)):
-            _LOGGER.debug("%s: Skipping message type %s", self.log_name, msg_type_proto)
+            if debug:
+                _LOGGER.debug(
+                    "%s: Skipping message type %s", self.log_name, msg_type_proto
+                )
             return
 
         msg = class_()
@@ -685,7 +711,10 @@ class APIConnection:
 
         msg_type = type(msg)
 
-        _LOGGER.debug("%s: Got message of type %s: %s", self.log_name, msg_type, msg)
+        if debug:
+            _LOGGER.debug(
+                "%s: Got message of type %s: %s", self.log_name, msg_type, msg
+            )
 
         if self._pong_timer:
             # Any valid message from the remote cancels the pong timer
