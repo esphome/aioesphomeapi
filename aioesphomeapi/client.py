@@ -423,7 +423,7 @@ class APIClient:
                 data_parts.append(memoryview(msg.data))
                 if msg.done:
                     # Return CameraState with the merged data
-                    on_state(CameraState(key=msg.key, data=bytes.join(data_parts)))
+                    on_state(CameraState(key=msg.key, data=bytes().join(data_parts)))
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
