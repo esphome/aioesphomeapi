@@ -413,7 +413,7 @@ class APIClient:
             cls = response_types.get(msg_type)
             if cls:
                 on_state(cls.from_pb(msg))
-            elif type(msg) is CameraImageResponse:
+            elif msg_type is CameraImageResponse:
                 msg_key = msg.key
                 data_parts: Optional[List[memoryview]] = image_stream.get(msg_key)
                 if not data_parts:
