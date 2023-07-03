@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -389,7 +390,7 @@ class APIClient:
 
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         self._check_authenticated()
-        image_stream: Dict[int, bytes] = {}
+        image_stream: Dict[int, list[memoryview]] = {}
         response_types: Dict[Any, Type[EntityState]] = {
             BinarySensorStateResponse: BinarySensorState,
             CoverStateResponse: CoverState,
@@ -413,13 +414,21 @@ class APIClient:
             cls = response_types.get(msg_type)
             if cls:
                 on_state(cls.from_pb(msg))
-            elif isinstance(msg, CameraImageResponse):
-                data = image_stream.pop(msg.key, bytes()) + msg.data
+            elif msg_type is CameraImageResponse:
+                if TYPE_CHECKING:
+                    assert isinstance(msg, CameraImageResponse)
+                msg_key = msg.key
+                data_parts: Optional[List[memoryview]] = image_stream.get(msg_key)
+                if not data_parts:
+                    data_parts = []
+                    image_stream[msg_key] = data_parts
+
+                data_parts.append(memoryview(msg.data))
                 if msg.done:
                     # Return CameraState with the merged data
-                    on_state(CameraState(key=msg.key, data=data))
-                else:
-                    image_stream[msg.key] = data
+                    image_data = bytes().join(data_parts)
+                    del image_stream[msg_key]
+                    on_state(CameraState(key=msg.key, data=image_data))
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
