@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -414,6 +415,8 @@ class APIClient:
             if cls:
                 on_state(cls.from_pb(msg))
             elif msg_type is CameraImageResponse:
+                if TYPE_CHECKING:
+                    assert isinstance(msg, CameraImageResponse)
                 msg_key = msg.key
                 data_parts: Optional[List[memoryview]] = image_stream.get(msg_key)
                 if not data_parts:
