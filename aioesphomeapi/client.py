@@ -417,13 +417,15 @@ class APIClient:
                 msg_key = msg.key
                 data_parts: Optional[List[memoryview]] = image_stream.get(msg_key)
                 if not data_parts:
-                    data_parts: list[memoryview] = []
+                    data_parts = []
                     image_stream[msg_key] = data_parts
 
                 data_parts.append(memoryview(msg.data))
                 if msg.done:
                     # Return CameraState with the merged data
-                    on_state(CameraState(key=msg.key, data=bytes().join(data_parts)))
+                    image_data = bytes().join(data_parts)
+                    del image_stream[msg_key]
+                    on_state(CameraState(key=msg.key, data=image_data))
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
