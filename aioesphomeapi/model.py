@@ -30,8 +30,10 @@ else:
     _frozen_dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
         frozen=True, slots=True
     )
-    _frozen_ordered_dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
-        frozen=True, order=True, slots=True
+    _frozen_ordered_dataclass_decorator = (
+        dataclass(  # pylint: disable=unexpected-keyword-arg
+            frozen=True, order=True, slots=True
+        )
     )
 
 if TYPE_CHECKING:
