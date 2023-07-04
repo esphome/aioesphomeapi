@@ -139,7 +139,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         """
         assert self._transport is not None, "Transport should be set"
         data = b"\0" + varuint_to_bytes(len(data)) + varuint_to_bytes(type_) + data
-        _LOGGER.debug("Sending plaintext frame %s", data.hex())
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug("Sending plaintext frame %s", data.hex())
 
         try:
             self._transport.write(data)
