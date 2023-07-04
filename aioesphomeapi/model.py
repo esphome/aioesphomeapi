@@ -86,7 +86,7 @@ class APIModelBase:
             super().__setattr__(field_.name, convert(val))
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return asdict(self) # type: ignore[no-any-return, call-overload]
 
     @classmethod
     def from_dict(
