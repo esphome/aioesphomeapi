@@ -22,7 +22,6 @@ from .util import fix_float_single_double_conversion
 if sys.version_info[:2] < (3, 10):
     _dataclass_decorator = dataclass()
     _frozen_dataclass_decorator = dataclass(frozen=True)
-    _frozen_ordered_dataclass_decorator = dataclass(frozen=True, order=True)
 else:
     _dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
         slots=True
@@ -30,11 +29,7 @@ else:
     _frozen_dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
         frozen=True, slots=True
     )
-    _frozen_ordered_dataclass_decorator = (
-        dataclass(  # pylint: disable=unexpected-keyword-arg
-            frozen=True, order=True, slots=True
-        )
-    )
+
 
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
@@ -115,7 +110,7 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     return cast(_V, field(metadata=metadata, **kwargs))
 
 
-@_frozen_ordered_dataclass_decorator
+@dataclass(frozen=True, order=True)
 class APIVersion(APIModelBase):
     major: int = 0
     minor: int = 0
