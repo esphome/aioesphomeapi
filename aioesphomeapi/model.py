@@ -21,9 +21,13 @@ from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
     _dataclass_decorator = dataclass()
+    _frozen_dataclass_decorator = dataclass(frozen=True)
 else:
     _dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
         slots=True
+    )
+    _frozen_dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
+        frozen=True, slots=True
     )
 
 if TYPE_CHECKING:
@@ -69,7 +73,7 @@ class APIIntEnum(enum.IntEnum):
 cached_fields = cache(fields)
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class APIModelBase:
     def __post_init__(self) -> None:
         for field_ in cached_fields(type(self)):  # type: ignore[arg-type]
@@ -105,7 +109,7 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     return cast(_V, field(metadata=metadata, **kwargs))
 
 
-@dataclass(frozen=True, order=True)
+@_frozen_dataclass_decorator
 class APIVersion(APIModelBase):
     major: int = 0
     minor: int = 0
@@ -124,7 +128,7 @@ class BluetoothProxySubscriptionFlag(enum.IntFlag):
     RAW_ADVERTISEMENTS = 1 << 0
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
     name: str = ""
@@ -165,7 +169,7 @@ class EntityCategory(APIIntEnum):
     DIAGNOSTIC = 2
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class EntityInfo(APIModelBase):
     object_id: str = ""
     key: int = 0
@@ -178,26 +182,26 @@ class EntityInfo(APIModelBase):
     )
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class EntityState(APIModelBase):
     key: int = 0
 
 
 # ==================== BINARY SENSOR ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BinarySensorInfo(EntityInfo):
     device_class: str = ""
     is_status_binary_sensor: bool = False
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BinarySensorState(EntityState):
     state: bool = False
     missing_state: bool = False
 
 
 # ==================== COVER ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class CoverInfo(EntityInfo):
     assumed_state: bool = False
     supports_stop: bool = False
@@ -223,7 +227,7 @@ class CoverOperation(APIIntEnum):
     IS_CLOSING = 2
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class CoverState(EntityState):
     legacy_state: Optional[LegacyCoverState] = converter_field(
         default=LegacyCoverState.OPEN, converter=LegacyCoverState.convert
@@ -245,7 +249,7 @@ class CoverState(EntityState):
 
 
 # ==================== FAN ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class FanInfo(EntityInfo):
     supports_oscillation: bool = False
     supports_speed: bool = False
@@ -264,7 +268,7 @@ class FanDirection(APIIntEnum):
     REVERSE = 1
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class FanState(EntityState):
     state: bool = False
     oscillating: bool = False
@@ -287,7 +291,7 @@ class LightColorCapability(enum.IntFlag):
     RGB = 1 << 5
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class LightInfo(EntityInfo):
     supported_color_modes: List[int] = converter_field(
         default_factory=list, converter=list
@@ -357,7 +361,7 @@ class LightInfo(EntityInfo):
         return self.supported_color_modes
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class LightState(EntityState):
     state: bool = False
     brightness: float = converter_field(
@@ -405,7 +409,7 @@ class LastResetType(APIIntEnum):
     AUTO = 2
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SensorInfo(EntityInfo):
     device_class: str = ""
     unit_of_measurement: str = ""
@@ -419,43 +423,43 @@ class SensorInfo(EntityInfo):
     )
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SensorState(EntityState):
     state: float = 0.0
     missing_state: bool = False
 
 
 # ==================== SWITCH ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SwitchInfo(EntityInfo):
     assumed_state: bool = False
     device_class: str = ""
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SwitchState(EntityState):
     state: bool = False
 
 
 # ==================== TEXT SENSOR ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class TextSensorInfo(EntityInfo):
     pass
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class TextSensorState(EntityState):
     state: str = ""
     missing_state: bool = False
 
 
 # ==================== CAMERA ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class CameraInfo(EntityInfo):
     pass
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class CameraState(EntityState):
     data: bytes = field(default_factory=bytes)
 
@@ -511,7 +515,7 @@ class ClimatePreset(APIIntEnum):
     ACTIVITY = 7
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class ClimateInfo(EntityInfo):
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
@@ -558,7 +562,7 @@ class ClimateInfo(EntityInfo):
         return self.supported_presets
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class ClimateState(EntityState):
     mode: Optional[ClimateMode] = converter_field(
         default=ClimateMode.OFF, converter=ClimateMode.convert
@@ -604,7 +608,7 @@ class NumberMode(APIIntEnum):
     SLIDER = 2
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class NumberInfo(EntityInfo):
     min_value: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
@@ -622,7 +626,7 @@ class NumberInfo(EntityInfo):
     device_class: str = ""
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class NumberState(EntityState):
     state: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
@@ -631,32 +635,32 @@ class NumberState(EntityState):
 
 
 # ==================== SELECT ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
     options: List[str] = converter_field(default_factory=list, converter=list)
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SelectState(EntityState):
     state: str = ""
     missing_state: bool = False
 
 
 # ==================== SIREN ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SirenInfo(EntityInfo):
     tones: List[str] = converter_field(default_factory=list, converter=list)
     supports_volume: bool = False
     supports_duration: bool = False
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class SirenState(EntityState):
     state: bool = False
 
 
 # ==================== BUTTON ====================
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class ButtonInfo(EntityInfo):
     device_class: str = ""
 
@@ -677,7 +681,7 @@ class LockCommand(APIIntEnum):
     OPEN = 2
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class LockInfo(EntityInfo):
     supports_open: bool = False
     assumed_state: bool = False
@@ -686,7 +690,7 @@ class LockInfo(EntityInfo):
     code_format: str = ""
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class LockEntityState(EntityState):
     state: Optional[LockState] = converter_field(
         default=LockState.NONE, converter=LockState.convert
@@ -709,12 +713,12 @@ class MediaPlayerCommand(APIIntEnum):
     UNMUTE = 4
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class MediaPlayerEntityState(EntityState):
     state: Optional[MediaPlayerState] = converter_field(
         default=MediaPlayerState.NONE, converter=MediaPlayerState.convert
@@ -749,14 +753,14 @@ class AlarmControlPanelCommand(APIIntEnum):
     TRIGGER = 6
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class AlarmControlPanelInfo(EntityInfo):
     supported_features: int = 0
     requires_code: bool = False
     requires_code_to_arm: bool = False
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class AlarmControlPanelEntityState(EntityState):
     state: Optional[AlarmControlPanelState] = converter_field(
         default=AlarmControlPanelState.DISARMED,
@@ -796,7 +800,7 @@ def _convert_homeassistant_service_map(
     return {v.key: v.value for v in value}  # type: ignore
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class HomeassistantServiceCall(APIModelBase):
     service: str = ""
     is_event: bool = False
@@ -822,7 +826,7 @@ class UserServiceArgType(APIIntEnum):
     STRING_ARRAY = 7
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class UserServiceArg(APIModelBase):
     name: str = ""
     type: Optional[UserServiceArgType] = converter_field(
@@ -842,7 +846,7 @@ class UserServiceArg(APIModelBase):
         return ret
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class UserService(APIModelBase):
     name: str = ""
     key: int = 0
@@ -954,7 +958,7 @@ class BluetoothLERawAdvertisements:
         )
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothDeviceConnection(APIModelBase):
     address: int = 0
     connected: bool = False
@@ -962,28 +966,28 @@ class BluetoothDeviceConnection(APIModelBase):
     error: int = 0
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothDevicePairing(APIModelBase):
     address: int = 0
     paired: bool = False
     error: int = 0
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothDeviceUnpairing(APIModelBase):
     address: int = 0
     success: bool = False
     error: int = 0
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothDeviceClearCache(APIModelBase):
     address: int = 0
     success: bool = False
     error: int = 0
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothGATTRead(APIModelBase):
     address: int = 0
     handle: int = 0
@@ -991,7 +995,7 @@ class BluetoothGATTRead(APIModelBase):
     data: bytes = field(default_factory=bytes)
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothGATTDescriptor(APIModelBase):
     uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
@@ -1007,7 +1011,7 @@ class BluetoothGATTDescriptor(APIModelBase):
         return ret
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothGATTCharacteristic(APIModelBase):
     uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
@@ -1028,7 +1032,7 @@ class BluetoothGATTCharacteristic(APIModelBase):
         return ret
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothGATTService(APIModelBase):
     uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
@@ -1047,7 +1051,7 @@ class BluetoothGATTService(APIModelBase):
         return ret
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothGATTServices(APIModelBase):
     address: int = 0
     services: List[BluetoothGATTService] = converter_field(
@@ -1055,19 +1059,19 @@ class BluetoothGATTServices(APIModelBase):
     )
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class ESPHomeBluetoothGATTServices:
     address: int = 0
     services: List[BluetoothGATTService] = field(default_factory=list)
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothConnectionsFree(APIModelBase):
     free: int = 0
     limit: int = 0
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class BluetoothGATTError(APIModelBase):
     address: int = 0
     handle: int = 0
@@ -1084,7 +1088,7 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CLEAR_CACHE = 6
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class VoiceAssistantCommand(APIModelBase):
     start: bool = False
     conversation_id: str = ""
