@@ -134,7 +134,6 @@ from .model import (
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
     BluetoothLERawAdvertisement,
-    BluetoothLERawAdvertisements,
     BluetoothProxyFeature,
     BluetoothProxySubscriptionFlag,
     ButtonInfo,
