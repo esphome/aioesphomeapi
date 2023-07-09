@@ -490,8 +490,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
             return
         msg_type_high, msg_type_low = msg[:2]
-        msg_type = (msg_type_high << 8) | msg_type_low
-        self._on_pkt(msg_type, msg[4:])
+        self._on_pkt((msg_type_high << 8) | msg_type_low, msg[4:])
 
     def _handle_closed(  # pylint: disable=unused-argument
         self, frame: bytearray
