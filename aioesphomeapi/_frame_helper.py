@@ -489,8 +489,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 ProtocolAPIError(f"Bad encryption frame: {ex!r}")
             )
             return
-        msg_type_high, msg_type_low = msg[:2]
-        self._on_pkt((msg_type_high << 8) | msg_type_low, msg[4:])
+        self._on_pkt((msg[0] << 8) | msg[1], msg[4:])
 
     def _handle_closed(  # pylint: disable=unused-argument
         self, frame: bytearray
