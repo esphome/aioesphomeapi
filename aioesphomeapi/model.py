@@ -944,14 +944,24 @@ class BluetoothLERawAdvertisements:
         cls: "BluetoothLERawAdvertisements",
         data: "BluetoothLERawAdvertisementsResponse",
     ) -> "BluetoothLERawAdvertisements":
+        """Convert BluetoothLERawAdvertisementResponse to BluetoothLERawAdvertisements."""
         return cls(  # type: ignore[operator, no-any-return]
-            advertisements=[
-                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
-                    adv.address, adv.rssi, adv.address_type, adv.data
-                )
-                for adv in data.advertisements
-            ]
+            advertisements=ble_raw_advertisement_response_to_ble_raw_advertisements(
+                data
+            )
         )
+
+
+def ble_raw_advertisement_response_to_ble_raw_advertisements(
+    data: "BluetoothLERawAdvertisementsResponse",
+) -> List[BluetoothLERawAdvertisements]:
+    """Convert BluetoothLERawAdvertisementResponse to a list of BluetoothLERawAdvertisement."""
+    return [
+        BluetoothLERawAdvertisement(  # type: ignore[call-arg]
+            adv.address, adv.rssi, adv.address_type, adv.data
+        )
+        for adv in data.advertisements
+    ]
 
 
 @dataclass(frozen=True)

@@ -183,6 +183,7 @@ from .model import (
     UserServiceArgType,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
+    ble_raw_advertisement_response_to_ble_raw_advertisements,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -527,7 +528,7 @@ class APIClient:
         msg_types = (BluetoothLERawAdvertisementsResponse,)
 
         def on_msg(msg: BluetoothLERawAdvertisementsResponse) -> None:
-            on_advertisements(BluetoothLERawAdvertisements.from_pb(msg).advertisements)  # type: ignore[misc]
+            on_advertisements(ble_raw_advertisement_response_to_ble_raw_advertisements(msg))  # type: ignore[misc]
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
