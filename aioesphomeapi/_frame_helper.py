@@ -489,18 +489,8 @@ class APINoiseFrameHelper(APIFrameHelper):
                 ProtocolAPIError(f"Bad encryption frame: {ex!r}")
             )
             return
-        msg_len = len(msg)
-        if msg_len < 4:
-            self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg!r}"))
-            return
-        msg_type_high, msg_type_low, data_len_high, data_len_low = msg[:4]
+        msg_type_high, msg_type_low = msg[:2]
         msg_type = (msg_type_high << 8) | msg_type_low
-        data_len = (data_len_high << 8) | data_len_low
-        if data_len + 4 != msg_len:
-            self._handle_error_and_close(
-                ProtocolAPIError(f"Bad data len: {data_len} vs {msg_len}")
-            )
-            return
         self._on_pkt(msg_type, msg[4:])
 
     def _handle_closed(  # pylint: disable=unused-argument
