@@ -59,6 +59,7 @@ class APIFrameHelper(asyncio.Protocol):
         "_transport",
         "_connected_event",
         "_buffer",
+        "_buffer_len",
         "_pos",
     )
 
@@ -73,6 +74,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._transport: Optional[asyncio.Transport] = None
         self._connected_event = asyncio.Event()
         self._buffer = bytearray()
+        self._buffer_len = 0
         self._pos = 0
 
     def _init_read(self, length: int) -> Optional[bytearray]:
@@ -84,7 +86,7 @@ class APIFrameHelper(asyncio.Protocol):
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
-        if len(self._buffer) < new_pos:
+        if self._buffer_len < new_pos:
             return None
         self._pos = new_pos
         return self._buffer[original_pos:new_pos]
@@ -129,6 +131,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
         """Complete reading a packet from the buffer."""
         del self._buffer[: self._pos]
+        self._buffer_len -= self._pos
         self._on_pkt(type_, data)
 
     def write_packet(self, type_: int, data: bytes) -> None:
@@ -153,10 +156,12 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
         self._buffer += data
+        self._buffer_len += len(data)
         while self._buffer:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
             # to avoid multiple calls to _read_exactly
+            frame_start_pos = self._pos
             init_bytes = self._init_read(3)
             if init_bytes is None:
                 return
@@ -193,6 +198,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 while length[-1] & 0x80 == 0x80:
                     add_length = self._read_exactly(1)
                     if add_length is None:
+                        # The complete length is not yet available, wait for more data
+                        # and reset the buffer to the start of the frame
+                        frame_start_pos = self._pos
                         return
                     length += add_length
                 length_int = bytes_to_varuint(length)
@@ -207,6 +215,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 while not msg_type or msg_type[-1] & 0x80 == 0x80:
                     add_msg_type = self._read_exactly(1)
                     if add_msg_type is None:
+                        # The complete length is not yet available, wait for more data
+                        # and reset the buffer to the start of the frame
+                        frame_start_pos = self._pos
                         return
                     msg_type += add_msg_type
                 msg_type_int = bytes_to_varuint(msg_type)
@@ -227,6 +238,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # call to data_received will continue processing the packet
             # at the start of the frame.
             if packet_data is None:
+                # The complete length is not yet available, wait for more data
+                # and reset the buffer to the start of the frame
+                frame_start_pos = self._pos
                 return
 
             self._callback_packet(msg_type_int, bytes(packet_data))
@@ -340,7 +354,9 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
+        self._buffer_len += len(data)
         while self._buffer:
+            frame_start_pos = self._pos
             header = self._init_read(3)
             if header is None:
                 return
@@ -357,6 +373,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             # call to data_received will continue processing the packet
             # at the start of the frame.
             if frame is None:
+                frame_start_pos = self._pos
                 return
 
             try:
@@ -365,6 +382,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 self._handle_error_and_close(err)
             finally:
                 del self._buffer[: self._pos]
+                self._buffer_len -= self._pos
 
     def _send_hello(self) -> None:
         """Send a ClientHello to the server."""
