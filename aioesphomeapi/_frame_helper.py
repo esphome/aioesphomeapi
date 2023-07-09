@@ -164,8 +164,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             frame_start_pos = self._pos
             init_bytes = self._init_read(3)
             if init_bytes is None:
-                # No need to reset self._pos since
-                # it was not changed by _init_read
                 return
             msg_type_int: Optional[int] = None
             length_int: Optional[int] = None
@@ -200,9 +198,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 while length[-1] & 0x80 == 0x80:
                     add_length = self._read_exactly(1)
                     if add_length is None:
-                        # The complete length is not yet available, wait for more data
-                        # and reset the buffer to the start of the frame
-                        self._pos = frame_start_pos
                         return
                     length += add_length
                 length_int = bytes_to_varuint(length)
@@ -217,9 +212,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 while not msg_type or msg_type[-1] & 0x80 == 0x80:
                     add_msg_type = self._read_exactly(1)
                     if add_msg_type is None:
-                        # The complete length is not yet available, wait for more data
-                        # and reset the buffer to the start of the frame
-                        self._pos = frame_start_pos
                         return
                     msg_type += add_msg_type
                 msg_type_int = bytes_to_varuint(msg_type)
@@ -240,9 +232,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # call to data_received will continue processing the packet
             # at the start of the frame.
             if packet_data is None:
-                # The complete length is not yet available, wait for more data
-                # and reset the buffer to the start of the frame
-                self._pos = frame_start_pos
                 return
 
             self._callback_packet(msg_type_int, bytes(packet_data))
@@ -358,11 +347,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._buffer += data
         self._buffer_len += len(data)
         while self._buffer:
-            frame_start_pos = self._pos
             header = self._init_read(3)
             if header is None:
-                # No need to reset self._pos since
-                # it was not changed by _init_read
                 return
             preamble, msg_size_high, msg_size_low = header
             if preamble != 0x01:
@@ -377,7 +363,6 @@ class APINoiseFrameHelper(APIFrameHelper):
             # call to data_received will continue processing the packet
             # at the start of the frame.
             if frame is None:
-                self._pos = frame_start_pos
                 return
 
             try:
