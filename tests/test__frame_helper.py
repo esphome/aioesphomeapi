@@ -59,7 +59,7 @@ PREAMBLE = b"\x00"
     ],
 )
 async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
-    for _ in range(5):
+    for _ in range(3):
         packets = []
 
         def _packet(type_: int, data: bytes):
@@ -71,6 +71,16 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
         helper = APIPlaintextFrameHelper(on_pkt=_packet, on_error=_on_error)
 
         helper.data_received(in_bytes)
+
+        pkt = packets.pop()
+        type_, data = pkt
+
+        assert type_ == pkt_type
+        assert data == pkt_data
+
+        # Make sure we correctly handle fragments
+        for i in range(len(in_bytes)):
+            helper.data_received(in_bytes[i : i + 1])
 
         pkt = packets.pop()
         type_, data = pkt
@@ -112,6 +122,46 @@ async def test_noise_frame_helper_incorrect_key():
     with pytest.raises(InvalidEncryptionKeyAPIError):
         for pkt in incoming_packets:
             helper.data_received(bytes.fromhex(pkt))
+
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        await helper.perform_handshake()
+
+
+@pytest.mark.asyncio
+async def test_noise_frame_helper_incorrect_key_fragments():
+    """Test that the noise frame helper raises InvalidEncryptionKeyAPIError on bad key with fragmented packets."""
+    outgoing_packets = [
+        "010000",  # hello packet
+        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
+    ]
+    incoming_packets = [
+        "01000d01736572766963657465737400",
+        "0100160148616e647368616b65204d4143206661696c757265",
+    ]
+    packets = []
+
+    def _packet(type_: int, data: bytes):
+        packets.append((type_, data))
+
+    def _on_error(exc: Exception):
+        raise exc
+
+    helper = APINoiseFrameHelper(
+        on_pkt=_packet,
+        on_error=_on_error,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+    )
+    helper._transport = MagicMock()
+
+    for pkt in outgoing_packets:
+        helper._write_frame(bytes.fromhex(pkt))
+
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        for pkt in incoming_packets:
+            in_pkt = bytes.fromhex(pkt)
+            for i in range(len(in_pkt)):
+                helper.data_received(in_pkt[i : i + 1])
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
         await helper.perform_handshake()
