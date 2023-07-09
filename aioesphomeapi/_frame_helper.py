@@ -165,7 +165,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             init_bytes = self._init_read(3)
             if init_bytes is None:
                 # No need to reset self._pos since
-                # it was not changed by _init_read                
+                # it was not changed by _init_read
                 return
             msg_type_int: Optional[int] = None
             length_int: Optional[int] = None
