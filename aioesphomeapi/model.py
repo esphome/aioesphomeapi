@@ -946,22 +946,31 @@ class BluetoothLERawAdvertisements:
     ) -> "BluetoothLERawAdvertisements":
         """Convert BluetoothLERawAdvertisementResponse to BluetoothLERawAdvertisements."""
         return cls(  # type: ignore[operator, no-any-return]
-            advertisements=ble_raw_advertisement_response_to_ble_raw_advertisements(
-                data
-            )
+            advertisements=[
+                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
+                    adv.address, adv.rssi, adv.address_type, adv.data
+                )
+                for adv in data.advertisements
+            ]
         )
 
 
-def ble_raw_advertisement_response_to_ble_raw_advertisements(
-    data: "BluetoothLERawAdvertisementsResponse",
-) -> List[BluetoothLERawAdvertisement]:
-    """Convert BluetoothLERawAdvertisementResponse to a list of BluetoothLERawAdvertisement."""
-    return [
-        BluetoothLERawAdvertisement(  # type: ignore[call-arg]
-            adv.address, adv.rssi, adv.address_type, adv.data
+def make_ble_raw_advertisement_processor(
+    on_advertisements: Callable[[List[BluetoothLERawAdvertisement]], None]
+) -> Callable[["BluetoothLERawAdvertisementsResponse"], None]:
+    """Make a processor for BluetoothLERawAdvertisementResponse."""
+
+    def on_msg(data: BluetoothLERawAdvertisementsResponse) -> None:
+        on_advertisements(
+            [
+                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
+                    adv.address, adv.rssi, adv.address_type, adv.data
+                )
+                for adv in data.advertisements
+            ]
         )
-        for adv in data.advertisements
-    ]
+
+    return on_msg
 
 
 @dataclass(frozen=True)
