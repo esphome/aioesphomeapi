@@ -960,7 +960,7 @@ def make_ble_raw_advertisement_processor(
 ) -> Callable[["BluetoothLERawAdvertisementsResponse"], None]:
     """Make a processor for BluetoothLERawAdvertisementResponse."""
 
-    def on_msg(data: BluetoothLERawAdvertisementsResponse) -> None:
+    def on_msg(data: "BluetoothLERawAdvertisementsResponse") -> None:
         on_advertisements(
             [
                 BluetoothLERawAdvertisement(  # type: ignore[call-arg]
