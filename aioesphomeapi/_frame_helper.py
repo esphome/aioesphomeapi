@@ -126,7 +126,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
         """Complete reading a packet from the buffer."""
         end_of_frame_pos = self._pos
-        del self._buffer[: end_of_frame_pos]
+        del self._buffer[:end_of_frame_pos]
         self._buffer_len -= end_of_frame_pos
         self._on_pkt(type_, data)
 
@@ -368,7 +368,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 self._handle_error_and_close(err)
             finally:
                 end_of_frame_pos = self._pos
-                del self._buffer[: end_of_frame_pos]
+                del self._buffer[:end_of_frame_pos]
                 self._buffer_len -= end_of_frame_pos
 
     def _send_hello(self) -> None:
