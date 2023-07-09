@@ -4,7 +4,7 @@ import logging
 from abc import abstractmethod
 from enum import Enum
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 import async_timeout
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
