@@ -348,8 +348,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                     ProtocolAPIError(f"Marker byte invalid: {header[0]}")
                 )
                 return
-            frame_len = (msg_size_high << 8) | msg_size_low
-            frame = self._read_exactly(frame_len)
+            frame = self._read_exactly((msg_size_high << 8) | msg_size_low)
             # The complete frame is not yet available, wait for more data
             # to arrive before continuing, since callback_packet has not
             # been called yet the buffer will not be cleared and the next
@@ -359,7 +358,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 return
 
             try:
-                self.STATE_TO_CALLABLE[self._state](self, frame, frame_len)
+                self.STATE_TO_CALLABLE[self._state](self, frame)
             except Exception as err:  # pylint: disable=broad-except
                 self._handle_error_and_close(err)
             finally:
@@ -371,7 +370,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Send a ClientHello to the server."""
         self._write_frame(b"")  # ClientHello
 
-    def _handle_hello(self, server_hello: bytearray, msg_len: int) -> None:
+    def _handle_hello(self, server_hello: bytearray) -> None:
         """Perform the handshake with the server, the caller is responsible for having the lock."""
         if not server_hello:
             self._handle_error_and_close(HandshakeAPIError("ServerHello is empty"))
@@ -421,7 +420,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Send the handshake message."""
         self._write_frame(b"\x00" + self._proto.write_message())
 
-    def _handle_handshake(self, msg: bytearray, msg_len: int) -> None:
+    def _handle_handshake(self, msg: bytearray) -> None:
         _LOGGER.debug("Starting handshake...")
         if msg[0] != 0:
             explanation = msg[1:].decode()
@@ -479,7 +478,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
         )
 
-    def _handle_frame(self, frame: bytearray, msg_len: int) -> None:
+    def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt is not None, "Handshake should be complete"
@@ -490,6 +489,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 ProtocolAPIError(f"Bad encryption frame: {ex!r}")
             )
             return
+        msg_len = len(msg)
         if msg_len < 4:
             self._handle_error_and_close(ProtocolAPIError(f"Bad packet frame: {msg!r}"))
             return
@@ -504,7 +504,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._on_pkt(msg_type, msg[4:])
 
     def _handle_closed(  # pylint: disable=unused-argument
-        self, frame: bytearray, msg_len: int
+        self, frame: bytearray
     ) -> None:
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError("Connection closed"))
