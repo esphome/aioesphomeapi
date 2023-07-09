@@ -202,7 +202,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     if add_length is None:
                         # The complete length is not yet available, wait for more data
                         # and reset the buffer to the start of the frame
-                        frame_start_pos = self._pos
+                        self._pos = frame_start_pos
                         return
                     length += add_length
                 length_int = bytes_to_varuint(length)
@@ -219,7 +219,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     if add_msg_type is None:
                         # The complete length is not yet available, wait for more data
                         # and reset the buffer to the start of the frame
-                        frame_start_pos = self._pos
+                        self._pos = frame_start_pos
                         return
                     msg_type += add_msg_type
                 msg_type_int = bytes_to_varuint(msg_type)
@@ -242,7 +242,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if packet_data is None:
                 # The complete length is not yet available, wait for more data
                 # and reset the buffer to the start of the frame
-                frame_start_pos = self._pos
+                self._pos = frame_start_pos
                 return
 
             self._callback_packet(msg_type_int, bytes(packet_data))
@@ -377,7 +377,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             # call to data_received will continue processing the packet
             # at the start of the frame.
             if frame is None:
-                frame_start_pos = self._pos
+                self._pos = frame_start_pos
                 return
 
             try:
