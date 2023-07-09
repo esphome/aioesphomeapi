@@ -123,13 +123,6 @@ class APIFrameHelper(asyncio.Protocol):
 class APIPlaintextFrameHelper(APIFrameHelper):
     """Frame helper for plaintext API connections."""
 
-    def _callback_packet(self, type_: int, data: Union[bytes, bytearray]) -> None:
-        """Complete reading a packet from the buffer."""
-        end_of_frame_pos = self._pos
-        del self._buffer[:end_of_frame_pos]
-        self._buffer_len -= end_of_frame_pos
-        self._on_pkt(type_, data)
-
     def write_packet(self, type_: int, data: bytes) -> None:
         """Write a packet to the socket, the caller should not have the lock.
 
@@ -217,20 +210,22 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 assert msg_type_int is not None
 
             if length_int == 0:
-                self._callback_packet(msg_type_int, b"")
-                # If we have more data, continue processing
-                continue
+                packet_data = b""
+            else:
+                packet_data_bytearray = self._read_exactly(length_int)
+                # The packet data is not yet available, wait for more data
+                # to arrive before continuing, since callback_packet has not
+                # been called yet the buffer will not be cleared and the next
+                # call to data_received will continue processing the packet
+                # at the start of the frame.
+                if packet_data_bytearray is None:
+                    return
+                packet_data = bytes(packet_data_bytearray)
 
-            packet_data = self._read_exactly(length_int)
-            # The packet data is not yet available, wait for more data
-            # to arrive before continuing, since callback_packet has not
-            # been called yet the buffer will not be cleared and the next
-            # call to data_received will continue processing the packet
-            # at the start of the frame.
-            if packet_data is None:
-                return
-
-            self._callback_packet(msg_type_int, bytes(packet_data))
+            end_of_frame_pos = self._pos
+            del self._buffer[:end_of_frame_pos]
+            self._buffer_len -= end_of_frame_pos
+            self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing
 
 
