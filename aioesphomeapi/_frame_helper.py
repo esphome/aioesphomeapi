@@ -164,6 +164,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             frame_start_pos = self._pos
             init_bytes = self._init_read(3)
             if init_bytes is None:
+                # No need to reset self._pos since
+                # it was not changed by _init_read                
                 return
             msg_type_int: Optional[int] = None
             length_int: Optional[int] = None
@@ -359,6 +361,8 @@ class APINoiseFrameHelper(APIFrameHelper):
             frame_start_pos = self._pos
             header = self._init_read(3)
             if header is None:
+                # No need to reset self._pos since
+                # it was not changed by _init_read
                 return
             preamble, msg_size_high, msg_size_low = header
             if preamble != 0x01:
