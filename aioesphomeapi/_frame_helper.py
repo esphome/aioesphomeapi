@@ -77,11 +77,6 @@ class APIFrameHelper(asyncio.Protocol):
         self._buffer_len = 0
         self._pos = 0
 
-    def _init_read(self, length: int) -> Optional[bytearray]:
-        """Start reading a packet from the buffer."""
-        self._pos = 0
-        return self._read_exactly(length)
-
     def _read_exactly(self, length: int) -> Optional[bytearray]:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
@@ -161,7 +156,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
             # to avoid multiple calls to _read_exactly
-            init_bytes = self._init_read(3)
+            self._pos = 0
+            init_bytes = self._read_exactly(3)
             if init_bytes is None:
                 return
             msg_type_int: Optional[int] = None
@@ -346,7 +342,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._buffer += data
         self._buffer_len += len(data)
         while self._buffer:
-            header = self._init_read(3)
+            self._pos = 0
+            header = self._read_exactly(3)
             if header is None:
                 return
             preamble, msg_size_high, msg_size_low = header
