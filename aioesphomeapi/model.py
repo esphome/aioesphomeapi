@@ -954,7 +954,7 @@ class BluetoothLERawAdvertisements:
 
 def ble_raw_advertisement_response_to_ble_raw_advertisements(
     data: "BluetoothLERawAdvertisementsResponse",
-) -> List[BluetoothLERawAdvertisements]:
+) -> List[BluetoothLERawAdvertisement]:
     """Convert BluetoothLERawAdvertisementResponse to a list of BluetoothLERawAdvertisement."""
     return [
         BluetoothLERawAdvertisement(  # type: ignore[call-arg]
