@@ -409,7 +409,7 @@ class APIClient:
         }
         msg_types = (*response_types, CameraImageResponse)
 
-        def on_msg(msg: message.Message) -> None:
+        def _on_state_msg(msg: message.Message) -> None:
             msg_type = type(msg)
             cls = response_types.get(msg_type)
             if cls:
@@ -432,7 +432,7 @@ class APIClient:
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
-            SubscribeStatesRequest(), on_msg, msg_types
+            SubscribeStatesRequest(), _on_state_msg, msg_types
         )
 
     async def subscribe_logs(
@@ -457,13 +457,15 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg: HomeassistantServiceResponse) -> None:
+        def _on_home_assistant_service_response(
+            msg: HomeassistantServiceResponse,
+        ) -> None:
             on_service_call(HomeassistantServiceCall.from_pb(msg))
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
-            on_msg,
+            _on_home_assistant_service_response,
             (HomeassistantServiceResponse,),
         )
 
@@ -501,19 +503,23 @@ class APIClient:
         self._check_authenticated()
         msg_types = (BluetoothLEAdvertisementResponse,)
 
-        def on_msg(msg: BluetoothLEAdvertisementResponse) -> None:
+        def _on_bluetooth_le_advertising_response(
+            msg: BluetoothLEAdvertisementResponse,
+        ) -> None:
             on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(flags=0),
-            on_msg,
+            _on_bluetooth_le_advertising_response,
             msg_types,
         )
 
         def unsub() -> None:
             if self._connection is not None:
-                self._connection.remove_message_callback(on_msg, msg_types)
+                self._connection.remove_message_callback(
+                    _on_bluetooth_le_advertising_response, msg_types
+                )
                 self._connection.send_message(
                     UnsubscribeBluetoothLEAdvertisementsRequest()
                 )
@@ -551,18 +557,24 @@ class APIClient:
         self._check_authenticated()
         msg_types = (BluetoothConnectionsFreeResponse,)
 
-        def on_msg(msg: BluetoothConnectionsFreeResponse) -> None:
+        def _on_bluetooth_connections_free_response(
+            msg: BluetoothConnectionsFreeResponse,
+        ) -> None:
             resp = BluetoothConnectionsFree.from_pb(msg)
             on_bluetooth_connections_free_update(resp.free, resp.limit)
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
-            SubscribeBluetoothConnectionsFreeRequest(), on_msg, msg_types
+            SubscribeBluetoothConnectionsFreeRequest(),
+            _on_bluetooth_connections_free_response,
+            msg_types,
         )
 
         def unsub() -> None:
             if self._connection is not None:
-                self._connection.remove_message_callback(on_msg, msg_types)
+                self._connection.remove_message_callback(
+                    _on_bluetooth_connections_free_response, msg_types
+                )
 
         return unsub
 
@@ -581,7 +593,9 @@ class APIClient:
 
         event = asyncio.Event()
 
-        def on_msg(msg: BluetoothDeviceConnectionResponse) -> None:
+        def _on_bluetooth_device_connection_response(
+            msg: BluetoothDeviceConnectionResponse,
+        ) -> None:
             resp = BluetoothDeviceConnection.from_pb(msg)
             if address == resp.address:
                 on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
@@ -612,13 +626,15 @@ class APIClient:
                 has_address_type=address_type is not None,
                 address_type=address_type or 0,
             ),
-            on_msg,
+            _on_bluetooth_device_connection_response,
             msg_types,
         )
 
         def unsub() -> None:
             if self._connection is not None:
-                self._connection.remove_message_callback(on_msg, msg_types)
+                self._connection.remove_message_callback(
+                    _on_bluetooth_device_connection_response, msg_types
+                )
 
         try:
             try:
@@ -928,14 +944,16 @@ class APIClient:
             BluetoothGATTNotifyResponse,
         )
 
-        def on_msg(msg: BluetoothGATTNotifyDataResponse) -> None:
+        def _on_bluetooth_gatt_notify_data_response(
+            msg: BluetoothGATTNotifyDataResponse,
+        ) -> None:
             notify = BluetoothGATTRead.from_pb(msg)
             if address == notify.address and handle == notify.handle:
                 on_bluetooth_gatt_notify(handle, bytearray(notify.data))
 
         assert self._connection is not None
         remove_callback = self._connection.add_message_callback(
-            on_msg, (BluetoothGATTNotifyDataResponse,)
+            _on_bluetooth_gatt_notify_data_response, (BluetoothGATTNotifyDataResponse,)
         )
 
         async def stop_notify() -> None:
@@ -957,13 +975,15 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg: SubscribeHomeAssistantStateResponse) -> None:
+        def _on_subscribe_home_assistant_state_response(
+            msg: SubscribeHomeAssistantStateResponse,
+        ) -> None:
             on_state_sub(msg.entity_id, msg.attribute)
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
-            on_msg,
+            _on_subscribe_home_assistant_state_response,
             (SubscribeHomeAssistantStateResponse,),
         )
 
@@ -1347,7 +1367,7 @@ class APIClient:
                     _LOGGER.error("Server could not be started")
                     self._connection.send_message(VoiceAssistantResponse(error=True))
 
-        def on_msg(msg: VoiceAssistantRequest) -> None:
+        def _on_voice_assistant_request(msg: VoiceAssistantRequest) -> None:
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
                 start_task = asyncio.create_task(
@@ -1366,7 +1386,7 @@ class APIClient:
         self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
 
         remove_callback = self._connection.add_message_callback(
-            on_msg, (VoiceAssistantRequest,)
+            _on_voice_assistant_request, (VoiceAssistantRequest,)
         )
 
         def unsub() -> None:
