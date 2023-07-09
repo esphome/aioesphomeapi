@@ -527,11 +527,12 @@ class APIClient:
         msg_types = (BluetoothLERawAdvertisementsResponse,)
 
         assert self._connection is not None
+        on_msg = make_ble_raw_advertisement_processor(on_advertisements)
         self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
-            make_ble_raw_advertisement_processor(on_advertisements),
+            on_msg,
             msg_types,
         )
 
