@@ -175,7 +175,7 @@ class APIConnection:
         self._fatal_exception: Optional[Exception] = None
         self._expected_disconnect = False
         self._send_pending_ping = False
-        self._loop = asyncio.get_running_loop()
+        self._loop = asyncio.get_event_loop()
 
     @property
     def connection_state(self) -> ConnectionState:
