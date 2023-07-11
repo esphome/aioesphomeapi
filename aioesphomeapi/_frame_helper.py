@@ -263,6 +263,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_noise_psk",
         "_expected_name",
         "_state",
+        "_dispatch",
         "_server_name",
         "_proto",
         "_decrypt",
@@ -282,7 +283,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._ready_future = asyncio.get_event_loop().create_future()
         self._noise_psk = noise_psk
         self._expected_name = expected_name
-        self._state = NoiseConnectionState.HELLO
+        self._set_state(NoiseConnectionState.HELLO)
         self._server_name: Optional[str] = None
         self._decrypt: Optional[Callable[[bytes], bytes]] = None
         self._encrypt: Optional[Callable[[bytes], bytes]] = None
@@ -292,13 +293,18 @@ class APINoiseFrameHelper(APIFrameHelper):
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
+    def _set_state(self, state: NoiseConnectionState) -> None:
+        """Set the current state."""
+        self._state = state
+        self._dispatch = self.STATE_TO_CALLABLE[state]
+
     def close(self) -> None:
         """Close the connection."""
         # Make sure we set the ready event if its not already set
         # so that we don't block forever on the ready event if we
         # are waiting for the handshake to complete.
         self._set_ready_future_exception(APIConnectionError("Connection closed"))
-        self._state = NoiseConnectionState.CLOSED
+        self._set_state(NoiseConnectionState.CLOSED)
         super().close()
 
     def _handle_error_and_close(self, exc: Exception) -> None:
@@ -375,7 +381,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 return
 
             try:
-                self.STATE_TO_CALLABLE[self._state](self, frame)
+                self._dispatch(self, frame)
             except Exception as err:  # pylint: disable=broad-except
                 self._handle_error_and_close(err)
             finally:
@@ -420,7 +426,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 )
                 return
 
-        self._state = NoiseConnectionState.HANDSHAKE
+        self._set_state(NoiseConnectionState.HANDSHAKE)
         self._send_handshake()
 
     def _setup_proto(self) -> None:
@@ -462,7 +468,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             self._handle_error_and_close(ex)
             return
         _LOGGER.debug("Handshake complete")
-        self._state = NoiseConnectionState.READY
+        self._set_state(NoiseConnectionState.READY)
         noise_protocol = self._proto.noise_protocol
         self._decrypt = partial(
             noise_protocol.cipher_state_decrypt.decrypt_with_ad,  # pylint: disable=no-member
