@@ -68,7 +68,9 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
         def _on_error(exc: Exception):
             raise exc
 
-        helper = APIPlaintextFrameHelper(on_pkt=_packet, on_error=_on_error)
+        helper = APIPlaintextFrameHelper(
+            on_pkt=_packet, on_error=_on_error, client_info="my client"
+        )
 
         helper.data_received(in_bytes)
 
@@ -113,6 +115,7 @@ async def test_noise_frame_helper_incorrect_key():
         on_error=_on_error,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
+        client_info="my client",
     )
     helper._transport = MagicMock()
 
@@ -151,6 +154,7 @@ async def test_noise_frame_helper_incorrect_key_fragments():
         on_error=_on_error,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
+        client_info="my client",
     )
     helper._transport = MagicMock()
 
@@ -191,6 +195,7 @@ async def test_noise_incorrect_name():
         on_error=_on_error,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="wrongname",
+        client_info="my client",
     )
     helper._transport = MagicMock()
 
