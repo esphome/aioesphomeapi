@@ -267,7 +267,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_proto",
         "_decrypt",
         "_encrypt",
-        "_client_info",
     )
 
     def __init__(
