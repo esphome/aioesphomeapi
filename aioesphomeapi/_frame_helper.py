@@ -61,12 +61,14 @@ class APIFrameHelper(asyncio.Protocol):
         "_buffer",
         "_buffer_len",
         "_pos",
+        "_client_info",
     )
 
     def __init__(
         self,
         on_pkt: Callable[[int, bytes], None],
         on_error: Callable[[Exception], None],
+        client_info: str,
     ) -> None:
         """Initialize the API frame helper."""
         self._on_pkt = on_pkt
@@ -76,6 +78,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._buffer = bytearray()
         self._buffer_len = 0
         self._pos = 0
+        self._client_info = client_info
 
     def _read_exactly(self, length: int) -> Optional[bytearray]:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
@@ -124,10 +127,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     """Frame helper for plaintext API connections."""
 
     def write_packet(self, type_: int, data: bytes) -> None:
-        """Write a packet to the socket, the caller should not have the lock.
+        """Write a packet to the socket.
 
-        The entire packet must be written in a single call to write
-        to avoid locking.
+        The entire packet must be written in a single call.
         """
         assert self._transport is not None, "Transport should be set"
         data = b"\0" + varuint_to_bytes(len(data)) + varuint_to_bytes(type_) + data
@@ -265,6 +267,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_proto",
         "_decrypt",
         "_encrypt",
+        "_client_info",
     )
 
     def __init__(
@@ -273,9 +276,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         on_error: Callable[[Exception], None],
         noise_psk: str,
         expected_name: Optional[str],
+        client_info: str,
     ) -> None:
         """Initialize the API frame helper."""
-        super().__init__(on_pkt, on_error)
+        super().__init__(on_pkt, on_error, client_info)
         self._ready_future = asyncio.get_event_loop().create_future()
         self._noise_psk = noise_psk
         self._expected_name = expected_name
@@ -302,11 +306,25 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._set_ready_future_exception(exc)
         super()._handle_error_and_close(exc)
 
-    def _write_frame(self, frame: bytes) -> None:
-        """Write a packet to the socket, the caller should not have the lock.
+    def _handle_error(self, exc: Exception) -> None:
+        """Handle an error, and provide a good message when during hello."""
+        if (
+            isinstance(exc, ConnectionResetError)
+            and self._state == NoiseConnectionState.HELLO
+        ):
+            original_exc = exc
+            exc = HandshakeAPIError(
+                "The connection dropped immediately after encrypted hello; "
+                "Try enabling encryption on the device or turning off "
+                f"encryption on the client ({self._client_info})."
+            )
+            exc.__cause__ = original_exc
+        super()._handle_error(exc)
 
-        The entire packet must be written in a single call to write
-        to avoid locking.
+    def _write_frame(self, frame: bytes) -> None:
+        """Write a packet to the socket.
+
+        The entire packet must be written in a single call to write.
         """
         assert self._transport is not None, "Transport is not set"
         if _LOGGER.isEnabledFor(logging.DEBUG):
@@ -371,7 +389,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._write_frame(b"")  # ClientHello
 
     def _handle_hello(self, server_hello: bytearray) -> None:
-        """Perform the handshake with the server, the caller is responsible for having the lock."""
+        """Perform the handshake with the server."""
         if not server_hello:
             self._handle_error_and_close(HandshakeAPIError("ServerHello is empty"))
             return
