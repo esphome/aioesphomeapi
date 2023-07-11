@@ -301,6 +301,7 @@ class APIConnection:
                 lambda: APIPlaintextFrameHelper(
                     on_pkt=self._process_packet,
                     on_error=self._report_fatal_error,
+                    client_info=self._params.client_info,
                 ),
                 sock=self._socket,
             )
@@ -311,6 +312,7 @@ class APIConnection:
                     expected_name=self._params.expected_name,
                     on_pkt=self._process_packet,
                     on_error=self._report_fatal_error,
+                    client_info=self._params.client_info,
                 ),
                 sock=self._socket,
             )
