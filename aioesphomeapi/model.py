@@ -408,7 +408,7 @@ class LastResetType(APIIntEnum):
 @dataclass(frozen=True)
 class SensorInfo(EntityInfo):
     device_class: str = ""
-    unit_of_measurement: str = ""
+    unit_of_measurement: Optional[str] = None
     accuracy_decimals: int = 0
     force_update: bool = False
     state_class: Optional[SensorStateClass] = converter_field(
