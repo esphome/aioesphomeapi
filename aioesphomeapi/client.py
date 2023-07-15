@@ -585,7 +585,8 @@ class APIClient:
             # Resolve on ANY connection state since we do not want
             # to wait the whole timeout if the device disconnects
             # or we get an error.
-            connect_future.set_result(None)
+            if not connect_future.done():
+                connect_future.set_result(None)
 
     async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
         self,
