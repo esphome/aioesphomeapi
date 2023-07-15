@@ -598,8 +598,8 @@ class APIConnection:
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
-        do_append: Callable[[message.Message], bool],
-        do_stop: Callable[[message.Message], bool],
+        do_append: Callable[[message.Message], bool] | None,
+        do_stop: Callable[[message.Message], bool] | None,
         msg_types: Iterable[Type[Any]],
         timeout: float = 10.0,
     ) -> List[message.Message]:
@@ -624,9 +624,9 @@ class APIConnection:
         def on_message(resp: message.Message) -> None:
             if fut.done():
                 return
-            if do_append(resp):
+            if do_append is None or do_append(resp):
                 responses.append(resp)
-            if do_stop(resp):
+            if do_stop is None or do_stop(resp):
                 fut.set_result(None)
 
         for msg_type in msg_types:
@@ -659,8 +659,8 @@ class APIConnection:
     ) -> Any:
         res = await self.send_message_await_response_complex(
             send_msg,
-            lambda msg: True,  # we will only get responses of `response_type`
-            lambda msg: True,  # we will only get responses of `response_type`
+            None,  # we will only get responses of `response_type`
+            None,  # we will only get responses of `response_type`
             (response_type,),
             timeout=timeout,
         )
