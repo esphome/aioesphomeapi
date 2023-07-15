@@ -170,7 +170,7 @@ class APIConnection:
         self._connect_complete = False
 
         # Message handlers currently subscribed to incoming messages
-        self._message_handlers: Dict[Any, List[Callable[[message.Message], None]]] = {}
+        self._message_handlers: Dict[Any, Set[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
         self.log_name = log_name or params.address
 
@@ -567,7 +567,7 @@ class APIConnection:
         """Add a message callback."""
         message_handlers = self._message_handlers
         for msg_type in msg_types:
-            message_handlers.setdefault(msg_type, []).append(on_message)
+            message_handlers.setdefault(msg_type, set()).add(on_message)
         return partial(self.remove_message_callback, on_message, msg_types)
 
     def remove_message_callback(
@@ -576,7 +576,7 @@ class APIConnection:
         """Remove a message callback."""
         message_handlers = self._message_handlers
         for msg_type in msg_types:
-            message_handlers[msg_type].remove(on_message)
+            message_handlers[msg_type].discard(on_message)
 
     def send_message_callback_response(
         self,
@@ -591,7 +591,7 @@ class APIConnection:
         # we can be sure that we will not miss any messages even though
         # we register the handler after sending the message
         for msg_type in msg_types:
-            self._message_handlers.setdefault(msg_type, []).append(on_message)
+            self._message_handlers.setdefault(msg_type, set()).add(on_message)
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
         """Handle a timeout."""
@@ -636,7 +636,7 @@ class APIConnection:
         message_handlers = self._message_handlers
         read_exception_futures = self._read_exception_futures
         for msg_type in msg_types:
-            message_handlers.setdefault(msg_type, []).append(on_message)
+            message_handlers.setdefault(msg_type, set()).add(on_message)
 
         read_exception_futures.add(fut)
         # Now safe to await since we have registered the handler
@@ -654,7 +654,7 @@ class APIConnection:
         finally:
             timeout_handle.cancel()
             for msg_type in msg_types:
-                message_handlers[msg_type].pop(on_message, None)
+                message_handlers[msg_type].discard(on_message)
             read_exception_futures.discard(fut)
 
         return responses
