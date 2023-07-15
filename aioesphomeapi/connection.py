@@ -4,8 +4,8 @@ import enum
 import logging
 import socket
 import time
-from contextlib import suppress
 from dataclasses import astuple, dataclass
+from functools import partial
 from typing import (
     Any,
     Callable,
@@ -565,21 +565,18 @@ class APIConnection:
         self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
     ) -> Callable[[], None]:
         """Add a message callback."""
+        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            self._message_handlers.setdefault(msg_type, []).append(on_message)
-
-        def unsub() -> None:
-            for msg_type in msg_types:
-                self._message_handlers[msg_type].remove(on_message)
-
-        return unsub
+            message_handlers.setdefault(msg_type, []).append(on_message)
+        return partial(self.remove_message_callback, on_message, msg_types)
 
     def remove_message_callback(
         self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
     ) -> None:
         """Remove a message callback."""
+        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            self._message_handlers[msg_type].remove(on_message)
+            message_handlers[msg_type].remove(on_message)
 
     def send_message_callback_response(
         self,
@@ -636,10 +633,12 @@ class APIConnection:
             if do_stop is None or do_stop(resp):
                 fut.set_result(None)
 
+        message_handlers = self._message_handlers
+        read_exception_futures = self._read_exception_futures
         for msg_type in msg_types:
-            self._message_handlers.setdefault(msg_type, []).append(on_message)
+            message_handlers.setdefault(msg_type, []).append(on_message)
 
-        self._read_exception_futures.add(fut)
+        read_exception_futures.add(fut)
         # Now safe to await since we have registered the handler
 
         # We must not await without a finally or
@@ -655,9 +654,8 @@ class APIConnection:
         finally:
             timeout_handle.cancel()
             for msg_type in msg_types:
-                with suppress(ValueError):
-                    self._message_handlers[msg_type].remove(on_message)
-            self._read_exception_futures.discard(fut)
+                message_handlers[msg_type].pop(on_message, None)
+            read_exception_futures.discard(fut)
 
         return responses
 
