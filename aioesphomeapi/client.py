@@ -316,30 +316,33 @@ class APIClient:
         else:
             await self._connection.disconnect()
 
-    def _check_connected(self) -> None:
-        if self._connection is None:
-            raise APIConnectionError(f"Not connected to {self._log_name}!")
-        if not self._connection.is_connected:
-            raise APIConnectionError(
-                f"Connection not done for {self._log_name}; "
-                f"current state is {self._connection.connection_state}!"
-            )
-
     def _check_authenticated(self) -> None:
-        self._check_connected()
-        assert self._connection is not None
-        if not self._connection.is_authenticated:
+        connection = self._connection
+        if not connection:
+            raise APIConnectionError(f"Not connected to {self._log_name}!")
+        if not connection.is_connected:
+            raise APIConnectionError(
+                f"Authenticated connection not ready yet for {self._log_name}; "
+                f"current state is {connection.connection_state}!"
+            )
+        if not connection.is_authenticated:
             raise APIConnectionError(f"Not authenticated for {self._log_name}!")
 
     async def device_info(self) -> DeviceInfo:
-        self._check_connected()
-        assert self._connection is not None
-        resp = await self._connection.send_message_await_response(
+        connection = self._connection
+        if not connection:
+            raise APIConnectionError(f"Not connected to {self._log_name}!")
+        if not connection or not connection.is_connected:
+            raise APIConnectionError(
+                f"Connection not ready yet for {self._log_name}; "
+                f"current state is {connection.connection_state}!"
+            )
+        resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
         info = DeviceInfo.from_pb(resp)
         self._cached_name = info.name
-        self._connection.set_log_name(self._log_name)
+        connection.set_log_name(self._log_name)
         return info
 
     async def list_entities_services(
