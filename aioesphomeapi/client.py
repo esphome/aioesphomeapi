@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -14,7 +15,7 @@ from typing import (
     Union,
     cast,
 )
-from functools import partial
+
 from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
@@ -505,7 +506,7 @@ class APIClient:
             on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
 
         assert self._connection is not None
-        self._connection.send_message_callback_response(
+        unsub_callback = self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(flags=0),
             _on_bluetooth_le_advertising_response,
             msg_types,
@@ -513,9 +514,7 @@ class APIClient:
 
         def unsub() -> None:
             if self._connection is not None:
-                self._connection.remove_message_callback(
-                    _on_bluetooth_le_advertising_response, msg_types
-                )
+                unsub_callback()
                 self._connection.send_message(
                     UnsubscribeBluetoothLEAdvertisementsRequest()
                 )
@@ -530,7 +529,7 @@ class APIClient:
 
         assert self._connection is not None
         on_msg = make_ble_raw_advertisement_processor(on_advertisements)
-        self._connection.send_message_callback_response(
+        unsub_callback = self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
@@ -540,7 +539,7 @@ class APIClient:
 
         def unsub() -> None:
             if self._connection is not None:
-                self._connection.remove_message_callback(on_msg, msg_types)
+                unsub_callback()
                 self._connection.send_message(
                     UnsubscribeBluetoothLEAdvertisementsRequest()
                 )
@@ -560,19 +559,11 @@ class APIClient:
             on_bluetooth_connections_free_update(resp.free, resp.limit)
 
         assert self._connection is not None
-        self._connection.send_message_callback_response(
+        return self._connection.send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(),
             _on_bluetooth_connections_free_response,
             msg_types,
         )
-
-        def unsub() -> None:
-            if self._connection is not None:
-                self._connection.remove_message_callback(
-                    _on_bluetooth_connections_free_response, msg_types
-                )
-
-        return unsub
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
         """Handle a timeout."""
@@ -586,6 +577,7 @@ class APIClient:
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         msg: BluetoothDeviceConnectionResponse,
     ) -> None:
+        """Handle a BluetoothDeviceConnectionResponse message.""" ""
         resp = BluetoothDeviceConnection.from_pb(msg)
         if address == resp.address:
             on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
@@ -630,7 +622,7 @@ class APIClient:
         if debug:
             _LOGGER.debug("%s: Using connection version %s", address, request_type)
 
-        self._connection.send_message_callback_response(
+        unsub = self._connection.send_message_callback_response(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=request_type,
@@ -640,12 +632,6 @@ class APIClient:
             _on_bluetooth_device_connection_response,
             msg_types,
         )
-
-        def unsub() -> None:
-            if self._connection is not None:
-                self._connection.remove_message_callback(
-                    _on_bluetooth_device_connection_response, msg_types
-                )
 
         timeout_handle = self._loop.call_later(
             timeout, self._handle_timeout, connect_future
