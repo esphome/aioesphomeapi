@@ -481,11 +481,11 @@ class APIConnection:
 
     async def login(self, check_connected: bool = True) -> None:
         """Send a login (ConnectRequest) and await the response."""
-        if check_connected:
+        if check_connected and self._connection_state != ConnectionState.CONNECTED:
             # On first connect, we don't want to check if we're connected
             # because we don't set the connection state until after login
             # is complete
-            self._check_connected()
+            raise APIConnectionError("Must be connected!")
         if self._is_authenticated:
             raise APIConnectionError("Already logged in!")
 
@@ -509,10 +509,6 @@ class APIConnection:
 
         self._is_authenticated = True
 
-    def _check_connected(self) -> None:
-        if self._connection_state != ConnectionState.CONNECTED:
-            raise APIConnectionError("Must be connected!")
-
     @property
     def _is_socket_open(self) -> bool:
         return self._connection_state in (
@@ -530,7 +526,10 @@ class APIConnection:
 
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
-        if not self._is_socket_open:
+        if self._connection_state not in (
+            ConnectionState.SOCKET_OPENED,
+            ConnectionState.CONNECTED,
+        ):
             if in_do_connect.get(False):
                 # If we are in the do_connect task, we can't raise an error
                 # because it would obscure the original exception (ie encrypt error).
