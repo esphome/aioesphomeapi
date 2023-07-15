@@ -320,12 +320,10 @@ class APIClient:
         connection = self._connection
         if not connection:
             raise APIConnectionError(f"Not connected to {self._log_name}!")
-        if TYPE_CHECKING:
-            assert connection is not None
         if not connection.is_connected:
             raise APIConnectionError(
                 f"Authenticated connection not ready yet for {self._log_name}; "
-                f"current state is {self._connection.connection_state}!"
+                f"current state is {connection.connection_state}!"
             )
         if not connection.is_authenticated:
             raise APIConnectionError(f"Not authenticated for {self._log_name}!")
@@ -334,19 +332,17 @@ class APIClient:
         connection = self._connection
         if not connection:
             raise APIConnectionError(f"Not connected to {self._log_name}!")
-        if TYPE_CHECKING:
-            assert connection is not None
         if not connection or not connection.is_connected:
             raise APIConnectionError(
                 f"Connection not ready yet for {self._log_name}; "
-                f"current state is {self._connection.connection_state}!"
+                f"current state is {connection.connection_state}!"
             )
-        resp = await self._connection.send_message_await_response(
+        resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
         info = DeviceInfo.from_pb(resp)
         self._cached_name = info.name
-        self._connection.set_log_name(self._log_name)
+        connection.set_log_name(self._log_name)
         return info
 
     async def list_entities_services(
