@@ -765,7 +765,7 @@ class APIConnection:
 
             handlers = message_handlers.get(msg_type)
             if handlers is not None:
-                for handler in handlers[:]:
+                for handler in handlers.copy():
                     handler(msg)
 
             # Pre-check the message type to avoid awaiting
