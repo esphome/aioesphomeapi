@@ -175,7 +175,7 @@ class APIConnection:
         self.log_name = log_name or params.address
 
         # futures currently subscribed to exceptions in the read task
-        self._read_exception_futures: Set[asyncio.Future[Any]] = set()
+        self._read_exception_futures: Set[asyncio.Future[None]] = set()
 
         self._ping_timer: Optional[asyncio.TimerHandle] = None
         self._pong_timer: Optional[asyncio.TimerHandle] = None
@@ -612,7 +612,7 @@ class APIConnection:
 
         :raises TimeoutAPIError: if a timeout occured
         """
-        fut = self._loop.create_future()
+        fut: asyncio.Future[None] = self._loop.create_future()
         responses = []
 
         def on_message(resp: message.Message) -> None:
@@ -621,7 +621,7 @@ class APIConnection:
             if do_append(resp):
                 responses.append(resp)
             if do_stop(resp):
-                fut.set_result(responses)
+                fut.set_result(None)
 
         for msg_type in msg_types:
             self._message_handlers.setdefault(msg_type, []).append(on_message)
