@@ -335,7 +335,7 @@ class APIClient:
         if not connection:
             raise APIConnectionError(f"Not connected to {self._log_name}!")
         if TYPE_CHECKING:
-            assert connection is not None        
+            assert connection is not None
         if not connection or not connection.is_connected:
             raise APIConnectionError(
                 f"Connection not ready yet for {self._log_name}; "
