@@ -580,7 +580,7 @@ class APIClient:
             return
         fut.set_exception(asyncio.TimeoutError())
 
-    async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
+    async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
