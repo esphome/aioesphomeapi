@@ -587,7 +587,7 @@ class APIClient:
             # or we get an error.
             connect_future.set_result(None)
 
-    async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
+    async def bluetooth_device_connect(  # pylint: disable=too-many-locals
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
@@ -601,12 +601,6 @@ class APIClient:
         msg_types = (BluetoothDeviceConnectionResponse,)
         debug = _LOGGER.isEnabledFor(logging.DEBUG)
         connect_future: asyncio.Future[None] = self._loop.create_future()
-        _on_bluetooth_device_connection_response = partial(
-            self._on_bluetooth_device_connection_response,
-            connect_future,
-            address,
-            on_bluetooth_connection_state,
-        )
 
         assert self._connection is not None
         if has_cache:
@@ -630,7 +624,12 @@ class APIClient:
                 has_address_type=address_type is not None,
                 address_type=address_type or 0,
             ),
-            _on_bluetooth_device_connection_response,
+            partial(
+                self._on_bluetooth_device_connection_response,
+                connect_future,
+                address,
+                on_bluetooth_connection_state,
+            ),
             msg_types,
         )
 
