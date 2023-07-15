@@ -207,12 +207,7 @@ ExecuteServiceDataType = Dict[
 
 # pylint: disable=too-many-public-methods
 class APIClient:
-    __slots__ = (
-        "_params",
-        "_connection",
-        "_cached_name",
-        "_background_tasks",
-    )
+    __slots__ = ("_params", "_connection", "_cached_name", "_background_tasks", "_loop")
 
     def __init__(
         self,
@@ -255,6 +250,7 @@ class APIClient:
         self._connection: Optional[APIConnection] = None
         self._cached_name: Optional[str] = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._loop = asyncio.get_event_loop()
 
     @property
     def expected_name(self) -> Optional[str]:
@@ -579,6 +575,12 @@ class APIClient:
 
         return unsub
 
+    def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
+        """Handle a timeout."""
+        if fut.done():
+            return
+        fut.set_exception(asyncio.TimeoutError())
+
     async def bluetooth_device_connect(  # pylint: disable=too-many-locals
         self,
         address: int,
@@ -591,8 +593,8 @@ class APIClient:
     ) -> Callable[[], None]:
         self._check_authenticated()
         msg_types = (BluetoothDeviceConnectionResponse,)
-
-        event = asyncio.Event()
+        debug = _LOGGER.isEnabledFor(logging.DEBUG)
+        connect_future: asyncio.Future[None] = self._loop.create_future()
 
         def _on_bluetooth_device_connection_response(
             msg: BluetoothDeviceConnectionResponse,
@@ -603,22 +605,22 @@ class APIClient:
                 # Resolve on ANY connection state since we do not want
                 # to wait the whole timeout if the device disconnects
                 # or we get an error.
-                event.set()
+                connect_future.set_result(None)
 
         assert self._connection is not None
         if has_cache:
             # REMOTE_CACHING feature with cache: requestor has services and mtu cached
-            _LOGGER.debug("%s: Using connection version 3 with cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
         elif feature_flags & BluetoothProxyFeature.REMOTE_CACHING:
             # REMOTE_CACHING feature without cache: esp will wipe the service list after sending to save memory
-            _LOGGER.debug("%s: Using connection version 3 without cache", address)
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
         else:
-            # Device doesnt support REMOTE_CACHING feature: esp will hold the service list in memory for the duration
+            # Device does not support REMOTE_CACHING feature: esp will hold the service list in memory for the duration
             # of the connection. This can crash the esp if the service list is too large.
-            _LOGGER.debug("%s: Using connection version 1", address)
             request_type = BluetoothDeviceRequestType.CONNECT
+
+        if debug:
+            _LOGGER.debug("%s: Using connection version %s", request_type)
 
         self._connection.send_message_callback_response(
             BluetoothDeviceRequest(
@@ -637,16 +639,19 @@ class APIClient:
                     _on_bluetooth_device_connection_response, msg_types
                 )
 
+        self._loop.call_later(timeout, self._handle_timeout, connect_future)
         try:
             try:
-                async with async_timeout.timeout(timeout):
-                    await event.wait()
+                await connect_future
             except asyncio.TimeoutError as err:
                 # Disconnect before raising the exception to ensure
                 # the slot is recovered before the timeout is raised
                 # to avoid race were we run out even though we have a slot.
                 addr = to_human_readable_address(address)
-                _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
+                if debug:
+                    _LOGGER.debug(
+                        "%s: Connecting timed out, waiting for disconnect", addr
+                    )
                 disconnect_timed_out = False
                 try:
                     await self.bluetooth_device_disconnect(
@@ -654,9 +659,10 @@ class APIClient:
                     )
                 except TimeoutAPIError:
                     disconnect_timed_out = True
-                    _LOGGER.debug(
-                        "%s: Disconnect timed out: %s", addr, disconnect_timed_out
-                    )
+                    if debug:
+                        _LOGGER.debug(
+                            "%s: Disconnect timed out: %s", addr, disconnect_timed_out
+                        )
                 finally:
                     try:
                         unsub()
@@ -680,6 +686,8 @@ class APIClient:
                     addr,
                 )
             raise
+        finally:
+            connect_future.cancel()
 
         return unsub
 
