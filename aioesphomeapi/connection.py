@@ -701,13 +701,14 @@ class APIConnection:
         self._cleanup()
 
     def _process_packet_factory(self) -> Callable[[int, bytes], None]:
-        """Process a packet from the socket."""
+        """Factory to make a packet processor."""
         message_type_to_proto = MESSAGE_TYPE_TO_PROTO
         is_enabled_for = _LOGGER.isEnabledFor
         logging_debug = logging.DEBUG
         message_handlers = self._message_handlers
 
         def _process_packet(msg_type_proto: int, data: bytes) -> None:
+            """Process a packet from the socket."""
             try:
                 # python 3.11 has near zero cost exception handling
                 # if we do not raise which is almost never expected
