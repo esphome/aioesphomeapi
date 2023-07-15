@@ -764,7 +764,7 @@ class APIConnection:
                 self._send_pending_ping = False
 
             handlers = message_handlers.get(msg_type)
-            if handlers is not None:
+            if handlers:
                 for handler in handlers.copy():
                     handler(msg)
 
