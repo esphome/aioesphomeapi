@@ -566,9 +566,9 @@ class APIConnection:
         message_handlers = self._message_handlers
         for msg_type in msg_types:
             message_handlers.setdefault(msg_type, set()).add(on_message)
-        return partial(self.remove_message_callback, on_message, msg_types)
+        return partial(self._remove_message_callback, on_message, msg_types)
 
-    def remove_message_callback(
+    def _remove_message_callback(
         self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
     ) -> None:
         """Remove a message callback."""
@@ -581,7 +581,7 @@ class APIConnection:
         send_msg: message.Message,
         on_message: Callable[[Any], None],
         msg_types: Iterable[Type[Any]],
-    ) -> None:
+    ) -> Callable[[], None]:
         """Send a message to the remote and register the given message handler."""
         self.send_message(send_msg)
         # Since we do not return control to the event loop (no awaits)
@@ -590,6 +590,7 @@ class APIConnection:
         # we register the handler after sending the message
         for msg_type in msg_types:
             self._message_handlers.setdefault(msg_type, set()).add(on_message)
+        return partial(self._remove_message_callback, on_message, msg_types)
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
         """Handle a timeout."""
