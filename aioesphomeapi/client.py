@@ -482,11 +482,9 @@ class APIClient:
         assert self._connection is not None
 
         def is_response(msg: message.Message) -> bool:
-            return (
-                isinstance(msg, msg_types)
-                and msg.address == address  # type: ignore[union-attr]
-                and msg.handle == handle  # type: ignore[union-attr]
-            )
+            if TYPE_CHECKING:
+                assert isinstance(msg, msg_types)
+            return bool(msg.address == address and msg.handle == handle)  # type: ignore[union-attr]
 
         resp = await self._connection.send_message_await_response_complex(
             request, is_response, is_response, msg_types, timeout=timeout
@@ -694,7 +692,8 @@ class APIClient:
         assert self._connection is not None
 
         def predicate_func(msg: message.Message) -> bool:
-            assert isinstance(msg, msg_types)
+            if TYPE_CHECKING:
+                assert isinstance(msg, msg_types)
             if msg.address != address:
                 return False
             if isinstance(msg, BluetoothDeviceConnectionResponse):
