@@ -14,7 +14,7 @@ from typing import (
     Union,
     cast,
 )
-
+from functools import partial
 from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
@@ -580,6 +580,19 @@ class APIClient:
             return
         fut.set_exception(asyncio.TimeoutError())
 
+    def _on_bluetooth_device_connection_response(
+        connect_future: asyncio.Future[None],
+        on_bluetooth_connection_state: Callable[[bool, int, int], None],
+        msg: BluetoothDeviceConnectionResponse,
+    ) -> None:
+        resp = BluetoothDeviceConnection.from_pb(msg)
+        if address == resp.address:
+            on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
+            # Resolve on ANY connection state since we do not want
+            # to wait the whole timeout if the device disconnects
+            # or we get an error.
+            connect_future.set_result(None)
+
     async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
         self,
         address: int,
@@ -594,17 +607,11 @@ class APIClient:
         msg_types = (BluetoothDeviceConnectionResponse,)
         debug = _LOGGER.isEnabledFor(logging.DEBUG)
         connect_future: asyncio.Future[None] = self._loop.create_future()
-
-        def _on_bluetooth_device_connection_response(
-            msg: BluetoothDeviceConnectionResponse,
-        ) -> None:
-            resp = BluetoothDeviceConnection.from_pb(msg)
-            if address == resp.address:
-                on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
-                # Resolve on ANY connection state since we do not want
-                # to wait the whole timeout if the device disconnects
-                # or we get an error.
-                connect_future.set_result(None)
+        _on_bluetooth_device_connection_response = partial(
+            self._on_bluetooth_device_connection_response,
+            connect_future,
+            on_bluetooth_connection_state,
+        )
 
         assert self._connection is not None
         if has_cache:
