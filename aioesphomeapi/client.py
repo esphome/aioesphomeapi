@@ -587,7 +587,7 @@ class APIClient:
             # or we get an error.
             connect_future.set_result(None)
 
-    async def bluetooth_device_connect(  # pylint: disable=too-many-locals
+    async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
