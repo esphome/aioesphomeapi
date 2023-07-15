@@ -604,7 +604,6 @@ class APIConnection:
         responses: List[message.Message],
         do_append: Optional[Callable[[message.Message], bool]],
         do_stop: Optional[Callable[[message.Message], bool]],
-        msg_types: Iterable[Type[Any]],
         resp: message.Message,
     ) -> None:
         """Handle a message that is part of a response."""
@@ -630,7 +629,7 @@ class APIConnection:
         :param do_stop: Predicate to check if a received message is the stop response.
         :param timeout: The maximum amount of time to wait for the stop response.
 
-        :raises TimeoutAPIError: if a timeout occured
+        :raises TimeoutAPIError: if a timeout occurred
         """
         # Send the message right away to reduce latency.
         # This is safe because we are not awaiting between
