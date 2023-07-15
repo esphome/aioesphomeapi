@@ -638,7 +638,7 @@ class APIConnection:
         self.send_message(send_msg)
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = self._loop.create_future()
-        responses = []
+        responses: List[message.Message] = []
         on_message = partial(
             self._handle_complex_message, fut, responses, do_append, do_stop
         )
