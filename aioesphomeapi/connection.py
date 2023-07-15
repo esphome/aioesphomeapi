@@ -598,6 +598,23 @@ class APIConnection:
             return
         fut.set_exception(asyncio.TimeoutError())
 
+    def _handle_complex_message(
+        self,
+        fut: asyncio.Future[None],
+        responses: List[message.Message],
+        do_append: Optional[Callable[[message.Message], bool]],
+        do_stop: Optional[Callable[[message.Message], bool]],
+        msg_types: Iterable[Type[Any]],
+        resp: message.Message,
+    ) -> None:
+        """Handle a message that is part of a response."""
+        if fut.done():
+            return
+        if do_append is None or do_append(resp):
+            responses.append(resp)
+        if do_stop is None or do_stop(resp):
+            fut.set_result(None)
+
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
@@ -623,14 +640,9 @@ class APIConnection:
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = self._loop.create_future()
         responses = []
-
-        def on_message(resp: message.Message) -> None:
-            if fut.done():
-                return
-            if do_append is None or do_append(resp):
-                responses.append(resp)
-            if do_stop is None or do_stop(resp):
-                fut.set_result(None)
+        on_message = partial(
+            self._handle_complex_message, fut, responses, do_append, do_stop
+        )
 
         message_handlers = self._message_handlers
         read_exception_futures = self._read_exception_futures
