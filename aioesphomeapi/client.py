@@ -639,7 +639,7 @@ class APIClient:
                     _on_bluetooth_device_connection_response, msg_types
                 )
 
-        self._loop.call_later(timeout, self._handle_timeout, connect_future)
+        timeout_handle = self._loop.call_later(timeout, self._handle_timeout, connect_future)
         try:
             try:
                 await connect_future
@@ -687,7 +687,7 @@ class APIClient:
                 )
             raise
         finally:
-            connect_future.cancel()
+            timeout_handle.cancel()
 
         return unsub
 
