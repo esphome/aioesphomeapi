@@ -5,7 +5,7 @@ from abc import abstractmethod
 from enum import Enum
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
-
+from struct import Struct
 import async_timeout
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
@@ -34,11 +34,18 @@ SOCKET_ERRORS = (
     TimeoutError,
 )
 
+PACK_NONCE = partial(Struct("<LQ").pack, 0)
+
 
 class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
+    """ChaCha20 cipher that can be reused."""
+
     @property
     def klass(self):  # type: ignore[no-untyped-def]
         return ChaCha20Poly1305Reusable
+
+    def format_nonce(self, n: int) -> bytes:
+        return PACK_NONCE(n)
 
 
 class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
