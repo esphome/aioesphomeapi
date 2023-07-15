@@ -598,8 +598,8 @@ class APIConnection:
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
-        do_append: Callable[[message.Message], bool] | None,
-        do_stop: Callable[[message.Message], bool] | None,
+        do_append: Optional[Callable[[message.Message], bool]],
+        do_stop: Optional[Callable[[message.Message], bool]],
         msg_types: Iterable[Type[Any]],
         timeout: float = 10.0,
     ) -> List[message.Message]:
