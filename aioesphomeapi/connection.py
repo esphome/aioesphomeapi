@@ -612,6 +612,12 @@ class APIConnection:
 
         :raises TimeoutAPIError: if a timeout occured
         """
+        # Send the message right away to reduce latency.
+        # This is safe because we are not awaiting between
+        # sending the message and registering the handler
+
+        self.send_message(send_msg)
+        # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = self._loop.create_future()
         responses = []
 
@@ -627,12 +633,13 @@ class APIConnection:
             self._message_handlers.setdefault(msg_type, []).append(on_message)
 
         self._read_exception_futures.add(fut)
+        # Now safe to await since we have registered the handler
+
         # We must not await without a finally or
         # the message could fail to be removed if the
         # the await is cancelled
 
         try:
-            self.send_message(send_msg)
             async with async_timeout.timeout(timeout):
                 await fut
         except asyncio.TimeoutError as err:
