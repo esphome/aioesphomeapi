@@ -484,7 +484,7 @@ class APIClient:
         def is_response(msg: message.Message) -> bool:
             if TYPE_CHECKING:
                 assert isinstance(msg, msg_types)
-            return msg.address == address and msg.handle == handle  # type: ignore[union-attr]
+            return bool(msg.address == address and msg.handle == handle)  # type: ignore[union-attr]
 
         resp = await self._connection.send_message_await_response_complex(
             request, is_response, is_response, msg_types, timeout=timeout
