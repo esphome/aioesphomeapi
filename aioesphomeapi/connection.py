@@ -576,14 +576,13 @@ class APIConnection:
         msg_types: Iterable[Type[Any]],
     ) -> None:
         """Send a message to the remote and register the given message handler."""
+        self.send_message(send_msg)
+        # Since we do not return control to the event loop (no awaits)
+        # between sending the message and registering the handler
+        # we can be sure that we will not miss any messages even though
+        # we register the handler after sending the message
         for msg_type in msg_types:
             self._message_handlers.setdefault(msg_type, []).append(on_message)
-        try:
-            self.send_message(send_msg)
-        except (asyncio.CancelledError, Exception):
-            for msg_type in msg_types:
-                self._message_handlers[msg_type].remove(on_message)
-            raise
 
     async def send_message_await_response_complex(
         self,
