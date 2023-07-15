@@ -582,6 +582,7 @@ class APIClient:
 
     def _on_bluetooth_device_connection_response(
         connect_future: asyncio.Future[None],
+        address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         msg: BluetoothDeviceConnectionResponse,
     ) -> None:
@@ -610,6 +611,7 @@ class APIClient:
         _on_bluetooth_device_connection_response = partial(
             self._on_bluetooth_device_connection_response,
             connect_future,
+            address,
             on_bluetooth_connection_state,
         )
 
