@@ -583,7 +583,7 @@ class APIConnection:
         # we register the handler after sending the message
         for msg_type in msg_types:
             self._message_handlers.setdefault(msg_type, []).append(on_message)
-   
+
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
