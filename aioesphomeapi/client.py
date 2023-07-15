@@ -15,7 +15,6 @@ from typing import (
     cast,
 )
 
-import async_timeout
 from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
@@ -639,7 +638,9 @@ class APIClient:
                     _on_bluetooth_device_connection_response, msg_types
                 )
 
-        timeout_handle = self._loop.call_later(timeout, self._handle_timeout, connect_future)
+        timeout_handle = self._loop.call_later(
+            timeout, self._handle_timeout, connect_future
+        )
         try:
             try:
                 await connect_future
