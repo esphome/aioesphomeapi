@@ -54,7 +54,7 @@ def socket_socket():
 
 def _get_mock_protocol(conn: APIConnection):
     protocol = APIPlaintextFrameHelper(
-        on_pkt=conn._process_packet,
+        on_pkt=conn._process_packet_factory(),
         on_error=conn._report_fatal_error,
         client_info="mock",
     )
