@@ -572,6 +572,7 @@ class APIClient:
         fut.set_exception(asyncio.TimeoutError())
 
     def _on_bluetooth_device_connection_response(
+        self,
         connect_future: asyncio.Future[None],
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
