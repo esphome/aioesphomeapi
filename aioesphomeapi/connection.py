@@ -732,7 +732,7 @@ class APIConnection:
                 _LOGGER.debug(
                     "%s: Skipping message type %s",
                     self.log_name,
-                    msg_type_proto.__name__,
+                    msg_type_proto,
                 )
                 return
 
