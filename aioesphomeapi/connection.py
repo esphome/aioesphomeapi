@@ -714,6 +714,7 @@ class APIConnection:
         is_enabled_for = _LOGGER.isEnabledFor
         logging_debug = logging.DEBUG
         message_handlers = self._message_handlers
+        internal_message_types = INTERNAL_MESSAGE_TYPES
 
         def _process_packet(msg_type_proto: int, data: bytes) -> None:
             """Process a packet from the socket."""
@@ -779,7 +780,7 @@ class APIConnection:
 
             # Pre-check the message type to avoid awaiting
             # since most messages are not internal messages
-            if msg_type not in INTERNAL_MESSAGE_TYPES:
+            if msg_type not in internal_message_types:
                 return
 
             if msg_type is DisconnectRequest:
