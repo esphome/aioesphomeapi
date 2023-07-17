@@ -715,8 +715,7 @@ class APIConnection:
     def _process_packet_factory(self) -> Callable[[int, bytes], None]:
         """Factory to make a packet processor."""
         message_type_to_proto = MESSAGE_TYPE_TO_PROTO
-        is_enabled_for = _LOGGER.isEnabledFor
-        logging_debug = logging.DEBUG
+        debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
         message_handlers = self._message_handlers
         internal_message_types = INTERNAL_MESSAGE_TYPES
 
@@ -759,7 +758,7 @@ class APIConnection:
 
             msg_type = type(msg)
 
-            if is_enabled_for(logging_debug):
+            if debug_enabled():
                 _LOGGER.debug(
                     "%s: Got message of type %s: %s",
                     self.log_name,
