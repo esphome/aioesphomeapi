@@ -496,7 +496,7 @@ class APIConnection:
 
     async def login(self, check_connected: bool = True) -> None:
         """Send a login (ConnectRequest) and await the response."""
-        if check_connected and self._connection_state != ConnectionState.CONNECTED:
+        if check_connected and self.is_connected:
             # On first connect, we don't want to check if we're connected
             # because we don't set the connection state until after login
             # is complete
