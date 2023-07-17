@@ -316,6 +316,7 @@ class APIConnection:
                     on_pkt=process_packet,
                     on_error=self._report_fatal_error,
                     client_info=self._params.client_info,
+                    log_name=self.log_name,
                 ),
                 sock=self._socket,
             )
@@ -327,6 +328,7 @@ class APIConnection:
                     on_pkt=process_packet,
                     on_error=self._report_fatal_error,
                     client_info=self._params.client_info,
+                    log_name=self.log_name,
                 ),
                 sock=self._socket,
             )
@@ -391,30 +393,29 @@ class APIConnection:
 
         if self._send_pending_ping:
             self.send_message(PING_REQUEST_MESSAGE)
-
-        if self._pong_timer is None:
-            # Do not reset the timer if it's already set
-            # since the only thing we want to reset the timer
-            # is if we receive a pong.
-            self._pong_timer = self._loop.call_later(
-                self._keep_alive_timeout, self._async_pong_not_received
-            )
-        else:
-            #
-            # We haven't reached the ping response (pong) timeout yet
-            # and we haven't seen a response to the last ping
-            #
-            # We send another ping in case the device has
-            # rebooted and dropped the connection without telling
-            # us to force a TCP RST aka connection reset by peer.
-            #
-            _LOGGER.debug(
-                "%s: PingResponse (pong) was not received "
-                "since last keep alive after %s seconds; "
-                "rescheduling keep alive",
-                self.log_name,
-                self._keep_alive_interval,
-            )
+            if self._pong_timer is None:
+                # Do not reset the timer if it's already set
+                # since the only thing we want to reset the timer
+                # is if we receive a pong.
+                self._pong_timer = self._loop.call_later(
+                    self._keep_alive_timeout, self._async_pong_not_received
+                )
+            else:
+                #
+                # We haven't reached the ping response (pong) timeout yet
+                # and we haven't seen a response to the last ping
+                #
+                # We send another ping in case the device has
+                # rebooted and dropped the connection without telling
+                # us to force a TCP RST aka connection reset by peer.
+                #
+                _LOGGER.debug(
+                    "%s: PingResponse (pong) was not received "
+                    "since last keep alive after %s seconds; "
+                    "rescheduling keep alive",
+                    self.log_name,
+                    self._keep_alive_interval,
+                )
 
         self._async_schedule_keep_alive()
 
@@ -540,15 +541,14 @@ class APIConnection:
 
         frame_helper = self._frame_helper
         assert frame_helper is not None
-        message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
+        _msg_type = type(msg)
+        message_type = PROTO_TO_MESSAGE_TYPE.get(_msg_type)
         if not message_type:
-            raise ValueError(f"Message type id not found for type {type(msg)}")
+            raise ValueError(f"Message type id not found for type {_msg_type}")
         encoded = msg.SerializeToString()
 
         if _LOGGER.isEnabledFor(logging.DEBUG):
-            _LOGGER.debug(
-                "%s: Sending %s: %s", self._params.address, type(msg), str(msg)
-            )
+            _LOGGER.debug("%s: Sending %s: %s", self.log_name, _msg_type.__name__, msg)
 
         try:
             frame_helper.write_packet(message_type, encoded)
@@ -730,7 +730,9 @@ class APIConnection:
                 class_ = message_type_to_proto[msg_type_proto]
             except KeyError:
                 _LOGGER.debug(
-                    "%s: Skipping message type %s", self.log_name, msg_type_proto
+                    "%s: Skipping message type %s",
+                    self.log_name,
+                    msg_type_proto,
                 )
                 return
 
@@ -760,7 +762,10 @@ class APIConnection:
 
             if is_enabled_for(logging_debug):
                 _LOGGER.debug(
-                    "%s: Got message of type %s: %s", self.log_name, msg_type, msg
+                    "%s: Got message of type %s: %s",
+                    self.log_name,
+                    msg_type.__name__,
+                    msg,
                 )
 
             if self._pong_timer:

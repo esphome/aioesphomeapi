@@ -57,6 +57,7 @@ def _get_mock_protocol(conn: APIConnection):
         on_pkt=conn._process_packet_factory(),
         on_error=conn._report_fatal_error,
         client_info="mock",
+        log_name="mock_device",
     )
     protocol._connected_event.set()
     protocol._transport = MagicMock()
