@@ -92,6 +92,7 @@ CONNECT_AND_SETUP_TIMEOUT = 120.0
 # the esp device
 DISCONNECT_WAIT_CONNECT_TIMEOUT = 5.0
 
+
 in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
     "in_do_connect"
 )
@@ -117,6 +118,8 @@ class ConnectionState(enum.Enum):
     # The connection has been established, data can be exchanged
     CONNECTED = 2
     CLOSED = 3
+
+OPEN_STATES = {ConnectionState.SOCKET_OPENED, ConnectionState.CONNECTED}
 
 
 class APIConnection:
@@ -389,7 +392,7 @@ class APIConnection:
 
     def _async_send_keep_alive(self) -> None:
         """Send a keep alive message."""
-        if not self._is_socket_open:
+        if self._connection_state not in OPEN_STATES:
             return
 
         if self._send_pending_ping:
@@ -428,7 +431,7 @@ class APIConnection:
 
     def _async_pong_not_received(self) -> None:
         """Ping not received."""
-        if not self._is_socket_open:
+        if self._connection_state not in OPEN_STATES:
             return
         _LOGGER.debug(
             "%s: Ping response not received after %s seconds",
@@ -517,19 +520,9 @@ class APIConnection:
 
         self.is_authenticated = True
 
-    @property
-    def _is_socket_open(self) -> bool:
-        return self._connection_state in (
-            ConnectionState.SOCKET_OPENED,
-            ConnectionState.CONNECTED,
-        )
-
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
-        if self._connection_state not in (
-            ConnectionState.SOCKET_OPENED,
-            ConnectionState.CONNECTED,
-        ):
+        if self._connection_state not in OPEN_STATES:
             if in_do_connect.get(False):
                 # If we are in the do_connect task, we can't raise an error
                 # because it would obscure the original exception (ie encrypt error).
@@ -811,7 +804,7 @@ class APIConnection:
             await asyncio.wait([self._connect_task], timeout=5.0)
 
         self._expected_disconnect = True
-        if self._is_socket_open and self._frame_helper:
+        if self._connection_state in OPEN_STATES and self._frame_helper:
             # We still want to send a disconnect request even
             # if the hello phase isn't finished to ensure we
             # the esp will clean up the connection as soon
