@@ -284,13 +284,14 @@ class APIConnection:
                 err,
             )
 
-        _LOGGER.debug(
-            "%s: Connecting to %s:%s (%s)",
-            self.log_name,
-            self._params.address,
-            self._params.port,
-            addr,
-        )
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug(
+                "%s: Connecting to %s:%s (%s)",
+                self.log_name,
+                self._params.address,
+                self._params.port,
+                addr,
+            )
         sockaddr = astuple(addr.sockaddr)
 
         try:
