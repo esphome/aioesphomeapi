@@ -132,7 +132,7 @@ class APIConnection:
         "_on_stop_task",
         "_socket",
         "_frame_helper",
-        "_api_version",
+        "api_version",
         "_connection_state",
         "_connect_complete",
         "_message_handlers",
@@ -162,7 +162,7 @@ class APIConnection:
         self._on_stop_task: Optional[asyncio.Task[None]] = None
         self._socket: Optional[socket.socket] = None
         self._frame_helper: Optional[APIFrameHelper] = None
-        self._api_version: Optional[APIVersion] = None
+        self.api_version: Optional[APIVersion] = None
 
         self._connection_state = ConnectionState.INITIALIZED
         # Store whether connect() has completed
@@ -361,15 +361,16 @@ class APIConnection:
             resp.api_version_major,
             resp.api_version_minor,
         )
-        self._api_version = APIVersion(resp.api_version_major, resp.api_version_minor)
-        if self._api_version.major > 2:
+        api_version = APIVersion(resp.api_version_major, resp.api_version_minor)
+        if api_version.major > 2:
             _LOGGER.error(
                 "%s: Incompatible version %s! Closing connection",
                 self.log_name,
-                self._api_version.major,
+                api_version.major,
             )
             raise APIConnectionError("Incompatible API version.")
 
+        self.api_version = api_version
         if (
             self._params.expected_name is not None
             and resp.name != ""
@@ -440,26 +441,25 @@ class APIConnection:
             )
         )
 
+    async def _do_connect(self, login: bool) -> None:
+        """Do the actual connect process."""
+        in_do_connect.set(True)
+        addr = await self._connect_resolve_host()
+        await self._connect_socket_connect(addr)
+        await self._connect_init_frame_helper()
+        await self._connect_hello()
+        if login:
+            await self.login(check_connected=False)
+        self._async_schedule_keep_alive()
+
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
             )
-
-        async def _do_connect() -> None:
-            in_do_connect.set(True)
-            addr = await self._connect_resolve_host()
-            await self._connect_socket_connect(addr)
-            await self._connect_init_frame_helper()
-            await self._connect_hello()
-            self._async_schedule_keep_alive()
-            if login:
-                await self.login(check_connected=False)
-
         self._connect_task = asyncio.create_task(
-            _do_connect(), name=f"{self.log_name}: aioesphomeapi do_connect"
+            self._do_connect(login), name=f"{self.log_name}: aioesphomeapi do_connect"
         )
-
         try:
             # Allow 2 minutes for connect and setup; this is only as a last measure
             # to protect from issues if some part of the connect process mistakenly
@@ -830,7 +830,3 @@ class APIConnection:
         self._set_connection_state(ConnectionState.CLOSED)
         self._expected_disconnect = True
         self._cleanup()
-
-    @property
-    def api_version(self) -> Optional[APIVersion]:
-        return self._api_version
