@@ -153,7 +153,7 @@ class APIConnection:
         "_send_pending_ping",
         "is_connected",
         "is_authenticated",
-        "_is_socket_open"
+        "_is_socket_open",
     )
 
     def __init__(
