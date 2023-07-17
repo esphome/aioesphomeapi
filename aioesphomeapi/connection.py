@@ -119,6 +119,7 @@ class ConnectionState(enum.Enum):
     CONNECTED = 2
     CLOSED = 3
 
+
 OPEN_STATES = {ConnectionState.SOCKET_OPENED, ConnectionState.CONNECTED}
 
 
