@@ -389,7 +389,7 @@ class APIClient:
 
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         self._check_authenticated()
-        image_stream: Dict[int, list[memoryview]] = {}
+        image_stream: Dict[int, list[bytes]] = {}
         response_types: Dict[Any, Type[EntityState]] = {
             BinarySensorStateResponse: BinarySensorState,
             CoverStateResponse: CoverState,
@@ -417,12 +417,12 @@ class APIClient:
                 if TYPE_CHECKING:
                     assert isinstance(msg, CameraImageResponse)
                 msg_key = msg.key
-                data_parts: Optional[List[memoryview]] = image_stream.get(msg_key)
+                data_parts: Optional[List[bytes]] = image_stream.get(msg_key)
                 if not data_parts:
                     data_parts = []
                     image_stream[msg_key] = data_parts
 
-                data_parts.append(memoryview(msg.data))
+                data_parts.append(msg.data)
                 if msg.done:
                     # Return CameraState with the merged data
                     image_data = bytes().join(data_parts)
