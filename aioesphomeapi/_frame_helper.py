@@ -5,7 +5,7 @@ from abc import abstractmethod
 from enum import Enum
 from functools import partial
 from struct import Struct
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
