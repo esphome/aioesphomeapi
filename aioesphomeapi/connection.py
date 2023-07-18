@@ -154,7 +154,7 @@ class APIConnection:
         "is_connected",
         "is_authenticated",
         "_is_socket_open",
-        "_debug_enabled"
+        "_debug_enabled",
     )
 
     def __init__(

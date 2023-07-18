@@ -73,7 +73,7 @@ class APIFrameHelper(asyncio.Protocol):
         "_pos",
         "_client_info",
         "_log_name",
-        "_debug_enabled"
+        "_debug_enabled",
     )
 
     def __init__(
@@ -96,7 +96,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._pos = 0
         self._client_info = client_info
         self._log_name = log_name
-        self._debug_enabled = partial(_LOGGER.isEnabledFor,logging.DEBUG)
+        self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
     def _read_exactly(self, length: int) -> Optional[bytearray]:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
