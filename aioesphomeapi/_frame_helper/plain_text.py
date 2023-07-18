@@ -1,6 +1,4 @@
 import logging
-from functools import partial
-from struct import Struct
 from typing import TYPE_CHECKING, Optional
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError, SocketAPIError
@@ -8,8 +6,6 @@ from ..util import bytes_to_varuint, varuint_to_bytes
 from .base import WRITE_EXCEPTIONS, APIFrameHelper
 
 _LOGGER = logging.getLogger(__name__)
-
-PACK_NONCE = partial(Struct("<LQ").pack, 0)
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
