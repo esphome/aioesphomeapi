@@ -154,6 +154,7 @@ class APIConnection:
         "is_connected",
         "is_authenticated",
         "_is_socket_open",
+        "_debug_enabled"
     )
 
     def __init__(
@@ -195,6 +196,7 @@ class APIConnection:
         self.is_connected = False
         self.is_authenticated = False
         self._is_socket_open = False
+        self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
     @property
     def connection_state(self) -> ConnectionState:
@@ -284,7 +286,7 @@ class APIConnection:
                 err,
             )
 
-        if _LOGGER.isEnabledFor(logging.DEBUG):
+        if self._debug_enabled():
             _LOGGER.debug(
                 "%s: Connecting to %s:%s (%s)",
                 self.log_name,
@@ -545,7 +547,7 @@ class APIConnection:
             raise ValueError(f"Message type id not found for type {_msg_type}")
         encoded = msg.SerializeToString()
 
-        if _LOGGER.isEnabledFor(logging.DEBUG):
+        if self._debug_enabled():
             _LOGGER.debug("%s: Sending %s: %s", self.log_name, _msg_type.__name__, msg)
 
         try:
@@ -715,7 +717,7 @@ class APIConnection:
     def _process_packet_factory(self) -> Callable[[int, bytes], None]:
         """Factory to make a packet processor."""
         message_type_to_proto = MESSAGE_TYPE_TO_PROTO
-        debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
+        debug_enabled = self._debug_enabled
         message_handlers = self._message_handlers
         internal_message_types = INTERNAL_MESSAGE_TYPES
 
