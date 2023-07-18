@@ -2,11 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aioesphomeapi._frame_helper import (
-    WRITE_EXCEPTIONS,
-    APINoiseFrameHelper,
-    APIPlaintextFrameHelper,
-)
+from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.base import WRITE_EXCEPTIONS
 from aioesphomeapi.core import (
     BadNameAPIError,
     InvalidEncryptionKeyAPIError,

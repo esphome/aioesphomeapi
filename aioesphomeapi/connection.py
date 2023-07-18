@@ -25,7 +25,7 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper import APIFrameHelper, APINoiseFrameHelper, APIPlaintextFrameHelper
+from ._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
@@ -168,7 +168,9 @@ class APIConnection:
         self.on_stop: Optional[Callable[[bool], Coroutine[Any, Any, None]]] = on_stop
         self._on_stop_task: Optional[asyncio.Task[None]] = None
         self._socket: Optional[socket.socket] = None
-        self._frame_helper: Optional[APIFrameHelper] = None
+        self._frame_helper: Optional[
+            Union[APINoiseFrameHelper, APIPlaintextFrameHelper]
+        ] = None
         self.api_version: Optional[APIVersion] = None
 
         self._connection_state = ConnectionState.INITIALIZED
