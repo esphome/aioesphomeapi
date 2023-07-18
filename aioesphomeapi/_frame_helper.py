@@ -3,7 +3,7 @@ import base64
 import logging
 from abc import abstractmethod
 from enum import Enum
-from functools import partial, partialmethod
+from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
@@ -41,7 +41,7 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     """ChaCha20 cipher that can be reused."""
 
-    format_nonce = partialmethod(Struct("<LQ").pack, 0)
+    format_nonce = partial(Struct("<LQ").pack, 0)
 
     @property
     def klass(self) -> ChaCha20Poly1305Reusable:
