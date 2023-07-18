@@ -3,7 +3,7 @@ import base64
 import logging
 from abc import abstractmethod
 from enum import Enum
-from functools import partial, partialmethod
+from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
