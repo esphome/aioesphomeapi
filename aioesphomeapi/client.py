@@ -492,7 +492,11 @@ class APIClient:
         address: int,
         handle: int,
         request: message.Message,
-        response_type: Type[message.Message],
+        response_type: Union[
+            Type[BluetoothGATTNotifyResponse],
+            Type[BluetoothGATTReadResponse],
+            Type[BluetoothGATTWriteResponse],
+        ],
         timeout: float = 10.0,
     ) -> message.Message:
         self._check_authenticated()
