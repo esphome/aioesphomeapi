@@ -427,7 +427,7 @@ class APIClient:
                     # Return CameraState with the merged data
                     image_data = bytes().join(data_parts)
                     del image_stream[msg_key]
-                    on_state(CameraState(key=msg.key, data=image_data))
+                    on_state(CameraState(key=msg.key, data=image_data))  # type: ignore[call-arg]
 
         assert self._connection is not None
         self._connection.send_message_callback_response(
@@ -847,7 +847,7 @@ class APIClient:
 
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
-        return ESPHomeBluetoothGATTServices(address=address, services=services)
+        return ESPHomeBluetoothGATTServices(address=address, services=services)  # type: ignore[call-arg]
 
     async def bluetooth_gatt_read(
         self,
