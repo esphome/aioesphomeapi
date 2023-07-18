@@ -486,7 +486,15 @@ class APIClient:
         """Handle a Bluetooth message."""
         if TYPE_CHECKING:
             assert isinstance(msg, msg_types)
-            assert isinstance(msg, (BluetoothGATTErrorResponse, BluetoothGATTNotifyResponse, BluetoothGATTReadResponse, BluetoothGATTWriteResponse))
+            assert isinstance(
+                msg,
+                (
+                    BluetoothGATTErrorResponse,
+                    BluetoothGATTNotifyResponse,
+                    BluetoothGATTReadResponse,
+                    BluetoothGATTWriteResponse,
+                ),
+            )
         return bool(msg.address == address and msg.handle == handle)
 
     async def _send_bluetooth_message_await_response(
