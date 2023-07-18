@@ -474,7 +474,7 @@ class APIClient:
         address: int,
         handle: int,
         msg: message.Message,
-    ) -> None:
+    ) -> bool:
         """Handle a Bluetooth message."""
         if TYPE_CHECKING:
             assert isinstance(msg, msg_types)
