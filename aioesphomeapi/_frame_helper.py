@@ -258,21 +258,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # If we have more data, continue processing
 
 
-def _decode_noise_psk(psk: str, server_name: Optional[str]) -> bytes:
-    """Decode the given noise psk from base64 format to raw bytes."""
-    try:
-        psk_bytes = base64.b64decode(psk)
-    except ValueError:
-        raise InvalidEncryptionKeyAPIError(
-            f"Malformed PSK {psk}, expected base64-encoded value", server_name
-        )
-    if len(psk_bytes) != 32:
-        raise InvalidEncryptionKeyAPIError(
-            f"Malformed PSK {psk}, expected 32-bytes of base64 data", server_name
-        )
-    return psk_bytes
-
-
 class NoiseConnectionState(Enum):
     """Noise connection state."""
 
@@ -484,14 +469,34 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._set_state(NoiseConnectionState.HANDSHAKE)
         self._send_handshake()
 
+    def _decode_noise_psk(self) -> bytes:
+        """Decode the given noise psk from base64 format to raw bytes."""
+        psk = self._noise_psk
+        server_name = self._server_name
+        try:
+            psk_bytes = base64.b64decode(psk)
+        except ValueError:
+            raise InvalidEncryptionKeyAPIError(
+                f"{self._log_name}: Malformed PSK {psk}, expected "
+                "base64-encoded value",
+                server_name,
+            )
+        if len(psk_bytes) != 32:
+            raise InvalidEncryptionKeyAPIError(
+                f"{self._log_name}:Malformed PSK {psk}, expected"
+                f" 32-bytes of base64 data",
+                server_name,
+            )
+        return psk_bytes
+
     def _setup_proto(self) -> None:
         """Set up the noise protocol."""
         proto = NoiseConnection.from_name(
             b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
         )
         proto.set_as_initiator()
-        proto.set_psks(_decode_noise_psk(self._noise_psk, self._server_name))
-        proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
+        proto.set_psks(self._decode_noise_psk())
+        proto.set_prologue(b"NoiseAPIInit\x00\x00")
         proto.start_handshake()
         self._proto = proto
 
