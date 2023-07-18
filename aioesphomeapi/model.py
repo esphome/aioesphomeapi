@@ -79,7 +79,7 @@ class APIModelBase:
                 continue
             val = getattr(self, field_.name)
             # use this setattr to prevent FrozenInstanceError
-            super().__setattr__(field_.name, convert(val))
+            object.__setattr__(self, field_.name, convert(val))
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)  # type: ignore[no-any-return, call-overload]
