@@ -476,8 +476,7 @@ class APIClient:
                 BluetoothGATTNotifyResponse,
                 BluetoothGATTReadResponse,
                 BluetoothGATTWriteResponse,
-            ]
-            ,
+            ],
             ...,
         ],
         address: int,
