@@ -119,6 +119,7 @@ async def test_noise_frame_helper_incorrect_key():
         log_name="test",
     )
     helper._transport = MagicMock()
+    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper._write_frame(bytes.fromhex(pkt))
@@ -159,6 +160,7 @@ async def test_noise_frame_helper_incorrect_key_fragments():
         log_name="test",
     )
     helper._transport = MagicMock()
+    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper._write_frame(bytes.fromhex(pkt))
@@ -201,6 +203,7 @@ async def test_noise_incorrect_name():
         log_name="test",
     )
     helper._transport = MagicMock()
+    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper._write_frame(bytes.fromhex(pkt))
