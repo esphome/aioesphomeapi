@@ -7,6 +7,7 @@ import time
 from dataclasses import astuple, dataclass
 from functools import partial
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Coroutine,
@@ -539,20 +540,20 @@ class APIConnection:
                 f"Connection isn't established yet ({self._connection_state})"
             )
 
-        frame_helper = self._frame_helper
-        assert frame_helper is not None
-        _msg_type = type(msg)
-        message_type = PROTO_TO_MESSAGE_TYPE.get(_msg_type)
+        message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
         if not message_type:
-            raise ValueError(f"Message type id not found for type {_msg_type}")
-        encoded = msg.SerializeToString()
+            raise ValueError(f"Message type id not found for type {type(msg)}")
 
         if self._debug_enabled():
-            _LOGGER.debug("%s: Sending %s: %s", self.log_name, _msg_type.__name__, msg)
+            _LOGGER.debug("%s: Sending %s: %s", self.log_name, type(msg).__name__, msg)
 
+        if TYPE_CHECKING:
+            assert self._frame_helper is not None
+
+        encoded = msg.SerializeToString()
         try:
-            frame_helper.write_packet(message_type, encoded)
-        except SocketAPIError as err:  # pylint: disable=broad-except
+            self._frame_helper.write_packet(message_type, encoded)
+        except SocketAPIError as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             _LOGGER.info("%s: Error writing packet: %s", self.log_name, err)
