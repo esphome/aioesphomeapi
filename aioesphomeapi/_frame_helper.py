@@ -545,17 +545,10 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._writer is not None, "Writer is not set"
 
         data_len = len(data)
-        frame = self._encrypt(
-            bytes(
-                [
-                    (type_ >> 8) & 0xFF,
-                    type_ & 0xFF,
-                    (data_len >> 8) & 0xFF,
-                    data_len & 0xFF,
-                ]
-            )
-            + data
+        type_len = bytes(
+            ((type_ >> 8) & 0xFF, type_ & 0xFF, (data_len >> 8) & 0xFF, data_len & 0xFF)
         )
+        frame = self._encrypt(type_len + data)
 
         if self._debug_enabled():
             _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
