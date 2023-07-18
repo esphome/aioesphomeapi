@@ -138,6 +138,8 @@ class APIFrameHelper(asyncio.Protocol):
         """Close the connection."""
         if self._transport:
             self._transport.close()
+            self._transport = None
+            self._writer = None
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
@@ -293,7 +295,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_proto",
         "_decrypt",
         "_encrypt",
-        "_is_ready" "_loop",
+        "_is_ready",
+        "_loop",
     )
 
     def __init__(
