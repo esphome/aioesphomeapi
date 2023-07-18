@@ -478,7 +478,7 @@ class APIClient:
         """Handle a Bluetooth message."""
         if TYPE_CHECKING:
             assert isinstance(msg, msg_types)
-        return bool(msg.address == address and msg.handle == handle)  # type: ignore[union-attr]
+        return bool(msg.address == address and msg.handle == handle)  # type: ignore[attr-defined]
 
     async def _send_bluetooth_message_await_response(
         self,
