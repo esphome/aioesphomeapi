@@ -5,7 +5,7 @@ from abc import abstractmethod
 from enum import Enum
 from functools import partial
 from struct import Struct
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union, cast
 
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
@@ -42,12 +42,11 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     """ChaCha20 cipher that can be reused."""
 
-    @property
-    def klass(self):  # type: ignore[no-untyped-def]
-        return ChaCha20Poly1305Reusable
+    format_nonce = PACK_NONCE
 
-    def format_nonce(self, n: int) -> bytes:
-        return PACK_NONCE(n)
+    @property
+    def klass(self) -> Type[ChaCha20Poly1305Reusable]:
+        return ChaCha20Poly1305Reusable
 
 
 class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
