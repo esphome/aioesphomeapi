@@ -5,7 +5,7 @@ from abc import abstractmethod
 from enum import Enum
 from functools import partial
 from struct import Struct
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union, cast
 
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
@@ -45,7 +45,7 @@ class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     format_nonce = PACK_NONCE
 
     @property
-    def klass(self) -> ChaCha20Poly1305Reusable:
+    def klass(self) -> Type[ChaCha20Poly1305Reusable]:
         return ChaCha20Poly1305Reusable
 
 
