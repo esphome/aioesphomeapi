@@ -1,7 +1,7 @@
 import enum
 import sys
 from dataclasses import asdict, dataclass, field, fields
-from functools import cache, lru_cache
+from functools import cache, lru_cache, partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -20,15 +20,11 @@ from uuid import UUID
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
-    _dataclass_decorator = dataclass()
-    _frozen_dataclass_decorator = dataclass(frozen=True)
+    _dataclass_decorator = dataclass
+    _frozen_dataclass_decorator = partial(dataclass, frozen=True)
 else:
-    _dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
-        slots=True
-    )
-    _frozen_dataclass_decorator = dataclass(  # pylint: disable=unexpected-keyword-arg
-        frozen=True, slots=True
-    )
+    _dataclass_decorator = partial(dataclass, slots=True)
+    _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
