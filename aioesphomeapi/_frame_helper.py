@@ -44,7 +44,7 @@ class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     format_nonce = partialmethod(Struct("<LQ").pack, 0)
 
     @property
-    def klass(self):  # type: ignore[no-untyped-def]
+    def klass(self) -> ChaCha20Poly1305Reusable:
         return ChaCha20Poly1305Reusable
 
 
