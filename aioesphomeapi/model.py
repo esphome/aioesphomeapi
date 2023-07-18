@@ -936,23 +936,24 @@ class BluetoothLERawAdvertisement:
     data: bytes = field(default_factory=bytes)
 
 
-@_dataclass_decorator
-class BluetoothLERawAdvertisements:
-    advertisements: List[BluetoothLERawAdvertisement]
+def make_ble_raw_advertisement_processor(
+    on_advertisements: Callable[[List[BluetoothLERawAdvertisement]], None]
+) -> Callable[["BluetoothLERawAdvertisementsResponse"], None]:
+    """Make a processor for BluetoothLERawAdvertisementResponse."""
 
-    @classmethod
-    def from_pb(  # type: ignore[misc]
-        cls: "BluetoothLERawAdvertisements",
+    def _on_ble_raw_advertisement_response(
         data: "BluetoothLERawAdvertisementsResponse",
-    ) -> "BluetoothLERawAdvertisements":
-        return cls(  # type: ignore[operator, no-any-return]
-            advertisements=[
+    ) -> None:
+        on_advertisements(
+            [
                 BluetoothLERawAdvertisement(  # type: ignore[call-arg]
                     adv.address, adv.rssi, adv.address_type, adv.data
                 )
                 for adv in data.advertisements
             ]
         )
+
+    return _on_ble_raw_advertisement_response
 
 
 @_frozen_dataclass_decorator

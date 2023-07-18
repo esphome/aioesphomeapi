@@ -54,10 +54,14 @@ def socket_socket():
 
 def _get_mock_protocol(conn: APIConnection):
     protocol = APIPlaintextFrameHelper(
-        on_pkt=conn._process_packet, on_error=conn._report_fatal_error
+        on_pkt=conn._process_packet_factory(),
+        on_error=conn._report_fatal_error,
+        client_info="mock",
+        log_name="mock_device",
     )
     protocol._connected_event.set()
     protocol._transport = MagicMock()
+    protocol._writer = MagicMock()
     return protocol
 
 
