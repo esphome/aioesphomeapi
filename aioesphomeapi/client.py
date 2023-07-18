@@ -472,10 +472,10 @@ class APIClient:
         self,
         msg_types: Tuple[
             Union[
-                BluetoothGATTErrorResponse,
-                BluetoothGATTNotifyResponse,
-                BluetoothGATTReadResponse,
-                BluetoothGATTWriteResponse,
+                Type[BluetoothGATTErrorResponse],
+                Type[BluetoothGATTNotifyResponse],
+                Type[BluetoothGATTReadResponse],
+                Type[BluetoothGATTWriteResponse],
             ],
             ...,
         ],
@@ -486,7 +486,8 @@ class APIClient:
         """Handle a Bluetooth message."""
         if TYPE_CHECKING:
             assert isinstance(msg, msg_types)
-        return bool(msg.address == address and msg.handle == handle)  # type: ignore[attr-defined]
+            assert isinstance(msg, (BluetoothGATTErrorResponse, BluetoothGATTNotifyResponse, BluetoothGATTReadResponse, BluetoothGATTWriteResponse))
+        return bool(msg.address == address and msg.handle == handle)
 
     async def _send_bluetooth_message_await_response(
         self,
