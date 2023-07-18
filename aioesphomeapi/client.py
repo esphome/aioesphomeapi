@@ -468,6 +468,18 @@ class APIClient:
             (HomeassistantServiceResponse,),
         )
 
+    def _filter_bluetooth_message(
+        self,
+        msg_types: Tuple[Type[message.Message], ...],
+        address: int,
+        handle: int,
+        msg: message.Message,
+    ) -> None:
+        """Handle a Bluetooth message."""
+        if TYPE_CHECKING:
+            assert isinstance(msg, msg_types)
+        return bool(msg.address == address and msg.handle == handle)  # type: ignore[union-attr]
+
     async def _send_bluetooth_message_await_response(
         self,
         address: int,
@@ -480,13 +492,11 @@ class APIClient:
         msg_types = (response_type, BluetoothGATTErrorResponse)
         assert self._connection is not None
 
-        def is_response(msg: message.Message) -> bool:
-            if TYPE_CHECKING:
-                assert isinstance(msg, msg_types)
-            return bool(msg.address == address and msg.handle == handle)  # type: ignore[union-attr]
-
+        message_filter = partial(
+            self._filter_bluetooth_message, msg_types, address, handle
+        )
         resp = await self._connection.send_message_await_response_complex(
-            request, is_response, is_response, msg_types, timeout=timeout
+            request, message_filter, message_filter, msg_types, timeout=timeout
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
