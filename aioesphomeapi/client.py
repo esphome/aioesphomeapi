@@ -470,22 +470,12 @@ class APIClient:
 
     def _filter_bluetooth_message(
         self,
-        msg_types: Tuple[
-            Union[
-                Type[BluetoothGATTErrorResponse],
-                Type[BluetoothGATTNotifyResponse],
-                Type[BluetoothGATTReadResponse],
-                Type[BluetoothGATTWriteResponse],
-            ],
-            ...,
-        ],
         address: int,
         handle: int,
         msg: message.Message,
     ) -> bool:
         """Handle a Bluetooth message."""
         if TYPE_CHECKING:
-            assert isinstance(msg, msg_types)
             assert isinstance(
                 msg,
                 (
@@ -509,9 +499,7 @@ class APIClient:
         msg_types = (response_type, BluetoothGATTErrorResponse)
         assert self._connection is not None
 
-        message_filter = partial(
-            self._filter_bluetooth_message, msg_types, address, handle
-        )
+        message_filter = partial(self._filter_bluetooth_message, address, handle)
         resp = await self._connection.send_message_await_response_complex(
             request, message_filter, message_filter, msg_types, timeout=timeout
         )
