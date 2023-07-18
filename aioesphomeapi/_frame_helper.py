@@ -34,7 +34,6 @@ SOCKET_ERRORS = (
     TimeoutError,
 )
 
-PACK_NONCE = partial(Struct("<LQ").pack, 0)
 
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
@@ -42,7 +41,7 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     """ChaCha20 cipher that can be reused."""
 
-    format_nonce = partialmethod(PACK_NONCE)
+    format_nonce = partialmethod(Struct("<LQ").pack, 0)
 
     @property
     def klass(self):  # type: ignore[no-untyped-def]
