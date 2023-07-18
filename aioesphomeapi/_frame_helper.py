@@ -486,13 +486,14 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _setup_proto(self) -> None:
         """Set up the noise protocol."""
-        self._proto = NoiseConnection.from_name(
+        proto = NoiseConnection.from_name(
             b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
         )
-        self._proto.set_as_initiator()
-        self._proto.set_psks(_decode_noise_psk(self._noise_psk, self._server_name))
-        self._proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
-        self._proto.start_handshake()
+        proto.set_as_initiator()
+        proto.set_psks(_decode_noise_psk(self._noise_psk, self._server_name))
+        proto.set_prologue(b"NoiseAPIInit" + b"\x00\x00")
+        proto.start_handshake()
+        self._proto = proto
 
     def _send_handshake(self) -> None:
         """Send the handshake message."""
