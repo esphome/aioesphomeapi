@@ -1,13 +1,36 @@
-import asyncio
 from unittest.mock import MagicMock
 
 import pytest
 
-from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi.core import BadNameAPIError, InvalidEncryptionKeyAPIError
+from aioesphomeapi._frame_helper import (
+    WRITE_EXCEPTIONS,
+    APINoiseFrameHelper,
+    APIPlaintextFrameHelper,
+)
+from aioesphomeapi.core import (
+    BadNameAPIError,
+    InvalidEncryptionKeyAPIError,
+    SocketAPIError,
+)
 from aioesphomeapi.util import varuint_to_bytes
 
 PREAMBLE = b"\x00"
+
+
+class MockAPINoiseFrameHelper(APINoiseFrameHelper):
+    def mock_write_frame(self, frame: bytes) -> None:
+        """Write a packet to the socket.
+
+        The entire packet must be written in a single call to write.
+        """
+        frame_len = len(frame)
+        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+        try:
+            self._writer(header + frame)
+        except WRITE_EXCEPTIONS as err:
+            raise SocketAPIError(
+                f"{self._log_name}: Error while writing data: {err}"
+            ) from err
 
 
 @pytest.mark.asyncio
@@ -110,7 +133,7 @@ async def test_noise_frame_helper_incorrect_key():
     def _on_error(exc: Exception):
         raise exc
 
-    helper = APINoiseFrameHelper(
+    helper = MockAPINoiseFrameHelper(
         on_pkt=_packet,
         on_error=_on_error,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
@@ -122,7 +145,7 @@ async def test_noise_frame_helper_incorrect_key():
     helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
-        helper._write_frame(bytes.fromhex(pkt))
+        helper.mock_write_frame(bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
         for pkt in incoming_packets:
@@ -151,7 +174,7 @@ async def test_noise_frame_helper_incorrect_key_fragments():
     def _on_error(exc: Exception):
         raise exc
 
-    helper = APINoiseFrameHelper(
+    helper = MockAPINoiseFrameHelper(
         on_pkt=_packet,
         on_error=_on_error,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
@@ -163,7 +186,7 @@ async def test_noise_frame_helper_incorrect_key_fragments():
     helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
-        helper._write_frame(bytes.fromhex(pkt))
+        helper.mock_write_frame(bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
         for pkt in incoming_packets:
@@ -194,7 +217,7 @@ async def test_noise_incorrect_name():
     def _on_error(exc: Exception):
         raise exc
 
-    helper = APINoiseFrameHelper(
+    helper = MockAPINoiseFrameHelper(
         on_pkt=_packet,
         on_error=_on_error,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
@@ -206,7 +229,7 @@ async def test_noise_incorrect_name():
     helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
-        helper._write_frame(bytes.fromhex(pkt))
+        helper.mock_write_frame(bytes.fromhex(pkt))
 
     with pytest.raises(BadNameAPIError):
         for pkt in incoming_packets:

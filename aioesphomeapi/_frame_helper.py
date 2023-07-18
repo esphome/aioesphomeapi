@@ -354,26 +354,6 @@ class APINoiseFrameHelper(APIFrameHelper):
             exc.__cause__ = original_exc
         super()._handle_error(exc)
 
-    def _write_frame(self, frame: bytes) -> None:
-        """Write a packet to the socket.
-
-        The entire packet must be written in a single call to write.
-        """
-        if TYPE_CHECKING:
-            assert self._writer is not None, "Writer is not set"
-
-        if self._debug_enabled():
-            _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
-
-        frame_len = len(frame)
-        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
-        try:
-            self._writer(header + frame)
-        except WRITE_EXCEPTIONS as err:
-            raise SocketAPIError(
-                f"{self._log_name}: Error while writing data: {err}"
-            ) from err
-
     async def perform_handshake(self) -> None:
         """Perform the handshake with the server."""
         self._send_hello_handshake()
@@ -562,21 +542,32 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         if TYPE_CHECKING:
             assert self._encrypt is not None, "Handshake should be complete"
+            assert self._writer is not None, "Writer is not set"
 
         data_len = len(data)
-        self._write_frame(
-            self._encrypt(
-                bytes(
-                    [
-                        (type_ >> 8) & 0xFF,
-                        type_ & 0xFF,
-                        (data_len >> 8) & 0xFF,
-                        data_len & 0xFF,
-                    ]
-                )
-                + data
+        frame = self._encrypt(
+            bytes(
+                [
+                    (type_ >> 8) & 0xFF,
+                    type_ & 0xFF,
+                    (data_len >> 8) & 0xFF,
+                    data_len & 0xFF,
+                ]
             )
+            + data
         )
+
+        if self._debug_enabled():
+            _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
+
+        frame_len = len(frame)
+        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+        try:
+            self._writer(header + frame)
+        except WRITE_EXCEPTIONS as err:
+            raise SocketAPIError(
+                f"{self._log_name}: Error while writing data: {err}"
+            ) from err
 
     def _handle_frame(self, frame: bytearray) -> None:
         """Handle an incoming frame."""
