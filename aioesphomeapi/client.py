@@ -471,14 +471,13 @@ class APIClient:
     def _filter_bluetooth_message(
         self,
         msg_types: Tuple[
-            Type[
-                Union[
-                    BluetoothGATTErrorResponse,
-                    BluetoothGATTNotifyResponse,
-                    BluetoothGATTReadResponse,
-                    BluetoothGATTWriteResponse,
-                ]
-            ],
+            Union[
+                BluetoothGATTErrorResponse,
+                BluetoothGATTNotifyResponse,
+                BluetoothGATTReadResponse,
+                BluetoothGATTWriteResponse,
+            ]
+            ,
             ...,
         ],
         address: int,
