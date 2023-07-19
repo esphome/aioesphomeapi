@@ -16,6 +16,7 @@ from typing import (
     cast,
 )
 from uuid import UUID
+from google.protobuf.json_format import MessageToDict
 
 from .util import fix_float_single_double_conversion
 
@@ -945,7 +946,10 @@ def make_ble_raw_advertisement_processor(
         data: "BluetoothLERawAdvertisementsResponse",
     ) -> None:
         on_advertisements(
-            [BluetoothLERawAdvertisement(*adv.values()) for adv in data.advertisements]
+            [
+                BluetoothLERawAdvertisement(*MessageToDict(adv).values())
+                for adv in data.advertisements
+            ]
         )
 
     return _on_ble_raw_advertisement_response
