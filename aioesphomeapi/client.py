@@ -1417,7 +1417,7 @@ class APIClient:
                 )
 
             if start_task is not None and not start_task.cancelled():
-                start_task.cancel()
+                start_task.cancel("Unsubscribing from voice assistant")
 
         return unsub
 

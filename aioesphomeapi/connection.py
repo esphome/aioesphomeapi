@@ -211,7 +211,7 @@ class APIConnection:
         # need to make sure we don't cancel the task
         # that called us
         if self._connect_task is not None and not in_do_connect.get(False):
-            self._connect_task.cancel()
+            self._connect_task.cancel("Connection cleanup")
             self._connect_task = None
 
         if self._frame_helper is not None:
