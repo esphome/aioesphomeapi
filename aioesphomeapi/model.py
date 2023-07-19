@@ -17,8 +17,6 @@ from typing import (
 )
 from uuid import UUID
 
-from google.protobuf.json_format import MessageToDict
-
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
