@@ -948,7 +948,7 @@ def make_ble_raw_advertisement_processor(
     ) -> None:
         on_advertisements(
             [
-                BluetoothLERawAdvertisement(zip(*adv.ListFields())[1])
+                BluetoothLERawAdvertisement(tuple(zip(*adv.ListFields()))[1])
                 for adv in data.advertisements
             ]
         )
