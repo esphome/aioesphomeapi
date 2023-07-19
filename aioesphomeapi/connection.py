@@ -599,7 +599,7 @@ class APIConnection:
         """Handle a timeout."""
         if fut.done():
             return
-        fut.set_exception(asyncio.TimeoutError())
+        fut.set_exception(asyncio.TimeoutError)
 
     def _handle_complex_message(
         self,
