@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, Optional, Union, cast
+from typing import Callable, cast
 
 from ..core import SocketClosedAPIError
 
@@ -45,10 +47,8 @@ class APIFrameHelper(asyncio.Protocol):
         """Initialize the API frame helper."""
         self._on_pkt = on_pkt
         self._on_error = on_error
-        self._transport: Optional[asyncio.Transport] = None
-        self._writer: Optional[
-            Callable[[Union[bytes, bytearray, memoryview]], None]
-        ] = None
+        self._transport: asyncio.Transport | None = None
+        self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._connected_event = asyncio.Event()
         self._buffer = bytearray()
         self._buffer_len = 0
@@ -57,7 +57,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._log_name = log_name
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
-    def _read_exactly(self, length: int) -> Optional[bytearray]:
+    def _read_exactly(self, length: int) -> bytearray | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
@@ -87,13 +87,13 @@ class APIFrameHelper(asyncio.Protocol):
     def _handle_error(self, exc: Exception) -> None:
         self._on_error(exc)
 
-    def connection_lost(self, exc: Optional[Exception]) -> None:
+    def connection_lost(self, exc: Exception | None) -> None:
         self._handle_error(
             exc or SocketClosedAPIError(f"{self._log_name}: Connection lost")
         )
         return super().connection_lost(exc)
 
-    def eof_received(self) -> Optional[bool]:
+    def eof_received(self) -> bool | None:
         self._handle_error(SocketClosedAPIError(f"{self._log_name}: EOF received"))
         return super().eof_received()
 

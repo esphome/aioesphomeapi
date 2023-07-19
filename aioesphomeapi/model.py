@@ -1,20 +1,11 @@
+from __future__ import annotations
+
 import enum
 import sys
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
 from functools import cache, lru_cache, partial
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
 from .util import fix_float_single_double_conversion
@@ -48,14 +39,14 @@ class APIIntEnum(enum.IntEnum):
     """Base class for int enum values in API model."""
 
     @classmethod
-    def convert(cls: Type[_T], value: int) -> Optional[_T]:
+    def convert(cls: type[_T], value: int) -> _T | None:
         try:
             return cls(value)
         except ValueError:
             return None
 
     @classmethod
-    def convert_list(cls: Type[_T], value: List[int]) -> List[_T]:
+    def convert_list(cls: type[_T], value: list[int]) -> list[_T]:
         ret = []
         for x in value:
             try:
@@ -81,12 +72,12 @@ class APIModelBase:
             # use this setattr to prevent FrozenInstanceError
             object.__setattr__(self, field_.name, convert(val))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)  # type: ignore[no-any-return, call-overload]
 
     @classmethod
     def from_dict(
-        cls: Type[_V], data: Dict[str, Any], *, ignore_missing: bool = True
+        cls: type[_V], data: dict[str, Any], *, ignore_missing: bool = True
     ) -> _V:
         init_args = {
             f.name: data[f.name]
@@ -96,7 +87,7 @@ class APIModelBase:
         return cls(**init_args)
 
     @classmethod
-    def from_pb(cls: Type[_V], data: Any) -> _V:
+    def from_pb(cls: type[_V], data: Any) -> _V:
         return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
 
@@ -174,7 +165,7 @@ class EntityInfo(APIModelBase):
     unique_id: str = ""
     disabled_by_default: bool = False
     icon: str = ""
-    entity_category: Optional[EntityCategory] = converter_field(
+    entity_category: EntityCategory | None = converter_field(
         default=EntityCategory.NONE, converter=EntityCategory.convert
     )
 
@@ -226,7 +217,7 @@ class CoverOperation(APIIntEnum):
 
 @_frozen_dataclass_decorator
 class CoverState(EntityState):
-    legacy_state: Optional[LegacyCoverState] = converter_field(
+    legacy_state: LegacyCoverState | None = converter_field(
         default=LegacyCoverState.OPEN, converter=LegacyCoverState.convert
     )
     position: float = converter_field(
@@ -235,7 +226,7 @@ class CoverState(EntityState):
     tilt: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-    current_operation: Optional[CoverOperation] = converter_field(
+    current_operation: CoverOperation | None = converter_field(
         default=CoverOperation.IDLE, converter=CoverOperation.convert
     )
 
@@ -269,11 +260,11 @@ class FanDirection(APIIntEnum):
 class FanState(EntityState):
     state: bool = False
     oscillating: bool = False
-    speed: Optional[FanSpeed] = converter_field(
+    speed: FanSpeed | None = converter_field(
         default=FanSpeed.LOW, converter=FanSpeed.convert
     )
     speed_level: int = 0
-    direction: Optional[FanDirection] = converter_field(
+    direction: FanDirection | None = converter_field(
         default=FanDirection.FORWARD, converter=FanDirection.convert
     )
 
@@ -290,7 +281,7 @@ class LightColorCapability(enum.IntFlag):
 
 @_frozen_dataclass_decorator
 class LightInfo(EntityInfo):
-    supported_color_modes: List[int] = converter_field(
+    supported_color_modes: list[int] = converter_field(
         default_factory=list, converter=list
     )
     min_mireds: float = converter_field(
@@ -299,7 +290,7 @@ class LightInfo(EntityInfo):
     max_mireds: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-    effects: List[str] = converter_field(default_factory=list, converter=list)
+    effects: list[str] = converter_field(default_factory=list, converter=list)
 
     # deprecated, do not use
     legacy_supports_brightness: bool = False
@@ -307,7 +298,7 @@ class LightInfo(EntityInfo):
     legacy_supports_white_value: bool = False
     legacy_supports_color_temperature: bool = False
 
-    def supported_color_modes_compat(self, api_version: APIVersion) -> List[int]:
+    def supported_color_modes_compat(self, api_version: APIVersion) -> list[int]:
         if api_version < APIVersion(1, 6):
             key = (
                 self.legacy_supports_brightness,
@@ -353,7 +344,7 @@ class LightInfo(EntityInfo):
                 ],
             }
 
-            return cast(List[int], modes_map[key]) if key in modes_map else []
+            return cast(list[int], modes_map[key]) if key in modes_map else []
 
         return self.supported_color_modes
 
@@ -412,10 +403,10 @@ class SensorInfo(EntityInfo):
     unit_of_measurement: str = ""
     accuracy_decimals: int = 0
     force_update: bool = False
-    state_class: Optional[SensorStateClass] = converter_field(
+    state_class: SensorStateClass | None = converter_field(
         default=SensorStateClass.NONE, converter=SensorStateClass.convert
     )
-    last_reset_type: Optional[LastResetType] = converter_field(
+    last_reset_type: LastResetType | None = converter_field(
         default=LastResetType.NONE, converter=LastResetType.convert
     )
 
@@ -516,7 +507,7 @@ class ClimatePreset(APIIntEnum):
 class ClimateInfo(EntityInfo):
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
-    supported_modes: List[ClimateMode] = converter_field(
+    supported_modes: list[ClimateMode] = converter_field(
         default_factory=list, converter=ClimateMode.convert_list
     )
     visual_min_temperature: float = converter_field(
@@ -533,23 +524,23 @@ class ClimateInfo(EntityInfo):
     )
     legacy_supports_away: bool = False
     supports_action: bool = False
-    supported_fan_modes: List[ClimateFanMode] = converter_field(
+    supported_fan_modes: list[ClimateFanMode] = converter_field(
         default_factory=list, converter=ClimateFanMode.convert_list
     )
-    supported_swing_modes: List[ClimateSwingMode] = converter_field(
+    supported_swing_modes: list[ClimateSwingMode] = converter_field(
         default_factory=list, converter=ClimateSwingMode.convert_list
     )
-    supported_custom_fan_modes: List[str] = converter_field(
+    supported_custom_fan_modes: list[str] = converter_field(
         default_factory=list, converter=list
     )
-    supported_presets: List[ClimatePreset] = converter_field(
+    supported_presets: list[ClimatePreset] = converter_field(
         default_factory=list, converter=ClimatePreset.convert_list
     )
-    supported_custom_presets: List[str] = converter_field(
+    supported_custom_presets: list[str] = converter_field(
         default_factory=list, converter=list
     )
 
-    def supported_presets_compat(self, api_version: APIVersion) -> List[ClimatePreset]:
+    def supported_presets_compat(self, api_version: APIVersion) -> list[ClimatePreset]:
         if api_version < APIVersion(1, 5):
             return (
                 [ClimatePreset.HOME, ClimatePreset.AWAY]
@@ -561,10 +552,10 @@ class ClimateInfo(EntityInfo):
 
 @_frozen_dataclass_decorator
 class ClimateState(EntityState):
-    mode: Optional[ClimateMode] = converter_field(
+    mode: ClimateMode | None = converter_field(
         default=ClimateMode.OFF, converter=ClimateMode.convert
     )
-    action: Optional[ClimateAction] = converter_field(
+    action: ClimateAction | None = converter_field(
         default=ClimateAction.OFF, converter=ClimateAction.convert
     )
     current_temperature: float = converter_field(
@@ -580,19 +571,19 @@ class ClimateState(EntityState):
         default=0.0, converter=fix_float_single_double_conversion
     )
     legacy_away: bool = False
-    fan_mode: Optional[ClimateFanMode] = converter_field(
+    fan_mode: ClimateFanMode | None = converter_field(
         default=ClimateFanMode.ON, converter=ClimateFanMode.convert
     )
-    swing_mode: Optional[ClimateSwingMode] = converter_field(
+    swing_mode: ClimateSwingMode | None = converter_field(
         default=ClimateSwingMode.OFF, converter=ClimateSwingMode.convert
     )
     custom_fan_mode: str = ""
-    preset: Optional[ClimatePreset] = converter_field(
+    preset: ClimatePreset | None = converter_field(
         default=ClimatePreset.NONE, converter=ClimatePreset.convert
     )
     custom_preset: str = ""
 
-    def preset_compat(self, api_version: APIVersion) -> Optional[ClimatePreset]:
+    def preset_compat(self, api_version: APIVersion) -> ClimatePreset | None:
         if api_version < APIVersion(1, 5):
             return ClimatePreset.AWAY if self.legacy_away else ClimatePreset.HOME
         return self.preset
@@ -617,7 +608,7 @@ class NumberInfo(EntityInfo):
         default=0.0, converter=fix_float_single_double_conversion
     )
     unit_of_measurement: str = ""
-    mode: Optional[NumberMode] = converter_field(
+    mode: NumberMode | None = converter_field(
         default=NumberMode.AUTO, converter=NumberMode.convert
     )
     device_class: str = ""
@@ -634,7 +625,7 @@ class NumberState(EntityState):
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
-    options: List[str] = converter_field(default_factory=list, converter=list)
+    options: list[str] = converter_field(default_factory=list, converter=list)
 
 
 @_frozen_dataclass_decorator
@@ -646,7 +637,7 @@ class SelectState(EntityState):
 # ==================== SIREN ====================
 @_frozen_dataclass_decorator
 class SirenInfo(EntityInfo):
-    tones: List[str] = converter_field(default_factory=list, converter=list)
+    tones: list[str] = converter_field(default_factory=list, converter=list)
     supports_volume: bool = False
     supports_duration: bool = False
 
@@ -689,7 +680,7 @@ class LockInfo(EntityInfo):
 
 @_frozen_dataclass_decorator
 class LockEntityState(EntityState):
-    state: Optional[LockState] = converter_field(
+    state: LockState | None = converter_field(
         default=LockState.NONE, converter=LockState.convert
     )
 
@@ -717,7 +708,7 @@ class MediaPlayerInfo(EntityInfo):
 
 @_frozen_dataclass_decorator
 class MediaPlayerEntityState(EntityState):
-    state: Optional[MediaPlayerState] = converter_field(
+    state: MediaPlayerState | None = converter_field(
         default=MediaPlayerState.NONE, converter=MediaPlayerState.convert
     )
     volume: float = converter_field(
@@ -759,7 +750,7 @@ class AlarmControlPanelInfo(EntityInfo):
 
 @_frozen_dataclass_decorator
 class AlarmControlPanelEntityState(EntityState):
-    state: Optional[AlarmControlPanelState] = converter_field(
+    state: AlarmControlPanelState | None = converter_field(
         default=AlarmControlPanelState.DISARMED,
         converter=AlarmControlPanelState.convert,
     )
@@ -767,7 +758,7 @@ class AlarmControlPanelEntityState(EntityState):
 
 # ==================== INFO MAP ====================
 
-COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
+COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "binary_sensor": BinarySensorInfo,
     "cover": CoverInfo,
     "fan": FanInfo,
@@ -789,8 +780,8 @@ COMPONENT_TYPE_TO_INFO: Dict[str, Type[EntityInfo]] = {
 
 # ==================== USER-DEFINED SERVICES ====================
 def _convert_homeassistant_service_map(
-    value: Union[Dict[str, str], Iterable["HomeassistantServiceMap"]],
-) -> Dict[str, str]:
+    value: dict[str, str] | Iterable[HomeassistantServiceMap],
+) -> dict[str, str]:
     if isinstance(value, dict):
         # already a dict, don't convert
         return value
@@ -801,13 +792,13 @@ def _convert_homeassistant_service_map(
 class HomeassistantServiceCall(APIModelBase):
     service: str = ""
     is_event: bool = False
-    data: Dict[str, str] = converter_field(
+    data: dict[str, str] = converter_field(
         default_factory=dict, converter=_convert_homeassistant_service_map
     )
-    data_template: Dict[str, str] = converter_field(
+    data_template: dict[str, str] = converter_field(
         default_factory=dict, converter=_convert_homeassistant_service_map
     )
-    variables: Dict[str, str] = converter_field(
+    variables: dict[str, str] = converter_field(
         default_factory=dict, converter=_convert_homeassistant_service_map
     )
 
@@ -826,12 +817,12 @@ class UserServiceArgType(APIIntEnum):
 @_frozen_dataclass_decorator
 class UserServiceArg(APIModelBase):
     name: str = ""
-    type: Optional[UserServiceArgType] = converter_field(
+    type: UserServiceArgType | None = converter_field(
         default=UserServiceArgType.BOOL, converter=UserServiceArgType.convert
     )
 
     @classmethod
-    def convert_list(cls, value: List[Any]) -> List["UserServiceArg"]:
+    def convert_list(cls, value: list[Any]) -> list[UserServiceArg]:
         ret = []
         for x in value:
             if isinstance(x, dict):
@@ -847,7 +838,7 @@ class UserServiceArg(APIModelBase):
 class UserService(APIModelBase):
     name: str = ""
     key: int = 0
-    args: List[UserServiceArg] = converter_field(
+    args: list[UserServiceArg] = converter_field(
         default_factory=list, converter=UserServiceArg.convert_list
     )
 
@@ -855,7 +846,7 @@ class UserService(APIModelBase):
 # ==================== BLUETOOTH ====================
 
 
-def _join_split_uuid(value: List[int]) -> str:
+def _join_split_uuid(value: list[int]) -> str:
     """Convert a high/low uuid into a single string."""
     return str(UUID(int=(value[0] << 64) | value[1]))
 
@@ -877,14 +868,14 @@ class BluetoothLEAdvertisement:
     rssi: int
     address_type: int
     name: str
-    service_uuids: List[str]
-    service_data: Dict[str, bytes]
-    manufacturer_data: Dict[int, bytes]
+    service_uuids: list[str]
+    service_data: dict[str, bytes]
+    manufacturer_data: dict[int, bytes]
 
     @classmethod
     def from_pb(  # type: ignore[misc]
-        cls: "BluetoothLEAdvertisement", data: "BluetoothLEAdvertisementResponse"
-    ) -> "BluetoothLEAdvertisement":
+        cls: BluetoothLEAdvertisement, data: BluetoothLEAdvertisementResponse
+    ) -> BluetoothLEAdvertisement:
         _uuid_convert = _cached_uuid_converter
 
         if raw_manufacturer_data := data.manufacturer_data:
@@ -937,12 +928,12 @@ class BluetoothLERawAdvertisement:
 
 
 def make_ble_raw_advertisement_processor(
-    on_advertisements: Callable[[List[BluetoothLERawAdvertisement]], None]
-) -> Callable[["BluetoothLERawAdvertisementsResponse"], None]:
+    on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
+) -> Callable[[BluetoothLERawAdvertisementsResponse], None]:
     """Make a processor for BluetoothLERawAdvertisementResponse."""
 
     def _on_ble_raw_advertisement_response(
-        data: "BluetoothLERawAdvertisementsResponse",
+        data: BluetoothLERawAdvertisementsResponse,
     ) -> None:
         on_advertisements(
             [
@@ -999,7 +990,7 @@ class BluetoothGATTDescriptor(APIModelBase):
     handle: int = 0
 
     @classmethod
-    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTDescriptor"]:
+    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTDescriptor]:
         ret = []
         for x in value:
             if isinstance(x, dict):
@@ -1015,12 +1006,12 @@ class BluetoothGATTCharacteristic(APIModelBase):
     handle: int = 0
     properties: int = 0
 
-    descriptors: List[BluetoothGATTDescriptor] = converter_field(
+    descriptors: list[BluetoothGATTDescriptor] = converter_field(
         default_factory=list, converter=BluetoothGATTDescriptor.convert_list
     )
 
     @classmethod
-    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTCharacteristic"]:
+    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTCharacteristic]:
         ret = []
         for x in value:
             if isinstance(x, dict):
@@ -1034,12 +1025,12 @@ class BluetoothGATTCharacteristic(APIModelBase):
 class BluetoothGATTService(APIModelBase):
     uuid: str = converter_field(default="", converter=_join_split_uuid)
     handle: int = 0
-    characteristics: List[BluetoothGATTCharacteristic] = converter_field(
+    characteristics: list[BluetoothGATTCharacteristic] = converter_field(
         default_factory=list, converter=BluetoothGATTCharacteristic.convert_list
     )
 
     @classmethod
-    def convert_list(cls, value: List[Any]) -> List["BluetoothGATTService"]:
+    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTService]:
         ret = []
         for x in value:
             if isinstance(x, dict):
@@ -1052,7 +1043,7 @@ class BluetoothGATTService(APIModelBase):
 @_frozen_dataclass_decorator
 class BluetoothGATTServices(APIModelBase):
     address: int = 0
-    services: List[BluetoothGATTService] = converter_field(
+    services: list[BluetoothGATTService] = converter_field(
         default_factory=list, converter=BluetoothGATTService.convert_list
     )
 
@@ -1060,7 +1051,7 @@ class BluetoothGATTServices(APIModelBase):
 @_frozen_dataclass_decorator
 class ESPHomeBluetoothGATTServices:
     address: int = 0
-    services: List[BluetoothGATTService] = field(default_factory=list)
+    services: list[BluetoothGATTService] = field(default_factory=list)
 
 
 @_frozen_dataclass_decorator

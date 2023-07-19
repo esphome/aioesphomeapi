@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import math
 from functools import lru_cache
-from typing import Optional
 
 
 @lru_cache(maxsize=1024)
@@ -8,7 +9,7 @@ def varuint_to_bytes(value: int) -> bytes:
     if value <= 0x7F:
         return bytes([value])
 
-    ret = bytes()
+    ret = b""
     while value:
         temp = value & 0x7F
         value >>= 7
@@ -21,7 +22,7 @@ def varuint_to_bytes(value: int) -> bytes:
 
 
 @lru_cache(maxsize=1024)
-def bytes_to_varuint(value: bytes) -> Optional[int]:
+def bytes_to_varuint(value: bytes) -> int | None:
     result = 0
     bitpos = 0
     for val in value:

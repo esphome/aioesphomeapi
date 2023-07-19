@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import socket
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
-from typing import List, Optional, Tuple, Union, cast
+from typing import Union, cast
 
 import zeroconf
 import zeroconf.asyncio
@@ -45,7 +47,7 @@ async def _async_zeroconf_get_service_info(
     service_type: str,
     service_name: str,
     timeout: float,
-) -> Optional["zeroconf.ServiceInfo"]:
+) -> "zeroconf.ServiceInfo" | None:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     if zeroconf_instance is None:
         try:
@@ -87,7 +89,7 @@ async def _async_resolve_host_zeroconf(
     *,
     timeout: float = 3.0,
     zeroconf_instance: ZeroconfInstanceType = None,
-) -> List[AddrInfo]:
+) -> list[AddrInfo]:
     service_type = "_esphomelib._tcp.local."
     service_name = f"{host}.{service_type}"
 
@@ -98,7 +100,7 @@ async def _async_resolve_host_zeroconf(
     if info is None:
         return []
 
-    addrs: List[AddrInfo] = []
+    addrs: list[AddrInfo] = []
     for raw in info.addresses_by_version(zeroconf.IPVersion.All):
         is_ipv6 = len(raw) == 16
         sockaddr: Sockaddr
@@ -126,7 +128,7 @@ async def _async_resolve_host_zeroconf(
     return addrs
 
 
-async def _async_resolve_host_getaddrinfo(host: str, port: int) -> List[AddrInfo]:
+async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo]:
     try:
         # Limit to TCP IP protocol and SOCK_STREAM
         res = await asyncio.get_event_loop().getaddrinfo(
@@ -135,15 +137,15 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> List[AddrInfo
     except OSError as err:
         raise APIConnectionError(f"Error resolving IP address: {err}")
 
-    addrs: List[AddrInfo] = []
+    addrs: list[AddrInfo] = []
     for family, type_, proto, _, raw in res:
         sockaddr: Sockaddr
         if family == socket.AF_INET:
-            raw = cast(Tuple[str, int], raw)
+            raw = cast(tuple[str, int], raw)
             address, port = raw
             sockaddr = IPv4Sockaddr(address=address, port=port)
         elif family == socket.AF_INET6:
-            raw = cast(Tuple[str, int, int, int], raw)
+            raw = cast(tuple[str, int, int, int], raw)
             address, port, flowinfo, scope_id = raw
             sockaddr = IPv6Sockaddr(
                 address=address, port=port, flowinfo=flowinfo, scope_id=scope_id
@@ -158,7 +160,7 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> List[AddrInfo
     return addrs
 
 
-def _async_ip_address_to_addrs(host: str, port: int) -> List[AddrInfo]:
+def _async_ip_address_to_addrs(host: str, port: int) -> list[AddrInfo]:
     """Convert an ipaddress to AddrInfo."""
     with contextlib.suppress(ValueError):
         return [
@@ -193,7 +195,7 @@ async def async_resolve_host(
     port: int,
     zeroconf_instance: ZeroconfInstanceType = None,
 ) -> AddrInfo:
-    addrs: List[AddrInfo] = []
+    addrs: list[AddrInfo] = []
 
     zc_error = None
     if host.endswith(".local"):

@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError, SocketAPIError
 from ..util import bytes_to_varuint, varuint_to_bytes
@@ -45,8 +47,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             init_bytes = self._read_exactly(3)
             if init_bytes is None:
                 return
-            msg_type_int: Optional[int] = None
-            length_int: Optional[int] = None
+            msg_type_int: int | None = None
+            length_int: int | None = None
             preamble, length_high, maybe_msg_type = init_bytes
             if preamble != 0x00:
                 if preamble == 0x01:

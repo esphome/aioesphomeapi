@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 import logging
-from typing import Awaitable, Callable, List, Optional
+from collections.abc import Awaitable
+from typing import Callable
 
 import zeroconf
 
@@ -34,9 +37,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
         on_disconnect: Callable[[bool], Awaitable[None]],
-        zeroconf_instance: "zeroconf.Zeroconf",
-        name: Optional[str] = None,
-        on_connect_error: Optional[Callable[[Exception], Awaitable[None]]] = None,
+        zeroconf_instance: zeroconf.Zeroconf,
+        name: str | None = None,
+        on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
     ) -> None:
         """Initialize ReconnectingLogic.
 
@@ -51,7 +54,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
         self._zc = zeroconf_instance
-        self._filter_alias: Optional[str] = None
+        self._filter_alias: str | None = None
         # Flag to check if the device is connected
         self._connected = False
         self._connected_lock = asyncio.Lock()
@@ -60,9 +63,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
         # Event for tracking when logic should stop
-        self._connect_task: Optional[asyncio.Task[None]] = None
-        self._connect_timer: Optional[asyncio.TimerHandle] = None
-        self._stop_task: Optional[asyncio.Task[None]] = None
+        self._connect_task: asyncio.Task[None] | None = None
+        self._connect_timer: asyncio.TimerHandle | None = None
+        self._stop_task: asyncio.Task[None] | None = None
 
     @property
     def _log_name(self) -> str:
@@ -244,9 +247,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def async_update_records(
         self,
-        zc: "zeroconf.Zeroconf",  # pylint: disable=unused-argument
+        zc: zeroconf.Zeroconf,  # pylint: disable=unused-argument
         now: float,  # pylint: disable=unused-argument
-        records: List["zeroconf.RecordUpdate"],
+        records: list[zeroconf.RecordUpdate],
     ) -> None:
         """Listen to zeroconf updated mDNS records. This must be called from the eventloop.
 
