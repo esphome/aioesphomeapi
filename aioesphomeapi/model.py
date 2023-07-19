@@ -16,6 +16,7 @@ from typing import (
     cast,
 )
 from uuid import UUID
+
 from google.protobuf.json_format import MessageToDict
 
 from .util import fix_float_single_double_conversion
