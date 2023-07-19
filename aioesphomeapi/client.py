@@ -588,7 +588,7 @@ class APIClient:
         """Handle a timeout."""
         if fut.done():
             return
-        fut.set_exception(asyncio.TimeoutError())
+        fut.set_exception(asyncio.TimeoutError)
 
     def _on_bluetooth_device_connection_response(
         self,
@@ -653,13 +653,14 @@ class APIClient:
             msg_types,
         )
 
-        timeout_handle = self._loop.call_later(
-            timeout, self._handle_timeout, connect_future
-        )
+        loop = self._loop
+        timeout_handle = loop.call_later(timeout, self._handle_timeout, connect_future)
+        timeout_expired = False
         try:
             try:
                 await connect_future
             except asyncio.TimeoutError as err:
+                timeout_expired = True
                 # Disconnect before raising the exception to ensure
                 # the slot is recovered before the timeout is raised
                 # to avoid race were we run out even though we have a slot.
@@ -703,7 +704,8 @@ class APIClient:
                 )
             raise
         finally:
-            timeout_handle.cancel()
+            if not timeout_expired:
+                timeout_handle.cancel()
 
         return unsub
 
