@@ -5,7 +5,7 @@ import contextlib
 import socket
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
-from typing import List, Optional, Tuple, Union, cast
+from typing import Union, cast
 
 import zeroconf
 import zeroconf.asyncio

@@ -9,7 +9,7 @@ import time
 from collections.abc import Coroutine, Iterable
 from dataclasses import astuple, dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Any, Callable
 
 import async_timeout
 from google.protobuf import message

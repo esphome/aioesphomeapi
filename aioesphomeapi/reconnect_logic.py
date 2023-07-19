@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable
-from typing import Callable, List, Optional
+from typing import Callable
 
 import zeroconf
 
