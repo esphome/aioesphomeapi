@@ -588,7 +588,7 @@ class APIClient:
         """Handle a timeout."""
         if fut.done():
             return
-        fut.set_exception(asyncio.TimeoutError())
+        fut.set_exception(asyncio.TimeoutError)
 
     def _on_bluetooth_device_connection_response(
         self,
@@ -653,59 +653,63 @@ class APIClient:
             msg_types,
         )
 
-        timeout_handle = self._loop.call_later(
-            timeout, self._handle_timeout, connect_future
-        )
+        loop = self._loop
+        timeout_handle = loop.call_later(timeout, self._handle_timeout, connect_future)
+        timeout_expired = False
+        connect_ok = False
         try:
-            try:
-                await connect_future
-            except asyncio.TimeoutError as err:
-                # Disconnect before raising the exception to ensure
-                # the slot is recovered before the timeout is raised
-                # to avoid race were we run out even though we have a slot.
-                addr = to_human_readable_address(address)
-                if debug:
-                    _LOGGER.debug(
-                        "%s: Connecting timed out, waiting for disconnect", addr
-                    )
-                disconnect_timed_out = False
-                try:
-                    await self.bluetooth_device_disconnect(
-                        address, timeout=disconnect_timeout
-                    )
-                except TimeoutAPIError:
-                    disconnect_timed_out = True
-                    if debug:
-                        _LOGGER.debug(
-                            "%s: Disconnect timed out: %s", addr, disconnect_timed_out
-                        )
-                finally:
-                    try:
-                        unsub()
-                    except (KeyError, ValueError):
-                        _LOGGER.warning(
-                            "%s: Bluetooth device connection timed out but already unsubscribed "
-                            "(likely due to unexpected disconnect)",
-                            addr,
-                        )
-                raise TimeoutAPIError(
-                    f"Timeout waiting for connect response while connecting to {addr} "
-                    f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
-                    f" after {disconnect_timeout}s"
-                ) from err
-        except asyncio.CancelledError:
-            try:
-                unsub()
-            except (KeyError, ValueError):
-                _LOGGER.warning(
-                    "%s: Bluetooth device connection canceled but already unsubscribed",
-                    addr,
+            await connect_future
+            connect_ok = True
+        except asyncio.TimeoutError as err:
+            timeout_expired = True
+            # Disconnect before raising the exception to ensure
+            # the slot is recovered before the timeout is raised
+            # to avoid race were we run out even though we have a slot.
+            addr = to_human_readable_address(address)
+            if debug:
+                _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
+            disconnect_timed_out = (
+                not await self._bluetooth_device_disconnect_guard_timeout(
+                    address, disconnect_timeout
                 )
-            raise
+            )
+            raise TimeoutAPIError(
+                f"Timeout waiting for connect response while connecting to {addr} "
+                f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
+                f" after {disconnect_timeout}s"
+            ) from err
         finally:
-            timeout_handle.cancel()
+            if not connect_ok:
+                try:
+                    unsub()
+                except (KeyError, ValueError):
+                    _LOGGER.warning(
+                        "%s: Bluetooth device connection canceled but already unsubscribed",
+                        addr,
+                    )
+            if not timeout_expired:
+                timeout_handle.cancel()
 
         return unsub
+
+    async def _bluetooth_device_disconnect_guard_timeout(
+        self, address: int, timeout: float
+    ) -> bool:
+        """Disconnect from a Bluetooth device and guard against timeout.
+
+        Return true if the disconnect was successful, false if it timed out.
+        """
+        try:
+            await self.bluetooth_device_disconnect(address, timeout=timeout)
+        except TimeoutAPIError:
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                _LOGGER.debug(
+                    "%s: Disconnect timed out: %s",
+                    to_human_readable_address(address),
+                    timeout,
+                )
+            return False
+        return True
 
     async def bluetooth_device_pair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT

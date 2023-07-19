@@ -599,7 +599,7 @@ class APIConnection:
         """Handle a timeout."""
         if fut.done():
             return
-        fut.set_exception(asyncio.TimeoutError())
+        fut.set_exception(asyncio.TimeoutError)
 
     def _handle_complex_message(
         self,
@@ -658,14 +658,17 @@ class APIConnection:
         # the message could fail to be removed if the
         # the await is cancelled
         timeout_handle = self._loop.call_later(timeout, self._handle_timeout, fut)
+        timeout_expired = False
         try:
             await fut
         except asyncio.TimeoutError as err:
+            timeout_expired = True
             raise TimeoutAPIError(
                 f"Timeout waiting for response for {type(send_msg)} after {timeout}s"
             ) from err
         finally:
-            timeout_handle.cancel()
+            if not timeout_expired:
+                timeout_handle.cancel()
             for msg_type in msg_types:
                 message_handlers[msg_type].discard(on_message)
             read_exception_futures.discard(fut)
