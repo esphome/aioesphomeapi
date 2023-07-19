@@ -945,12 +945,7 @@ def make_ble_raw_advertisement_processor(
         data: "BluetoothLERawAdvertisementsResponse",
     ) -> None:
         on_advertisements(
-            [
-                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
-                    adv.address, adv.rssi, adv.address_type, adv.data
-                )
-                for adv in data.advertisements
-            ]
+            [BluetoothLERawAdvertisement(*adv.values()) for adv in data.advertisements]
         )
 
     return _on_ble_raw_advertisement_response
