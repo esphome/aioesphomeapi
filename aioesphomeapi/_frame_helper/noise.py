@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import base64
 import logging
@@ -34,7 +36,7 @@ class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     format_nonce = PACK_NONCE
 
     @property
-    def klass(self) -> Type[ChaCha20Poly1305Reusable]:
+    def klass(self) -> type[ChaCha20Poly1305Reusable]:
         return ChaCha20Poly1305Reusable
 
 
@@ -81,7 +83,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         on_pkt: Callable[[int, bytes], None],
         on_error: Callable[[Exception], None],
         noise_psk: str,
-        expected_name: Optional[str],
+        expected_name: str | None,
         client_info: str,
         log_name: str,
     ) -> None:
@@ -93,9 +95,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._noise_psk = noise_psk
         self._expected_name = expected_name
         self._set_state(NoiseConnectionState.HELLO)
-        self._server_name: Optional[str] = None
-        self._decrypt: Optional[Callable[[bytes], bytes]] = None
-        self._encrypt: Optional[Callable[[bytes], bytes]] = None
+        self._server_name: str | None = None
+        self._decrypt: Callable[[bytes], bytes] | None = None
+        self._encrypt: Callable[[bytes], bytes] | None = None
         self._setup_proto()
         self._is_ready = False
 

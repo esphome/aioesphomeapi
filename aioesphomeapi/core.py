@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from typing import Optional
 
@@ -198,7 +200,7 @@ class BadNameAPIError(APIConnectionError):
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
     def __init__(
-        self, msg: Optional[str] = None, received_name: Optional[str] = None
+        self, msg: str | None = None, received_name: str | None = None
     ) -> None:
         super().__init__(f"{msg}: received_name={received_name}")
         self.received_name = received_name

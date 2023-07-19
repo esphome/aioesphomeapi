@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import asyncio
 import logging
+from collections.abc import Awaitable, Coroutine
 from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
     Callable,
-    Coroutine,
     Dict,
     List,
     Optional,
@@ -200,8 +201,8 @@ DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
 
-ExecuteServiceDataType = Dict[
-    str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
+ExecuteServiceDataType = dict[
+    str, Union[bool, int, float, str, list[bool], list[int], list[float], list[str]]
 ]
 
 
@@ -213,13 +214,13 @@ class APIClient:
         self,
         address: str,
         port: int,
-        password: Optional[str],
+        password: str | None,
         *,
         client_info: str = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
         zeroconf_instance: ZeroconfInstanceType = None,
-        noise_psk: Optional[str] = None,
-        expected_name: Optional[str] = None,
+        noise_psk: str | None = None,
+        expected_name: str | None = None,
     ):
         """Create a client, this object is shared across sessions.
 
@@ -247,17 +248,17 @@ class APIClient:
             noise_psk=noise_psk or None,
             expected_name=expected_name,
         )
-        self._connection: Optional[APIConnection] = None
-        self._cached_name: Optional[str] = None
+        self._connection: APIConnection | None = None
+        self._cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
 
     @property
-    def expected_name(self) -> Optional[str]:
+    def expected_name(self) -> str | None:
         return self._params.expected_name
 
     @expected_name.setter
-    def expected_name(self, value: Optional[str]) -> None:
+    def expected_name(self, value: str | None) -> None:
         self._params.expected_name = value
 
     @property
@@ -277,7 +278,7 @@ class APIClient:
 
     async def connect(
         self,
-        on_stop: Optional[Callable[[bool], Awaitable[None]]] = None,
+        on_stop: Callable[[bool], Awaitable[None]] | None = None,
         login: bool = False,
     ) -> None:
         if self._connection is not None:
@@ -343,9 +344,9 @@ class APIClient:
 
     async def list_entities_services(
         self,
-    ) -> Tuple[List[EntityInfo], List[UserService]]:
+    ) -> tuple[list[EntityInfo], list[UserService]]:
         self._check_authenticated()
-        response_types: Dict[Any, Optional[Type[EntityInfo]]] = {
+        response_types: dict[Any, type[EntityInfo] | None] = {
             ListEntitiesBinarySensorResponse: BinarySensorInfo,
             ListEntitiesButtonResponse: ButtonInfo,
             ListEntitiesCoverResponse: CoverInfo,
@@ -376,8 +377,8 @@ class APIClient:
         resp = await self._connection.send_message_await_response_complex(
             ListEntitiesRequest(), do_append, do_stop, msg_types, timeout=60
         )
-        entities: List[EntityInfo] = []
-        services: List[UserService] = []
+        entities: list[EntityInfo] = []
+        services: list[UserService] = []
         for msg in resp:
             if isinstance(msg, ListEntitiesServicesResponse):
                 services.append(UserService.from_pb(msg))
@@ -389,8 +390,8 @@ class APIClient:
 
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         self._check_authenticated()
-        image_stream: Dict[int, list[bytes]] = {}
-        response_types: Dict[Any, Type[EntityState]] = {
+        image_stream: dict[int, list[bytes]] = {}
+        response_types: dict[Any, type[EntityState]] = {
             BinarySensorStateResponse: BinarySensorState,
             CoverStateResponse: CoverState,
             FanStateResponse: FanState,
@@ -417,7 +418,7 @@ class APIClient:
                 if TYPE_CHECKING:
                     assert isinstance(msg, CameraImageResponse)
                 msg_key = msg.key
-                data_parts: Optional[List[bytes]] = image_stream.get(msg_key)
+                data_parts: list[bytes] | None = image_stream.get(msg_key)
                 if not data_parts:
                     data_parts = []
                     image_stream[msg_key] = data_parts
@@ -425,7 +426,7 @@ class APIClient:
                 data_parts.append(msg.data)
                 if msg.done:
                     # Return CameraState with the merged data
-                    image_data = bytes().join(data_parts)
+                    image_data = b"".join(data_parts)
                     del image_stream[msg_key]
                     on_state(CameraState(key=msg.key, data=image_data))  # type: ignore[call-arg]
 
@@ -437,8 +438,8 @@ class APIClient:
     async def subscribe_logs(
         self,
         on_log: Callable[[SubscribeLogsResponse], None],
-        log_level: Optional[LogLevel] = None,
-        dump_config: Optional[bool] = None,
+        log_level: LogLevel | None = None,
+        dump_config: bool | None = None,
     ) -> None:
         self._check_authenticated()
         req = SubscribeLogsRequest()
@@ -492,11 +493,11 @@ class APIClient:
         address: int,
         handle: int,
         request: message.Message,
-        response_type: Union[
-            Type[BluetoothGATTNotifyResponse],
-            Type[BluetoothGATTReadResponse],
-            Type[BluetoothGATTWriteResponse],
-        ],
+        response_type: (
+            type[BluetoothGATTNotifyResponse]
+            | type[BluetoothGATTReadResponse]
+            | type[BluetoothGATTWriteResponse]
+        ),
         timeout: float = 10.0,
     ) -> message.Message:
         self._check_authenticated()
@@ -541,7 +542,7 @@ class APIClient:
         return unsub
 
     async def subscribe_bluetooth_le_raw_advertisements(
-        self, on_advertisements: Callable[[List[BluetoothLERawAdvertisement]], None]
+        self, on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
     ) -> Callable[[], None]:
         self._check_authenticated()
         msg_types = (BluetoothLERawAdvertisementsResponse,)
@@ -615,7 +616,7 @@ class APIClient:
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
         feature_flags: int = 0,
         has_cache: bool = False,
-        address_type: Optional[int] = None,
+        address_type: int | None = None,
     ) -> Callable[[], None]:
         self._check_authenticated()
         msg_types = (BluetoothDeviceConnectionResponse,)
@@ -955,7 +956,7 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
-    ) -> Tuple[Callable[[], Coroutine[Any, Any, None]], Callable[[], None]]:
+    ) -> tuple[Callable[[], Coroutine[Any, Any, None]], Callable[[], None]]:
         """Start a notify session for a GATT characteristic.
 
         Returns two functions that can be used to stop the notify.
@@ -1001,7 +1002,7 @@ class APIClient:
         return stop_notify, remove_callback
 
     async def subscribe_home_assistant_states(
-        self, on_state_sub: Callable[[str, Optional[str]], None]
+        self, on_state_sub: Callable[[str, str | None], None]
     ) -> None:
         self._check_authenticated()
 
@@ -1018,7 +1019,7 @@ class APIClient:
         )
 
     async def send_home_assistant_state(
-        self, entity_id: str, attribute: Optional[str], state: str
+        self, entity_id: str, attribute: str | None, state: str
     ) -> None:
         self._check_authenticated()
 
@@ -1034,8 +1035,8 @@ class APIClient:
     async def cover_command(
         self,
         key: int,
-        position: Optional[float] = None,
-        tilt: Optional[float] = None,
+        position: float | None = None,
+        tilt: float | None = None,
         stop: bool = False,
     ) -> None:
         self._check_authenticated()
@@ -1068,11 +1069,11 @@ class APIClient:
     async def fan_command(
         self,
         key: int,
-        state: Optional[bool] = None,
-        speed: Optional[FanSpeed] = None,
-        speed_level: Optional[int] = None,
-        oscillating: Optional[bool] = None,
-        direction: Optional[FanDirection] = None,
+        state: bool | None = None,
+        speed: FanSpeed | None = None,
+        speed_level: int | None = None,
+        oscillating: bool | None = None,
+        direction: FanDirection | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1099,18 +1100,18 @@ class APIClient:
     async def light_command(
         self,
         key: int,
-        state: Optional[bool] = None,
-        brightness: Optional[float] = None,
-        color_mode: Optional[int] = None,
-        color_brightness: Optional[float] = None,
-        rgb: Optional[Tuple[float, float, float]] = None,
-        white: Optional[float] = None,
-        color_temperature: Optional[float] = None,
-        cold_white: Optional[float] = None,
-        warm_white: Optional[float] = None,
-        transition_length: Optional[float] = None,
-        flash_length: Optional[float] = None,
-        effect: Optional[str] = None,
+        state: bool | None = None,
+        brightness: float | None = None,
+        color_mode: int | None = None,
+        color_brightness: float | None = None,
+        rgb: tuple[float, float, float] | None = None,
+        white: float | None = None,
+        color_temperature: float | None = None,
+        cold_white: float | None = None,
+        warm_white: float | None = None,
+        transition_length: float | None = None,
+        flash_length: float | None = None,
+        effect: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1169,15 +1170,15 @@ class APIClient:
     async def climate_command(
         self,
         key: int,
-        mode: Optional[ClimateMode] = None,
-        target_temperature: Optional[float] = None,
-        target_temperature_low: Optional[float] = None,
-        target_temperature_high: Optional[float] = None,
-        fan_mode: Optional[ClimateFanMode] = None,
-        swing_mode: Optional[ClimateSwingMode] = None,
-        custom_fan_mode: Optional[str] = None,
-        preset: Optional[ClimatePreset] = None,
-        custom_preset: Optional[str] = None,
+        mode: ClimateMode | None = None,
+        target_temperature: float | None = None,
+        target_temperature_low: float | None = None,
+        target_temperature_high: float | None = None,
+        fan_mode: ClimateFanMode | None = None,
+        swing_mode: ClimateSwingMode | None = None,
+        custom_fan_mode: str | None = None,
+        preset: ClimatePreset | None = None,
+        custom_preset: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1239,10 +1240,10 @@ class APIClient:
     async def siren_command(
         self,
         key: int,
-        state: Optional[bool] = None,
-        tone: Optional[str] = None,
-        volume: Optional[float] = None,
-        duration: Optional[int] = None,
+        state: bool | None = None,
+        tone: str | None = None,
+        volume: float | None = None,
+        duration: int | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1275,7 +1276,7 @@ class APIClient:
         self,
         key: int,
         command: LockCommand,
-        code: Optional[str] = None,
+        code: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1291,9 +1292,9 @@ class APIClient:
         self,
         key: int,
         *,
-        command: Optional[MediaPlayerCommand] = None,
-        volume: Optional[float] = None,
-        media_url: Optional[str] = None,
+        command: MediaPlayerCommand | None = None,
+        volume: float | None = None,
+        media_url: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1365,14 +1366,14 @@ class APIClient:
         await self._request_image(stream=True)
 
     @property
-    def api_version(self) -> Optional[APIVersion]:
+    def api_version(self) -> APIVersion | None:
         if self._connection is None:
             return None
         return self._connection.api_version
 
     async def subscribe_voice_assistant(
         self,
-        handle_start: Callable[[str, bool], Coroutine[Any, Any, Optional[int]]],
+        handle_start: Callable[[str, bool], Coroutine[Any, Any, int | None]],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
@@ -1386,9 +1387,9 @@ class APIClient:
         """
         self._check_authenticated()
 
-        start_task: Optional[asyncio.Task[Optional[int]]] = None
+        start_task: asyncio.Task[int | None] | None = None
 
-        def _started(fut: asyncio.Task[Optional[int]]) -> None:
+        def _started(fut: asyncio.Task[int | None]) -> None:
             if self._connection is not None and not fut.cancelled():
                 port = fut.result()
                 if port is not None:
@@ -1432,7 +1433,7 @@ class APIClient:
         return unsub
 
     def send_voice_assistant_event(
-        self, event_type: VoiceAssistantEventType, data: Optional[dict[str, str]]
+        self, event_type: VoiceAssistantEventType, data: dict[str, str] | None
     ) -> None:
         self._check_authenticated()
 
@@ -1457,7 +1458,7 @@ class APIClient:
         self,
         key: int,
         command: AlarmControlPanelCommand,
-        code: Optional[str] = None,
+        code: str | None = None,
     ) -> None:
         self._check_authenticated()
 

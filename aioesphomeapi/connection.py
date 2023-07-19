@@ -1,24 +1,15 @@
+from __future__ import annotations
+
 import asyncio
 import contextvars
 import enum
 import logging
 import socket
 import time
+from collections.abc import Coroutine, Iterable
 from dataclasses import astuple, dataclass
 from functools import partial
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Coroutine,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Type, Union
 
 import async_timeout
 from google.protobuf import message
@@ -94,7 +85,7 @@ CONNECT_AND_SETUP_TIMEOUT = 120.0
 DISCONNECT_WAIT_CONNECT_TIMEOUT = 5.0
 
 
-in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
+in_do_connect: contextvars.ContextVar[bool | None] = contextvars.ContextVar(
     "in_do_connect"
 )
 
@@ -103,12 +94,12 @@ in_do_connect: contextvars.ContextVar[Optional[bool]] = contextvars.ContextVar(
 class ConnectionParams:
     address: str
     port: int
-    password: Optional[str]
+    password: str | None
     client_info: str
     keepalive: float
     zeroconf_instance: hr.ZeroconfInstanceType
-    noise_psk: Optional[str]
-    expected_name: Optional[str]
+    noise_psk: str | None
+    expected_name: str | None
 
 
 class ConnectionState(enum.Enum):
@@ -162,16 +153,16 @@ class APIConnection:
         self,
         params: ConnectionParams,
         on_stop: Callable[[bool], Coroutine[Any, Any, None]],
-        log_name: Optional[str] = None,
+        log_name: str | None = None,
     ) -> None:
         self._params = params
-        self.on_stop: Optional[Callable[[bool], Coroutine[Any, Any, None]]] = on_stop
-        self._on_stop_task: Optional[asyncio.Task[None]] = None
-        self._socket: Optional[socket.socket] = None
-        self._frame_helper: Optional[
-            Union[APINoiseFrameHelper, APIPlaintextFrameHelper]
-        ] = None
-        self.api_version: Optional[APIVersion] = None
+        self.on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = on_stop
+        self._on_stop_task: asyncio.Task[None] | None = None
+        self._socket: socket.socket | None = None
+        self._frame_helper: None | (
+            APINoiseFrameHelper | APIPlaintextFrameHelper
+        ) = None
+        self.api_version: APIVersion | None = None
 
         self._connection_state = ConnectionState.INITIALIZED
         # Store whether connect() has completed
@@ -179,20 +170,20 @@ class APIConnection:
         self._connect_complete = False
 
         # Message handlers currently subscribed to incoming messages
-        self._message_handlers: Dict[Any, Set[Callable[[message.Message], None]]] = {}
+        self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
         self.log_name = log_name or params.address
 
         # futures currently subscribed to exceptions in the read task
-        self._read_exception_futures: Set[asyncio.Future[None]] = set()
+        self._read_exception_futures: set[asyncio.Future[None]] = set()
 
-        self._ping_timer: Optional[asyncio.TimerHandle] = None
-        self._pong_timer: Optional[asyncio.TimerHandle] = None
+        self._ping_timer: asyncio.TimerHandle | None = None
+        self._pong_timer: asyncio.TimerHandle | None = None
         self._keep_alive_interval = params.keepalive
         self._keep_alive_timeout = params.keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
-        self._connect_task: Optional[asyncio.Task[None]] = None
-        self._fatal_exception: Optional[Exception] = None
+        self._connect_task: asyncio.Task[None] | None = None
+        self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
         self._send_pending_ping = False
         self._loop = asyncio.get_event_loop()
@@ -318,7 +309,7 @@ class APIConnection:
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
-        fh: Union[APIPlaintextFrameHelper, APINoiseFrameHelper]
+        fh: APIPlaintextFrameHelper | APINoiseFrameHelper
         loop = self._loop
         process_packet = self._process_packet_factory()
 
@@ -563,7 +554,7 @@ class APIConnection:
             raise
 
     def add_message_callback(
-        self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
+        self, on_message: Callable[[Any], None], msg_types: Iterable[type[Any]]
     ) -> Callable[[], None]:
         """Add a message callback."""
         message_handlers = self._message_handlers
@@ -572,7 +563,7 @@ class APIConnection:
         return partial(self._remove_message_callback, on_message, msg_types)
 
     def _remove_message_callback(
-        self, on_message: Callable[[Any], None], msg_types: Iterable[Type[Any]]
+        self, on_message: Callable[[Any], None], msg_types: Iterable[type[Any]]
     ) -> None:
         """Remove a message callback."""
         message_handlers = self._message_handlers
@@ -583,7 +574,7 @@ class APIConnection:
         self,
         send_msg: message.Message,
         on_message: Callable[[Any], None],
-        msg_types: Iterable[Type[Any]],
+        msg_types: Iterable[type[Any]],
     ) -> Callable[[], None]:
         """Send a message to the remote and register the given message handler."""
         self.send_message(send_msg)
@@ -604,9 +595,9 @@ class APIConnection:
     def _handle_complex_message(
         self,
         fut: asyncio.Future[None],
-        responses: List[message.Message],
-        do_append: Optional[Callable[[message.Message], bool]],
-        do_stop: Optional[Callable[[message.Message], bool]],
+        responses: list[message.Message],
+        do_append: Callable[[message.Message], bool] | None,
+        do_stop: Callable[[message.Message], bool] | None,
         resp: message.Message,
     ) -> None:
         """Handle a message that is part of a response."""
@@ -620,11 +611,11 @@ class APIConnection:
     async def send_message_await_response_complex(
         self,
         send_msg: message.Message,
-        do_append: Optional[Callable[[message.Message], bool]],
-        do_stop: Optional[Callable[[message.Message], bool]],
-        msg_types: Iterable[Type[Any]],
+        do_append: Callable[[message.Message], bool] | None,
+        do_stop: Callable[[message.Message], bool] | None,
+        msg_types: Iterable[type[Any]],
         timeout: float = 10.0,
-    ) -> List[message.Message]:
+    ) -> list[message.Message]:
         """Send a message to the remote and build up a list response.
 
         :param send_msg: The message (request) to send.
@@ -641,7 +632,7 @@ class APIConnection:
         self.send_message(send_msg)
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = self._loop.create_future()
-        responses: List[message.Message] = []
+        responses: list[message.Message] = []
         on_message = partial(
             self._handle_complex_message, fut, responses, do_append, do_stop
         )
