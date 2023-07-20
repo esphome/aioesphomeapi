@@ -207,6 +207,16 @@ class APIConnection:
         Safe to call multiple times.
         """
         _LOGGER.debug("Cleaning up connection to %s", self.log_name)
+        for fut in self._read_exception_futures:
+            if fut.done():
+                continue
+            err = self._fatal_exception or APIConnectionError("Connection closed")
+            new_exc = err
+            if not isinstance(err, APIConnectionError):
+                new_exc = ReadFailedAPIError("Read failed")
+                new_exc.__cause__ = err
+            fut.set_exception(new_exc)
+        self._read_exception_futures.clear()
         # If we are being called from do_connect we
         # need to make sure we don't cancel the task
         # that called us
@@ -700,15 +710,6 @@ class APIConnection:
             )
         self._fatal_exception = err
         self._set_connection_state(ConnectionState.CLOSED)
-        for fut in self._read_exception_futures:
-            if fut.done():
-                continue
-            new_exc = err
-            if not isinstance(err, APIConnectionError):
-                new_exc = ReadFailedAPIError("Read failed")
-                new_exc.__cause__ = err
-            fut.set_exception(new_exc)
-        self._read_exception_futures.clear()
         self._cleanup()
 
     def _process_packet_factory(self) -> Callable[[int, bytes], None]:
