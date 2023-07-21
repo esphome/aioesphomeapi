@@ -893,7 +893,7 @@ class APIClient:
         )
         if TYPE_CHECKING:
             assert isinstance(resp, BluetoothGATTReadResponse)
-        return bytearray(resp.bytes)
+        return bytearray(resp.data)
 
     async def bluetooth_gatt_write_descriptor(
         self,
