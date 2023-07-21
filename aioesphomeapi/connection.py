@@ -349,8 +349,7 @@ class APIConnection:
         self._frame_helper = fh
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
         try:
-            async with async_timeout.timeout(HANDSHAKE_TIMEOUT):
-                await fh.perform_handshake()
+            await fh.perform_handshake(HANDSHAKE_TIMEOUT)
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         except asyncio.TimeoutError as err:

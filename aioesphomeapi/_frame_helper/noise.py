@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import base64
 import logging
 from enum import Enum
@@ -65,7 +64,6 @@ class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
 
     __slots__ = (
-        "_ready_future",
         "_noise_psk",
         "_expected_name",
         "_state",
@@ -75,7 +73,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_decrypt",
         "_encrypt",
         "_is_ready",
-        "_loop",
     )
 
     def __init__(
@@ -89,9 +86,6 @@ class APINoiseFrameHelper(APIFrameHelper):
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(on_pkt, on_error, client_info, log_name)
-        loop = asyncio.get_event_loop()
-        self._loop = loop
-        self._ready_future = loop.create_future()
         self._noise_psk = noise_psk
         self._expected_name = expected_name
         self._set_state(NoiseConnectionState.HELLO)
@@ -100,10 +94,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._encrypt: Callable[[bytes], bytes] | None = None
         self._setup_proto()
         self._is_ready = False
-
-    def _set_ready_future_exception(self, exc: Exception) -> None:
-        if not self._ready_future.done():
-            self._ready_future.set_exception(exc)
 
     def _set_state(self, state: NoiseConnectionState) -> None:
         """Set the current state."""
@@ -141,20 +131,10 @@ class APINoiseFrameHelper(APIFrameHelper):
             exc.__cause__ = original_exc
         super()._handle_error(exc)
 
-    async def perform_handshake(self) -> None:
+    async def perform_handshake(self, timeout: float) -> None:
         """Perform the handshake with the server."""
         self._send_hello_handshake()
-        handshake_handle = self._loop.call_later(
-            60, self._set_ready_future_exception, asyncio.TimeoutError()
-        )
-        try:
-            await self._ready_future
-        except asyncio.TimeoutError as err:
-            raise HandshakeAPIError(
-                f"{self._log_name}: Timeout during handshake"
-            ) from err
-        finally:
-            handshake_handle.cancel()
+        await super().perform_handshake(timeout)
 
     def data_received(self, data: bytes) -> None:
         self._buffer += data
