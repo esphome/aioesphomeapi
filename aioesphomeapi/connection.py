@@ -120,7 +120,7 @@ OPEN_STATES = {ConnectionState.SOCKET_OPENED, ConnectionState.CONNECTED}
 # from multiple connections. The Bluetooth advertisements
 # are expected to have a lot of the same messages.
 @lru_cache(maxsize=512)
-def _msg_from_bytes(msg_type_proto: int, data: bytes) -> message.Message:
+def _msg_from_bytes(msg_type_proto: int, data: bytes) -> Any:
     """Create a message from bytes."""
     msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
     # MergeFromString instead of ParseFromString since
