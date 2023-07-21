@@ -564,8 +564,7 @@ class APIClient:
         def _on_bluetooth_connections_free_response(
             msg: BluetoothConnectionsFreeResponse,
         ) -> None:
-            resp = BluetoothConnectionsFree.from_pb(msg)
-            on_bluetooth_connections_free_update(resp.free, resp.limit)
+            on_bluetooth_connections_free_update(msg.free, msg.limit)
 
         assert self._connection is not None
         return self._connection.send_message_callback_response(
@@ -588,9 +587,8 @@ class APIClient:
         msg: BluetoothDeviceConnectionResponse,
     ) -> None:
         """Handle a BluetoothDeviceConnectionResponse message.""" ""
-        resp = BluetoothDeviceConnection.from_pb(msg)
-        if address == resp.address:
-            on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
+        if address == msg.address:
+            on_bluetooth_connection_state(msg.connected, msg.mtu, msg.error)
             # Resolve on ANY connection state since we do not want
             # to wait the whole timeout if the device disconnects
             # or we get an error.
@@ -723,7 +721,7 @@ class APIClient:
                 )
             return True
 
-        responses = await self._connection.send_message_await_response_complex(
+        [response] = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address, request_type=BluetoothDeviceRequestType.PAIR
             ),
@@ -732,10 +730,6 @@ class APIClient:
             msg_types,
             timeout=timeout,
         )
-
-        assert len(responses) == 1
-        response = responses[0]
-
         return BluetoothDevicePairing.from_pb(response)
 
     async def bluetooth_device_unpair(
@@ -748,7 +742,7 @@ class APIClient:
         def predicate_func(msg: BluetoothDeviceUnpairingResponse) -> bool:
             return bool(msg.address == address)
 
-        responses = await self._connection.send_message_await_response_complex(
+        [response] = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address, request_type=BluetoothDeviceRequestType.UNPAIR
             ),
@@ -757,10 +751,6 @@ class APIClient:
             (BluetoothDeviceUnpairingResponse,),
             timeout=timeout,
         )
-
-        assert len(responses) == 1
-        response = responses[0]
-
         return BluetoothDeviceUnpairing.from_pb(response)
 
     async def bluetooth_device_clear_cache(
@@ -773,7 +763,7 @@ class APIClient:
         def predicate_func(msg: BluetoothDeviceClearCacheResponse) -> bool:
             return bool(msg.address == address)
 
-        responses = await self._connection.send_message_await_response_complex(
+        [response] = await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address, request_type=BluetoothDeviceRequestType.CLEAR_CACHE
             ),
@@ -782,10 +772,6 @@ class APIClient:
             (BluetoothDeviceClearCacheResponse,),
             timeout=timeout,
         )
-
-        assert len(responses) == 1
-        response = responses[0]
-
         return BluetoothDeviceClearCache.from_pb(response)
 
     async def bluetooth_device_disconnect(
@@ -860,10 +846,7 @@ class APIClient:
             BluetoothGATTReadResponse,
             timeout=timeout,
         )
-
-        read_response = BluetoothGATTRead.from_pb(resp)
-
-        return bytearray(read_response.data)
+        return bytearray(resp.data)
 
     async def bluetooth_gatt_write(
         self,
@@ -898,10 +881,10 @@ class APIClient:
         handle: int,
         timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> bytearray:
+        """Read a GATT descriptor."""
         req = BluetoothGATTReadDescriptorRequest()
         req.address = address
         req.handle = handle
-
         resp = await self._send_bluetooth_message_await_response(
             address,
             handle,
@@ -909,10 +892,7 @@ class APIClient:
             BluetoothGATTReadResponse,
             timeout=timeout,
         )
-
-        read_response = BluetoothGATTRead.from_pb(resp)
-
-        return bytearray(read_response.data)
+        return bytearray(resp.bytes)
 
     async def bluetooth_gatt_write_descriptor(
         self,
@@ -967,9 +947,8 @@ class APIClient:
         def _on_bluetooth_gatt_notify_data_response(
             msg: BluetoothGATTNotifyDataResponse,
         ) -> None:
-            notify = BluetoothGATTRead.from_pb(msg)
-            if address == notify.address and handle == notify.handle:
-                on_bluetooth_gatt_notify(handle, bytearray(notify.data))
+            if address == msg.address and handle == msg.handle:
+                on_bluetooth_gatt_notify(handle, bytearray(msg.data))
 
         assert self._connection is not None
         remove_callback = self._connection.add_message_callback(
