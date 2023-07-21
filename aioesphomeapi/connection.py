@@ -721,10 +721,11 @@ class APIConnection:
         def _process_packet(msg_type_proto: int, data: bytes) -> None:
             """Process a packet from the socket."""
             try:
-                # python 3.11 has near zero cost exception handling
-                # if we do not raise which is almost never expected
-                # so we can just use a try/except here
-                class_ = message_type_to_proto[msg_type_proto]
+                msg = message_type_to_proto[msg_type_proto]()
+                # MergeFromString instead of ParseFromString since
+                # ParseFromString will clear the message first and
+                # the msg is already empty.
+                msg.MergeFromString(data)
             except KeyError:
                 _LOGGER.debug(
                     "%s: Skipping message type %s",
@@ -732,13 +733,6 @@ class APIConnection:
                     msg_type_proto,
                 )
                 return
-
-            msg = class_()
-            try:
-                # MergeFromString instead of ParseFromString since
-                # ParseFromString will clear the message first and
-                # the msg is already empty.
-                msg.MergeFromString(data)
             except Exception as e:
                 _LOGGER.info(
                     "%s: Invalid protobuf message: type=%s data=%s: %s",
