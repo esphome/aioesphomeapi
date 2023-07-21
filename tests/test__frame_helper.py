@@ -149,7 +149,7 @@ async def test_noise_frame_helper_incorrect_key():
             helper.data_received(bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
-        await helper.perform_handshake()
+        await helper.perform_handshake(30)
 
 
 @pytest.mark.asyncio
@@ -192,7 +192,7 @@ async def test_noise_frame_helper_incorrect_key_fragments():
                 helper.data_received(in_pkt[i : i + 1])
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
-        await helper.perform_handshake()
+        await helper.perform_handshake(30)
 
 
 @pytest.mark.asyncio
@@ -233,4 +233,4 @@ async def test_noise_incorrect_name():
             helper.data_received(bytes.fromhex(pkt))
 
     with pytest.raises(BadNameAPIError):
-        await helper.perform_handshake()
+        await helper.perform_handshake(30)

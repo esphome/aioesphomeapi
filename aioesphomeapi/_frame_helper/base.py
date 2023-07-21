@@ -6,7 +6,7 @@ from abc import abstractmethod
 from functools import partial
 from typing import Callable, cast
 
-from ..core import SocketClosedAPIError
+from ..core import HandshakeAPIError, SocketClosedAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,11 +24,12 @@ class APIFrameHelper(asyncio.Protocol):
     """Helper class to handle the API frame protocol."""
 
     __slots__ = (
+        "_loop",
         "_on_pkt",
         "_on_error",
         "_transport",
         "_writer",
-        "_connected_event",
+        "_ready_future",
         "_buffer",
         "_buffer_len",
         "_pos",
@@ -45,17 +46,23 @@ class APIFrameHelper(asyncio.Protocol):
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
+        loop = asyncio.get_event_loop()
+        self._loop = loop
         self._on_pkt = on_pkt
         self._on_error = on_error
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
-        self._connected_event = asyncio.Event()
+        self._ready_future = self._loop.create_future()
         self._buffer = bytearray()
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
         self._log_name = log_name
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
+
+    def _set_ready_future_exception(self, exc: Exception) -> None:
+        if not self._ready_future.done():
+            self._ready_future.set_exception(exc)
 
     def _read_exactly(self, length: int) -> bytearray | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
@@ -66,9 +73,19 @@ class APIFrameHelper(asyncio.Protocol):
         self._pos = new_pos
         return self._buffer[original_pos:new_pos]
 
-    @abstractmethod
-    async def perform_handshake(self) -> None:
-        """Perform the handshake."""
+    async def perform_handshake(self, timeout: float) -> None:
+        """Perform the handshake with the server."""
+        handshake_handle = self._loop.call_later(
+            timeout, self._set_ready_future_exception, asyncio.TimeoutError()
+        )
+        try:
+            await self._ready_future
+        except asyncio.TimeoutError as err:
+            raise HandshakeAPIError(
+                f"{self._log_name}: Timeout during handshake"
+            ) from err
+        finally:
+            handshake_handle.cancel()
 
     @abstractmethod
     def write_packet(self, type_: int, data: bytes) -> None:
@@ -78,7 +95,6 @@ class APIFrameHelper(asyncio.Protocol):
         """Handle a new connection."""
         self._transport = cast(asyncio.Transport, transport)
         self._writer = self._transport.write
-        self._connected_event.set()
 
     def _handle_error_and_close(self, exc: Exception) -> None:
         self._handle_error(exc)

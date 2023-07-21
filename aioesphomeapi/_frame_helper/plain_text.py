@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,11 @@ _LOGGER = logging.getLogger(__name__)
 
 class APIPlaintextFrameHelper(APIFrameHelper):
     """Frame helper for plaintext API connections."""
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        """Handle a new connection."""
+        super().connection_made(transport)
+        self._ready_future.set_result(None)
 
     def write_packet(self, type_: int, data: bytes) -> None:
         """Write a packet to the socket.
@@ -31,10 +37,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             raise SocketAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
-
-    async def perform_handshake(self) -> None:
-        """Perform the handshake."""
-        await self._connected_event.wait()
 
     def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
         self._buffer += data
