@@ -59,7 +59,7 @@ def _get_mock_protocol(conn: APIConnection):
         client_info="mock",
         log_name="mock_device",
     )
-    protocol._connected_event.set()
+    protocol._ready_future.set_result(None)
     protocol._transport = MagicMock()
     protocol._writer = MagicMock()
     return protocol
@@ -76,6 +76,7 @@ async def test_connect(conn, resolve_host, socket_socket, event_loop):
         nonlocal protocol
         protocol = create_func()
         protocol.connection_made(transport)
+        protocol._ready_future.set_result(None)
         connected.set()
         return transport, protocol
 
@@ -138,6 +139,7 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
         nonlocal protocol
         protocol = create_func()
         protocol.connection_made(transport)
+        protocol._ready_future.set_result(None)
         connected.set()
         return transport, protocol
 
