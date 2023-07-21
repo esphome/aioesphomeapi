@@ -8,7 +8,7 @@ import socket
 import time
 from collections.abc import Coroutine, Iterable
 from dataclasses import astuple, dataclass
-from functools import partial
+from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable
 
 import async_timeout
@@ -113,6 +113,21 @@ class ConnectionState(enum.Enum):
 
 
 OPEN_STATES = {ConnectionState.SOCKET_OPENED, ConnectionState.CONNECTED}
+
+
+# This is a single lru_cache for all connections
+# since we expect to get the exact same message types
+# from multiple connections. The Bluetooth advertisements
+# are expected to have a lot of the same messages.
+@lru_cache(maxsize=512)
+def _msg_from_bytes(msg_type_proto: int, data: bytes) -> message.Message:
+    """Create a message from bytes."""
+    msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
+    # MergeFromString instead of ParseFromString since
+    # ParseFromString will clear the message first and
+    # the msg is already empty.
+    msg.MergeFromString(data)
+    return msg
 
 
 class APIConnection:
@@ -713,7 +728,6 @@ class APIConnection:
 
     def _process_packet_factory(self) -> Callable[[int, bytes], None]:
         """Factory to make a packet processor."""
-        message_type_to_proto = MESSAGE_TYPE_TO_PROTO
         debug_enabled = self._debug_enabled
         message_handlers = self._message_handlers
         internal_message_types = INTERNAL_MESSAGE_TYPES
@@ -721,10 +735,7 @@ class APIConnection:
         def _process_packet(msg_type_proto: int, data: bytes) -> None:
             """Process a packet from the socket."""
             try:
-                # python 3.11 has near zero cost exception handling
-                # if we do not raise which is almost never expected
-                # so we can just use a try/except here
-                class_ = message_type_to_proto[msg_type_proto]
+                msg = _msg_from_bytes(msg_type_proto, data)
             except KeyError:
                 _LOGGER.debug(
                     "%s: Skipping message type %s",
@@ -732,13 +743,6 @@ class APIConnection:
                     msg_type_proto,
                 )
                 return
-
-            msg = class_()
-            try:
-                # MergeFromString instead of ParseFromString since
-                # ParseFromString will clear the message first and
-                # the msg is already empty.
-                msg.MergeFromString(data)
             except Exception as e:
                 _LOGGER.info(
                     "%s: Invalid protobuf message: type=%s data=%s: %s",
