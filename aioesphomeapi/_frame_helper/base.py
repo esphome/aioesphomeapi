@@ -95,7 +95,8 @@ class APIFrameHelper(asyncio.Protocol):
         """Handle a new connection."""
         self._transport = cast(asyncio.Transport, transport)
         self._writer = self._transport.write
-        self._ready_future.set_result(None)
+        if not self._ready_future.done():
+            self._ready_future.set_result(None)
 
     def _handle_error_and_close(self, exc: Exception) -> None:
         self._handle_error(exc)
