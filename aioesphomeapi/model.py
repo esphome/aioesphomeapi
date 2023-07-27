@@ -8,6 +8,7 @@ from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
+from .api_pb2 import BluetoothLERawAdvertisement  # pylint: disable=attr-defined
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
@@ -17,8 +18,6 @@ else:
     _dataclass_decorator = partial(dataclass, slots=True)
     _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
-
-from .api_pb2 import BluetoothLERawAdvertisement
 
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
