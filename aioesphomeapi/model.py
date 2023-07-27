@@ -18,10 +18,11 @@ else:
     _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
+from .api_pb2 import BluetoothLERawAdvertisement
+
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
-        BluetoothLERawAdvertisement,
         BluetoothLERawAdvertisementsResponse,
         HomeassistantServiceMap,
     )
