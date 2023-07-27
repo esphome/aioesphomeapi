@@ -40,7 +40,7 @@ class APIFrameHelper(asyncio.Protocol):
 
     def __init__(
         self,
-        on_pkt: Callable[[int, bytes], None],
+        on_pkt: Callable[[int, bytes | bytearray], None],
         on_error: Callable[[Exception], None],
         client_info: str,
         log_name: str,
