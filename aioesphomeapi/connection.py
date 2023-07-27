@@ -718,7 +718,7 @@ class APIConnection:
         message_handlers = self._message_handlers
         internal_message_types = INTERNAL_MESSAGE_TYPES
 
-        def _process_packet(msg_type_proto: int, data: bytes | memoryview) -> None:
+        def _process_packet(msg_type_proto: int, data: bytes) -> None:
             """Process a packet from the socket."""
             try:
                 msg = message_type_to_proto[msg_type_proto]()
