@@ -91,7 +91,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 length_int = bytes_to_varuint(bytes(length))
                 # Since the length is longer than 1 byte we do not have the
                 # message type yet.
-                msg_type = b""
+                msg_type = bytearray()
 
             # If the we do not have the message type yet because the message
             # length was so long it did not fit into the first byte we need
