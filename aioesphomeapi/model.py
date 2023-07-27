@@ -21,9 +21,9 @@ else:
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
+        BluetoothLERawAdvertisement,
         BluetoothLERawAdvertisementsResponse,
         HomeassistantServiceMap,
-        BluetoothLERawAdvertisement,
     )
 
 # All fields in here should have defaults set
