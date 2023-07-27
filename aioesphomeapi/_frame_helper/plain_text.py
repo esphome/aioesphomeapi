@@ -119,6 +119,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 # at the start of the frame.
                 if packet_data_bytearray is None:
                     return
+                # memoryview is used because it is faster than bytes, but it
+                # would be better to not convert to bytes at all.
+                # https://github.com/protocolbuffers/protobuf/issues/10774
                 packet_data = memoryview(packet_data_bytearray)
 
             end_of_frame_pos = self._pos
