@@ -8,6 +8,7 @@ from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
+from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined]
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
@@ -919,14 +920,6 @@ class BluetoothLEAdvertisement:
         )
 
 
-@_dataclass_decorator
-class BluetoothLERawAdvertisement:
-    address: int
-    rssi: int
-    address_type: int
-    data: bytes = field(default_factory=bytes)
-
-
 def make_ble_raw_advertisement_processor(
     on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
 ) -> Callable[[BluetoothLERawAdvertisementsResponse], None]:
@@ -935,14 +928,7 @@ def make_ble_raw_advertisement_processor(
     def _on_ble_raw_advertisement_response(
         data: BluetoothLERawAdvertisementsResponse,
     ) -> None:
-        on_advertisements(
-            [
-                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
-                    adv.address, adv.rssi, adv.address_type, adv.data
-                )
-                for adv in data.advertisements
-            ]
-        )
+        on_advertisements(data.advertisements)
 
     return _on_ble_raw_advertisement_response
 
