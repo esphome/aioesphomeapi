@@ -383,13 +383,17 @@ class APIConnection:
             raise APIConnectionError("Incompatible API version.")
 
         self.api_version = api_version
+        expected_name = self._params.expected_name
+        received_name = resp.name
         if (
-            self._params.expected_name is not None
-            and resp.name != ""
-            and resp.name != self._params.expected_name
+            expected_name is not None
+            and received_name != ""
+            and received_name != expected_name
         ):
             raise BadNameAPIError(
-                f"Server sent a different name '{resp.name}'", resp.name
+                f"Expected '{expected_name}' but server sent "
+                f"a different name: '{received_name}'",
+                received_name,
             )
 
     def _async_schedule_keep_alive(self) -> None:
