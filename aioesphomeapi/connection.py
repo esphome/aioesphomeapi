@@ -47,7 +47,7 @@ from .model import APIVersion
 
 _LOGGER = logging.getLogger(__name__)
 
-BUFFER_SIZE = 1024 * 1024  # Set buffer limit to 1MB
+BUFFER_SIZE = 1024 * 1024 * 2  # Set buffer limit to 2MB
 
 
 INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
