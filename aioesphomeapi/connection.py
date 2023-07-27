@@ -678,17 +678,14 @@ class APIConnection:
     async def send_message_await_response(
         self, send_msg: message.Message, response_type: Any, timeout: float = 10.0
     ) -> Any:
-        res = await self.send_message_await_response_complex(
+        [response] = await self.send_message_await_response_complex(
             send_msg,
             None,  # we will only get responses of `response_type`
             None,  # we will only get responses of `response_type`
             (response_type,),
             timeout=timeout,
         )
-        if len(res) != 1:
-            raise APIConnectionError(f"Expected one result, got {len(res)}")
-
-        return res[0]
+        return response
 
     def _report_fatal_error(self, err: Exception) -> None:
         """Report a fatal error that occurred during an operation.
