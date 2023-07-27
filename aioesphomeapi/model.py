@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         BluetoothLEAdvertisementResponse,
         BluetoothLERawAdvertisementsResponse,
         HomeassistantServiceMap,
+        BluetoothLERawAdvertisement,
     )
 
 # All fields in here should have defaults set
@@ -919,14 +920,6 @@ class BluetoothLEAdvertisement:
         )
 
 
-@_dataclass_decorator
-class BluetoothLERawAdvertisement:
-    address: int
-    rssi: int
-    address_type: int
-    data: bytes = field(default_factory=bytes)
-
-
 def make_ble_raw_advertisement_processor(
     on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
 ) -> Callable[[BluetoothLERawAdvertisementsResponse], None]:
@@ -935,14 +928,7 @@ def make_ble_raw_advertisement_processor(
     def _on_ble_raw_advertisement_response(
         data: BluetoothLERawAdvertisementsResponse,
     ) -> None:
-        on_advertisements(
-            [
-                BluetoothLERawAdvertisement(  # type: ignore[call-arg]
-                    adv.address, adv.rssi, adv.address_type, adv.data
-                )
-                for adv in data.advertisements
-            ]
-        )
+        on_advertisements(data.advertisements)
 
     return _on_ble_raw_advertisement_response
 
