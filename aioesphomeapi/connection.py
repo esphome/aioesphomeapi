@@ -825,6 +825,19 @@ class APIConnection:
         self._cleanup()
 
     async def force_disconnect(self) -> None:
-        self._set_connection_state(ConnectionState.CLOSED)
+        """Forcefully disconnect from the API."""
         self._expected_disconnect = True
+        if self._is_socket_open and self._frame_helper:
+            # Still try to tell the esp to disconnect gracefully
+            # but don't wait for it to finish
+            try:
+                self.send_message(DisconnectRequest())
+            except APIConnectionError as err:
+                _LOGGER.error(
+                    "%s: Failed to send (forced) disconnect request: %s",
+                    self.log_name,
+                    err,
+                )
+
+        self._set_connection_state(ConnectionState.CLOSED)
         self._cleanup()
