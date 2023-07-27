@@ -119,7 +119,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 # at the start of the frame.
                 if packet_data_bytearray is None:
                     return
-                packet_data = packet_data_bytearray
+                packet_data = memoryview(packet_data_bytearray)
 
             end_of_frame_pos = self._pos
             del self._buffer[:end_of_frame_pos]
