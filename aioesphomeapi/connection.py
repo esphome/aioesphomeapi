@@ -805,7 +805,7 @@ class APIConnection:
                     "%s: Connect task didn't finish before disconnect",
                     self.log_name,
                 )
- 
+
         self._expected_disconnect = True
         if self._is_socket_open and self._frame_helper:
             # We still want to send a disconnect request even
