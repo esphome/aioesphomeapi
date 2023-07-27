@@ -8,7 +8,7 @@ from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
-from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined] pylint: disable=attr-defined
+from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined]
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
