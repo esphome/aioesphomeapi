@@ -799,8 +799,13 @@ class APIConnection:
             # Try to wait for the handshake to finish so we can send
             # a disconnect request. If it doesn't finish in time
             # we will just close the socket.
-            await asyncio.wait([self._connect_task], timeout=5.0)
-
+            _, pending = await asyncio.wait([self._connect_task], timeout=5.0)
+            if pending:
+                _LOGGER.debug(
+                    "%s: Connect task didn't finish before disconnect",
+                    self.log_name,
+                )
+ 
         self._expected_disconnect = True
         if self._is_socket_open and self._frame_helper:
             # We still want to send a disconnect request even
@@ -811,8 +816,10 @@ class APIConnection:
                 await self.send_message_await_response(
                     DisconnectRequest(), DisconnectResponse
                 )
-            except APIConnectionError:
-                pass
+            except APIConnectionError as err:
+                _LOGGER.error(
+                    "%s: Failed to send disconnect request: %s", self.log_name, err
+                )
 
         self._set_connection_state(ConnectionState.CLOSED)
         self._cleanup()
