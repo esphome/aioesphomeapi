@@ -1062,13 +1062,15 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CONNECT_V3_WITHOUT_CACHE = 5
     CLEAR_CACHE = 6
 
+class VoiceAssistantCommandFlag(enum.IntFlag):
+    USE_VAD = 1 << 0
+    USE_WAKE_WORD = 1 << 1
 
 @_frozen_dataclass_decorator
 class VoiceAssistantCommand(APIModelBase):
     start: bool = False
     conversation_id: str = ""
-    use_vad: bool = False
-
+    flags: int = False
 
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
@@ -1091,3 +1093,5 @@ class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_INTENT_END = 6
     VOICE_ASSISTANT_TTS_START = 7
     VOICE_ASSISTANT_TTS_END = 8
+    VOICE_ASSISTANT_WAKE_WORD_START = 9
+    VOICE_ASSISTANT_WAKE_WORD_END = 10
