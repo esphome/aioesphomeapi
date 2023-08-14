@@ -1064,6 +1064,7 @@ class BluetoothDeviceRequestType(APIIntEnum):
 
 
 class VoiceAssistantCommandFlag(enum.IntFlag):
+    NONE = 0
     USE_VAD = 1 << 0
     USE_WAKE_WORD = 1 << 1
 

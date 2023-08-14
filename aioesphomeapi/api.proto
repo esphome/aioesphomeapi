@@ -1438,6 +1438,12 @@ message SubscribeVoiceAssistantRequest {
   bool subscribe = 1;
 }
 
+enum VoiceAssistantRequestFlag {
+  VOICE_ASSISTANT_REQUEST_NONE = 0;
+  VOICE_ASSISTANT_REQUEST_USE_VAD = 1;
+  VOICE_ASSISTANT_REQUEST_USE_WAKE_WORD = 2;
+}
+
 message VoiceAssistantRequest {
   option (id) = 90;
   option (source) = SOURCE_SERVER;
