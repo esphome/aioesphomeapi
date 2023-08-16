@@ -847,9 +847,10 @@ class UserService(APIModelBase):
 # ==================== BLUETOOTH ====================
 
 
-def _join_split_uuid(value: list[int]) -> str:
+@lru_cache(maxsize=256)
+def _join_split_uuid(*args: tuple[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return str(UUID(int=(value[0] << 64) | value[1]))
+    return str(UUID(int=(args[0] << 64) | args[1]))
 
 
 def _uuid_converter(uuid: str) -> str:
