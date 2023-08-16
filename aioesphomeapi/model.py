@@ -849,7 +849,12 @@ class UserService(APIModelBase):
 
 def _join_split_uuid(value: list[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return str(UUID(int=(value[0] << 64) | value[1]))
+    return _join_split_uuid_high_low(value[0], value[1])
+
+
+@lru_cache(maxsize=256)
+def _join_split_uuid_high_low(high: int, low: int) -> str:
+    return str(UUID(int=(high << 64) | low))
 
 
 def _uuid_converter(uuid: str) -> str:
