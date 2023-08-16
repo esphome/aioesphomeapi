@@ -192,7 +192,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def _handle_hello(self, server_hello: bytearray) -> None:
+    def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
         if not server_hello:
             self._handle_error_and_close(
@@ -263,7 +263,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         proto.start_handshake()
         self._proto = proto
 
-    def _handle_handshake(self, msg: bytearray) -> None:
+    def _handle_handshake(self, msg: bytes) -> None:
         _LOGGER.debug("Starting handshake...")
         if msg[0] != 0:
             explanation = msg[1:].decode()
@@ -327,12 +327,12 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def _handle_frame(self, frame: bytearray) -> None:
+    def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt is not None, "Handshake should be complete"
         try:
-            msg = self._decrypt(bytes(frame))
+            msg = self._decrypt(frame)
         except InvalidTag as ex:
             self._handle_error_and_close(
                 ProtocolAPIError(f"{self._log_name}: Bad encryption frame: {ex!r}")
@@ -345,7 +345,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._on_pkt((msg[0] << 8) | msg[1], msg[4:])
 
     def _handle_closed(  # pylint: disable=unused-argument
-        self, frame: bytearray
+        self, frame: bytes
     ) -> None:
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))
