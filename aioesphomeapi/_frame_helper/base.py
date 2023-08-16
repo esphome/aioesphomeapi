@@ -53,7 +53,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
-        self._buffer: bytes | bytearray | None = None
+        self._buffer: bytes | bytearray = b""
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -86,10 +86,9 @@ class APIFrameHelper(asyncio.Protocol):
     def _remove_from_buffer(self) -> None:
         """Remove data from the buffer."""
         end_of_frame_pos = self._pos
-
         # Ideal case, the buffer is used up, we can just reset it
         if self._buffer_len == end_of_frame_pos:
-            self._buffer = None
+            self._buffer = b""
             self._buffer_len = 0
             return
 
@@ -103,8 +102,6 @@ class APIFrameHelper(asyncio.Protocol):
 
         # Worst case, we need to copy the data to a new buffer
         else:
-            if TYPE_CHECKING:
-                assert isinstance(current_buffer, bytes)
             self._buffer = bytearray(current_buffer[end_of_frame_pos:])
 
         self._buffer_len -= end_of_frame_pos
