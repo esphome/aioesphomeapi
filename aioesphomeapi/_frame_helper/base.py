@@ -4,7 +4,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, cast
+from typing import Callable, cast, TYPE_CHECKING
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
@@ -76,6 +76,9 @@ class APIFrameHelper(asyncio.Protocol):
         # If we are going to mutate the buffer, make sure it is a bytearray
         if type(current_buffer) is bytes:
             current_buffer = bytearray(current_buffer)
+        
+        if TYPE_CHECKING:
+            assert isinstance(current_buffer, bytearray)
 
         self._buffer = current_buffer + data
         self._buffer_len += len(data)
@@ -94,10 +97,14 @@ class APIFrameHelper(asyncio.Protocol):
         # There is data left in the buffer and its already
         # a bytearray, we can just slice it
         if type(current_buffer) is bytearray:
+            if TYPE_CHECKING:
+                assert isinstance(current_buffer, bytearray)            
             del current_buffer[:end_of_frame_pos]
 
         # Worst case, we need to copy the data to a new buffer
         else:
+            if TYPE_CHECKING:
+                assert isinstance(current_buffer, bytes)              
             self._buffer = bytearray(current_buffer[end_of_frame_pos:])
 
         self._buffer_len -= end_of_frame_pos
