@@ -4,7 +4,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
