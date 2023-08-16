@@ -3,11 +3,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import abstractmethod
-from functools import partial
-from typing import Callable, cast
 from collections import deque
-from ..core import HandshakeAPIError, SocketClosedAPIError
+from functools import partial
 from itertools import islice
+from typing import Callable, cast
+
+from ..core import HandshakeAPIError, SocketClosedAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
