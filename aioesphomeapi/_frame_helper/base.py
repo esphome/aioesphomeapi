@@ -5,8 +5,9 @@ import logging
 from abc import abstractmethod
 from functools import partial
 from typing import Callable, cast
-
+from collections import deque
 from ..core import HandshakeAPIError, SocketClosedAPIError
+from itertools import islice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
-        self._buffer = bytearray()
+        self._buffer = deque()
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -64,14 +65,27 @@ class APIFrameHelper(asyncio.Protocol):
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _read_exactly(self, length: int) -> bytearray | None:
+    def _read_exactly(self, length: int) -> islice | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
         if self._buffer_len < new_pos:
             return None
         self._pos = new_pos
-        return self._buffer[original_pos:new_pos]
+        return islice(self._buffer, original_pos, new_pos)
+
+    def _remove_from_buffer(self, bytes_count_to_remove: int) -> None:
+        """Remove bytes_count_to_remove from the buffer."""
+        buffer = self._buffer
+        while bytes_count_to_remove:
+            b = buffer.popleft()
+            b_len = len(b)
+            if b_len <= bytes_count_to_remove:
+                bytes_count_to_remove -= b_len
+            else:
+                buffer.appendleft(b[bytes_count_to_remove:])
+                break
+        self._buffer_len -= bytes_count_to_remove
 
     async def perform_handshake(self, timeout: float) -> None:
         """Perform the handshake with the server."""
