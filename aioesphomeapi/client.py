@@ -187,6 +187,49 @@ DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
 
+SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
+    BinarySensorStateResponse: BinarySensorState,
+    CoverStateResponse: CoverState,
+    FanStateResponse: FanState,
+    LightStateResponse: LightState,
+    NumberStateResponse: NumberState,
+    SelectStateResponse: SelectState,
+    SensorStateResponse: SensorState,
+    SirenStateResponse: SirenState,
+    SwitchStateResponse: SwitchState,
+    TextSensorStateResponse: TextSensorState,
+    ClimateStateResponse: ClimateState,
+    LockStateResponse: LockEntityState,
+    MediaPlayerStateResponse: MediaPlayerEntityState,
+    AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
+}
+SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
+
+LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
+    ListEntitiesBinarySensorResponse: BinarySensorInfo,
+    ListEntitiesButtonResponse: ButtonInfo,
+    ListEntitiesCoverResponse: CoverInfo,
+    ListEntitiesFanResponse: FanInfo,
+    ListEntitiesLightResponse: LightInfo,
+    ListEntitiesNumberResponse: NumberInfo,
+    ListEntitiesSelectResponse: SelectInfo,
+    ListEntitiesSensorResponse: SensorInfo,
+    ListEntitiesSirenResponse: SirenInfo,
+    ListEntitiesSwitchResponse: SwitchInfo,
+    ListEntitiesTextSensorResponse: TextSensorInfo,
+    ListEntitiesServicesResponse: None,
+    ListEntitiesCameraResponse: CameraInfo,
+    ListEntitiesClimateResponse: ClimateInfo,
+    ListEntitiesLockResponse: LockInfo,
+    ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
+    ListEntitiesAlarmControlPanelResponse: AlarmControlPanelInfo,
+}
+LIST_ENTITIES_MSG_TYPES = (
+    ListEntitiesDoneResponse,
+    *LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
+)
+
+
 ExecuteServiceDataType = dict[
     str, Union[bool, int, float, str, list[bool], list[int], list[float], list[str]]
 ]
@@ -207,7 +250,7 @@ class APIClient:
         zeroconf_instance: ZeroconfInstanceType = None,
         noise_psk: str | None = None,
         expected_name: str | None = None,
-    ):
+    ) -> None:
         """Create a client, this object is shared across sessions.
 
         :param address: The address to connect to; for example an IP address
@@ -332,26 +375,8 @@ class APIClient:
         self,
     ) -> tuple[list[EntityInfo], list[UserService]]:
         self._check_authenticated()
-        response_types: dict[Any, type[EntityInfo] | None] = {
-            ListEntitiesBinarySensorResponse: BinarySensorInfo,
-            ListEntitiesButtonResponse: ButtonInfo,
-            ListEntitiesCoverResponse: CoverInfo,
-            ListEntitiesFanResponse: FanInfo,
-            ListEntitiesLightResponse: LightInfo,
-            ListEntitiesNumberResponse: NumberInfo,
-            ListEntitiesSelectResponse: SelectInfo,
-            ListEntitiesSensorResponse: SensorInfo,
-            ListEntitiesSirenResponse: SirenInfo,
-            ListEntitiesSwitchResponse: SwitchInfo,
-            ListEntitiesTextSensorResponse: TextSensorInfo,
-            ListEntitiesServicesResponse: None,
-            ListEntitiesCameraResponse: CameraInfo,
-            ListEntitiesClimateResponse: ClimateInfo,
-            ListEntitiesLockResponse: LockInfo,
-            ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
-            ListEntitiesAlarmControlPanelResponse: AlarmControlPanelInfo,
-        }
-        msg_types = (ListEntitiesDoneResponse, *response_types)
+        response_types = LIST_ENTITIES_SERVICES_RESPONSE_TYPES
+        msg_types = LIST_ENTITIES_MSG_TYPES
 
         def do_append(msg: message.Message) -> bool:
             return not isinstance(msg, ListEntitiesDoneResponse)
@@ -377,23 +402,8 @@ class APIClient:
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         self._check_authenticated()
         image_stream: dict[int, list[bytes]] = {}
-        response_types: dict[Any, type[EntityState]] = {
-            BinarySensorStateResponse: BinarySensorState,
-            CoverStateResponse: CoverState,
-            FanStateResponse: FanState,
-            LightStateResponse: LightState,
-            NumberStateResponse: NumberState,
-            SelectStateResponse: SelectState,
-            SensorStateResponse: SensorState,
-            SirenStateResponse: SirenState,
-            SwitchStateResponse: SwitchState,
-            TextSensorStateResponse: TextSensorState,
-            ClimateStateResponse: ClimateState,
-            LockStateResponse: LockEntityState,
-            MediaPlayerStateResponse: MediaPlayerEntityState,
-            AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
-        }
-        msg_types = (*response_types, CameraImageResponse)
+        response_types = SUBSCRIBE_STATES_RESPONSE_TYPES
+        msg_types = SUBSCRIBE_STATES_MSG_TYPES
 
         def _on_state_msg(msg: message.Message) -> None:
             msg_type = type(msg)
