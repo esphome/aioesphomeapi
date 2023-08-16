@@ -87,15 +87,18 @@ class APIFrameHelper(asyncio.Protocol):
         # Ideal case, the buffer is used up, we can just reset it
         if self._buffer_len == end_of_frame_pos:
             self._buffer = None
+            self._buffer_len = 0
+            return
 
+        current_buffer = self._buffer
         # There is data left in the buffer and its already
         # a bytearray, we can just slice it
-        elif type(self._buffer) is bytearray:
-            del self._buffer[:end_of_frame_pos]
+        if type(current_buffer) is bytearray:
+            del current_buffer[:end_of_frame_pos]
 
         # Worst case, we need to copy the data to a new buffer
         else:
-            self._buffer = bytearray(self._buffer[end_of_frame_pos:])
+            self._buffer = bytearray(current_buffer[end_of_frame_pos:])
 
         self._buffer_len -= end_of_frame_pos
 
