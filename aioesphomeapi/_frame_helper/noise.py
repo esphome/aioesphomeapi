@@ -137,8 +137,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         await super().perform_handshake(timeout)
 
     def data_received(self, data: bytes) -> None:
-        self._buffer += data
-        self._buffer_len += len(data)
+        self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
             header = self._read_exactly(3)
@@ -166,9 +165,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             except Exception as err:  # pylint: disable=broad-except
                 self._handle_error_and_close(err)
             finally:
-                end_of_frame_pos = self._pos
-                del self._buffer[:end_of_frame_pos]
-                self._buffer_len -= end_of_frame_pos
+                self._remove_from_buffer()
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""

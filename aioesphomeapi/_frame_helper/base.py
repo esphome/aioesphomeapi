@@ -53,7 +53,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
-        self._buffer = bytearray()
+        self._buffer: bytes | bytearray | None = None
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -64,7 +64,42 @@ class APIFrameHelper(asyncio.Protocol):
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _read_exactly(self, length: int) -> bytearray | None:
+    def _add_to_buffer(self, data: bytes) -> None:
+        """Add data to the buffer."""
+        # Ideal case: we have no buffer so we do not need to copy
+        if not self._buffer_len:
+            self._buffer = data
+            self._buffer_len = len(data)
+            return
+
+        current_buffer = self._buffer
+        # If we are going to mutate the buffer, make sure it is a bytearray
+        if type(current_buffer) is bytes:
+            current_buffer = bytearray(current_buffer)
+
+        self._buffer = current_buffer + data
+        self._buffer_len += len(data)
+
+    def _remove_from_buffer(self) -> None:
+        """Remove data from the buffer."""
+        end_of_frame_pos = self._pos
+
+        # Ideal case, the buffer is used up, we can just reset it
+        if self._buffer_len == end_of_frame_pos:
+            self._buffer = None
+
+        # There is data left in the buffer and its already
+        # a bytearray, we can just slice it
+        elif type(self._buffer) is bytearray:
+            del self._buffer[:end_of_frame_pos]
+
+        # Worst case, we need to copy the data to a new buffer
+        else:
+            self._buffer = bytearray(self._buffer[end_of_frame_pos:])
+
+        self._buffer_len -= end_of_frame_pos
+
+    def _read_exactly(self, length: int) -> bytes | bytearray | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
