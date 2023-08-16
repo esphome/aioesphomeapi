@@ -74,9 +74,9 @@ class APIFrameHelper(asyncio.Protocol):
 
         current_buffer = self._buffer
         # If we are going to mutate the buffer, make sure it is a bytearray
-        if type(current_buffer) is bytes:
+        if type(current_buffer) is bytes:  # pylint: disable=unidiomatic-typecheck
             current_buffer = bytearray(current_buffer)
-        
+
         if TYPE_CHECKING:
             assert isinstance(current_buffer, bytearray)
 
@@ -96,15 +96,15 @@ class APIFrameHelper(asyncio.Protocol):
         current_buffer = self._buffer
         # There is data left in the buffer and its already
         # a bytearray, we can just slice it
-        if type(current_buffer) is bytearray:
+        if type(current_buffer) is bytearray:  # pylint: disable=unidiomatic-typecheck
             if TYPE_CHECKING:
-                assert isinstance(current_buffer, bytearray)            
+                assert isinstance(current_buffer, bytearray)
             del current_buffer[:end_of_frame_pos]
 
         # Worst case, we need to copy the data to a new buffer
         else:
             if TYPE_CHECKING:
-                assert isinstance(current_buffer, bytes)              
+                assert isinstance(current_buffer, bytes)
             self._buffer = bytearray(current_buffer[end_of_frame_pos:])
 
         self._buffer_len -= end_of_frame_pos
