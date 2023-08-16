@@ -77,9 +77,6 @@ class APIFrameHelper(asyncio.Protocol):
         if type(current_buffer) is bytes:  # pylint: disable=unidiomatic-typecheck
             current_buffer = bytearray(current_buffer)
 
-        if TYPE_CHECKING:
-            assert isinstance(current_buffer, bytearray)
-
         self._buffer = current_buffer + data
         self._buffer_len += len(data)
 
