@@ -19,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 EXPECTED_DISCONNECT_COOLDOWN = 3.0
 MAXIMUM_BACKOFF_TRIES = 100
+TYPE_PTR = 12
 
 
 class ReconnectLogic(zeroconf.RecordUpdateListener):
@@ -263,9 +264,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         for record_update in records:
             # We only consider PTR records and match using the alias name
+            new_record = record_update.new
             if (
-                not isinstance(record_update.new, zeroconf.DNSPointer)  # type: ignore[attr-defined]
-                or record_update.new.alias != self._filter_alias
+                new_record.type != TYPE_PTR
+                or new_record.alias != self._filter_alias  # type: ignore[attr-defined]
             ):
                 continue
 
