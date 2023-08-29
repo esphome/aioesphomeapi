@@ -137,8 +137,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         await super().perform_handshake(timeout)
 
     def data_received(self, data: bytes) -> None:
-        self._buffer += data
-        self._buffer_len += len(data)
+        self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
             header = self._read_exactly(3)
