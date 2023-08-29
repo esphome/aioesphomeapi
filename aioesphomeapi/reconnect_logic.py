@@ -265,7 +265,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         for record_update in records:
             # We only consider PTR records and match using the alias name
             if (
-                not record_update.new.type != TYPE_PTR
+                record_update.new.type != TYPE_PTR
                 or record_update.new.alias != self._filter_alias  # type: ignore[attr-defined]
             ):
                 continue
