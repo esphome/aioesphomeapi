@@ -39,7 +39,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             ) from err
 
     def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
-        self._add_to_buffer(data)
+        self._buffer += data
+        self._buffer_len += len(data)
         while self._buffer:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
