@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # yamllint disable-line rule:line-length
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     name: ${{ matrix.name }}
@@ -43,7 +48,7 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v3.3.1
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}

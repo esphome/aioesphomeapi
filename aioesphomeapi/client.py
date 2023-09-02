@@ -1,28 +1,30 @@
-# pylint: disable=too-many-lines
+from __future__ import annotations
+
 import asyncio
 import logging
+from functools import partial
 from typing import (
     Any,
     Awaitable,
     Callable,
     Coroutine,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Type,
+    TYPE_CHECKING,
     Union,
     cast,
 )
 
-import async_timeout
 from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
+    AlarmControlPanelCommandRequest,
+    AlarmControlPanelStateResponse,
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
+    BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
+    BluetoothDevicePairingResponse,
     BluetoothDeviceRequest,
+    BluetoothDeviceUnpairingResponse,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesRequest,
@@ -37,6 +39,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteRequest,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
+    BluetoothLERawAdvertisement,
+    BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -54,6 +58,7 @@ from .api_pb2 import (  # type: ignore
     HomeAssistantStateResponse,
     LightCommandRequest,
     LightStateResponse,
+    ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
     ListEntitiesButtonResponse,
     ListEntitiesCameraResponse,
@@ -92,11 +97,17 @@ from .api_pb2 import (  # type: ignore
     SubscribeLogsRequest,
     SubscribeLogsResponse,
     SubscribeStatesRequest,
+    SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
     TextCommandRequest,
     TextSensorStateResponse,
     TextStateResponse,
+    UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantEventData,
+    VoiceAssistantEventResponse,
+    VoiceAssistantRequest,
+    VoiceAssistantResponse,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -107,16 +118,21 @@ from .core import (
 )
 from .host_resolver import ZeroconfInstanceType
 from .model import (
+    AlarmControlPanelCommand,
+    AlarmControlPanelEntityState,
+    AlarmControlPanelInfo,
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
-    BluetoothConnectionsFree,
-    BluetoothDeviceConnection,
+    BluetoothDeviceClearCache,
+    BluetoothDevicePairing,
     BluetoothDeviceRequestType,
+    BluetoothDeviceUnpairing,
     BluetoothGATTError,
-    BluetoothGATTRead,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
+    BluetoothProxyFeature,
+    BluetoothProxySubscriptionFlag,
     ButtonInfo,
     CameraInfo,
     CameraState,
@@ -163,6 +179,9 @@ from .model import (
     TextState,
     UserService,
     UserServiceArgType,
+    VoiceAssistantCommand,
+    VoiceAssistantEventType,
+    make_ble_raw_advertisement_processor,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -170,25 +189,82 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
 
-ExecuteServiceDataType = Dict[
-    str, Union[bool, int, float, str, List[bool], List[int], List[float], List[str]]
+# We send a ping every 20 seconds, and the timeout ratio is 4.5x the
+# ping interval. This means that if we don't receive a ping for 90.0
+# seconds, we'll consider the connection dead and reconnect.
+#
+# This was chosen because the 20s is around the expected time for a
+# device to reboot and reconnect to wifi, and 90 seconds is the absolute
+# maximum time a device can take to respond when its behind + the WiFi
+# connection is poor.
+KEEP_ALIVE_FREQUENCY = 20.0
+
+SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
+    BinarySensorStateResponse: BinarySensorState,
+    CoverStateResponse: CoverState,
+    FanStateResponse: FanState,
+    LightStateResponse: LightState,
+    NumberStateResponse: NumberState,
+    SelectStateResponse: SelectState,
+    SensorStateResponse: SensorState,
+    SirenStateResponse: SirenState,
+    SwitchStateResponse: SwitchState,
+    TextStateResponse: TextState,
+    TextSensorStateResponse: TextSensorState,
+    ClimateStateResponse: ClimateState,
+    LockStateResponse: LockEntityState,
+    MediaPlayerStateResponse: MediaPlayerEntityState,
+    AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
+}
+SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
+
+LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
+    ListEntitiesBinarySensorResponse: BinarySensorInfo,
+    ListEntitiesButtonResponse: ButtonInfo,
+    ListEntitiesCoverResponse: CoverInfo,
+    ListEntitiesFanResponse: FanInfo,
+    ListEntitiesLightResponse: LightInfo,
+    ListEntitiesNumberResponse: NumberInfo,
+    ListEntitiesSelectResponse: SelectInfo,
+    ListEntitiesSensorResponse: SensorInfo,
+    ListEntitiesSirenResponse: SirenInfo,
+    ListEntitiesSwitchResponse: SwitchInfo,
+    ListEntitiesTextResponse: TextInfo,
+    ListEntitiesTextSensorResponse: TextSensorInfo,
+    ListEntitiesServicesResponse: None,
+    ListEntitiesCameraResponse: CameraInfo,
+    ListEntitiesClimateResponse: ClimateInfo,
+    ListEntitiesLockResponse: LockInfo,
+    ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
+    ListEntitiesAlarmControlPanelResponse: AlarmControlPanelInfo,
+}
+LIST_ENTITIES_MSG_TYPES = (
+    ListEntitiesDoneResponse,
+    *LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
+)
+
+
+ExecuteServiceDataType = dict[
+    str, Union[bool, int, float, str, list[bool], list[int], list[float], list[str]]
 ]
 
 
 # pylint: disable=too-many-public-methods
 class APIClient:
+    __slots__ = ("_params", "_connection", "_cached_name", "_background_tasks", "_loop")
+
     def __init__(
         self,
         address: str,
         port: int,
-        password: Optional[str],
+        password: str | None,
         *,
         client_info: str = "aioesphomeapi",
-        keepalive: float = 15.0,
+        keepalive: float = KEEP_ALIVE_FREQUENCY,
         zeroconf_instance: ZeroconfInstanceType = None,
-        noise_psk: Optional[str] = None,
-        expected_name: Optional[str] = None,
-    ):
+        noise_psk: str | None = None,
+        expected_name: str | None = None,
+    ) -> None:
         """Create a client, this object is shared across sessions.
 
         :param address: The address to connect to; for example an IP address
@@ -215,15 +291,17 @@ class APIClient:
             noise_psk=noise_psk or None,
             expected_name=expected_name,
         )
-        self._connection: Optional[APIConnection] = None
-        self._cached_name: Optional[str] = None
+        self._connection: APIConnection | None = None
+        self._cached_name: str | None = None
+        self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._loop = asyncio.get_event_loop()
 
     @property
-    def expected_name(self) -> Optional[str]:
+    def expected_name(self) -> str | None:
         return self._params.expected_name
 
     @expected_name.setter
-    def expected_name(self, value: Optional[str]) -> None:
+    def expected_name(self, value: str | None) -> None:
         self._params.expected_name = value
 
     @property
@@ -236,19 +314,24 @@ class APIClient:
             return f"{self._cached_name} @ {self.address}"
         return self.address
 
+    def set_cached_name_if_unset(self, name: str) -> None:
+        """Set the cached name of the device if not set."""
+        if not self._cached_name:
+            self._cached_name = name
+
     async def connect(
         self,
-        on_stop: Optional[Callable[[], Awaitable[None]]] = None,
+        on_stop: Callable[[bool], Awaitable[None]] | None = None,
         login: bool = False,
     ) -> None:
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
-        async def _on_stop() -> None:
+        async def _on_stop(expected_disconnect: bool) -> None:
             # Hook into on_stop handler to clear connection when stopped
             self._connection = None
             if on_stop is not None:
-                await on_stop()
+                await on_stop(expected_disconnect)
 
         self._connection = APIConnection(
             self._params, _on_stop, log_name=self._log_name
@@ -273,56 +356,41 @@ class APIClient:
         else:
             await self._connection.disconnect()
 
-    def _check_connected(self) -> None:
-        if self._connection is None:
-            raise APIConnectionError(f"Not connected to {self._log_name}!")
-        if not self._connection.is_connected:
-            raise APIConnectionError(
-                f"Connection not done for {self._log_name}; "
-                f"current state is {self._connection.connection_state}!"
-            )
-
     def _check_authenticated(self) -> None:
-        self._check_connected()
-        assert self._connection is not None
-        if not self._connection.is_authenticated:
+        connection = self._connection
+        if not connection:
+            raise APIConnectionError(f"Not connected to {self._log_name}!")
+        if not connection.is_connected:
+            raise APIConnectionError(
+                f"Authenticated connection not ready yet for {self._log_name}; "
+                f"current state is {connection.connection_state}!"
+            )
+        if not connection.is_authenticated:
             raise APIConnectionError(f"Not authenticated for {self._log_name}!")
 
     async def device_info(self) -> DeviceInfo:
-        self._check_connected()
-        assert self._connection is not None
-        resp = await self._connection.send_message_await_response(
+        connection = self._connection
+        if not connection:
+            raise APIConnectionError(f"Not connected to {self._log_name}!")
+        if not connection or not connection.is_connected:
+            raise APIConnectionError(
+                f"Connection not ready yet for {self._log_name}; "
+                f"current state is {connection.connection_state}!"
+            )
+        resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
         info = DeviceInfo.from_pb(resp)
         self._cached_name = info.name
-        self._connection.set_log_name(self._log_name)
+        connection.set_log_name(self._log_name)
         return info
 
     async def list_entities_services(
         self,
-    ) -> Tuple[List[EntityInfo], List[UserService]]:
+    ) -> tuple[list[EntityInfo], list[UserService]]:
         self._check_authenticated()
-        response_types: Dict[Any, Optional[Type[EntityInfo]]] = {
-            ListEntitiesBinarySensorResponse: BinarySensorInfo,
-            ListEntitiesButtonResponse: ButtonInfo,
-            ListEntitiesCoverResponse: CoverInfo,
-            ListEntitiesFanResponse: FanInfo,
-            ListEntitiesLightResponse: LightInfo,
-            ListEntitiesNumberResponse: NumberInfo,
-            ListEntitiesSelectResponse: SelectInfo,
-            ListEntitiesSensorResponse: SensorInfo,
-            ListEntitiesSirenResponse: SirenInfo,
-            ListEntitiesSwitchResponse: SwitchInfo,
-            ListEntitiesTextResponse: TextInfo,
-            ListEntitiesTextSensorResponse: TextSensorInfo,
-            ListEntitiesServicesResponse: None,
-            ListEntitiesCameraResponse: CameraInfo,
-            ListEntitiesClimateResponse: ClimateInfo,
-            ListEntitiesLockResponse: LockInfo,
-            ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
-        }
-        msg_types = (ListEntitiesDoneResponse, *response_types)
+        response_types = LIST_ENTITIES_SERVICES_RESPONSE_TYPES
+        msg_types = LIST_ENTITIES_MSG_TYPES
 
         def do_append(msg: message.Message) -> bool:
             return not isinstance(msg, ListEntitiesDoneResponse)
@@ -334,8 +402,8 @@ class APIClient:
         resp = await self._connection.send_message_await_response_complex(
             ListEntitiesRequest(), do_append, do_stop, msg_types, timeout=60
         )
-        entities: List[EntityInfo] = []
-        services: List[UserService] = []
+        entities: list[EntityInfo] = []
+        services: list[UserService] = []
         for msg in resp:
             if isinstance(msg, ListEntitiesServicesResponse):
                 services.append(UserService.from_pb(msg))
@@ -347,62 +415,51 @@ class APIClient:
 
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         self._check_authenticated()
-        image_stream: Dict[int, bytes] = {}
-        response_types: Dict[Any, Type[EntityState]] = {
-            BinarySensorStateResponse: BinarySensorState,
-            CoverStateResponse: CoverState,
-            FanStateResponse: FanState,
-            LightStateResponse: LightState,
-            NumberStateResponse: NumberState,
-            SelectStateResponse: SelectState,
-            SensorStateResponse: SensorState,
-            SirenStateResponse: SirenState,
-            SwitchStateResponse: SwitchState,
-            TextStateResponse: TextState,
-            TextSensorStateResponse: TextSensorState,
-            ClimateStateResponse: ClimateState,
-            LockStateResponse: LockEntityState,
-            MediaPlayerStateResponse: MediaPlayerEntityState,
-        }
-        msg_types = (*response_types, CameraImageResponse)
+        image_stream: dict[int, list[bytes]] = {}
+        response_types = SUBSCRIBE_STATES_RESPONSE_TYPES
+        msg_types = SUBSCRIBE_STATES_MSG_TYPES
 
-        def on_msg(msg: message.Message) -> None:
+        def _on_state_msg(msg: message.Message) -> None:
             msg_type = type(msg)
             cls = response_types.get(msg_type)
             if cls:
                 on_state(cls.from_pb(msg))
-            elif isinstance(msg, CameraImageResponse):
-                data = image_stream.pop(msg.key, bytes()) + msg.data
+            elif msg_type is CameraImageResponse:
+                if TYPE_CHECKING:
+                    assert isinstance(msg, CameraImageResponse)
+                msg_key = msg.key
+                data_parts: list[bytes] | None = image_stream.get(msg_key)
+                if not data_parts:
+                    data_parts = []
+                    image_stream[msg_key] = data_parts
+
+                data_parts.append(msg.data)
                 if msg.done:
                     # Return CameraState with the merged data
-                    on_state(CameraState(key=msg.key, data=data))
-                else:
-                    image_stream[msg.key] = data
+                    image_data = b"".join(data_parts)
+                    del image_stream[msg_key]
+                    on_state(CameraState(key=msg.key, data=image_data))  # type: ignore[call-arg]
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
-            SubscribeStatesRequest(), on_msg, msg_types
+        self._connection.send_message_callback_response(
+            SubscribeStatesRequest(), _on_state_msg, msg_types
         )
 
     async def subscribe_logs(
         self,
         on_log: Callable[[SubscribeLogsResponse], None],
-        log_level: Optional[LogLevel] = None,
-        dump_config: Optional[bool] = None,
+        log_level: LogLevel | None = None,
+        dump_config: bool | None = None,
     ) -> None:
         self._check_authenticated()
-
-        def on_msg(msg: SubscribeLogsResponse) -> None:
-            on_log(msg)
-
         req = SubscribeLogsRequest()
         if log_level is not None:
             req.level = log_level
         if dump_config is not None:
             req.dump_config = dump_config
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
-            req, on_msg, (SubscribeLogsResponse,)
+        self._connection.send_message_callback_response(
+            req, on_log, (SubscribeLogsResponse,)
         )
 
     async def subscribe_service_calls(
@@ -410,37 +467,56 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg: HomeassistantServiceResponse) -> None:
+        def _on_home_assistant_service_response(
+            msg: HomeassistantServiceResponse,
+        ) -> None:
             on_service_call(HomeassistantServiceCall.from_pb(msg))
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
-            on_msg,
+            _on_home_assistant_service_response,
             (HomeassistantServiceResponse,),
         )
+
+    def _filter_bluetooth_message(
+        self,
+        address: int,
+        handle: int,
+        msg: message.Message,
+    ) -> bool:
+        """Handle a Bluetooth message."""
+        if TYPE_CHECKING:
+            assert isinstance(
+                msg,
+                (
+                    BluetoothGATTErrorResponse,
+                    BluetoothGATTNotifyResponse,
+                    BluetoothGATTReadResponse,
+                    BluetoothGATTWriteResponse,
+                ),
+            )
+        return bool(msg.address == address and msg.handle == handle)
 
     async def _send_bluetooth_message_await_response(
         self,
         address: int,
         handle: int,
         request: message.Message,
-        response_type: Type[message.Message],
+        response_type: (
+            type[BluetoothGATTNotifyResponse]
+            | type[BluetoothGATTReadResponse]
+            | type[BluetoothGATTWriteResponse]
+        ),
         timeout: float = 10.0,
     ) -> message.Message:
         self._check_authenticated()
         msg_types = (response_type, BluetoothGATTErrorResponse)
         assert self._connection is not None
 
-        def is_response(msg: message.Message) -> bool:
-            return (
-                isinstance(msg, msg_types)
-                and msg.address == address  # type: ignore[union-attr]
-                and msg.handle == handle  # type: ignore[union-attr]
-            )
-
+        message_filter = partial(self._filter_bluetooth_message, address, handle)
         resp = await self._connection.send_message_await_response_complex(
-            request, is_response, is_response, msg_types, timeout=timeout
+            request, message_filter, message_filter, msg_types, timeout=timeout
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
@@ -454,17 +530,49 @@ class APIClient:
         self._check_authenticated()
         msg_types = (BluetoothLEAdvertisementResponse,)
 
-        def on_msg(msg: BluetoothLEAdvertisementResponse) -> None:
-            on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))
+        def _on_bluetooth_le_advertising_response(
+            msg: BluetoothLEAdvertisementResponse,
+        ) -> None:
+            on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
-            SubscribeBluetoothLEAdvertisementsRequest(), on_msg, msg_types
+        unsub_callback = self._connection.send_message_callback_response(
+            SubscribeBluetoothLEAdvertisementsRequest(flags=0),
+            _on_bluetooth_le_advertising_response,
+            msg_types,
         )
 
         def unsub() -> None:
             if self._connection is not None:
-                self._connection.remove_message_callback(on_msg, msg_types)
+                unsub_callback()
+                self._connection.send_message(
+                    UnsubscribeBluetoothLEAdvertisementsRequest()
+                )
+
+        return unsub
+
+    async def subscribe_bluetooth_le_raw_advertisements(
+        self, on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
+    ) -> Callable[[], None]:
+        self._check_authenticated()
+        msg_types = (BluetoothLERawAdvertisementsResponse,)
+
+        assert self._connection is not None
+        on_msg = make_ble_raw_advertisement_processor(on_advertisements)
+        unsub_callback = self._connection.send_message_callback_response(
+            SubscribeBluetoothLEAdvertisementsRequest(
+                flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
+            ),
+            on_msg,
+            msg_types,
+        )
+
+        def unsub() -> None:
+            if self._connection is not None:
+                unsub_callback()
+                self._connection.send_message(
+                    UnsubscribeBluetoothLEAdvertisementsRequest()
+                )
 
         return unsub
 
@@ -474,125 +582,237 @@ class APIClient:
         self._check_authenticated()
         msg_types = (BluetoothConnectionsFreeResponse,)
 
-        def on_msg(msg: BluetoothConnectionsFreeResponse) -> None:
-            resp = BluetoothConnectionsFree.from_pb(msg)
-            on_bluetooth_connections_free_update(resp.free, resp.limit)
+        def _on_bluetooth_connections_free_response(
+            msg: BluetoothConnectionsFreeResponse,
+        ) -> None:
+            on_bluetooth_connections_free_update(msg.free, msg.limit)
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
-            SubscribeBluetoothConnectionsFreeRequest(), on_msg, msg_types
+        return self._connection.send_message_callback_response(
+            SubscribeBluetoothConnectionsFreeRequest(),
+            _on_bluetooth_connections_free_response,
+            msg_types,
         )
 
-        def unsub() -> None:
-            if self._connection is not None:
-                self._connection.remove_message_callback(on_msg, msg_types)
+    def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
+        """Handle a timeout."""
+        if fut.done():
+            return
+        fut.set_exception(asyncio.TimeoutError)
 
-        return unsub
+    def _on_bluetooth_device_connection_response(
+        self,
+        connect_future: asyncio.Future[None],
+        address: int,
+        on_bluetooth_connection_state: Callable[[bool, int, int], None],
+        msg: BluetoothDeviceConnectionResponse,
+    ) -> None:
+        """Handle a BluetoothDeviceConnectionResponse message.""" ""
+        if address == msg.address:
+            on_bluetooth_connection_state(msg.connected, msg.mtu, msg.error)
+            # Resolve on ANY connection state since we do not want
+            # to wait the whole timeout if the device disconnects
+            # or we get an error.
+            if not connect_future.done():
+                connect_future.set_result(None)
 
-    async def bluetooth_device_connect(  # pylint: disable=too-many-locals
+    async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
         timeout: float = DEFAULT_BLE_TIMEOUT,
         disconnect_timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT,
-        version: int = 1,
+        feature_flags: int = 0,
         has_cache: bool = False,
-        address_type: Optional[int] = None,
+        address_type: int | None = None,
     ) -> Callable[[], None]:
         self._check_authenticated()
         msg_types = (BluetoothDeviceConnectionResponse,)
-
-        event = asyncio.Event()
-
-        def on_msg(msg: BluetoothDeviceConnectionResponse) -> None:
-            resp = BluetoothDeviceConnection.from_pb(msg)
-            if address == resp.address:
-                on_bluetooth_connection_state(resp.connected, resp.mtu, resp.error)
-                event.set()
+        debug = _LOGGER.isEnabledFor(logging.DEBUG)
+        connect_future: asyncio.Future[None] = self._loop.create_future()
 
         assert self._connection is not None
         if has_cache:
-            # Version 3 with cache: requestor has services and mtu cached
-            _LOGGER.debug("%s: Using connection version 3 with cache", address)
+            # REMOTE_CACHING feature with cache: requestor has services and mtu cached
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
-        elif version >= 3:
-            # Version 3 without cache: esp will wipe the service list after sending to save memory
-            _LOGGER.debug("%s: Using connection version 3 without cache", address)
+        elif feature_flags & BluetoothProxyFeature.REMOTE_CACHING:
+            # REMOTE_CACHING feature without cache: esp will wipe the service list after sending to save memory
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
         else:
-            # Older than v3 without cache: esp will hold the service list in memory for the duration
+            # Device does not support REMOTE_CACHING feature: esp will hold the service list in memory for the duration
             # of the connection. This can crash the esp if the service list is too large.
-            _LOGGER.debug("%s: Using connection version 1", address)
             request_type = BluetoothDeviceRequestType.CONNECT
 
-        await self._connection.send_message_callback_response(
+        if debug:
+            _LOGGER.debug("%s: Using connection version %s", address, request_type)
+
+        unsub = self._connection.send_message_callback_response(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=request_type,
                 has_address_type=address_type is not None,
                 address_type=address_type or 0,
             ),
-            on_msg,
+            partial(
+                self._on_bluetooth_device_connection_response,
+                connect_future,
+                address,
+                on_bluetooth_connection_state,
+            ),
             msg_types,
         )
 
-        def unsub() -> None:
-            if self._connection is not None:
-                self._connection.remove_message_callback(on_msg, msg_types)
-
+        loop = self._loop
+        timeout_handle = loop.call_later(timeout, self._handle_timeout, connect_future)
+        timeout_expired = False
+        connect_ok = False
         try:
-            try:
-                async with async_timeout.timeout(timeout):
-                    await event.wait()
-            except asyncio.TimeoutError as err:
-                # Disconnect before raising the exception to ensure
-                # the slot is recovered before the timeout is raised
-                # to avoid race were we run out even though we have a slot.
-                await self.bluetooth_device_disconnect(address)
-                addr = to_human_readable_address(address)
+            await connect_future
+            connect_ok = True
+        except asyncio.TimeoutError as err:
+            timeout_expired = True
+            # Disconnect before raising the exception to ensure
+            # the slot is recovered before the timeout is raised
+            # to avoid race were we run out even though we have a slot.
+            addr = to_human_readable_address(address)
+            if debug:
                 _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
-                try:
-                    async with async_timeout.timeout(disconnect_timeout):
-                        await event.wait()
-                        disconnect_timed_out = False
-                except asyncio.TimeoutError:
-                    disconnect_timed_out = True
-                _LOGGER.debug(
-                    "%s: Disconnect timed out: %s", addr, disconnect_timed_out
+            disconnect_timed_out = (
+                not await self._bluetooth_device_disconnect_guard_timeout(
+                    address, disconnect_timeout
                 )
+            )
+            raise TimeoutAPIError(
+                f"Timeout waiting for connect response while connecting to {addr} "
+                f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
+                f" after {disconnect_timeout}s"
+            ) from err
+        finally:
+            if not connect_ok:
                 try:
                     unsub()
                 except (KeyError, ValueError):
                     _LOGGER.warning(
-                        "%s: Bluetooth device connection timed out but already unsubscribed",
+                        "%s: Bluetooth device connection canceled but already unsubscribed",
                         addr,
                     )
-                raise TimeoutAPIError(
-                    f"Timeout waiting for connect response while connecting to {addr} "
-                    f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
-                    f" after {disconnect_timeout}s"
-                ) from err
-        except asyncio.CancelledError:
-            try:
-                unsub()
-            except (KeyError, ValueError):
-                _LOGGER.warning(
-                    "%s: Bluetooth device connection canceled but already unsubscribed",
-                    addr,
-                )
-            raise
+            if not timeout_expired:
+                timeout_handle.cancel()
 
         return unsub
 
-    async def bluetooth_device_disconnect(self, address: int) -> None:
+    async def _bluetooth_device_disconnect_guard_timeout(
+        self, address: int, timeout: float
+    ) -> bool:
+        """Disconnect from a Bluetooth device and guard against timeout.
+
+        Return true if the disconnect was successful, false if it timed out.
+        """
+        try:
+            await self.bluetooth_device_disconnect(address, timeout=timeout)
+        except TimeoutAPIError:
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                _LOGGER.debug(
+                    "%s: Disconnect timed out: %s",
+                    to_human_readable_address(address),
+                    timeout,
+                )
+            return False
+        return True
+
+    async def bluetooth_device_pair(
+        self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
+    ) -> BluetoothDevicePairing:
+        self._check_authenticated()
+        msg_types = (
+            BluetoothDevicePairingResponse,
+            BluetoothDeviceConnectionResponse,
+        )
+
+        assert self._connection is not None
+
+        def predicate_func(msg: message.Message) -> bool:
+            if TYPE_CHECKING:
+                assert isinstance(msg, msg_types)
+            if msg.address != address:
+                return False
+            if isinstance(msg, BluetoothDeviceConnectionResponse):
+                raise APIConnectionError(
+                    "Peripheral changed connections status while pairing"
+                )
+            return True
+
+        [response] = await self._connection.send_message_await_response_complex(
+            BluetoothDeviceRequest(
+                address=address, request_type=BluetoothDeviceRequestType.PAIR
+            ),
+            predicate_func,
+            predicate_func,
+            msg_types,
+            timeout=timeout,
+        )
+        return BluetoothDevicePairing.from_pb(response)
+
+    async def bluetooth_device_unpair(
+        self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
+    ) -> BluetoothDeviceUnpairing:
         self._check_authenticated()
 
         assert self._connection is not None
-        await self._connection.send_message(
+
+        def predicate_func(msg: BluetoothDeviceUnpairingResponse) -> bool:
+            return bool(msg.address == address)
+
+        [response] = await self._connection.send_message_await_response_complex(
+            BluetoothDeviceRequest(
+                address=address, request_type=BluetoothDeviceRequestType.UNPAIR
+            ),
+            predicate_func,
+            predicate_func,
+            (BluetoothDeviceUnpairingResponse,),
+            timeout=timeout,
+        )
+        return BluetoothDeviceUnpairing.from_pb(response)
+
+    async def bluetooth_device_clear_cache(
+        self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
+    ) -> BluetoothDeviceClearCache:
+        self._check_authenticated()
+
+        assert self._connection is not None
+
+        def predicate_func(msg: BluetoothDeviceClearCacheResponse) -> bool:
+            return bool(msg.address == address)
+
+        [response] = await self._connection.send_message_await_response_complex(
+            BluetoothDeviceRequest(
+                address=address, request_type=BluetoothDeviceRequestType.CLEAR_CACHE
+            ),
+            predicate_func,
+            predicate_func,
+            (BluetoothDeviceClearCacheResponse,),
+            timeout=timeout,
+        )
+        return BluetoothDeviceClearCache.from_pb(response)
+
+    async def bluetooth_device_disconnect(
+        self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT
+    ) -> None:
+        self._check_authenticated()
+
+        def predicate_func(msg: BluetoothDeviceConnectionResponse) -> bool:
+            return bool(msg.address == address and not msg.connected)
+
+        assert self._connection is not None
+        await self._connection.send_message_await_response_complex(
             BluetoothDeviceRequest(
                 address=address,
                 request_type=BluetoothDeviceRequestType.DISCONNECT,
-            )
+            ),
+            predicate_func,
+            predicate_func,
+            (BluetoothDeviceConnectionResponse,),
+            timeout=timeout,
         )
 
     async def bluetooth_gatt_get_services(
@@ -628,7 +848,7 @@ class APIClient:
 
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
-        return ESPHomeBluetoothGATTServices(address=address, services=services)
+        return ESPHomeBluetoothGATTServices(address=address, services=services)  # type: ignore[call-arg]
 
     async def bluetooth_gatt_read(
         self,
@@ -647,10 +867,9 @@ class APIClient:
             BluetoothGATTReadResponse,
             timeout=timeout,
         )
-
-        read_response = BluetoothGATTRead.from_pb(resp)
-
-        return bytearray(read_response.data)
+        if TYPE_CHECKING:
+            assert isinstance(resp, BluetoothGATTReadResponse)
+        return bytearray(resp.data)
 
     async def bluetooth_gatt_write(
         self,
@@ -668,7 +887,7 @@ class APIClient:
 
         if not response:
             assert self._connection is not None
-            await self._connection.send_message(req)
+            self._connection.send_message(req)
             return
 
         await self._send_bluetooth_message_await_response(
@@ -685,10 +904,10 @@ class APIClient:
         handle: int,
         timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> bytearray:
+        """Read a GATT descriptor."""
         req = BluetoothGATTReadDescriptorRequest()
         req.address = address
         req.handle = handle
-
         resp = await self._send_bluetooth_message_await_response(
             address,
             handle,
@@ -696,10 +915,9 @@ class APIClient:
             BluetoothGATTReadResponse,
             timeout=timeout,
         )
-
-        read_response = BluetoothGATTRead.from_pb(resp)
-
-        return bytearray(read_response.data)
+        if TYPE_CHECKING:
+            assert isinstance(resp, BluetoothGATTReadResponse)
+        return bytearray(resp.data)
 
     async def bluetooth_gatt_write_descriptor(
         self,
@@ -716,7 +934,7 @@ class APIClient:
 
         if not wait_for_response:
             assert self._connection is not None
-            await self._connection.send_message(req)
+            self._connection.send_message(req)
             return
 
         await self._send_bluetooth_message_await_response(
@@ -732,7 +950,7 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
-    ) -> Tuple[Callable[[], Coroutine[Any, Any, None]], Callable[[], None]]:
+    ) -> tuple[Callable[[], Coroutine[Any, Any, None]], Callable[[], None]]:
         """Start a notify session for a GATT characteristic.
 
         Returns two functions that can be used to stop the notify.
@@ -751,14 +969,15 @@ class APIClient:
             BluetoothGATTNotifyResponse,
         )
 
-        def on_msg(msg: BluetoothGATTNotifyDataResponse) -> None:
-            notify = BluetoothGATTRead.from_pb(msg)
-            if address == notify.address and handle == notify.handle:
-                on_bluetooth_gatt_notify(handle, bytearray(notify.data))
+        def _on_bluetooth_gatt_notify_data_response(
+            msg: BluetoothGATTNotifyDataResponse,
+        ) -> None:
+            if address == msg.address and handle == msg.handle:
+                on_bluetooth_gatt_notify(handle, bytearray(msg.data))
 
         assert self._connection is not None
         remove_callback = self._connection.add_message_callback(
-            on_msg, (BluetoothGATTNotifyDataResponse,)
+            _on_bluetooth_gatt_notify_data_response, (BluetoothGATTNotifyDataResponse,)
         )
 
         async def stop_notify() -> None:
@@ -769,34 +988,36 @@ class APIClient:
 
             self._check_authenticated()
 
-            await self._connection.send_message(
+            self._connection.send_message(
                 BluetoothGATTNotifyRequest(address=address, handle=handle, enable=False)
             )
 
         return stop_notify, remove_callback
 
     async def subscribe_home_assistant_states(
-        self, on_state_sub: Callable[[str, Optional[str]], None]
+        self, on_state_sub: Callable[[str, str | None], None]
     ) -> None:
         self._check_authenticated()
 
-        def on_msg(msg: SubscribeHomeAssistantStateResponse) -> None:
+        def _on_subscribe_home_assistant_state_response(
+            msg: SubscribeHomeAssistantStateResponse,
+        ) -> None:
             on_state_sub(msg.entity_id, msg.attribute)
 
         assert self._connection is not None
-        await self._connection.send_message_callback_response(
+        self._connection.send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
-            on_msg,
+            _on_subscribe_home_assistant_state_response,
             (SubscribeHomeAssistantStateResponse,),
         )
 
     async def send_home_assistant_state(
-        self, entity_id: str, attribute: Optional[str], state: str
+        self, entity_id: str, attribute: str | None, state: str
     ) -> None:
         self._check_authenticated()
 
         assert self._connection is not None
-        await self._connection.send_message(
+        self._connection.send_message(
             HomeAssistantStateResponse(
                 entity_id=entity_id,
                 state=state,
@@ -807,8 +1028,8 @@ class APIClient:
     async def cover_command(
         self,
         key: int,
-        position: Optional[float] = None,
-        tilt: Optional[float] = None,
+        position: float | None = None,
+        tilt: float | None = None,
         stop: bool = False,
     ) -> None:
         self._check_authenticated()
@@ -836,16 +1057,16 @@ class APIClient:
                 req.legacy_command = LegacyCoverCommand.CLOSE
                 req.has_legacy_command = True
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def fan_command(
         self,
         key: int,
-        state: Optional[bool] = None,
-        speed: Optional[FanSpeed] = None,
-        speed_level: Optional[int] = None,
-        oscillating: Optional[bool] = None,
-        direction: Optional[FanDirection] = None,
+        state: bool | None = None,
+        speed: FanSpeed | None = None,
+        speed_level: int | None = None,
+        oscillating: bool | None = None,
+        direction: FanDirection | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -867,23 +1088,23 @@ class APIClient:
             req.has_direction = True
             req.direction = direction
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def light_command(
         self,
         key: int,
-        state: Optional[bool] = None,
-        brightness: Optional[float] = None,
-        color_mode: Optional[int] = None,
-        color_brightness: Optional[float] = None,
-        rgb: Optional[Tuple[float, float, float]] = None,
-        white: Optional[float] = None,
-        color_temperature: Optional[float] = None,
-        cold_white: Optional[float] = None,
-        warm_white: Optional[float] = None,
-        transition_length: Optional[float] = None,
-        flash_length: Optional[float] = None,
-        effect: Optional[str] = None,
+        state: bool | None = None,
+        brightness: float | None = None,
+        color_mode: int | None = None,
+        color_brightness: float | None = None,
+        rgb: tuple[float, float, float] | None = None,
+        white: float | None = None,
+        color_temperature: float | None = None,
+        cold_white: float | None = None,
+        warm_white: float | None = None,
+        transition_length: float | None = None,
+        flash_length: float | None = None,
+        effect: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -928,7 +1149,7 @@ class APIClient:
             req.has_effect = True
             req.effect = effect
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def switch_command(self, key: int, state: bool) -> None:
         self._check_authenticated()
@@ -937,20 +1158,20 @@ class APIClient:
         req.key = key
         req.state = state
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def climate_command(
         self,
         key: int,
-        mode: Optional[ClimateMode] = None,
-        target_temperature: Optional[float] = None,
-        target_temperature_low: Optional[float] = None,
-        target_temperature_high: Optional[float] = None,
-        fan_mode: Optional[ClimateFanMode] = None,
-        swing_mode: Optional[ClimateSwingMode] = None,
-        custom_fan_mode: Optional[str] = None,
-        preset: Optional[ClimatePreset] = None,
-        custom_preset: Optional[str] = None,
+        mode: ClimateMode | None = None,
+        target_temperature: float | None = None,
+        target_temperature_low: float | None = None,
+        target_temperature_high: float | None = None,
+        fan_mode: ClimateFanMode | None = None,
+        swing_mode: ClimateSwingMode | None = None,
+        custom_fan_mode: str | None = None,
+        preset: ClimatePreset | None = None,
+        custom_preset: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -989,7 +1210,7 @@ class APIClient:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
         self._check_authenticated()
@@ -998,7 +1219,7 @@ class APIClient:
         req.key = key
         req.state = state
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def select_command(self, key: int, state: str) -> None:
         self._check_authenticated()
@@ -1007,15 +1228,15 @@ class APIClient:
         req.key = key
         req.state = state
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def siren_command(
         self,
         key: int,
-        state: Optional[bool] = None,
-        tone: Optional[str] = None,
-        volume: Optional[float] = None,
-        duration: Optional[int] = None,
+        state: bool | None = None,
+        tone: str | None = None,
+        volume: float | None = None,
+        duration: int | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1034,7 +1255,7 @@ class APIClient:
             req.duration = duration
             req.has_duration = True
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def button_command(self, key: int) -> None:
         self._check_authenticated()
@@ -1042,13 +1263,13 @@ class APIClient:
         req = ButtonCommandRequest()
         req.key = key
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def lock_command(
         self,
         key: int,
         command: LockCommand,
-        code: Optional[str] = None,
+        code: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1058,15 +1279,15 @@ class APIClient:
         if code is not None:
             req.code = code
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def media_player_command(
         self,
         key: int,
         *,
-        command: Optional[MediaPlayerCommand] = None,
-        volume: Optional[float] = None,
-        media_url: Optional[str] = None,
+        command: MediaPlayerCommand | None = None,
+        volume: float | None = None,
+        media_url: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1082,7 +1303,7 @@ class APIClient:
             req.media_url = media_url
             req.has_media_url = True
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def text_command(self, key: int, state: str) -> None:
         self._check_authenticated()
@@ -1129,7 +1350,7 @@ class APIClient:
         # pylint: disable=no-member
         req.args.extend(args)
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def _request_image(
         self, *, single: bool = False, stream: bool = False
@@ -1138,7 +1359,7 @@ class APIClient:
         req.single = single
         req.stream = stream
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def request_single_image(self) -> None:
         await self._request_image(single=True)
@@ -1147,7 +1368,106 @@ class APIClient:
         await self._request_image(stream=True)
 
     @property
-    def api_version(self) -> Optional[APIVersion]:
+    def api_version(self) -> APIVersion | None:
         if self._connection is None:
             return None
         return self._connection.api_version
+
+    async def subscribe_voice_assistant(
+        self,
+        handle_start: Callable[[str, int], Coroutine[Any, Any, int | None]],
+        handle_stop: Callable[[], Coroutine[Any, Any, None]],
+    ) -> Callable[[], None]:
+        """Subscribes to voice assistant messages from the device.
+
+        handle_start: called when the devices requests a server to send audio data to.
+                      This callback is asynchronous and returns the port number the server is started on.
+
+        handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
+
+        Returns a callback to unsubscribe.
+        """
+        self._check_authenticated()
+
+        start_task: asyncio.Task[int | None] | None = None
+
+        def _started(fut: asyncio.Task[int | None]) -> None:
+            if self._connection is not None and not fut.cancelled():
+                port = fut.result()
+                if port is not None:
+                    self._connection.send_message(VoiceAssistantResponse(port=port))
+                else:
+                    _LOGGER.error("Server could not be started")
+                    self._connection.send_message(VoiceAssistantResponse(error=True))
+
+        def _on_voice_assistant_request(msg: VoiceAssistantRequest) -> None:
+            command = VoiceAssistantCommand.from_pb(msg)
+            if command.start:
+                start_task = asyncio.create_task(
+                    handle_start(command.conversation_id, command.flags)
+                )
+                start_task.add_done_callback(_started)
+                # We hold a reference to the start_task in unsub function
+                # so we don't need to add it to the background tasks.
+            else:
+                stop_task = asyncio.create_task(handle_stop())
+                self._background_tasks.add(stop_task)
+                stop_task.add_done_callback(self._background_tasks.discard)
+
+        assert self._connection is not None
+
+        self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
+
+        remove_callback = self._connection.add_message_callback(
+            _on_voice_assistant_request, (VoiceAssistantRequest,)
+        )
+
+        def unsub() -> None:
+            if self._connection is not None:
+                remove_callback()
+                self._connection.send_message(
+                    SubscribeVoiceAssistantRequest(subscribe=False)
+                )
+
+            if start_task is not None and not start_task.cancelled():
+                start_task.cancel("Unsubscribing from voice assistant")
+
+        return unsub
+
+    def send_voice_assistant_event(
+        self, event_type: VoiceAssistantEventType, data: dict[str, str] | None
+    ) -> None:
+        self._check_authenticated()
+
+        req = VoiceAssistantEventResponse()
+        req.event_type = event_type
+
+        data_args = []
+        if data is not None:
+            for name, value in data.items():
+                arg = VoiceAssistantEventData()
+                arg.name = name
+                arg.value = value
+                data_args.append(arg)
+
+        # pylint: disable=no-member
+        req.data.extend(data_args)
+
+        assert self._connection is not None
+        self._connection.send_message(req)
+
+    async def alarm_control_panel_command(
+        self,
+        key: int,
+        command: AlarmControlPanelCommand,
+        code: str | None = None,
+    ) -> None:
+        self._check_authenticated()
+
+        req = AlarmControlPanelCommandRequest()
+        req.key = key
+        req.command = command
+        if code is not None:
+            req.code = code
+        assert self._connection is not None
+        self._connection.send_message(req)

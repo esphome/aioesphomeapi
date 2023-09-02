@@ -1,12 +1,19 @@
+from __future__ import annotations
+
 import re
 
 from aioesphomeapi.model import BluetoothGATTError
 
 from .api_pb2 import (  # type: ignore
+    AlarmControlPanelCommandRequest,
+    AlarmControlPanelStateResponse,
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
+    BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
+    BluetoothDevicePairingResponse,
     BluetoothDeviceRequest,
+    BluetoothDeviceUnpairingResponse,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesRequest,
@@ -21,6 +28,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteRequest,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
+    BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -45,6 +53,7 @@ from .api_pb2 import (  # type: ignore
     HomeAssistantStateResponse,
     LightCommandRequest,
     LightStateResponse,
+    ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
     ListEntitiesButtonResponse,
     ListEntitiesCameraResponse,
@@ -85,11 +94,16 @@ from .api_pb2 import (  # type: ignore
     SubscribeLogsRequest,
     SubscribeLogsResponse,
     SubscribeStatesRequest,
+    SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
     TextCommandRequest,
     TextSensorStateResponse,
     TextStateResponse,
+    UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantEventResponse,
+    VoiceAssistantRequest,
+    VoiceAssistantResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -174,16 +188,24 @@ class HandshakeAPIError(APIConnectionError):
     pass
 
 
+class ConnectionNotEstablishedAPIError(APIConnectionError):
+    pass
+
+
 class BadNameAPIError(APIConnectionError):
     """Raised when a name received from the remote but does not much the expected name."""
 
     def __init__(self, msg: str, received_name: str) -> None:
-        super().__init__(msg)
+        super().__init__(f"{msg}: received_name={received_name}")
         self.received_name = received_name
 
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
-    pass
+    def __init__(
+        self, msg: str | None = None, received_name: str | None = None
+    ) -> None:
+        super().__init__(f"{msg}: received_name={received_name}")
+        self.received_name = received_name
 
 
 class PingFailedAPIError(APIConnectionError):
@@ -305,7 +327,19 @@ MESSAGE_TYPE_TO_PROTO = {
     82: BluetoothGATTErrorResponse,
     83: BluetoothGATTWriteResponse,
     84: BluetoothGATTNotifyResponse,
-    85: ListEntitiesTextResponse,
-    86: TextStateResponse,
-    87: TextCommandRequest,
+    85: BluetoothDevicePairingResponse,
+    86: BluetoothDeviceUnpairingResponse,
+    87: UnsubscribeBluetoothLEAdvertisementsRequest,
+    88: BluetoothDeviceClearCacheResponse,
+    89: SubscribeVoiceAssistantRequest,
+    90: VoiceAssistantRequest,
+    91: VoiceAssistantResponse,
+    92: VoiceAssistantEventResponse,
+    93: BluetoothLERawAdvertisementsResponse,
+    94: ListEntitiesAlarmControlPanelResponse,
+    95: AlarmControlPanelStateResponse,
+    96: AlarmControlPanelCommandRequest,
+    97: ListEntitiesTextResponse,
+    98: TextStateResponse,
+    99: TextCommandRequest,
 }

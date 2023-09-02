@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 # Helper script and aioesphomeapi to view logs from an esphome device
 import argparse
 import asyncio
 import logging
 import sys
 from datetime import datetime
-from typing import List
 
 import zeroconf
 
@@ -17,7 +18,7 @@ from aioesphomeapi.reconnect_logic import ReconnectLogic
 _LOGGER = logging.getLogger(__name__)
 
 
-async def main(argv: List[str]) -> None:
+async def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser("aioesphomeapi-logs")
     parser.add_argument("--port", type=int, default=6053)
     parser.add_argument("--password", type=str)
@@ -59,7 +60,9 @@ async def main(argv: List[str]) -> None:
         except APIConnectionError:
             await cli.disconnect()
 
-    async def on_disconnect() -> None:
+    async def on_disconnect(  # pylint: disable=unused-argument
+        expected_disconnect: bool,
+    ) -> None:
         _LOGGER.warning("Disconnected from API")
 
     logic = ReconnectLogic(
