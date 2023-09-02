@@ -1312,7 +1312,7 @@ class APIClient:
         req.key = key
         req.state = state
         assert self._connection is not None
-        await self._connection.send_message(req)
+        self._connection.send_message(req)
 
     async def execute_service(
         self, service: UserService, data: ExecuteServiceDataType
