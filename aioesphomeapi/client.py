@@ -187,7 +187,7 @@ from .model import (
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
-DEFAULT_BLE_DISCONNECT_TIMEOUT = 5.0
+DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
 
 # We send a ping every 20 seconds, and the timeout ratio is 4.5x the
 # ping interval. This means that if we don't receive a ping for 90.0
