@@ -763,6 +763,7 @@ class AlarmControlPanelEntityState(EntityState):
         converter=AlarmControlPanelState.convert,
     )
 
+
 # ==================== TEXT ====================
 class TextMode(APIIntEnum):
     AUTO = 0
