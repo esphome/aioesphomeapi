@@ -396,11 +396,11 @@ class APIConnection:
                 received_name,
             )
 
-    def _async_schedule_keep_alive(self) -> None:
+    def _async_schedule_keep_alive(self, now: float) -> None:
         """Start the keep alive task."""
         self._send_pending_ping = True
-        self._ping_timer = self._loop.call_later(
-            self._keep_alive_interval, self._async_send_keep_alive
+        self._ping_timer = self._loop.call_at(
+            now + self._keep_alive_interval, self._async_send_keep_alive
         )
 
     def _async_send_keep_alive(self) -> None:
@@ -408,14 +408,16 @@ class APIConnection:
         if not self._is_socket_open:
             return
 
+        now = self._loop.time()
+
         if self._send_pending_ping:
             self.send_message(PING_REQUEST_MESSAGE)
             if self._pong_timer is None:
                 # Do not reset the timer if it's already set
                 # since the only thing we want to reset the timer
                 # is if we receive a pong.
-                self._pong_timer = self._loop.call_later(
-                    self._keep_alive_timeout, self._async_pong_not_received
+                self._pong_timer = self._loop.call_at(
+                    now + self._keep_alive_timeout, self._async_pong_not_received
                 )
             else:
                 #
@@ -434,7 +436,7 @@ class APIConnection:
                     self._keep_alive_interval,
                 )
 
-        self._async_schedule_keep_alive()
+        self._async_schedule_keep_alive(now)
 
     def _async_cancel_pong_timer(self) -> None:
         """Cancel the pong timer."""
@@ -466,7 +468,7 @@ class APIConnection:
         await self._connect_hello()
         if login:
             await self.login(check_connected=False)
-        self._async_schedule_keep_alive()
+        self._async_schedule_keep_alive(self._loop.time())
 
     async def connect(self, *, login: bool) -> None:
         if self._connection_state != ConnectionState.INITIALIZED:
@@ -661,7 +663,9 @@ class APIConnection:
         # We must not await without a finally or
         # the message could fail to be removed if the
         # the await is cancelled
-        timeout_handle = self._loop.call_later(timeout, self._handle_timeout, fut)
+        timeout_handle = self._loop.call_at(
+            self._loop.time() + timeout, self._handle_timeout, fut
+        )
         timeout_expired = False
         try:
             await fut

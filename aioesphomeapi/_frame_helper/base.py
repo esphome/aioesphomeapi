@@ -75,8 +75,10 @@ class APIFrameHelper(asyncio.Protocol):
 
     async def perform_handshake(self, timeout: float) -> None:
         """Perform the handshake with the server."""
-        handshake_handle = self._loop.call_later(
-            timeout, self._set_ready_future_exception, asyncio.TimeoutError()
+        handshake_handle = self._loop.call_at(
+            self._loop.time() + timeout,
+            self._set_ready_future_exception,
+            asyncio.TimeoutError,
         )
         try:
             await self._ready_future

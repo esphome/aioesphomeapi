@@ -649,7 +649,9 @@ class APIClient:
         )
 
         loop = self._loop
-        timeout_handle = loop.call_later(timeout, self._handle_timeout, connect_future)
+        timeout_handle = loop.call_at(
+            loop.time() + timeout, self._handle_timeout, connect_future
+        )
         timeout_expired = False
         connect_ok = False
         try:

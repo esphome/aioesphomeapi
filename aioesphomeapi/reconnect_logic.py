@@ -146,7 +146,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if not delay:
             self._call_connect_once()
             return
-        self._connect_timer = self.loop.call_later(delay, self._call_connect_once)
+        self._connect_timer = self.loop.call_at(
+            self.loop.time() + delay, self._call_connect_once
+        )
 
     def _call_connect_once(self) -> None:
         """Call the connect logic once.
