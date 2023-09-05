@@ -169,7 +169,6 @@ from .model import (
     UserServiceArgType,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
-    make_ble_raw_advertisement_processor,
 )
 
 _LOGGER = logging.getLogger(__name__)
