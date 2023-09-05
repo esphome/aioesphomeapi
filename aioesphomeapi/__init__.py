@@ -1,5 +1,5 @@
 # flake8: noqa
-from .api_pb2 import BluetoothLERawAdvertisement
+from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined]
 from .ble_defs import ESP_CONNECTION_ERROR_DESCRIPTION, BLEConnectionError
 from .client import APIClient
 from .connection import APIConnection, ConnectionParams
