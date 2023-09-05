@@ -146,6 +146,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if not delay:
             self._call_connect_once()
             return
+        _LOGGER.debug("Scheduling new connect attempt in %f seconds", delay)
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
         )
@@ -174,7 +175,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _call_connect_once
         """
+        _LOGGER.debug("Trying to connect to %s", self._log_name)
         async with self._connected_lock:
+            _LOGGER.debug("Connected lock acquired for %s", self._log_name)
             self._stop_zc_listen()
             if self._connected or self._is_stopped:
                 return
