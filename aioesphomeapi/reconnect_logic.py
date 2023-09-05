@@ -279,6 +279,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._log_name,
                 record_update.new,
             )
-            self._stop_zc_listen()
+            # We can't stop the zeroconf listener here because we are in the middle of
+            # a zeroconf callback which is iterating the listeners.
+            #
+            # So we schedule a stop for the next event loop iteration.
+            self.loop.call_soon(self._stop_zc_listen)
             self._schedule_connect(0.0)
             return
