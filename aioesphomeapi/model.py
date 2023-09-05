@@ -925,19 +925,6 @@ class BluetoothLEAdvertisement:
         )
 
 
-def make_ble_raw_advertisement_processor(
-    on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
-) -> Callable[[BluetoothLERawAdvertisementsResponse], None]:
-    """Make a processor for BluetoothLERawAdvertisementResponse."""
-
-    def _on_ble_raw_advertisement_response(
-        data: BluetoothLERawAdvertisementsResponse,
-    ) -> None:
-        on_advertisements(data.advertisements)
-
-    return _on_ble_raw_advertisement_response
-
-
 @_frozen_dataclass_decorator
 class BluetoothDeviceConnection(APIModelBase):
     address: int = 0

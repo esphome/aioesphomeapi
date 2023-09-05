@@ -543,13 +543,17 @@ class APIClient:
         self._check_authenticated()
         msg_types = (BluetoothLERawAdvertisementsResponse,)
 
+        def _on_ble_raw_advertisement_response(
+            data: BluetoothLERawAdvertisementsResponse,
+        ) -> None:
+            on_advertisements(data.advertisements)
+
         assert self._connection is not None
-        on_msg = make_ble_raw_advertisement_processor(on_advertisements)
         unsub_callback = self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
-            on_msg,
+            _on_ble_raw_advertisement_response,
             msg_types,
         )
 
