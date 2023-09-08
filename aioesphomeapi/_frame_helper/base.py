@@ -105,7 +105,7 @@ class APIFrameHelper(asyncio.Protocol):
             return None
         self._pos = new_pos
         if TYPE_CHECKING:
-            assert self._buffer is not None
+            assert self._buffer_view is not None
         return self._buffer_view[original_pos:new_pos]
 
     async def perform_handshake(self, timeout: float) -> None:
