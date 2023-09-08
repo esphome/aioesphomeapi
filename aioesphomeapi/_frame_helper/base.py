@@ -70,6 +70,9 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer = data
             self._buffer_len = len(data)
             return
+        # This is the expensive case since we have to create
+        # a new immutable bytes object each time, but since
+        # its so rare we do not want to optimize for it        
         self._buffer += data
         self._buffer_len += len(data)
 
@@ -82,6 +85,11 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer = None
             self._buffer_len = 0
             return
+        if TYPE_CHECKING:
+            assert self._buffer is not None
+        # This is the expensive case since we have to create
+        # a new immutable bytes object each time, but since
+        # its so rare we do not want to optimize for it
         self._buffer_len -= end_of_frame_pos
         self._buffer = self._buffer[end_of_frame_pos:]
 

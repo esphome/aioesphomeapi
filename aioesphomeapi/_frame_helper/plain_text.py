@@ -110,14 +110,15 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if length_int == 0:
                 packet_data = b""
             else:
-                packet_data = self._read_exactly(length_int)
+                maybe_packet_data = self._read_exactly(length_int)
                 # The packet data is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next
                 # call to data_received will continue processing the packet
                 # at the start of the frame.
-                if packet_data is None:
+                if maybe_packet_data is None:
                     return
+                packet_data = maybe_packet_data
 
             self._remove_packet_from_buffer()
             self._on_pkt(msg_type_int, packet_data)
