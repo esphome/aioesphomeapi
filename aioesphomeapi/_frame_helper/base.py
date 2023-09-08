@@ -76,6 +76,7 @@ class APIFrameHelper(asyncio.Protocol):
             )
             self._buffer = bytearray(self._buffer) + data
         else:
+            _LOGGER.warning("_append_or_replace_buffer: Appending to bytearray")
             if TYPE_CHECKING:
                 assert isinstance(self._buffer, bytearray)
             self._buffer += data
@@ -100,6 +101,7 @@ class APIFrameHelper(asyncio.Protocol):
             )
             self._buffer = bytearray(self._buffer[end_of_frame_pos:])
         else:
+            _LOGGER.warning("_remove_packet_from_buffer: Removing from bytearray")
             if TYPE_CHECKING:
                 assert isinstance(self._buffer, bytearray)
             del self._buffer[:end_of_frame_pos]
