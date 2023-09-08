@@ -113,6 +113,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         super().close()
 
     def _handle_error_and_close(self, exc: Exception) -> None:
+        _LOGGER.warning("%s: %s", self._log_name, exc)
         self._set_ready_future_exception(exc)
         super()._handle_error_and_close(exc)
 
@@ -191,8 +192,9 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def _handle_hello(self, server_hello: bytes) -> None:
+    def _handle_hello(self, frame: memoryview) -> None:
         """Perform the handshake with the server."""
+        server_hello = bytes(frame)
         if not server_hello:
             self._handle_error_and_close(
                 HandshakeAPIError(f"{self._log_name}: ServerHello is empty")
@@ -262,8 +264,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         proto.start_handshake()
         self._proto = proto
 
-    def _handle_handshake(self, msg: bytes) -> None:
+    def _handle_handshake(self, frame: memoryview) -> None:
         _LOGGER.debug("Starting handshake...")
+        msg = bytes(frame)
         if msg[0] != 0:
             explanation = msg[1:].decode()
             if explanation == "Handshake MAC failure":
@@ -326,7 +329,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def _handle_frame(self, frame: bytes) -> None:
+    def _handle_frame(self, frame: memoryview) -> None:
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt is not None, "Handshake should be complete"
@@ -343,7 +346,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         # N bytes: message data
         self._on_pkt((msg[0] << 8) | msg[1], msg[4:])
 
-    def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
+    def _handle_closed(
+        self, frame: memoryview
+    ) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))
 

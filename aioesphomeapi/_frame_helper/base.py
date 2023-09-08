@@ -54,6 +54,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
         self._buffer: bytes | None = None
+        self._buffer_view: memoryview | None = None
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -68,6 +69,7 @@ class APIFrameHelper(asyncio.Protocol):
         """Append data to the buffer."""
         if not self._buffer:
             self._buffer = data
+            self._buffer_view = memoryview(self._buffer)
             self._buffer_len = len(data)
             return
         # This is the expensive case since we have to create
@@ -75,6 +77,7 @@ class APIFrameHelper(asyncio.Protocol):
         # its so rare we do not want to optimize for it
         self._buffer += data
         self._buffer_len += len(data)
+        self._buffer_view = memoryview(self._buffer)
 
     def _remove_packet_from_buffer(self) -> None:
         """Remove the packet from the buffer."""
@@ -91,8 +94,9 @@ class APIFrameHelper(asyncio.Protocol):
         end_of_frame_pos = self._pos
         self._buffer_len -= end_of_frame_pos
         self._buffer = self._buffer[end_of_frame_pos:]
+        self._buffer_view = memoryview(self._buffer)
 
-    def _read_exactly(self, length: int) -> bytes | None:
+    def _read_exactly(self, length: int) -> memoryview | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
@@ -101,7 +105,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._pos = new_pos
         if TYPE_CHECKING:
             assert self._buffer is not None
-        return self._buffer[original_pos:new_pos]
+        return self._buffer_view[original_pos:new_pos]
 
     async def perform_handshake(self, timeout: float) -> None:
         """Perform the handshake with the server."""
