@@ -333,7 +333,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         if TYPE_CHECKING:
             assert self._decrypt is not None, "Handshake should be complete"
         try:
-            msg = self._decrypt(frame)
+            msg = self._decrypt(bytes(frame))
         except InvalidTag as ex:
             self._handle_error_and_close(
                 ProtocolAPIError(f"{self._log_name}: Bad encryption frame: {ex!r}")
