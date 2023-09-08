@@ -76,7 +76,7 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer += data
         self._buffer_len += len(data)
 
-    def _remove_packet_from_buffer(self):
+    def _remove_packet_from_buffer(self) -> None:
         """Remove the packet from the buffer."""
         buffer_len = self._buffer_len
         end_of_frame_pos = self._pos
