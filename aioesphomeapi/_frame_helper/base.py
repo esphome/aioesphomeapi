@@ -70,7 +70,7 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer = data
             self._buffer_len = len(data)
             return
-        if type(self._buffer) is bytes: # pylint: disable=unidiomatic-typecheck
+        if type(self._buffer) is bytes:  # pylint: disable=unidiomatic-typecheck
             self._buffer = bytearray(self._buffer) + data
         else:
             self._buffer += data
@@ -86,7 +86,7 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer_len = 0
             return
         self._buffer_len -= end_of_frame_pos
-        if type(self._buffer) is bytes: # pylint: disable=unidiomatic-typecheck
+        if type(self._buffer) is bytes:  # pylint: disable=unidiomatic-typecheck
             # If the buffer is a bytes object we need to convert it to
             # a bytearray since we know we are going to have to append
             # to it later
