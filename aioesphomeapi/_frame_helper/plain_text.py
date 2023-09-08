@@ -118,7 +118,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 # at the start of the frame.
                 if packet_data is None:
                     return
-                
+
             self._remove_packet_from_buffer()
             self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing
