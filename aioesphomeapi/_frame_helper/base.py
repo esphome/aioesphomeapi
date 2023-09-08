@@ -78,10 +78,8 @@ class APIFrameHelper(asyncio.Protocol):
 
     def _remove_packet_from_buffer(self) -> None:
         """Remove the packet from the buffer."""
-        buffer_len = self._buffer_len
-        end_of_frame_pos = self._pos
         # Best case, the buffer is now emtpy
-        if buffer_len == end_of_frame_pos:
+        if self._buffer_len == self._pos:
             self._buffer = None
             self._buffer_len = 0
             return
@@ -90,6 +88,7 @@ class APIFrameHelper(asyncio.Protocol):
         # This is the expensive case since we have to create
         # a new immutable bytes object each time, but since
         # its so rare we do not want to optimize for it
+        end_of_frame_pos = self._pos
         self._buffer_len -= end_of_frame_pos
         self._buffer = self._buffer[end_of_frame_pos:]
 
