@@ -113,7 +113,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         super().close()
 
     def _handle_error_and_close(self, exc: Exception) -> None:
-        _LOGGER.warning("%s: %s", self._log_name, exc)
         self._set_ready_future_exception(exc)
         super()._handle_error_and_close(exc)
 
