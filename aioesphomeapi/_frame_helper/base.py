@@ -71,6 +71,9 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer_len = len(data)
             return
         if type(self._buffer) is bytes:  # pylint: disable=unidiomatic-typecheck
+            _LOGGER.warning(
+                "_append_or_replace_buffer: Worse case scenario, converting bytes to bytearray"
+            )
             self._buffer = bytearray(self._buffer) + data
         else:
             if TYPE_CHECKING:
@@ -92,6 +95,9 @@ class APIFrameHelper(asyncio.Protocol):
             # If the buffer is a bytes object we need to convert it to
             # a bytearray since we know we are going to have to append
             # to it later
+            _LOGGER.warning(
+                "_remove_packet_from_buffer: Worse case scenario, converting bytes to bytearray"
+            )
             self._buffer = bytearray(self._buffer[end_of_frame_pos:])
         else:
             if TYPE_CHECKING:
