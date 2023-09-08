@@ -53,7 +53,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
-        self._buffer = bytearray()
+        self._buffer: bytearray | bytes | None = None
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -64,7 +64,36 @@ class APIFrameHelper(asyncio.Protocol):
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _read_exactly(self, length: int) -> bytearray | None:
+    def _append_or_replace_buffer(self, data: bytes) -> None:
+        """Append data to the buffer."""
+        if not self._buffer:
+            self._buffer = data
+            self._buffer_len = len(data)
+            return
+        if type(self._buffer) is bytes:
+            self._buffer = bytearray(self._buffer) + data
+        else:
+            self._buffer += data
+        self._buffer_len += len(data)
+
+    def _remove_packet_from_buffer(self):
+        """Remove the packet from the buffer."""
+        buffer_len = self._buffer_len
+        end_of_frame_pos = self._pos
+        # Best case, the buffer is now emtpy
+        if buffer_len == end_of_frame_pos:
+            self._buffer = None
+            self._buffer_len = 0
+            return
+        self._buffer_len -= end_of_frame_pos
+        if type(self._buffer) is bytearray:
+            del self._buffer[:end_of_frame_pos]
+        else:
+            # If the buffer is a bytes object we need to create a new bytes object
+            # since bytes objects are immutable
+            self._buffer = bytearray(self._buffer[end_of_frame_pos:])
+
+    def _read_exactly(self, length: int) -> bytearray | bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
