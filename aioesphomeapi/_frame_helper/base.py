@@ -72,7 +72,7 @@ class APIFrameHelper(asyncio.Protocol):
             return
         # This is the expensive case since we have to create
         # a new immutable bytes object each time, but since
-        # its so rare we do not want to optimize for it        
+        # its so rare we do not want to optimize for it
         self._buffer += data
         self._buffer_len += len(data)
 
