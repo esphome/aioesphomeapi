@@ -31,6 +31,7 @@ class APIFrameHelper(asyncio.Protocol):
         "_writer",
         "_ready_future",
         "_buffer",
+        "_buffer_view",
         "_buffer_len",
         "_pos",
         "_client_info",
