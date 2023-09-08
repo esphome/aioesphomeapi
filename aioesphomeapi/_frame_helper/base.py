@@ -70,7 +70,6 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer = data
             self._buffer_len = len(data)
             return
-        _LOGGER.warning("%s: Add partial packet to buffer", self._log_name)
         # This is the expensive case since we have to create
         # a new immutable bytes object each time, but since
         # its so rare we do not want to optimize for it
@@ -84,7 +83,6 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer = None
             self._buffer_len = 0
             return
-        _LOGGER.warning("%s: Removing partial packet from buffer", self._log_name)
         if TYPE_CHECKING:
             assert self._buffer is not None
         # This is the expensive case since we have to create
