@@ -53,7 +53,7 @@ class APIFrameHelper(asyncio.Protocol):
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
-        self._buffer: bytearray | bytes | None = None
+        self._buffer: bytes | None = None
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -70,16 +70,7 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer = data
             self._buffer_len = len(data)
             return
-        if type(self._buffer) is bytes:  # pylint: disable=unidiomatic-typecheck
-            _LOGGER.warning(
-                "_append_or_replace_buffer: Worse case scenario, converting bytes to bytearray"
-            )
-            self._buffer = bytearray(self._buffer) + data
-        else:
-            _LOGGER.warning("_append_or_replace_buffer: Appending to bytearray")
-            if TYPE_CHECKING:
-                assert isinstance(self._buffer, bytearray)
-            self._buffer += data
+        self._buffer += data
         self._buffer_len += len(data)
 
     def _remove_packet_from_buffer(self) -> None:
@@ -92,21 +83,9 @@ class APIFrameHelper(asyncio.Protocol):
             self._buffer_len = 0
             return
         self._buffer_len -= end_of_frame_pos
-        if type(self._buffer) is bytes:  # pylint: disable=unidiomatic-typecheck
-            # If the buffer is a bytes object we need to convert it to
-            # a bytearray since we know we are going to have to append
-            # to it later
-            _LOGGER.warning(
-                "_remove_packet_from_buffer: Worse case scenario, converting bytes to bytearray"
-            )
-            self._buffer = bytearray(self._buffer[end_of_frame_pos:])
-        else:
-            _LOGGER.warning("_remove_packet_from_buffer: Removing from bytearray")
-            if TYPE_CHECKING:
-                assert isinstance(self._buffer, bytearray)
-            del self._buffer[:end_of_frame_pos]
+        self._buffer = self._buffer[end_of_frame_pos:]
 
-    def _read_exactly(self, length: int) -> bytearray | bytes | None:
+    def _read_exactly(self, length: int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
