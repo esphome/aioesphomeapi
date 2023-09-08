@@ -4,7 +4,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
@@ -105,6 +105,8 @@ class APIFrameHelper(asyncio.Protocol):
         if self._buffer_len < new_pos:
             return None
         self._pos = new_pos
+        if TYPE_CHECKING:
+            assert self._buffer is not None
         return self._buffer[original_pos:new_pos]
 
     async def perform_handshake(self, timeout: float) -> None:
