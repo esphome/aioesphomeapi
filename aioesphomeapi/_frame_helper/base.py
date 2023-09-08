@@ -89,8 +89,9 @@ class APIFrameHelper(asyncio.Protocol):
         if type(self._buffer) is bytearray:
             del self._buffer[:end_of_frame_pos]
         else:
-            # If the buffer is a bytes object we need to create a new bytes object
-            # since bytes objects are immutable
+            # If the buffer is a bytes object we need to convert it to
+            # a bytearray since we know we are going to have to append
+            # to it later
             self._buffer = bytearray(self._buffer[end_of_frame_pos:])
 
     def _read_exactly(self, length: int) -> bytearray | bytes | None:
