@@ -4,7 +4,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, cast
+from typing import Callable, cast, TYPE_CHECKING
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
@@ -92,6 +92,8 @@ class APIFrameHelper(asyncio.Protocol):
             # to it later
             self._buffer = bytearray(self._buffer[end_of_frame_pos:])
         else:
+            if TYPE_CHECKING:
+                assert isinstance(self._buffer, bytearray)
             del self._buffer[:end_of_frame_pos]
 
     def _read_exactly(self, length: int) -> bytearray | bytes | None:
