@@ -167,8 +167,11 @@ class APINoiseFrameHelper(APIFrameHelper):
                 self._handle_error_and_close(err)
             finally:
                 end_of_frame_pos = self._pos
-                del self._buffer[:end_of_frame_pos]
                 self._buffer_len -= end_of_frame_pos
+                if not self._buffer_len:
+                    self._buffer.clear()
+                else:
+                    del self._buffer[:end_of_frame_pos]
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""

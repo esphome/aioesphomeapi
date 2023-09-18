@@ -122,7 +122,10 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 packet_data = bytes(packet_data_bytearray)
 
             end_of_frame_pos = self._pos
-            del self._buffer[:end_of_frame_pos]
             self._buffer_len -= end_of_frame_pos
+            if not self._buffer_len:
+                self._buffer.clear()
+            else:
+                del self._buffer[:end_of_frame_pos]
             self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing
