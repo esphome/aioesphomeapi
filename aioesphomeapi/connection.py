@@ -408,7 +408,8 @@ class APIConnection:
         if not self._is_socket_open:
             return
 
-        now = self._loop.time()
+        loop = self._loop
+        now = loop.time()
 
         if self._send_pending_ping:
             self.send_message(PING_REQUEST_MESSAGE)
@@ -416,10 +417,10 @@ class APIConnection:
                 # Do not reset the timer if it's already set
                 # since the only thing we want to reset the timer
                 # is if we receive a pong.
-                self._pong_timer = self._loop.call_at(
+                self._pong_timer = loop.call_at(
                     now + self._keep_alive_timeout, self._async_pong_not_received
                 )
-            else:
+            elif self._debug_enabled():
                 #
                 # We haven't reached the ping response (pong) timeout yet
                 # and we haven't seen a response to the last ping
@@ -548,8 +549,7 @@ class APIConnection:
                 f"Connection isn't established yet ({self._connection_state})"
             )
 
-        message_type = PROTO_TO_MESSAGE_TYPE.get(type(msg))
-        if not message_type:
+        if not (message_type := PROTO_TO_MESSAGE_TYPE.get(type(msg))):
             raise ValueError(f"Message type id not found for type {type(msg)}")
 
         if self._debug_enabled():
@@ -623,7 +623,7 @@ class APIConnection:
         if do_stop is None or do_stop(resp):
             fut.set_result(None)
 
-    async def send_message_await_response_complex(
+    async def send_message_await_response_complex(  # pylint: disable=too-many-locals
         self,
         send_msg: message.Message,
         do_append: Callable[[message.Message], bool] | None,
@@ -645,8 +645,9 @@ class APIConnection:
         # sending the message and registering the handler
 
         self.send_message(send_msg)
+        loop = self._loop
         # Unsafe to await between sending the message and registering the handler
-        fut: asyncio.Future[None] = self._loop.create_future()
+        fut: asyncio.Future[None] = loop.create_future()
         responses: list[message.Message] = []
         on_message = partial(
             self._handle_complex_message, fut, responses, do_append, do_stop
@@ -663,9 +664,7 @@ class APIConnection:
         # We must not await without a finally or
         # the message could fail to be removed if the
         # the await is cancelled
-        timeout_handle = self._loop.call_at(
-            self._loop.time() + timeout, self._handle_timeout, fut
-        )
+        timeout_handle = loop.call_at(loop.time() + timeout, self._handle_timeout, fut)
         timeout_expired = False
         try:
             await fut
@@ -720,7 +719,7 @@ class APIConnection:
         """Factory to make a packet processor."""
         message_type_to_proto = MESSAGE_TYPE_TO_PROTO
         debug_enabled = self._debug_enabled
-        message_handlers = self._message_handlers
+        message_handlers_get = self._message_handlers.get
         internal_message_types = INTERNAL_MESSAGE_TYPES
 
         def _process_packet(msg_type_proto: int, data: bytes) -> None:
@@ -774,8 +773,7 @@ class APIConnection:
                 # since we know the connection is still alive
                 self._send_pending_ping = False
 
-            handlers = message_handlers.get(msg_type)
-            if handlers:
+            if handlers := message_handlers_get(msg_type):
                 for handler in handlers.copy():
                     handler(msg)
 
