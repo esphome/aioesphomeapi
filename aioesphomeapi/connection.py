@@ -623,7 +623,7 @@ class APIConnection:
         if do_stop is None or do_stop(resp):
             fut.set_result(None)
 
-    async def send_message_await_response_complex(
+    async def send_message_await_response_complex(  # pylint: disable=too-many-locals
         self,
         send_msg: message.Message,
         do_append: Callable[[message.Message], bool] | None,
