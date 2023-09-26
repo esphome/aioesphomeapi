@@ -1074,10 +1074,21 @@ class VoiceAssistantCommandFlag(enum.IntFlag):
 
 
 @_frozen_dataclass_decorator
+class VoiceAssistantAudioSettings(APIModelBase):
+    noise_suppression_level: int = 0
+    auto_gain: int = 0
+    volume_multiplier: float = 1.0
+
+
+@_frozen_dataclass_decorator
 class VoiceAssistantCommand(APIModelBase):
     start: bool = False
     conversation_id: str = ""
     flags: int = False
+    audio_settings: VoiceAssistantAudioSettings = converter_field(
+        default=VoiceAssistantAudioSettings(),
+        converter=VoiceAssistantAudioSettings.from_pb,
+    )
 
 
 class LogLevel(APIIntEnum):
