@@ -1085,7 +1085,10 @@ class VoiceAssistantCommand(APIModelBase):
     start: bool = False
     conversation_id: str = ""
     flags: int = False
-    audio_settings: VoiceAssistantAudioSettings = converter_field(default=VoiceAssistantAudioSettings(), converter=VoiceAssistantAudioSettings.from_pb)
+    audio_settings: VoiceAssistantAudioSettings = converter_field(
+        default=VoiceAssistantAudioSettings(),
+        converter=VoiceAssistantAudioSettings.from_pb,
+    )
 
 
 class LogLevel(APIIntEnum):
