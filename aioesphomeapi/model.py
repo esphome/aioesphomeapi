@@ -1072,11 +1072,13 @@ class VoiceAssistantCommandFlag(enum.IntFlag):
     USE_VAD = 1 << 0
     USE_WAKE_WORD = 1 << 1
 
+
 @_frozen_dataclass_decorator
 class VoiceAssistantAudioSettings(APIModelBase):
     noise_suppression_level: int = 0
     auto_gain: int = 0
     volume_multiplier: float = 1.0
+
 
 @_frozen_dataclass_decorator
 class VoiceAssistantCommand(APIModelBase):
