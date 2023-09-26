@@ -94,6 +94,7 @@ from .api_pb2 import (  # type: ignore
     SwitchStateResponse,
     TextSensorStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
@@ -1354,7 +1355,7 @@ class APIClient:
 
     async def subscribe_voice_assistant(
         self,
-        handle_start: Callable[[str, int], Coroutine[Any, Any, int | None]],
+        handle_start: Callable[[str, int, VoiceAssistantAudioSettings], Coroutine[Any, Any, int | None]],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
@@ -1383,7 +1384,7 @@ class APIClient:
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
                 start_task = asyncio.create_task(
-                    handle_start(command.conversation_id, command.flags)
+                    handle_start(command.conversation_id, command.flags, command.audio_settings)
                 )
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
