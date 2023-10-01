@@ -1,6 +1,6 @@
 import socket
-
 from ipaddress import ip_address
+
 import pytest
 from mock import AsyncMock, MagicMock, patch
 
