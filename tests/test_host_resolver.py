@@ -1,5 +1,5 @@
-import asyncio
 import socket
+from ipaddress import ip_address
 
 import pytest
 from mock import AsyncMock, MagicMock, patch
@@ -40,9 +40,9 @@ def addr_infos():
 @pytest.mark.asyncio
 async def test_resolve_host_zeroconf(async_zeroconf, addr_infos):
     info = MagicMock()
-    info.addresses_by_version.return_value = [
-        b"\n\x00\x00*",
-        b" \x01\r\xb8\x85\xa3\x00\x00\x00\x00\x8a.\x03ps4",
+    info.ip_addresses_by_version.return_value = [
+        ip_address(b"\n\x00\x00*"),
+        ip_address(b" \x01\r\xb8\x85\xa3\x00\x00\x00\x00\x8a.\x03ps4"),
     ]
     async_zeroconf.async_get_service_info = AsyncMock(return_value=info)
     async_zeroconf.async_close = AsyncMock()
