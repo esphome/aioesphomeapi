@@ -47,7 +47,7 @@ async def _async_zeroconf_get_service_info(
     service_type: str,
     service_name: str,
     timeout: float,
-) -> "zeroconf.ServiceInfo" | None:
+) -> "zeroconf.asyncio.AsyncServiceInfo" | None:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     if zeroconf_instance is None:
         try:
@@ -101,19 +101,19 @@ async def _async_resolve_host_zeroconf(
         return []
 
     addrs: list[AddrInfo] = []
-    for raw in info.addresses_by_version(zeroconf.IPVersion.All):
-        is_ipv6 = len(raw) == 16
+    for ip_address in info.ip_addresses_by_version(zeroconf.IPVersion.All):
+        is_ipv6 = ip_address.version == 6
         sockaddr: Sockaddr
         if is_ipv6:
             sockaddr = IPv6Sockaddr(
-                address=socket.inet_ntop(socket.AF_INET6, raw),
+                address=str(ip_address),
                 port=port,
                 flowinfo=0,
                 scope_id=0,
             )
         else:
             sockaddr = IPv4Sockaddr(
-                address=socket.inet_ntop(socket.AF_INET, raw),
+                address=str(ip_address),
                 port=port,
             )
 
