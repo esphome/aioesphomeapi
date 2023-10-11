@@ -90,7 +90,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     if add_length is None:
                         return
                     length += add_length
-                length_int = bytes_to_varuint(length)
+                length_int = bytes_to_varuint(length) or 0
                 # Since the length is longer than 1 byte we do not have the
                 # message type yet.
                 msg_type = b""
