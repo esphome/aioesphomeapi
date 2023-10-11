@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   ci:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.name }} py ${{ matrix.python-version }} on ${{ matrix.os }} (${{ matrix.extension }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
