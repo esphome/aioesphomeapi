@@ -125,8 +125,8 @@ class APIFrameHelper:
             self._transport = None
             self._writer = None
 
-    def pause_writing(self):
+    def pause_writing(self) -> None:
         """Stub."""
 
-    def resume_writing(self):
+    def resume_writing(self) -> None:
         """Stub."""
