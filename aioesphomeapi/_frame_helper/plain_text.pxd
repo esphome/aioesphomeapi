@@ -4,6 +4,8 @@ from .base cimport APIFrameHelper
 
 
 cdef object TYPE_CHECKING
+cdef object WRITE_EXCEPTIONS
+cdef object bytes_to_varuint, varuint_to_bytes
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
@@ -11,6 +13,7 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         msg_type=bytes,
         length=bytes,
         init_bytes=bytearray, 
+        add_length=bytearray,
         end_of_frame_pos=cython.uint,
         length_int=cython.uint,
         preamble=cython.uint, 
