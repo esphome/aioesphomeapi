@@ -111,11 +111,9 @@ class APIFrameHelper:
         self._handle_error(
             exc or SocketClosedAPIError(f"{self._log_name}: Connection lost")
         )
-        return super().connection_lost(exc)
 
     def eof_received(self) -> bool | None:
         self._handle_error(SocketClosedAPIError(f"{self._log_name}: EOF received"))
-        return super().eof_received()
 
     def close(self) -> None:
         """Close the connection."""
