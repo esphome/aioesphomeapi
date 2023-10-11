@@ -20,7 +20,7 @@ SOCKET_ERRORS = (
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 
-class APIFrameHelper(asyncio.Protocol):
+class APIFrameHelper:
     """Helper class to handle the API frame protocol."""
 
     __slots__ = (
@@ -121,3 +121,9 @@ class APIFrameHelper(asyncio.Protocol):
             self._transport.close()
             self._transport = None
             self._writer = None
+
+    def pause_writing(self):
+        """Stub."""
+
+    def resume_writing(self):
+         """Stub."""

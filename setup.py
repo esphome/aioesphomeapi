@@ -3,6 +3,9 @@
 import os
 
 from setuptools import find_packages, setup
+import os
+from distutils.command.build_ext import build_ext
+
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -31,20 +34,59 @@ DOWNLOAD_URL = "{}/archive/{}.zip".format(GITHUB_URL, VERSION)
 with open(os.path.join(here, "requirements.txt")) as requirements_txt:
     REQUIRES = requirements_txt.read().splitlines()
 
-setup(
-    name=PROJECT_PACKAGE_NAME,
-    version=VERSION,
-    url=PROJECT_URL,
-    download_url=DOWNLOAD_URL,
-    author=PROJECT_AUTHOR,
-    author_email=PROJECT_EMAIL,
-    description="Python API for interacting with ESPHome devices.",
-    long_description=long_description,
-    license=PROJECT_LICENSE,
-    packages=find_packages(exclude=["tests", "tests.*"]),
-    include_package_data=True,
-    zip_safe=False,
-    install_requires=REQUIRES,
-    python_requires=">=3.9",
-    test_suite="tests",
-)
+
+setup_kwargs = {
+    "name": PROJECT_PACKAGE_NAME,
+    "version": VERSION,
+    "url": PROJECT_URL,
+    "download_url": DOWNLOAD_URL,
+    "author": PROJECT_AUTHOR,
+    "author_email": PROJECT_EMAIL,
+    "description": "Python API for interacting with ESPHome devices.",
+    "long_description": long_description,
+    "license": PROJECT_LICENSE,
+    "packages": find_packages(exclude=["tests", "tests.*"]),
+    "include_package_data": True,
+    "zip_safe": False,
+    "install_requires": REQUIRES,
+    "python_requires": ">=3.9",
+    "test_suite": "tests",
+}
+
+
+class OptionalBuildExt(build_ext):
+    def build_extensions(self):
+        try:
+            super().build_extensions()
+        except Exception:
+            pass
+
+
+def cythonize_if_available(setup_kwargs):
+    if os.environ.get("SKIP_CYTHON", False):
+        return
+    try:
+        from Cython.Build import cythonize
+
+        setup_kwargs.update(
+            dict(
+                ext_modules=cythonize(
+                    [
+                        "aioesphomeapi/_frame_helper/plain_text.py",
+                        "aioesphomeapi/_frame_helper/noise.py",
+                        "aioesphomeapi/_frame_helper/base.py",
+                    ],
+                    compiler_directives={"language_level": "3"},  # Python 3
+                ),
+                cmdclass=dict(build_ext=OptionalBuildExt),
+            )
+        )
+    except Exception:
+        if os.environ.get("REQUIRE_CYTHON"):
+            raise
+        pass
+
+
+cythonize_if_available(setup_kwargs)
+
+setup(**setup_kwargs)
