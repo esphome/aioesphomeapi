@@ -126,4 +126,4 @@ class APIFrameHelper:
         """Stub."""
 
     def resume_writing(self):
-         """Stub."""
+        """Stub."""
