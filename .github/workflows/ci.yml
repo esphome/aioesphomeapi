@@ -73,14 +73,19 @@ jobs:
 
       - run: flake8 aioesphomeapi
         name: Lint with flake8
+        if: ${{ matrix.python-version == '3.11' }}
       - run: pylint aioesphomeapi
         name: Lint with pylint
+        if: ${{ matrix.python-version == '3.11' }}
       - run: black --check --diff --color aioesphomeapi tests
         name: Check formatting with black
+        if: ${{ matrix.python-version == '3.11' }}
       - run: isort --check --diff aioesphomeapi tests
         name: Check import order with isort
+        if: ${{ matrix.python-version == '3.11' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy
+        if: ${{ matrix.python-version == '3.11' }}
       - run: pytest -vv --tb=native tests
         name: Run tests with pytest
       - run: |
