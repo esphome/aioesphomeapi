@@ -144,7 +144,9 @@ class APINoiseFrameHelper(APIFrameHelper):
             header = self._read_exactly(3)
             if header is None:
                 return
-            preamble, msg_size_high, msg_size_low = header
+            preamble = header[0]
+            msg_size_high = header[1]
+            msg_size_low = header[2]
             if preamble != 0x01:
                 self._handle_error_and_close(
                     ProtocolAPIError(

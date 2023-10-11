@@ -19,7 +19,7 @@ SOCKET_ERRORS = (
 
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
-
+_int = int
 class APIFrameHelper:
     """Helper class to handle the API frame protocol."""
 
@@ -64,7 +64,7 @@ class APIFrameHelper:
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _read_exactly(self, length: int) -> bytearray | None:
+    def _read_exactly(self, length: _int) -> bytearray | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length

@@ -3,6 +3,8 @@ import cython
 
 from .base cimport APIFrameHelper
 
+cdef object TYPE_CHECKING
+
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef object _noise_psk
@@ -14,5 +16,11 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef object _decrypt
     cdef object _encrypt
     cdef bint _is_ready
-    
+
+    @cython.locals(
+        preamble=cython.uint, 
+        msg_size_high=cython.uint, 
+        msg_size_low=cython.uint,
+        end_of_frame_pos=cython.uint,
+    )    
     cpdef data_received(self, bytes data)
