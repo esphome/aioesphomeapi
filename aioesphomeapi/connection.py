@@ -334,6 +334,7 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
+            assert self._params.noise_psk is not None
             _, fh = await loop.create_connection(
                 lambda: APINoiseFrameHelper(
                     noise_psk=self._params.noise_psk,
