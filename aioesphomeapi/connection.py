@@ -322,6 +322,7 @@ class APIConnection:
         fh: APIPlaintextFrameHelper | APINoiseFrameHelper
         loop = self._loop
         process_packet = self._process_packet_factory()
+        assert self._socket is not None
 
         if self._params.noise_psk is None:
             _, fh = await loop.create_connection(
@@ -334,9 +335,11 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
+            noise_psk = self._params.noise_psk
+            assert noise_psk is not None
             _, fh = await loop.create_connection(
                 lambda: APINoiseFrameHelper(
-                    noise_psk=self._params.noise_psk,
+                    noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
                     on_pkt=process_packet,
                     on_error=self._report_fatal_error,

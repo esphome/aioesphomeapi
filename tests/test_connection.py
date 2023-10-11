@@ -108,12 +108,12 @@ async def test_connect(conn, resolve_host, socket_socket, event_loop):
 async def test_requires_encryption_propagates(conn: APIConnection):
     loop = asyncio.get_event_loop()
     protocol = _get_mock_protocol(conn)
-    with patch.object(loop, "create_connection") as create_connection, patch.object(
-        protocol, "perform_handshake"
-    ):
+    with patch.object(loop, "create_connection") as create_connection:
         create_connection.return_value = (MagicMock(), protocol)
 
+        conn._socket = MagicMock()
         await conn._connect_init_frame_helper()
+        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
         conn._connection_state = ConnectionState.CONNECTED
 
         with pytest.raises(RequiresEncryptionAPIError):

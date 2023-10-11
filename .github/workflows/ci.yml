@@ -15,40 +15,32 @@ concurrency:
 
 jobs:
   ci:
-    name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }} py ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - id: flake8
-            name: Lint with flake8
-          - id: pylint
-            name: Lint with pylint
-          - id: black
-            name: Check formatting with black
-          - id: isort
-            name: Check import order with isort
-          - id: mypy
-            name: Check typing with mypy
-          - id: pytest
-            name: Run tests with pytest
-          - id: protoc
-            name: Check protobuf files match
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"   
+        os:
+          - ubuntu-latest                    
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         id: python
         with:
-          python-version: '3.9'
+          python-version: ${{ matrix.python-version }}
 
       - name: Get pip cache dir
         id: pip-cache
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v3.3.2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
@@ -58,7 +50,6 @@ jobs:
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
-
       - name: Register problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/flake8.json"
@@ -68,17 +59,22 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
       - run: flake8 aioesphomeapi
-        if: ${{ matrix.id == 'flake8' }}
+        name: Lint with flake8
+        if: ${{ matrix.python-version == '3.11' }}
       - run: pylint aioesphomeapi
-        if: ${{ matrix.id == 'pylint' }}
+        name: Lint with pylint
+        if: ${{ matrix.python-version == '3.11' }}
       - run: black --check --diff --color aioesphomeapi tests
-        if: ${{ matrix.id == 'black' }}
+        name: Check formatting with black
+        if: ${{ matrix.python-version == '3.11' }}
       - run: isort --check --diff aioesphomeapi tests
-        if: ${{ matrix.id == 'isort' }}
+        name: Check import order with isort
+        if: ${{ matrix.python-version == '3.11' }}
       - run: mypy aioesphomeapi
-        if: ${{ matrix.id == 'mypy' }}
+        name: Check typing with mypy
+        if: ${{ matrix.python-version == '3.11' }}
       - run: pytest -vv --tb=native tests
-        if: ${{ matrix.id == 'pytest' }}
+        name: Run tests with pytest
       - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
@@ -89,4 +85,5 @@ jobs:
             echo 'docker run -v "$PWD":/aioesphomeapi ghcr.io/esphome/aioesphomeapi-proto-builder:latest'
             exit 1
           fi
-        if: ${{ matrix.id == 'protoc' }}
+        name: Check protobuf files match
+        if: ${{ matrix.python-version == '3.11' }}
