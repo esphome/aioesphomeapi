@@ -1,7 +1,7 @@
 import cython
 
-
 from .base cimport APIFrameHelper
+
 
 cdef object TYPE_CHECKING
 

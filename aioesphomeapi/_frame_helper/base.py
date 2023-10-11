@@ -20,6 +20,8 @@ SOCKET_ERRORS = (
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 _int = int
+
+
 class APIFrameHelper:
     """Helper class to handle the API frame protocol."""
 
