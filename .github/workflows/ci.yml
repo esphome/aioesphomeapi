@@ -35,6 +35,9 @@ jobs:
             name: Run tests with pytest
           - id: protoc
             name: Check protobuf files match
+        extension:
+          - "skip_cython"
+          - "use_cython"            
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -57,8 +60,11 @@ jobs:
       - name: Set up Python environment
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
-          pip3 install -e .
-
+          if [ "${{ matrix.extension }}" = "skip_cython" ]; then
+            SKIP_CYTHON=1 pip3 install -e .
+          else
+            REQUIRE_CYTHON=1 pip3 install -e .
+          fi
       - name: Register problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/flake8.json"
