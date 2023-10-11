@@ -1,4 +1,8 @@
-cdef APIFrameHelper:
+
+import cython
+
+
+cdef class APIFrameHelper:
 
     cdef object _loop
     cdef object _on_pkt
