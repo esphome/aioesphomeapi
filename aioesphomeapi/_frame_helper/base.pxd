@@ -17,5 +17,5 @@ cdef class APIFrameHelper:
     cdef str _log_name
     cdef object _debug_enabled
 
-    @cython.locals(original_pos=int)
+    @cython.locals(original_pos=cython.uint, new_pos=cython.uint)
     cdef _read_exactly(self, int length)
