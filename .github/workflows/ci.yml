@@ -16,25 +16,16 @@ concurrency:
 jobs:
   ci:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - id: flake8
-            name: Lint with flake8
-          - id: pylint
-            name: Lint with pylint
-          - id: black
-            name: Check formatting with black
-          - id: isort
-            name: Check import order with isort
-          - id: mypy
-            name: Check typing with mypy
-          - id: pytest
-            name: Run tests with pytest
-          - id: protoc
-            name: Check protobuf files match
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"   
+        os:
+          - ubuntu-latest            
         extension:
           - "skip_cython"
           - "use_cython"            
@@ -44,7 +35,7 @@ jobs:
         uses: actions/setup-python@v4
         id: python
         with:
-          python-version: '3.9'
+          python-version: ${{ matrix.python-version }}
 
       - name: Get pip cache dir
         id: pip-cache
@@ -57,14 +48,20 @@ jobs:
           key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
           restore-keys: |
             pip-${{ steps.python.outputs.python-version }}-
-      - name: Set up Python environment
+      - name: Set up Python environment (no cython)
+        if: ${{ matrix.extension == 'skip_cython' }}
+        env:
+          SKIP_CYTHON: 1
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
-          if [ "${{ matrix.extension }}" = "skip_cython" ]; then
-            SKIP_CYTHON=1 pip3 install -e .
-          else
-            REQUIRE_CYTHON=1 pip3 install -e .
-          fi
+          pip3 install -e .
+      - name: Set up Python environment (cython)
+        if: ${{ matrix.extension == 'use_cython' }}
+        env:
+          REQUIRE_CYTHON: 1
+        run: |
+          pip3 install -r requirements.txt -r requirements_test.txt
+          pip3 install -e .
       - name: Register problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/flake8.json"
@@ -74,17 +71,17 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
       - run: flake8 aioesphomeapi
-        if: ${{ matrix.id == 'flake8' }}
+        name: Lint with flake8
       - run: pylint aioesphomeapi
-        if: ${{ matrix.id == 'pylint' }}
+        name: Lint with pylint
       - run: black --check --diff --color aioesphomeapi tests
-        if: ${{ matrix.id == 'black' }}
+        name: Check formatting with black
       - run: isort --check --diff aioesphomeapi tests
-        if: ${{ matrix.id == 'isort' }}
+        name: Check import order with isort
       - run: mypy aioesphomeapi
-        if: ${{ matrix.id == 'mypy' }}
+        name: Check typing with mypy
       - run: pytest -vv --tb=native tests
-        if: ${{ matrix.id == 'pytest' }}
+        name: Run tests with pytest
       - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
@@ -95,4 +92,4 @@ jobs:
             echo 'docker run -v "$PWD":/aioesphomeapi ghcr.io/esphome/aioesphomeapi-proto-builder:latest'
             exit 1
           fi
-        if: ${{ matrix.id == 'protoc' }}
+        name: Check protobuf files match
