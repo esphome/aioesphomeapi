@@ -1,9 +1,9 @@
 import cython
 
 
-from .base cimport BaseFrameHelper
+from .base cimport APIFrameHelper
 
-cdef class APINoiseFrameHelper(BaseFrameHelper):
+cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef object _noise_psk
     cdef object _expected_name
@@ -15,6 +15,4 @@ cdef class APINoiseFrameHelper(BaseFrameHelper):
     cdef object _encrypt
     cdef bint _is_ready
     
-    cpdef write_packet(self, int type_, bytes data)
-
     cpdef data_received(self, bytes data)

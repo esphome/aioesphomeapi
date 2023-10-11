@@ -1,7 +1,7 @@
-from .base cimport BaseFrameHelper
+import cython
 
-cdef class APIPlaintextFrameHelper(BaseFrameHelper):
+from .base cimport APIFrameHelper
 
-    cpdef write_packet(self, int type_, bytes data)
+cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
     cpdef data_received(self, bytes data)

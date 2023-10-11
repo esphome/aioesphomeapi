@@ -15,4 +15,4 @@ cdef class APIFrameHelper:
     cdef int _pos
     cdef object _client_info
     cdef str _log_name
-    cdef bint _debug_enabled
+    cdef object _debug_enabled
