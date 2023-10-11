@@ -112,6 +112,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         create_connection.return_value = (MagicMock(), protocol)
 
         await conn._connect_init_frame_helper()
+        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
         conn._connection_state = ConnectionState.CONNECTED
 
         with pytest.raises(RequiresEncryptionAPIError):

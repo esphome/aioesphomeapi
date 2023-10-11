@@ -9,7 +9,7 @@ cdef class APIFrameHelper:
     cdef object _on_error
     cdef object _transport
     cdef public object _writer
-    cdef object _ready_future
+    cdef public object _ready_future
     cdef bytearray _buffer
     cdef cython.uint _buffer_len
     cdef cython.uint _pos
