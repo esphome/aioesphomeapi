@@ -14,9 +14,9 @@ The module is available from the `Python Package Index <https://pypi.python.org/
 
 An optional cython extension is available for better performance, and the module will try to build it automatically.
 
-The extension requires a C compiler and the Python development headers, if they are not available the module will fall back to the pure Python implementation.
+The extension requires a C compiler and Python development headers. The module will fall back to the pure Python implementation if they are unavailable.
 
-Building the extension can be disabled by setting the environment variable ``SKIP_CYTHON`` to ``1``.
+Building the extension can be forcefully disabled by setting the environment variable ``SKIP_CYTHON`` to ``1``.
 
 Usage
 -----
