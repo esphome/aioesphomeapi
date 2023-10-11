@@ -43,12 +43,12 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v3.3.2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
+          key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
           restore-keys: |
-            pip-${{ steps.python.outputs.python-version }}-
+            pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-
       - name: Set up Python environment (no cython)
         if: ${{ matrix.extension == 'skip_cython' }}
         env:
