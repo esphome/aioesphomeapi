@@ -304,10 +304,10 @@ class APIConnection:
             coro = self._loop.sock_connect(self._socket, sockaddr)
             async with async_timeout.timeout(TCP_CONNECT_TIMEOUT):
                 await coro
-        except OSError as err:
-            raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
         except asyncio.TimeoutError as err:
             raise SocketAPIError(f"Timeout while connecting to {sockaddr}") from err
+        except OSError as err:
+            raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
 
         _LOGGER.debug(
             "%s: Opened socket to %s:%s (%s)",
@@ -350,10 +350,10 @@ class APIConnection:
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
         try:
             await fh.perform_handshake(HANDSHAKE_TIMEOUT)
-        except OSError as err:
-            raise HandshakeAPIError(f"Handshake failed: {err}") from err
         except asyncio.TimeoutError as err:
             raise TimeoutAPIError("Handshake timed out") from err
+        except OSError as err:
+            raise HandshakeAPIError(f"Handshake failed: {err}") from err
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
