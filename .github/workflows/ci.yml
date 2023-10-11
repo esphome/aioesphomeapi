@@ -47,8 +47,6 @@ jobs:
           restore-keys: |
             pip-${{ steps.python.outputs.python-version }}-
       - name: Set up Python environment
-        env:
-          SKIP_CYTHON: 1
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
