@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# mypy: disable-error-code="import-not-found"
+
 import asyncio
 import contextvars
 import enum
@@ -46,7 +48,6 @@ from .core import (
 from .model import APIVersion
 
 if sys.version_info[:2] < (3, 11):
-    # type: ignore[import-not-found]
     from async_timeout import timeout as asyncio_timeout
 else:
     from asyncio import timeout as asyncio_timeout
