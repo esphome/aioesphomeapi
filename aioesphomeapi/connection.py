@@ -46,8 +46,8 @@ from .core import (
 from .model import APIVersion
 
 if sys.version_info[:2] < (3, 11):
-    from async_timeout import (
-        timeout as asyncio_timeout,  # type: ignore[import-not-found]
+    from async_timeout import (  # type: ignore[import-not-found]
+        timeout as asyncio_timeout,
     )
 else:
     from asyncio import timeout as asyncio_timeout
