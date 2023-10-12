@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING, Any, Callable
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
 from noise.backends.default import DefaultNoiseBackend  # type: ignore[import-untyped]
-from noise.backends.default.ciphers import ChaCha20Cipher  # type: ignore[import-untyped]
+from noise.backends.default.ciphers import (
+    ChaCha20Cipher,  # type: ignore[import-untyped]
+)
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 
 from ..core import (
