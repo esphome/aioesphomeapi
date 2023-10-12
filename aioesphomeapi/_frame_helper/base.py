@@ -82,10 +82,10 @@ class APIFrameHelper:
         self._buffer_len -= end_of_frame_pos
         if self._buffer_len == 0:
             self._buffer = None
-        else:
-            if TYPE_CHECKING:
-                assert self._buffer is not None, "Buffer should be set"
-            self._buffer = self._buffer[end_of_frame_pos:]
+            return
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
+        self._buffer = self._buffer[end_of_frame_pos:]
 
     def _read_exactly(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
