@@ -11,7 +11,6 @@ from dataclasses import astuple, dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable
 
-import async_timeout
 from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
@@ -44,6 +43,12 @@ from .core import (
     TimeoutAPIError,
 )
 from .model import APIVersion
+
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import timeout as asyncio_timeout
+else:
+    from asyncio import timeout as asyncio_timeout
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -265,7 +270,7 @@ class APIConnection:
                 self._params.port,
                 self._params.zeroconf_instance,
             )
-            async with async_timeout.timeout(RESOLVE_TIMEOUT):
+            async with asyncio_timeout(RESOLVE_TIMEOUT):
                 return await coro
         except asyncio.TimeoutError as err:
             raise ResolveAPIError(
@@ -302,7 +307,7 @@ class APIConnection:
 
         try:
             coro = self._loop.sock_connect(self._socket, sockaddr)
-            async with async_timeout.timeout(TCP_CONNECT_TIMEOUT):
+            async with asyncio_timeout(TCP_CONNECT_TIMEOUT):
                 await coro
         except asyncio.TimeoutError as err:
             raise SocketAPIError(f"Timeout while connecting to {sockaddr}") from err
@@ -486,7 +491,7 @@ class APIConnection:
             # Allow 2 minutes for connect and setup; this is only as a last measure
             # to protect from issues if some part of the connect process mistakenly
             # does not have a timeout
-            async with async_timeout.timeout(CONNECT_AND_SETUP_TIMEOUT):
+            async with asyncio_timeout(CONNECT_AND_SETUP_TIMEOUT):
                 await self._connect_task
         except asyncio.CancelledError:
             # If the task was cancelled, we need to clean up the connection
