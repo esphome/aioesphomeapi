@@ -72,12 +72,12 @@ class APIFrameHelper:
             self._buffer = data
         else:
             self._buffer += data
-        self._buffer_len += len(data)        
+        self._buffer_len += len(data)
 
     def _remove_from_buffer(self) -> None:
         """Remove data from the buffer."""
         end_of_frame_pos = self._pos
-        self._buffer_len -= end_of_frame_pos        
+        self._buffer_len -= end_of_frame_pos
         if self._buffer_len == 0:
             self._buffer = None
         else:

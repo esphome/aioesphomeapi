@@ -37,7 +37,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             raise SocketAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
-        
+
     def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
         self._add_to_buffer(data)
         while self._buffer:
@@ -120,7 +120,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 if maybe_packet_data is None:
                     return
                 packet_data = maybe_packet_data
-                
+
             self._remove_from_buffer()
             self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing

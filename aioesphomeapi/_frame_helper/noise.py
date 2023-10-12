@@ -349,9 +349,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         type_low = msg[1]
         self._on_pkt((type_high << 8) | type_low, msg[4:])
 
-    def _handle_closed(  # pylint: disable=unused-argument
-        self, frame: bytes
-    ) -> None:
+    def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))
 
