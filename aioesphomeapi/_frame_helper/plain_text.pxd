@@ -3,7 +3,7 @@ import cython
 from .base cimport APIFrameHelper
 
 
-cdef object TYPE_CHECKING
+cdef bint TYPE_CHECKING
 cdef object WRITE_EXCEPTIONS
 cdef object bytes_to_varuint, varuint_to_bytes
 

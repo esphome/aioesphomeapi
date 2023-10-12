@@ -4,7 +4,8 @@ import asyncio
 import logging
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, cast
+from typing import Callable, cast, TYPE_CHECKING
+
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
@@ -71,6 +72,8 @@ class APIFrameHelper:
         if self._buffer_len == 0:
             self._buffer = data
         else:
+            if TYPE_CHECKING:
+                assert self._buffer is not None, "Buffer should be set"
             self._buffer += data
         self._buffer_len += len(data)
 
@@ -81,6 +84,8 @@ class APIFrameHelper:
         if self._buffer_len == 0:
             self._buffer = None
         else:
+            if TYPE_CHECKING:
+                assert self._buffer is not None, "Buffer should be set"
             self._buffer = self._buffer[end_of_frame_pos:]
 
     def _read_exactly(self, length: _int) -> bytes | None:

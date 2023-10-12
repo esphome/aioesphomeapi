@@ -3,7 +3,7 @@ import cython
 from .base cimport APIFrameHelper
 
 
-cdef object TYPE_CHECKING
+cdef bint TYPE_CHECKING
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
