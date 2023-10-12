@@ -94,6 +94,8 @@ class APIFrameHelper:
         if self._buffer_len < new_pos:
             return None
         self._pos = new_pos
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
         return self._buffer[original_pos:new_pos]
 
     async def perform_handshake(self, timeout: float) -> None:
