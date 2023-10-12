@@ -19,8 +19,10 @@ SOCKET_ERRORS = (
 
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
+_int = int
 
-class APIFrameHelper(asyncio.Protocol):
+
+class APIFrameHelper:
     """Helper class to handle the API frame protocol."""
 
     __slots__ = (
@@ -64,7 +66,7 @@ class APIFrameHelper(asyncio.Protocol):
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _read_exactly(self, length: int) -> bytearray | None:
+    def _read_exactly(self, length: _int) -> bytearray | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
@@ -106,14 +108,15 @@ class APIFrameHelper(asyncio.Protocol):
         self._on_error(exc)
 
     def connection_lost(self, exc: Exception | None) -> None:
+        """Handle the connection being lost."""
         self._handle_error(
             exc or SocketClosedAPIError(f"{self._log_name}: Connection lost")
         )
-        return super().connection_lost(exc)
 
     def eof_received(self) -> bool | None:
+        """Handle EOF received."""
         self._handle_error(SocketClosedAPIError(f"{self._log_name}: EOF received"))
-        return super().eof_received()
+        return False
 
     def close(self) -> None:
         """Close the connection."""
@@ -121,3 +124,9 @@ class APIFrameHelper(asyncio.Protocol):
             self._transport.close()
             self._transport = None
             self._writer = None
+
+    def pause_writing(self) -> None:
+        """Stub."""
+
+    def resume_writing(self) -> None:
+        """Stub."""

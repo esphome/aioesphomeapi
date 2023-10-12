@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   ci:
-    name: ${{ matrix.name }} py ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: ${{ matrix.name }} py ${{ matrix.python-version }} on ${{ matrix.os }} (${{ matrix.extension }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -26,7 +26,10 @@ jobs:
           - "3.11"
           - "3.12"   
         os:
-          - ubuntu-latest                    
+          - ubuntu-latest            
+        extension:
+          - "skip_cython"
+          - "use_cython"            
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -43,10 +46,20 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
+          key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
           restore-keys: |
-            pip-${{ steps.python.outputs.python-version }}-
-      - name: Set up Python environment
+            pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-
+      - name: Set up Python environment (no cython)
+        if: ${{ matrix.extension == 'skip_cython' }}
+        env:
+          SKIP_CYTHON: 1
+        run: |
+          pip3 install -r requirements.txt -r requirements_test.txt
+          pip3 install -e .
+      - name: Set up Python environment (cython)
+        if: ${{ matrix.extension == 'use_cython' }}
+        env:
+          REQUIRE_CYTHON: 1
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
@@ -60,19 +73,19 @@ jobs:
 
       - run: flake8 aioesphomeapi
         name: Lint with flake8
-        if: ${{ matrix.python-version == '3.11' }}
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: pylint aioesphomeapi
         name: Lint with pylint
-        if: ${{ matrix.python-version == '3.11' }}
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: black --check --diff --color aioesphomeapi tests
         name: Check formatting with black
-        if: ${{ matrix.python-version == '3.11' }}
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: isort --check --diff aioesphomeapi tests
         name: Check import order with isort
-        if: ${{ matrix.python-version == '3.11' }}
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy
-        if: ${{ matrix.python-version == '3.11' }}
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: pytest -vv --tb=native tests
         name: Run tests with pytest
       - run: |
@@ -86,4 +99,4 @@ jobs:
             exit 1
           fi
         name: Check protobuf files match
-        if: ${{ matrix.python-version == '3.11' }}
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}

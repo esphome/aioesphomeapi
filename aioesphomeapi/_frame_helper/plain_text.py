@@ -50,8 +50,10 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if init_bytes is None:
                 return
             msg_type_int: int | None = None
-            length_int: int | None = None
-            preamble, length_high, maybe_msg_type = init_bytes
+            length_int = 0
+            preamble = init_bytes[0]
+            length_high = init_bytes[1]
+            maybe_msg_type = init_bytes[2]
             if preamble != 0x00:
                 if preamble == 0x01:
                     self._handle_error_and_close(
@@ -88,7 +90,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     if add_length is None:
                         return
                     length += add_length
-                length_int = bytes_to_varuint(length)
+                length_int = bytes_to_varuint(length) or 0
                 # Since the length is longer than 1 byte we do not have the
                 # message type yet.
                 msg_type = b""
@@ -105,7 +107,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 msg_type_int = bytes_to_varuint(msg_type)
 
             if TYPE_CHECKING:
-                assert length_int is not None
                 assert msg_type_int is not None
 
             if length_int == 0:
