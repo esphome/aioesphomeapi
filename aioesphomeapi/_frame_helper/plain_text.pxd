@@ -12,8 +12,8 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
     @cython.locals(
         msg_type=bytes,
         length=bytes,
-        init_bytes=bytearray, 
-        add_length=bytearray,
+        init_bytes=bytes, 
+        add_length=bytes,
         end_of_frame_pos=cython.uint,
         length_int=cython.uint,
         preamble=cython.uint, 

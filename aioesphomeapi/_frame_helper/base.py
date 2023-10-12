@@ -55,7 +55,7 @@ class APIFrameHelper:
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
-        self._buffer = bytearray()
+        self._buffer: bytes | None = None
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -66,7 +66,24 @@ class APIFrameHelper:
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _read_exactly(self, length: _int) -> bytearray | None:
+    def _add_to_buffer(self, data: bytes) -> None:
+        """Add data to the buffer."""
+        if self._buffer_len == 0:
+            self._buffer = data
+        else:
+            self._buffer += data
+        self._buffer_len += len(data)        
+
+    def _remove_from_buffer(self) -> None:
+        """Remove data from the buffer."""
+        end_of_frame_pos = self._pos
+        self._buffer_len -= end_of_frame_pos        
+        if self._buffer_len == 0:
+            self._buffer = None
+        else:
+            self._buffer = self._buffer[end_of_frame_pos:]
+
+    def _read_exactly(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
