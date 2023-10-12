@@ -95,7 +95,9 @@ class APIModelBase:
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
-    return cast(_V, field(metadata=metadata, **kwargs))
+    return cast(
+        _V, field(metadata=metadata, **kwargs)  # pylint: disable=invalid-field-call
+    )
 
 
 @dataclass(frozen=True, order=True)
@@ -450,7 +452,7 @@ class CameraInfo(EntityInfo):
 
 @_frozen_dataclass_decorator
 class CameraState(EntityState):
-    data: bytes = field(default_factory=bytes)
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 # ==================== CLIMATE ====================
@@ -972,7 +974,7 @@ class BluetoothGATTRead(APIModelBase):
     address: int = 0
     handle: int = 0
 
-    data: bytes = field(default_factory=bytes)
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
@@ -1042,7 +1044,9 @@ class BluetoothGATTServices(APIModelBase):
 @_frozen_dataclass_decorator
 class ESPHomeBluetoothGATTServices:
     address: int = 0
-    services: list[BluetoothGATTService] = field(default_factory=list)
+    services: list[BluetoothGATTService] = field(  # pylint: disable=invalid-field-call
+        default_factory=list
+    )
 
 
 @_frozen_dataclass_decorator
