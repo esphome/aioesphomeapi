@@ -69,10 +69,16 @@ class APIFrameHelper:
     def _add_to_buffer(self, data: bytes) -> None:
         """Add data to the buffer."""
         if self._buffer_len == 0:
+            # This is the best case scenario, we don't have to copy the data
+            # and can just use the buffer directly. This is the most common
+            # case as well.
             self._buffer = data
         else:
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
+            # This is the worst case scenario, we have to copy the data
+            # and can't just use the buffer directly. This is also very
+            # uncommon since we usually read the entire frame at once.
             self._buffer += data
         self._buffer_len += len(data)
 
@@ -81,10 +87,16 @@ class APIFrameHelper:
         end_of_frame_pos = self._pos
         self._buffer_len -= end_of_frame_pos
         if self._buffer_len == 0:
+            # This is the best case scenario, we can just set the buffer to None
+            # and don't have to copy the data. This is the most common case as well.
             self._buffer = None
             return
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
+        # This is the worst case scenario, we have to copy the data
+        # and can't just use the buffer directly. This should only happen
+        # when we read multiple frames at once because the event loop
+        # is blocked and we cannot pull the data out of the buffer fast enough.
         self._buffer = self._buffer[end_of_frame_pos:]
 
     def _read_exactly(self, length: _int) -> bytes | None:
