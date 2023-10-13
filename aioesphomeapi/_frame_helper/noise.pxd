@@ -3,7 +3,7 @@ import cython
 from .base cimport APIFrameHelper
 
 
-cdef object TYPE_CHECKING
+cdef bint TYPE_CHECKING
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
@@ -18,10 +18,15 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef bint _is_ready
 
     @cython.locals(
-        header=bytearray,
+        header=bytes,
         preamble=cython.uint, 
         msg_size_high=cython.uint, 
         msg_size_low=cython.uint,
-        end_of_frame_pos=cython.uint,
     )    
     cpdef data_received(self, bytes data)
+
+    @cython.locals(
+        type_high=cython.uint,
+        type_low=cython.uint
+    )
+    cpdef _handle_frame(self, bytes data)

@@ -4,7 +4,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, cast
+from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
@@ -55,7 +55,7 @@ class APIFrameHelper:
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
-        self._buffer = bytearray()
+        self._buffer: bytes | None = None
         self._buffer_len = 0
         self._pos = 0
         self._client_info = client_info
@@ -66,13 +66,48 @@ class APIFrameHelper:
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _read_exactly(self, length: _int) -> bytearray | None:
+    def _add_to_buffer(self, data: bytes) -> None:
+        """Add data to the buffer."""
+        if self._buffer_len == 0:
+            # This is the best case scenario, we don't have to copy the data
+            # and can just use the buffer directly. This is the most common
+            # case as well.
+            self._buffer = data
+        else:
+            if TYPE_CHECKING:
+                assert self._buffer is not None, "Buffer should be set"
+            # This is the worst case scenario, we have to copy the data
+            # and can't just use the buffer directly. This is also very
+            # uncommon since we usually read the entire frame at once.
+            self._buffer += data
+        self._buffer_len += len(data)
+
+    def _remove_from_buffer(self) -> None:
+        """Remove data from the buffer."""
+        end_of_frame_pos = self._pos
+        self._buffer_len -= end_of_frame_pos
+        if self._buffer_len == 0:
+            # This is the best case scenario, we can just set the buffer to None
+            # and don't have to copy the data. This is the most common case as well.
+            self._buffer = None
+            return
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
+        # This is the worst case scenario, we have to copy the data
+        # and can't just use the buffer directly. This should only happen
+        # when we read multiple frames at once because the event loop
+        # is blocked and we cannot pull the data out of the buffer fast enough.
+        self._buffer = self._buffer[end_of_frame_pos:]
+
+    def _read_exactly(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
         if self._buffer_len < new_pos:
             return None
         self._pos = new_pos
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
         return self._buffer[original_pos:new_pos]
 
     async def perform_handshake(self, timeout: float) -> None:

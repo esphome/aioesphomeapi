@@ -39,8 +39,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             ) from err
 
     def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
-        self._buffer += data
-        self._buffer_len += len(data)
+        self._add_to_buffer(data)
         while self._buffer:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
@@ -80,10 +79,10 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     msg_type_int = maybe_msg_type
                 else:
                     # Message type is longer than 1 byte
-                    msg_type = bytes(init_bytes[2:3])
+                    msg_type = init_bytes[2:3]
             else:
                 # Length is longer than 1 byte
-                length = bytes(init_bytes[1:3])
+                length = init_bytes[1:3]
                 # If the message is long, we need to read the rest of the length
                 while length[-1] & 0x80 == 0x80:
                     add_length = self._read_exactly(1)
@@ -112,18 +111,16 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if length_int == 0:
                 packet_data = b""
             else:
-                packet_data_bytearray = self._read_exactly(length_int)
+                maybe_packet_data = self._read_exactly(length_int)
                 # The packet data is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next
                 # call to data_received will continue processing the packet
                 # at the start of the frame.
-                if packet_data_bytearray is None:
+                if maybe_packet_data is None:
                     return
-                packet_data = bytes(packet_data_bytearray)
+                packet_data = maybe_packet_data
 
-            end_of_frame_pos = self._pos
-            del self._buffer[:end_of_frame_pos]
-            self._buffer_len -= end_of_frame_pos
+            self._remove_from_buffer()
             self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing
