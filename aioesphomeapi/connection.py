@@ -141,7 +141,7 @@ class APIConnection:
         "_socket",
         "_frame_helper",
         "api_version",
-        "_connection_state",
+        "connection_state",
         "_message_handlers",
         "log_name",
         "_read_exception_futures",
