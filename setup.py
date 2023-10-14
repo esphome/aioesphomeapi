@@ -72,6 +72,7 @@ def cythonize_if_available(setup_kwargs):
             dict(
                 ext_modules=cythonize(
                     [
+                        "aioesphomeapi/connection.py"
                         "aioesphomeapi/_frame_helper/plain_text.py",
                         "aioesphomeapi/_frame_helper/noise.py",
                         "aioesphomeapi/_frame_helper/base.py",
