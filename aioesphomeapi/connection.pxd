@@ -23,7 +23,7 @@ cdef class APIConnection:
     cdef object _params
     cdef public object on_stop
     cdef object _on_stop_task
-    cdef object _socket
+    cdef public object _socket
     cdef object _frame_helper
     cdef public object api_version
     cdef object _connection_state
