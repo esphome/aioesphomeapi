@@ -135,7 +135,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         assert self._connected_lock.locked(), "connected_lock must be locked"
         self._connection_state = ReconnectLogicState.CONNECTING
         try:
-            await self._cli.start_connection(on_stop=self._on_disconnect, login=True)
+            await self._cli.start_connection(on_stop=self._on_disconnect)
         except Exception as err:  # pylint: disable=broad-except
             self._connection_state = ReconnectLogicState.DISCONNECTED
             if self._on_connect_error_cb is not None:
@@ -146,7 +146,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.info("Successfully connected to %s", self._log_name)
         self._connection_state = ReconnectLogicState.HANDSHAKING
         try:
-            self._cli.finish_connection()
+            self._cli.finish_connection(login=True)
         except Exception as err:  # pylint: disable=broad-except
             self._connection_state = ReconnectLogicState.DISCONNECTED
             if self._on_connect_error_cb is not None:
