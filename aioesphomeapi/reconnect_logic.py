@@ -184,6 +184,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 return
             self._connect_task.cancel("Scheduling new connect attempt")
             self._connect_task = None
+            self._connection_state = ConnectionState.DISCONNECTED
 
         self._connect_task = asyncio.create_task(
             self._connect_once_or_reschedule(),
@@ -299,7 +300,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # bail if either the already stopped or we haven't received device info yet
         if (
             self._connection_state
-            in {ConnectionState.READY, ConnectionState.HANDSHAKING}
+            not in {ConnectionState.DISCONNECTED, ConnectionState.CONNECTING}
             or self._is_stopped
             or self._filter_alias is None
         ):
