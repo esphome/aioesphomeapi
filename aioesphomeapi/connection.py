@@ -621,7 +621,7 @@ class APIConnection:
         # between sending the message and registering the handler
         # we can be sure that we will not miss any messages even though
         # we register the handler after sending the message
-        self.add_message_callback(on_message, msg_types)
+        return self.add_message_callback(on_message, msg_types)
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
         """Handle a timeout."""
