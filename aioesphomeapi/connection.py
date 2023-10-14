@@ -582,13 +582,23 @@ class APIConnection:
             self._report_fatal_error(err)
             raise
 
+    def _add_message_callback_without_remove(
+        self, on_message: Callable[[Any], None], msg_types: Iterable[type[Any]]
+    ) -> None:
+        """Add a message callback without returning a remove callable."""
+        message_handlers = self._message_handlers
+        for msg_type in msg_types:
+            if msg_type not in message_handlers:
+                message_handlers[msg_type] = {on_message}
+            else:
+                handlers = message_handlers[msg_type]
+                handlers.add(on_message)
+
     def add_message_callback(
         self, on_message: Callable[[Any], None], msg_types: Iterable[type[Any]]
     ) -> Callable[[], None]:
         """Add a message callback."""
-        message_handlers = self._message_handlers
-        for msg_type in msg_types:
-            message_handlers.setdefault(msg_type, set()).add(on_message)
+        self._add_message_callback_without_remove(on_message, msg_types)
         return partial(self._remove_message_callback, on_message, msg_types)
 
     def _remove_message_callback(
@@ -611,9 +621,7 @@ class APIConnection:
         # between sending the message and registering the handler
         # we can be sure that we will not miss any messages even though
         # we register the handler after sending the message
-        for msg_type in msg_types:
-            self._message_handlers.setdefault(msg_type, set()).add(on_message)
-        return partial(self._remove_message_callback, on_message, msg_types)
+        self.add_message_callback(on_message, msg_types)
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
         """Handle a timeout."""
@@ -667,10 +675,8 @@ class APIConnection:
             self._handle_complex_message, fut, responses, do_append, do_stop
         )
 
-        message_handlers = self._message_handlers
         read_exception_futures = self._read_exception_futures
-        for msg_type in msg_types:
-            message_handlers.setdefault(msg_type, set()).add(on_message)
+        self._add_message_callback_without_remove(on_message, msg_types)
 
         read_exception_futures.add(fut)
         # Now safe to await since we have registered the handler
@@ -690,8 +696,7 @@ class APIConnection:
         finally:
             if not timeout_expired:
                 timeout_handle.cancel()
-            for msg_type in msg_types:
-                message_handlers[msg_type].discard(on_message)
+            self._remove_message_callback(on_message, msg_types)
             read_exception_futures.discard(fut)
 
         return responses

@@ -59,3 +59,10 @@ cdef class APIConnection:
     cpdef _set_connection_state(self, object state)
 
     cpdef _report_fatal_error(self, Exception err)
+
+    @cython.locals(handlers=set)
+    cpdef _add_message_callback_without_remove(self, object on_message, object msg_types)
+
+    cpdef add_message_callback(self, object on_message, object msg_types)
+
+    cpdef _remove_message_callback(self, object on_message, object msg_types)
