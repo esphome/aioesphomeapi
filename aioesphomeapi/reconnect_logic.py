@@ -22,7 +22,7 @@ MAXIMUM_BACKOFF_TRIES = 100
 TYPE_PTR = 12
 
 
-class ConnectionState(Enum):
+class ReconnectLogicState(Enum):
     CONNECTING = 0
     HANDSHAKING = 1
     READY = 2
@@ -71,7 +71,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._zc = zeroconf_instance
         self._filter_alias: str | None = None
         # Flag to check if the device is connected
-        self._connection_state = ConnectionState.DISCONNECTED
+        self._connection_state = ReconnectLogicState.DISCONNECTED
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
         self._zc_listening = False
@@ -107,7 +107,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         await self._on_disconnect_cb(expected_disconnect)
 
         async with self._connected_lock:
-            self._connection_state = ConnectionState.DISCONNECTED
+            self._connection_state = ReconnectLogicState.DISCONNECTED
 
         wait = EXPECTED_DISCONNECT_COOLDOWN if expected_disconnect else 0
         # If we expected the disconnect we need
@@ -132,7 +132,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     async def _try_connect(self) -> bool:
         """Try connecting to the API client."""
         assert self._connected_lock.locked(), "connected_lock must be locked"
-        self._connection_state = ConnectionState.CONNECTING
+        self._connection_state = ReconnectLogicState.CONNECTING
         try:
             await self._cli.start_connection(on_stop=self._on_disconnect, login=True)
         except Exception as err:  # pylint: disable=broad-except
@@ -142,7 +142,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._tries += 1
             return False
         _LOGGER.info("Successfully connected to %s", self._log_name)
-        self._connection_state = ConnectionState.HANDSHAKING
+        self._connection_state = ReconnectLogicState.HANDSHAKING
         try:
             self._cli.finish_connection()
         except Exception as err:  # pylint: disable=broad-except
@@ -158,7 +158,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             return False
         self._tries = 0
         _LOGGER.debug("Successfully handshake with to %s", self._log_name)
-        self._connection_state = ConnectionState.READY
+        self._connection_state = ReconnectLogicState.READY
         await self._on_connect_cb()
         self._stop_zc_listen()
         return True
@@ -180,13 +180,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         Must only be called from _schedule_connect.
         """
         if self._connect_task:
-            if self._connection_state != ConnectionState.CONNECTING:
+            if self._connection_state != ReconnectLogicState.CONNECTING:
                 # Connection state is far enough along that we should
                 # not restart the connect task
                 return
             self._connect_task.cancel("Scheduling new connect attempt")
             self._connect_task = None
-            self._connection_state = ConnectionState.DISCONNECTED
+            self._connection_state = ReconnectLogicState.DISCONNECTED
 
         self._connect_task = asyncio.create_task(
             self._connect_once_or_reschedule(),
@@ -212,7 +212,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             _LOGGER.debug("Connected lock acquired for %s", self._log_name)
             tries = min(self._tries, 10)  # prevent OverflowError
             if (
-                self._connection_state != ConnectionState.DISCONNECTED
+                self._connection_state != ReconnectLogicState.DISCONNECTED
                 or self._is_stopped
             ):
                 return
@@ -251,7 +251,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._cli.set_cached_name_if_unset(self.name)
         async with self._connected_lock:
             self._is_stopped = False
-            if self._connection_state != ConnectionState.DISCONNECTED:
+            if self._connection_state != ReconnectLogicState.DISCONNECTED:
                 return
             self._tries = 0
             self._schedule_connect(0.0)
@@ -298,7 +298,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # bail if either the already stopped or we haven't received device info yet
         if (
             self._connection_state
-            not in {ConnectionState.DISCONNECTED, ConnectionState.CONNECTING}
+            not in {ReconnectLogicState.DISCONNECTED, ReconnectLogicState.CONNECTING}
             or self._is_stopped
             or self._filter_alias is None
         ):
