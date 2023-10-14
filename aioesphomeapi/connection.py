@@ -118,7 +118,7 @@ class ConnectionParams:
 class ConnectionState(enum.Enum):
     # The connection is initialized, but connect() wasn't called yet
     INITIALIZED = 0
-    # The socket has been opened, but the connection hasn't been established yet
+    # The socket has been opened, but the handshake and login haven't been completed
     SOCKET_OPENED = 1
     # The handshake has been completed, messages can be exchanged
     HANDSHAKE_COMPLETE = 2
