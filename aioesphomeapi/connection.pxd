@@ -26,7 +26,7 @@ cdef class APIConnection:
     cdef public object _socket
     cdef public object _frame_helper
     cdef public object api_version
-    cdef object _connection_state
+    cdef public object _connection_state
     cdef object _connect_complete
     cdef dict _message_handlers
     cdef public str log_name
