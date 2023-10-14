@@ -382,6 +382,7 @@ class APIClient:
     async def device_info(self) -> DeviceInfo:
         self._check_authenticated()
         connection = self._connection
+        assert connection is not None
         resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
