@@ -737,7 +737,7 @@ class APIConnection:
                 self.log_name,
                 msg_type_proto,
             )
-            return        
+            return
 
         try:
             msg = klass()
