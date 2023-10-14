@@ -103,9 +103,9 @@ from .api_pb2 import (  # type: ignore
 from .connection import APIConnection, ConnectionParams
 from .core import (
     APIConnectionError,
-    UnhandledAPIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
+    UnhandledAPIConnectionError,
     to_human_readable_address,
 )
 from .host_resolver import ZeroconfInstanceType

@@ -10,11 +10,11 @@ import zeroconf
 
 from .client import APIClient
 from .core import (
-    UnhandledAPIConnectionError,
     APIConnectionError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
     RequiresEncryptionAPIError,
+    UnhandledAPIConnectionError,
 )
 
 _LOGGER = logging.getLogger(__name__)
