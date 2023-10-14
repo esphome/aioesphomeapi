@@ -65,4 +65,5 @@ cdef class APIConnection:
 
     cpdef add_message_callback(self, object on_message, object msg_types)
 
+    @cython.locals(handlers=set)
     cpdef _remove_message_callback(self, object on_message, object msg_types)

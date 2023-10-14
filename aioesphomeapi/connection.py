@@ -607,7 +607,8 @@ class APIConnection:
         """Remove a message callback."""
         message_handlers = self._message_handlers
         for msg_type in msg_types:
-            message_handlers[msg_type].discard(on_message)
+            handlers = message_handlers[msg_type]
+            handlers.discard(on_message)
 
     def send_message_callback_response(
         self,
