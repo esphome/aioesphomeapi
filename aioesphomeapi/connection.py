@@ -209,6 +209,8 @@ class APIConnection:
 
         Safe to call multiple times.
         """
+        was_connected = self.is_connected
+        self._set_connection_state(ConnectionState.CLOSED)
         _LOGGER.debug("Cleaning up connection to %s", self.log_name)
         for fut in self._read_exception_futures:
             if fut.done():
@@ -245,7 +247,7 @@ class APIConnection:
             self._ping_timer.cancel()
             self._ping_timer = None
 
-        if self.on_stop and self.is_connected:
+        if self.on_stop and was_connected:
             # Ensure on_stop is called only once
             self._on_stop_task = asyncio.create_task(
                 self.on_stop(self._expected_disconnect),
@@ -497,7 +499,6 @@ class APIConnection:
         except (Exception, asyncio.CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError
-            self._set_connection_state(ConnectionState.CLOSED)
             self._cleanup()
             if isinstance(ex, asyncio.CancelledError):
                 raise
@@ -538,7 +539,6 @@ class APIConnection:
         except (Exception, asyncio.CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError
-            self._set_connection_state(ConnectionState.CLOSED)
             self._cleanup()
             if isinstance(ex, asyncio.CancelledError):
                 raise
@@ -753,7 +753,6 @@ class APIConnection:
                 exc_info=not str(err),  # Log the full stack on empty error string
             )
         self._fatal_exception = err
-        self._set_connection_state(ConnectionState.CLOSED)
         self._cleanup()
 
     def _process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
@@ -815,7 +814,6 @@ class APIConnection:
 
         if msg_type is DisconnectRequest:
             self.send_message(DisconnectResponse())
-            self._set_connection_state(ConnectionState.CLOSED)
             self._expected_disconnect = True
             self._cleanup()
         elif msg_type is PingRequest:
@@ -853,7 +851,6 @@ class APIConnection:
                     "%s: Failed to send disconnect request: %s", self.log_name, err
                 )
 
-        self._set_connection_state(ConnectionState.CLOSED)
         self._cleanup()
 
     async def force_disconnect(self) -> None:
@@ -871,5 +868,4 @@ class APIConnection:
                     err,
                 )
 
-        self._set_connection_state(ConnectionState.CLOSED)
         self._cleanup()
