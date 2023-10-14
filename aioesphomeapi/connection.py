@@ -209,6 +209,8 @@ class APIConnection:
 
         Safe to call multiple times.
         """
+        if self.connection_state == ConnectionState.CLOSED:
+            return
         was_connected = self.is_connected
         self._set_connection_state(ConnectionState.CLOSED)
         _LOGGER.debug("Cleaning up connection to %s", self.log_name)
