@@ -344,6 +344,7 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
+            # Ensure noise_psk is a string and not an EStr
             noise_psk = str(self._params.noise_psk)
             assert noise_psk is not None
             _, fh = await loop.create_connection(  # type: ignore[type-var]
@@ -489,15 +490,16 @@ class APIConnection:
                 "Connection can only be used once, connection is not in init state"
             )
 
-        self._start_connect_task = asyncio.create_task(
+        start_connect_task = asyncio.create_task(
             self._do_connect(), name=f"{self.log_name}: aioesphomeapi do_connect"
         )
+        self._start_connect_task = start_connect_task
         try:
             # Allow 2 minutes for connect and setup; this is only as a last measure
             # to protect from issues if some part of the connect process mistakenly
             # does not have a timeout
             async with asyncio_timeout(CONNECT_AND_SETUP_TIMEOUT):
-                await self._start_connect_task
+                await start_connect_task
         except (Exception, asyncio.CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError
@@ -506,14 +508,11 @@ class APIConnection:
                 raise
             if self._fatal_exception:
                 raise self._fatal_exception
-            if (
-                not self._start_connect_task.cancelled()
-                and self._start_connect_task.exception()
-            ):
-                raise self._start_connect_task.exception()
+            if not start_connect_task.cancelled() and start_connect_task.exception():
+                raise start_connect_task.exception()
             raise APIConnectionError("Connection cancelled")
-
-        self._start_connect_task = None
+        finally:
+            self._start_connect_task = None
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
 
     async def _do_finish_connect(self, login: bool) -> None:
@@ -535,10 +534,11 @@ class APIConnection:
             raise ValueError(
                 "Connection must be in SOCKET_OPENED state to finish connection"
             )
-        self._finish_connect_task = asyncio.create_task(
+        finish_connect_task = asyncio.create_task(
             self._do_finish_connect(login),
             name=f"{self.log_name}: aioesphomeapi _do_finish_connect",
         )
+        self._finish_connect_task = finish_connect_task
         try:
             # Allow 2 minutes for connect and setup; this is only as a last measure
             # to protect from issues if some part of the connect process mistakenly
@@ -553,14 +553,11 @@ class APIConnection:
                 raise
             if self._fatal_exception:
                 raise self._fatal_exception
-            if (
-                not self._finish_connect_task.cancelled()
-                and self._finish_connect_task.exception()
-            ):
-                raise self._finish_connect_task.exception()
+            if not finish_connect_task.cancelled() and finish_connect_task.exception():
+                raise finish_connect_task.exception()
             raise APIConnectionError("Connection cancelled")
-
-        self._finish_connect_task = None
+        finally:
+            self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)
 
     def _set_connection_state(self, state: ConnectionState) -> None:

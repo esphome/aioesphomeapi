@@ -103,6 +103,7 @@ from .api_pb2 import (  # type: ignore
 from .connection import APIConnection, ConnectionParams
 from .core import (
     APIConnectionError,
+    UnhandledAPIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
     to_human_readable_address,
@@ -340,7 +341,7 @@ class APIClient:
             raise
         except Exception as e:
             self._connection = None
-            raise APIConnectionError(
+            raise UnhandledAPIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
 
@@ -357,7 +358,7 @@ class APIClient:
             raise
         except Exception as e:
             self._connection = None
-            raise APIConnectionError(
+            raise UnhandledAPIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
 

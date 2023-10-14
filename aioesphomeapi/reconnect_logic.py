@@ -10,6 +10,7 @@ import zeroconf
 
 from .client import APIClient
 from .core import (
+    UnhandledAPIConnectionError,
     APIConnectionError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
@@ -119,15 +120,27 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _async_log_connection_error(self, err: Exception) -> None:
         """Log connection errors."""
-        level = logging.WARNING if self._tries == 0 else logging.DEBUG
+        # UnhandledAPIConnectionError is a special case in client
+        # for when the connection raises an exception that is not
+        # handled by the client. This is usually a bug in the connection
+        # code and should be logged as an error.
+        is_handled_exception = not isinstance(
+            err, UnhandledAPIConnectionError
+        ) and isinstance(err, APIConnectionError)
+        if not is_handled_exception:
+            level = logging.ERROR
+        elif self._tries == 0:
+            level = logging.WARNING
+        else:
+            level = logging.DEBUG
         _LOGGER.log(
             level,
             "Can't connect to ESPHome API for %s: %s (%s)",
             self._log_name,
             err,
             type(err).__name__,
-            # Print stacktrace if unhandled (not APIConnectionError)
-            exc_info=not isinstance(err, APIConnectionError),
+            # Print stacktrace if unhandled
+            exc_info=not is_handled_exception,
         )
 
     async def _try_connect(self) -> bool:
