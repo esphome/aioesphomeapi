@@ -137,6 +137,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         try:
             await self._cli.start_connection(on_stop=self._on_disconnect, login=True)
         except Exception as err:  # pylint: disable=broad-except
+            self._connection_state = ReconnectLogicState.DISCONNECTED
             if self._on_connect_error_cb is not None:
                 await self._on_connect_error_cb(err)
             self._async_log_connection_error(err)
@@ -147,6 +148,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         try:
             self._cli.finish_connection()
         except Exception as err:  # pylint: disable=broad-except
+            self._connection_state = ReconnectLogicState.DISCONNECTED
             if self._on_connect_error_cb is not None:
                 await self._on_connect_error_cb(err)
             self._async_log_connection_error(err)
@@ -185,6 +187,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 # Connection state is far enough along that we should
                 # not restart the connect task
                 return
+            _LOGGER.debug(
+                "%s: Cancelling existing connect task, to try again now!",
+                self._log_name,
+            )
             self._connect_task.cancel("Scheduling new connect attempt")
             self._connect_task = None
             self._connection_state = ReconnectLogicState.DISCONNECTED

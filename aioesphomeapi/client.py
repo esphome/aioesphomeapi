@@ -312,10 +312,10 @@ class APIClient:
         login: bool = False,
     ) -> None:
         """Connect to the device."""
-        await self.start_connect(on_stop)
-        await self.finish_connect(login=login)
+        await self.start_connection(on_stop)
+        await self.finish_connection(login=login)
 
-    async def start_connect(
+    async def start_connection(
         self,
         on_stop: Callable[[bool], Awaitable[None]] | None = None,
     ) -> None:
@@ -344,7 +344,7 @@ class APIClient:
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
 
-    async def finish_connect(
+    async def finish_connection(
         self,
         login: bool = False,
     ) -> None:
