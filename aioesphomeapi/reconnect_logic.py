@@ -146,7 +146,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.info("Successfully connected to %s", self._log_name)
         self._connection_state = ReconnectLogicState.HANDSHAKING
         try:
-            self._cli.finish_connection(login=True)
+            await self._cli.finish_connection(login=True)
         except Exception as err:  # pylint: disable=broad-except
             self._connection_state = ReconnectLogicState.DISCONNECTED
             if self._on_connect_error_cb is not None:
