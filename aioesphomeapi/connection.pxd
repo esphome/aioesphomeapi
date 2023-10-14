@@ -42,6 +42,7 @@ cdef class APIConnection:
     cdef object _loop
     cdef bint _send_pending_ping
     cdef public bint is_connected
+    cdef bint _handshake_complete
     cdef object _debug_enabled
 
     cpdef send_message(self, object msg)

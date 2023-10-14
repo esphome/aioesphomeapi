@@ -120,7 +120,9 @@ class ConnectionState(enum.Enum):
     INITIALIZED = 0
     # The socket has been opened, but the connection hasn't been established yet
     SOCKET_OPENED = 1
-    # The connection has been established, data can be exchanged
+    # The handshake has been completed, messages can be exchanged
+    HANDSHAKE_COMPLETE = 2
+    # The connection has been established, authenticated data can be exchanged
     CONNECTED = 2
     CLOSED = 3
 
@@ -154,7 +156,7 @@ class APIConnection:
         "_loop",
         "_send_pending_ping",
         "is_connected",
-        "_debug_enabled",
+        "_handshake_complete" "_debug_enabled",
     )
 
     def __init__(
@@ -194,6 +196,7 @@ class APIConnection:
         self._send_pending_ping = False
         self._loop = asyncio.get_event_loop()
         self.is_connected = False
+        self._handshake_complete = False
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
     @property
@@ -362,6 +365,7 @@ class APIConnection:
             raise TimeoutAPIError("Handshake timed out") from err
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
+        self._set_connection_state(ConnectionState.HANDSHAKE_COMPLETE)
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
@@ -563,6 +567,7 @@ class APIConnection:
         """Set the connection state and log the change."""
         self._connection_state = state
         self.is_connected = state == ConnectionState.CONNECTED
+        self._handshake_complete = state == ConnectionState.HANDSHAKE_COMPLETE
 
     async def _login(self) -> None:
         """Send a login (ConnectRequest) and await the response."""
@@ -586,7 +591,7 @@ class APIConnection:
 
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
-        if not self.is_connected:
+        if not self._handshake_complete:
             if in_do_connect.get(False):
                 # If we are in the do_connect task, we can't raise an error
                 # because it would obscure the original exception (ie encrypt error).
@@ -850,7 +855,7 @@ class APIConnection:
                 )
 
         self._expected_disconnect = True
-        if self.is_connected:
+        if self._handshake_complete:
             # We still want to send a disconnect request even
             # if the hello phase isn't finished to ensure we
             # the esp will clean up the connection as soon
@@ -870,7 +875,7 @@ class APIConnection:
     async def force_disconnect(self) -> None:
         """Forcefully disconnect from the API."""
         self._expected_disconnect = True
-        if self.is_connected:
+        if self._handshake_complete:
             # Still try to tell the esp to disconnect gracefully
             # but don't wait for it to finish
             try:
