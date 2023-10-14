@@ -478,18 +478,6 @@ class APIConnection:
         addr = await self._connect_resolve_host()
         await self._connect_socket_connect(addr)
 
-    async def connect(self, *, login: bool) -> None:
-        """Connect to the remote.
-
-        This function is for backwards compatibility.
-
-        The current recommended way to connect is to use start_connection
-        and finish_connection since start_connection can be safely
-        cancelled without putting too much pressure on the device.
-        """
-        await self.start_connection()
-        await self.finish_connection(login=login)
-
     async def start_connection(self) -> None:
         """Start the connection process.
 
