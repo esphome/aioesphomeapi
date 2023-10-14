@@ -57,3 +57,5 @@ cdef class APIConnection:
     cpdef _cleanup(self)
 
     cpdef _set_connection_state(self, object state)
+
+    cpdef _report_fatal_error(self, object err)
