@@ -102,6 +102,7 @@ _int = int
 _bytes = bytes
 _float = float
 
+
 @dataclass
 class ConnectionParams:
     address: str
