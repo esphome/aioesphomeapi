@@ -319,6 +319,7 @@ class APIClient:
         self,
         on_stop: Callable[[bool], Awaitable[None]] | None = None,
     ) -> None:
+        """Start connecting to the device."""
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
@@ -347,6 +348,7 @@ class APIClient:
         self,
         login: bool = False,
     ) -> None:
+        """Finish connecting to the device."""
         assert self._connection is not None
         try:
             await self._connection.finish_connection(login=login)
