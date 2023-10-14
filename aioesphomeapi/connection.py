@@ -7,7 +7,7 @@ import logging
 import socket
 import sys
 import time
-from collections.abc import Coroutine, Iterable
+from collections.abc import Coroutine
 from dataclasses import astuple, dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable
@@ -584,7 +584,7 @@ class APIConnection:
             raise
 
     def _add_message_callback_without_remove(
-        self, on_message: Callable[[Any], None], msg_types: Iterable[type[Any]]
+        self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Add a message callback without returning a remove callable."""
         message_handlers = self._message_handlers
@@ -595,14 +595,14 @@ class APIConnection:
                 handlers.add(on_message)
 
     def add_message_callback(
-        self, on_message: Callable[[Any], None], msg_types: Iterable[type[Any]]
+        self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> Callable[[], None]:
         """Add a message callback."""
         self._add_message_callback_without_remove(on_message, msg_types)
         return partial(self._remove_message_callback, on_message, msg_types)
 
     def _remove_message_callback(
-        self, on_message: Callable[[Any], None], msg_types: Iterable[type[Any]]
+        self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Remove a message callback."""
         message_handlers = self._message_handlers
@@ -614,7 +614,7 @@ class APIConnection:
         self,
         send_msg: message.Message,
         on_message: Callable[[Any], None],
-        msg_types: Iterable[type[Any]],
+        msg_types: tuple[type[Any], ...],
     ) -> Callable[[], None]:
         """Send a message to the remote and register the given message handler."""
         self.send_message(send_msg)
@@ -651,7 +651,7 @@ class APIConnection:
         send_msg: message.Message,
         do_append: Callable[[message.Message], bool] | None,
         do_stop: Callable[[message.Message], bool] | None,
-        msg_types: Iterable[type[Any]],
+        msg_types: tuple[type[Any], ...],
         timeout: float = 10.0,
     ) -> list[message.Message]:
         """Send a message to the remote and build up a list response.
