@@ -125,9 +125,6 @@ class ConnectionState(enum.Enum):
     CLOSED = 3
 
 
-OPEN_STATES = {ConnectionState.HANDSHAKE_FINISHED, ConnectionState.CONNECTED}
-
-
 class APIConnection:
     """This class represents _one_ connection to a remote native API device.
 
