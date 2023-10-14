@@ -58,4 +58,4 @@ cdef class APIConnection:
 
     cpdef _set_connection_state(self, object state)
 
-    cpdef _report_fatal_error(self, object err)
+    cpdef _report_fatal_error(self, Exception err)
