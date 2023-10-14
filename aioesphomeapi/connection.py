@@ -731,21 +731,22 @@ class APIConnection:
 
     def _process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Factory to make a packet processor."""
-        try:
-            msg = MESSAGE_TYPE_TO_PROTO[msg_type_proto]()
-            # MergeFromString instead of ParseFromString since
-            # ParseFromString will clear the message first and
-            # the msg is already empty.
-            msg.MergeFromString(data)
-        except KeyError:
+        if (klass := PROTO_TO_MESSAGE_TYPE.get(msg_type_proto)) is None:
             _LOGGER.debug(
                 "%s: Skipping message type %s",
                 self.log_name,
                 msg_type_proto,
             )
-            return
+            return        
+
+        try:
+            msg = klass()
+            # MergeFromString instead of ParseFromString since
+            # ParseFromString will clear the message first and
+            # the msg is already empty.
+            msg.MergeFromString(data)
         except Exception as e:
-            _LOGGER.info(
+            _LOGGER.error(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
                 self.log_name,
                 msg_type_proto,
@@ -770,7 +771,7 @@ class APIConnection:
                 msg,
             )
 
-        if self._pong_timer:
+        if self._pong_timer is not None:
             # Any valid message from the remote cancels the pong timer
             # as we know the connection is still alive
             self._async_cancel_pong_timer()
