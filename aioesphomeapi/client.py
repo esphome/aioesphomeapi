@@ -354,14 +354,8 @@ class APIClient:
             )
 
     async def device_info(self) -> DeviceInfo:
+        self._check_authenticated()
         connection = self._connection
-        if not connection:
-            raise APIConnectionError(f"Not connected to {self._log_name}!")
-        if not connection or not connection.is_connected:
-            raise APIConnectionError(
-                f"Connection not ready yet for {self._log_name}; "
-                f"current state is {connection.connection_state}!"
-            )
         resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
