@@ -737,7 +737,7 @@ class APIConnection:
 
     def _process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Factory to make a packet processor."""
-        if (klass := PROTO_TO_MESSAGE_TYPE.get(msg_type_proto)) is None:
+        if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
             _LOGGER.debug(
                 "%s: Skipping message type %s",
                 self.log_name,
