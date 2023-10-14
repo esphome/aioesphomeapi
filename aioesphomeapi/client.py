@@ -311,6 +311,14 @@ class APIClient:
         on_stop: Callable[[bool], Awaitable[None]] | None = None,
         login: bool = False,
     ) -> None:
+        """Connect to the device."""
+        await self.start_connect(on_stop)
+        await self.finish_connect(login=login)
+
+    async def start_connect(
+        self,
+        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+    ) -> None:
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
@@ -325,7 +333,23 @@ class APIClient:
         )
 
         try:
-            await self._connection.connect(login=login)
+            await self._connection.start_connection()
+        except APIConnectionError:
+            self._connection = None
+            raise
+        except Exception as e:
+            self._connection = None
+            raise APIConnectionError(
+                f"Unexpected error while connecting to {self._log_name}: {e}"
+            ) from e
+
+    async def finish_connect(
+        self,
+        login: bool = False,
+    ) -> None:
+        assert self._connection is not None
+        try:
+            await self._connection.finish_connection(login=login)
         except APIConnectionError:
             self._connection = None
             raise

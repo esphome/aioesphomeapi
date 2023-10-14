@@ -174,7 +174,7 @@ class APIConnection:
         ) = None
         self.api_version: APIVersion | None = None
 
-        self._connection_state = ConnectionState.INITIALIZED
+        self.connection_state = ConnectionState.INITIALIZED
 
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
@@ -198,11 +198,6 @@ class APIConnection:
         self.is_connected = False
         self._handshake_complete = False
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
-
-    @property
-    def connection_state(self) -> ConnectionState:
-        """Return the current connection state."""
-        return self._connection_state
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -484,7 +479,7 @@ class APIConnection:
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self._connection_state != ConnectionState.INITIALIZED:
+        if self.connection_state != ConnectionState.INITIALIZED:
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
             )
@@ -525,7 +520,7 @@ class APIConnection:
         This part of the process initializes the frame helper and sends the hello message
         than starts the keep alive process.
         """
-        if self._connection_state != ConnectionState.SOCKET_OPENED:
+        if self.connection_state != ConnectionState.SOCKET_OPENED:
             raise ValueError(
                 "Connection must be in SOCKET_OPENED state to finish connection"
             )
@@ -553,7 +548,7 @@ class APIConnection:
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log the change."""
-        self._connection_state = state
+        self.connection_state = state
         self.is_connected = state == ConnectionState.CONNECTED
         self._handshake_complete = state == ConnectionState.HANDSHAKE_COMPLETE
 
@@ -586,7 +581,7 @@ class APIConnection:
                 _LOGGER.debug("%s: Connection isn't established yet", self.log_name)
                 return
             raise ConnectionNotEstablishedAPIError(
-                f"Connection isn't established yet ({self._connection_state})"
+                f"Connection isn't established yet ({self.connection_state})"
             )
 
         msg_type = type(msg)
