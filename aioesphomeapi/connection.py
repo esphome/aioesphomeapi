@@ -782,7 +782,8 @@ class APIConnection:
             self._send_pending_ping = False
 
         if (handlers := self._message_handlers.get(msg_type)) is not None:
-            for handler in handlers.copy():
+            handlers_copy = handlers.copy()
+            for handler in handlers_copy:
                 handler(msg)
 
         if msg_type is DisconnectRequest:
