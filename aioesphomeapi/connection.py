@@ -344,7 +344,7 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
-            noise_psk = self._params.noise_psk
+            noise_psk = str(self._params.noise_psk)
             assert noise_psk is not None
             _, fh = await loop.create_connection(  # type: ignore[type-var]
                 lambda: APINoiseFrameHelper(
@@ -504,7 +504,14 @@ class APIConnection:
             self._cleanup()
             if isinstance(ex, asyncio.CancelledError):
                 raise
-            raise self._fatal_exception or APIConnectionError("Connection cancelled")
+            if self._fatal_exception:
+                raise self._fatal_exception
+            if (
+                not self._start_connect_task.cancelled()
+                and self._start_connect_task.exception()
+            ):
+                raise self._start_connect_task.exception()
+            raise APIConnectionError("Connection cancelled")
 
         self._start_connect_task = None
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
@@ -544,7 +551,14 @@ class APIConnection:
             self._cleanup()
             if isinstance(ex, asyncio.CancelledError):
                 raise
-            raise self._fatal_exception or APIConnectionError("Connection cancelled")
+            if self._fatal_exception:
+                raise self._fatal_exception
+            if (
+                not self._finish_connect_task.cancelled()
+                and self._finish_connect_task.exception()
+            ):
+                raise self._finish_connect_task.exception()
+            raise APIConnectionError("Connection cancelled")
 
         self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)

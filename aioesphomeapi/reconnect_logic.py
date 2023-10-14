@@ -160,7 +160,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._tries += 1
             return False
         self._tries = 0
-        _LOGGER.debug("Successfully handshake with to %s", self._log_name)
+        _LOGGER.info("Successful handshake with %s", self._log_name)
         self._connection_state = ReconnectLogicState.READY
         await self._on_connect_cb()
         self._stop_zc_listen()
