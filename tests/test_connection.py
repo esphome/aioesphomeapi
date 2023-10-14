@@ -143,7 +143,7 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
     def on_msg(msg):
         messages.append(msg)
 
-    remove = conn.add_message_callback(on_msg, {HelloResponse, DeviceInfoResponse})
+    remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
     transport = MagicMock()
 
     with patch.object(

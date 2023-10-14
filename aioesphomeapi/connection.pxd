@@ -17,6 +17,7 @@ cdef object PING_RESPONSE_MESSAGE
 cdef object DisconnectRequest
 cdef object PingRequest
 cdef object GetTimeRequest
+cdef object partial
 
 cdef class APIConnection:
 
@@ -67,5 +68,3 @@ cdef class APIConnection:
 
     @cython.locals(handlers=set)
     cpdef _remove_message_callback(self, object on_message, tuple msg_types)
-
-    cpdef send_message_callback_response(self, object send_msg, object on_message, tuple msg_types)

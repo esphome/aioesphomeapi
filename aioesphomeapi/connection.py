@@ -672,9 +672,8 @@ class APIConnection:
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = loop.create_future()
         responses: list[message.Message] = []
-        on_message = partial(
-            self._handle_complex_message, fut, responses, do_append, do_stop
-        )
+        handler = self._handle_complex_message
+        on_message = partial(handler, fut, responses, do_append, do_stop)
 
         read_exception_futures = self._read_exception_futures
         self._add_message_callback_without_remove(on_message, msg_types)
@@ -710,7 +709,7 @@ class APIConnection:
             None,  # we will only get responses of `response_type`
             None,  # we will only get responses of `response_type`
             (response_type,),
-            timeout=timeout,
+            timeout,
         )
         return response
 
