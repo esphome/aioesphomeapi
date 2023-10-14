@@ -118,14 +118,14 @@ class ConnectionParams:
 class ConnectionState(enum.Enum):
     # The connection is initialized, but connect() wasn't called yet
     INITIALIZED = 0
-    # Internal state,
+    # The socket has been opened, but the connection hasn't been established yet
     SOCKET_OPENED = 1
     # The connection has been established, data can be exchanged
     CONNECTED = 2
     CLOSED = 3
 
 
-OPEN_STATES = {ConnectionState.SOCKET_OPENED, ConnectionState.CONNECTED}
+OPEN_STATES = {ConnectionState.HANDSHAKE_FINISHED, ConnectionState.CONNECTED}
 
 
 class APIConnection:
@@ -143,7 +143,6 @@ class APIConnection:
         "_frame_helper",
         "api_version",
         "_connection_state",
-        "_connect_complete",
         "_message_handlers",
         "log_name",
         "_read_exception_futures",
@@ -151,14 +150,13 @@ class APIConnection:
         "_pong_timer",
         "_keep_alive_interval",
         "_keep_alive_timeout",
-        "_connect_task",
+        "_start_connect_task",
+        "_finish_connect_task",
         "_fatal_exception",
         "_expected_disconnect",
         "_loop",
         "_send_pending_ping",
         "is_connected",
-        "is_authenticated",
-        "_is_socket_open",
         "_debug_enabled",
     )
 
@@ -178,9 +176,6 @@ class APIConnection:
         self.api_version: APIVersion | None = None
 
         self._connection_state = ConnectionState.INITIALIZED
-        # Store whether connect() has completed
-        # Used so that on_stop is _not_ called if an error occurs during connect()
-        self._connect_complete = False
 
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
@@ -195,14 +190,13 @@ class APIConnection:
         self._keep_alive_interval = params.keepalive
         self._keep_alive_timeout = params.keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
-        self._connect_task: asyncio.Task[None] | None = None
+        self._start_connect_task: asyncio.Task[None] | None = None
+        self._finish_connect_task: asyncio.Task[None] | None = None
         self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
         self._send_pending_ping = False
         self._loop = asyncio.get_event_loop()
         self.is_connected = False
-        self.is_authenticated = False
-        self._is_socket_open = False
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
     @property
@@ -233,9 +227,13 @@ class APIConnection:
         # If we are being called from do_connect we
         # need to make sure we don't cancel the task
         # that called us
-        if self._connect_task is not None and not in_do_connect.get(False):
-            self._connect_task.cancel("Connection cleanup")
-            self._connect_task = None
+        if self._start_connect_task is not None and not in_do_connect.get(False):
+            self._start_connect_task.cancel("Connection cleanup")
+            self._start_connect_task = None
+
+        if self._finish_connect_task is not None and not in_do_connect.get(False):
+            self._finish_connect_task.cancel("Connection cleanup")
+            self._finish_connect_task = None
 
         if self._frame_helper is not None:
             self._frame_helper.close()
@@ -251,7 +249,7 @@ class APIConnection:
             self._ping_timer.cancel()
             self._ping_timer = None
 
-        if self.on_stop and self._connect_complete:
+        if self.on_stop and self.is_connected:
             # Ensure on_stop is called only once
             self._on_stop_task = asyncio.create_task(
                 self.on_stop(self._expected_disconnect),
@@ -361,7 +359,7 @@ class APIConnection:
             )
 
         self._frame_helper = fh
-        self._set_connection_state(ConnectionState.SOCKET_OPENED)
+        self._set_connection_state(ConnectionState.HANDSHAKE_FINISHED)
         try:
             await fh.perform_handshake(HANDSHAKE_TIMEOUT)
         except asyncio.TimeoutError as err:
@@ -419,7 +417,7 @@ class APIConnection:
 
     def _async_send_keep_alive(self) -> None:
         """Send a keep alive message."""
-        if not self._is_socket_open:
+        if not self.is_connected:
             return
 
         loop = self._loop
@@ -461,7 +459,7 @@ class APIConnection:
 
     def _async_pong_not_received(self) -> None:
         """Ping not received."""
-        if not self._is_socket_open:
+        if not self.is_connected:
             return
         _LOGGER.debug(
             "%s: Ping response not received after %s seconds",
@@ -474,63 +472,104 @@ class APIConnection:
             )
         )
 
-    async def _do_connect(self, login: bool) -> None:
+    async def _do_connect(self) -> None:
         """Do the actual connect process."""
         in_do_connect.set(True)
         addr = await self._connect_resolve_host()
         await self._connect_socket_connect(addr)
-        await self._connect_init_frame_helper()
-        await self._connect_hello()
-        if login:
-            await self.login(check_connected=False)
-        self._async_schedule_keep_alive(self._loop.time())
 
     async def connect(self, *, login: bool) -> None:
+        """Connect to the remote.
+
+        This function is for backwards compatibility.
+
+        The current recommended way to connect is to use start_connection
+        and finish_connection since start_connection can be safely
+        cancelled without putting too much pressure on the device.
+        """
+        await self.start_connection()
+        await self.finish_connection(login=login)
+
+    async def start_connection(self) -> None:
+        """Start the connection process.
+
+        This part of the process establishes the socket connection but
+        does not initialize the frame helper or send the hello message.
+        """
         if self._connection_state != ConnectionState.INITIALIZED:
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
             )
-        self._connect_task = asyncio.create_task(
-            self._do_connect(login), name=f"{self.log_name}: aioesphomeapi do_connect"
+
+        self._start_connect_task = asyncio.create_task(
+            self._do_connect(), name=f"{self.log_name}: aioesphomeapi do_connect"
         )
         try:
             # Allow 2 minutes for connect and setup; this is only as a last measure
             # to protect from issues if some part of the connect process mistakenly
             # does not have a timeout
             async with asyncio_timeout(CONNECT_AND_SETUP_TIMEOUT):
-                await self._connect_task
-        except asyncio.CancelledError:
+                await self._start_connect_task
+        except (Exception, asyncio.CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError
             self._set_connection_state(ConnectionState.CLOSED)
             self._cleanup()
+            if isinstance(ex, asyncio.CancelledError):
+                raise
             raise self._fatal_exception or APIConnectionError("Connection cancelled")
-        except Exception:  # pylint: disable=broad-except
-            # Always clean up the connection if an error occurred during connect
+
+        self._start_connect_task = None
+        self._set_connection_state(ConnectionState.SOCKET_OPENED)
+
+    async def _do_finish_connect(self, login: bool) -> None:
+        """Finish the connection process."""
+        in_do_connect.set(True)
+        await self._connect_init_frame_helper()
+        await self._connect_hello()
+        if login:
+            await self._login()
+        self._async_schedule_keep_alive(self._loop.time())
+
+    async def finish_connection(self, *, login: bool) -> None:
+        """Finish the connection process.
+
+        This part of the process initializes the frame helper and sends the hello message
+        than starts the keep alive process.
+        """
+        if self._connection_state != ConnectionState.SOCKET_OPENED:
+            raise ValueError(
+                "Connection must be in SOCKET_OPENED state to finish connection"
+            )
+        self._finish_connect_task = asyncio.create_task(
+            self._do_finish_connect(login),
+            name=f"{self.log_name}: aioesphomeapi _do_finish_connect",
+        )
+        try:
+            # Allow 2 minutes for connect and setup; this is only as a last measure
+            # to protect from issues if some part of the connect process mistakenly
+            # does not have a timeout
+            async with asyncio_timeout(CONNECT_AND_SETUP_TIMEOUT):
+                await self._finish_connect_task
+        except (Exception, asyncio.CancelledError) as ex:
+            # If the task was cancelled, we need to clean up the connection
+            # and raise the CancelledError
             self._set_connection_state(ConnectionState.CLOSED)
             self._cleanup()
-            raise
+            if isinstance(ex, asyncio.CancelledError):
+                raise
+            raise self._fatal_exception or APIConnectionError("Connection cancelled")
 
-        self._connect_task = None
+        self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)
-        self._connect_complete = True
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log the change."""
         self._connection_state = state
         self.is_connected = state == ConnectionState.CONNECTED
-        self._is_socket_open = state in OPEN_STATES
 
-    async def login(self, check_connected: bool = True) -> None:
+    async def _login(self) -> None:
         """Send a login (ConnectRequest) and await the response."""
-        if check_connected and self.is_connected:
-            # On first connect, we don't want to check if we're connected
-            # because we don't set the connection state until after login
-            # is complete
-            raise APIConnectionError("Must be connected!")
-        if self.is_authenticated:
-            raise APIConnectionError("Already logged in!")
-
         connect = ConnectRequest()
         if self._params.password is not None:
             connect.password = self._params.password
@@ -549,11 +588,9 @@ class APIConnection:
         if resp.invalid_password:
             raise InvalidAuthAPIError("Invalid password!")
 
-        self.is_authenticated = True
-
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
-        if not self._is_socket_open:
+        if not self.is_connected:
             if in_do_connect.get(False):
                 # If we are in the do_connect task, we can't raise an error
                 # because it would obscure the original exception (ie encrypt error).
@@ -805,11 +842,11 @@ class APIConnection:
 
     async def disconnect(self) -> None:
         """Disconnect from the API."""
-        if self._connect_task:
+        if self._finish_connect_task:
             # Try to wait for the handshake to finish so we can send
             # a disconnect request. If it doesn't finish in time
             # we will just close the socket.
-            _, pending = await asyncio.wait([self._connect_task], timeout=5.0)
+            _, pending = await asyncio.wait([self._finish_connect_task], timeout=5.0)
             if pending:
                 _LOGGER.debug(
                     "%s: Connect task didn't finish before disconnect",
@@ -817,7 +854,7 @@ class APIConnection:
                 )
 
         self._expected_disconnect = True
-        if self._is_socket_open and self._frame_helper:
+        if self.is_connected:
             # We still want to send a disconnect request even
             # if the hello phase isn't finished to ensure we
             # the esp will clean up the connection as soon
@@ -837,7 +874,7 @@ class APIConnection:
     async def force_disconnect(self) -> None:
         """Forcefully disconnect from the API."""
         self._expected_disconnect = True
-        if self._is_socket_open and self._frame_helper:
+        if self.is_connected:
             # Still try to tell the esp to disconnect gracefully
             # but don't wait for it to finish
             try:

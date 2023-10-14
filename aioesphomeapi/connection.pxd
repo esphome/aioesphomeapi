@@ -28,7 +28,6 @@ cdef class APIConnection:
     cdef public object _frame_helper
     cdef public object api_version
     cdef public object _connection_state
-    cdef object _connect_complete
     cdef dict _message_handlers
     cdef public str log_name
     cdef set _read_exception_futures
@@ -36,14 +35,13 @@ cdef class APIConnection:
     cdef object _pong_timer
     cdef float _keep_alive_interval
     cdef float _keep_alive_timeout
-    cdef object _connect_task
+    cdef object _start_connect_task
+    cdef object _finish_connect_task
     cdef object _fatal_exception
     cdef bint _expected_disconnect
     cdef object _loop
     cdef bint _send_pending_ping
     cdef public bint is_connected
-    cdef public bint is_authenticated
-    cdef bint _is_socket_open
     cdef object _debug_enabled
 
     cpdef send_message(self, object msg)

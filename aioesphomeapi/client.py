@@ -352,8 +352,6 @@ class APIClient:
                 f"Authenticated connection not ready yet for {self._log_name}; "
                 f"current state is {connection.connection_state}!"
             )
-        if not connection.is_authenticated:
-            raise APIConnectionError(f"Not authenticated for {self._log_name}!")
 
     async def device_info(self) -> DeviceInfo:
         connection = self._connection
