@@ -159,6 +159,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._tries = 0
         self._connection_state = ConnectionState.READY
         await self._on_connect_cb()
+        self._stop_zc_listen()
         return True
 
     def _schedule_connect(self, delay: float) -> None:
@@ -214,11 +215,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 or self._is_stopped
             ):
                 return
-            if tries == 0:
-                # If this is the first try, stop listening for mDNS records
-                self._stop_zc_listen()
             if await self._try_connect():
-                self._stop_zc_listen()
                 return
             wait_time = int(round(min(1.8**tries, 60.0)))
             if tries == 1:
