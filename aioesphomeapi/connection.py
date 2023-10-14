@@ -588,7 +588,7 @@ class APIConnection:
         """Add a message callback without returning a remove callable."""
         message_handlers = self._message_handlers
         for msg_type in msg_types:
-            if (handlers := message_handlers.get(msg_type)) is None: 
+            if (handlers := message_handlers.get(msg_type)) is None:
                 message_handlers[msg_type] = {on_message}
             else:
                 handlers.add(on_message)
