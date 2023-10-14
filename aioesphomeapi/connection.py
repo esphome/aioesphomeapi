@@ -156,7 +156,8 @@ class APIConnection:
         "_loop",
         "_send_pending_ping",
         "is_connected",
-        "_handshake_complete" "_debug_enabled",
+        "_handshake_complete",
+        "_debug_enabled",
     )
 
     def __init__(
