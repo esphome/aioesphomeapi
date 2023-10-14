@@ -313,7 +313,7 @@ class APIClient:
     ) -> None:
         """Connect to the device."""
         await self.start_connection(on_stop)
-        await self.finish_connection(login=login)
+        await self.finish_connection(login)
 
     async def start_connection(
         self,
