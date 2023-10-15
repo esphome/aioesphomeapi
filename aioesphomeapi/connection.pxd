@@ -11,13 +11,35 @@ cdef float KEEP_ALIVE_TIMEOUT_RATIO
 cdef bint TYPE_CHECKING
 
 cdef object DISCONNECT_REQUEST_MESSAGE
+cdef object DISCONNECT_RESPONSE_MESSAGE
 cdef object PING_REQUEST_MESSAGE
 cdef object PING_RESPONSE_MESSAGE
 
+cdef object asyncio_timeout
+cdef object CancelledError
+cdef object asyncio_TimeoutError
+
+cdef object ConnectResponse
 cdef object DisconnectRequest
 cdef object PingRequest
-cdef object GetTimeRequest
+cdef object GetTimeRequest, GetTimeResponse
+
+cdef object APIVersion
+
 cdef object partial
+
+cdef object hr
+
+cdef object RESOLVE_TIMEOUT
+cdef object CONNECT_AND_SETUP_TIMEOUT
+
+cdef object APIConnectionError
+cdef object BadNameAPIError
+cdef object HandshakeAPIError
+cdef object PingFailedAPIError
+cdef object ReadFailedAPIError
+cdef object TimeoutAPIError
+
 
 cdef class APIConnection:
 
