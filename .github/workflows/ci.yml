@@ -88,7 +88,9 @@ jobs:
         if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: pytest -vv --tb=native tests
         name: Run tests with pytest
-      - run: |
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+      - run: |      
           docker run \
             -v "$PWD":/aioesphomeapi \
             ghcr.io/esphome/aioesphomeapi-proto-builder:latest
