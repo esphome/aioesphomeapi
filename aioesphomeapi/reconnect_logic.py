@@ -67,12 +67,12 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self.loop = asyncio.get_event_loop()
         self._cli = client
         self.name: str | None
-        if name:
-            self.name = name
-            self._log_name = f"{self.name} @ {self._cli.address}"
-        elif client.address.endswith(".local"):
+        if client.address.endswith(".local"):
             self.name = client.address[:-6]
             self._log_name = client.address
+        elif name:
+            self.name = name
+            self._log_name = f"{self.name} @ {self._cli.address}"
         else:
             self.name = None
             self._log_name = client.address
