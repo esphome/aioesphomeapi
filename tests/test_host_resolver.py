@@ -1,10 +1,12 @@
+import asyncio
 import socket
 from ipaddress import ip_address
-import asyncio
+
 import pytest
 from mock import AsyncMock, MagicMock, patch
 from zeroconf import DNSCache
-from zeroconf.asyncio import AsyncZeroconf, AsyncServiceInfo
+from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+
 import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.core import APIConnectionError
 
