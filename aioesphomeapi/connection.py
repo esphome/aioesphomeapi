@@ -505,14 +505,14 @@ class APIConnection:
             # and raise the CancelledError
             self._cleanup()
             if isinstance(ex, asyncio.CancelledError):
-                raise
-            if self._fatal_exception:
-                raise self._fatal_exception
+                raise self._fatal_exception or APIConnectionError(
+                    "Connection cancelled"
+                )
             if not start_connect_task.cancelled() and (
                 task_exc := start_connect_task.exception()
             ):
                 raise task_exc
-            raise APIConnectionError("Connection cancelled")
+            raise
         finally:
             self._start_connect_task = None
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
@@ -552,14 +552,14 @@ class APIConnection:
             # and raise the CancelledError
             self._cleanup()
             if isinstance(ex, asyncio.CancelledError):
-                raise
-            if self._fatal_exception:
-                raise self._fatal_exception
+                raise self._fatal_exception or APIConnectionError(
+                    "Connection cancelled"
+                )
             if not finish_connect_task.cancelled() and (
                 task_exc := finish_connect_task.exception()
             ):
                 raise task_exc
-            raise APIConnectionError("Connection cancelled")
+            raise
         finally:
             self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)
