@@ -69,7 +69,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self.name: str | None
         if client.address.endswith(".local"):
             self.name = client.address[:-6]
-            self._log_name = client.address
+            self._log_name = self.name
         elif name:
             self.name = name
             self._log_name = f"{self.name} @ {self._cli.address}"
