@@ -86,7 +86,7 @@ jobs:
       - run: mypy aioesphomeapi
         name: Check typing with mypy
         if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
-      - run: pytest -vv --tb=native tests
+      - run: pytest -vv --cov-report=xml --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
