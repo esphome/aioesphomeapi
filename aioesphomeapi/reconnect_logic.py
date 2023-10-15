@@ -66,9 +66,16 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         self.loop = asyncio.get_event_loop()
         self._cli = client
-        if name is None and client.address.endswith(".local"):
-            name = client.address[:-6]
-        self.name = name
+        self.name: str | None
+        if name:
+            self.name = name
+            self._log_name = f"{self.name} @ {self._cli.address}"
+        elif client.address.endswith(".local"):
+            self.name = client.address[:-6]
+            self._log_name = client.address
+        else:
+            self.name = None
+            self._log_name = client.address
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
@@ -85,12 +92,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._connect_task: asyncio.Task[None] | None = None
         self._connect_timer: asyncio.TimerHandle | None = None
         self._stop_task: asyncio.Task[None] | None = None
-
-    @property
-    def _log_name(self) -> str:
-        if self.name is not None:
-            return f"{self.name} @ {self._cli.address}"
-        return self._cli.address
 
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
         """Log and issue callbacks when disconnecting."""
