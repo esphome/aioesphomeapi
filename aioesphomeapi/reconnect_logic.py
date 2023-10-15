@@ -230,7 +230,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.debug("Trying to connect to %s", self._log_name)
         async with self._connected_lock:
             _LOGGER.debug("Connected lock acquired for %s", self._log_name)
-            tries = min(self._tries, 10)  # prevent OverflowError
             if (
                 self._connection_state != ReconnectLogicState.DISCONNECTED
                 or self._is_stopped
@@ -238,6 +237,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 return
             if await self._try_connect():
                 return
+            tries = min(self._tries, 10)  # prevent OverflowError           
             wait_time = int(round(min(1.8**tries, 60.0)))
             if tries == 1:
                 _LOGGER.info(
