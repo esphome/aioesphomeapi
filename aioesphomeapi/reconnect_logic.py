@@ -160,6 +160,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._tries += 1
             return False
         _LOGGER.info("Successfully connected to %s", self._log_name)
+        self._stop_zc_listen()
         self._connection_state = ReconnectLogicState.HANDSHAKING
         try:
             await self._cli.finish_connection(login=True)
@@ -179,7 +180,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.info("Successful handshake with %s", self._log_name)
         self._connection_state = ReconnectLogicState.READY
         await self._on_connect_cb()
-        self._stop_zc_listen()
         return True
 
     def _schedule_connect(self, delay: float) -> None:
