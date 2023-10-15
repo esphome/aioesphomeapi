@@ -7,11 +7,10 @@ from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
 from typing import Union, cast
 
-from zeroconf import Zeroconf, IPVersion
-from zeroconf.asyncio import AsyncZeroconf, AsyncServiceInfo
+from zeroconf import IPVersion, Zeroconf
+from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from .core import APIConnectionError, ResolveAPIError
-
 
 ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
 
