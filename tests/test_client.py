@@ -54,7 +54,6 @@ def auth_client():
     )
     with patch.object(client, "_connection") as conn:
         conn.is_connected = True
-        conn.is_authenticated = True
         yield client
 
 

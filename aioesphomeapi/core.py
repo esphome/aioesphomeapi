@@ -217,6 +217,10 @@ class ReadFailedAPIError(APIConnectionError):
     pass
 
 
+class UnhandledAPIConnectionError(APIConnectionError):
+    pass
+
+
 def to_human_readable_address(address: int) -> str:
     """Convert a MAC address to a human readable format."""
     return ":".join(TWO_CHAR.findall(f"{address:012X}"))

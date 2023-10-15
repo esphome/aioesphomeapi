@@ -105,6 +105,7 @@ from .core import (
     APIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
+    UnhandledAPIConnectionError,
     to_human_readable_address,
 )
 from .host_resolver import ZeroconfInstanceType
@@ -297,7 +298,7 @@ class APIClient:
 
     @property
     def _log_name(self) -> str:
-        if self._cached_name is not None:
+        if self._cached_name is not None and not self.address.endswith(".local"):
             return f"{self._cached_name} @ {self.address}"
         return self.address
 
@@ -311,6 +312,15 @@ class APIClient:
         on_stop: Callable[[bool], Awaitable[None]] | None = None,
         login: bool = False,
     ) -> None:
+        """Connect to the device."""
+        await self.start_connection(on_stop)
+        await self.finish_connection(login)
+
+    async def start_connection(
+        self,
+        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+    ) -> None:
+        """Start connecting to the device."""
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
@@ -325,13 +335,30 @@ class APIClient:
         )
 
         try:
-            await self._connection.connect(login=login)
+            await self._connection.start_connection()
         except APIConnectionError:
             self._connection = None
             raise
         except Exception as e:
             self._connection = None
-            raise APIConnectionError(
+            raise UnhandledAPIConnectionError(
+                f"Unexpected error while connecting to {self._log_name}: {e}"
+            ) from e
+
+    async def finish_connection(
+        self,
+        login: bool = False,
+    ) -> None:
+        """Finish connecting to the device."""
+        assert self._connection is not None
+        try:
+            await self._connection.finish_connection(login=login)
+        except APIConnectionError:
+            self._connection = None
+            raise
+        except Exception as e:
+            self._connection = None
+            raise UnhandledAPIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
 
@@ -352,18 +379,11 @@ class APIClient:
                 f"Authenticated connection not ready yet for {self._log_name}; "
                 f"current state is {connection.connection_state}!"
             )
-        if not connection.is_authenticated:
-            raise APIConnectionError(f"Not authenticated for {self._log_name}!")
 
     async def device_info(self) -> DeviceInfo:
+        self._check_authenticated()
         connection = self._connection
-        if not connection:
-            raise APIConnectionError(f"Not connected to {self._log_name}!")
-        if not connection or not connection.is_connected:
-            raise APIConnectionError(
-                f"Connection not ready yet for {self._log_name}; "
-                f"current state is {connection.connection_state}!"
-            )
+        assert connection is not None
         resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )

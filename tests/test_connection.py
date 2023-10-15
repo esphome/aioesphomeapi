@@ -12,6 +12,12 @@ from aioesphomeapi.core import RequiresEncryptionAPIError
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
 
+async def connect(conn: APIConnection, login: bool = True):
+    """Wrapper for connection logic to do both parts."""
+    await conn.start_connection()
+    await conn.finish_connection(login=login)
+
+
 @pytest.fixture
 def connection_params() -> ConnectionParams:
     return ConnectionParams(
@@ -81,7 +87,7 @@ async def test_connect(conn, resolve_host, socket_socket, event_loop):
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        connect_task = asyncio.create_task(conn.connect(login=False))
+        connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
         protocol.data_received(
             bytes.fromhex(
@@ -114,7 +120,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         conn._socket = MagicMock()
         await conn._connect_init_frame_helper()
         loop.call_soon(conn._frame_helper._ready_future.set_result, None)
-        conn._connection_state = ConnectionState.CONNECTED
+        conn.connection_state = ConnectionState.CONNECTED
 
         with pytest.raises(RequiresEncryptionAPIError):
             task = asyncio.create_task(conn._connect_hello())
@@ -149,7 +155,7 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
     with patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        connect_task = asyncio.create_task(conn.connect(login=False))
+        connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
     protocol.data_received(

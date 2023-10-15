@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable
+from enum import Enum
 from typing import Callable
 
 import zeroconf
@@ -13,6 +14,7 @@ from .core import (
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
     RequiresEncryptionAPIError,
+    UnhandledAPIConnectionError,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,6 +22,26 @@ _LOGGER = logging.getLogger(__name__)
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
 TYPE_PTR = 12
+
+
+class ReconnectLogicState(Enum):
+    CONNECTING = 0
+    HANDSHAKING = 1
+    READY = 2
+    DISCONNECTED = 3
+
+
+NOT_YET_CONNECTED_STATES = {
+    ReconnectLogicState.DISCONNECTED,
+    ReconnectLogicState.CONNECTING,
+}
+
+
+AUTH_EXCEPTIONS = (
+    RequiresEncryptionAPIError,
+    InvalidEncryptionKeyAPIError,
+    InvalidAuthAPIError,
+)
 
 
 class ReconnectLogic(zeroconf.RecordUpdateListener):
@@ -50,14 +72,23 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         self.loop = asyncio.get_event_loop()
         self._cli = client
-        self.name = name
+        self.name: str | None
+        if client.address.endswith(".local"):
+            self.name = client.address[:-6]
+            self._log_name = self.name
+        elif name:
+            self.name = name
+            self._log_name = f"{self.name} @ {self._cli.address}"
+        else:
+            self.name = None
+            self._log_name = client.address
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
         self._zc = zeroconf_instance
         self._filter_alias: str | None = None
         # Flag to check if the device is connected
-        self._connected = False
+        self._connection_state = ReconnectLogicState.DISCONNECTED
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
         self._zc_listening = False
@@ -67,12 +98,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._connect_task: asyncio.Task[None] | None = None
         self._connect_timer: asyncio.TimerHandle | None = None
         self._stop_task: asyncio.Task[None] | None = None
-
-    @property
-    def _log_name(self) -> str:
-        if self.name is not None:
-            return f"{self.name} @ {self._cli.address}"
-        return self._cli.address
 
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
         """Log and issue callbacks when disconnecting."""
@@ -93,7 +118,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         await self._on_disconnect_cb(expected_disconnect)
 
         async with self._connected_lock:
-            self._connected = False
+            self._connection_state = ReconnectLogicState.DISCONNECTED
 
         wait = EXPECTED_DISCONNECT_COOLDOWN if expected_disconnect else 0
         # If we expected the disconnect we need
@@ -102,41 +127,64 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # before its about to reboot in the event we are too fast.
         self._schedule_connect(wait)
 
+    def _async_log_connection_error(self, err: Exception) -> None:
+        """Log connection errors."""
+        # UnhandledAPIConnectionError is a special case in client
+        # for when the connection raises an exception that is not
+        # handled by the client. This is usually a bug in the connection
+        # code and should be logged as an error.
+        is_handled_exception = not isinstance(
+            err, UnhandledAPIConnectionError
+        ) and isinstance(err, APIConnectionError)
+        if not is_handled_exception:
+            level = logging.ERROR
+        elif self._tries == 0:
+            level = logging.WARNING
+        else:
+            level = logging.DEBUG
+        _LOGGER.log(
+            level,
+            "Can't connect to ESPHome API for %s: %s (%s)",
+            self._log_name,
+            err,
+            type(err).__name__,
+            # Print stacktrace if unhandled
+            exc_info=not is_handled_exception,
+        )
+
     async def _try_connect(self) -> bool:
         """Try connecting to the API client."""
         assert self._connected_lock.locked(), "connected_lock must be locked"
+        self._connection_state = ReconnectLogicState.CONNECTING
         try:
-            await self._cli.connect(on_stop=self._on_disconnect, login=True)
+            await self._cli.start_connection(on_stop=self._on_disconnect)
         except Exception as err:  # pylint: disable=broad-except
+            self._connection_state = ReconnectLogicState.DISCONNECTED
             if self._on_connect_error_cb is not None:
                 await self._on_connect_error_cb(err)
-            level = logging.WARNING if self._tries == 0 else logging.DEBUG
-            _LOGGER.log(
-                level,
-                "Can't connect to ESPHome API for %s: %s (%s)",
-                self._log_name,
-                err,
-                type(err).__name__,
-                # Print stacktrace if unhandled (not APIConnectionError)
-                exc_info=not isinstance(err, APIConnectionError),
-            )
-            if isinstance(
-                err,
-                (
-                    RequiresEncryptionAPIError,
-                    InvalidEncryptionKeyAPIError,
-                    InvalidAuthAPIError,
-                ),
-            ):
+            self._async_log_connection_error(err)
+            self._tries += 1
+            return False
+        _LOGGER.info("Successfully connected to %s", self._log_name)
+        self._stop_zc_listen()
+        self._connection_state = ReconnectLogicState.HANDSHAKING
+        try:
+            await self._cli.finish_connection(login=True)
+        except Exception as err:  # pylint: disable=broad-except
+            self._connection_state = ReconnectLogicState.DISCONNECTED
+            if self._on_connect_error_cb is not None:
+                await self._on_connect_error_cb(err)
+            self._async_log_connection_error(err)
+            if isinstance(err, AUTH_EXCEPTIONS):
                 # If we get an encryption or password error,
                 # backoff for the maximum amount of time
                 self._tries = MAXIMUM_BACKOFF_TRIES
             else:
                 self._tries += 1
             return False
-        _LOGGER.info("Successfully connected to %s", self._log_name)
-        self._connected = True
         self._tries = 0
+        _LOGGER.info("Successful handshake with %s", self._log_name)
+        self._connection_state = ReconnectLogicState.READY
         await self._on_connect_cb()
         return True
 
@@ -156,6 +204,19 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _schedule_connect.
         """
+        if self._connect_task:
+            if self._connection_state != ReconnectLogicState.CONNECTING:
+                # Connection state is far enough along that we should
+                # not restart the connect task
+                return
+            _LOGGER.debug(
+                "%s: Cancelling existing connect task, to try again now!",
+                self._log_name,
+            )
+            self._connect_task.cancel("Scheduling new connect attempt")
+            self._connect_task = None
+            self._connection_state = ReconnectLogicState.DISCONNECTED
+
         self._connect_task = asyncio.create_task(
             self._connect_once_or_reschedule(),
             name=f"{self._log_name}: aioesphomeapi connect",
@@ -178,8 +239,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.debug("Trying to connect to %s", self._log_name)
         async with self._connected_lock:
             _LOGGER.debug("Connected lock acquired for %s", self._log_name)
-            self._stop_zc_listen()
-            if self._connected or self._is_stopped:
+            if (
+                self._connection_state != ReconnectLogicState.DISCONNECTED
+                or self._is_stopped
+            ):
                 return
             if await self._try_connect():
                 return
@@ -195,22 +258,21 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._start_zc_listen()
             self._schedule_connect(wait_time)
 
+    def _remove_stop_task(self, _fut: asyncio.Future[None]) -> None:
+        """Remove the stop task from the connect loop.
+        We need to do this because the asyncio does not hold
+        a strong reference to the task, so it can be garbage
+        collected unexpectedly.
+        """
+        self._stop_task = None
+
     def stop_callback(self) -> None:
         """Stop the connect logic."""
-
-        def _remove_stop_task(_fut: asyncio.Future[None]) -> None:
-            """Remove the stop task from the connect loop.
-            We need to do this because the asyncio does not hold
-            a strong reference to the task, so it can be garbage
-            collected unexpectedly.
-            """
-            self._stop_task = None
-
         self._stop_task = asyncio.create_task(
             self.stop(),
             name=f"{self._log_name}: aioesphomeapi reconnect_logic stop_callback",
         )
-        self._stop_task.add_done_callback(_remove_stop_task)
+        self._stop_task.add_done_callback(self._remove_stop_task)
 
     async def start(self) -> None:
         """Start the connecting logic background task."""
@@ -218,7 +280,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._cli.set_cached_name_if_unset(self.name)
         async with self._connected_lock:
             self._is_stopped = False
-            if self._connected:
+            if self._connection_state != ReconnectLogicState.DISCONNECTED:
                 return
             self._tries = 0
             self._schedule_connect(0.0)
@@ -261,10 +323,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         This is a mDNS record from the device and could mean it just woke up.
         """
-
         # Check if already connected, no lock needed for this access and
         # bail if either the already stopped or we haven't received device info yet
-        if self._connected or self._is_stopped or self._filter_alias is None:
+        if (
+            self._connection_state not in NOT_YET_CONNECTED_STATES
+            or self._is_stopped
+            or self._filter_alias is None
+        ):
             return
 
         for record_update in records:
