@@ -508,8 +508,10 @@ class APIConnection:
                 raise
             if self._fatal_exception:
                 raise self._fatal_exception
-            if not start_connect_task.cancelled() and start_connect_task.exception():
-                raise start_connect_task.exception()
+            if not start_connect_task.cancelled() and (
+                task_exc := start_connect_task.exception()
+            ):
+                raise task_exc
             raise APIConnectionError("Connection cancelled")
         finally:
             self._start_connect_task = None
@@ -553,8 +555,10 @@ class APIConnection:
                 raise
             if self._fatal_exception:
                 raise self._fatal_exception
-            if not finish_connect_task.cancelled() and finish_connect_task.exception():
-                raise finish_connect_task.exception()
+            if not finish_connect_task.cancelled() and (
+                task_exc := finish_connect_task.exception()
+            ):
+                raise task_exc
             raise APIConnectionError("Connection cancelled")
         finally:
             self._finish_connect_task = None
