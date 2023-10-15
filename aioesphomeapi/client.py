@@ -298,7 +298,7 @@ class APIClient:
 
     @property
     def _log_name(self) -> str:
-        if self._cached_name is not None:
+        if self._cached_name is not None and not self.address.endswith(".local"):
             return f"{self._cached_name} @ {self.address}"
         return self.address
 
