@@ -304,19 +304,21 @@ class APIClient:
     def address(self) -> str:
         return self._params.address
 
-    def _set_log_name(self) -> None:
-        """Set the log name of the device."""
-        address_is_host = self.address.endswith(".local")
+    def _get_log_name(self) -> str:
+        """Get the log name of the device."""
+        address = self.address
+        address_is_host = address.endswith(".local")
         if self._cached_name is not None:
             if address_is_host:
-                self._log_name = self._cached_name
-            else:
-                self._log_name = f"{self._cached_name} @ {self.address}"
-            return
-        elif address_is_host:
-            self._log_name = self.address[:-6]
-            return
-        self._log_name = self.address
+                return self._cached_name
+            return f"{self._cached_name} @ {address}"
+        if address_is_host:
+            return address[:-6]
+        return address
+
+    def _set_log_name(self) -> None:
+        """Set the log name of the device."""
+        self._log_name = self._get_log_name()
 
     def set_cached_name_if_unset(self, name: str) -> None:
         """Set the cached name of the device if not set."""
