@@ -1,7 +1,6 @@
-from sys import version
 
 import pytest
-from mock import AsyncMock, MagicMock, call, patch
+from mock import AsyncMock, MagicMock, patch
 
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,

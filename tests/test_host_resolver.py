@@ -1,4 +1,3 @@
-import asyncio
 import socket
 from ipaddress import ip_address
 
