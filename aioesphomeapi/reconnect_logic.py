@@ -31,6 +31,12 @@ class ReconnectLogicState(Enum):
     DISCONNECTED = 3
 
 
+NOT_YET_CONNECTED_STATES = {
+    ReconnectLogicState.DISCONNECTED,
+    ReconnectLogicState.CONNECTING,
+}
+
+
 AUTH_EXCEPTIONS = (
     RequiresEncryptionAPIError,
     InvalidEncryptionKeyAPIError,
@@ -320,8 +326,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # Check if already connected, no lock needed for this access and
         # bail if either the already stopped or we haven't received device info yet
         if (
-            self._connection_state
-            not in {ReconnectLogicState.DISCONNECTED, ReconnectLogicState.CONNECTING}
+            self._connection_state not in NOT_YET_CONNECTED_STATES
             or self._is_stopped
             or self._filter_alias is None
         ):
