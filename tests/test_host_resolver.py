@@ -146,3 +146,21 @@ async def test_resolve_host_addrinfo_empty(resolve_addr, resolve_zc, addr_infos)
 
     resolve_zc.assert_not_called()
     resolve_addr.assert_called_once_with("example.com", 6052)
+
+
+@pytest.mark.asyncio
+@patch("aioesphomeapi.host_resolver._async_resolve_host_zeroconf")
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
+async def test_resolve_host_with_address(resolve_addr, resolve_zc):
+    resolve_zc.return_value = []
+    resolve_addr.return_value = addr_infos
+    ret = await hr.async_resolve_host("127.0.0.1", 6052)
+
+    resolve_zc.assert_not_called()
+    resolve_addr.assert_not_called()
+    assert ret == hr.AddrInfo(
+        family=socket.AddressFamily.AF_INET,
+        type=socket.SocketKind.SOCK_STREAM,
+        proto=6,
+        sockaddr=hr.IPv4Sockaddr(address="127.0.0.1", port=6052),
+    )

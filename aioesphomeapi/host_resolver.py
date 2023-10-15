@@ -209,7 +209,7 @@ async def async_resolve_host(
         except APIConnectionError as err:
             zc_error = err
 
-    if not addrs:
+    else:
         addrs.extend(_async_ip_address_to_addrs(host, port))
 
     if not addrs:
