@@ -78,7 +78,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._log_name = self.name
         elif name:
             self.name = name
-            self._log_name = f"{self.name} @ {self._cli.address}"
+            self._log_name = f"{name} @ {self._cli.address}"
+            self._cli.set_cached_name_if_unset(name)
         else:
             self.name = None
             self._log_name = client.address
@@ -276,8 +277,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     async def start(self) -> None:
         """Start the connecting logic background task."""
-        if self.name:
-            self._cli.set_cached_name_if_unset(self.name)
         async with self._connected_lock:
             self._is_stopped = False
             if self._connection_state != ReconnectLogicState.DISCONNECTED:

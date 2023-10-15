@@ -239,7 +239,14 @@ ExecuteServiceDataType = dict[
 
 # pylint: disable=too-many-public-methods
 class APIClient:
-    __slots__ = ("_params", "_connection", "_cached_name", "_background_tasks", "_loop")
+    __slots__ = (
+        "_params",
+        "_connection",
+        "_cached_name",
+        "_background_tasks",
+        "_loop",
+        "_log_name",
+    )
 
     def __init__(
         self,
@@ -283,6 +290,7 @@ class APIClient:
         self._cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
+        self._set_log_name()
 
     @property
     def expected_name(self) -> str | None:
@@ -296,16 +304,25 @@ class APIClient:
     def address(self) -> str:
         return self._params.address
 
-    @property
-    def _log_name(self) -> str:
-        if self._cached_name is not None and not self.address.endswith(".local"):
-            return f"{self._cached_name} @ {self.address}"
-        return self.address
+    def _set_log_name(self) -> None:
+        """Set the log name of the device."""
+        address_is_host = self.address.endswith(".local")
+        if self._cached_name is not None:
+            if address_is_host:
+                self._log_name = self._cached_name
+            else:
+                self._log_name = f"{self._cached_name} @ {self.address}"
+            return
+        elif address_is_host:
+            self._log_name = self.address[:-6]
+            return
+        self._log_name = self.address
 
     def set_cached_name_if_unset(self, name: str) -> None:
         """Set the cached name of the device if not set."""
         if not self._cached_name:
             self._cached_name = name
+            self._set_log_name()
 
     async def connect(
         self,
@@ -390,6 +407,7 @@ class APIClient:
         info = DeviceInfo.from_pb(resp)
         self._cached_name = info.name
         connection.set_log_name(self._log_name)
+        self._set_log_name()
         return info
 
     async def list_entities_services(
