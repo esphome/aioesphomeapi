@@ -39,6 +39,7 @@ from aioesphomeapi.api_pb2 import (
     TextSensorStateResponse,
 )
 from aioesphomeapi.model import (
+    _TYPE_TO_NAME,
     AlarmControlPanelEntityState,
     AlarmControlPanelInfo,
     APIIntEnum,
@@ -78,9 +79,8 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
-    converter_field,
     build_unique_id,
-    _TYPE_TO_NAME
+    converter_field,
 )
 
 
