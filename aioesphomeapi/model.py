@@ -5,7 +5,7 @@ import sys
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
 from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined]
