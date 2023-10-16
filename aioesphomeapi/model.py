@@ -5,7 +5,7 @@ import sys
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union, cast
 from uuid import UUID
 
 from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined]
@@ -1120,3 +1120,36 @@ class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_WAKE_WORD_END = 10
     VOICE_ASSISTANT_STT_VAD_START = 11
     VOICE_ASSISTANT_STT_VAD_END = 12
+
+
+_TYPE_TO_NAME = {
+    BinarySensorInfo: "binary_sensor",
+    ButtonInfo: "button",
+    CoverInfo: "cover",
+    FanInfo: "fan",
+    LightInfo: "light",
+    NumberInfo: "number",
+    SelectInfo: "select",
+    SensorInfo: "sensor",
+    SirenInfo: "siren",
+    SwitchInfo: "switch",
+    TextSensorInfo: "text_sensor",
+    CameraInfo: "camera",
+    ClimateInfo: "climate",
+    LockInfo: "lock",
+    MediaPlayerInfo: "media_player",
+    AlarmControlPanelInfo: "alarm_control_panel",
+}
+
+
+def build_unique_id(formatted_mac: str, entity_info: EntityInfo) -> str:
+    """Build a unique id for an entity.
+
+    This is the new format for unique ids which replaces the old format
+    that is included in the EntityInfo object. This new format is used
+    because the old format used the name in the unique id which is not
+    guaranteed to be unique. This new format is guaranteed to be unique
+    and is also more human readable.
+    """
+    # <mac>-<entity type>-<object_id>
+    return f"{formatted_mac}-{_TYPE_TO_NAME[type(entity_info)]}-{entity_info.object_id}"
