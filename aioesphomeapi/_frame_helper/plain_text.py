@@ -39,8 +39,7 @@ def _bytes_to_varuint(value: _bytes) -> _int | None:
     """Convert bytes to a varuint."""
     result = 0
     bitpos = 0
-    for pos in range(0, len(value)):
-        val = value[pos]
+    for val in value:
         result |= (val & 0x7F) << bitpos
         if (val & 0x80) == 0:
             return result
