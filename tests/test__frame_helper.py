@@ -4,12 +4,14 @@ import pytest
 
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.base import WRITE_EXCEPTIONS
+from aioesphomeapi._frame_helper.plain_text import _bytes_to_varuint as bytes_to_varuint
 from aioesphomeapi._frame_helper.plain_text import (
-    _bytes_to_varuint as bytes_to_varuint,
     _cached_bytes_to_varuint as cached_bytes_to_varuint,
-    _cached_varuint_to_bytes as cached_varuint_to_bytes,
-    _varuint_to_bytes as varuint_to_bytes,
 )
+from aioesphomeapi._frame_helper.plain_text import (
+    _cached_varuint_to_bytes as cached_varuint_to_bytes,
+)
+from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
 from aioesphomeapi.core import (
     BadNameAPIError,
     InvalidEncryptionKeyAPIError,
