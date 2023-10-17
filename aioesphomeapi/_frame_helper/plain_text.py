@@ -2,13 +2,53 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError, SocketAPIError
-from ..util import bytes_to_varuint, varuint_to_bytes
 from .base import WRITE_EXCEPTIONS, APIFrameHelper
 
 _LOGGER = logging.getLogger(__name__)
+
+_int = int
+_bytes = bytes
+
+
+def _varuint_to_bytes(value: _int) -> bytes:
+    """Convert a varuint to bytes."""
+    if value <= 0x7F:
+        return bytes((value,))
+
+    result = []
+    while value:
+        temp = value & 0x7F
+        value >>= 7
+        if value:
+            result.append(temp | 0x80)
+        else:
+            result.append(temp)
+
+    return bytes(result)
+
+
+_cached_varuint_to_bytes = lru_cache(maxsize=1024)(_varuint_to_bytes)
+varuint_to_bytes = _cached_varuint_to_bytes
+
+
+def _bytes_to_varuint(value: _bytes) -> _int | None:
+    """Convert bytes to a varuint."""
+    result = 0
+    bitpos = 0
+    for val in value:
+        result |= (val & 0x7F) << bitpos
+        if (val & 0x80) == 0:
+            return result
+        bitpos += 7
+    return None
+
+
+_cached_bytes_to_varuint = lru_cache(maxsize=1024)(_bytes_to_varuint)
+bytes_to_varuint = _cached_bytes_to_varuint
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
