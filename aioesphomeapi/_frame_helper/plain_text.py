@@ -6,7 +6,6 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError, SocketAPIError
-from ..util import bytes_to_varuint, varuint_to_bytes
 from .base import WRITE_EXCEPTIONS, APIFrameHelper
 
 _LOGGER = logging.getLogger(__name__)
