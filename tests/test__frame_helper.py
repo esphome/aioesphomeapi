@@ -4,8 +4,12 @@ import pytest
 
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.base import WRITE_EXCEPTIONS
-from aioesphomeapi._frame_helper.plain_text import _cached_bytes_to_varuint, _cached_varuint_to_bytes, _bytes_to_varuint, _varuint_to_bytes
-
+from aioesphomeapi._frame_helper.plain_text import (
+    _bytes_to_varuint,
+    _cached_bytes_to_varuint,
+    _cached_varuint_to_bytes,
+    _varuint_to_bytes,
+)
 from aioesphomeapi.core import (
     BadNameAPIError,
     InvalidEncryptionKeyAPIError,
@@ -236,7 +240,6 @@ async def test_noise_incorrect_name():
 
     with pytest.raises(BadNameAPIError):
         await helper.perform_handshake(30)
-
 
 
 VARUINT_TESTCASES = [
