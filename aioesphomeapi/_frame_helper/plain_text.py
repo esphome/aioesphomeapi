@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError, SocketAPIError
 from ..util import bytes_to_varuint, varuint_to_bytes
