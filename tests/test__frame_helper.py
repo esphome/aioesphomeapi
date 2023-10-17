@@ -5,17 +5,16 @@ import pytest
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.base import WRITE_EXCEPTIONS
 from aioesphomeapi._frame_helper.plain_text import (
-    _bytes_to_varuint,
-    _cached_bytes_to_varuint,
-    _cached_varuint_to_bytes,
-    _varuint_to_bytes,
+    _bytes_to_varuint as bytes_to_varuint,
+    _cached_bytes_to_varuint as cached_bytes_to_varuint,
+    _cached_varuint_to_bytes as cached_varuint_to_bytes,
+    _varuint_to_bytes as varuint_to_bytes,
 )
 from aioesphomeapi.core import (
     BadNameAPIError,
     InvalidEncryptionKeyAPIError,
     SocketAPIError,
 )
-from aioesphomeapi.util import varuint_to_bytes
 
 PREAMBLE = b"\x00"
 
@@ -254,11 +253,11 @@ VARUINT_TESTCASES = [
 
 @pytest.mark.parametrize("val, encoded", VARUINT_TESTCASES)
 def test_varuint_to_bytes(val, encoded):
-    assert _varuint_to_bytes(val) == encoded
-    assert _cached_varuint_to_bytes(val) == encoded
+    assert varuint_to_bytes(val) == encoded
+    assert cached_varuint_to_bytes(val) == encoded
 
 
 @pytest.mark.parametrize("val, encoded", VARUINT_TESTCASES)
 def test_bytes_to_varuint(val, encoded):
-    assert _bytes_to_varuint(encoded) == val
-    assert _cached_bytes_to_varuint(encoded) == val
+    assert bytes_to_varuint(encoded) == val
+    assert cached_bytes_to_varuint(encoded) == val
