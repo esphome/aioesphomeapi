@@ -277,13 +277,12 @@ class APIConnection:
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
         try:
-            coro = hr.async_resolve_host(
-                self._params.address,
-                self._params.port,
-                self._params.zeroconf_instance,
-            )
             async with asyncio_timeout(RESOLVE_TIMEOUT):
-                return await coro
+                return await hr.async_resolve_host(
+                    self._params.address,
+                    self._params.port,
+                    self._params.zeroconf_instance,
+                )
         except asyncio_TimeoutError as err:
             raise ResolveAPIError(
                 f"Timeout while resolving IP address for {self.log_name}"
