@@ -31,9 +31,17 @@ GITHUB_URL = "https://github.com/{}".format(GITHUB_PATH)
 
 DOWNLOAD_URL = "{}/archive/{}.zip".format(GITHUB_URL, VERSION)
 
+MODULES_TO_CYTHONIZE = [
+    "aioesphomeapi/connection.py",
+    "aioesphomeapi/_frame_helper/plain_text.py",
+    "aioesphomeapi/_frame_helper/noise.py",
+    "aioesphomeapi/_frame_helper/base.py",
+]
+
 with open(os.path.join(here, "requirements.txt")) as requirements_txt:
     REQUIRES = requirements_txt.read().splitlines()
 
+pkgs = find_packages(exclude=["tests", "tests.*"])
 
 setup_kwargs = {
     "name": PROJECT_PACKAGE_NAME,
@@ -45,7 +53,8 @@ setup_kwargs = {
     "description": "Python API for interacting with ESPHome devices.",
     "long_description": long_description,
     "license": PROJECT_LICENSE,
-    "packages": find_packages(exclude=["tests", "tests.*"]),
+    "packages": pkgs,
+    "exclude_package_data": {pkg: ["*.c"] for pkg in pkgs},
     "include_package_data": True,
     "zip_safe": False,
     "install_requires": REQUIRES,
@@ -71,12 +80,7 @@ def cythonize_if_available(setup_kwargs):
         setup_kwargs.update(
             dict(
                 ext_modules=cythonize(
-                    [
-                        "aioesphomeapi/connection.py",
-                        "aioesphomeapi/_frame_helper/plain_text.py",
-                        "aioesphomeapi/_frame_helper/noise.py",
-                        "aioesphomeapi/_frame_helper/base.py",
-                    ],
+                    MODULES_TO_CYTHONIZE,
                     compiler_directives={"language_level": "3"},  # Python 3
                 ),
                 cmdclass=dict(build_ext=OptionalBuildExt),
