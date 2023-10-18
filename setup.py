@@ -32,11 +32,11 @@ GITHUB_URL = "https://github.com/{}".format(GITHUB_PATH)
 DOWNLOAD_URL = "{}/archive/{}.zip".format(GITHUB_URL, VERSION)
 
 MODULES_TO_CYTHONIZE = [
-                        "aioesphomeapi/connection.py",
-                        "aioesphomeapi/_frame_helper/plain_text.py",
-                        "aioesphomeapi/_frame_helper/noise.py",
-                        "aioesphomeapi/_frame_helper/base.py",
-                    ]
+    "aioesphomeapi/connection.py",
+    "aioesphomeapi/_frame_helper/plain_text.py",
+    "aioesphomeapi/_frame_helper/noise.py",
+    "aioesphomeapi/_frame_helper/base.py",
+]
 
 with open(os.path.join(here, "requirements.txt")) as requirements_txt:
     REQUIRES = requirements_txt.read().splitlines()
@@ -76,6 +76,7 @@ def cythonize_if_available(setup_kwargs):
         return
     try:
         from Cython.Build import cythonize
+
         setup_kwargs.update(
             dict(
                 ext_modules=cythonize(
