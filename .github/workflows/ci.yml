@@ -24,12 +24,12 @@ jobs:
           - "3.9"
           - "3.10"
           - "3.11"
-          - "3.12"   
+          - "3.12"
         os:
-          - ubuntu-latest            
+          - ubuntu-latest
         extension:
           - "skip_cython"
-          - "use_cython"            
+          - "use_cython"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -90,7 +90,7 @@ jobs:
         name: Run tests with pytest
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
-      - run: |      
+      - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
             ghcr.io/esphome/aioesphomeapi-proto-builder:latest

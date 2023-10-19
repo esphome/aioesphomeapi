@@ -13,4 +13,3 @@ Before creating a release: Check the latest commit passes continuous integration
 When the release button on the draft is clicked, GitHub Actions will publish the release to PyPi.
 
 After any push to the main branch, the "protoc-update" workflow is run which updates the generated python protobuf files. This is to ensure that if a contributor has a newer protoc version installed than the protobuf python package, we won't run into any issues.
-
