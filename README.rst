@@ -43,25 +43,25 @@ The sample code below will connect to the device and retrieve details.
 
    import aioesphomeapi
    import asyncio
-   
+
    async def main():
        """Connect to an ESPHome device and get details."""
 
-       # Establish connection 
+       # Establish connection
        api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
        await api.connect(login=True)
-       
+
        # Get API version of the device's firmware
        print(api.api_version)
-       
+
        # Show device details
        device_info = await api.device_info()
        print(device_info)
-       
+
        # List all entities of the device
        entities = await api.list_entities_services()
        print(entities)
-       
+
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
 
@@ -71,20 +71,20 @@ Subscribe to state changes of an ESPHome device.
 
    import aioesphomeapi
    import asyncio
-   
+
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
        cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
-       
+
        await cli.connect(login=True)
 
        def change_callback(state):
            """Print the state changes of the device.."""
            print(state)
-       
+
        # Subscribe to the state changes
        await cli.subscribe_states(change_callback)
-   
+
    loop = asyncio.get_event_loop()
    try:
        asyncio.ensure_future(main())

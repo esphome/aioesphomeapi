@@ -19,10 +19,10 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     @cython.locals(
         header=bytes,
-        preamble=cython.uint, 
-        msg_size_high=cython.uint, 
+        preamble=cython.uint,
+        msg_size_high=cython.uint,
         msg_size_low=cython.uint,
-    )    
+    )
     cpdef data_received(self, bytes data)
 
     @cython.locals(
