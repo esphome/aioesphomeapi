@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Union, cast
 
 from google.protobuf import message
 
-from .api_pb2 import (  # pylint: disable=no-name-in-module # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined] # pylint: disable=no-name-in-module
     AlarmControlPanelCommandRequest,
     AlarmControlPanelStateResponse,
     BinarySensorStateResponse,

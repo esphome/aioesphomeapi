@@ -1,5 +1,5 @@
 # flake8: noqa
-from .api_pb2 import (  # pylint: disable=no-name-in-module # type: ignore[attr-defined]
+from .api_pb2 import (  # type: ignore[attr-defined] # pylint: disable=no-name-in-module
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
 )

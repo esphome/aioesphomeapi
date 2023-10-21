@@ -9,7 +9,7 @@ from datetime import datetime
 
 import zeroconf
 
-from aioesphomeapi.api_pb2 import (  # pylint: disable=no-name-in-module # type: ignore
+from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined] # pylint: disable=no-name-in-module
     SubscribeLogsResponse,
 )
 from aioesphomeapi.client import APIClient
