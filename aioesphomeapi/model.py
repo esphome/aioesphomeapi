@@ -8,7 +8,6 @@ from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
-from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined]
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
@@ -22,7 +21,6 @@ else:
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
-        BluetoothLERawAdvertisementsResponse,
         HomeassistantServiceMap,
     )
 
@@ -925,19 +923,6 @@ class BluetoothLEAdvertisement:
             service_data=service_data,
             manufacturer_data=manufacturer_data,
         )
-
-
-def make_ble_raw_advertisement_processor(
-    on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
-) -> Callable[[BluetoothLERawAdvertisementsResponse], None]:
-    """Make a processor for BluetoothLERawAdvertisementResponse."""
-
-    def _on_ble_raw_advertisement_response(
-        data: BluetoothLERawAdvertisementsResponse,
-    ) -> None:
-        on_advertisements(data.advertisements)
-
-    return _on_ble_raw_advertisement_response
 
 
 @_frozen_dataclass_decorator
