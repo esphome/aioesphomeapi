@@ -9,7 +9,9 @@ from datetime import datetime
 
 import zeroconf
 
-from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore
+from aioesphomeapi.api_pb2 import (  # pylint: disable=no-name-in-module # type: ignore
+    SubscribeLogsResponse,
+)
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.model import LogLevel
