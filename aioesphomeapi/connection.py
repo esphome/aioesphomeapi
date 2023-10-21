@@ -527,7 +527,8 @@ class APIConnection:
         await self._connect_hello()
         if login:
             await self._login()
-        self._async_schedule_keep_alive(self._loop.time())
+
+        #self._async_schedule_keep_alive(self._loop.time())
 
     async def finish_connection(self, *, login: bool) -> None:
         """Finish the connection process.
