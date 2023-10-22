@@ -138,6 +138,16 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     ) -> None:
         """Set the connection state while holding the lock."""
         assert self._connected_lock.locked(), "connected_lock must be locked"
+        self._async_set_connection_state_without_lock(state)
+
+    def _async_set_connection_state_without_lock(
+        self, state: ReconnectLogicState
+    ) -> None:
+        """Set the connection state without holding the lock.
+        
+        This should only be used for setting the state to DISCONNECTED
+        when the state is CONNECTING.
+        """
         self._connection_state = state
         self._accept_zeroconf_records = state not in NOT_YET_CONNECTED_STATES
 
@@ -232,7 +242,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             )
             self._connect_task.cancel("Scheduling new connect attempt")
             self._connect_task = None
-            self._connection_state = ReconnectLogicState.DISCONNECTED
+            self._async_set_connection_state_without_lock(ReconnectLogicState.DISCONNECTED)
 
         self._connect_task = asyncio.create_task(
             self._connect_once_or_reschedule(),
