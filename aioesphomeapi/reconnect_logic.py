@@ -320,6 +320,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # Cancel again while holding the lock
             self._cancel_connect("Stopping")
             self._stop_zc_listen()
+            self._async_set_connection_state_while_locked(
+                ReconnectLogicState.DISCONNECTED
+            )
 
     def _start_zc_listen(self) -> None:
         """Listen for mDNS records.
