@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable
 from enum import Enum
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 import zeroconf
 
@@ -362,11 +362,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         for record_update in records:
             # We only consider PTR records and match using the alias name
             new_record = record_update.new
-            if new_record.type != TYPE_PTR:
-                continue
-            if TYPE_CHECKING:
-                assert isinstance(new_record, zeroconf.DNSPointer)
-            if new_record.alias != self._filter_alias:
+            if new_record.type != TYPE_PTR or new_record.alias != self._filter_alias:  # type: ignore[attr-defined]
                 continue
 
             # Tell connection logic to retry connection attempt now (even before connect timer finishes)
