@@ -144,7 +144,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self, state: ReconnectLogicState
     ) -> None:
         """Set the connection state without holding the lock.
-        
+
         This should only be used for setting the state to DISCONNECTED
         when the state is CONNECTING.
         """
@@ -242,7 +242,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             )
             self._connect_task.cancel("Scheduling new connect attempt")
             self._connect_task = None
-            self._async_set_connection_state_without_lock(ReconnectLogicState.DISCONNECTED)
+            self._async_set_connection_state_without_lock(
+                ReconnectLogicState.DISCONNECTED
+            )
 
         self._connect_task = asyncio.create_task(
             self._connect_once_or_reschedule(),
