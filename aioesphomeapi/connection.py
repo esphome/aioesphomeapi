@@ -60,9 +60,6 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024 * 2  # Set buffer limit to 2MB
 
-
-INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
-
 DISCONNECT_REQUEST_MESSAGE = DisconnectRequest()
 DISCONNECT_RESPONSE_MESSAGE = DisconnectResponse()
 PING_REQUEST_MESSAGE = PingRequest()
@@ -524,6 +521,7 @@ class APIConnection:
         """Finish the connection process."""
         in_do_connect.set(True)
         await self._connect_init_frame_helper()
+        self._register_internal_message_handlers()
         await self._connect_hello()
         if login:
             await self._login()
@@ -832,16 +830,39 @@ class APIConnection:
             for handler in handlers_copy:
                 handler(msg)
 
-        if msg_type is DisconnectRequest:
-            self.send_message(DISCONNECT_RESPONSE_MESSAGE)
-            self._expected_disconnect = True
-            self._cleanup()
-        elif msg_type is PingRequest:
-            self.send_message(PING_RESPONSE_MESSAGE)
-        elif msg_type is GetTimeRequest:
-            resp = GetTimeResponse()
-            resp.epoch_seconds = int(time.time())
-            self.send_message(resp)
+    def _register_internal_message_handlers(self) -> None:
+        """Register internal message handlers."""
+        self._add_message_callback_without_remove(
+            self._handle_disconnect_request_internal, (DisconnectRequest,)
+        )
+        self._add_message_callback_without_remove(
+            self._handle_ping_request_internal, (PingRequest,)
+        )
+        self._add_message_callback_without_remove(
+            self._handle_get_time_request_internal, (GetTimeRequest,)
+        )
+
+    def _handle_disconnect_request_internal(  # pylint: disable=unused-argument
+        self, _msg: DisconnectRequest
+    ) -> None:
+        """Handle a DisconnectRequest."""
+        self.send_message(DISCONNECT_RESPONSE_MESSAGE)
+        self._expected_disconnect = True
+        self._cleanup()
+
+    def _handle_ping_request_internal(  # pylint: disable=unused-argument
+        self, _msg: PingRequest
+    ) -> None:
+        """Handle a PingRequest."""
+        self.send_message(PING_RESPONSE_MESSAGE)
+
+    def _handle_get_time_request_internal(  # pylint: disable=unused-argument
+        self, _msg: GetTimeRequest
+    ) -> None:
+        """Handle a GetTimeRequest."""
+        resp = GetTimeResponse()
+        resp.epoch_seconds = int(time.time())
+        self.send_message(resp)
 
     async def disconnect(self) -> None:
         """Disconnect from the API."""
