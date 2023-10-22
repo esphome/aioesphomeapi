@@ -60,9 +60,6 @@ _LOGGER = logging.getLogger(__name__)
 
 BUFFER_SIZE = 1024 * 1024 * 2  # Set buffer limit to 2MB
 
-
-INTERNAL_MESSAGE_TYPES = {GetTimeRequest, PingRequest, DisconnectRequest}
-
 DISCONNECT_REQUEST_MESSAGE = DisconnectRequest()
 DISCONNECT_RESPONSE_MESSAGE = DisconnectResponse()
 PING_REQUEST_MESSAGE = PingRequest()
