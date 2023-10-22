@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable
 from enum import Enum
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import zeroconf
 
