@@ -845,17 +845,23 @@ class APIConnection:
             self._handle_get_time_request_internal, (GetTimeRequest,)
         )
 
-    def _handle_disconnect_request_internal(self, msg: DisconnectRequest) -> None:
+    def _handle_disconnect_request_internal(  # pylint: disable=unused-argument
+        self, _msg: DisconnectRequest
+    ) -> None:
         """Handle a DisconnectRequest."""
         self.send_message(DISCONNECT_RESPONSE_MESSAGE)
         self._expected_disconnect = True
         self._cleanup()
 
-    def _handle_ping_request_internal(self, msg: PingRequest) -> None:
+    def _handle_ping_request_internal(  # pylint: disable=unused-argument
+        self, _msg: PingRequest
+    ) -> None:
         """Handle a PingRequest."""
         self.send_message(PING_RESPONSE_MESSAGE)
 
-    def _handle_get_time_request_internal(self, msg: GetTimeRequest) -> None:
+    def _handle_get_time_request_internal(  # pylint: disable=unused-argument
+        self, _msg: GetTimeRequest
+    ) -> None:
         """Handle a GetTimeRequest."""
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
