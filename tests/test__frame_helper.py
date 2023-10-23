@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -21,7 +21,7 @@ from aioesphomeapi.core import (
     SocketAPIError,
 )
 
-from .common import UTC, as_utc, async_fire_time_changed, utcnow
+from .common import async_fire_time_changed, utcnow
 
 PREAMBLE = b"\x00"
 
@@ -254,9 +254,6 @@ async def test_noise_timeout():
     outgoing_packets = [
         "010000",  # hello packet
         "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
-    ]
-    incoming_packets = [
-        "01000d01736572766963657465737400",
     ]
     packets = []
 
