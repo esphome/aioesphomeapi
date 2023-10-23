@@ -564,7 +564,7 @@ class APIConnection:
                 raise self._fatal_exception or APIConnectionError(
                     "Connection cancelled"
                 )
-            other_exc: BaseException = ex            
+            other_exc: BaseException = ex
             if not finish_connect_task.cancelled() and (
                 task_exc := finish_connect_task.exception()
             ):
