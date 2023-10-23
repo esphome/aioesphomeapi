@@ -5,6 +5,7 @@ from typing import Optional
 
 import pytest
 from mock import MagicMock, patch
+
 from aioesphomeapi import APIConnectionError
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse
@@ -189,7 +190,7 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
 async def test_start_connection_times_out(
     conn: APIConnection, resolve_host, socket_socket
 ):
-    """Test that a plaintext connection works."""
+    """Test handling of start connection timing out."""
     loop = asyncio.get_event_loop()
 
     async def _create_mock_transport_protocol(create_func, **kwargs):
@@ -204,8 +205,63 @@ async def test_start_connection_times_out(
     async_fire_time_changed(utcnow() + timedelta(seconds=200))
     await asyncio.sleep(0)
 
-    with pytest.raises(APIConnectionError, match="Timeout"):
+    with pytest.raises(
+        APIConnectionError, match="Error while starting connection: TimeoutError"
+    ):
         await connect_task
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_finish_connection_times_out(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of finish connection timing out."""
+    loop = asyncio.get_event_loop()
+    protocol = _get_mock_protocol(conn)
+    messages = []
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    def on_msg(msg):
+        messages.append(msg)
+
+    remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
+    transport = MagicMock()
+
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    protocol.data_received(
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    )
+    await asyncio.sleep(0)
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=200))
+    await asyncio.sleep(0)
+
+    with pytest.raises(
+        APIConnectionError, match="Error while finishing connection: TimeoutError"
+    ):
+        await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+    assert not conn.is_connected
+    remove()
+    await conn.force_disconnect()
     await asyncio.sleep(0)
