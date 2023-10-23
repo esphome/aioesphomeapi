@@ -5,7 +5,7 @@ from typing import Optional
 
 import pytest
 from mock import MagicMock, patch
-
+from aioesphomeapi import APIConnectionError
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
@@ -214,7 +214,7 @@ async def test_start_connection_times_out(
     async_fire_time_changed(utcnow() + timedelta(seconds=200))
     await asyncio.sleep(0)
 
-    with pytest.raises(asyncio.TimeoutError):
+    with pytest.raises(APIConnectionError, match="Timeout"):
         await connect_task
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
