@@ -5,6 +5,7 @@ import socket
 from datetime import timedelta
 from typing import Optional
 from unittest.mock import call
+
 import pytest
 from mock import MagicMock, patch
 
