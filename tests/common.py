@@ -1,7 +1,6 @@
 import asyncio
 import time
-from datetime import timezone
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 
 UTC = timezone.utc
