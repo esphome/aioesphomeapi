@@ -191,19 +191,9 @@ async def test_start_connection_times_out(
 ):
     """Test that a plaintext connection works."""
     loop = asyncio.get_event_loop()
-    protocol = _get_mock_protocol(conn)
-    messages = []
-    protocol: Optional[APIPlaintextFrameHelper] = None
-    transport = MagicMock()
 
     async def _create_mock_transport_protocol(create_func, **kwargs):
         await asyncio.sleep(500)
-
-    def on_msg(msg):
-        messages.append(msg)
-
-    remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
-    transport = MagicMock()
 
     with patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
