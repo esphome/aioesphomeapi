@@ -508,18 +508,19 @@ class APIConnection:
                 raise self._fatal_exception or APIConnectionError(
                     "Connection cancelled"
                 )
+            other_exc: BaseException = ex
             if not start_connect_task.cancelled() and (
                 task_exc := start_connect_task.exception()
             ):
-                ex = task_exc
+                other_exc = task_exc
             if not isinstance(ex, APIConnectionError):
                 err_str = str(ex) or type(ex).__name__
                 new_exc = APIConnectionError(
                     f"Error while starting connection: {err_str}"
                 )
-                new_exc.__cause__ = ex
+                new_exc.__cause__ = other_exc
                 raise new_exc
-            raise ex
+            raise other_exc
         finally:
             self._start_connect_task = None
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
@@ -563,18 +564,19 @@ class APIConnection:
                 raise self._fatal_exception or APIConnectionError(
                     "Connection cancelled"
                 )
+            other_exc: BaseException = ex            
             if not finish_connect_task.cancelled() and (
                 task_exc := finish_connect_task.exception()
             ):
-                ex = task_exc
+                other_exc = task_exc
             if not isinstance(ex, APIConnectionError):
                 err_str = str(ex) or type(ex).__name__
                 new_exc = APIConnectionError(
                     f"Error while finishing connection: {err_str}"
                 )
-                new_exc.__cause__ = ex
+                new_exc.__cause__ = other_exc
                 raise new_exc
-            raise ex
+            raise other_exc
         finally:
             self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)
