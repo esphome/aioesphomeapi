@@ -513,8 +513,8 @@ class APIConnection:
                 task_exc := start_connect_task.exception()
             ):
                 other_exc = task_exc
-            if not isinstance(ex, APIConnectionError):
-                err_str = str(ex) or type(ex).__name__
+            if not isinstance(other_exc, APIConnectionError):
+                err_str = str(other_exc) or type(other_exc).__name__
                 new_exc = APIConnectionError(
                     f"Error while starting connection: {err_str}"
                 )
@@ -569,8 +569,8 @@ class APIConnection:
                 task_exc := finish_connect_task.exception()
             ):
                 other_exc = task_exc
-            if not isinstance(ex, APIConnectionError):
-                err_str = str(ex) or type(ex).__name__
+            if not isinstance(other_exc, APIConnectionError):
+                err_str = str(other_exc) or type(other_exc).__name__
                 new_exc = APIConnectionError(
                     f"Error while finishing connection: {err_str}"
                 )
