@@ -4,11 +4,11 @@ import asyncio
 import socket
 from datetime import timedelta
 from typing import Optional
-
+from unittest.mock import call
 import pytest
 from mock import MagicMock, patch
 
-from aioesphomeapi import APIConnectionError
+from aioesphomeapi import APIConnectionError, HandshakeAPIError
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
@@ -332,6 +332,88 @@ async def test_finish_connection_times_out(
     await asyncio.sleep(0)
 
     assert not conn.is_connected
+    remove()
+    await conn.force_disconnect()
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_plaintext_connection_fails_handshake(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test that a plaintext connection works."""
+    loop = asyncio.get_event_loop()
+    protocol = _get_mock_protocol(conn)
+    messages = []
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    def on_msg(msg):
+        messages.append(msg)
+
+    remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
+    transport = MagicMock()
+
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ), patch.object(
+        APIPlaintextFrameHelper,
+        "perform_handshake",
+        side_effect=OSError("Handshake failed"),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    assert conn._socket is not None
+    assert conn._frame_helper is not None
+
+    protocol.data_received(
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    )
+    protocol.data_received(b"5stackatomproxy")
+    protocol.data_received(b"\x00\x00$")
+    protocol.data_received(b"\x00\x00\x04")
+    protocol.data_received(
+        b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d'
+    )
+    protocol.data_received(
+        b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
+    )
+
+    call_order = []
+
+    def _socket_close_call():
+        call_order.append("socket_close")
+
+    def _frame_helper_close_call():
+        call_order.append("frame_helper_close")
+
+    with patch.object(
+        conn._socket, "close", side_effect=_socket_close_call
+    ), patch.object(
+        conn._frame_helper, "close", side_effect=_frame_helper_close_call
+    ) as mock_frame_helper_close, pytest.raises(
+        HandshakeAPIError, match="Handshake failed"
+    ):
+        await asyncio.sleep(0)
+        await connect_task
+
+    # Ensure the frame helper is closed before the socket
+    # so asyncio releases the socket
+    assert call_order == ["frame_helper_close", "socket_close"]
+    assert not conn.is_connected
+    assert len(messages) == 2
+    assert isinstance(messages[0], HelloResponse)
+    assert isinstance(messages[1], DeviceInfoResponse)
+    assert messages[1].name == "m5stackatomproxy"
     remove()
     await conn.force_disconnect()
     await asyncio.sleep(0)

@@ -359,6 +359,10 @@ class APIConnection:
                 sock=self._socket,
             )
 
+        # Set the frame helper right away to ensure
+        # the socket gets closed if we fail to handshake
+        self._frame_helper = fh
+
         try:
             await fh.perform_handshake(HANDSHAKE_TIMEOUT)
         except asyncio_TimeoutError as err:
@@ -366,7 +370,6 @@ class APIConnection:
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         self._set_connection_state(ConnectionState.HANDSHAKE_COMPLETE)
-        self._frame_helper = fh
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
