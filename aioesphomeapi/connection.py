@@ -505,16 +505,18 @@ class APIConnection:
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
             if not isinstance(ex, APIConnectionError):
+                cause: Exception | None = None
                 if isinstance(ex, CancelledError):
                     err_str = "Starting connection cancelled"
-                    cause = self._fatal_exception or ex
+                    if self._fatal_exception:
+                        err_str += f" due to fatal exception: {self._fatal_exception}"
+                        cause = self._fatal_exception
                 else:
                     err_str = str(ex) or type(ex).__name__
-                    cause = ex
                 new_exc = APIConnectionError(
                     f"Error while starting connection: {err_str}"
                 )
-                new_exc.__cause__ = cause
+                new_exc.__cause__ = cause or ex
                 raise new_exc
             raise ex
         finally:
@@ -557,16 +559,19 @@ class APIConnection:
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
             if not isinstance(ex, APIConnectionError):
+                cause: Exception | None = None
                 if isinstance(ex, CancelledError):
                     err_str = "Finishing connection cancelled"
-                    cause = self._fatal_exception or ex
+                    if self._fatal_exception:
+                        err_str += f" due to fatal exception: {self._fatal_exception}"
+                        cause = self._fatal_exception
                 else:
                     err_str = str(ex) or type(ex).__name__
                     cause = ex
                 new_exc = APIConnectionError(
                     f"Error while finishing connection: {err_str}"
                 )
-                new_exc.__cause__ = cause
+                new_exc.__cause__ = cause or ex
                 raise new_exc
             raise ex
         finally:
