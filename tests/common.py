@@ -1,8 +1,10 @@
 import asyncio
 import time
-from datetime import UTC, datetime
+from datetime import timezone
+from datetime import datetime
 from functools import partial
 
+UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 # We use a partial here since it is implemented in native code
 # and avoids the global lookup of UTC
