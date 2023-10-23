@@ -565,7 +565,7 @@ class APIConnection:
             ):
                 ex = task_exc
             if not isinstance(ex, APIConnectionError):
-                new_exc = APIConnectionError(f"Error while starting connection: {ex}")
+                new_exc = APIConnectionError(f"Error while finishing connection: {ex}")
                 new_exc.__cause__ = ex
                 raise new_exc
             raise ex
