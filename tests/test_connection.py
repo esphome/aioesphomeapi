@@ -1,15 +1,21 @@
+from __future__ import annotations
+
 import asyncio
 import socket
+from datetime import timedelta
 from typing import Optional
 
 import pytest
 from mock import MagicMock, patch
 
+from aioesphomeapi import APIConnectionError
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import RequiresEncryptionAPIError
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
+
+from .common import async_fire_time_changed, utcnow
 
 
 async def connect(conn: APIConnection, login: bool = True):
@@ -177,6 +183,155 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
     assert isinstance(messages[0], HelloResponse)
     assert isinstance(messages[1], DeviceInfoResponse)
     assert messages[1].name == "m5stackatomproxy"
+    remove()
+    await conn.force_disconnect()
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_start_connection_socket_error(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of socket error during start connection."""
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "create_connection", side_effect=OSError("Socket error")):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        with pytest.raises(APIConnectionError, match="Socket error"):
+            await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_start_connection_times_out(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of start connection timing out."""
+    loop = asyncio.get_event_loop()
+
+    async def _create_mock_transport_protocol(create_func, **kwargs):
+        await asyncio.sleep(500)
+
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=200))
+    await asyncio.sleep(0)
+
+    with pytest.raises(
+        APIConnectionError, match="Error while starting connection: TimeoutError"
+    ):
+        await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_start_connection_os_error(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of start connection has an OSError."""
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "sock_connect", side_effect=OSError("Socket error")):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        with pytest.raises(APIConnectionError, match="Socket error"):
+            await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_start_connection_is_cancelled(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of start connection is cancelled."""
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "sock_connect", side_effect=asyncio.CancelledError):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        with pytest.raises(APIConnectionError, match="Starting connection cancelled"):
+            await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_finish_connection_is_cancelled(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of finishing connection being cancelled."""
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "create_connection", side_effect=asyncio.CancelledError):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        with pytest.raises(APIConnectionError, match="Finishing connection cancelled"):
+            await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_finish_connection_times_out(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of finish connection timing out."""
+    loop = asyncio.get_event_loop()
+    protocol = _get_mock_protocol(conn)
+    messages = []
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    def on_msg(msg):
+        messages.append(msg)
+
+    remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
+    transport = MagicMock()
+
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    protocol.data_received(
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    )
+    await asyncio.sleep(0)
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=200))
+    await asyncio.sleep(0)
+
+    with pytest.raises(
+        APIConnectionError, match="Error while finishing connection: TimeoutError"
+    ):
+        await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+    assert not conn.is_connected
     remove()
     await conn.force_disconnect()
     await asyncio.sleep(0)
