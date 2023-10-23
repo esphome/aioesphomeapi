@@ -288,6 +288,7 @@ class APIConnection:
         """Step 2 in connect process: connect the socket."""
         debug_enable = self._debug_enabled()
         sock = socket.socket(family=addr.family, type=addr.type, proto=addr.proto)
+        self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # Try to reduce the pressure on esphome device as it measures
@@ -319,7 +320,6 @@ class APIConnection:
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
 
-        self._socket = sock
         if debug_enable is True:
             _LOGGER.debug(
                 "%s: Opened socket to %s:%s (%s)",
