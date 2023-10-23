@@ -234,6 +234,40 @@ async def test_start_connection_times_out(
 
 
 @pytest.mark.asyncio
+async def test_start_connection_is_cancelled(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of start connection is cancelled."""
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "sock_connect", side_effect=asyncio.CancelledError):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        with pytest.raises(APIConnectionError, match="Starting connection cancelled"):
+            await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_finish_connection_is_cancelled(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of finishing connection being cancelled."""
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "create_connection", side_effect=asyncio.CancelledError):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        with pytest.raises(APIConnectionError, match="Finishing connection cancelled"):
+            await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
 async def test_finish_connection_times_out(
     conn: APIConnection, resolve_host, socket_socket
 ):
