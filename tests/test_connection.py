@@ -234,6 +234,23 @@ async def test_start_connection_times_out(
 
 
 @pytest.mark.asyncio
+async def test_start_connection_os_error(
+    conn: APIConnection, resolve_host, socket_socket
+):
+    """Test handling of start connection has an OSError."""
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "sock_connect", side_effect=OSError("Socket error")):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        with pytest.raises(APIConnectionError, match="Socket error"):
+            await connect_task
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=600))
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
 async def test_start_connection_is_cancelled(
     conn: APIConnection, resolve_host, socket_socket
 ):
