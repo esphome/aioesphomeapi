@@ -504,23 +504,17 @@ class APIConnection:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
-            original_exc: BaseException = ex
-            if isinstance(ex, CancelledError):
-                original_exc = self._fatal_exception or APIConnectionError(
-                    "Starting connection cancelled"
-                )
-            elif not start_connect_task.cancelled() and (
-                task_exc := start_connect_task.exception()
-            ):
-                original_exc = task_exc
-            if not isinstance(original_exc, APIConnectionError):
-                err_str = str(original_exc) or type(original_exc).__name__
+            if not isinstance(ex, APIConnectionError):
+                if isinstance(ex, CancelledError):
+                    err_str = "Starting connection cancelled"
+                else:
+                    err_str = str(ex) or type(ex).__name__
                 new_exc = APIConnectionError(
                     f"Error while starting connection: {err_str}"
                 )
-                new_exc.__cause__ = original_exc
+                new_exc.__cause__ = ex
                 raise new_exc
-            raise original_exc
+            raise ex
         finally:
             self._start_connect_task = None
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
@@ -560,23 +554,17 @@ class APIConnection:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
-            original_exc: BaseException = ex
-            if isinstance(ex, CancelledError):
-                original_exc = self._fatal_exception or APIConnectionError(
-                    "Finishing connection cancelled"
-                )
-            elif not finish_connect_task.cancelled() and (
-                task_exc := finish_connect_task.exception()
-            ):
-                original_exc = task_exc
-            if not isinstance(original_exc, APIConnectionError):
-                err_str = str(original_exc) or type(original_exc).__name__
+            if not isinstance(ex, APIConnectionError):
+                if isinstance(ex, CancelledError):
+                    err_str = "Finishing connection cancelled"
+                else:
+                    err_str = str(ex) or type(ex).__name__
                 new_exc = APIConnectionError(
                     f"Error while finishing connection: {err_str}"
                 )
-                new_exc.__cause__ = original_exc
+                new_exc.__cause__ = ex
                 raise new_exc
-            raise original_exc
+            raise ex
         finally:
             self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)
