@@ -9,11 +9,15 @@ from unittest.mock import call
 import pytest
 from mock import MagicMock, patch
 
-from aioesphomeapi import APIConnectionError, HandshakeAPIError
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
-from aioesphomeapi.core import RequiresEncryptionAPIError
+from aioesphomeapi.core import (
+    APIConnectionError,
+    HandshakeAPIError,
+    RequiresEncryptionAPIError,
+    TimeoutAPIError,
+)
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
 from .common import async_fire_time_changed, utcnow
@@ -338,26 +342,38 @@ async def test_finish_connection_times_out(
     await asyncio.sleep(0)
 
 
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("Socket error"), HandshakeAPIError),
+        (asyncio.TimeoutError, TimeoutAPIError),
+        (asyncio.CancelledError, APIConnectionError),
+    ],
+)
 @pytest.mark.asyncio
 async def test_plaintext_connection_fails_handshake(
-    conn: APIConnection, resolve_host, socket_socket
-):
+    conn: APIConnection,
+    resolve_host,
+    socket_socket,
+    exception_map: tuple[Exception, Exception],
+) -> None:
     """Test that the frame helper is closed before the underlying socket.
 
     If we don't do this, asyncio will get confused and not release the socket.
     """
     loop = asyncio.get_event_loop()
+    exception, raised_exception = exception_map
     protocol = _get_mock_protocol(conn)
     messages = []
     protocol: Optional[APIPlaintextFrameHelper] = None
     transport = MagicMock()
     connected = asyncio.Event()
 
-    class APIPlaintextFrameHelperOSErrorHandshake(APIPlaintextFrameHelper):
-        """Plaintext frame helper that raises OSError on handshake."""
+    class APIPlaintextFrameHelperHandshakeException(APIPlaintextFrameHelper):
+        """Plaintext frame helper that raises exception on handshake."""
 
         def perform_handshake(self, timeout: float) -> Coroutine[Any, Any, None]:
-            raise OSError("Handshake failed")
+            raise exception
 
     def _create_mock_transport_protocol(create_func, **kwargs):
         nonlocal protocol
@@ -374,7 +390,7 @@ async def test_plaintext_connection_fails_handshake(
 
     with patch(
         "aioesphomeapi.connection.APIPlaintextFrameHelper",
-        APIPlaintextFrameHelperOSErrorHandshake,
+        APIPlaintextFrameHelperHandshakeException,
     ), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
@@ -410,7 +426,7 @@ async def test_plaintext_connection_fails_handshake(
     ), patch.object(
         conn._frame_helper, "close", side_effect=_frame_helper_close_call
     ), pytest.raises(
-        HandshakeAPIError, match="Handshake failed"
+        raised_exception
     ):
         await asyncio.sleep(0)
         await connect_task
