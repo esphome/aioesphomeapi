@@ -4,7 +4,7 @@ import asyncio
 import socket
 from datetime import timedelta
 from typing import Any, Coroutine, Optional
-from unittest.mock import call
+from unittest.mock import AsyncMock
 
 import pytest
 from mock import MagicMock, patch
@@ -353,8 +353,8 @@ async def test_finish_connection_times_out(
 @pytest.mark.asyncio
 async def test_plaintext_connection_fails_handshake(
     conn: APIConnection,
-    resolve_host,
-    socket_socket,
+    resolve_host: AsyncMock,
+    socket_socket: MagicMock,
     exception_map: tuple[Exception, Exception],
 ) -> None:
     """Test that the frame helper is closed before the underlying socket.
