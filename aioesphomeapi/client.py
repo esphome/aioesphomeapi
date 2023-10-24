@@ -3,15 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Coroutine,
-    TYPE_CHECKING,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, Union, cast
 
 from google.protobuf import message
 
