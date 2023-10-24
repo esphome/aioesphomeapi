@@ -766,9 +766,8 @@ class AlarmControlPanelEntityState(EntityState):
 
 # ==================== TEXT ====================
 class TextMode(APIIntEnum):
-    AUTO = 0
-    TEXT = 1
-    PASSWORD = 2
+    TEXT = 0
+    PASSWORD = 1
 
 
 @dataclass(frozen=True)
@@ -777,7 +776,7 @@ class TextInfo(EntityInfo):
     max_length: int = 255
     pattern: str = ""
     mode: Optional[TextMode] = converter_field(
-        default=TextMode.AUTO, converter=TextMode.convert
+        default=TextMode.TEXT, converter=TextMode.convert
     )
 
 
