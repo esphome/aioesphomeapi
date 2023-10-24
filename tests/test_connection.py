@@ -404,7 +404,7 @@ async def test_plaintext_connection_fails_handshake(
         conn._socket, "close", side_effect=_socket_close_call
     ), patch.object(
         conn._frame_helper, "close", side_effect=_frame_helper_close_call
-    ) as mock_frame_helper_close, pytest.raises(
+    ), pytest.raises(
         HandshakeAPIError, match="Handshake failed"
     ):
         await asyncio.sleep(0)
