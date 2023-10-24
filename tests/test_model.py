@@ -36,8 +36,8 @@ from aioesphomeapi.api_pb2 import (
     SensorStateResponse,
     ServiceArgType,
     SwitchStateResponse,
-    TextStateResponse,
     TextSensorStateResponse,
+    TextStateResponse,
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
@@ -76,9 +76,9 @@ from aioesphomeapi.model import (
     SwitchInfo,
     SwitchState,
     TextInfo,
-    TextState,
     TextSensorInfo,
     TextSensorState,
+    TextState,
     UserService,
     UserServiceArg,
     UserServiceArgType,
