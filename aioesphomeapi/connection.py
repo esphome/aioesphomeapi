@@ -288,6 +288,7 @@ class APIConnection:
         """Step 2 in connect process: connect the socket."""
         debug_enable = self._debug_enabled()
         sock = socket.socket(family=addr.family, type=addr.type, proto=addr.proto)
+        self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # Try to reduce the pressure on esphome device as it measures
@@ -319,7 +320,6 @@ class APIConnection:
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
 
-        self._socket = sock
         if debug_enable is True:
             _LOGGER.debug(
                 "%s: Opened socket to %s:%s (%s)",
@@ -359,6 +359,10 @@ class APIConnection:
                 sock=self._socket,
             )
 
+        # Set the frame helper right away to ensure
+        # the socket gets closed if we fail to handshake
+        self._frame_helper = fh
+
         try:
             await fh.perform_handshake(HANDSHAKE_TIMEOUT)
         except asyncio_TimeoutError as err:
@@ -366,7 +370,6 @@ class APIConnection:
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         self._set_connection_state(ConnectionState.HANDSHAKE_COMPLETE)
-        self._frame_helper = fh
 
     async def _connect_hello(self) -> None:
         """Step 4 in connect process: send hello and get api version."""
