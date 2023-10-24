@@ -1156,6 +1156,7 @@ _TYPE_TO_NAME = {
     LockInfo: "lock",
     MediaPlayerInfo: "media_player",
     AlarmControlPanelInfo: "alarm_control_panel",
+    TextInfo: "text_info",
 }
 
 
