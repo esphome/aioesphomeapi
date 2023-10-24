@@ -475,7 +475,7 @@ async def test_noise_frame_helper_handshake_success():
     assert not writes
 
     await handshake_task
-    helper.write_packet(1, b"test")
+    helper.write_packet(1, b"to device")
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
     assert header == b"\x01"
@@ -483,4 +483,24 @@ async def test_noise_frame_helper_handshake_success():
     pkg_length_low = encrypted_packet[2]
     pkg_length = (pkg_length_high << 8) + pkg_length_low
     assert len(encrypted_packet) == 3 + pkg_length
+
+    msg_type = 42
+    msg_type_high = (msg_type >> 8) & 0xFF
+    msg_type_low = msg_type & 0xFF
+    msg_length = len(encrypted_payload)
+    msg_length_high = (msg_length >> 8) & 0xFF
+    msg_length_low = msg_length & 0xFF
+    msg_header = bytes((msg_type_high, msg_type_low, msg_length_high, msg_length_low))
+    encrypted_payload = proto.encrypt(msg_header + b"from device")
+
+    preamble = 1
+    encrypted_pkg_length = len(encrypted_payload)
+    encrypted_pkg_length_high = (encrypted_pkg_length >> 8) & 0xFF
+    encrypted_pkg_length_low = encrypted_pkg_length & 0xFF
+    encrypted_header = bytes(
+        (preamble, encrypted_pkg_length_high, encrypted_pkg_length_low)
+    )
+    helper.data_received(encrypted_header + encrypted_payload)
+
+    assert packets == [(42, b"from device")]
     helper.close()
