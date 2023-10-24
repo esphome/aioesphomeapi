@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import socket
 from datetime import timedelta
-from typing import Optional
+from typing import Any, Coroutine, Optional
 from unittest.mock import call
 
 import pytest
@@ -353,6 +353,12 @@ async def test_plaintext_connection_fails_handshake(
     transport = MagicMock()
     connected = asyncio.Event()
 
+    class APIPlaintextFrameHelperOSErrorHandshake(APIPlaintextFrameHelper):
+        """Plaintext frame helper that raises OSError on handshake."""
+
+        def perform_handshake(self, timeout: float) -> Coroutine[Any, Any, None]:
+            raise OSError("Handshake failed")
+
     def _create_mock_transport_protocol(create_func, **kwargs):
         nonlocal protocol
         protocol = create_func()
@@ -366,12 +372,11 @@ async def test_plaintext_connection_fails_handshake(
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
     transport = MagicMock()
 
-    with patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    with patch(
+        "aioesphomeapi.connection.APIPlaintextFrameHelper",
+        APIPlaintextFrameHelperOSErrorHandshake,
     ), patch.object(
-        APIPlaintextFrameHelper,
-        "perform_handshake",
-        side_effect=OSError("Handshake failed"),
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
