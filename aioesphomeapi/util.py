@@ -1,36 +1,6 @@
 from __future__ import annotations
 
 import math
-from functools import lru_cache
-
-
-@lru_cache(maxsize=1024)
-def varuint_to_bytes(value: int) -> bytes:
-    if value <= 0x7F:
-        return bytes([value])
-
-    ret = b""
-    while value:
-        temp = value & 0x7F
-        value >>= 7
-        if value:
-            ret += bytes([temp | 0x80])
-        else:
-            ret += bytes([temp])
-
-    return ret
-
-
-@lru_cache(maxsize=1024)
-def bytes_to_varuint(value: bytes) -> int | None:
-    result = 0
-    bitpos = 0
-    for val in value:
-        result |= (val & 0x7F) << bitpos
-        if (val & 0x80) == 0:
-            return result
-        bitpos += 7
-    return None
 
 
 def fix_float_single_double_conversion(value: float) -> float:

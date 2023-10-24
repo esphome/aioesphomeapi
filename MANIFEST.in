@@ -1,3 +1,4 @@
 include LICENSE
 include requirements.txt
 include aioesphomeapi/py.typed
+global-exclude *.c

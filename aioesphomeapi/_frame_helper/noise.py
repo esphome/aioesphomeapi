@@ -9,9 +9,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
-from noise.backends.default import DefaultNoiseBackend  # type: ignore[import]
-from noise.backends.default.ciphers import ChaCha20Cipher  # type: ignore[import]
-from noise.connection import NoiseConnection  # type: ignore[import]
+from noise.backends.default import DefaultNoiseBackend  # type: ignore[import-untyped]
+from noise.backends.default.ciphers import (  # type: ignore[import-untyped]
+    ChaCha20Cipher,
+)
+from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 
 from ..core import (
     APIConnectionError,
@@ -137,14 +139,15 @@ class APINoiseFrameHelper(APIFrameHelper):
         await super().perform_handshake(timeout)
 
     def data_received(self, data: bytes) -> None:
-        self._buffer += data
-        self._buffer_len += len(data)
+        self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
             header = self._read_exactly(3)
             if header is None:
                 return
-            preamble, msg_size_high, msg_size_low = header
+            preamble = header[0]
+            msg_size_high = header[1]
+            msg_size_low = header[2]
             if preamble != 0x01:
                 self._handle_error_and_close(
                     ProtocolAPIError(
@@ -166,9 +169,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             except Exception as err:  # pylint: disable=broad-except
                 self._handle_error_and_close(err)
             finally:
-                end_of_frame_pos = self._pos
-                del self._buffer[:end_of_frame_pos]
-                self._buffer_len -= end_of_frame_pos
+                self._remove_from_buffer()
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
@@ -194,7 +195,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def _handle_hello(self, server_hello: bytearray) -> None:
+    def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
         if not server_hello:
             self._handle_error_and_close(
@@ -265,7 +266,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         proto.start_handshake()
         self._proto = proto
 
-    def _handle_handshake(self, msg: bytearray) -> None:
+    def _handle_handshake(self, msg: bytes) -> None:
         _LOGGER.debug("Starting handshake...")
         if msg[0] != 0:
             explanation = msg[1:].decode()
@@ -329,12 +330,12 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def _handle_frame(self, frame: bytearray) -> None:
+    def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt is not None, "Handshake should be complete"
         try:
-            msg = self._decrypt(bytes(frame))
+            msg = self._decrypt(frame)
         except InvalidTag as ex:
             self._handle_error_and_close(
                 ProtocolAPIError(f"{self._log_name}: Bad encryption frame: {ex!r}")
@@ -344,11 +345,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         # 2 bytes: message type
         # 2 bytes: message length
         # N bytes: message data
-        self._on_pkt((msg[0] << 8) | msg[1], msg[4:])
+        type_high = msg[0]
+        type_low = msg[1]
+        self._on_pkt((type_high << 8) | type_low, msg[4:])
 
-    def _handle_closed(  # pylint: disable=unused-argument
-        self, frame: bytearray
-    ) -> None:
+    def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))
 

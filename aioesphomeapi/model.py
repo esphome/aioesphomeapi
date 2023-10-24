@@ -15,7 +15,6 @@ from typing import (
 )
 from uuid import UUID
 
-from .api_pb2 import BluetoothLERawAdvertisement  # type: ignore[attr-defined]
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
@@ -29,7 +28,6 @@ else:
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
-        BluetoothLERawAdvertisementsResponse,
         HomeassistantServiceMap,
     )
 
@@ -102,7 +100,9 @@ class APIModelBase:
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
-    return cast(_V, field(metadata=metadata, **kwargs))
+    return cast(
+        _V, field(metadata=metadata, **kwargs)  # pylint: disable=invalid-field-call
+    )
 
 
 @dataclass(frozen=True, order=True)
@@ -457,7 +457,7 @@ class CameraInfo(EntityInfo):
 
 @_frozen_dataclass_decorator
 class CameraState(EntityState):
-    data: bytes = field(default_factory=bytes)
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 # ==================== CLIMATE ====================
@@ -955,19 +955,6 @@ class BluetoothLEAdvertisement:
         )
 
 
-def make_ble_raw_advertisement_processor(
-    on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
-) -> Callable[[BluetoothLERawAdvertisementsResponse], None]:
-    """Make a processor for BluetoothLERawAdvertisementResponse."""
-
-    def _on_ble_raw_advertisement_response(
-        data: BluetoothLERawAdvertisementsResponse,
-    ) -> None:
-        on_advertisements(data.advertisements)
-
-    return _on_ble_raw_advertisement_response
-
-
 @_frozen_dataclass_decorator
 class BluetoothDeviceConnection(APIModelBase):
     address: int = 0
@@ -1002,7 +989,7 @@ class BluetoothGATTRead(APIModelBase):
     address: int = 0
     handle: int = 0
 
-    data: bytes = field(default_factory=bytes)
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
@@ -1072,7 +1059,9 @@ class BluetoothGATTServices(APIModelBase):
 @_frozen_dataclass_decorator
 class ESPHomeBluetoothGATTServices:
     address: int = 0
-    services: list[BluetoothGATTService] = field(default_factory=list)
+    services: list[BluetoothGATTService] = field(  # pylint: disable=invalid-field-call
+        default_factory=list
+    )
 
 
 @_frozen_dataclass_decorator
@@ -1104,10 +1093,21 @@ class VoiceAssistantCommandFlag(enum.IntFlag):
 
 
 @_frozen_dataclass_decorator
+class VoiceAssistantAudioSettings(APIModelBase):
+    noise_suppression_level: int = 0
+    auto_gain: int = 0
+    volume_multiplier: float = 1.0
+
+
+@_frozen_dataclass_decorator
 class VoiceAssistantCommand(APIModelBase):
     start: bool = False
     conversation_id: str = ""
     flags: int = False
+    audio_settings: VoiceAssistantAudioSettings = converter_field(
+        default=VoiceAssistantAudioSettings(),
+        converter=VoiceAssistantAudioSettings.from_pb,
+    )
 
 
 class LogLevel(APIIntEnum):
@@ -1135,3 +1135,38 @@ class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_WAKE_WORD_END = 10
     VOICE_ASSISTANT_STT_VAD_START = 11
     VOICE_ASSISTANT_STT_VAD_END = 12
+    VOICE_ASSISTANT_TTS_STREAM_START = 98
+    VOICE_ASSISTANT_TTS_STREAM_END = 99
+
+
+_TYPE_TO_NAME = {
+    BinarySensorInfo: "binary_sensor",
+    ButtonInfo: "button",
+    CoverInfo: "cover",
+    FanInfo: "fan",
+    LightInfo: "light",
+    NumberInfo: "number",
+    SelectInfo: "select",
+    SensorInfo: "sensor",
+    SirenInfo: "siren",
+    SwitchInfo: "switch",
+    TextSensorInfo: "text_sensor",
+    CameraInfo: "camera",
+    ClimateInfo: "climate",
+    LockInfo: "lock",
+    MediaPlayerInfo: "media_player",
+    AlarmControlPanelInfo: "alarm_control_panel",
+}
+
+
+def build_unique_id(formatted_mac: str, entity_info: EntityInfo) -> str:
+    """Build a unique id for an entity.
+
+    This is the new format for unique ids which replaces the old format
+    that is included in the EntityInfo object. This new format is used
+    because the old format used the name in the unique id which is not
+    guaranteed to be unique. This new format is guaranteed to be unique
+    and is also more human readable.
+    """
+    # <mac>-<entity type>-<object_id>
+    return f"{formatted_mac}-{_TYPE_TO_NAME[type(entity_info)]}-{entity_info.object_id}"

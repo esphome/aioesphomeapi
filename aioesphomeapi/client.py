@@ -104,6 +104,7 @@ from .api_pb2 import (  # type: ignore
     TextSensorStateResponse,
     TextStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
@@ -114,6 +115,7 @@ from .core import (
     APIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
+    UnhandledAPIConnectionError,
     to_human_readable_address,
 )
 from .host_resolver import ZeroconfInstanceType
@@ -181,7 +183,6 @@ from .model import (
     UserServiceArgType,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
-    make_ble_raw_advertisement_processor,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -251,7 +252,14 @@ ExecuteServiceDataType = dict[
 
 # pylint: disable=too-many-public-methods
 class APIClient:
-    __slots__ = ("_params", "_connection", "_cached_name", "_background_tasks", "_loop")
+    __slots__ = (
+        "_params",
+        "_connection",
+        "_cached_name",
+        "_background_tasks",
+        "_loop",
+        "_log_name",
+    )
 
     def __init__(
         self,
@@ -295,6 +303,7 @@ class APIClient:
         self._cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
+        self._set_log_name()
 
     @property
     def expected_name(self) -> str | None:
@@ -308,22 +317,42 @@ class APIClient:
     def address(self) -> str:
         return self._params.address
 
-    @property
-    def _log_name(self) -> str:
+    def _get_log_name(self) -> str:
+        """Get the log name of the device."""
+        address = self.address
+        address_is_host = address.endswith(".local")
         if self._cached_name is not None:
-            return f"{self._cached_name} @ {self.address}"
-        return self.address
+            if address_is_host:
+                return self._cached_name
+            return f"{self._cached_name} @ {address}"
+        if address_is_host:
+            return address[:-6]
+        return address
+
+    def _set_log_name(self) -> None:
+        """Set the log name of the device."""
+        self._log_name = self._get_log_name()
 
     def set_cached_name_if_unset(self, name: str) -> None:
         """Set the cached name of the device if not set."""
         if not self._cached_name:
             self._cached_name = name
+            self._set_log_name()
 
     async def connect(
         self,
         on_stop: Callable[[bool], Awaitable[None]] | None = None,
         login: bool = False,
     ) -> None:
+        """Connect to the device."""
+        await self.start_connection(on_stop)
+        await self.finish_connection(login)
+
+    async def start_connection(
+        self,
+        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+    ) -> None:
+        """Start connecting to the device."""
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self._log_name}!")
 
@@ -338,13 +367,30 @@ class APIClient:
         )
 
         try:
-            await self._connection.connect(login=login)
+            await self._connection.start_connection()
         except APIConnectionError:
             self._connection = None
             raise
         except Exception as e:
             self._connection = None
-            raise APIConnectionError(
+            raise UnhandledAPIConnectionError(
+                f"Unexpected error while connecting to {self._log_name}: {e}"
+            ) from e
+
+    async def finish_connection(
+        self,
+        login: bool = False,
+    ) -> None:
+        """Finish connecting to the device."""
+        assert self._connection is not None
+        try:
+            await self._connection.finish_connection(login=login)
+        except APIConnectionError:
+            self._connection = None
+            raise
+        except Exception as e:
+            self._connection = None
+            raise UnhandledAPIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
 
@@ -365,24 +411,18 @@ class APIClient:
                 f"Authenticated connection not ready yet for {self._log_name}; "
                 f"current state is {connection.connection_state}!"
             )
-        if not connection.is_authenticated:
-            raise APIConnectionError(f"Not authenticated for {self._log_name}!")
 
     async def device_info(self) -> DeviceInfo:
+        self._check_authenticated()
         connection = self._connection
-        if not connection:
-            raise APIConnectionError(f"Not connected to {self._log_name}!")
-        if not connection or not connection.is_connected:
-            raise APIConnectionError(
-                f"Connection not ready yet for {self._log_name}; "
-                f"current state is {connection.connection_state}!"
-            )
+        assert connection is not None
         resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
         info = DeviceInfo.from_pb(resp)
         self._cached_name = info.name
         connection.set_log_name(self._log_name)
+        self._set_log_name()
         return info
 
     async def list_entities_services(
@@ -558,12 +598,17 @@ class APIClient:
         msg_types = (BluetoothLERawAdvertisementsResponse,)
 
         assert self._connection is not None
-        on_msg = make_ble_raw_advertisement_processor(on_advertisements)
+
+        def _on_ble_raw_advertisement_response(
+            data: BluetoothLERawAdvertisementsResponse,
+        ) -> None:
+            on_advertisements(data.advertisements)
+
         unsub_callback = self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
-            on_msg,
+            _on_ble_raw_advertisement_response,
             msg_types,
         )
 
@@ -663,7 +708,9 @@ class APIClient:
         )
 
         loop = self._loop
-        timeout_handle = loop.call_later(timeout, self._handle_timeout, connect_future)
+        timeout_handle = loop.call_at(
+            loop.time() + timeout, self._handle_timeout, connect_future
+        )
         timeout_expired = False
         connect_ok = False
         try:
@@ -1375,7 +1422,9 @@ class APIClient:
 
     async def subscribe_voice_assistant(
         self,
-        handle_start: Callable[[str, int], Coroutine[Any, Any, int | None]],
+        handle_start: Callable[
+            [str, int, VoiceAssistantAudioSettings], Coroutine[Any, Any, int | None]
+        ],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
@@ -1404,7 +1453,9 @@ class APIClient:
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
                 start_task = asyncio.create_task(
-                    handle_start(command.conversation_id, command.flags)
+                    handle_start(
+                        command.conversation_id, command.flags, command.audio_settings
+                    )
                 )
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function

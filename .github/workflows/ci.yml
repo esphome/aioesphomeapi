@@ -15,50 +15,54 @@ concurrency:
 
 jobs:
   ci:
-    name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }} py ${{ matrix.python-version }} on ${{ matrix.os }} (${{ matrix.extension }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - id: flake8
-            name: Lint with flake8
-          - id: pylint
-            name: Lint with pylint
-          - id: black
-            name: Check formatting with black
-          - id: isort
-            name: Check import order with isort
-          - id: mypy
-            name: Check typing with mypy
-          - id: pytest
-            name: Run tests with pytest
-          - id: protoc
-            name: Check protobuf files match
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+        os:
+          - ubuntu-latest
+        extension:
+          - "skip_cython"
+          - "use_cython"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         id: python
         with:
-          python-version: '3.9'
+          python-version: ${{ matrix.python-version }}
 
       - name: Get pip cache dir
         id: pip-cache
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v3.3.1
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
+          key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
           restore-keys: |
-            pip-${{ steps.python.outputs.python-version }}-
-      - name: Set up Python environment
+            pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-
+      - name: Set up Python environment (no cython)
+        if: ${{ matrix.extension == 'skip_cython' }}
+        env:
+          SKIP_CYTHON: 1
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
-
+      - name: Set up Python environment (cython)
+        if: ${{ matrix.extension == 'use_cython' }}
+        env:
+          REQUIRE_CYTHON: 1
+        run: |
+          pip3 install -r requirements.txt -r requirements_test.txt
+          pip3 install -e .
       - name: Register problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/flake8.json"
@@ -68,17 +72,24 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
       - run: flake8 aioesphomeapi
-        if: ${{ matrix.id == 'flake8' }}
+        name: Lint with flake8
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: pylint aioesphomeapi
-        if: ${{ matrix.id == 'pylint' }}
+        name: Lint with pylint
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: black --check --diff --color aioesphomeapi tests
-        if: ${{ matrix.id == 'black' }}
+        name: Check formatting with black
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: isort --check --diff aioesphomeapi tests
-        if: ${{ matrix.id == 'isort' }}
+        name: Check import order with isort
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: mypy aioesphomeapi
-        if: ${{ matrix.id == 'mypy' }}
-      - run: pytest -vv --tb=native tests
-        if: ${{ matrix.id == 'pytest' }}
+        name: Check typing with mypy
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+      - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --tb=native tests
+        name: Run tests with pytest
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
       - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
@@ -89,4 +100,5 @@ jobs:
             echo 'docker run -v "$PWD":/aioesphomeapi ghcr.io/esphome/aioesphomeapi-proto-builder:latest'
             exit 1
           fi
-        if: ${{ matrix.id == 'protoc' }}
+        name: Check protobuf files match
+        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}

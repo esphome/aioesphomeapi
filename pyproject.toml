@@ -5,7 +5,7 @@ extend_skip = ["api_pb2.py", "api_options_pb2.py"]
 
 [tool.black]
 exclude = 'api_pb2.py|api_options_pb2.py'
-target-version = ['py37']
+target-version = ['py39']
 
 [tool.pylint.MASTER]
 reports = 'no'
@@ -29,3 +29,6 @@ disable = [
   "duplicate-code",
   "too-many-lines",
 ]
+
+[build-system]
+requires = ['setuptools>=65.4.1', 'wheel', 'Cython>=3.0.2']

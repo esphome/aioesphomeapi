@@ -1439,6 +1439,12 @@ message SubscribeVoiceAssistantRequest {
   bool subscribe = 1;
 }
 
+message VoiceAssistantAudioSettings {
+  uint32 noise_suppression_level = 1;
+  uint32 auto_gain = 2;
+  float volume_multiplier = 3;
+}
+
 message VoiceAssistantRequest {
   option (id) = 90;
   option (source) = SOURCE_SERVER;
@@ -1446,7 +1452,8 @@ message VoiceAssistantRequest {
 
   bool start = 1;
   string conversation_id = 2;
-  int32 flags = 3;
+  uint32 flags = 3;
+  VoiceAssistantAudioSettings audio_settings = 4;
 }
 
 message VoiceAssistantResponse {
@@ -1472,6 +1479,8 @@ enum VoiceAssistantEvent {
   VOICE_ASSISTANT_WAKE_WORD_END = 10;
   VOICE_ASSISTANT_STT_VAD_START = 11;
   VOICE_ASSISTANT_STT_VAD_END = 12;
+  VOICE_ASSISTANT_TTS_STREAM_START = 98;
+  VOICE_ASSISTANT_TTS_STREAM_END = 99;
 }
 
 message VoiceAssistantEventData {

@@ -39,6 +39,7 @@ from aioesphomeapi.api_pb2 import (
     TextSensorStateResponse,
 )
 from aioesphomeapi.model import (
+    _TYPE_TO_NAME,
     AlarmControlPanelEntityState,
     AlarmControlPanelInfo,
     APIIntEnum,
@@ -47,6 +48,7 @@ from aioesphomeapi.model import (
     BinarySensorInfo,
     BinarySensorState,
     ButtonInfo,
+    CameraInfo,
     ClimateInfo,
     ClimatePreset,
     ClimateState,
@@ -69,6 +71,7 @@ from aioesphomeapi.model import (
     SelectState,
     SensorInfo,
     SensorState,
+    SirenInfo,
     SwitchInfo,
     SwitchState,
     TextSensorInfo,
@@ -76,6 +79,7 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
+    build_unique_id,
     converter_field,
 )
 
@@ -321,3 +325,29 @@ def test_user_service_conversion():
     assert UserService.from_dict({"args": [{"name": "arg", "type": 1}]}) == UserService(
         args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)]
     )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        BinarySensorInfo,
+        ButtonInfo,
+        CoverInfo,
+        FanInfo,
+        LightInfo,
+        NumberInfo,
+        SelectInfo,
+        SensorInfo,
+        SirenInfo,
+        SwitchInfo,
+        TextSensorInfo,
+        CameraInfo,
+        ClimateInfo,
+        LockInfo,
+        MediaPlayerInfo,
+        AlarmControlPanelInfo,
+    ],
+)
+def test_build_unique_id(model):
+    obj = model(object_id="id")
+    assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"

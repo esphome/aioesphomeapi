@@ -2,13 +2,53 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError, SocketAPIError
-from ..util import bytes_to_varuint, varuint_to_bytes
 from .base import WRITE_EXCEPTIONS, APIFrameHelper
 
 _LOGGER = logging.getLogger(__name__)
+
+_int = int
+_bytes = bytes
+
+
+def _varuint_to_bytes(value: _int) -> bytes:
+    """Convert a varuint to bytes."""
+    if value <= 0x7F:
+        return bytes((value,))
+
+    result = []
+    while value:
+        temp = value & 0x7F
+        value >>= 7
+        if value:
+            result.append(temp | 0x80)
+        else:
+            result.append(temp)
+
+    return bytes(result)
+
+
+_cached_varuint_to_bytes = lru_cache(maxsize=1024)(_varuint_to_bytes)
+varuint_to_bytes = _cached_varuint_to_bytes
+
+
+def _bytes_to_varuint(value: _bytes) -> _int | None:
+    """Convert bytes to a varuint."""
+    result = 0
+    bitpos = 0
+    for val in value:
+        result |= (val & 0x7F) << bitpos
+        if (val & 0x80) == 0:
+            return result
+        bitpos += 7
+    return None
+
+
+_cached_bytes_to_varuint = lru_cache(maxsize=1024)(_bytes_to_varuint)
+bytes_to_varuint = _cached_bytes_to_varuint
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
@@ -39,8 +79,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             ) from err
 
     def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
-        self._buffer += data
-        self._buffer_len += len(data)
+        self._add_to_buffer(data)
         while self._buffer:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
@@ -50,8 +89,10 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if init_bytes is None:
                 return
             msg_type_int: int | None = None
-            length_int: int | None = None
-            preamble, length_high, maybe_msg_type = init_bytes
+            length_int = 0
+            preamble = init_bytes[0]
+            length_high = init_bytes[1]
+            maybe_msg_type = init_bytes[2]
             if preamble != 0x00:
                 if preamble == 0x01:
                     self._handle_error_and_close(
@@ -78,17 +119,17 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                     msg_type_int = maybe_msg_type
                 else:
                     # Message type is longer than 1 byte
-                    msg_type = bytes(init_bytes[2:3])
+                    msg_type = init_bytes[2:3]
             else:
                 # Length is longer than 1 byte
-                length = bytes(init_bytes[1:3])
+                length = init_bytes[1:3]
                 # If the message is long, we need to read the rest of the length
                 while length[-1] & 0x80 == 0x80:
                     add_length = self._read_exactly(1)
                     if add_length is None:
                         return
                     length += add_length
-                length_int = bytes_to_varuint(length)
+                length_int = bytes_to_varuint(length) or 0
                 # Since the length is longer than 1 byte we do not have the
                 # message type yet.
                 msg_type = b""
@@ -105,24 +146,21 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 msg_type_int = bytes_to_varuint(msg_type)
 
             if TYPE_CHECKING:
-                assert length_int is not None
                 assert msg_type_int is not None
 
             if length_int == 0:
                 packet_data = b""
             else:
-                packet_data_bytearray = self._read_exactly(length_int)
+                maybe_packet_data = self._read_exactly(length_int)
                 # The packet data is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next
                 # call to data_received will continue processing the packet
                 # at the start of the frame.
-                if packet_data_bytearray is None:
+                if maybe_packet_data is None:
                     return
-                packet_data = bytes(packet_data_bytearray)
+                packet_data = maybe_packet_data
 
-            end_of_frame_pos = self._pos
-            del self._buffer[:end_of_frame_pos]
-            self._buffer_len -= end_of_frame_pos
+            self._remove_from_buffer()
             self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing
