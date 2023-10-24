@@ -20,6 +20,7 @@ from aioesphomeapi.api_pb2 import (
     NumberCommandRequest,
     SelectCommandRequest,
     SwitchCommandRequest,
+    TextCommandRequest,
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.model import (
@@ -559,3 +560,18 @@ async def test_alarm_panel_command(auth_client, cmd, req):
 
     await auth_client.alarm_control_panel_command(**cmd)
     send.assert_called_once_with(AlarmControlPanelCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, state="hello world"), dict(key=1, state="hello world")),
+        (dict(key=1, state="goodbye"), dict(key=1, state="goodbye")),
+    ],
+)
+async def test_text_command(auth_client, cmd, req):
+    send = patch_send(auth_client)
+
+    await auth_client.text_command(**cmd)
+    send.assert_called_once_with(TextCommandRequest(**req))
