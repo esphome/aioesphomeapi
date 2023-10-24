@@ -342,7 +342,10 @@ async def test_finish_connection_times_out(
 async def test_plaintext_connection_fails_handshake(
     conn: APIConnection, resolve_host, socket_socket
 ):
-    """Test that a plaintext connection works."""
+    """Test that the frame helper is closed before the underlying socket.
+
+    If we don't do this, asyncio will get confused and not release the socket.
+    """
     loop = asyncio.get_event_loop()
     protocol = _get_mock_protocol(conn)
     messages = []
