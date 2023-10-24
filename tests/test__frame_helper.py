@@ -394,8 +394,8 @@ async def test_noise_frame_helper_handshake_failure():
 
 
 @pytest.mark.asyncio
-async def test_noise_frame_helper_handshake_success():
-    """Test the noise frame helper handshake success."""
+async def test_noise_frame_helper_handshake_success_with_single_packet():
+    """Test the noise frame helper handshake success with a single packet."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
     packets = []
