@@ -239,7 +239,7 @@ def test_api_version_ord():
         (MediaPlayerEntityState, MediaPlayerStateResponse),
         (AlarmControlPanelInfo, ListEntitiesAlarmControlPanelResponse),
         (AlarmControlPanelEntityState, AlarmControlPanelStateResponse),
-        (TextState, TextStateResponse)
+        (TextState, TextStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
