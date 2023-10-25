@@ -37,6 +37,7 @@ from aioesphomeapi.api_pb2 import (
     ServiceArgType,
     SwitchStateResponse,
     TextSensorStateResponse,
+    TextStateResponse,
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
@@ -74,8 +75,10 @@ from aioesphomeapi.model import (
     SirenInfo,
     SwitchInfo,
     SwitchState,
+    TextInfo,
     TextSensorInfo,
     TextSensorState,
+    TextState,
     UserService,
     UserServiceArg,
     UserServiceArgType,
@@ -236,6 +239,7 @@ def test_api_version_ord():
         (MediaPlayerEntityState, MediaPlayerStateResponse),
         (AlarmControlPanelInfo, ListEntitiesAlarmControlPanelResponse),
         (AlarmControlPanelEntityState, AlarmControlPanelStateResponse),
+        (TextState, TextStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -346,6 +350,7 @@ def test_user_service_conversion():
         LockInfo,
         MediaPlayerInfo,
         AlarmControlPanelInfo,
+        TextInfo,
     ],
 )
 def test_build_unique_id(model):

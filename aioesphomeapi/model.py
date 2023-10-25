@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import enum
 import sys
-from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, TypeVar, cast
 from uuid import UUID
 
 from .util import fix_float_single_double_conversion
@@ -757,6 +756,28 @@ class AlarmControlPanelEntityState(EntityState):
     )
 
 
+# ==================== TEXT ====================
+class TextMode(APIIntEnum):
+    TEXT = 0
+    PASSWORD = 1
+
+
+@_frozen_dataclass_decorator
+class TextInfo(EntityInfo):
+    min_length: int = 0
+    max_length: int = 255
+    pattern: str = ""
+    mode: Optional[TextMode] = converter_field(
+        default=TextMode.TEXT, converter=TextMode.convert
+    )
+
+
+@_frozen_dataclass_decorator
+class TextState(EntityState):
+    state: str = ""
+    missing_state: bool = False
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
@@ -776,6 +797,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "lock": LockInfo,
     "media_player": MediaPlayerInfo,
     "alarm_control_panel": AlarmControlPanelInfo,
+    "text": TextInfo,
 }
 
 
@@ -1126,6 +1148,7 @@ _TYPE_TO_NAME = {
     LockInfo: "lock",
     MediaPlayerInfo: "media_player",
     AlarmControlPanelInfo: "alarm_control_panel",
+    TextInfo: "text_info",
 }
 
 

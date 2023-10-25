@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Coroutine
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Union, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, Union, cast
 
 from google.protobuf import message
 
@@ -69,6 +68,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesServicesResponse,
     ListEntitiesSirenResponse,
     ListEntitiesSwitchResponse,
+    ListEntitiesTextResponse,
     ListEntitiesTextSensorResponse,
     LockCommandRequest,
     LockStateResponse,
@@ -92,7 +92,9 @@ from .api_pb2 import (  # type: ignore
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     SwitchStateResponse,
+    TextCommandRequest,
     TextSensorStateResponse,
+    TextStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
     VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
@@ -165,8 +167,10 @@ from .model import (
     SirenState,
     SwitchInfo,
     SwitchState,
+    TextInfo,
     TextSensorInfo,
     TextSensorState,
+    TextState,
     UserService,
     UserServiceArgType,
     VoiceAssistantCommand,
@@ -198,6 +202,7 @@ SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
     SensorStateResponse: SensorState,
     SirenStateResponse: SirenState,
     SwitchStateResponse: SwitchState,
+    TextStateResponse: TextState,
     TextSensorStateResponse: TextSensorState,
     ClimateStateResponse: ClimateState,
     LockStateResponse: LockEntityState,
@@ -217,6 +222,7 @@ LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
     ListEntitiesSensorResponse: SensorInfo,
     ListEntitiesSirenResponse: SirenInfo,
     ListEntitiesSwitchResponse: SwitchInfo,
+    ListEntitiesTextResponse: TextInfo,
     ListEntitiesTextSensorResponse: TextSensorInfo,
     ListEntitiesServicesResponse: None,
     ListEntitiesCameraResponse: CameraInfo,
@@ -1335,6 +1341,15 @@ class APIClient:
         if media_url is not None:
             req.media_url = media_url
             req.has_media_url = True
+        assert self._connection is not None
+        self._connection.send_message(req)
+
+    async def text_command(self, key: int, state: str) -> None:
+        self._check_authenticated()
+
+        req = TextCommandRequest()
+        req.key = key
+        req.state = state
         assert self._connection is not None
         self._connection.send_message(req)
 
