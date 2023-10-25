@@ -762,7 +762,7 @@ class TextMode(APIIntEnum):
     PASSWORD = 1
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class TextInfo(EntityInfo):
     min_length: int = 0
     max_length: int = 255
@@ -772,7 +772,7 @@ class TextInfo(EntityInfo):
     )
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class TextState(EntityState):
     state: str = ""
     missing_state: bool = False
