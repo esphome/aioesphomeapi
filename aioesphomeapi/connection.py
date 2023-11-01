@@ -87,9 +87,6 @@ CONNECT_REQUEST_TIMEOUT = 30.0
 # to reboot and connect to the network/WiFi.
 TCP_CONNECT_TIMEOUT = 60.0
 
-# The maximum time for the whole connect process to complete
-CONNECT_AND_SETUP_TIMEOUT = 120.0
-
 # How long to wait for an existing connection to finish being
 # setup when requesting a disconnect so we can try to disconnect
 # gracefully without closing the socket out from under the
@@ -500,11 +497,7 @@ class APIConnection:
         )
         self._start_connect_task = start_connect_task
         try:
-            # Allow 2 minutes for connect and setup; this is only as a last measure
-            # to protect from issues if some part of the connect process mistakenly
-            # does not have a timeout
-            async with asyncio_timeout(CONNECT_AND_SETUP_TIMEOUT):
-                await start_connect_task
+            await start_connect_task
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
@@ -554,11 +547,7 @@ class APIConnection:
         )
         self._finish_connect_task = finish_connect_task
         try:
-            # Allow 2 minutes for connect and setup; this is only as a last measure
-            # to protect from issues if some part of the connect process mistakenly
-            # does not have a timeout
-            async with asyncio_timeout(CONNECT_AND_SETUP_TIMEOUT):
-                await self._finish_connect_task
+            await self._finish_connect_task
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
