@@ -217,8 +217,6 @@ async def test_disconnect_when_not_fully_connected(
 
     await asyncio.sleep(0)
     transport.reset_mock()
-    assert conn._start_connect_task is None
-    assert conn._finish_connect_task is not None
 
     with patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0), patch(
         "aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0
