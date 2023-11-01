@@ -77,6 +77,8 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 # from the network.
 #
 
+DISCONNECT_CONNECT_TIMEOUT = 5.0
+DISCONNECT_RESPONSE_TIMEOUT = 10.0
 HANDSHAKE_TIMEOUT = 30.0
 RESOLVE_TIMEOUT = 30.0
 CONNECT_REQUEST_TIMEOUT = 30.0
@@ -747,7 +749,7 @@ class APIConnection:
         except asyncio_TimeoutError as err:
             timeout_expired = True
             raise TimeoutAPIError(
-                f"Timeout waiting for response for {type(send_msg)} after {timeout}s"
+                f"Timeout waiting for response to {type(send_msg).__name__} after {timeout}s"
             ) from err
         finally:
             if not timeout_expired:
@@ -886,8 +888,13 @@ class APIConnection:
             # Try to wait for the handshake to finish so we can send
             # a disconnect request. If it doesn't finish in time
             # we will just close the socket.
-            _, pending = await asyncio.wait([self._finish_connect_task], timeout=5.0)
+            _, pending = await asyncio.wait(
+                [self._finish_connect_task], timeout=DISCONNECT_CONNECT_TIMEOUT
+            )
             if pending:
+                self._fatal_exception = TimeoutAPIError(
+                    "Timed out waiting to finish connect before disconnecting"
+                )
                 _LOGGER.debug(
                     "%s: Connect task didn't finish before disconnect",
                     self.log_name,
@@ -901,12 +908,12 @@ class APIConnection:
             # as possible.
             try:
                 await self.send_message_await_response(
-                    DISCONNECT_REQUEST_MESSAGE, DisconnectResponse
+                    DISCONNECT_REQUEST_MESSAGE,
+                    DisconnectResponse,
+                    timeout=DISCONNECT_RESPONSE_TIMEOUT,
                 )
             except APIConnectionError as err:
-                _LOGGER.error(
-                    "%s: Failed to send disconnect request: %s", self.log_name, err
-                )
+                _LOGGER.error("%s: disconnect request failed: %s", self.log_name, err)
 
         self._cleanup()
 
