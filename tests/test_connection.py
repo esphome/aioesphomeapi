@@ -333,21 +333,19 @@ async def test_start_connection_times_out(
     """Test handling of start connection timing out."""
     loop = asyncio.get_event_loop()
 
-    async def _create_mock_transport_protocol(create_func, **kwargs):
+    async def _mock_socket_connect(*args, **kwargs):
         await asyncio.sleep(500)
 
-    with patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    with patch.object(loop, "sock_connect", side_effect=_mock_socket_connect), patch(
+        "aioesphomeapi.connection.TCP_CONNECT_TIMEOUT", 0.0
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await asyncio.sleep(0)
 
-    async_fire_time_changed(utcnow() + timedelta(seconds=200))
-    await asyncio.sleep(0)
+        async_fire_time_changed(utcnow() + timedelta(seconds=200))
+        await asyncio.sleep(0)
 
-    with pytest.raises(
-        APIConnectionError, match="Error while starting connection: TimeoutError"
-    ):
+    with pytest.raises(APIConnectionError, match="Timeout while connecting"):
         await connect_task
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
@@ -444,9 +442,7 @@ async def test_finish_connection_times_out(
     async_fire_time_changed(utcnow() + timedelta(seconds=200))
     await asyncio.sleep(0)
 
-    with pytest.raises(
-        APIConnectionError, match="Error while finishing connection: TimeoutError"
-    ):
+    with pytest.raises(APIConnectionError, match="Hello timed out"):
         await connect_task
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
