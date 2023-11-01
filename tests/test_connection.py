@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import socket
 from datetime import timedelta
-from typing import Any, Coroutine, Optional, Generator
+from typing import Any, Coroutine, Generator, Optional
 from unittest.mock import AsyncMock
 
 import pytest
@@ -11,7 +11,12 @@ from mock import MagicMock, patch
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse, PingResponse
-from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState,PING_REQUEST_MESSAGE
+from aioesphomeapi.connection import (
+    PING_REQUEST_MESSAGE,
+    APIConnection,
+    ConnectionParams,
+    ConnectionState,
+)
 from aioesphomeapi.core import (
     APIConnectionError,
     HandshakeAPIError,
@@ -121,9 +126,14 @@ async def test_connect(conn, resolve_host, socket_socket, event_loop):
     assert conn.is_connected
 
 
-
 @pytest.mark.asyncio
-async def test_timeout_sending_message(conn: APIConnection, resolve_host: Coroutine[Any, Any, AddrInfo], socket_socket: Generator[Any, Any,  None], event_loop: asyncio.AbstractEventLoop, caplog: pytest.LogCaptureFixture) -> None:
+async def test_timeout_sending_message(
+    conn: APIConnection,
+    resolve_host: Coroutine[Any, Any, AddrInfo],
+    socket_socket: Generator[Any, Any, None],
+    event_loop: asyncio.AbstractEventLoop,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     loop = asyncio.get_event_loop()
     protocol: Optional[APIPlaintextFrameHelper] = None
     transport = MagicMock()
@@ -135,7 +145,6 @@ async def test_timeout_sending_message(conn: APIConnection, resolve_host: Corout
         protocol.connection_made(transport)
         connected.set()
         return transport, protocol
-
 
     transport = MagicMock()
 
@@ -157,18 +166,17 @@ async def test_timeout_sending_message(conn: APIConnection, resolve_host: Corout
 
     with pytest.raises(TimeoutAPIError):
         await conn.send_message_await_response_complex(
-            PING_REQUEST_MESSAGE,
-            None,
-            None,
-            (PingResponse,),
-            timeout=0
+            PING_REQUEST_MESSAGE, None, None, (PingResponse,), timeout=0
         )
 
     with patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0):
         await conn.disconnect()
 
     assert "disconnect request failed" in caplog.text
-    assert " Timeout waiting for response to DisconnectRequest after 0.0s" in caplog.text
+    assert (
+        " Timeout waiting for response to DisconnectRequest after 0.0s" in caplog.text
+    )
+
 
 @pytest.mark.asyncio
 async def test_requires_encryption_propagates(conn: APIConnection):
@@ -217,8 +225,6 @@ async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_so
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
-
-
 
     protocol.data_received(
         b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
