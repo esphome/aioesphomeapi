@@ -169,8 +169,11 @@ async def test_timeout_sending_message(
             PingRequest(), None, None, (PingResponse,), timeout=0
         )
 
+    transport.reset_mock()
     with patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0):
         await conn.disconnect()
+
+    transport.write.assert_called_with(b"\x00\x00\x05")
 
     assert "disconnect request failed" in caplog.text
     assert (
