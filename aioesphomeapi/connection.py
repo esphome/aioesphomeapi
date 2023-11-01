@@ -892,6 +892,9 @@ class APIConnection:
                 [self._finish_connect_task], timeout=DISCONNECT_CONNECT_TIMEOUT
             )
             if pending:
+                self._fatal_exception = TimeoutAPIError(
+                    "Timed out waiting to finish connect before disconnecting"
+                )
                 _LOGGER.debug(
                     "%s: Connect task didn't finish before disconnect",
                     self.log_name,

@@ -182,6 +182,64 @@ async def test_timeout_sending_message(
 
 
 @pytest.mark.asyncio
+async def test_disconnect_when_not_fully_connected(
+    conn: APIConnection,
+    resolve_host: Coroutine[Any, Any, AddrInfo],
+    socket_socket: Generator[Any, Any, None],
+    event_loop: asyncio.AbstractEventLoop,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    loop = asyncio.get_event_loop()
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    transport = MagicMock()
+
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    # Only send the first part of the handshake
+    # so we are stuck in the middle of the connection process
+    protocol.data_received(
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    )
+
+    await asyncio.sleep(0)
+    transport.reset_mock()
+    assert conn._start_connect_task is None
+    assert conn._finish_connect_task is not None
+
+    with patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0), patch(
+        "aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0
+    ):
+        await conn.disconnect()
+
+    with pytest.raises(
+        APIConnectionError,
+        match="Timed out waiting to finish connect before disconnecting",
+    ):
+        await connect_task
+
+    transport.write.assert_called_with(b"\x00\x00\x05")
+
+    assert "disconnect request failed" in caplog.text
+    assert (
+        " Timeout waiting for response to DisconnectRequest after 0.0s" in caplog.text
+    )
+
+
+@pytest.mark.asyncio
 async def test_requires_encryption_propagates(conn: APIConnection):
     loop = asyncio.get_event_loop()
     protocol = _get_mock_protocol(conn)
