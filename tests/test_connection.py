@@ -10,13 +10,13 @@ import pytest
 from mock import MagicMock, patch
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
-from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloResponse, PingResponse
-from aioesphomeapi.connection import (
-    PING_REQUEST_MESSAGE,
-    APIConnection,
-    ConnectionParams,
-    ConnectionState,
+from aioesphomeapi.api_pb2 import (
+    DeviceInfoResponse,
+    HelloResponse,
+    PingRequest,
+    PingResponse,
 )
+from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
     HandshakeAPIError,
@@ -166,7 +166,7 @@ async def test_timeout_sending_message(
 
     with pytest.raises(TimeoutAPIError):
         await conn.send_message_await_response_complex(
-            PING_REQUEST_MESSAGE, None, None, (PingResponse,), timeout=0
+            PingRequest(), None, None, (PingResponse,), timeout=0
         )
 
     with patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0):
