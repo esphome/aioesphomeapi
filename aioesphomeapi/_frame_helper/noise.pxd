@@ -18,7 +18,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef bint _is_ready
 
     @cython.locals(
-        header=bytes,
+        header="unsigned char[:]",
         preamble=cython.uint,
         msg_size_high=cython.uint,
         msg_size_low=cython.uint,

@@ -10,14 +10,14 @@ cdef object bytes_to_varuint, varuint_to_bytes
 cpdef _varuint_to_bytes(cython.int value)
 
 @cython.locals(result=cython.int, bitpos=cython.int, val=cython.int)
-cpdef _bytes_to_varuint(cython.bytes value)
+cpdef _bytes_to_varuint(unsigned char[:] value)
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
     @cython.locals(
         msg_type=bytes,
         length=bytes,
-        init_bytes=bytes,
+        init_bytes="unsigned char[:]",
         add_length=bytes,
         end_of_frame_pos=cython.uint,
         length_int=cython.uint,
