@@ -953,7 +953,7 @@ class BluetoothLERawAdvertisement:
     address: int
     rssi: int
     address_type: int = 0
-    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+    data: bytes = b""
 
     @classmethod
     def list_from_pb(  # type: ignore[misc]
