@@ -948,6 +948,26 @@ class BluetoothLEAdvertisement:
         )
 
 
+@_dataclass_decorator
+class BluetoothLERawAdvertisement:
+    address: int
+    rssi: int
+    data: bytes
+    address_type: int = 0
+
+    @classmethod
+    def list_from_pb(  # type: ignore[misc]
+        cls: BluetoothLERawAdvertisement, data: BluetoothLEAdvertisementResponse
+    ) -> list[BluetoothLERawAdvertisement]:
+        """Return a list of BluetoothLERawAdvertisement from a BluetoothLEAdvertisementResponse."""
+        return [
+            BluetoothLERawAdvertisement(
+                **{desc.name: val for desc, val in adv.ListFields()}
+            )
+            for adv in data.advertisements
+        ]
+
+
 @_frozen_dataclass_decorator
 class BluetoothDeviceConnection(APIModelBase):
     address: int = 0

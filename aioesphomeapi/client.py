@@ -31,7 +31,6 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteRequest,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
-    BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -175,6 +174,7 @@ from .model import (
     UserServiceArgType,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
+    BluetoothLERawAdvertisement,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -594,7 +594,7 @@ class APIClient:
         def _on_ble_raw_advertisement_response(
             data: BluetoothLERawAdvertisementsResponse,
         ) -> None:
-            on_advertisements(data.advertisements)
+            on_advertisements(BluetoothLERawAdvertisement.list_from_pb(data))
 
         unsub_callback = self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
