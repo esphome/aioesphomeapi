@@ -594,7 +594,7 @@ class APIClient:
         def _on_ble_raw_advertisement_response(
             data: BluetoothLERawAdvertisementsResponse,
         ) -> None:
-            on_advertisements(BluetoothLERawAdvertisement.list_from_pb(data))
+            on_advertisements(BluetoothLERawAdvertisement.list_from_pb(data))  # type: ignore[misc]
 
         unsub_callback = self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
