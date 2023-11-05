@@ -124,6 +124,7 @@ from .model import (
     BluetoothGATTError,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
+    BluetoothLERawAdvertisement,
     BluetoothProxyFeature,
     BluetoothProxySubscriptionFlag,
     ButtonInfo,
@@ -174,7 +175,6 @@ from .model import (
     UserServiceArgType,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
-    BluetoothLERawAdvertisement,
 )
 
 _LOGGER = logging.getLogger(__name__)
