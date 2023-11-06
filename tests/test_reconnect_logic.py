@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from ipaddress import ip_address
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 from zeroconf import (
@@ -318,9 +318,6 @@ async def test_reconnect_zeroconf(
     log_text: str,
 ) -> None:
     """Test that reconnect logic retry."""
-    on_disconnect_called = []
-    on_connect_called = []
-    on_connect_fail_called = []
 
     class PatchableAPIClient(APIClient):
         pass
@@ -331,27 +328,15 @@ async def test_reconnect_zeroconf(
         password=None,
     )
 
-    async def on_disconnect(expected_disconnect: bool) -> None:
-        nonlocal on_disconnect_called
-        on_disconnect_called.append(expected_disconnect)
-
-    async def on_connect() -> None:
-        nonlocal on_connect_called
-        on_connect_called.append(True)
-
-    async def on_connect_fail(connect_exception: Exception) -> None:
-        nonlocal on_connect_called
-        on_connect_fail_called.append(connect_exception)
-
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
     rl = ReconnectLogic(
         client=cli,
-        on_disconnect=on_disconnect,
-        on_connect=on_connect,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
         zeroconf_instance=mock_zeroconf,
         name="mydevice",
-        on_connect_error=on_connect_fail,
+        on_connect_error=AsyncMock(),
     )
     assert rl._log_name == "mydevice @ 1.2.3.4"
     assert cli._log_name == "mydevice @ 1.2.3.4"
