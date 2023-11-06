@@ -316,7 +316,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     async def stop(self) -> None:
         """Stop the connecting logic background task. Does not disconnect the client."""
-        self._cancel_connect("Stopping")
+        if self._connection_state == ReconnectLogicState.CONNECTING:
+            # If we are still establishing a connection, we can safely
+            # cancel the connect task here, otherwise we need to wait
+            # for the connect task to finish so we can gracefully
+            # disconnect.
+            self._cancel_connect("Stopping")
+
         async with self._connected_lock:
             self._is_stopped = True
             # Cancel again while holding the lock

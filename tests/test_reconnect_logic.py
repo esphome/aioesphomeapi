@@ -371,3 +371,33 @@ async def test_reconnect_zeroconf(
         assert log_text in caplog.text
 
     await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_reconnect_logic_stop_callback():
+    """Test that the stop_callback stops the ReconnectLogic."""
+    cli = APIClient(
+        address="1.2.3.4",
+        port=6052,
+        password=None,
+    )
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=_get_mock_zeroconf(),
+        name="mydevice",
+    )
+    await rl.start()
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    await asyncio.sleep(0)
+    assert rl._connection_state is ReconnectLogicState.CONNECTING
+    assert rl._is_stopped is False
+    rl.stop_callback()
+    # Wait for cancellation to propagate
+    for _ in range(4):
+        await asyncio.sleep(0)
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
