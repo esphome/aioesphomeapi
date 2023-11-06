@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from ipaddress import ip_address
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from zeroconf import (
