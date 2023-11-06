@@ -7,7 +7,8 @@ from enum import Enum
 from typing import Callable
 
 import zeroconf
-from zeroconf.const import _TYPE_A as TYPE_A, _TYPE_PTR as TYPE_PTR
+from zeroconf.const import _TYPE_A as TYPE_A
+from zeroconf.const import _TYPE_PTR as TYPE_PTR
 
 from .client import APIClient
 from .core import (
@@ -22,6 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
+
 
 class ReconnectLogicState(Enum):
     CONNECTING = 0
@@ -362,7 +364,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         for record_update in records:
             # We only consider PTR records and match using the alias name
             new_record = record_update.new
-            if not ((new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias) or (new_record.type == TYPE_A and new_record.name == self._a_name)):
+            if not (
+                (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)
+                or (new_record.type == TYPE_A and new_record.name == self._a_name)
+            ):
                 continue
 
             # Tell connection logic to retry connection attempt now (even before connect timer finishes)
