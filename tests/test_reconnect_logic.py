@@ -403,10 +403,10 @@ async def test_reconnect_logic_stop_callback():
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-
 @pytest.mark.asyncio
 async def test_reconnect_logic_stop_callback_waits_for_handshake():
     """Test that the stop_callback waits for a handshake."""
+
     class PatchableAPIClient(APIClient):
         pass
 
@@ -428,7 +428,9 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake():
         await asyncio.sleep(10)
         raise APIConnectionError
 
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection", side_effect=slow_connect_fail):
+    with patch.object(cli, "start_connection"), patch.object(
+        cli, "finish_connection", side_effect=slow_connect_fail
+    ):
         await rl.start()
         for _ in range(3):
             await asyncio.sleep(0)
