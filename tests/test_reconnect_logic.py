@@ -18,12 +18,8 @@ from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_PTR
 from aioesphomeapi import APIConnectionError
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
-
+from .common import get_mock_zeroconf
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
-
-
-def _get_mock_zeroconf() -> MagicMock:
-    return MagicMock(spec=Zeroconf)
 
 
 @pytest.mark.asyncio
@@ -70,7 +66,7 @@ async def test_reconnect_logic_name_from_host_and_set():
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
-        zeroconf_instance=_get_mock_zeroconf(),
+        zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
     assert rl._log_name == "mydevice"
@@ -96,7 +92,7 @@ async def test_reconnect_logic_name_from_address():
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
-        zeroconf_instance=_get_mock_zeroconf(),
+        zeroconf_instance=get_mock_zeroconf(),
     )
     assert rl._log_name == "1.2.3.4"
     assert cli._log_name == "1.2.3.4"
@@ -121,7 +117,7 @@ async def test_reconnect_logic_name_from_name():
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
-        zeroconf_instance=_get_mock_zeroconf(),
+        zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
     assert rl._log_name == "mydevice @ 1.2.3.4"
@@ -160,7 +156,7 @@ async def test_reconnect_logic_state():
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
-        zeroconf_instance=_get_mock_zeroconf(),
+        zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
         on_connect_error=on_connect_fail,
     )
@@ -237,7 +233,7 @@ async def test_reconnect_retry():
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
-        zeroconf_instance=_get_mock_zeroconf(),
+        zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
         on_connect_error=on_connect_fail,
     )
@@ -387,7 +383,7 @@ async def test_reconnect_logic_stop_callback():
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
-        zeroconf_instance=_get_mock_zeroconf(),
+        zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
     await rl.start()
@@ -419,7 +415,7 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake():
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
-        zeroconf_instance=_get_mock_zeroconf(),
+        zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
