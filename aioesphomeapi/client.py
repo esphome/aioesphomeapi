@@ -249,9 +249,7 @@ def _stringify_or_none(value: str | None) -> str | None:
     the client as an Estr, but we want to pass it
     to the API as a string or None.
     """
-    if value is None:
-        return None
-    return str(value)
+    return None if value is None else str(value)
 
 
 # pylint: disable=too-many-public-methods
