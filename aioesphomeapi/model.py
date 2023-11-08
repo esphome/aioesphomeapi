@@ -271,7 +271,7 @@ class FanState(EntityState):
     direction: FanDirection | None = converter_field(
         default=FanDirection.FORWARD, converter=FanDirection.convert
     )
-    preset_mode: str | None = None
+    preset_mode: str = ""
 
 
 # ==================== LIGHT ====================
