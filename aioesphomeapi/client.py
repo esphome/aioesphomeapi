@@ -243,7 +243,7 @@ ExecuteServiceDataType = dict[
 
 
 def _stringify_or_none(value: str | None) -> str | None:
-    """Convert a string to a string or None.
+    """Convert a string like object to a str or None.
 
     The noise_psk is sometimes passed into
     the client as an Estr, but we want to pass it
