@@ -5,7 +5,9 @@ import time
 from datetime import datetime, timezone
 from functools import partial
 from unittest.mock import MagicMock
+
 from zeroconf import Zeroconf
+
 UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 # We use a partial here since it is implemented in native code
@@ -16,7 +18,6 @@ utcnow.__doc__ = "Get now in UTC time."
 
 def get_mock_zeroconf() -> MagicMock:
     return MagicMock(spec=Zeroconf)
-
 
 
 class Estr(str):

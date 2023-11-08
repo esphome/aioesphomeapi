@@ -18,7 +18,9 @@ from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_PTR
 from aioesphomeapi import APIConnectionError
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
+
 from .common import get_mock_zeroconf
+
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
 

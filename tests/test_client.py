@@ -1,6 +1,8 @@
+import asyncio
+
 import pytest
 from mock import AsyncMock, MagicMock, patch
-from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
+
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
@@ -22,10 +24,8 @@ from aioesphomeapi.api_pb2 import (
     SwitchCommandRequest,
     TextCommandRequest,
 )
-import asyncio
-from .common import get_mock_zeroconf,Estr
-from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.client import APIClient
+from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -45,6 +45,9 @@ from aioesphomeapi.model import (
     UserServiceArg,
     UserServiceArgType,
 )
+from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
+
+from .common import Estr, get_mock_zeroconf
 
 
 @pytest.fixture
@@ -578,7 +581,6 @@ async def test_text_command(auth_client, cmd, req):
 
     await auth_client.text_command(**cmd)
     send.assert_called_once_with(TextCommandRequest(**req))
-
 
 
 @pytest.mark.asyncio
