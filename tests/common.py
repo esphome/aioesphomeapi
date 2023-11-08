@@ -4,6 +4,9 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from functools import partial
+from unittest.mock import MagicMock
+
+from zeroconf import Zeroconf
 
 UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
@@ -11,6 +14,14 @@ _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 # and avoids the global lookup of UTC
 utcnow: partial[datetime] = partial(datetime.now, UTC)
 utcnow.__doc__ = "Get now in UTC time."
+
+
+def get_mock_zeroconf() -> MagicMock:
+    return MagicMock(spec=Zeroconf)
+
+
+class Estr(str):
+    """A subclassed string."""
 
 
 def as_utc(dattim: datetime) -> datetime:

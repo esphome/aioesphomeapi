@@ -345,10 +345,9 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
-            # Ensure noise_psk is a string and not an EStr
             _, fh = await loop.create_connection(  # type: ignore[type-var]
                 lambda: APINoiseFrameHelper(
-                    noise_psk=str(noise_psk),
+                    noise_psk=noise_psk,  # type: ignore[arg-type]
                     expected_name=self._params.expected_name,
                     on_pkt=self._process_packet,
                     on_error=self._report_fatal_error,
