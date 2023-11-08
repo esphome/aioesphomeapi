@@ -215,6 +215,10 @@ async def test_cover_command(auth_client, cmd, req):
             dict(key=1, direction=FanDirection.REVERSE),
             dict(key=1, has_direction=True, direction=FanDirection.REVERSE),
         ),
+        (
+            dict(key=1, preset_mode="auto"),
+            dict(key=1, has_preset_mode=True, preset_mode="auto"),
+        ),
     ],
 )
 async def test_fan_command(auth_client, cmd, req):

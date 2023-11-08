@@ -1106,6 +1106,7 @@ class APIClient:
         speed_level: int | None = None,
         oscillating: bool | None = None,
         direction: FanDirection | None = None,
+        preset_mode: str | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1126,6 +1127,9 @@ class APIClient:
         if direction is not None:
             req.has_direction = True
             req.direction = direction
+        if preset_mode is not None:
+            req.has_preset_mode = True
+            req.preset_mode = preset_mode
         assert self._connection is not None
         self._connection.send_message(req)
 
