@@ -646,8 +646,8 @@ async def test_empty_noise_psk_or_expected_name():
         address=Estr("1.2.3.4"),
         port=6052,
         password=None,
-        noise_psk='',
-        expected_name='',
+        noise_psk="",
+        expected_name="",
     )
     assert cli._params.noise_psk is None
     assert type(cli._params.address) is str
