@@ -242,6 +242,18 @@ ExecuteServiceDataType = dict[
 ]
 
 
+def _stringify_or_none(value: str | None) -> str | None:
+    """Convert a string to a string or None.
+
+    The noise_psk is sometimes passed into
+    the client as an Estr, but we want to pass it
+    to the API as a string or None.
+    """
+    if value is None:
+        return None
+    return str(value)
+
+
 # pylint: disable=too-many-public-methods
 class APIClient:
     __slots__ = (
@@ -288,7 +300,7 @@ class APIClient:
             keepalive=keepalive,
             zeroconf_instance=zeroconf_instance,
             # treat empty psk string as missing (like password)
-            noise_psk=noise_psk or None,
+            noise_psk=_stringify_or_none(noise_psk),
             expected_name=expected_name,
         )
         self._connection: APIConnection | None = None
