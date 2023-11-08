@@ -589,13 +589,17 @@ async def test_noise_psk_handles_subclassed_string():
         pass
 
     cli = PatchableAPIClient(
-        address="1.2.3.4",
+        address=Estr("1.2.3.4"),
         port=6052,
         password=None,
-        noise_psk=Estr("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=")
+        noise_psk=Estr("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="),
+        expected_name=Estr("mydevice"),
     )
     # Make sure its not a subclassed string
     assert type(cli._params.noise_psk) is str
+    assert type(cli._params.address) is str
+    assert type(cli._params.expected_name) is str
+
     rl = ReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),

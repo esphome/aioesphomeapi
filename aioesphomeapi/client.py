@@ -291,7 +291,7 @@ class APIClient:
             IP passed as address but DHCP reassigned IP.
         """
         self._params = ConnectionParams(
-            address=address,
+            address=str(address),
             port=port,
             password=password,
             client_info=client_info,
@@ -299,7 +299,7 @@ class APIClient:
             zeroconf_instance=zeroconf_instance,
             # treat empty psk string as missing (like password)
             noise_psk=_stringify_or_none(noise_psk),
-            expected_name=expected_name,
+            expected_name=_stringify_or_none(expected_name),
         )
         self._connection: APIConnection | None = None
         self._cached_name: str | None = None
