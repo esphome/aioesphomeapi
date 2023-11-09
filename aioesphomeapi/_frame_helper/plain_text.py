@@ -95,18 +95,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             length_high = init_bytes[1]
             maybe_msg_type = init_bytes[2]
             if preamble != 0x00:
-                if preamble == 0x01:
-                    self._handle_error_and_close(
-                        RequiresEncryptionAPIError(
-                            f"{self._log_name}: Connection requires encryption"
-                        )
-                    )
-                    return
-                self._handle_error_and_close(
-                    ProtocolAPIError(
-                        f"{self._log_name}: Invalid preamble {preamble:02x}"
-                    )
-                )
+                self._error_on_incorrect_preamble(preamble)
                 return
 
             if length_high & 0x80 != 0x80:
@@ -167,3 +156,16 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             self._remove_from_buffer()
             self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing
+
+    def _error_on_incorrect_preamble(self, preamble: _int) -> None:
+        """Handle an incorrect preamble."""
+        if preamble == 0x01:
+            self._handle_error_and_close(
+                RequiresEncryptionAPIError(
+                    f"{self._log_name}: Connection requires encryption"
+                )
+            )
+            return
+        self._handle_error_and_close(
+            ProtocolAPIError(f"{self._log_name}: Invalid preamble {preamble:02x}")
+        )
