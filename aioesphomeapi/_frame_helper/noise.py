@@ -142,8 +142,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
-            header = self._read_exactly(3)
-            if header is None:
+            if (header := self._read_exactly(3)) is None:
                 return
             preamble = header[0]
             msg_size_high = header[1]
