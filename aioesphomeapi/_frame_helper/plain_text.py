@@ -78,7 +78,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
+    def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
+        self, data: bytes
+    ) -> None:
         self._add_to_buffer(data)
         while self._buffer:
             # Read preamble, which should always 0x00
