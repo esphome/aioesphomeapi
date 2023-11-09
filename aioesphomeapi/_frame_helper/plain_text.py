@@ -132,8 +132,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 length_int = bytes_to_varuint(length) or 0
                 # Since the length is longer than 1 byte we do not have the
                 # message type yet.
-                if (msg_type := self._read_exactly(1)) is None:
+                if (msg_type_byte := self._read_exactly(1)) is None:
                     return
+                msg_type = msg_type_byte
                 if msg_type[-1] & 0x80 != 0x80:
                     # Message type is only 1 byte
                     msg_type_int = msg_type[0]
