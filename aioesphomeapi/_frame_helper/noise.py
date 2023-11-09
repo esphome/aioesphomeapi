@@ -61,6 +61,8 @@ class NoiseConnectionState(Enum):
 
 NOISE_HELLO = b"\x01\x00\x00"
 
+int_ = int
+
 
 class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
@@ -302,7 +304,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         )
         self._ready_future.set_result(None)
 
-    def write_packet(self, type_: int, data: bytes) -> None:
+    def write_packet(self, type_: int_, data: bytes) -> None:
         """Write a packet to the socket."""
         if not self._is_ready:
             raise HandshakeAPIError(f"{self._log_name}: Noise connection is not ready")
@@ -312,10 +314,10 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._writer is not None, "Writer is not set"
 
         data_len = len(data)
-        type_len = bytes(
+        data_header = bytes(
             ((type_ >> 8) & 0xFF, type_ & 0xFF, (data_len >> 8) & 0xFF, data_len & 0xFF)
         )
-        frame = self._encrypt(type_len + data)
+        frame = self._encrypt(data_header + data)
 
         if self._debug_enabled():
             _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
