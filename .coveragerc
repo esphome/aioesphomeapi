@@ -4,6 +4,7 @@ source = aioesphomeapi
 omit =
     aioesphomeapi/api_options_pb2.py
     aioesphomeapi/api_pb2.py
+    bench/*.py
 
 [report]
 # Regexes for lines to exclude from consideration
