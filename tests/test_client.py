@@ -621,3 +621,34 @@ async def test_noise_psk_handles_subclassed_string():
     for _ in range(4):
         await asyncio.sleep(0)
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_no_noise_psk():
+    """Test not using a noise_psk."""
+    cli = APIClient(
+        address=Estr("1.2.3.4"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=Estr("mydevice"),
+    )
+    # Make sure its not a subclassed string
+    assert cli._params.noise_psk is None
+    assert type(cli._params.address) is str
+    assert type(cli._params.expected_name) is str
+
+
+@pytest.mark.asyncio
+async def test_empty_noise_psk_or_expected_name():
+    """Test an empty noise_psk is treated as None."""
+    cli = APIClient(
+        address=Estr("1.2.3.4"),
+        port=6052,
+        password=None,
+        noise_psk="",
+        expected_name="",
+    )
+    assert cli._params.noise_psk is None
+    assert type(cli._params.address) is str
+    assert cli._params.expected_name is None
