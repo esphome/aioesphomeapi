@@ -63,6 +63,7 @@ NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
 
+
 class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
 
