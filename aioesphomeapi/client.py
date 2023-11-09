@@ -242,6 +242,16 @@ ExecuteServiceDataType = dict[
 ]
 
 
+def _stringify_or_none(value: str | None) -> str | None:
+    """Convert a string like object to a str or None.
+
+    The noise_psk is sometimes passed into
+    the client as an Estr, but we want to pass it
+    to the API as a string or None.
+    """
+    return None if value is None else str(value)
+
+
 # pylint: disable=too-many-public-methods
 class APIClient:
     __slots__ = (
@@ -281,15 +291,15 @@ class APIClient:
             IP passed as address but DHCP reassigned IP.
         """
         self._params = ConnectionParams(
-            address=address,
+            address=str(address),
             port=port,
             password=password,
             client_info=client_info,
             keepalive=keepalive,
             zeroconf_instance=zeroconf_instance,
-            # treat empty psk string as missing (like password)
-            noise_psk=noise_psk or None,
-            expected_name=expected_name,
+            # treat empty '' psk string as missing (like password)
+            noise_psk=_stringify_or_none(noise_psk) or None,
+            expected_name=_stringify_or_none(expected_name) or None,
         )
         self._connection: APIConnection | None = None
         self._cached_name: str | None = None

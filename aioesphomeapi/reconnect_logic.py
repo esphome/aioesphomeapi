@@ -7,6 +7,8 @@ from enum import Enum
 from typing import Callable
 
 import zeroconf
+from zeroconf.const import _TYPE_A as TYPE_A
+from zeroconf.const import _TYPE_PTR as TYPE_PTR
 
 from .client import APIClient
 from .core import (
@@ -21,7 +23,6 @@ _LOGGER = logging.getLogger(__name__)
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
-TYPE_PTR = 12
 
 
 class ReconnectLogicState(Enum):
@@ -87,7 +88,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
         self._zc = zeroconf_instance
-        self._filter_alias: str | None = None
+        self._ptr_alias: str | None = None
+        self._a_name: str | None = None
         # Flag to check if the device is connected
         self._connection_state = ReconnectLogicState.DISCONNECTED
         self._accept_zeroconf_records = True
@@ -149,7 +151,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         when the state is CONNECTING.
         """
         self._connection_state = state
-        self._accept_zeroconf_records = state not in NOT_YET_CONNECTED_STATES
+        self._accept_zeroconf_records = state in NOT_YET_CONNECTED_STATES
 
     def _async_log_connection_error(self, err: Exception) -> None:
         """Log connection errors."""
@@ -314,7 +316,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     async def stop(self) -> None:
         """Stop the connecting logic background task. Does not disconnect the client."""
-        self._cancel_connect("Stopping")
+        if self._connection_state in NOT_YET_CONNECTED_STATES:
+            # If we are still establishing a connection, we can safely
+            # cancel the connect task here, otherwise we need to wait
+            # for the connect task to finish so we can gracefully
+            # disconnect.
+            self._cancel_connect("Stopping")
+
         async with self._connected_lock:
             self._is_stopped = True
             # Cancel again while holding the lock
@@ -332,7 +340,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         if not self._zc_listening and self.name:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
-            self._filter_alias = f"{self.name}._esphomelib._tcp.local."
+            self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
+            self._a_name = f"{self.name}.local."
             self._zc.async_add_listener(self, None)
             self._zc_listening = True
 
@@ -355,17 +364,16 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         # Check if already connected, no lock needed for this access and
         # bail if either the already stopped or we haven't received device info yet
-        if (
-            not self._accept_zeroconf_records
-            or self._is_stopped
-            or self._filter_alias is None
-        ):
+        if not self._accept_zeroconf_records or self._is_stopped:
             return
 
         for record_update in records:
             # We only consider PTR records and match using the alias name
             new_record = record_update.new
-            if new_record.type != TYPE_PTR or new_record.alias != self._filter_alias:  # type: ignore[attr-defined]
+            if not (
+                (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)  # type: ignore[attr-defined]
+                or (new_record.type == TYPE_A and new_record.name == self._a_name)
+            ):
                 continue
 
             # Tell connection logic to retry connection attempt now (even before connect timer finishes)
