@@ -613,6 +613,16 @@ class APIConnection:
             connect.password = self._params.password
         return connect
 
+    def _send_messages(self, messages: tuple[message.Message, ...]) -> None:
+        """Send a message to the remote.
+
+        Currently this is a wrapper around send_message
+        but may be changed in the future to batch messages
+        together.
+        """
+        for msg in messages:
+            self.send_message(msg)
+
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
@@ -728,8 +738,7 @@ class APIConnection:
         # Send the message right away to reduce latency.
         # This is safe because we are not awaiting between
         # sending the message and registering the handler
-        for msg in messages:
-            self.send_message(msg)
+        self._send_messages(messages)
         loop = self._loop
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = loop.create_future()
