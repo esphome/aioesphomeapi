@@ -441,8 +441,8 @@ class APIClient:
             return isinstance(msg, ListEntitiesDoneResponse)
 
         assert self._connection is not None
-        resp = await self._connection.send_message_await_response_complex(
-            ListEntitiesRequest(), do_append, do_stop, msg_types, timeout=60
+        resp = await self._connection.send_messages_await_response_complex(
+            (ListEntitiesRequest(),), do_append, do_stop, msg_types, timeout=60
         )
         entities: list[EntityInfo] = []
         services: list[UserService] = []
@@ -557,8 +557,8 @@ class APIClient:
         assert self._connection is not None
 
         message_filter = partial(self._filter_bluetooth_message, address, handle)
-        resp = await self._connection.send_message_await_response_complex(
-            request, message_filter, message_filter, msg_types, timeout=timeout
+        resp = await self._connection.send_messages_await_response_complex(
+            (request,), message_filter, message_filter, msg_types, timeout=timeout
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
@@ -791,9 +791,11 @@ class APIClient:
                 )
             return True
 
-        [response] = await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address, request_type=BluetoothDeviceRequestType.PAIR
+        [response] = await self._connection.send_messages_await_response_complex(
+            (
+                BluetoothDeviceRequest(
+                    address=address, request_type=BluetoothDeviceRequestType.PAIR
+                ),
             ),
             predicate_func,
             predicate_func,
@@ -812,9 +814,11 @@ class APIClient:
         def predicate_func(msg: BluetoothDeviceUnpairingResponse) -> bool:
             return bool(msg.address == address)
 
-        [response] = await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address, request_type=BluetoothDeviceRequestType.UNPAIR
+        [response] = await self._connection.send_messages_await_response_complex(
+            (
+                BluetoothDeviceRequest(
+                    address=address, request_type=BluetoothDeviceRequestType.UNPAIR
+                ),
             ),
             predicate_func,
             predicate_func,
@@ -833,9 +837,11 @@ class APIClient:
         def predicate_func(msg: BluetoothDeviceClearCacheResponse) -> bool:
             return bool(msg.address == address)
 
-        [response] = await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address, request_type=BluetoothDeviceRequestType.CLEAR_CACHE
+        [response] = await self._connection.send_messages_await_response_complex(
+            (
+                BluetoothDeviceRequest(
+                    address=address, request_type=BluetoothDeviceRequestType.CLEAR_CACHE
+                ),
             ),
             predicate_func,
             predicate_func,
@@ -853,10 +859,12 @@ class APIClient:
             return bool(msg.address == address and not msg.connected)
 
         assert self._connection is not None
-        await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address,
-                request_type=BluetoothDeviceRequestType.DISCONNECT,
+        await self._connection.send_messages_await_response_complex(
+            (
+                BluetoothDeviceRequest(
+                    address=address,
+                    request_type=BluetoothDeviceRequestType.DISCONNECT,
+                ),
             ),
             predicate_func,
             predicate_func,
@@ -883,8 +891,8 @@ class APIClient:
             return isinstance(msg, stop_types) and msg.address == address
 
         assert self._connection is not None
-        resp = await self._connection.send_message_await_response_complex(
-            BluetoothGATTGetServicesRequest(address=address),
+        resp = await self._connection.send_messages_await_response_complex(
+            (BluetoothGATTGetServicesRequest(address=address),),
             do_append,
             do_stop,
             msg_types,

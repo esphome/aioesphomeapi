@@ -74,7 +74,7 @@ def patch_response_complex(client: APIClient, messages):
             raise ValueError("Response never stopped")
         return resp
 
-    client._connection.send_message_await_response_complex = patched
+    client._connection.send_messages_await_response_complex = patched
 
 
 def patch_response_callback(client: APIClient):

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import socket
 from datetime import timedelta
 from typing import Any, Coroutine, Generator, Optional
 from unittest.mock import AsyncMock
 
 import pytest
+from google.protobuf import message
 from mock import MagicMock, patch
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
+    ConnectResponse,
     DeviceInfoResponse,
     HelloResponse,
     PingRequest,
@@ -18,14 +22,21 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
+    MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
     HandshakeAPIError,
+    InvalidAuthAPIError,
     RequiresEncryptionAPIError,
     TimeoutAPIError,
 )
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
 from .common import async_fire_time_changed, utcnow
+
+PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
+
+logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
 
 async def connect(conn: APIConnection, login: bool = True):
@@ -165,8 +176,8 @@ async def test_timeout_sending_message(
     await connect_task
 
     with pytest.raises(TimeoutAPIError):
-        await conn.send_message_await_response_complex(
-            PingRequest(), None, None, (PingResponse,), timeout=0
+        await conn.send_messages_await_response_complex(
+            (PingRequest(),), None, None, (PingResponse,), timeout=0
         )
 
     transport.reset_mock()
@@ -176,9 +187,7 @@ async def test_timeout_sending_message(
     transport.write.assert_called_with(b"\x00\x00\x05")
 
     assert "disconnect request failed" in caplog.text
-    assert (
-        " Timeout waiting for response to DisconnectRequest after 0.0s" in caplog.text
-    )
+    assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -232,9 +241,7 @@ async def test_disconnect_when_not_fully_connected(
     transport.write.assert_called_with(b"\x00\x00\x05")
 
     assert "disconnect request failed" in caplog.text
-    assert (
-        " Timeout waiting for response to DisconnectRequest after 0.0s" in caplog.text
-    )
+    assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -250,7 +257,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         conn.connection_state = ConnectionState.CONNECTED
 
         with pytest.raises(RequiresEncryptionAPIError):
-            task = asyncio.create_task(conn._connect_hello())
+            task = asyncio.create_task(conn._connect_hello_login(login=True))
             await asyncio.sleep(0)
             protocol.data_received(b"\x01\x00\x00")
             await task
@@ -554,3 +561,99 @@ async def test_plaintext_connection_fails_handshake(
     remove()
     await conn.force_disconnect()
     await asyncio.sleep(0)
+
+
+def _generate_plaintext_packet(msg: bytes, type_: int) -> bytes:
+    return (
+        b"\0"
+        + _cached_varuint_to_bytes(len(msg))
+        + _cached_varuint_to_bytes(type_)
+        + msg
+    )
+
+
+@pytest.mark.asyncio
+async def test_connect_wrong_password(conn, resolve_host, socket_socket, event_loop):
+    loop = asyncio.get_event_loop()
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    with patch.object(event_loop, "sock_connect"), patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=True))
+        await connected.wait()
+        hello_response: message.Message = HelloResponse()
+        hello_response.api_version_major = 1
+        hello_response.api_version_minor = 9
+        hello_response.name = "fake"
+        hello_msg = hello_response.SerializeToString()
+
+        connect_response: message.Message = ConnectResponse()
+        connect_response.invalid_password = True
+        connect_msg = connect_response.SerializeToString()
+
+        protocol.data_received(
+            _generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
+        )
+        protocol.data_received(
+            _generate_plaintext_packet(
+                connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse]
+            )
+        )
+
+        with pytest.raises(InvalidAuthAPIError):
+            await connect_task
+
+    assert not conn.is_connected
+
+
+@pytest.mark.asyncio
+async def test_connect_correct_password(conn, resolve_host, socket_socket, event_loop):
+    loop = asyncio.get_event_loop()
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    with patch.object(event_loop, "sock_connect"), patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=True))
+        await connected.wait()
+        hello_response: message.Message = HelloResponse()
+        hello_response.api_version_major = 1
+        hello_response.api_version_minor = 9
+        hello_response.name = "fake"
+        hello_msg = hello_response.SerializeToString()
+
+        connect_response: message.Message = ConnectResponse()
+        connect_response.invalid_password = False
+        connect_msg = connect_response.SerializeToString()
+
+        protocol.data_received(
+            _generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
+        )
+        protocol.data_received(
+            _generate_plaintext_packet(
+                connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse]
+            )
+        )
+
+        await connect_task
+
+    assert conn.is_connected

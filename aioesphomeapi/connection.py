@@ -369,17 +369,48 @@ class APIConnection:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         self._set_connection_state(ConnectionState.HANDSHAKE_COMPLETE)
 
-    async def _connect_hello(self) -> None:
-        """Step 4 in connect process: send hello and get api version."""
+    def _make_hello_request(self) -> HelloRequest:
+        """Make a HelloRequest."""
         hello = HelloRequest()
         hello.client_info = self._params.client_info
         hello.api_version_major = 1
         hello.api_version_minor = 9
+        return hello
+
+    async def _connect_hello_login(self, login: bool) -> None:
+        """Step 4 in connect process: send hello and login and get api version."""
+        messages = [self._make_hello_request()]
+        msg_types = [HelloResponse]
+        if login:
+            messages.append(self._make_connect_request())
+            msg_types.append(ConnectResponse)
+
         try:
-            resp = await self.send_message_await_response(hello, HelloResponse)
+            responses = await self.send_messages_await_response_complex(
+                tuple(messages),
+                None,
+                lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
+                is msg_types[-1],
+                tuple(msg_types),
+                CONNECT_REQUEST_TIMEOUT,
+            )
         except TimeoutAPIError as err:
+            self._report_fatal_error(err)
             raise TimeoutAPIError("Hello timed out") from err
 
+        resp = responses.pop(0)
+        self._process_hello_resp(resp)
+        if login:
+            login_response = responses.pop(0)
+            self._process_login_response(login_response)
+
+    def _process_login_response(self, login_response: ConnectResponse) -> None:
+        """Process a ConnectResponse."""
+        if login_response.invalid_password:
+            raise InvalidAuthAPIError("Invalid password!")
+
+    def _process_hello_resp(self, resp: HelloResponse) -> None:
+        """Process a HelloResponse."""
         _LOGGER.debug(
             "%s: Successfully connected ('%s' API=%s.%s)",
             self.log_name,
@@ -525,9 +556,7 @@ class APIConnection:
         in_do_connect.set(True)
         await self._connect_init_frame_helper()
         self._register_internal_message_handlers()
-        await self._connect_hello()
-        if login:
-            await self._login()
+        await self._connect_hello_login(login)
         self._async_schedule_keep_alive(self._loop.time())
 
     async def finish_connection(self, *, login: bool) -> None:
@@ -577,25 +606,22 @@ class APIConnection:
         self.is_connected = state is ConnectionState.CONNECTED
         self._handshake_complete = state is ConnectionState.HANDSHAKE_COMPLETE
 
-    async def _login(self) -> None:
-        """Send a login (ConnectRequest) and await the response."""
+    def _make_connect_request(self) -> ConnectRequest:
+        """Make a ConnectRequest."""
         connect = ConnectRequest()
         if self._params.password is not None:
             connect.password = self._params.password
-        try:
-            resp = await self.send_message_await_response(
-                connect, ConnectResponse, timeout=CONNECT_REQUEST_TIMEOUT
-            )
-        except TimeoutAPIError as err:
-            # After a timeout for connect the connection can no longer be used
-            # We don't know what state the device may be in after ConnectRequest
-            # was already sent
-            _LOGGER.debug("%s: Login timed out", self.log_name)
-            self._report_fatal_error(err)
-            raise
+        return connect
 
-        if resp.invalid_password:
-            raise InvalidAuthAPIError("Invalid password!")
+    def _send_messages(self, messages: tuple[message.Message, ...]) -> None:
+        """Send a message to the remote.
+
+        Currently this is a wrapper around send_message
+        but may be changed in the future to batch messages
+        together.
+        """
+        for msg in messages:
+            self.send_message(msg)
 
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
@@ -692,9 +718,9 @@ class APIConnection:
         if do_stop is None or do_stop(resp):
             fut.set_result(None)
 
-    async def send_message_await_response_complex(  # pylint: disable=too-many-locals
+    async def send_messages_await_response_complex(  # pylint: disable=too-many-locals
         self,
-        send_msg: message.Message,
+        messages: tuple[message.Message, ...],
         do_append: Callable[[message.Message], bool] | None,
         do_stop: Callable[[message.Message], bool] | None,
         msg_types: tuple[type[Any], ...],
@@ -712,8 +738,7 @@ class APIConnection:
         # Send the message right away to reduce latency.
         # This is safe because we are not awaiting between
         # sending the message and registering the handler
-
-        self.send_message(send_msg)
+        self._send_messages(messages)
         loop = self._loop
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = loop.create_future()
@@ -736,8 +761,9 @@ class APIConnection:
             await fut
         except asyncio_TimeoutError as err:
             timeout_expired = True
+            response_names = ", ".join(t.__name__ for t in msg_types)
             raise TimeoutAPIError(
-                f"Timeout waiting for response to {type(send_msg).__name__} after {timeout}s"
+                f"Timeout waiting for {response_names} after {timeout}s"
             ) from err
         finally:
             if not timeout_expired:
@@ -750,8 +776,8 @@ class APIConnection:
     async def send_message_await_response(
         self, send_msg: message.Message, response_type: Any, timeout: float = 10.0
     ) -> Any:
-        [response] = await self.send_message_await_response_complex(
-            send_msg,
+        [response] = await self.send_messages_await_response_complex(
+            (send_msg,),
             None,  # we will only get responses of `response_type`
             None,  # we will only get responses of `response_type`
             (response_type,),
