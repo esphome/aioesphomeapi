@@ -8,7 +8,10 @@ from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
+    BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
+    BluetoothDevicePairingResponse,
+    BluetoothDeviceUnpairingResponse,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -668,7 +671,7 @@ async def test_bluetooth_disconnect(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test bluetooth_disconnect."""
+    """Test bluetooth_device_disconnect."""
     client, connection, transport, protocol = api_client
     disconnect_task = asyncio.create_task(client.bluetooth_device_disconnect(1234))
     await asyncio.sleep(0)
@@ -682,3 +685,63 @@ async def test_bluetooth_disconnect(
         )
     )
     await disconnect_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_pair(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_pair."""
+    client, connection, transport, protocol = api_client
+    pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDevicePairingResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDevicePairingResponse],
+        )
+    )
+    await pair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_unpair(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_unpair."""
+    client, connection, transport, protocol = api_client
+    unpair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceUnpairingResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceUnpairingResponse],
+        )
+    )
+    await unpair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_clear_cache(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_clear_cache."""
+    client, connection, transport, protocol = api_client
+    clear_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceClearCacheResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceClearCacheResponse],
+        )
+    )
+    await clear_task
