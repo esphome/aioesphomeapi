@@ -411,9 +411,7 @@ class APIConnection:
             resp.api_version_major,
             resp.api_version_minor,
         )
-        api_version = APIVersion(
-            resp.api_version_major, resp.api_version_minor
-        )
+        api_version = APIVersion(resp.api_version_major, resp.api_version_minor)
         if api_version.major > 2:
             _LOGGER.error(
                 "%s: Incompatible version %s! Closing connection",
@@ -755,8 +753,9 @@ class APIConnection:
             await fut
         except asyncio_TimeoutError as err:
             timeout_expired = True
+            msg_types = ", ".join(t.__name__ for t in msg_types)
             raise TimeoutAPIError(
-                f"Timeout waiting for response to {type(send_msg).__name__} after {timeout}s"
+                f"Timeout waiting for response to {msg_types} after {timeout}s"
             ) from err
         finally:
             if not timeout_expired:
@@ -914,8 +913,8 @@ class APIConnection:
             # the esp will clean up the connection as soon
             # as possible.
             try:
-                await self.send_messages_await_response_complex(
-                    (DISCONNECT_REQUEST_MESSAGE,),
+                await self.send_message_await_response(
+                    DISCONNECT_REQUEST_MESSAGE,
                     DisconnectResponse,
                     timeout=DISCONNECT_RESPONSE_TIMEOUT,
                 )

@@ -165,8 +165,8 @@ async def test_timeout_sending_message(
     await connect_task
 
     with pytest.raises(TimeoutAPIError):
-        await conn.send_message_await_response_complex(
-            PingRequest(), None, None, (PingResponse,), timeout=0
+        await conn.send_messages_await_response_complex(
+            (PingRequest(),), None, None, (PingResponse,), timeout=0
         )
 
     transport.reset_mock()
@@ -250,7 +250,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         conn.connection_state = ConnectionState.CONNECTED
 
         with pytest.raises(RequiresEncryptionAPIError):
-            task = asyncio.create_task(conn._connect_hello())
+            task = asyncio.create_task(conn._connect_hello_login(login=True))
             await asyncio.sleep(0)
             protocol.data_received(b"\x01\x00\x00")
             await task
