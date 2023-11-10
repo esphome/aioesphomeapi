@@ -176,9 +176,7 @@ async def test_timeout_sending_message(
     transport.write.assert_called_with(b"\x00\x00\x05")
 
     assert "disconnect request failed" in caplog.text
-    assert (
-        " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
-    )
+    assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -232,9 +230,7 @@ async def test_disconnect_when_not_fully_connected(
     transport.write.assert_called_with(b"\x00\x00\x05")
 
     assert "disconnect request failed" in caplog.text
-    assert (
-        " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
-    )
+    assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
 
 
 @pytest.mark.asyncio
