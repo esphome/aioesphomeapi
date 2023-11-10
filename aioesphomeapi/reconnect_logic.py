@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable
 from enum import Enum
 from typing import Callable
-import time
+
 import zeroconf
 from zeroconf.const import _TYPE_A as TYPE_A
 from zeroconf.const import _TYPE_PTR as TYPE_PTR
