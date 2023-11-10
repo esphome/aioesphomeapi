@@ -297,35 +297,19 @@ async def test_finish_connection_is_cancelled(
 
 @pytest.mark.asyncio
 async def test_finish_connection_times_out(
-    conn: APIConnection, resolve_host, socket_socket
-):
+    plaintext_connect_task_no_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test handling of finish connection timing out."""
-    loop = asyncio.get_event_loop()
-    protocol = _get_mock_protocol(conn)
+    conn, transport, protocol, connect_task = plaintext_connect_task_no_login
     messages = []
-    protocol: APIPlaintextFrameHelper | None = None
-    transport = MagicMock()
-    connected = asyncio.Event()
-
-    def _create_mock_transport_protocol(create_func, **kwargs):
-        nonlocal protocol
-        protocol = create_func()
-        protocol.connection_made(transport)
-        connected.set()
-        return transport, protocol
 
     def on_msg(msg):
         messages.append(msg)
 
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
-    transport = MagicMock()
-
-    with patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
-        await connected.wait()
-
     protocol.data_received(
         b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
     )
