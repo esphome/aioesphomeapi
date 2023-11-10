@@ -399,7 +399,7 @@ class APIConnection:
             raise TimeoutAPIError("Hello timed out") from err
 
         resp = responses.pop(0)
-        self._process_resp(resp)
+        self._process_hello_resp(resp)
         if login:
             login_response = responses.pop(0)
             self._process_login_response(login_response)
@@ -409,7 +409,7 @@ class APIConnection:
         if login_response.invalid_password:
             raise InvalidAuthAPIError("Invalid password!")
 
-    def _process_resp(self, resp: HelloResponse) -> None:
+    def _process_hello_resp(self, resp: HelloResponse) -> None:
         """Process a HelloResponse."""
         _LOGGER.debug(
             "%s: Successfully connected ('%s' API=%s.%s)",
