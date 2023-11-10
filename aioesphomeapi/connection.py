@@ -389,7 +389,8 @@ class APIConnection:
             responses = await self.send_messages_await_response_complex(
                 tuple(messages),
                 None,
-                lambda resp: type(resp) is msg_types[-1],
+                lambda resp: type(resp)
+                is msg_types[-1],  # pylint: disable=unidiomatic-typecheck
                 tuple(msg_types),
                 CONNECT_REQUEST_TIMEOUT,
             )
