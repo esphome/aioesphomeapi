@@ -5,7 +5,7 @@ import logging
 from collections.abc import Awaitable
 from enum import Enum
 from typing import Callable
-
+import time
 import zeroconf
 from zeroconf.const import _TYPE_A as TYPE_A
 from zeroconf.const import _TYPE_PTR as TYPE_PTR
@@ -181,6 +181,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     async def _try_connect(self) -> bool:
         """Try connecting to the API client."""
         self._async_set_connection_state_while_locked(ReconnectLogicState.CONNECTING)
+        start_connect_time = time.perf_counter()
         try:
             await self._cli.start_connection(on_stop=self._on_disconnect)
         except Exception as err:  # pylint: disable=broad-except
@@ -192,7 +193,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._async_log_connection_error(err)
             self._tries += 1
             return False
-        _LOGGER.info("Successfully connected to %s", self._log_name)
+        finish_connect_time = time.perf_counter()
+        connect_time = finish_connect_time - start_connect_time
+        _LOGGER.info(
+            "Successfully connected to %s in %0.3fs", self._log_name, connect_time
+        )
         self._stop_zc_listen()
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
         try:
@@ -212,7 +217,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._tries += 1
             return False
         self._tries = 0
-        _LOGGER.info("Successful handshake with %s", self._log_name)
+        finish_handshake_time = time.perf_counter()
+        handshake_time = finish_handshake_time - finish_connect_time
+        _LOGGER.info(
+            "Successful handshake with %s in %0.3fs", self._log_name, handshake_time
+        )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         await self._on_connect_cb()
         return True
