@@ -1229,6 +1229,8 @@ class APIClient:
         custom_fan_mode: str | None = None,
         preset: ClimatePreset | None = None,
         custom_preset: str | None = None,
+        target_humidity: int | None = None,
+        aux_heat: bool | None = None,
     ) -> None:
         self._check_authenticated()
 
@@ -1266,6 +1268,12 @@ class APIClient:
         if custom_preset is not None:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
+        if target_humidity is not None:
+            req.has_target_humidity = True
+            req.target_humidity = target_humidity
+        if aux_heat is not None:
+            req.has_aux_heat = True
+            req.aux_heat = aux_heat
         assert self._connection is not None
         self._connection.send_message(req)
 
