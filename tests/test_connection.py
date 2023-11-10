@@ -163,34 +163,20 @@ async def test_requires_encryption_propagates(conn: APIConnection):
 
 
 @pytest.mark.asyncio
-async def test_plaintext_connection(conn: APIConnection, resolve_host, socket_socket):
+async def test_plaintext_connection(
+    plaintext_connect_task_no_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test that a plaintext connection works."""
-    loop = asyncio.get_event_loop()
-    protocol = _get_mock_protocol(conn)
     messages = []
-    protocol: APIPlaintextFrameHelper | None = None
-    transport = MagicMock()
-    connected = asyncio.Event()
-
-    def _create_mock_transport_protocol(create_func, **kwargs):
-        nonlocal protocol
-        protocol = create_func()
-        protocol.connection_made(transport)
-        connected.set()
-        return transport, protocol
+    conn, transport, protocol, connect_task = plaintext_connect_task_no_login
 
     def on_msg(msg):
         messages.append(msg)
 
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
-    transport = MagicMock()
-
-    with patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
-        await connected.wait()
-
     protocol.data_received(
         b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
     )
