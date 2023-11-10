@@ -20,13 +20,9 @@ from aioesphomeapi.api_pb2 import (
     PingRequest,
     PingResponse,
 )
-from aioesphomeapi.connection import (
-    PROTO_TO_MESSAGE_TYPE,
-    APIConnection,
-    ConnectionParams,
-    ConnectionState,
-)
+from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
+    MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
     HandshakeAPIError,
     InvalidAuthAPIError,
@@ -36,6 +32,9 @@ from aioesphomeapi.core import (
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
 from .common import async_fire_time_changed, utcnow
+
+PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
 
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
