@@ -177,7 +177,7 @@ async def test_timeout_sending_message(
 
     assert "disconnect request failed" in caplog.text
     assert (
-        " Timeout waiting for response to DisconnectRequest after 0.0s" in caplog.text
+        " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
     )
 
 
@@ -233,7 +233,7 @@ async def test_disconnect_when_not_fully_connected(
 
     assert "disconnect request failed" in caplog.text
     assert (
-        " Timeout waiting for response to DisconnectRequest after 0.0s" in caplog.text
+        " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
     )
 
 

@@ -751,9 +751,9 @@ class APIConnection:
             await fut
         except asyncio_TimeoutError as err:
             timeout_expired = True
-            msg_types = ", ".join(t.__name__ for t in msg_types)
+            response_names = ", ".join(t.__name__ for t in msg_types)
             raise TimeoutAPIError(
-                f"Timeout waiting for response to {msg_types} after {timeout}s"
+                f"Timeout waiting for {response_names} after {timeout}s"
             ) from err
         finally:
             if not timeout_expired:
