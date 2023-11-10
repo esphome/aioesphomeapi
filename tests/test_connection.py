@@ -1,31 +1,43 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import socket
 from datetime import timedelta
 from typing import Any, Coroutine, Generator, Optional
 from unittest.mock import AsyncMock
 
 import pytest
+from google.protobuf import message
 from mock import MagicMock, patch
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
+    ConnectResponse,
     DeviceInfoResponse,
     HelloResponse,
     PingRequest,
     PingResponse,
 )
-from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
+from aioesphomeapi.connection import (
+    PROTO_TO_MESSAGE_TYPE,
+    APIConnection,
+    ConnectionParams,
+    ConnectionState,
+)
 from aioesphomeapi.core import (
     APIConnectionError,
     HandshakeAPIError,
+    InvalidAuthAPIError,
     RequiresEncryptionAPIError,
     TimeoutAPIError,
 )
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
 from .common import async_fire_time_changed, utcnow
+
+logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
 
 async def connect(conn: APIConnection, login: bool = True):
@@ -550,3 +562,99 @@ async def test_plaintext_connection_fails_handshake(
     remove()
     await conn.force_disconnect()
     await asyncio.sleep(0)
+
+
+def _generate_plaintext_packet(msg: bytes, type_: int) -> bytes:
+    return (
+        b"\0"
+        + _cached_varuint_to_bytes(len(msg))
+        + _cached_varuint_to_bytes(type_)
+        + msg
+    )
+
+
+@pytest.mark.asyncio
+async def test_connect_wrong_password(conn, resolve_host, socket_socket, event_loop):
+    loop = asyncio.get_event_loop()
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    with patch.object(event_loop, "sock_connect"), patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=True))
+        await connected.wait()
+        hello_response: message.Message = HelloResponse()
+        hello_response.api_version_major = 1
+        hello_response.api_version_minor = 9
+        hello_response.name = "fake"
+        hello_msg = hello_response.SerializeToString()
+
+        connect_response: message.Message = ConnectResponse()
+        connect_response.invalid_password = True
+        connect_msg = connect_response.SerializeToString()
+
+        protocol.data_received(
+            _generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
+        )
+        protocol.data_received(
+            _generate_plaintext_packet(
+                connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse]
+            )
+        )
+
+        with pytest.raises(InvalidAuthAPIError):
+            await connect_task
+
+    assert not conn.is_connected
+
+
+@pytest.mark.asyncio
+async def test_connect_correct_password(conn, resolve_host, socket_socket, event_loop):
+    loop = asyncio.get_event_loop()
+    protocol: Optional[APIPlaintextFrameHelper] = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    with patch.object(event_loop, "sock_connect"), patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=True))
+        await connected.wait()
+        hello_response: message.Message = HelloResponse()
+        hello_response.api_version_major = 1
+        hello_response.api_version_minor = 9
+        hello_response.name = "fake"
+        hello_msg = hello_response.SerializeToString()
+
+        connect_response: message.Message = ConnectResponse()
+        connect_response.invalid_password = False
+        connect_msg = connect_response.SerializeToString()
+
+        protocol.data_received(
+            _generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
+        )
+        protocol.data_received(
+            _generate_plaintext_packet(
+                connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse]
+            )
+        )
+
+        await connect_task
+
+    assert conn.is_connected
