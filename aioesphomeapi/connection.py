@@ -379,20 +379,18 @@ class APIConnection:
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
-        hello = self._make_hello_request()
+        messages = [self._make_hello_request()]
+        msg_types = [HelloResponse]
         if login:
-            messages = (hello, self._make_connect_request())
-            msg_types = (HelloResponse, ConnectResponse)
-        else:
-            messages = (hello,)
-            msg_types = (HelloResponse,)
+            messages.append(self._make_connect_request())
+            msg_types.append(ConnectResponse)
 
         try:
             responses = await self.send_messages_await_response_complex(
-                messages,
+                tuple(messages),
                 None,
                 lambda resp: type(resp) is msg_types[-1],
-                msg_types,
+                tuple(msg_types),
                 CONNECT_REQUEST_TIMEOUT,
             )
         except TimeoutAPIError as err:
