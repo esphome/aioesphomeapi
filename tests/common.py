@@ -8,12 +8,18 @@ from unittest.mock import MagicMock
 
 from zeroconf import Zeroconf
 
+from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
+from aioesphomeapi.connection import APIConnection
+from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
+
 UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 # We use a partial here since it is implemented in native code
 # and avoids the global lookup of UTC
 utcnow: partial[datetime] = partial(datetime.now, UTC)
 utcnow.__doc__ = "Get now in UTC time."
+
+PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 
 def get_mock_zeroconf() -> MagicMock:
@@ -22,6 +28,15 @@ def get_mock_zeroconf() -> MagicMock:
 
 class Estr(str):
     """A subclassed string."""
+
+
+def generate_plaintext_packet(msg: bytes, type_: int) -> bytes:
+    return (
+        b"\0"
+        + _cached_varuint_to_bytes(len(msg))
+        + _cached_varuint_to_bytes(type_)
+        + msg
+    )
 
 
 def as_utc(dattim: datetime) -> datetime:
@@ -60,3 +75,9 @@ def async_fire_time_changed(
         if fire_all or mock_seconds_into_future >= future_seconds:
             task._run()
             task.cancel()
+
+
+async def connect(conn: APIConnection, login: bool = True):
+    """Wrapper for connection logic to do both parts."""
+    await conn.start_connection()
+    await conn.finish_connection(login=login)
