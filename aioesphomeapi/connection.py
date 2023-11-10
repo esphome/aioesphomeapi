@@ -369,6 +369,14 @@ class APIConnection:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         self._set_connection_state(ConnectionState.HANDSHAKE_COMPLETE)
 
+    def _make_hello_request(self) -> HelloRequest:
+        """Make a HelloRequest."""
+        hello = HelloRequest()
+        hello.client_info = self._params.client_info
+        hello.api_version_major = 1
+        hello.api_version_minor = 9
+        return hello
+
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
         hello = self._make_hello_request()
@@ -605,14 +613,6 @@ class APIConnection:
         if self._params.password is not None:
             connect.password = self._params.password
         return connect
-
-    def _make_hello_request(self) -> HelloRequest:
-        """Make a HelloRequest."""
-        hello = HelloRequest()
-        hello.client_info = self._params.client_info
-        hello.api_version_major = 1
-        hello.api_version_minor = 9
-        return hello
 
     def send_message(self, msg: message.Message) -> None:
         """Send a protobuf message to the remote."""
