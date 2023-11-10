@@ -25,7 +25,6 @@ from aioesphomeapi.api_pb2 import (
     TextCommandRequest,
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,

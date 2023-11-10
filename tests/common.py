@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 from zeroconf import Zeroconf
 
+from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
 
@@ -27,6 +28,15 @@ def get_mock_zeroconf() -> MagicMock:
 
 class Estr(str):
     """A subclassed string."""
+
+
+def generate_plaintext_packet(msg: bytes, type_: int) -> bytes:
+    return (
+        b"\0"
+        + _cached_varuint_to_bytes(len(msg))
+        + _cached_varuint_to_bytes(type_)
+        + msg
+    )
 
 
 def as_utc(dattim: datetime) -> datetime:
