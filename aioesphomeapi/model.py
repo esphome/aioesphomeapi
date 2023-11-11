@@ -5,7 +5,7 @@ import sys
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
 from .util import fix_float_single_double_conversion

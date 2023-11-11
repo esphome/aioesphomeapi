@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import socket
 from ipaddress import ip_address
 from unittest.mock import AsyncMock, MagicMock, patch
