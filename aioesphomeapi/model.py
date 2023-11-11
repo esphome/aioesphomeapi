@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import enum
 import sys
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
 from .util import fix_float_single_double_conversion
@@ -768,7 +769,7 @@ class TextInfo(EntityInfo):
     min_length: int = 0
     max_length: int = 255
     pattern: str = ""
-    mode: Optional[TextMode] = converter_field(
+    mode: TextMode | None = converter_field(
         default=TextMode.TEXT, converter=TextMode.convert
     )
 
