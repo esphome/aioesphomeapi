@@ -4,10 +4,10 @@ import logging
 from typing import Any, Callable, Coroutine
 
 import zeroconf
-from .core import APIConnectionError
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
+from .core import APIConnectionError
 from .model import LogLevel
 from .reconnect_logic import ReconnectLogic
 
