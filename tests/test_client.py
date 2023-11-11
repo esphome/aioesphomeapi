@@ -1,11 +1,17 @@
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from mock import AsyncMock, MagicMock, patch
+from google.protobuf import message
 
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
+    BluetoothDeviceClearCacheResponse,
+    BluetoothDeviceConnectionResponse,
+    BluetoothDevicePairingResponse,
+    BluetoothDeviceUnpairingResponse,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -25,7 +31,7 @@ from aioesphomeapi.api_pb2 import (
     TextCommandRequest,
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.core import APIConnectionError
+from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -47,7 +53,12 @@ from aioesphomeapi.model import (
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
-from .common import Estr, get_mock_zeroconf
+from .common import (
+    PROTO_TO_MESSAGE_TYPE,
+    Estr,
+    generate_plaintext_packet,
+    get_mock_zeroconf,
+)
 
 
 @pytest.fixture
@@ -652,3 +663,85 @@ async def test_empty_noise_psk_or_expected_name():
     assert cli._params.noise_psk is None
     assert type(cli._params.address) is str
     assert cli._params.expected_name is None
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_disconnect."""
+    client, connection, transport, protocol = api_client
+    disconnect_task = asyncio.create_task(client.bluetooth_device_disconnect(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False
+    )
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceConnectionResponse],
+        )
+    )
+    await disconnect_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_pair(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_pair."""
+    client, connection, transport, protocol = api_client
+    pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDevicePairingResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDevicePairingResponse],
+        )
+    )
+    await pair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_unpair(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_unpair."""
+    client, connection, transport, protocol = api_client
+    unpair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceUnpairingResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceUnpairingResponse],
+        )
+    )
+    await unpair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_clear_cache(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_clear_cache."""
+    client, connection, transport, protocol = api_client
+    clear_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceClearCacheResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceClearCacheResponse],
+        )
+    )
+    await clear_task

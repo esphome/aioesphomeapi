@@ -6,7 +6,14 @@ from datetime import datetime, timezone
 from functools import partial
 from unittest.mock import MagicMock
 
+from google.protobuf import message
 from zeroconf import Zeroconf
+
+from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
+from aioesphomeapi.api_pb2 import ConnectResponse, HelloResponse
+from aioesphomeapi.connection import APIConnection
+from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
 
 UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
@@ -15,6 +22,8 @@ _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 utcnow: partial[datetime] = partial(datetime.now, UTC)
 utcnow.__doc__ = "Get now in UTC time."
 
+PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
 
 def get_mock_zeroconf() -> MagicMock:
     return MagicMock(spec=Zeroconf)
@@ -22,6 +31,15 @@ def get_mock_zeroconf() -> MagicMock:
 
 class Estr(str):
     """A subclassed string."""
+
+
+def generate_plaintext_packet(msg: bytes, type_: int) -> bytes:
+    return (
+        b"\0"
+        + _cached_varuint_to_bytes(len(msg))
+        + _cached_varuint_to_bytes(type_)
+        + msg
+    )
 
 
 def as_utc(dattim: datetime) -> datetime:
@@ -60,3 +78,32 @@ def async_fire_time_changed(
         if fire_all or mock_seconds_into_future >= future_seconds:
             task._run()
             task.cancel()
+
+
+async def connect(conn: APIConnection, login: bool = True):
+    """Wrapper for connection logic to do both parts."""
+    await conn.start_connection()
+    await conn.finish_connection(login=login)
+
+
+def send_plaintext_hello(protocol: APIPlaintextFrameHelper) -> None:
+    hello_response: message.Message = HelloResponse()
+    hello_response.api_version_major = 1
+    hello_response.api_version_minor = 9
+    hello_response.name = "fake"
+    hello_msg = hello_response.SerializeToString()
+    protocol.data_received(
+        generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
+    )
+
+
+def send_plaintext_connect_response(
+    protocol: APIPlaintextFrameHelper, invalid_password: bool
+) -> None:
+    connect_response: message.Message = ConnectResponse()
+    connect_response.invalid_password = invalid_password
+    connect_msg = connect_response.SerializeToString()
+
+    protocol.data_received(
+        generate_plaintext_packet(connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse])
+    )

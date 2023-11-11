@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 import pytest
 
@@ -136,7 +136,7 @@ class DummyAPIModel(APIModelBase):
 
 @dataclass(frozen=True)
 class ListAPIModel(APIModelBase):
-    val: List[DummyAPIModel] = field(default_factory=list)
+    val: list[DummyAPIModel] = field(default_factory=list)
 
 
 def test_api_model_base_converter():
