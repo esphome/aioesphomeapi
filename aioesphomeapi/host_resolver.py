@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import socket
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
 from typing import Union, cast
-
-import logging
 
 from zeroconf import IPVersion, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
@@ -19,6 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
 
 SERVICE_TYPE = "_esphomelib._tcp.local."
+
 
 @dataclass(frozen=True)
 class Sockaddr:
@@ -96,12 +96,10 @@ async def _async_resolve_host_zeroconf(
 ) -> list[AddrInfo]:
     service_name = f"{host}.{SERVICE_TYPE}"
 
-    _LOGGER.warning("Resolving host %s via mDNS", service_name)
-
+    _LOGGER.debug("Resolving host %s via mDNS", service_name)
     info = await _async_zeroconf_get_service_info(
         zeroconf_instance, SERVICE_TYPE, service_name, timeout
     )
-    _LOGGER.warning("Finished resolving host %s via mDNS", info)
 
     if info is None:
         return []
