@@ -1206,7 +1206,7 @@ class APIClient:
         assert self._connection is not None
         self._connection.send_message(req)
 
-    async def climate_command(
+    async def climate_command(  # pylint: disable=too-many-branches
         self,
         key: int,
         mode: ClimateMode | None = None,
