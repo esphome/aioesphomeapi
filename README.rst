@@ -1,6 +1,15 @@
 aioesphomeapi
 =============
 
+.. image:: https://github.com/esphome/aioesphomeapi/workflows/CI/badge.svg
+   :target: https://github.com/esphome/aioesphomeapi?query=workflow%3ACI+branch%3Amain
+
+.. image:: https://img.shields.io/pypi/v/aioesphomeapi.svg
+    :target: https://pypi.python.org/pypi/aioesphomeapi
+
+.. image:: https://codecov.io/gh/esphome/aioesphomeapi/branch/main/graph/badge.svg
+   :target: https://app.codecov.io/gh/esphome/aioesphomeapi/tree/main
+
 ``aioesphomeapi`` allows you to interact with devices flashed with `ESPHome <https://esphome.io/>`_.
 
 Installation
@@ -119,6 +128,12 @@ For development is recommended to use a Python virtual environment (``venv``).
     $ script/lint
     # Update protobuf _pb2.py definitions (requires a protobuf compiler installation)
     $ script/gen-protoc
+
+A cli tool is also available for watching logs:
+
+.. code:: bash
+
+   aioesphomeapi-logs --help
 
 License
 -------
