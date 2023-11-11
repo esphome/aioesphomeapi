@@ -1217,7 +1217,7 @@ class APIClient:
         custom_fan_mode: str | None = None,
         preset: ClimatePreset | None = None,
         custom_preset: str | None = None,
-        target_humidity: int | None = None,
+        target_humidity: float | None = None,
         aux_heat: bool | None = None,
     ) -> None:
         self._check_authenticated()
