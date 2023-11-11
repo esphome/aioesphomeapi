@@ -9,13 +9,13 @@ from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore
 from aioesphomeapi.api_pb2 import DisconnectResponse
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
-from aioesphomeapi.log_runner import async_run_logs
+from aioesphomeapi.log_runner import async_run
 
 from .common import (
     PROTO_TO_MESSAGE_TYPE,
     Estr,
     generate_plaintext_packet,
-    get_mock_zeroconf,
+    get_mock_async_zeroconf,
     send_plaintext_connect_response,
     send_plaintext_hello,
 )
@@ -58,10 +58,12 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
+    async_zeroconf = get_mock_async_zeroconf()
+
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
-        stop = await async_run_logs(cli, on_log, zeroconf_instance=get_mock_zeroconf())
+        stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
