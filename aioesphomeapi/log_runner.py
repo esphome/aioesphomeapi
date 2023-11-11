@@ -4,7 +4,7 @@ import logging
 from typing import Any, Callable, Coroutine
 
 import zeroconf
-from core import APIConnectionError
+from .core import APIConnectionError
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
@@ -26,17 +26,17 @@ async def async_run_logs(
     Returns a coroutine that can be awaited to stop the logs.
     """
 
-    has_connects = dump_config
+    dumped_config = not dump_config
 
     async def on_connect() -> None:
-        nonlocal has_connects
+        nonlocal dumped_config
         try:
             await cli.subscribe_logs(
                 on_log,
                 log_level=log_level,
-                dump_config=not has_connects,
+                dump_config=not dumped_config,
             )
-            has_connects = True
+            dumped_config = True
         except APIConnectionError:
             await cli.disconnect()
 

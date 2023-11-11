@@ -13,6 +13,8 @@ from .client import APIClient
 
 from .log_runner import async_run_logs
 
+_LOGGER = logging.getLogger(__name__)
+
 
 async def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser("aioesphomeapi-logs")
@@ -51,5 +53,10 @@ async def main(argv: list[str]) -> None:
         await stop()
 
 
+def cli() -> None:
+    """Run the CLI."""
+    asyncio.run(main(sys.argv))
+
+
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main(sys.argv)) or 0)
+    sys.exit(cli() or 0)
