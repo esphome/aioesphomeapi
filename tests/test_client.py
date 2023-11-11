@@ -352,6 +352,14 @@ async def test_climate_command_legacy(auth_client, cmd, req):
             dict(key=1, custom_preset="asdf"),
             dict(key=1, has_custom_preset=True, custom_preset="asdf"),
         ),
+        (
+            dict(key=1, target_humidity=60.0),
+            dict(key=1, has_target_humidity=True, target_humidity=60.0),
+        ),
+        (
+            dict(key=1, aux_heat=True),
+            dict(key=1, has_aux_heat=True, aux_heat=True),
+        ),
     ],
 )
 async def test_climate_command(auth_client, cmd, req):
