@@ -4,8 +4,8 @@ aioesphomeapi
 .. image:: https://github.com/esphome/aioesphomeapi/workflows/CI/badge.svg
    :target: https://github.com/esphome/aioesphomeapi?query=workflow%3ACI+branch%3Amaster
 
-.. image:: https://img.shields.io/pypi/v/zeroconf.svg
-    :target: https://pypi.python.org/pypi/zeroconf
+.. image:: https://img.shields.io/pypi/v/aioesphomeapi.svg
+    :target: https://pypi.python.org/pypi/aioesphomeapi
 
 .. image:: https://codecov.io/gh/esphome/aioesphomeapi/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/esphome/aioesphomeapi
