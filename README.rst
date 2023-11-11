@@ -7,7 +7,7 @@ aioesphomeapi
 .. image:: https://img.shields.io/pypi/v/zeroconf.svg
     :target: https://pypi.python.org/pypi/zeroconf
 
-.. image:: https://codecov.io/gh/esphome/aioesphomeapi/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/esphome/aioesphomeapi/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/esphome/aioesphomeapi
 
 ``aioesphomeapi`` allows you to interact with devices flashed with `ESPHome <https://esphome.io/>`_.
