@@ -55,7 +55,7 @@ async def async_run_logs(
     )
     await logic.start()
 
-    async def _stop():
+    async def _stop() -> None:
         await logic.stop()
         await cli.disconnect()
 
