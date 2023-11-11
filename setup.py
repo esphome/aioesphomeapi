@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """aioesphomeapi setup script."""
 import os
-
-from setuptools import find_packages, setup
-import os
 from distutils.command.build_ext import build_ext
 
+from setuptools import find_packages, setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -61,7 +59,9 @@ setup_kwargs = {
     "python_requires": ">=3.9",
     "test_suite": "tests",
     "entry_points": {
-        'console_scripts': ['aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point'],
+        "console_scripts": [
+            "aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point"
+        ],
     },
 }
 
