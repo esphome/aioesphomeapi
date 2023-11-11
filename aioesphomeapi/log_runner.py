@@ -14,7 +14,7 @@ from .reconnect_logic import ReconnectLogic
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_run_logs(
+async def async_run(
     cli: APIClient,
     on_log: Callable[[SubscribeLogsResponse], None],
     log_level: LogLevel = LogLevel.LOG_LEVEL_VERY_VERBOSE,
