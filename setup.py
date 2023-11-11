@@ -61,7 +61,7 @@ setup_kwargs = {
     "python_requires": ">=3.9",
     "test_suite": "tests",
     "entry_points": {
-        'console_scripts': ['aioesphomeapi-logs=aioesphomeapi.log_reader:cli'],
+        'console_scripts': ['aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point'],
     },
 }
 

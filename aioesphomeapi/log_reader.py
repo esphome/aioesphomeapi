@@ -51,7 +51,7 @@ async def main(argv: list[str]) -> None:
         await stop()
 
 
-def cli() -> None:
+def cli_entry_point() -> None:
     """Run the CLI."""
     try:
         asyncio.run(main(sys.argv))
@@ -60,4 +60,4 @@ def cli() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(cli() or 0)
+    sys.exit(cli_entry_point() or 0)
