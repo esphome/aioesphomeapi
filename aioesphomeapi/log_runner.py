@@ -52,4 +52,9 @@ async def async_run_logs(
         zeroconf_instance=zeroconf_instance or zeroconf.Zeroconf(),
     )
     await logic.start()
-    return logic.stop
+
+    async def _stop():
+        await logic.stop()
+        await cli.disconnect()
+
+    return _stop
