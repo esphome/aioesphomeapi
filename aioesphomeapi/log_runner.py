@@ -46,8 +46,7 @@ async def async_run_logs(
         _LOGGER.warning("Disconnected from API")
 
     passed_in_zeroconf = aio_zeroconf_instance is not None
-    if not passed_in_zeroconf:
-        aio_zeroconf_instance = AsyncZeroconf()
+    aiozc = aio_zeroconf_instance or AsyncZeroconf()
 
     logic = ReconnectLogic(
         client=cli,
@@ -59,7 +58,7 @@ async def async_run_logs(
 
     async def _stop() -> None:
         if not passed_in_zeroconf:
-            await aio_zeroconf_instance.async_close()
+            await aiozc.async_close()
         await logic.stop()
         await cli.disconnect()
 
