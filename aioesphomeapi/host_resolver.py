@@ -205,9 +205,7 @@ async def async_resolve_host(
 
     zc_error = None
     if "." not in host or host.endswith(".local"):
-        name = host
-        name.removesuffix(SERVICE_TYPE)
-        name.removesuffix(".local")
+        name = host.partition(".")[0]
         try:
             addrs.extend(
                 await _async_resolve_host_zeroconf(
