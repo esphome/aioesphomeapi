@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import socket
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
@@ -12,7 +13,11 @@ from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from .core import APIConnectionError, ResolveAPIError
 
+_LOGGER = logging.getLogger(__name__)
+
 ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
+
+SERVICE_TYPE = "_esphomelib._tcp.local."
 
 
 @dataclass(frozen=True)
@@ -89,11 +94,11 @@ async def _async_resolve_host_zeroconf(
     timeout: float = 3.0,
     zeroconf_instance: ZeroconfInstanceType = None,
 ) -> list[AddrInfo]:
-    service_type = "_esphomelib._tcp.local."
-    service_name = f"{host}.{service_type}"
+    service_name = f"{host}.{SERVICE_TYPE}"
 
+    _LOGGER.debug("Resolving host %s via mDNS", service_name)
     info = await _async_zeroconf_get_service_info(
-        zeroconf_instance, service_type, service_name, timeout
+        zeroconf_instance, SERVICE_TYPE, service_name, timeout
     )
 
     if info is None:
@@ -197,8 +202,8 @@ async def async_resolve_host(
     addrs: list[AddrInfo] = []
 
     zc_error = None
-    if host.endswith(".local"):
-        name = host[: -len(".local")]
+    if "." not in host or host.endswith(".local"):
+        name = host.partition(".")[0]
         try:
             addrs.extend(
                 await _async_resolve_host_zeroconf(
