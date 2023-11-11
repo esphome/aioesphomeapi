@@ -29,6 +29,8 @@ async def async_run_logs(
     dumped_config = not dump_config
 
     async def on_connect() -> None:
+        """Handle a connection."""
+        _LOGGER.warning("Connected to API")
         nonlocal dumped_config
         try:
             await cli.subscribe_logs(

@@ -15,7 +15,12 @@ from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
-from .common import PROTO_TO_MESSAGE_TYPE, connect, generate_plaintext_packet
+from .common import (
+    PROTO_TO_MESSAGE_TYPE,
+    connect,
+    generate_plaintext_packet,
+    send_plaintext_hello,
+)
 
 
 @pytest.fixture
@@ -132,14 +137,7 @@ async def api_client(
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
-        hello_response: message.Message = HelloResponse()
-        hello_response.api_version_major = 1
-        hello_response.api_version_minor = 9
-        hello_response.name = "fake"
-        hello_msg = hello_response.SerializeToString()
-        protocol.data_received(
-            generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
-        )
+        send_plaintext_hello(protocol)
         client._connection = conn
         await connect_task
         transport.reset_mock()
