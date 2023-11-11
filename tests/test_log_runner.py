@@ -34,12 +34,15 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
     class PatchableAPIClient(APIClient):
         pass
 
+    async_zeroconf = get_mock_async_zeroconf()
+
     cli = PatchableAPIClient(
         address=Estr("1.2.3.4"),
         port=6052,
         password=None,
         noise_psk=None,
         expected_name=Estr("fake"),
+        zeroconf_instance=async_zeroconf.zeroconf,
     )
     messages = []
 
@@ -59,8 +62,6 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
     async def _wait_subscribe_cli(*args, **kwargs):
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
-
-    async_zeroconf = get_mock_async_zeroconf()
 
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
