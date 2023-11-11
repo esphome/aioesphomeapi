@@ -2,7 +2,7 @@ aioesphomeapi
 =============
 
 .. image:: https://github.com/esphome/aioesphomeapi/workflows/CI/badge.svg
-   :target: https://github.com/esphome/aioesphomeapi?query=workflow%3ACI+branch%3Amaster
+   :target: https://github.com/esphome/aioesphomeapi?query=workflow%3ACI+branch%3Amain
 
 .. image:: https://img.shields.io/pypi/v/aioesphomeapi.svg
     :target: https://pypi.python.org/pypi/aioesphomeapi
