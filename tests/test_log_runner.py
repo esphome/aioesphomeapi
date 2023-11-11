@@ -15,9 +15,9 @@ from .common import (
     PROTO_TO_MESSAGE_TYPE,
     Estr,
     generate_plaintext_packet,
+    get_mock_async_zeroconf,
     send_plaintext_connect_response,
     send_plaintext_hello,
-    get_mock_async_zeroconf,
 )
 
 

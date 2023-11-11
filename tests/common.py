@@ -4,12 +4,11 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from functools import partial
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from google.protobuf import message
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
-from unittest.mock import AsyncMock
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
