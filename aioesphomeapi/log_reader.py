@@ -9,7 +9,7 @@ from datetime import datetime
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
-from .log_runner import async_run_logs
+from .log_runner import async_run
 
 
 async def main(argv: list[str]) -> None:
@@ -41,7 +41,7 @@ async def main(argv: list[str]) -> None:
         text = message.decode("utf8", "backslashreplace")
         print(f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}]{text}")
 
-    stop = await async_run_logs(cli, on_log)
+    stop = await async_run(cli, on_log)
     try:
         while True:
             await asyncio.sleep(60)
