@@ -20,7 +20,7 @@ async def async_run_logs(
     log_level: LogLevel = LogLevel.LOG_LEVEL_VERY_VERBOSE,
     zeroconf_instance: zeroconf.Zeroconf | None = None,
     dump_config: bool = True,
-) -> Coroutine[Any, Any, None]:
+) -> Callable[[], Coroutine[Any, Any, None]]:
     """Run logs until canceled.
 
     Returns a coroutine that can be awaited to stop the logs.
