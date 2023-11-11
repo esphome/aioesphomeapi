@@ -7,11 +7,9 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from google.protobuf import message
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
-    ConnectResponse,
     DeviceInfoResponse,
     HelloResponse,
     PingRequest,
@@ -27,10 +25,10 @@ from aioesphomeapi.core import (
 )
 
 from .common import (
-    PROTO_TO_MESSAGE_TYPE,
     async_fire_time_changed,
     connect,
-    generate_plaintext_packet,
+    send_plaintext_connect_response,
+    send_plaintext_hello,
     utcnow,
 )
 
@@ -441,22 +439,8 @@ async def test_connect_wrong_password(
 ) -> None:
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
 
-    hello_response: message.Message = HelloResponse()
-    hello_response.api_version_major = 1
-    hello_response.api_version_minor = 9
-    hello_response.name = "fake"
-    hello_msg = hello_response.SerializeToString()
-
-    connect_response: message.Message = ConnectResponse()
-    connect_response.invalid_password = True
-    connect_msg = connect_response.SerializeToString()
-
-    protocol.data_received(
-        generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
-    )
-    protocol.data_received(
-        generate_plaintext_packet(connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse])
-    )
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, True)
 
     with pytest.raises(InvalidAuthAPIError):
         await connect_task
@@ -472,22 +456,8 @@ async def test_connect_correct_password(
 ) -> None:
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
 
-    hello_response: message.Message = HelloResponse()
-    hello_response.api_version_major = 1
-    hello_response.api_version_minor = 9
-    hello_response.name = "fake"
-    hello_msg = hello_response.SerializeToString()
-
-    connect_response: message.Message = ConnectResponse()
-    connect_response.invalid_password = False
-    connect_msg = connect_response.SerializeToString()
-
-    protocol.data_received(
-        generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
-    )
-    protocol.data_received(
-        generate_plaintext_packet(connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse])
-    )
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, False)
 
     await connect_task
 
