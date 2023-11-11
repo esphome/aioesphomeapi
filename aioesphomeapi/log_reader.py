@@ -13,6 +13,7 @@ from .client import APIClient
 
 from .log_runner import async_run_logs
 
+
 async def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser("aioesphomeapi-logs")
     parser.add_argument("--port", type=int, default=6053)
