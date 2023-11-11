@@ -58,4 +58,5 @@ def cli_entry_point() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(cli_entry_point() or 0)
+    cli_entry_point()
+    sys.exit(0)
