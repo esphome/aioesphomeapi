@@ -52,7 +52,7 @@ async def async_run(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
-        zeroconf_instance=aio_zeroconf_instance.zeroconf,
+        zeroconf_instance=aiozc.zeroconf,
     )
     await logic.start()
 

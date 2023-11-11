@@ -17,6 +17,7 @@ from .common import (
     generate_plaintext_packet,
     send_plaintext_connect_response,
     send_plaintext_hello,
+    get_mock_async_zeroconf,
 )
 
 
@@ -57,10 +58,12 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
+    async_zeroconf = get_mock_async_zeroconf()
+
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
-        stop = await async_run(cli, on_log)
+        stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
