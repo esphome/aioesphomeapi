@@ -7,10 +7,14 @@ from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
 from typing import Union, cast
 
+import logging
+
 from zeroconf import IPVersion, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from .core import APIConnectionError, ResolveAPIError
+
+_LOGGER = logging.getLogger(__name__)
 
 ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
 
@@ -92,9 +96,12 @@ async def _async_resolve_host_zeroconf(
     service_type = "_esphomelib._tcp.local."
     service_name = f"{host}.{service_type}"
 
+    _LOGGER.warning("Resolving host %s via mDNS", service_name)
+
     info = await _async_zeroconf_get_service_info(
         zeroconf_instance, service_type, service_name, timeout
     )
+    _LOGGER.warning("Finished resolving host %s via mDNS", info)
 
     if info is None:
         return []
