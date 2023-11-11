@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Coroutine
 
-import zeroconf
+from zeroconf.asyncio import AsyncZeroconf
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
@@ -14,18 +14,17 @@ from .reconnect_logic import ReconnectLogic
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_run_logs(
+async def async_run(
     cli: APIClient,
     on_log: Callable[[SubscribeLogsResponse], None],
     log_level: LogLevel = LogLevel.LOG_LEVEL_VERY_VERBOSE,
-    zeroconf_instance: zeroconf.Zeroconf | None = None,
+    aio_zeroconf_instance: AsyncZeroconf | None = None,
     dump_config: bool = True,
 ) -> Callable[[], Coroutine[Any, Any, None]]:
     """Run logs until canceled.
 
     Returns a coroutine that can be awaited to stop the logs.
     """
-
     dumped_config = not dump_config
 
     async def on_connect() -> None:
@@ -46,15 +45,20 @@ async def async_run_logs(
     ) -> None:
         _LOGGER.warning("Disconnected from API")
 
+    passed_in_zeroconf = aio_zeroconf_instance is not None
+    aiozc = aio_zeroconf_instance or AsyncZeroconf()
+
     logic = ReconnectLogic(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
-        zeroconf_instance=zeroconf_instance or zeroconf.Zeroconf(),
+        zeroconf_instance=aiozc.zeroconf,
     )
     await logic.start()
 
     async def _stop() -> None:
+        if not passed_in_zeroconf:
+            await aiozc.async_close()
         await logic.stop()
         await cli.disconnect()
 

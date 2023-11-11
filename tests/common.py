@@ -4,10 +4,11 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from functools import partial
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from google.protobuf import message
 from zeroconf import Zeroconf
+from zeroconf.asyncio import AsyncZeroconf
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
@@ -27,6 +28,13 @@ PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 def get_mock_zeroconf() -> MagicMock:
     return MagicMock(spec=Zeroconf)
+
+
+def get_mock_async_zeroconf() -> MagicMock:
+    mock = MagicMock(spec=AsyncZeroconf)
+    mock.zeroconf = get_mock_zeroconf()
+    mock.async_close = AsyncMock()
+    return mock
 
 
 class Estr(str):
