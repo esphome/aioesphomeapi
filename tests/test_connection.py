@@ -7,11 +7,9 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from google.protobuf import message
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
-    ConnectResponse,
     DeviceInfoResponse,
     HelloResponse,
     PingRequest,
@@ -27,10 +25,8 @@ from aioesphomeapi.core import (
 )
 
 from .common import (
-    PROTO_TO_MESSAGE_TYPE,
     async_fire_time_changed,
     connect,
-    generate_plaintext_packet,
     send_plaintext_connect_response,
     send_plaintext_hello,
     utcnow,

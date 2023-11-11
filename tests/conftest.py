@@ -7,20 +7,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
-from google.protobuf import message
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
-from aioesphomeapi.api_pb2 import HelloResponse
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
-from .common import (
-    PROTO_TO_MESSAGE_TYPE,
-    connect,
-    generate_plaintext_packet,
-    send_plaintext_hello,
-)
+from .common import connect, send_plaintext_hello
 
 
 @pytest.fixture

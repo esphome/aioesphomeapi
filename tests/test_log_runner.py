@@ -1,65 +1,19 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from google.protobuf import message
 
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore
-from aioesphomeapi.api_pb2 import (
-    AlarmControlPanelCommandRequest,
-    BinarySensorStateResponse,
-    BluetoothDeviceClearCacheResponse,
-    BluetoothDeviceConnectionResponse,
-    BluetoothDevicePairingResponse,
-    BluetoothDeviceUnpairingResponse,
-    CameraImageRequest,
-    CameraImageResponse,
-    ClimateCommandRequest,
-    CoverCommandRequest,
-    DisconnectResponse,
-    ExecuteServiceArgument,
-    ExecuteServiceRequest,
-    FanCommandRequest,
-    LightCommandRequest,
-    ListEntitiesBinarySensorResponse,
-    ListEntitiesDoneResponse,
-    ListEntitiesServicesResponse,
-    LockCommandRequest,
-    MediaPlayerCommandRequest,
-    NumberCommandRequest,
-    SelectCommandRequest,
-    SwitchCommandRequest,
-    TextCommandRequest,
-)
+from aioesphomeapi.api_pb2 import DisconnectResponse
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.log_runner import async_run_logs
-from aioesphomeapi.model import (
-    AlarmControlPanelCommand,
-    APIVersion,
-    BinarySensorInfo,
-    BinarySensorState,
-    CameraState,
-    ClimateFanMode,
-    ClimateMode,
-    ClimatePreset,
-    ClimateSwingMode,
-    FanDirection,
-    FanSpeed,
-    LegacyCoverCommand,
-    LockCommand,
-    MediaPlayerCommand,
-    UserService,
-    UserServiceArg,
-    UserServiceArgType,
-)
-from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import (
     PROTO_TO_MESSAGE_TYPE,
     Estr,
-    connect,
     generate_plaintext_packet,
     get_mock_zeroconf,
     send_plaintext_connect_response,
