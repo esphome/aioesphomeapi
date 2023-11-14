@@ -24,7 +24,7 @@ async def main(argv: list[str]) -> None:
     args = parser.parse_args(argv[1:])
 
     logging.basicConfig(
-        format="%(asctime)s %(levelname)-8s %(message)s",
+        format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
         level=logging.DEBUG if args.verbose else logging.INFO,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
