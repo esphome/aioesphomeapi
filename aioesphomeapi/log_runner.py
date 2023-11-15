@@ -21,6 +21,7 @@ async def async_run(
     log_level: LogLevel = LogLevel.LOG_LEVEL_VERY_VERBOSE,
     aio_zeroconf_instance: AsyncZeroconf | None = None,
     dump_config: bool = True,
+    name: str | None = None,
 ) -> Callable[[], Coroutine[Any, Any, None]]:
     """Run logs until canceled.
 
@@ -54,6 +55,7 @@ async def async_run(
         on_connect=on_connect,
         on_disconnect=on_disconnect,
         zeroconf_instance=aiozc.zeroconf,
+        name=name,
     )
     await logic.start()
 
