@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import base64
 from datetime import timedelta
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 
+from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.base import WRITE_EXCEPTIONS
 from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND, NOISE_HELLO
@@ -29,6 +31,24 @@ from aioesphomeapi.core import (
 from .common import async_fire_time_changed, utcnow
 
 PREAMBLE = b"\x00"
+
+
+def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
+    """Make a mock connection."""
+    packets: list[tuple[int, bytes]] = []
+
+    class MockConnection(APIConnection):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Swallow args."""
+
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
+
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
+    return connection, packets
 
 
 class MockAPINoiseFrameHelper(APINoiseFrameHelper):
@@ -97,16 +117,9 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
 )
 async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
     for _ in range(3):
-        packets = []
-
-        def _packet(type_: int, data: bytes):
-            packets.append((type_, data))
-
-        def _on_error(exc: Exception):
-            raise exc
-
+        connection, packets = _make_mock_connection()
         helper = APIPlaintextFrameHelper(
-            on_pkt=_packet, on_error=_on_error, client_info="my client", log_name="test"
+            connection=connection, client_info="my client", log_name="test"
         )
 
         helper.data_received(in_bytes)
@@ -139,17 +152,10 @@ async def test_noise_frame_helper_incorrect_key():
         "01000d01736572766963657465737400",
         "0100160148616e647368616b65204d4143206661696c757265",
     ]
-    packets = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
         client_info="my client",
@@ -180,17 +186,10 @@ async def test_noise_frame_helper_incorrect_key_fragments():
         "01000d01736572766963657465737400",
         "0100160148616e647368616b65204d4143206661696c757265",
     ]
-    packets = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
         client_info="my client",
@@ -223,17 +222,10 @@ async def test_noise_incorrect_name():
         "01000d01736572766963657465737400",
         "0100160148616e647368616b65204d4143206661696c757265",
     ]
-    packets = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="wrongname",
         client_info="my client",
@@ -260,17 +252,11 @@ async def test_noise_timeout():
         "010000",  # hello packet
         "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
     ]
-    packets = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="wrongname",
         client_info="my client",
@@ -317,21 +303,15 @@ async def test_noise_frame_helper_handshake_failure():
     """Test the noise frame helper handshake failure."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
-    packets = []
     writes = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
 
     def _writer(data: bytes):
         writes.append(data)
 
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk=noise_psk,
         expected_name="servicetest",
         client_info="my client",
@@ -398,21 +378,15 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     """Test the noise frame helper handshake success with a single packet."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
-    packets = []
     writes = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
 
     def _writer(data: bytes):
         writes.append(data)
 
-    def _on_error(exc: Exception):
-        raise exc
+    connection, packets = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk=noise_psk,
         expected_name="servicetest",
         client_info="my client",

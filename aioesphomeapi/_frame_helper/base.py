@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
+if TYPE_CHECKING:
+    from ..connection import APIConnection
+
 _LOGGER = logging.getLogger(__name__)
 
 SOCKET_ERRORS = (
@@ -27,8 +30,7 @@ class APIFrameHelper:
 
     __slots__ = (
         "_loop",
-        "_on_pkt",
-        "_on_error",
+        "_connection",
         "_transport",
         "_writer",
         "_ready_future",
@@ -42,16 +44,14 @@ class APIFrameHelper:
 
     def __init__(
         self,
-        on_pkt: Callable[[int, bytes], None],
-        on_error: Callable[[Exception], None],
+        connection: "APIConnection",
         client_info: str,
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
         loop = asyncio.get_event_loop()
         self._loop = loop
-        self._on_pkt = on_pkt
-        self._on_error = on_error
+        self._connection = connection
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
@@ -143,7 +143,7 @@ class APIFrameHelper:
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
-        self._on_error(exc)
+        self._connection.report_fatal_error(exc)
 
     def connection_lost(self, exc: Exception | None) -> None:
         """Handle the connection being lost."""
