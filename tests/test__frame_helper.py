@@ -475,7 +475,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     assert not writes
 
     await handshake_task
-    helper.write_packet(1, b"to device")
+    helper.write_packets([(1, b"to device")])
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
     assert header == b"\x01"
