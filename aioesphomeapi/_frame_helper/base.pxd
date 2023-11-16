@@ -26,3 +26,5 @@ cdef class APIFrameHelper:
 
     @cython.locals(end_of_frame_pos=cython.uint)
     cdef _remove_from_buffer(self)
+
+    cpdef write_packets(self, list packets)

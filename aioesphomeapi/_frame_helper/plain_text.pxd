@@ -28,3 +28,10 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
     cpdef data_received(self, bytes data)
 
     cpdef _error_on_incorrect_preamble(self, object preamble)
+
+    @cython.locals(
+        type_="unsigned int",
+        data=bytes,
+        packet=tuple
+    )
+    cpdef write_packets(self, list packets)
