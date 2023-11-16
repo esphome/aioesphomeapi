@@ -99,14 +99,17 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
     for _ in range(3):
         packets = []
 
-        def _packet(type_: int, data: bytes):
-            packets.append((type_, data))
+        class MockConnection:
+            def process_packet(self, type_: int, data: bytes):
+                packets.append((type_, data))
 
-        def _on_error(exc: Exception):
-            raise exc
+            def report_fatal_error(self, exc: Exception):
+                raise exc
+
+        connection = MockConnection()
 
         helper = APIPlaintextFrameHelper(
-            on_pkt=_packet, on_error=_on_error, client_info="my client", log_name="test"
+            connection=connection, client_info="my client", log_name="test"
         )
 
         helper.data_received(in_bytes)
@@ -141,15 +144,17 @@ async def test_noise_frame_helper_incorrect_key():
     ]
     packets = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
+    class MockConnection:
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
 
-    def _on_error(exc: Exception):
-        raise exc
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
         client_info="my client",
@@ -182,15 +187,17 @@ async def test_noise_frame_helper_incorrect_key_fragments():
     ]
     packets = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
+    class MockConnection:
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
 
-    def _on_error(exc: Exception):
-        raise exc
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
         client_info="my client",
@@ -225,15 +232,17 @@ async def test_noise_incorrect_name():
     ]
     packets = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
+    class MockConnection:
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
 
-    def _on_error(exc: Exception):
-        raise exc
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="wrongname",
         client_info="my client",
@@ -262,15 +271,17 @@ async def test_noise_timeout():
     ]
     packets = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
+    class MockConnection:
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
 
-    def _on_error(exc: Exception):
-        raise exc
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="wrongname",
         client_info="my client",
@@ -320,18 +331,20 @@ async def test_noise_frame_helper_handshake_failure():
     packets = []
     writes = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
     def _writer(data: bytes):
         writes.append(data)
 
-    def _on_error(exc: Exception):
-        raise exc
+    class MockConnection:
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
+
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk=noise_psk,
         expected_name="servicetest",
         client_info="my client",
@@ -401,18 +414,20 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     packets = []
     writes = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
     def _writer(data: bytes):
         writes.append(data)
 
-    def _on_error(exc: Exception):
-        raise exc
+    class MockConnection:
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
+
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk=noise_psk,
         expected_name="servicetest",
         client_info="my client",
