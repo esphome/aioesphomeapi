@@ -70,6 +70,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             assert self._writer is not None, "Writer should be set"
 
         out: list[bytes] = []
+        debug_enabled = self._debug_enabled()
         for packet in packets:
             type_: int = packet[0]
             data: bytes = packet[1]
@@ -77,7 +78,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             out.append(varuint_to_bytes(len(data)))
             out.append(varuint_to_bytes(type_))
             out.append(data)
-            if self._debug_enabled():
+            if debug_enabled is True:
                 _LOGGER.debug(
                     "%s: Sending plaintext frame %s", self._log_name, data.hex()
                 )

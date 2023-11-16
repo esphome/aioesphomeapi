@@ -317,6 +317,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._writer is not None, "Writer is not set"
 
         out: list[bytes] = []
+        debug_enabled = self._debug_enabled()
         for packet in packets:
             type_: int = packet[0]
             data: bytes = packet[1]
@@ -331,7 +332,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
             frame = self._encrypt(data_header + data)
 
-            if self._debug_enabled():
+            if debug_enabled is True:
                 _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
 
             frame_len = len(frame)

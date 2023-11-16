@@ -36,6 +36,9 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         data=bytes,
         packet=tuple,
         data_len=cython.uint,
+        frame=bytes,
         frame_len=cython.uint
     )
     cpdef write_packets(self, list packets)
+
+    cpdef close(self)
