@@ -34,11 +34,13 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         type_high=cython.uint,
         type_low=cython.uint
     )
-    cdef _handle_frame(self, bytes data)
+    cdef _handle_frame(self, bytes frame)
 
-    cdef _handle_hello(self, bytes data)
+    cdef _handle_hello(self, bytes server_hello)
 
-    cdef _handle_handshake(self, bytes data)
+    cdef _handle_handshake(self, bytes msg)
+
+    cdef _handle_closed(self, bytes frame)
 
     @cython.locals(
         type_="unsigned int",
