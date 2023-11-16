@@ -1,5 +1,6 @@
 import cython
 
+from ._frame_helper.base cimport APIFrameHelper
 
 cdef dict MESSAGE_TYPE_TO_PROTO
 cdef dict PROTO_TO_MESSAGE_TYPE
@@ -47,7 +48,7 @@ cdef class APIConnection:
     cdef public object on_stop
     cdef object _on_stop_task
     cdef public object _socket
-    cdef public object _frame_helper
+    cdef public APIFrameHelper _frame_helper
     cdef public object api_version
     cdef public object connection_state
     cdef dict _message_handlers

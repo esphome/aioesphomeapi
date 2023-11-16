@@ -630,21 +630,24 @@ class APIConnection:
             )
 
         packets: list[tuple[int, bytes]] = []
+        debug_enabled = self._debug_enabled()
+
+
         for msg in msgs:
             msg_type = type(msg)
             if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
                 raise ValueError(f"Message type id not found for type {msg_type}")
 
-            if self._debug_enabled() is True:
+            if debug_enabled is True:
                 _LOGGER.debug(
                     "%s: Sending %s: %s", self.log_name, msg_type.__name__, msg
                 )
 
-            if TYPE_CHECKING:
-                assert self._frame_helper is not None
+            packets.append((message_type, msg.SerializeToString()))
 
-            encoded = msg.SerializeToString()
-            packets.append((message_type, encoded))
+
+        if TYPE_CHECKING:
+            assert self._frame_helper is not None
 
         try:
             self._frame_helper.write_packets(packets)
