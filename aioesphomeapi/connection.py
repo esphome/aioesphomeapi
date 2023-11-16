@@ -337,8 +337,7 @@ class APIConnection:
         if (noise_psk := self._params.noise_psk) is None:
             _, fh = await loop.create_connection(  # type: ignore[type-var]
                 lambda: APIPlaintextFrameHelper(
-                    on_pkt=self._process_packet,
-                    on_error=self._report_fatal_error,
+                    connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,
                 ),
@@ -349,8 +348,7 @@ class APIConnection:
                 lambda: APINoiseFrameHelper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
-                    on_pkt=self._process_packet,
-                    on_error=self._report_fatal_error,
+                    connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,
                 ),
@@ -395,7 +393,7 @@ class APIConnection:
                 CONNECT_REQUEST_TIMEOUT,
             )
         except TimeoutAPIError as err:
-            self._report_fatal_error(err)
+            self.report_fatal_error(err)
             raise TimeoutAPIError("Hello timed out") from err
 
         resp = responses.pop(0)
@@ -499,7 +497,7 @@ class APIConnection:
             self.log_name,
             self._keep_alive_timeout,
         )
-        self._report_fatal_error(
+        self.report_fatal_error(
             PingFailedAPIError(
                 f"Ping response not received after {self._keep_alive_timeout} seconds"
             )
@@ -653,7 +651,7 @@ class APIConnection:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             _LOGGER.info("%s: Error writing packets: %s", self.log_name, err)
-            self._report_fatal_error(err)
+            self.report_fatal_error(err)
             raise
 
     def _add_message_callback_without_remove(
@@ -786,7 +784,7 @@ class APIConnection:
         )
         return response
 
-    def _report_fatal_error(self, err: Exception) -> None:
+    def report_fatal_error(self, err: Exception) -> None:
         """Report a fatal error that occurred during an operation.
 
         This should only be called for errors that mean the connection
@@ -806,8 +804,8 @@ class APIConnection:
         self._fatal_exception = err
         self._cleanup()
 
-    def _process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
-        """Factory to make a packet processor."""
+    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
+        """Process an incoming packet."""
         if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
             _LOGGER.debug(
                 "%s: Skipping message type %s",
@@ -831,7 +829,7 @@ class APIConnection:
                 e,
                 exc_info=True,
             )
-            self._report_fatal_error(
+            self.report_fatal_error(
                 ProtocolAPIError(
                     f"Invalid protobuf message: type={msg_type_proto} data={data!r}: {e}"
                 )

@@ -166,7 +166,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 packet_data = maybe_packet_data
 
             self._remove_from_buffer()
-            self._on_pkt(msg_type_int, packet_data)
+            self._connection.process_packet(msg_type_int, packet_data)
             # If we have more data, continue processing
 
     def _error_on_incorrect_preamble(self, preamble: _int) -> None:

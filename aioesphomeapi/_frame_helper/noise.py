@@ -25,6 +25,9 @@ from ..core import (
 )
 from .base import WRITE_EXCEPTIONS, APIFrameHelper
 
+if TYPE_CHECKING:
+    from ..connection import APIConnection
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -81,15 +84,14 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def __init__(
         self,
-        on_pkt: Callable[[int, bytes], None],
-        on_error: Callable[[Exception], None],
+        connection: "APIConnection",
         noise_psk: str,
         expected_name: str | None,
         client_info: str,
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
-        super().__init__(on_pkt, on_error, client_info, log_name)
+        super().__init__(connection, client_info, log_name)
         self._noise_psk = noise_psk
         self._expected_name = expected_name
         self._set_state(NoiseConnectionState.HELLO)
@@ -364,7 +366,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # N bytes: message data
         type_high = msg[0]
         type_low = msg[1]
-        self._on_pkt((type_high << 8) | type_low, msg[4:])
+        self._connection.process_packet((type_high << 8) | type_low, msg[4:])
 
     def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""

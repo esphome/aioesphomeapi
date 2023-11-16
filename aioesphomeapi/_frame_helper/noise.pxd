@@ -1,5 +1,6 @@
 import cython
 
+from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
 
 
