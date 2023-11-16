@@ -2,6 +2,7 @@ import cython
 
 from ._frame_helper.base cimport APIFrameHelper
 
+
 cdef dict MESSAGE_TYPE_TO_PROTO
 cdef dict PROTO_TO_MESSAGE_TYPE
 

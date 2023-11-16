@@ -632,7 +632,6 @@ class APIConnection:
         packets: list[tuple[int, bytes]] = []
         debug_enabled = self._debug_enabled()
 
-
         for msg in msgs:
             msg_type = type(msg)
             if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
@@ -644,7 +643,6 @@ class APIConnection:
                 )
 
             packets.append((message_type, msg.SerializeToString()))
-
 
         if TYPE_CHECKING:
             assert self._frame_helper is not None
