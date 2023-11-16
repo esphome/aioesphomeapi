@@ -69,6 +69,8 @@ cdef class APIConnection:
 
     cpdef send_message(self, object msg)
 
+    cdef send_messages(self, tuple messages)
+
     @cython.locals(handlers=set, handlers_copy=set)
     cpdef _process_packet(self, object msg_type_proto, object data)
 
@@ -89,5 +91,3 @@ cdef class APIConnection:
 
     @cython.locals(handlers=set)
     cpdef _remove_message_callback(self, object on_message, tuple msg_types)
-
-    cdef _send_messages(self, tuple messages)

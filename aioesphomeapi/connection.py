@@ -613,17 +613,11 @@ class APIConnection:
             connect.password = self._params.password
         return connect
 
-    def _send_messages(self, messages: tuple[message.Message, ...]) -> None:
-        """Send a message to the remote.
-
-        Currently this is a wrapper around send_message
-        but may be changed in the future to batch messages
-        together.
-        """
-        for msg in messages:
-            self.send_message(msg)
-
     def send_message(self, msg: message.Message) -> None:
+        """Send a message to the remote."""
+        self.send_messages((msg,))
+
+    def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
             if in_do_connect.get(False):
@@ -635,23 +629,27 @@ class APIConnection:
                 f"Connection isn't established yet ({self.connection_state})"
             )
 
-        msg_type = type(msg)
-        if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
-            raise ValueError(f"Message type id not found for type {msg_type}")
+        packets:list[tuple[int,bytes]] = []
+        for msg in msgs:
+            msg_type = type(msg)
+            if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
+                raise ValueError(f"Message type id not found for type {msg_type}")
 
-        if self._debug_enabled() is True:
-            _LOGGER.debug("%s: Sending %s: %s", self.log_name, msg_type.__name__, msg)
+            if self._debug_enabled() is True:
+                _LOGGER.debug("%s: Sending %s: %s", self.log_name, msg_type.__name__, msg)
 
-        if TYPE_CHECKING:
-            assert self._frame_helper is not None
+            if TYPE_CHECKING:
+                assert self._frame_helper is not None
 
-        encoded = msg.SerializeToString()
+            encoded = msg.SerializeToString()
+            packets.append((message_type, encoded))
+
         try:
-            self._frame_helper.write_packet(message_type, encoded)
+            self._frame_helper.write_packets(packets)
         except SocketAPIError as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
-            _LOGGER.info("%s: Error writing packet: %s", self.log_name, err)
+            _LOGGER.info("%s: Error writing packets: %s", self.log_name, err)
             self._report_fatal_error(err)
             raise
 
@@ -738,7 +736,7 @@ class APIConnection:
         # Send the message right away to reduce latency.
         # This is safe because we are not awaiting between
         # sending the message and registering the handler
-        self._send_messages(messages)
+        self.send_messages(messages)
         loop = self._loop
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = loop.create_future()

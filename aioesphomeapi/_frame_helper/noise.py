@@ -304,8 +304,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         )
         self._ready_future.set_result(None)
 
-    def write_packet(self, type_: int_, data: bytes) -> None:
-        """Write a packet to the socket."""
+    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+        """Write a packets to the socket.
+
+        Packets are in the format of tuple[protobuf_type, protobuf_data]
+        """
         if not self._is_ready:
             raise HandshakeAPIError(f"{self._log_name}: Noise connection is not ready")
 
@@ -313,19 +316,26 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._encrypt is not None, "Handshake should be complete"
             assert self._writer is not None, "Writer is not set"
 
-        data_len = len(data)
-        data_header = bytes(
-            ((type_ >> 8) & 0xFF, type_ & 0xFF, (data_len >> 8) & 0xFF, data_len & 0xFF)
-        )
-        frame = self._encrypt(data_header + data)
+        out: list[bytes] = []
+        for packet in packets:
+            type_: int = packet[0]
+            data: bytes = packet[1]
+            data_len = len(data)
+            data_header = bytes(
+                ((type_ >> 8) & 0xFF, type_ & 0xFF, (data_len >> 8) & 0xFF, data_len & 0xFF)
+            )
+            frame = self._encrypt(data_header + data)
 
-        if self._debug_enabled():
-            _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
+            if self._debug_enabled():
+                _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
 
-        frame_len = len(frame)
-        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+            frame_len = len(frame)
+            header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+            out.append(header)
+            out.append(frame)
+
         try:
-            self._writer(header + frame)
+            self._writer(b"".join(out))
         except WRITE_EXCEPTIONS as err:
             raise SocketAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
