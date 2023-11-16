@@ -26,9 +26,9 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         length_high=cython.uint,
         maybe_msg_type=cython.uint
     )
-    cpdef data_received(self, bytes data)
+    cpdef data_received(self, object data)
 
-    cpdef _error_on_incorrect_preamble(self, object preamble)
+    cdef _error_on_incorrect_preamble(self, object preamble)
 
     @cython.locals(
         type_="unsigned int",
