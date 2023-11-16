@@ -28,5 +28,3 @@ cdef class APIFrameHelper:
     cdef _remove_from_buffer(self)
 
     cpdef write_packets(self, list packets)
-
-    cpdef close(self)
