@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """aioesphomeapi setup script."""
 import os
-
-from setuptools import find_packages, setup
-import os
 from distutils.command.build_ext import build_ext
 
+from setuptools import find_packages, setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -13,7 +11,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "18.2.3"
+VERSION = "18.5.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -60,6 +58,11 @@ setup_kwargs = {
     "install_requires": REQUIRES,
     "python_requires": ">=3.9",
     "test_suite": "tests",
+    "entry_points": {
+        "console_scripts": [
+            "aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point"
+        ],
+    },
 }
 
 

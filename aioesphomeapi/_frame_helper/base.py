@@ -127,8 +127,11 @@ class APIFrameHelper:
             handshake_handle.cancel()
 
     @abstractmethod
-    def write_packet(self, type_: int, data: bytes) -> None:
-        """Write a packet to the socket."""
+    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+        """Write a packets to the socket.
+
+        Packets are in the format of tuple[protobuf_type, protobuf_data]
+        """
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""

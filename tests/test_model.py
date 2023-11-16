@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 import pytest
 
@@ -129,14 +130,14 @@ def test_api_int_enum_convert_list(input, output):
 @dataclass(frozen=True)
 class DummyAPIModel(APIModelBase):
     val1: int = 0
-    val2: Optional[DummyIntEnum] = converter_field(
+    val2: DummyIntEnum | None = converter_field(
         default=DummyIntEnum.DEFAULT, converter=DummyIntEnum.convert
     )
 
 
 @dataclass(frozen=True)
 class ListAPIModel(APIModelBase):
-    val: List[DummyAPIModel] = field(default_factory=list)
+    val: list[DummyAPIModel] = field(default_factory=list)
 
 
 def test_api_model_base_converter():

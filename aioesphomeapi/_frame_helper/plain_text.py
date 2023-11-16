@@ -59,34 +59,47 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         super().connection_made(transport)
         self._ready_future.set_result(None)
 
-    def write_packet(self, type_: int, data: bytes) -> None:
-        """Write a packet to the socket.
+    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+        """Write a packets to the socket.
+
+        Packets are in the format of tuple[protobuf_type, protobuf_data]
 
         The entire packet must be written in a single call.
         """
         if TYPE_CHECKING:
             assert self._writer is not None, "Writer should be set"
 
-        data = b"\0" + varuint_to_bytes(len(data)) + varuint_to_bytes(type_) + data
-        if self._debug_enabled():
-            _LOGGER.debug("%s: Sending plaintext frame %s", self._log_name, data.hex())
+        out: list[bytes] = []
+        debug_enabled = self._debug_enabled()
+        for packet in packets:
+            type_: int = packet[0]
+            data: bytes = packet[1]
+            out.append(b"\0")
+            out.append(varuint_to_bytes(len(data)))
+            out.append(varuint_to_bytes(type_))
+            out.append(data)
+            if debug_enabled is True:
+                _LOGGER.debug(
+                    "%s: Sending plaintext frame %s", self._log_name, data.hex()
+                )
 
         try:
-            self._writer(data)
+            self._writer(b"".join(out))
         except WRITE_EXCEPTIONS as err:
             raise SocketAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
-    def data_received(self, data: bytes) -> None:  # pylint: disable=too-many-branches
+    def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
+        self, data: bytes
+    ) -> None:
         self._add_to_buffer(data)
         while self._buffer:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
             # to avoid multiple calls to _read_exactly
             self._pos = 0
-            init_bytes = self._read_exactly(3)
-            if init_bytes is None:
+            if (init_bytes := self._read_exactly(3)) is None:
                 return
             msg_type_int: int | None = None
             length_int = 0
@@ -94,18 +107,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             length_high = init_bytes[1]
             maybe_msg_type = init_bytes[2]
             if preamble != 0x00:
-                if preamble == 0x01:
-                    self._handle_error_and_close(
-                        RequiresEncryptionAPIError(
-                            f"{self._log_name}: Connection requires encryption"
-                        )
-                    )
-                    return
-                self._handle_error_and_close(
-                    ProtocolAPIError(
-                        f"{self._log_name}: Invalid preamble {preamble:02x}"
-                    )
-                )
+                self._error_on_incorrect_preamble(preamble)
                 return
 
             if length_high & 0x80 != 0x80:
@@ -125,22 +127,25 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 length = init_bytes[1:3]
                 # If the message is long, we need to read the rest of the length
                 while length[-1] & 0x80 == 0x80:
-                    add_length = self._read_exactly(1)
-                    if add_length is None:
+                    if (add_length := self._read_exactly(1)) is None:
                         return
                     length += add_length
                 length_int = bytes_to_varuint(length) or 0
                 # Since the length is longer than 1 byte we do not have the
                 # message type yet.
-                msg_type = b""
+                if (msg_type_byte := self._read_exactly(1)) is None:
+                    return
+                msg_type = msg_type_byte
+                if msg_type[-1] & 0x80 != 0x80:
+                    # Message type is only 1 byte
+                    msg_type_int = msg_type[0]
 
             # If the we do not have the message type yet because the message
             # length was so long it did not fit into the first byte we need
             # to read the (rest) of the message type
             if msg_type_int is None:
-                while not msg_type or msg_type[-1] & 0x80 == 0x80:
-                    add_msg_type = self._read_exactly(1)
-                    if add_msg_type is None:
+                while msg_type[-1] & 0x80 == 0x80:
+                    if (add_msg_type := self._read_exactly(1)) is None:
                         return
                     msg_type += add_msg_type
                 msg_type_int = bytes_to_varuint(msg_type)
@@ -151,16 +156,28 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if length_int == 0:
                 packet_data = b""
             else:
-                maybe_packet_data = self._read_exactly(length_int)
                 # The packet data is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next
                 # call to data_received will continue processing the packet
                 # at the start of the frame.
-                if maybe_packet_data is None:
+                if (maybe_packet_data := self._read_exactly(length_int)) is None:
                     return
                 packet_data = maybe_packet_data
 
             self._remove_from_buffer()
             self._on_pkt(msg_type_int, packet_data)
             # If we have more data, continue processing
+
+    def _error_on_incorrect_preamble(self, preamble: _int) -> None:
+        """Handle an incorrect preamble."""
+        if preamble == 0x01:
+            self._handle_error_and_close(
+                RequiresEncryptionAPIError(
+                    f"{self._log_name}: Connection requires encryption"
+                )
+            )
+            return
+        self._handle_error_and_close(
+            ProtocolAPIError(f"{self._log_name}: Invalid preamble {preamble:02x}")
+        )

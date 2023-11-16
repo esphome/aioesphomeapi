@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Coroutine
 from functools import partial
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Union, cast
 
 from google.protobuf import message
 
@@ -242,6 +243,16 @@ ExecuteServiceDataType = dict[
 ]
 
 
+def _stringify_or_none(value: str | None) -> str | None:
+    """Convert a string like object to a str or None.
+
+    The noise_psk is sometimes passed into
+    the client as an Estr, but we want to pass it
+    to the API as a string or None.
+    """
+    return None if value is None else str(value)
+
+
 # pylint: disable=too-many-public-methods
 class APIClient:
     __slots__ = (
@@ -281,15 +292,15 @@ class APIClient:
             IP passed as address but DHCP reassigned IP.
         """
         self._params = ConnectionParams(
-            address=address,
+            address=str(address),
             port=port,
             password=password,
             client_info=client_info,
             keepalive=keepalive,
             zeroconf_instance=zeroconf_instance,
-            # treat empty psk string as missing (like password)
-            noise_psk=noise_psk or None,
-            expected_name=expected_name,
+            # treat empty '' psk string as missing (like password)
+            noise_psk=_stringify_or_none(noise_psk) or None,
+            expected_name=_stringify_or_none(expected_name) or None,
         )
         self._connection: APIConnection | None = None
         self._cached_name: str | None = None
@@ -431,8 +442,8 @@ class APIClient:
             return isinstance(msg, ListEntitiesDoneResponse)
 
         assert self._connection is not None
-        resp = await self._connection.send_message_await_response_complex(
-            ListEntitiesRequest(), do_append, do_stop, msg_types, timeout=60
+        resp = await self._connection.send_messages_await_response_complex(
+            (ListEntitiesRequest(),), do_append, do_stop, msg_types, timeout=60
         )
         entities: list[EntityInfo] = []
         services: list[UserService] = []
@@ -547,8 +558,8 @@ class APIClient:
         assert self._connection is not None
 
         message_filter = partial(self._filter_bluetooth_message, address, handle)
-        resp = await self._connection.send_message_await_response_complex(
-            request, message_filter, message_filter, msg_types, timeout=timeout
+        resp = await self._connection.send_messages_await_response_complex(
+            (request,), message_filter, message_filter, msg_types, timeout=timeout
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
@@ -762,13 +773,10 @@ class APIClient:
     async def bluetooth_device_pair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDevicePairing:
-        self._check_authenticated()
         msg_types = (
             BluetoothDevicePairingResponse,
             BluetoothDeviceConnectionResponse,
         )
-
-        assert self._connection is not None
 
         def predicate_func(msg: message.Message) -> bool:
             if TYPE_CHECKING:
@@ -781,78 +789,77 @@ class APIClient:
                 )
             return True
 
-        [response] = await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address, request_type=BluetoothDeviceRequestType.PAIR
-            ),
-            predicate_func,
-            predicate_func,
-            msg_types,
-            timeout=timeout,
+        return BluetoothDevicePairing.from_pb(
+            await self._bluetooth_device_request(
+                address,
+                BluetoothDeviceRequestType.PAIR,
+                predicate_func,
+                msg_types,
+                timeout,
+            )
         )
-        return BluetoothDevicePairing.from_pb(response)
 
     async def bluetooth_device_unpair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDeviceUnpairing:
-        self._check_authenticated()
-
-        assert self._connection is not None
-
-        def predicate_func(msg: BluetoothDeviceUnpairingResponse) -> bool:
-            return bool(msg.address == address)
-
-        [response] = await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address, request_type=BluetoothDeviceRequestType.UNPAIR
-            ),
-            predicate_func,
-            predicate_func,
-            (BluetoothDeviceUnpairingResponse,),
-            timeout=timeout,
+        return BluetoothDeviceUnpairing.from_pb(
+            await self._bluetooth_device_request(
+                address,
+                BluetoothDeviceRequestType.UNPAIR,
+                lambda msg: msg.address == address,
+                (BluetoothDeviceUnpairingResponse,),
+                timeout,
+            )
         )
-        return BluetoothDeviceUnpairing.from_pb(response)
 
     async def bluetooth_device_clear_cache(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDeviceClearCache:
-        self._check_authenticated()
-
-        assert self._connection is not None
-
-        def predicate_func(msg: BluetoothDeviceClearCacheResponse) -> bool:
-            return bool(msg.address == address)
-
-        [response] = await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address, request_type=BluetoothDeviceRequestType.CLEAR_CACHE
-            ),
-            predicate_func,
-            predicate_func,
-            (BluetoothDeviceClearCacheResponse,),
-            timeout=timeout,
+        return BluetoothDeviceClearCache.from_pb(
+            await self._bluetooth_device_request(
+                address,
+                BluetoothDeviceRequestType.CLEAR_CACHE,
+                lambda msg: msg.address == address,
+                (BluetoothDeviceClearCacheResponse,),
+                timeout,
+            )
         )
-        return BluetoothDeviceClearCache.from_pb(response)
 
     async def bluetooth_device_disconnect(
         self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT
     ) -> None:
+        """Disconnect from a Bluetooth device."""
+        await self._bluetooth_device_request(
+            address,
+            BluetoothDeviceRequestType.DISCONNECT,
+            lambda msg: msg.address == address and not msg.connected,
+            (BluetoothDeviceConnectionResponse,),
+            timeout,
+        )
+
+    async def _bluetooth_device_request(
+        self,
+        address: int,
+        request_type: BluetoothDeviceRequestType,
+        predicate_func: Callable[[BluetoothDeviceConnectionResponse], bool],
+        msg_types: tuple[type[message.Message], ...],
+        timeout: float,
+    ) -> message.Message:
         self._check_authenticated()
-
-        def predicate_func(msg: BluetoothDeviceConnectionResponse) -> bool:
-            return bool(msg.address == address and not msg.connected)
-
         assert self._connection is not None
-        await self._connection.send_message_await_response_complex(
-            BluetoothDeviceRequest(
-                address=address,
-                request_type=BluetoothDeviceRequestType.DISCONNECT,
+        [response] = await self._connection.send_messages_await_response_complex(
+            (
+                BluetoothDeviceRequest(
+                    address=address,
+                    request_type=request_type,
+                ),
             ),
             predicate_func,
             predicate_func,
-            (BluetoothDeviceConnectionResponse,),
-            timeout=timeout,
+            msg_types,
+            timeout,
         )
+        return response
 
     async def bluetooth_gatt_get_services(
         self, address: int
@@ -873,8 +880,8 @@ class APIClient:
             return isinstance(msg, stop_types) and msg.address == address
 
         assert self._connection is not None
-        resp = await self._connection.send_message_await_response_complex(
-            BluetoothGATTGetServicesRequest(address=address),
+        resp = await self._connection.send_messages_await_response_complex(
+            (BluetoothGATTGetServicesRequest(address=address),),
             do_append,
             do_stop,
             msg_types,

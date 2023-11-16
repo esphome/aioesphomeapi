@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import base64
+import binascii
 import logging
 from enum import Enum
 from functools import partial
@@ -60,6 +60,8 @@ class NoiseConnectionState(Enum):
 
 
 NOISE_HELLO = b"\x01\x00\x00"
+
+int_ = int
 
 
 class APINoiseFrameHelper(APIFrameHelper):
@@ -142,8 +144,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
-            header = self._read_exactly(3)
-            if header is None:
+            if (header := self._read_exactly(3)) is None:
                 return
             preamble = header[0]
             msg_size_high = header[1]
@@ -240,16 +241,16 @@ class APINoiseFrameHelper(APIFrameHelper):
         psk = self._noise_psk
         server_name = self._server_name
         try:
-            psk_bytes = base64.b64decode(psk)
+            psk_bytes = binascii.a2b_base64(psk)
         except ValueError:
             raise InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Malformed PSK {psk}, expected "
+                f"{self._log_name}: Malformed PSK `{psk}`, expected "
                 "base64-encoded value",
                 server_name,
             )
         if len(psk_bytes) != 32:
             raise InvalidEncryptionKeyAPIError(
-                f"{self._log_name}:Malformed PSK {psk}, expected"
+                f"{self._log_name}:Malformed PSK `{psk}`, expected"
                 f" 32-bytes of base64 data",
                 server_name,
             )
@@ -303,8 +304,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         )
         self._ready_future.set_result(None)
 
-    def write_packet(self, type_: int, data: bytes) -> None:
-        """Write a packet to the socket."""
+    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+        """Write a packets to the socket.
+
+        Packets are in the format of tuple[protobuf_type, protobuf_data]
+        """
         if not self._is_ready:
             raise HandshakeAPIError(f"{self._log_name}: Noise connection is not ready")
 
@@ -312,19 +316,32 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._encrypt is not None, "Handshake should be complete"
             assert self._writer is not None, "Writer is not set"
 
-        data_len = len(data)
-        type_len = bytes(
-            ((type_ >> 8) & 0xFF, type_ & 0xFF, (data_len >> 8) & 0xFF, data_len & 0xFF)
-        )
-        frame = self._encrypt(type_len + data)
+        out: list[bytes] = []
+        debug_enabled = self._debug_enabled()
+        for packet in packets:
+            type_: int = packet[0]
+            data: bytes = packet[1]
+            data_len = len(data)
+            data_header = bytes(
+                (
+                    (type_ >> 8) & 0xFF,
+                    type_ & 0xFF,
+                    (data_len >> 8) & 0xFF,
+                    data_len & 0xFF,
+                )
+            )
+            frame = self._encrypt(data_header + data)
 
-        if self._debug_enabled():
-            _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
+            if debug_enabled is True:
+                _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
 
-        frame_len = len(frame)
-        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+            frame_len = len(frame)
+            header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+            out.append(header)
+            out.append(frame)
+
         try:
-            self._writer(header + frame)
+            self._writer(b"".join(out))
         except WRITE_EXCEPTIONS as err:
             raise SocketAPIError(
                 f"{self._log_name}: Error while writing data: {err}"

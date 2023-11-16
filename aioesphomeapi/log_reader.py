@@ -7,15 +7,11 @@ import logging
 import sys
 from datetime import datetime
 
-import zeroconf
+from zeroconf.asyncio import AsyncZeroconf
 
-from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore
-from aioesphomeapi.client import APIClient
-from aioesphomeapi.core import APIConnectionError
-from aioesphomeapi.model import LogLevel
-from aioesphomeapi.reconnect_logic import ReconnectLogic
-
-_LOGGER = logging.getLogger(__name__)
+from .api_pb2 import SubscribeLogsResponse  # type: ignore
+from .client import APIClient
+from .log_runner import async_run
 
 
 async def main(argv: list[str]) -> None:
@@ -28,56 +24,45 @@ async def main(argv: list[str]) -> None:
     args = parser.parse_args(argv[1:])
 
     logging.basicConfig(
-        format="%(asctime)s %(levelname)-8s %(message)s",
+        format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
         level=logging.DEBUG if args.verbose else logging.INFO,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+    aiozc = AsyncZeroconf()
 
     cli = APIClient(
         args.address,
         args.port,
         args.password or "",
         noise_psk=args.noise_psk,
+        zeroconf_instance=aiozc.zeroconf,
         keepalive=10,
     )
 
     def on_log(msg: SubscribeLogsResponse) -> None:
-        time_ = datetime.now().time().strftime("[%H:%M:%S]")
-        text = msg.message
-        print(time_ + text.decode("utf8", "backslashreplace"))
+        time_ = datetime.now()
+        message: bytes = msg.message
+        text = message.decode("utf8", "backslashreplace")
+        print(f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}]{text}")
 
-    has_connects = False
-
-    async def on_connect() -> None:
-        nonlocal has_connects
-        try:
-            await cli.subscribe_logs(
-                on_log,
-                log_level=LogLevel.LOG_LEVEL_VERY_VERBOSE,
-                dump_config=not has_connects,
-            )
-            has_connects = True
-        except APIConnectionError:
-            await cli.disconnect()
-
-    async def on_disconnect(  # pylint: disable=unused-argument
-        expected_disconnect: bool,
-    ) -> None:
-        _LOGGER.warning("Disconnected from API")
-
-    logic = ReconnectLogic(
-        client=cli,
-        on_connect=on_connect,
-        on_disconnect=on_disconnect,
-        zeroconf_instance=zeroconf.Zeroconf(),
-    )
-    await logic.start()
+    stop = await async_run(cli, on_log, aio_zeroconf_instance=aiozc)
     try:
         while True:
             await asyncio.sleep(60)
+    finally:
+        await aiozc.async_close()
+        await stop()
+
+
+def cli_entry_point() -> None:
+    """Run the CLI."""
+    try:
+        asyncio.run(main(sys.argv))
     except KeyboardInterrupt:
-        await logic.stop()
+        pass
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main(sys.argv)) or 0)
+    cli_entry_point()
+    sys.exit(0)

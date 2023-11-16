@@ -1,9 +1,19 @@
-import pytest
-from mock import AsyncMock, MagicMock, patch
+from __future__ import annotations
 
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from google.protobuf import message
+
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
+    BluetoothDeviceClearCacheResponse,
+    BluetoothDeviceConnectionResponse,
+    BluetoothDevicePairingResponse,
+    BluetoothDeviceUnpairingResponse,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -23,6 +33,7 @@ from aioesphomeapi.api_pb2 import (
     TextCommandRequest,
 )
 from aioesphomeapi.client import APIClient
+from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -41,6 +52,14 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
+)
+from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
+
+from .common import (
+    PROTO_TO_MESSAGE_TYPE,
+    Estr,
+    generate_plaintext_packet,
+    get_mock_zeroconf,
 )
 
 
@@ -68,7 +87,7 @@ def patch_response_complex(client: APIClient, messages):
             raise ValueError("Response never stopped")
         return resp
 
-    client._connection.send_message_await_response_complex = patched
+    client._connection.send_messages_await_response_complex = patched
 
 
 def patch_response_callback(client: APIClient):
@@ -579,3 +598,156 @@ async def test_text_command(auth_client, cmd, req):
 
     await auth_client.text_command(**cmd)
     send.assert_called_once_with(TextCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+async def test_noise_psk_handles_subclassed_string():
+    """Test that the noise_psk gets converted to a string."""
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    cli = PatchableAPIClient(
+        address=Estr("1.2.3.4"),
+        port=6052,
+        password=None,
+        noise_psk=Estr("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="),
+        expected_name=Estr("mydevice"),
+    )
+    # Make sure its not a subclassed string
+    assert type(cli._params.noise_psk) is str
+    assert type(cli._params.address) is str
+    assert type(cli._params.expected_name) is str
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+        await rl.start()
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+    rl.stop_callback()
+    # Wait for cancellation to propagate
+    for _ in range(4):
+        await asyncio.sleep(0)
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_no_noise_psk():
+    """Test not using a noise_psk."""
+    cli = APIClient(
+        address=Estr("1.2.3.4"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=Estr("mydevice"),
+    )
+    # Make sure its not a subclassed string
+    assert cli._params.noise_psk is None
+    assert type(cli._params.address) is str
+    assert type(cli._params.expected_name) is str
+
+
+@pytest.mark.asyncio
+async def test_empty_noise_psk_or_expected_name():
+    """Test an empty noise_psk is treated as None."""
+    cli = APIClient(
+        address=Estr("1.2.3.4"),
+        port=6052,
+        password=None,
+        noise_psk="",
+        expected_name="",
+    )
+    assert cli._params.noise_psk is None
+    assert type(cli._params.address) is str
+    assert cli._params.expected_name is None
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_disconnect."""
+    client, connection, transport, protocol = api_client
+    disconnect_task = asyncio.create_task(client.bluetooth_device_disconnect(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False
+    )
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceConnectionResponse],
+        )
+    )
+    await disconnect_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_pair(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_pair."""
+    client, connection, transport, protocol = api_client
+    pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDevicePairingResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDevicePairingResponse],
+        )
+    )
+    await pair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_unpair(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_unpair."""
+    client, connection, transport, protocol = api_client
+    unpair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceUnpairingResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceUnpairingResponse],
+        )
+    )
+    await unpair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_clear_cache(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_clear_cache."""
+    client, connection, transport, protocol = api_client
+    clear_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceClearCacheResponse(address=1234)
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceClearCacheResponse],
+        )
+    )
+    await clear_task

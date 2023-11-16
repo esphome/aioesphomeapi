@@ -30,3 +30,13 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         type_low=cython.uint
     )
     cpdef _handle_frame(self, bytes data)
+
+    @cython.locals(
+        type_="unsigned int",
+        data=bytes,
+        packet=tuple,
+        data_len=cython.uint,
+        frame=bytes,
+        frame_len=cython.uint
+    )
+    cpdef write_packets(self, list packets)

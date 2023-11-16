@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import socket
 from ipaddress import ip_address
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from mock import AsyncMock, MagicMock, patch
 from zeroconf import DNSCache
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
