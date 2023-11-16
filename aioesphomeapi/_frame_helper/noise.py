@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import base64
+import binascii
 import logging
 from enum import Enum
 from functools import partial
@@ -241,7 +241,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         psk = self._noise_psk
         server_name = self._server_name
         try:
-            psk_bytes = base64.b64decode(psk)
+            psk_bytes = binascii.a2b_base64(psk)
         except ValueError:
             raise InvalidEncryptionKeyAPIError(
                 f"{self._log_name}: Malformed PSK `{psk}`, expected "
