@@ -91,7 +91,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             ) from err
 
     def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
-        self, data: bytes
+        self, data: bytes | bytearray | memoryview
     ) -> None:
         self._add_to_buffer(data)
         while self._buffer:

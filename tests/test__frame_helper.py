@@ -22,6 +22,7 @@ from aioesphomeapi._frame_helper.plain_text import (
 )
 from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
 from aioesphomeapi.core import (
+    ProtocolAPIError,
     BadNameAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
@@ -67,7 +68,6 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
             ) from err
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "in_bytes, pkt_data, pkt_type",
     [
@@ -115,7 +115,9 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         ),
     ],
 )
-async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
+def test_plaintext_frame_helper(
+    in_bytes: bytes, pkt_data: bytes, pkt_type: int
+) -> None:
     for _ in range(3):
         connection, packets = _make_mock_connection()
         helper = APIPlaintextFrameHelper(
@@ -139,6 +141,90 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
 
         assert type_ == pkt_type
         assert data == pkt_data
+
+
+@pytest.mark.parametrize(
+    "byte_type",
+    (bytes, bytearray, memoryview),
+)
+def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
+    """Test the plaintext frame helper with the protractor event loop.
+
+    With the protractor event loop, data_received is called with a bytearray
+    instead of bytes.
+
+    https://github.com/esphome/issues/issues/5117
+    """
+    for _ in range(3):
+        connection, packets = _make_mock_connection()
+        helper = APIPlaintextFrameHelper(
+            connection=connection, client_info="my client", log_name="test"
+        )
+        in_bytes = byte_type(
+            PREAMBLE + varuint_to_bytes(4) + varuint_to_bytes(100) + (b"\x42" * 4)
+        )
+
+        helper.data_received(in_bytes)
+
+        pkt = packets.pop()
+        type_, data = pkt
+
+        assert type_ == 100
+        assert data == b"\x42" * 4
+
+        # Make sure we correctly handle fragments
+        for i in range(len(in_bytes)):
+            helper.data_received(in_bytes[i : i + 1])
+
+        pkt = packets.pop()
+        type_, data = pkt
+
+        assert type_ == 100
+        assert data == b"\x42" * 4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "byte_type",
+    (bytes, bytearray, memoryview),
+)
+async def test_noise_protector_event_loop(byte_type: Any) -> None:
+    """Test the noise frame helper with the protractor event loop.
+
+    With the protractor event loop, data_received is called with a bytearray
+    instead of bytes.
+
+    https://github.com/esphome/issues/issues/5117
+    """
+    outgoing_packets = [
+        "010000",  # hello packet
+        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
+    ]
+    incoming_packets = [
+        "01000d01736572766963657465737400",
+        "0100160148616e647368616b65204d4143206661696c757265",
+    ]
+    connection, _ = _make_mock_connection()
+
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+    )
+    helper._transport = MagicMock()
+    helper._writer = MagicMock()
+
+    for pkt in outgoing_packets:
+        helper.mock_write_frame(byte_type(bytes.fromhex(pkt)))
+
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        for pkt in incoming_packets:
+            helper.data_received(byte_type(bytes.fromhex(pkt)))
+
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        await helper.perform_handshake(30)
 
 
 @pytest.mark.asyncio
@@ -478,3 +564,6 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
     assert packets == [(42, b"from device")]
     helper.close()
+
+    with pytest.raises(ProtocolAPIError, match="Connection closed"):
+        helper.data_received(encrypted_header + encrypted_payload)
