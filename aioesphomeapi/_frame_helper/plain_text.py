@@ -78,7 +78,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             out.append(varuint_to_bytes(type_))
             out.append(data)
             if self._debug_enabled():
-                _LOGGER.debug("%s: Sending plaintext frame %s", self._log_name, data.hex())
+                _LOGGER.debug(
+                    "%s: Sending plaintext frame %s", self._log_name, data.hex()
+                )
 
         try:
             self._writer(b"".join(out))

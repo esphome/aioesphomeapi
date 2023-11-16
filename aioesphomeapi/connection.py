@@ -629,14 +629,16 @@ class APIConnection:
                 f"Connection isn't established yet ({self.connection_state})"
             )
 
-        packets:list[tuple[int,bytes]] = []
+        packets: list[tuple[int, bytes]] = []
         for msg in msgs:
             msg_type = type(msg)
             if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
                 raise ValueError(f"Message type id not found for type {msg_type}")
 
             if self._debug_enabled() is True:
-                _LOGGER.debug("%s: Sending %s: %s", self.log_name, msg_type.__name__, msg)
+                _LOGGER.debug(
+                    "%s: Sending %s: %s", self.log_name, msg_type.__name__, msg
+                )
 
             if TYPE_CHECKING:
                 assert self._frame_helper is not None

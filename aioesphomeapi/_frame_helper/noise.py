@@ -322,7 +322,12 @@ class APINoiseFrameHelper(APIFrameHelper):
             data: bytes = packet[1]
             data_len = len(data)
             data_header = bytes(
-                ((type_ >> 8) & 0xFF, type_ & 0xFF, (data_len >> 8) & 0xFF, data_len & 0xFF)
+                (
+                    (type_ >> 8) & 0xFF,
+                    type_ & 0xFF,
+                    (data_len >> 8) & 0xFF,
+                    data_len & 0xFF,
+                )
             )
             frame = self._encrypt(data_header + data)
 
