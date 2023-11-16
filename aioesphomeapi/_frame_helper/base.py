@@ -68,7 +68,9 @@ class APIFrameHelper:
 
     def _add_to_buffer(self, data: bytes | bytearray | memoryview) -> None:
         """Add data to the buffer."""
-        if type(data) is not bytes:
+        # This should not be isinstance(data, bytes) because we want to
+        # to explicitly check for bytes and not for subclasses of bytes
+        if type(data) is not bytes:  # pylint: disable=unidiomatic-typecheck
             # Protractor sends a bytearray, so we need to convert it to bytes
             # https://github.com/esphome/issues/issues/5117
             bytes_data = bytes(data)
