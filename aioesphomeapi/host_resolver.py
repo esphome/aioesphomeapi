@@ -11,6 +11,7 @@ from typing import cast
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo
 
+from .compat import _frozen_dataclass_decorator
 from .core import APIConnectionError, ResolveAPIError
 from .util import address_is_local, host_is_name_part
 from .zeroconf import ZeroconfManager
@@ -21,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 SERVICE_TYPE = "_esphomelib._tcp.local."
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class Sockaddr:
     """Base socket address."""
 
@@ -29,12 +30,12 @@ class Sockaddr:
     port: int
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class IPv4Sockaddr(Sockaddr):
     """IPv4 socket address."""
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class IPv6Sockaddr(Sockaddr):
     """IPv6 socket address."""
 
@@ -42,7 +43,7 @@ class IPv6Sockaddr(Sockaddr):
     scope_id: int
 
 
-@dataclass(frozen=True)
+@_frozen_dataclass_decorator
 class AddrInfo:
     family: int
     type: int
