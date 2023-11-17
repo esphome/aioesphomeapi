@@ -176,6 +176,7 @@ from .model import (
     VoiceAssistantCommand,
     VoiceAssistantEventType,
 )
+from .util import build_log_name
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -258,7 +259,7 @@ class APIClient:
     __slots__ = (
         "_params",
         "_connection",
-        "_cached_name",
+        "cached_name",
         "_background_tasks",
         "_loop",
         "_log_name",
@@ -303,7 +304,7 @@ class APIClient:
             expected_name=_stringify_or_none(expected_name) or None,
         )
         self._connection: APIConnection | None = None
-        self._cached_name: str | None = None
+        self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
         self._set_log_name()
@@ -326,15 +327,7 @@ class APIClient:
 
     def _get_log_name(self) -> str:
         """Get the log name of the device."""
-        address = self.address
-        address_is_host = address.endswith(".local")
-        if self._cached_name is not None:
-            if address_is_host:
-                return self._cached_name
-            return f"{self._cached_name} @ {address}"
-        if address_is_host:
-            return address[:-6]
-        return address
+        return build_log_name(self.cached_name, self.address)
 
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
@@ -342,8 +335,8 @@ class APIClient:
 
     def set_cached_name_if_unset(self, name: str) -> None:
         """Set the cached name of the device if not set."""
-        if not self._cached_name:
-            self._cached_name = name
+        if not self.cached_name:
+            self.cached_name = name
             self._set_log_name()
 
     async def connect(
@@ -400,6 +393,8 @@ class APIClient:
             raise UnhandledAPIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
+        if received_name := self._connection.received_name:
+            self._set_name_from_device(received_name)
 
     async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
@@ -427,10 +422,14 @@ class APIClient:
             DeviceInfoRequest(), DeviceInfoResponse
         )
         info = DeviceInfo.from_pb(resp)
-        self._cached_name = info.name
-        connection.set_log_name(self._log_name)
-        self._set_log_name()
+        self._set_name_from_device(info.name)
         return info
+
+    def _set_name_from_device(self, name: str) -> None:
+        """Set the name from a DeviceInfo message."""
+        self.cached_name = name
+        self._connection.set_log_name(self._log_name)
+        self._set_log_name()
 
     async def list_entities_services(
         self,

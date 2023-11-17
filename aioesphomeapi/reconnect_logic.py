@@ -19,6 +19,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
+from .util import build_log_name
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,14 +79,12 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self.name: str | None
         if client.address.endswith(".local"):
             self.name = client.address[:-6]
-            self._log_name = self.name
         elif name:
             self.name = name
-            self._log_name = f"{name} @ {self._cli.address}"
             self._cli.set_cached_name_if_unset(name)
         else:
             self.name = None
-            self._log_name = client.address
+        self._log_name = build_log_name(self.name, self._cli.address)
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
@@ -223,6 +222,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._tries = 0
         finish_handshake_time = time.perf_counter()
         handshake_time = finish_handshake_time - finish_connect_time
+        if cached_name := self._cli.cached_name:
+            self.name = cached_name
+            self._log_name = build_log_name(self.name, self._cli.address)
         _LOGGER.info(
             "Successful handshake with %s in %0.3fs", self._log_name, handshake_time
         )

@@ -160,6 +160,7 @@ class APIConnection:
         "is_connected",
         "_handshake_complete",
         "_debug_enabled",
+        "received_name",
     )
 
     def __init__(
@@ -202,6 +203,7 @@ class APIConnection:
         self.is_connected = False
         self._handshake_complete = False
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
+        self.received_name: str = ""
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -428,17 +430,17 @@ class APIConnection:
 
         self.api_version = api_version
         expected_name = self._params.expected_name
-        received_name = resp.name
-        if (
-            expected_name is not None
-            and received_name != ""
-            and received_name != expected_name
-        ):
+        if not (received_name := resp.name):
+            return
+        if expected_name is not None and received_name != expected_name:
             raise BadNameAPIError(
                 f"Expected '{expected_name}' but server sent "
                 f"a different name: '{received_name}'",
                 received_name,
             )
+
+        self.received_name = received_name
+        self.set_log_name(received_name)
 
     def _async_schedule_keep_alive(self, now: _float) -> None:
         """Start the keep alive task."""

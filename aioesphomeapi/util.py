@@ -24,3 +24,12 @@ def fix_float_single_double_conversion(value: float) -> float:
     l10 = math.ceil(math.log10(abs_val))
     prec = 7 - l10
     return round(value, prec)
+
+
+def build_log_name(name: str | None, address: str) -> str:
+    """Return a log name for a connection."""
+    if address.endswith(".local"):
+        return address[:-6]
+    elif name and name != address:
+        return f"{name} @ {address}"
+    return address
