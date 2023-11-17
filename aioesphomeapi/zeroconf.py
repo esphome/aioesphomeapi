@@ -5,7 +5,11 @@ from typing import Union
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
+import logging
+
 ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ZeroconfManager:
@@ -34,18 +38,22 @@ class ZeroconfManager:
             raise RuntimeError("Zeroconf instance already set to a different instance")
         self._aiozc = zc if isinstance(zc, AsyncZeroconf) else AsyncZeroconf(zc=zc)
 
+    def _create_async_zeroconf(self) -> None:
+        """Create an AsyncZeroconf instance."""
+        _LOGGER.debug("Creating new AsyncZeroconf instance")
+        self._aiozc = AsyncZeroconf()
+        self._created = True
+
     def get_async_zeroconf(self) -> AsyncZeroconf:
         """Get the AsyncZeroconf instance."""
         if not self._aiozc:
-            self._aiozc = AsyncZeroconf()
-            self._created = True
+            self._create_async_zeroconf()
         return self._aiozc
 
     def get_zeroconf(self) -> Zeroconf:
         """Get the Zeroconf instance."""
         if not self._aiozc:
-            self._aiozc = AsyncZeroconf()
-            self._created = True
+            self._create_async_zeroconf()
         return self._aiozc.zeroconf
 
     async def async_close(self) -> None:
