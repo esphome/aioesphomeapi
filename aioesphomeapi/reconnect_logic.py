@@ -19,7 +19,6 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
-from .util import build_log_name
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,7 +83,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._cli.set_cached_name_if_unset(name)
         else:
             self.name = None
-        self._log_name = build_log_name(self.name, self._cli.address)
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
@@ -118,7 +116,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.info(
             "Processing %s disconnect from ESPHome API for %s",
             disconnect_type,
-            self._log_name,
+            self._cli.log_name,
         )
 
         # Run disconnect hook
@@ -174,7 +172,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.log(
             level,
             "Can't connect to ESPHome API for %s: %s (%s)",
-            self._log_name,
+            self._cli.log_name,
             err,
             type(err).__name__,
             # Print stacktrace if unhandled
@@ -199,7 +197,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         finish_connect_time = time.perf_counter()
         connect_time = finish_connect_time - start_connect_time
         _LOGGER.info(
-            "Successfully connected to %s in %0.3fs", self._log_name, connect_time
+            "Successfully connected to %s in %0.3fs", self._cli.log_name, connect_time
         )
         self._stop_zc_listen()
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
@@ -222,11 +220,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._tries = 0
         finish_handshake_time = time.perf_counter()
         handshake_time = finish_handshake_time - finish_connect_time
-        if cached_name := self._cli.cached_name:
-            self.name = cached_name
-            self._log_name = build_log_name(self.name, self._cli.address)
         _LOGGER.info(
-            "Successful handshake with %s in %0.3fs", self._log_name, handshake_time
+            "Successful handshake with %s in %0.3fs", self._cli.log_name, handshake_time
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         await self._on_connect_cb()
@@ -255,7 +250,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 return
             _LOGGER.debug(
                 "%s: Cancelling existing connect task, to try again now!",
-                self._log_name,
+                self._cli.log_name,
             )
             self._connect_task.cancel("Scheduling new connect attempt")
             self._connect_task = None
@@ -265,7 +260,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         self._connect_task = asyncio.create_task(
             self._connect_once_or_reschedule(),
-            name=f"{self._log_name}: aioesphomeapi connect",
+            name=f"{self._cli.log_name}: aioesphomeapi connect",
         )
 
     def _cancel_connect(self, msg: str) -> None:
@@ -282,9 +277,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _call_connect_once
         """
-        _LOGGER.debug("Trying to connect to %s", self._log_name)
+        _LOGGER.debug("Trying to connect to %s", self._cli.log_name)
         async with self._connected_lock:
-            _LOGGER.debug("Connected lock acquired for %s", self._log_name)
+            _LOGGER.debug("Connected lock acquired for %s", self._cli.log_name)
             if (
                 self._connection_state != ReconnectLogicState.DISCONNECTED
                 or self._is_stopped
@@ -296,9 +291,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             wait_time = int(round(min(1.8**tries, 60.0)))
             if tries == 1:
                 _LOGGER.info(
-                    "Trying to connect to %s in the background", self._log_name
+                    "Trying to connect to %s in the background", self._cli.log_name
                 )
-            _LOGGER.debug("Retrying %s in %d seconds", self._log_name, wait_time)
+            _LOGGER.debug("Retrying %s in %d seconds", self._cli.log_name, wait_time)
             if wait_time:
                 # If we are waiting, start listening for mDNS records
                 self._start_zc_listen()
@@ -316,7 +311,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """Stop the connect logic."""
         self._stop_task = asyncio.create_task(
             self.stop(),
-            name=f"{self._log_name}: aioesphomeapi reconnect_logic stop_callback",
+            name=f"{self._cli.log_name}: aioesphomeapi reconnect_logic stop_callback",
         )
         self._stop_task.add_done_callback(self._remove_stop_task)
 
@@ -400,7 +395,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # Tell connection logic to retry connection attempt now (even before connect timer finishes)
             _LOGGER.debug(
                 "%s: Triggering connect because of received mDNS record %s",
-                self._log_name,
+                self._cli.log_name,
                 record_update.new,
             )
             # We can't stop the zeroconf listener here because we are in the middle of

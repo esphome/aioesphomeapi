@@ -47,8 +47,7 @@ async def test_reconnect_logic_name_from_host():
         on_connect=on_connect,
         zeroconf_instance=MagicMock(spec=AsyncZeroconf),
     )
-    assert rl._log_name == "mydevice"
-    assert cli._log_name == "mydevice"
+    assert cli.log_name == "mydevice"
 
 
 @pytest.mark.asyncio
@@ -73,8 +72,7 @@ async def test_reconnect_logic_name_from_host_and_set():
         zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
-    assert rl._log_name == "mydevice"
-    assert cli._log_name == "mydevice"
+    assert cli.log_name == "mydevice"
 
 
 @pytest.mark.asyncio
@@ -98,8 +96,7 @@ async def test_reconnect_logic_name_from_address():
         on_connect=on_connect,
         zeroconf_instance=get_mock_zeroconf(),
     )
-    assert rl._log_name == "1.2.3.4"
-    assert cli._log_name == "1.2.3.4"
+    assert cli.log_name == "1.2.3.4"
 
 
 @pytest.mark.asyncio
@@ -124,8 +121,7 @@ async def test_reconnect_logic_name_from_name():
         zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
-    assert rl._log_name == "mydevice @ 1.2.3.4"
-    assert cli._log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 1.2.3.4"
 
 
 @pytest.mark.asyncio
@@ -164,8 +160,7 @@ async def test_reconnect_logic_state():
         name="mydevice",
         on_connect_error=on_connect_fail,
     )
-    assert rl._log_name == "mydevice @ 1.2.3.4"
-    assert cli._log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 1.2.3.4"
 
     with patch.object(cli, "start_connection", side_effect=APIConnectionError):
         await rl.start()
@@ -241,8 +236,7 @@ async def test_reconnect_retry():
         name="mydevice",
         on_connect_error=on_connect_fail,
     )
-    assert rl._log_name == "mydevice @ 1.2.3.4"
-    assert cli._log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 1.2.3.4"
 
     with patch.object(cli, "start_connection", side_effect=APIConnectionError):
         await rl.start()
@@ -338,8 +332,7 @@ async def test_reconnect_zeroconf(
         name="mydevice",
         on_connect_error=AsyncMock(),
     )
-    assert rl._log_name == "mydevice @ 1.2.3.4"
-    assert cli._log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 1.2.3.4"
 
     async def slow_connect_fail(*args, **kwargs):
         await asyncio.sleep(10)
