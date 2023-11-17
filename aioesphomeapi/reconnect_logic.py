@@ -19,7 +19,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
-from .zeroconf import ZeroconfManager
+from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
         on_disconnect: Callable[[bool], Awaitable[None]],
-        zeroconf_instance: zeroconf.Zeroconf,
+        zeroconf_instance: ZeroconfInstanceType = None,
         name: str | None = None,
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
     ) -> None:

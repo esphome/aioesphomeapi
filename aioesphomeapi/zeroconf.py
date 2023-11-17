@@ -19,28 +19,33 @@ class ZeroconfManager:
     def __init__(self, zeroconf: ZeroconfInstanceType = None) -> None:
         """Initialize the ZeroconfManager."""
         self._created = False
-        if isinstance(zeroconf, AsyncZeroconf):
-            self._aiozc = zeroconf
-        if isinstance(zeroconf, Zeroconf):
-            self._aiozc = AsyncZeroconf(zc=zeroconf)
+        self._aiozc: AsyncZeroconf | None = None
+        if zeroconf is not None:
+            self.set_instance(zeroconf)
 
-    def set_instance(self, aiozc: AsyncZeroconf) -> None:
+    def set_instance(self, zc: AsyncZeroconf | Zeroconf) -> None:
         """Set the AsyncZeroconf instance."""
-        if self._aiozc and self._aiozc is not aiozc:
+        if self._aiozc:
+            if self._aiozc is zc:
+                return
+            if isinstance(zc, Zeroconf) and self._aiozc.zeroconf is zc:
+                self._aiozc = AsyncZeroconf(zc=zc)
+                return
             raise RuntimeError("Zeroconf instance already set to a different instance")
-        self._aiozc = aiozc
-        self._created = True
+        self._aiozc = zc if isinstance(zc, AsyncZeroconf) else AsyncZeroconf(zc=zc)
 
     def get_async_zeroconf(self) -> AsyncZeroconf:
         """Get the AsyncZeroconf instance."""
         if not self._aiozc:
-            self.set_instance(AsyncZeroconf())
+            self._aiozc = AsyncZeroconf()
+            self._created = True
         return self._aiozc
 
     def get_zeroconf(self) -> Zeroconf:
         """Get the Zeroconf instance."""
         if not self._aiozc:
-            self.set_instance(AsyncZeroconf())
+            self._aiozc = AsyncZeroconf()
+            self._created = True
         return self._aiozc.zeroconf
 
     async def async_close(self) -> None:
