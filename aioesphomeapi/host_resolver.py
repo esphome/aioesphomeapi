@@ -23,19 +23,21 @@ SERVICE_TYPE = "_esphomelib._tcp.local."
 
 @dataclass(frozen=True)
 class Sockaddr:
-    pass
+    """Base socket address."""
+
+    address: str
+    port: int
 
 
 @dataclass(frozen=True)
 class IPv4Sockaddr(Sockaddr):
-    address: str
-    port: int
+    """IPv4 socket address."""
 
 
 @dataclass(frozen=True)
 class IPv6Sockaddr(Sockaddr):
-    address: str
-    port: int
+    """IPv6 socket address."""
+
     flowinfo: int
     scope_id: int
 
