@@ -75,14 +75,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         self.loop = asyncio.get_event_loop()
         self._cli = client
-        self.name: str | None
+        self.name: str | None = None
         if client.address.endswith(".local"):
             self.name = client.address[:-6]
+            self._cli.set_cached_name_if_unset(self.name)
         elif name:
             self.name = name
             self._cli.set_cached_name_if_unset(name)
-        else:
-            self.name = None
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
