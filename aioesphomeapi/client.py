@@ -329,7 +329,7 @@ class APIClient:
         """Set the log name of the device."""
         resolved_address: str | None = None
         if self._connection and self._connection.resolved_addr_info:
-            resolved_address: str = self._connection.resolved_addr_info.sockaddr.address
+            resolved_address = self._connection.resolved_addr_info.sockaddr.address
         self.log_name = build_log_name(
             self.cached_name,
             self.address,
