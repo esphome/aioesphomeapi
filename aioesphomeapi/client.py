@@ -292,14 +292,13 @@ class APIClient:
             Can be used to prevent accidentally connecting to a different device if
             IP passed as address but DHCP reassigned IP.
         """
-        zeroconf_manager = ZeroconfManager(zeroconf_instance)
         self._params = ConnectionParams(
             address=str(address),
             port=port,
             password=password,
             client_info=client_info,
             keepalive=keepalive,
-            zeroconf_manager=zeroconf_manager,
+            zeroconf_manager=ZeroconfManager(zeroconf_instance),
             # treat empty '' psk string as missing (like password)
             noise_psk=_stringify_or_none(noise_psk) or None,
             expected_name=_stringify_or_none(expected_name) or None,
