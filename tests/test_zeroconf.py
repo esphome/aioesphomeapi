@@ -41,10 +41,12 @@ async def test_closes_created_instance(async_zeroconf: AsyncZeroconf):
 @pytest.mark.asyncio
 async def test_runtime_error_multiple_instances(async_zeroconf: AsyncZeroconf):
     """Test runtime error is raised on multiple instances."""
-    manager = ZeroconfManager()
+    manager = ZeroconfManager(async_zeroconf)
     new_instance = get_mock_async_zeroconf()
     with pytest.raises(RuntimeError):
         manager.set_instance(new_instance)
-    manager.set_instance(new_instance)
+    manager.set_instance(async_zeroconf)
+    manager.set_instance(async_zeroconf.zeroconf)
+    manager.set_instance(async_zeroconf)
     await manager.async_close()
     assert async_zeroconf.async_close.call_count == 0
