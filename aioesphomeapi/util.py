@@ -26,15 +26,15 @@ def fix_float_single_double_conversion(value: float) -> float:
     return round(value, prec)
 
 
-def is_ip_address(address: str) -> bool:
-    """Return True if address is an IP address."""
-    return "." in address or ":" in address
+def host_is_name_part(address: str) -> bool:
+    """Return True if a host is the name part."""
+    return "." not in address or ":" not in address
 
 
 def build_log_name(name: str | None, address: str, resolved_address: str | None) -> str:
     """Return a log name for a connection."""
     if not name:
-        if not is_ip_address(address):
+        if host_is_name_part(address):
             name = address
         if address.endswith(".local"):
             name = address[:-6]

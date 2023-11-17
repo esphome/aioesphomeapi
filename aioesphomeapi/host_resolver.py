@@ -12,7 +12,7 @@ from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo
 
 from .core import APIConnectionError, ResolveAPIError
-from .util import is_ip_address
+from .util import host_is_name_part
 from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ async def async_resolve_host(
     addrs: list[AddrInfo] = []
 
     zc_error = None
-    if not is_ip_address(host) or host.endswith(".local"):
+    if host_is_name_part(host) or host.endswith(".local"):
         name = host.partition(".")[0]
         try:
             addrs.extend(
