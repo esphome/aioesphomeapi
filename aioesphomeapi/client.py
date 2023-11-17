@@ -310,6 +310,10 @@ class APIClient:
         self._set_log_name()
 
     @property
+    def zeroconf_manager(self) -> ZeroconfManager:
+        return self._params.zeroconf_manager
+
+    @property
     def expected_name(self) -> str | None:
         return self._params.expected_name
 

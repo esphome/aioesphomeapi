@@ -89,7 +89,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
-        self._zeroconf_manager = ZeroconfManager(zeroconf_instance)
+        self._zeroconf_manager = client.zeroconf_manager
+        if zeroconf_instance is not None:
+            self._zeroconf_manager.set_instance(zeroconf_instance)
         self._ptr_alias: str | None = None
         self._a_name: str | None = None
         # Flag to check if the device is connected
