@@ -7,9 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from zeroconf import DNSCache
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
-from aioesphomeapi.zeroconf import ZeroconfManager
+
 import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.core import APIConnectionError
+from aioesphomeapi.zeroconf import ZeroconfManager
 
 
 @pytest.fixture
