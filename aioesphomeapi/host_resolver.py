@@ -79,13 +79,13 @@ async def _async_resolve_host_zeroconf(
     port: int,
     *,
     timeout: float = 3.0,
-    zeroconf_instance: ZeroconfInstanceType = None,
+    zeroconf_manager: ZeroconfManager = None,
 ) -> list[AddrInfo]:
     service_name = f"{host}.{SERVICE_TYPE}"
 
     _LOGGER.debug("Resolving host %s via mDNS", service_name)
     info = await _async_zeroconf_get_service_info(
-        zeroconf_instance, SERVICE_TYPE, service_name, timeout
+        zeroconf_manager or ZeroconfManager(), SERVICE_TYPE, service_name, timeout
     )
 
     if info is None:
@@ -184,7 +184,7 @@ def _async_ip_address_to_addrs(host: str, port: int) -> list[AddrInfo]:
 async def async_resolve_host(
     host: str,
     port: int,
-    zeroconf_instance: ZeroconfInstanceType = None,
+    zeroconf_manager: ZeroconfManager = None,
 ) -> AddrInfo:
     addrs: list[AddrInfo] = []
 
@@ -194,7 +194,7 @@ async def async_resolve_host(
         try:
             addrs.extend(
                 await _async_resolve_host_zeroconf(
-                    name, port, zeroconf_instance=zeroconf_instance
+                    name, port, zeroconf_manager=zeroconf_manager
                 )
             )
         except APIConnectionError as err:
