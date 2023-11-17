@@ -43,12 +43,14 @@ class Estr(str):
     """A subclassed string."""
 
 
-def generate_plaintext_packet(msg: bytes, type_: int) -> bytes:
+def generate_plaintext_packet(msg: message.Message) -> bytes:
+    type_ = PROTO_TO_MESSAGE_TYPE[msg.__class__]
+    bytes_ = msg.SerializeToString()
     return (
         b"\0"
-        + _cached_varuint_to_bytes(len(msg))
+        + _cached_varuint_to_bytes(len(bytes_))
         + _cached_varuint_to_bytes(type_)
-        + msg
+        + bytes_
     )
 
 
@@ -101,10 +103,7 @@ def send_plaintext_hello(protocol: APIPlaintextFrameHelper) -> None:
     hello_response.api_version_major = 1
     hello_response.api_version_minor = 9
     hello_response.name = "fake"
-    hello_msg = hello_response.SerializeToString()
-    protocol.data_received(
-        generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
-    )
+    protocol.data_received(generate_plaintext_packet(hello_response))
 
 
 def send_plaintext_connect_response(
@@ -112,8 +111,4 @@ def send_plaintext_connect_response(
 ) -> None:
     connect_response: message.Message = ConnectResponse()
     connect_response.invalid_password = invalid_password
-    connect_msg = connect_response.SerializeToString()
-
-    protocol.data_received(
-        generate_plaintext_packet(connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse])
-    )
+    protocol.data_received(generate_plaintext_packet(connect_response))

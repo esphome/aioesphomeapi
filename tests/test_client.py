@@ -683,12 +683,7 @@ async def test_bluetooth_disconnect(
     response: message.Message = BluetoothDeviceConnectionResponse(
         address=1234, connected=False
     )
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceConnectionResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await disconnect_task
 
 
@@ -703,12 +698,7 @@ async def test_bluetooth_pair(
     pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDevicePairingResponse(address=1234)
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDevicePairingResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await pair_task
 
 
@@ -723,12 +713,7 @@ async def test_bluetooth_unpair(
     unpair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceUnpairingResponse(address=1234)
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceUnpairingResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await unpair_task
 
 
@@ -743,12 +728,7 @@ async def test_bluetooth_clear_cache(
     clear_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceClearCacheResponse(address=1234)
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceClearCacheResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await clear_task
 
 
@@ -768,12 +748,7 @@ async def test_device_info(
         friendly_name="My Device",
         has_deep_sleep=True,
     )
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[DeviceInfoResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     device_info = await device_info_task
     assert device_info.name == "realname"
     assert device_info.friendly_name == "My Device"
@@ -782,12 +757,7 @@ async def test_device_info(
     disconnect_task = asyncio.create_task(client.disconnect())
     await asyncio.sleep(0)
     response: message.Message = DisconnectResponse()
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[DisconnectResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await disconnect_task
     with pytest.raises(APIConnectionError, match="CLOSED"):
         await client.device_info()
