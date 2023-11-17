@@ -4,7 +4,7 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from functools import partial
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from google.protobuf import message
 from zeroconf import Zeroconf
@@ -27,7 +27,10 @@ PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 
 def get_mock_zeroconf() -> MagicMock:
-    return MagicMock(spec=Zeroconf)
+    with patch("zeroconf.Zeroconf.start"):
+        zc = Zeroconf()
+        zc.close = MagicMock()
+    return zc
 
 
 def get_mock_async_zeroconf() -> MagicMock:
