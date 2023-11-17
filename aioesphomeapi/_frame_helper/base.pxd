@@ -25,7 +25,8 @@ cdef class APIFrameHelper:
     @cython.locals(original_pos="unsigned int", new_pos="unsigned int")
     cdef bytes _read_exactly(self, int length)
 
-    cdef _add_to_buffer(self, bytes data)
+    @cython.locals(bytes_data=bytes)
+    cdef _add_to_buffer(self, object data)
 
     @cython.locals(end_of_frame_pos="unsigned int")
     cdef _remove_from_buffer(self)
