@@ -8,7 +8,7 @@ import pytest
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 import aioesphomeapi.host_resolver as hr
-from aioesphomeapi.core import APIConnectionError
+from aioesphomeapi.core import APIConnectionError, ResolveAPIError
 from aioesphomeapi.zeroconf import ZeroconfManager
 
 
@@ -179,3 +179,22 @@ async def test_resolve_host_with_address(resolve_addr, resolve_zc):
         proto=6,
         sockaddr=hr.IPv4Sockaddr(address="127.0.0.1", port=6052),
     )
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_zeroconf_oserror(async_zeroconf: AsyncZeroconf, addr_infos):
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.ip_addresses_by_version.return_value = [
+        ip_address(b"\n\x00\x00*"),
+        ip_address(b" \x01\r\xb8\x85\xa3\x00\x00\x00\x00\x8a.\x03ps4"),
+    ]
+    info.async_request = AsyncMock(return_value=True)
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo",
+        side_effect=OSError("out of buffers"),
+    ), patch(
+        "aioesphomeapi.zeroconf.AsyncZeroconf", return_value=async_zeroconf
+    ), pytest.raises(
+        ResolveAPIError, match="out of buffers"
+    ):
+        await hr._async_resolve_host_zeroconf("asdf", 6052)
