@@ -70,21 +70,29 @@ class APIFrameHelper:
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _add_to_buffer(self, data: bytes) -> None:
+    def _add_to_buffer(self, data: bytes | bytearray | memoryview) -> None:
         """Add data to the buffer."""
+        # This should not be isinstance(data, bytes) because we want to
+        # to explicitly check for bytes and not for subclasses of bytes
+        if type(data) is not bytes:  # pylint: disable=unidiomatic-typecheck
+            # Protractor sends a bytearray, so we need to convert it to bytes
+            # https://github.com/esphome/issues/issues/5117
+            bytes_data = bytes(data)
+        else:
+            bytes_data = data
         if self._buffer_len == 0:
             # This is the best case scenario, we don't have to copy the data
             # and can just use the buffer directly. This is the most common
             # case as well.
-            self._buffer = data
+            self._buffer = bytes_data
         else:
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
-            # This is the worst case scenario, we have to copy the data
+            # This is the worst case scenario, we have to copy the bytes_data
             # and can't just use the buffer directly. This is also very
             # uncommon since we usually read the entire frame at once.
-            self._buffer += data
-        self._buffer_len += len(data)
+            self._buffer += bytes_data
+        self._buffer_len += len(bytes_data)
 
     def _remove_from_buffer(self) -> None:
         """Remove data from the buffer."""

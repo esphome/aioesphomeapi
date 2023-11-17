@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import binascii
 import logging
-from enum import Enum
 from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable
@@ -53,13 +52,17 @@ class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
 ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
 
 
-class NoiseConnectionState(Enum):
-    """Noise connection state."""
-
-    HELLO = 1
-    HANDSHAKE = 2
-    READY = 3
-    CLOSED = 4
+# This is effectively an enum but we don't want to use an enum
+# because we have a simple dispatch in the data_received method
+# that would be more complicated with an enum and we want to add
+# cdefs for each different state so we have a good test for each
+# state receiving data since we found that the protractor event
+# loop will send use a bytearray instead of bytes was not handled
+# correctly.
+NOISE_STATE_HELLO = 1
+NOISE_STATE_HANDSHAKE = 2
+NOISE_STATE_READY = 3
+NOISE_STATE_CLOSED = 4
 
 
 NOISE_HELLO = b"\x01\x00\x00"
@@ -79,7 +82,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_proto",
         "_decrypt",
         "_encrypt",
-        "_is_ready",
     )
 
     def __init__(
@@ -94,18 +96,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         super().__init__(connection, client_info, log_name)
         self._noise_psk = noise_psk
         self._expected_name = expected_name
-        self._set_state(NoiseConnectionState.HELLO)
+        self._state = NOISE_STATE_HELLO
         self._server_name: str | None = None
         self._decrypt: Callable[[bytes], bytes] | None = None
         self._encrypt: Callable[[bytes], bytes] | None = None
         self._setup_proto()
-        self._is_ready = False
-
-    def _set_state(self, state: NoiseConnectionState) -> None:
-        """Set the current state."""
-        self._state = state
-        self._is_ready = state == NoiseConnectionState.READY
-        self._dispatch = self.STATE_TO_CALLABLE[state]
 
     def close(self) -> None:
         """Close the connection."""
@@ -115,7 +110,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._set_ready_future_exception(
             APIConnectionError(f"{self._log_name}: Connection closed")
         )
-        self._set_state(NoiseConnectionState.CLOSED)
+        self._state = NOISE_STATE_CLOSED
         super().close()
 
     def _handle_error_and_close(self, exc: Exception) -> None:
@@ -124,10 +119,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _handle_error(self, exc: Exception) -> None:
         """Handle an error, and provide a good message when during hello."""
-        if (
-            isinstance(exc, ConnectionResetError)
-            and self._state == NoiseConnectionState.HELLO
-        ):
+        if isinstance(exc, ConnectionResetError) and self._state == NOISE_STATE_HELLO:
             original_exc = exc
             exc = HandshakeAPIError(
                 f"{self._log_name}: The connection dropped immediately after encrypted hello; "
@@ -142,7 +134,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._send_hello_handshake()
         await super().perform_handshake(timeout)
 
-    def data_received(self, data: bytes) -> None:
+    def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
@@ -168,7 +160,14 @@ class APINoiseFrameHelper(APIFrameHelper):
                 return
 
             try:
-                self._dispatch(self, frame)
+                if self._state == NOISE_STATE_READY:
+                    self._handle_frame(frame)
+                elif self._state == NOISE_STATE_HELLO:
+                    self._handle_hello(frame)
+                elif self._state == NOISE_STATE_HANDSHAKE:
+                    self._handle_handshake(frame)
+                else:
+                    self._handle_closed(frame)
             except Exception as err:  # pylint: disable=broad-except
                 self._handle_error_and_close(err)
             finally:
@@ -236,7 +235,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 )
                 return
 
-        self._set_state(NoiseConnectionState.HANDSHAKE)
+        self._state = NOISE_STATE_HANDSHAKE
 
     def _decode_noise_psk(self) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
@@ -294,7 +293,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             self._handle_error_and_close(ex)
             return
         _LOGGER.debug("Handshake complete")
-        self._set_state(NoiseConnectionState.READY)
+        self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
         self._decrypt = partial(
             noise_protocol.cipher_state_decrypt.decrypt_with_ad,  # pylint: disable=no-member
@@ -311,7 +310,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]
         """
-        if not self._is_ready:
+        if self._state != NOISE_STATE_READY:
             raise HandshakeAPIError(f"{self._log_name}: Noise connection is not ready")
 
         if TYPE_CHECKING:
@@ -371,10 +370,3 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))
-
-    STATE_TO_CALLABLE = {
-        NoiseConnectionState.HELLO: _handle_hello,
-        NoiseConnectionState.HANDSHAKE: _handle_handshake,
-        NoiseConnectionState.READY: _handle_frame,
-        NoiseConnectionState.CLOSED: _handle_closed,
-    }
