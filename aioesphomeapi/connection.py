@@ -161,7 +161,7 @@ class APIConnection:
         "_handshake_complete",
         "_debug_enabled",
         "received_name",
-        "resolved_addr_info"
+        "resolved_addr_info",
     )
 
     def __init__(
