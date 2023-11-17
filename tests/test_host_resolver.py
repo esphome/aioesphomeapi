@@ -14,15 +14,6 @@ from aioesphomeapi.zeroconf import ZeroconfManager
 
 
 @pytest.fixture
-def async_zeroconf():
-    with patch("aioesphomeapi.zeroconf.AsyncZeroconf") as klass:
-        async_zeroconf = klass.return_value
-        async_zeroconf.async_close = AsyncMock()
-        async_zeroconf.zeroconf.cache = DNSCache()
-        yield async_zeroconf
-
-
-@pytest.fixture
 def addr_infos():
     return [
         hr.AddrInfo(
@@ -53,7 +44,9 @@ async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
         ip_address(b" \x01\r\xb8\x85\xa3\x00\x00\x00\x00\x8a.\x03ps4"),
     ]
     info.async_request = AsyncMock(return_value=True)
-    with patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info):
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch("aioesphomeapi.zeroconf.AsyncZeroconf", return_value=async_zeroconf):
         ret = await hr._async_resolve_host_zeroconf("asdf", 6052)
 
     info.async_request.assert_called_once()

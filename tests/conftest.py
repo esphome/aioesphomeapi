@@ -14,7 +14,12 @@ from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 from aioesphomeapi.zeroconf import ZeroconfManager
 
-from .common import connect, send_plaintext_hello
+from .common import connect, get_mock_async_zeroconf, send_plaintext_hello
+
+
+@pytest.fixture
+def async_zeroconf():
+    return get_mock_async_zeroconf()
 
 
 @pytest.fixture
