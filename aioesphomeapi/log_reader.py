@@ -43,8 +43,7 @@ async def main(argv: list[str]) -> None:
 
     stop = await async_run(cli, on_log)
     try:
-        while True:
-            await asyncio.sleep(60)
+        await asyncio.Event().wait()
     finally:
         await stop()
 
