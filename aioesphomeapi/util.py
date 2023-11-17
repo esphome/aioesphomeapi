@@ -30,6 +30,6 @@ def build_log_name(name: str | None, address: str) -> str:
     """Return a log name for a connection."""
     if address.endswith(".local"):
         return address[:-6]
-    elif name and name != address:
+    if name and name != address:
         return f"{name} @ {address}"
     return address
