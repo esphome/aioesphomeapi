@@ -112,7 +112,7 @@ class ConnectionParams:
     password: str | None
     client_info: str
     keepalive: float
-    zeroconf_instance: ZeroconfManager
+    zeroconf_manager: ZeroconfManager
     noise_psk: str | None
     expected_name: str | None
 
@@ -277,7 +277,7 @@ class APIConnection:
                 return await hr.async_resolve_host(
                     self._params.address,
                     self._params.port,
-                    self._params.zeroconf_instance,
+                    self._params.zeroconf_manager,
                 )
         except asyncio_TimeoutError as err:
             raise ResolveAPIError(
