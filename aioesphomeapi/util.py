@@ -28,10 +28,6 @@ def fix_float_single_double_conversion(value: float) -> float:
 
 def build_log_name(name: str | None, address: str) -> str:
     """Return a log name for a connection."""
-    import logging
-
-    _LOGGER = logging.getLogger(__name__)
-    _LOGGER.error("name: %s, address: %s", name, address)
     if address.endswith(".local"):
         return address[:-6]
     if name and name != address:
