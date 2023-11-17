@@ -26,7 +26,7 @@ class ZeroconfManager:
     def set_instance(self, zc: AsyncZeroconf | Zeroconf) -> None:
         """Set the AsyncZeroconf instance."""
         if self._aiozc:
-            if self._aiozc is zc:
+            if isinstance(zc, AsyncZeroconf) and self._aiozc.zeroconf is zc.zeroconf:
                 return
             if isinstance(zc, Zeroconf) and self._aiozc.zeroconf is zc:
                 self._aiozc = AsyncZeroconf(zc=zc)
