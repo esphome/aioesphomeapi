@@ -82,7 +82,7 @@ async def _async_resolve_host_zeroconf(
     port: int,
     *,
     timeout: float = 3.0,
-    zeroconf_manager: ZeroconfManager = None,
+    zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
     service_name = f"{host}.{SERVICE_TYPE}"
 
@@ -187,7 +187,7 @@ def _async_ip_address_to_addrs(host: str, port: int) -> list[AddrInfo]:
 async def async_resolve_host(
     host: str,
     port: int,
-    zeroconf_manager: ZeroconfManager = None,
+    zeroconf_manager: ZeroconfManager | None = None,
 ) -> AddrInfo:
     addrs: list[AddrInfo] = []
 
