@@ -47,7 +47,7 @@ class AddrInfo:
     family: int
     type: int
     proto: int
-    sockaddr: Sockaddr
+    sockaddr: IPv4Sockaddr | IPv6Sockaddr
 
 
 async def _async_zeroconf_get_service_info(
