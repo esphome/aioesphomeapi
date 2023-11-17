@@ -366,9 +366,7 @@ class APIClient:
             if on_stop is not None:
                 await on_stop(expected_disconnect)
 
-        self._connection = APIConnection(
-            self._params, _on_stop, log_name=self.log_name
-        )
+        self._connection = APIConnection(self._params, _on_stop, log_name=self.log_name)
 
         try:
             await self._connection.start_connection()
