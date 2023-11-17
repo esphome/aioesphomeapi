@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import enum
+import sys
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
-from functools import cache, lru_cache
+from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
-from .compat import _dataclass_decorator, _frozen_dataclass_decorator
 from .util import fix_float_single_double_conversion
+
+if sys.version_info[:2] < (3, 10):
+    _dataclass_decorator = dataclass
+    _frozen_dataclass_decorator = partial(dataclass, frozen=True)
+else:
+    _dataclass_decorator = partial(dataclass, slots=True)
+    _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
+
 
 if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
