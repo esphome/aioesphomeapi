@@ -327,14 +327,15 @@ class APIClient:
 
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
+        resolved_address: str | None = (
+            (connection := self._connection)
+            and (addr_info := connection.resolved_addr_info)
+            and addr_info.sockaddr.address
+        )
         self.log_name = build_log_name(
             self.cached_name,
             self.address,
-            (
-                (connection := self._connection)
-                and (addr_info := connection.resolved_addr_info)
-                and addr_info.sockaddr.address
-            ),
+            resolved_address,
         )
         if self._connection:
             self._connection.set_log_name(self.log_name)
