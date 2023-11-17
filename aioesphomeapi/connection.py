@@ -49,6 +49,7 @@ from .core import (
     TimeoutAPIError,
 )
 from .model import APIVersion
+from .zeroconf import ZeroconfManager
 
 if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout
@@ -111,7 +112,7 @@ class ConnectionParams:
     password: str | None
     client_info: str
     keepalive: float
-    zeroconf_instance: hr.ZeroconfInstanceType
+    zeroconf_manager: ZeroconfManager
     noise_psk: str | None
     expected_name: str | None
 
@@ -159,6 +160,8 @@ class APIConnection:
         "is_connected",
         "_handshake_complete",
         "_debug_enabled",
+        "received_name",
+        "resolved_addr_info",
     )
 
     def __init__(
@@ -201,10 +204,14 @@ class APIConnection:
         self.is_connected = False
         self._handshake_complete = False
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
+        self.received_name: str = ""
+        self.resolved_addr_info: hr.AddrInfo | None = None
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
         self.log_name = name
+        if self._frame_helper is not None:
+            self._frame_helper.set_log_name(name)
 
     def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
@@ -276,7 +283,7 @@ class APIConnection:
                 return await hr.async_resolve_host(
                     self._params.address,
                     self._params.port,
-                    self._params.zeroconf_instance,
+                    self._params.zeroconf_manager,
                 )
         except asyncio_TimeoutError as err:
             raise ResolveAPIError(
@@ -427,17 +434,16 @@ class APIConnection:
 
         self.api_version = api_version
         expected_name = self._params.expected_name
-        received_name = resp.name
-        if (
-            expected_name is not None
-            and received_name != ""
-            and received_name != expected_name
-        ):
-            raise BadNameAPIError(
-                f"Expected '{expected_name}' but server sent "
-                f"a different name: '{received_name}'",
-                received_name,
-            )
+        if received_name := resp.name:
+            if expected_name is not None and received_name != expected_name:
+                raise BadNameAPIError(
+                    f"Expected '{expected_name}' but server sent "
+                    f"a different name: '{received_name}'",
+                    received_name,
+                )
+
+            self.received_name = received_name
+            self.set_log_name(received_name)
 
     def _async_schedule_keep_alive(self, now: _float) -> None:
         """Start the keep alive task."""
@@ -506,8 +512,8 @@ class APIConnection:
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
         in_do_connect.set(True)
-        addr = await self._connect_resolve_host()
-        await self._connect_socket_connect(addr)
+        self.resolved_addr_info = await self._connect_resolve_host()
+        await self._connect_socket_connect(self.resolved_addr_info)
 
     async def start_connection(self) -> None:
         """Start the connection process.

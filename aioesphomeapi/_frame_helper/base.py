@@ -62,6 +62,10 @@ class APIFrameHelper:
         self._log_name = log_name
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
+    def set_log_name(self, log_name: str) -> None:
+        """Set the log name."""
+        self._log_name = log_name
+
     def _set_ready_future_exception(self, exc: Exception | type[Exception]) -> None:
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)

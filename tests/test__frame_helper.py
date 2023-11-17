@@ -141,6 +141,7 @@ def test_plaintext_frame_helper(
 
         assert type_ == pkt_type
         assert data == pkt_data
+        helper.close()
 
 
 @pytest.mark.parametrize(
