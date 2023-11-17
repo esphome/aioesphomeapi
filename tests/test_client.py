@@ -19,6 +19,7 @@ from aioesphomeapi.api_pb2 import (
     ClimateCommandRequest,
     CoverCommandRequest,
     DeviceInfoResponse,
+    DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
@@ -35,6 +36,7 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
+from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -777,3 +779,15 @@ async def test_device_info(
     assert device_info.friendly_name == "My Device"
     assert device_info.has_deep_sleep
     assert client.log_name == "realname @ 10.0.0.512"
+    disconnect_task = asyncio.create_task(client.disconnect())
+    await asyncio.sleep(0)
+    response: message.Message = DisconnectResponse()
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[DisconnectResponse],
+        )
+    )
+    await disconnect_task
+    with pytest.raises(APIConnectionError, match="CLOSED"):
+        await client.device_info()
