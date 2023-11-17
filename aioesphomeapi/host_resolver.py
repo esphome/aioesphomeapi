@@ -6,16 +6,16 @@ import logging
 import socket
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
-from typing import Union, cast
+from typing import cast
 
-from zeroconf import IPVersion, Zeroconf
-from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+from zeroconf import IPVersion
+from zeroconf.asyncio import AsyncServiceInfo
 
 from .core import APIConnectionError, ResolveAPIError
+from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
-ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
 
 SERVICE_TYPE = "_esphomelib._tcp.local."
 
@@ -48,42 +48,29 @@ class AddrInfo:
 
 
 async def _async_zeroconf_get_service_info(
-    zeroconf_instance: ZeroconfInstanceType,
+    zeroconf_manager: ZeroconfManager,
     service_type: str,
     service_name: str,
     timeout: float,
 ) -> AsyncServiceInfo | None:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
-    async_zc_instance: AsyncZeroconf | None = None
-    if zeroconf_instance is None:
-        try:
-            async_zc_instance = AsyncZeroconf()
-        except Exception:
-            raise ResolveAPIError(
-                "Cannot start mDNS sockets, is this a docker container without "
-                "host network mode?"
-            )
-        zc = async_zc_instance.zeroconf
-    elif isinstance(zeroconf_instance, AsyncZeroconf):
-        zc = zeroconf_instance.zeroconf
-    elif isinstance(zeroconf_instance, Zeroconf):
-        zc = zeroconf_instance
-    else:
-        raise ValueError(
-            f"Invalid type passed for zeroconf_instance: {type(zeroconf_instance)}"
-        )
-
+    try:
+        async_zc_instance = zeroconf_manager.get_async_zeroconf()
+    except Exception as exc:
+        raise ResolveAPIError(
+            "Cannot start mDNS sockets, is this a docker container without "
+            "host network mode?"
+        ) from exc
     try:
         info = AsyncServiceInfo(service_type, service_name)
-        if await info.async_request(zc, int(timeout * 1000)):
+        if await info.async_request(async_zc_instance.zeroconf, int(timeout * 1000)):
             return info
     except Exception as exc:
         raise ResolveAPIError(
             f"Error resolving mDNS {service_name} via mDNS: {exc}"
         ) from exc
     finally:
-        if async_zc_instance:
-            await async_zc_instance.async_close()
+        await zeroconf_manager.async_close()
     return info
 
 

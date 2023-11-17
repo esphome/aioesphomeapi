@@ -19,6 +19,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
+from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
-        self._zc = zeroconf_instance
+        self._zeroconf_manager = ZeroconfManager(zeroconf_instance)
         self._ptr_alias: str | None = None
         self._a_name: str | None = None
         # Flag to check if the device is connected
@@ -352,14 +353,14 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
             self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
             self._a_name = f"{self.name}.local."
-            self._zc.async_add_listener(self, None)
+            self._zeroconf_manager.get_zeroconf().async_add_listener(self, None)
             self._zc_listening = True
 
     def _stop_zc_listen(self) -> None:
         """Stop listening for zeroconf updates."""
         if self._zc_listening:
             _LOGGER.debug("Removing zeroconf listener for %s", self.name)
-            self._zc.async_remove_listener(self)
+            self._zeroconf_manager.get_zeroconf().async_remove_listener(self)
             self._zc_listening = False
 
     def async_update_records(

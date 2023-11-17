@@ -49,6 +49,7 @@ from .core import (
     TimeoutAPIError,
 )
 from .model import APIVersion
+from .zeroconf import ZeroconfManager
 
 if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout
@@ -111,7 +112,7 @@ class ConnectionParams:
     password: str | None
     client_info: str
     keepalive: float
-    zeroconf_instance: hr.ZeroconfInstanceType
+    zeroconf_instance: ZeroconfManager
     noise_psk: str | None
     expected_name: str | None
 
