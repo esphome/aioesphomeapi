@@ -97,7 +97,7 @@ async def _async_resolve_host_zeroconf(
     addrs: list[AddrInfo] = []
     for ip_address in info.ip_addresses_by_version(IPVersion.All):
         is_ipv6 = ip_address.version == 6
-        sockaddr: Sockaddr
+        sockaddr: IPv6Sockaddr | IPv4Sockaddr
         if is_ipv6:
             sockaddr = IPv6Sockaddr(
                 address=str(ip_address),
@@ -133,7 +133,7 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
 
     addrs: list[AddrInfo] = []
     for family, type_, proto, _, raw in res:
-        sockaddr: Sockaddr
+        sockaddr: IPv4Sockaddr | IPv6Sockaddr
         if family == socket.AF_INET:
             raw = cast(tuple[str, int], raw)
             address, port = raw
