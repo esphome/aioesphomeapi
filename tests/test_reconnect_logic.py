@@ -47,7 +47,7 @@ async def test_reconnect_logic_name_from_host():
         on_connect=on_connect,
         zeroconf_instance=MagicMock(spec=AsyncZeroconf),
     )
-    assert cli.log_name == "mydevice"
+    assert cli.log_name == "mydevice.local"
 
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_reconnect_logic_name_from_host_and_set():
         zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
-    assert cli.log_name == "mydevice"
+    assert cli.log_name == "mydevice.local"
 
 
 @pytest.mark.asyncio

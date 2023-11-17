@@ -38,7 +38,11 @@ def build_log_name(name: str | None, address: str, resolved_address: str | None)
             name = address
         if address.endswith(".local"):
             name = address[:-6]
-    address = resolved_address or address
-    if name and name != address:
-        return f"{name} @ {address}"
-    return address
+    preferred_address = resolved_address or address
+    if (
+        name
+        and name != preferred_address
+        and not preferred_address.startswith(f"{name}.")
+    ):
+        return f"{name} @ {preferred_address}"
+    return preferred_address
