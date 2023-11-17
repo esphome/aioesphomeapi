@@ -7,7 +7,6 @@ import logging
 import sys
 from datetime import datetime
 
-from zeroconf.asyncio import AsyncZeroconf
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient

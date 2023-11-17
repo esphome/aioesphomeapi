@@ -12,7 +12,7 @@ from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo
 
 from .core import APIConnectionError, ResolveAPIError
-from .zeroconf import ZeroconfInstanceType, ZeroconfManager
+from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
