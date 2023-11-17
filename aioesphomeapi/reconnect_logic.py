@@ -64,7 +64,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
         on_disconnect: Callable[[bool], Awaitable[None]],
-        zeroconf_instance: ZeroconfInstanceType = None,
+        zeroconf_instance: ZeroconfInstanceType | None = None,
         name: str | None = None,
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
     ) -> None:

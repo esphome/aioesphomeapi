@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Union
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
-ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
+ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class ZeroconfManager:
     a Zeroconf object unless one is actually needed.
     """
 
-    def __init__(self, zeroconf: ZeroconfInstanceType = None) -> None:
+    def __init__(self, zeroconf: ZeroconfInstanceType | None = None) -> None:
         """Initialize the ZeroconfManager."""
         self._created = False
         self._aiozc: AsyncZeroconf | None = None

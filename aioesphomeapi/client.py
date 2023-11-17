@@ -273,7 +273,7 @@ class APIClient:
         *,
         client_info: str = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
-        zeroconf_instance: ZeroconfInstanceType = None,
+        zeroconf_instance: ZeroconfInstanceType | None = None,
         noise_psk: str | None = None,
         expected_name: str | None = None,
     ) -> None:
