@@ -53,7 +53,7 @@ class ZeroconfManager:
 
     async def async_close(self) -> None:
         """Close the Zeroconf connection."""
-        if not self._created:
+        if not self._created or not self._aiozc:
             return
         await self._aiozc.async_close()
         self._aiozc = None
