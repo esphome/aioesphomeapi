@@ -345,6 +345,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 ReconnectLogicState.DISCONNECTED
             )
 
+        await self._zeroconf_manager.async_close()
+
     def _start_zc_listen(self) -> None:
         """Listen for mDNS records.
 
