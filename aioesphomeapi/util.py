@@ -28,7 +28,7 @@ def fix_float_single_double_conversion(value: float) -> float:
 
 def host_is_name_part(address: str) -> bool:
     """Return True if a host is the name part."""
-    return "." not in address or ":" not in address
+    return "." not in address and ":" not in address
 
 
 def build_log_name(name: str | None, address: str, resolved_address: str | None) -> str:
