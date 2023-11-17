@@ -5,7 +5,6 @@ from ipaddress import ip_address
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from zeroconf import DNSCache
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 import aioesphomeapi.host_resolver as hr

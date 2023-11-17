@@ -41,7 +41,7 @@ async def test_reconnect_logic_name_from_host():
     async def on_connect() -> None:
         pass
 
-    rl = ReconnectLogic(
+    ReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -65,7 +65,7 @@ async def test_reconnect_logic_name_from_host_and_set():
     async def on_connect() -> None:
         pass
 
-    rl = ReconnectLogic(
+    ReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -90,7 +90,7 @@ async def test_reconnect_logic_name_from_address():
     async def on_connect() -> None:
         pass
 
-    rl = ReconnectLogic(
+    ReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -114,7 +114,7 @@ async def test_reconnect_logic_name_from_name():
     async def on_connect() -> None:
         pass
 
-    rl = ReconnectLogic(
+    ReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,

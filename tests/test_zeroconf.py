@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import socket
-from ipaddress import ip_address
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from zeroconf import DNSCache
-from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+from zeroconf.asyncio import AsyncZeroconf
 
-import aioesphomeapi.host_resolver as hr
-from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.zeroconf import ZeroconfManager
+
+from .common import get_mock_async_zeroconf
 
 
 @pytest.mark.asyncio
@@ -39,3 +36,15 @@ async def test_closes_created_instance(async_zeroconf: AsyncZeroconf):
         assert manager.get_async_zeroconf() is async_zeroconf
         await manager.async_close()
     assert async_zeroconf.async_close.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_runtime_error_multiple_instances(async_zeroconf: AsyncZeroconf):
+    """Test runtime error is raised on multiple instances."""
+    manager = ZeroconfManager()
+    new_instance = get_mock_async_zeroconf()
+    with pytest.raises(RuntimeError):
+        manager.set_instance(new_instance)
+    manager.set_instance(new_instance)
+    await manager.async_close()
+    assert async_zeroconf.async_close.call_count == 0
