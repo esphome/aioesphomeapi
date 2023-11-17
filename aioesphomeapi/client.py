@@ -378,9 +378,6 @@ class APIClient:
             raise UnhandledAPIConnectionError(
                 f"Unexpected error while connecting to {self.log_name}: {e}"
             ) from e
-
-        _LOGGER.error("self._connection: %s", self._connection)
-        _LOGGER.error("resolved_addr_info: %s", self._connection.resolved_addr_info)
         # If we resolved the address, we should set the log name now
         if self._connection.resolved_addr_info:
             self._set_log_name()
