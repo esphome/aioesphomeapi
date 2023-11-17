@@ -18,6 +18,7 @@ from aioesphomeapi.api_pb2 import (
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    DeviceInfoResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
@@ -747,3 +748,32 @@ async def test_bluetooth_clear_cache(
         )
     )
     await clear_task
+
+
+@pytest.mark.asyncio
+async def test_device_info(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test fetching device info."""
+    client, connection, transport, protocol = api_client
+    assert client.log_name == "mydevice.local"
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(
+        name="realname",
+        friendly_name="My Device",
+        has_deep_sleep=True,
+    )
+    protocol.data_received(
+        generate_plaintext_packet(
+            response.SerializeToString(),
+            PROTO_TO_MESSAGE_TYPE[DeviceInfoResponse],
+        )
+    )
+    device_info = await device_info_task
+    assert device_info.name == "realname"
+    assert device_info.friendly_name == "My Device"
+    assert device_info.has_deep_sleep
+    assert client.log_name == "realname @ 10.0.0.512"
