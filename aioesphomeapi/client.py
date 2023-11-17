@@ -307,7 +307,7 @@ class APIClient:
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
-        self._setlog_name()
+        self._set_log_name()
 
     @property
     def zeroconf_manager(self) -> ZeroconfManager:
@@ -325,7 +325,7 @@ class APIClient:
     def address(self) -> str:
         return self._params.address
 
-    def _setlog_name(self) -> None:
+    def _set_log_name(self) -> None:
         """Set the log name of the device."""
         self.log_name = build_log_name(
             self.cached_name,
@@ -341,7 +341,7 @@ class APIClient:
         """Set the cached name of the device if not set."""
         if not self.cached_name:
             self.cached_name = name
-            self._setlog_name()
+            self._set_log_name()
 
     async def connect(
         self,
@@ -383,7 +383,7 @@ class APIClient:
         _LOGGER.error("resolved_addr_info: %s", self._connection.resolved_addr_info)
         # If we resolved the address, we should set the log name now
         if self._connection.resolved_addr_info:
-            self._setlog_name()
+            self._set_log_name()
 
     async def finish_connection(
         self,
@@ -436,8 +436,8 @@ class APIClient:
     def _set_name_from_device(self, name: str) -> None:
         """Set the name from a DeviceInfo message."""
         self.cached_name = name
-        self._connection.setlog_name(self.log_name)
-        self._setlog_name()
+        self._connection.set_log_name(self.log_name)
+        self._set_log_name()
 
     async def list_entities_services(
         self,
