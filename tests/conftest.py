@@ -12,6 +12,7 @@ from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
+from aioesphomeapi.zeroconf import ZeroconfManager
 
 from .common import connect, send_plaintext_hello
 
@@ -42,7 +43,7 @@ def connection_params() -> ConnectionParams:
         password=None,
         client_info="Tests client",
         keepalive=15.0,
-        zeroconf_instance=None,
+        zeroconf_manager=ZeroconfManager(),
         noise_psk=None,
         expected_name=None,
     )
