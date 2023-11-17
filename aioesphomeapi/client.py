@@ -111,7 +111,6 @@ from .core import (
     UnhandledAPIConnectionError,
     to_human_readable_address,
 )
-from .host_resolver import ZeroconfInstanceType
 from .model import (
     AlarmControlPanelCommand,
     AlarmControlPanelEntityState,
@@ -177,7 +176,7 @@ from .model import (
     VoiceAssistantCommand,
     VoiceAssistantEventType,
 )
-from .zeroconf import ZeroconfManager
+from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 

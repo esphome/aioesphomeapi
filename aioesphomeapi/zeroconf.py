@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import logging
 from typing import Union
 
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
-
-import logging
 
 ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf, None]
 
