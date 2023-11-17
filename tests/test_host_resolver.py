@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from zeroconf import DNSCache
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
-
+from aioesphomeapi.zeroconf import ZeroconfManager
 import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.core import APIConnectionError
 
 
 @pytest.fixture
 def async_zeroconf():
-    with patch("aioesphomeapi.host_resolver.AsyncZeroconf") as klass:
+    with patch("aioesphomeapi.zeroconf.AsyncZeroconf") as klass:
         async_zeroconf = klass.return_value
         async_zeroconf.async_close = AsyncMock()
         async_zeroconf.zeroconf.cache = DNSCache()
@@ -61,10 +61,8 @@ async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
 
 
 @pytest.mark.asyncio
-async def test_resolve_host_passed_zeroconf_does_not_close(addr_infos):
-    async_zeroconf = AsyncZeroconf(zc=MagicMock())
-    async_zeroconf.async_close = AsyncMock()
-    async_zeroconf.zeroconf.cache = DNSCache()
+async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
+    zeroconf_manager = ZeroconfManager()
     info = MagicMock(auto_spec=AsyncServiceInfo)
     info.ip_addresses_by_version.return_value = [
         ip_address(b"\n\x00\x00*"),
@@ -73,11 +71,10 @@ async def test_resolve_host_passed_zeroconf_does_not_close(addr_infos):
     info.async_request = AsyncMock(return_value=True)
     with patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info):
         ret = await hr._async_resolve_host_zeroconf(
-            "asdf", 6052, zeroconf_instance=async_zeroconf
+            "asdf", 6052, zeroconf_manager=zeroconf_manager
         )
 
     info.async_request.assert_called_once()
-    async_zeroconf.async_close.assert_not_called()
     assert ret == addr_infos
 
 
@@ -131,7 +128,7 @@ async def test_resolve_host_mdns(resolve_addr, resolve_zc, addr_infos):
     resolve_zc.return_value = addr_infos
     ret = await hr.async_resolve_host("example.local", 6052)
 
-    resolve_zc.assert_called_once_with("example", 6052, zeroconf_instance=None)
+    resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
     resolve_addr.assert_not_called()
     assert ret == addr_infos[0]
 
@@ -144,7 +141,7 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
     resolve_addr.return_value = addr_infos
     ret = await hr.async_resolve_host("example.local", 6052)
 
-    resolve_zc.assert_called_once_with("example", 6052, zeroconf_instance=None)
+    resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
     resolve_addr.assert_called_once_with("example.local", 6052)
     assert ret == addr_infos[0]
 
