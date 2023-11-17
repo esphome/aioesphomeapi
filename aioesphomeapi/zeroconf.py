@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
@@ -47,13 +47,9 @@ class ZeroconfManager:
         """Get the AsyncZeroconf instance."""
         if not self._aiozc:
             self._create_async_zeroconf()
+        if TYPE_CHECKING:
+            assert self._aiozc is not None
         return self._aiozc
-
-    def get_zeroconf(self) -> Zeroconf:
-        """Get the Zeroconf instance."""
-        if not self._aiozc:
-            self._create_async_zeroconf()
-        return self._aiozc.zeroconf
 
     async def async_close(self) -> None:
         """Close the Zeroconf connection."""

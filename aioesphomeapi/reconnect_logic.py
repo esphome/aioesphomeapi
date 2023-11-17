@@ -357,14 +357,18 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
             self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
             self._a_name = f"{self.name}.local."
-            self._zeroconf_manager.get_zeroconf().async_add_listener(self, None)
+            self._zeroconf_manager.get_async_zeroconf().zeroconf.async_add_listener(
+                self, None
+            )
             self._zc_listening = True
 
     def _stop_zc_listen(self) -> None:
         """Stop listening for zeroconf updates."""
         if self._zc_listening:
             _LOGGER.debug("Removing zeroconf listener for %s", self.name)
-            self._zeroconf_manager.get_zeroconf().async_remove_listener(self)
+            self._zeroconf_manager.get_async_zeroconf().zeroconf.async_remove_listener(
+                self
+            )
             self._zc_listening = False
 
     def async_update_records(
