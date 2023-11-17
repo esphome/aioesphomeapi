@@ -334,7 +334,7 @@ class APIClient:
                 (connection := self._connection)
                 and (addr_info := connection.resolved_addr_info)
                 and addr_info.sockaddr.address
-            )
+            ),
         )
         if self._connection:
             self._connection.set_log_name(self.log_name)
