@@ -329,13 +329,15 @@ class APIClient:
         """Set the log name of the device."""
         self.log_name = build_log_name(
             self.cached_name,
+            self.address,
             (
                 (connection := self._connection)
                 and (addr_info := connection.resolved_addr_info)
                 and addr_info.sockaddr.address
             )
-            or self.address,
         )
+        if self._connection:
+            self._connection.set_log_name(self.log_name)
 
     def set_cached_name_if_unset(self, name: str) -> None:
         """Set the cached name of the device if not set."""
@@ -433,7 +435,6 @@ class APIClient:
     def _set_name_from_device(self, name: str) -> None:
         """Set the name from a DeviceInfo message."""
         self.cached_name = name
-        self._connection.set_log_name(self.log_name)
         self._set_log_name()
 
     async def list_entities_services(

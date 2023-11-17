@@ -210,6 +210,8 @@ class APIConnection:
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
         self.log_name = name
+        if self._frame_helper is not None:
+            self._frame_helper.set_log_name(name)
 
     def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.

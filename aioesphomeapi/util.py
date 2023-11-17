@@ -26,10 +26,11 @@ def fix_float_single_double_conversion(value: float) -> float:
     return round(value, prec)
 
 
-def build_log_name(name: str | None, address: str) -> str:
+def build_log_name(name: str | None, address: str, resolved_address: str | None) -> str:
     """Return a log name for a connection."""
-    if address.endswith(".local"):
-        return address[:-6]
+    if not name and address.endswith(".local"):
+        name = address[:-6]
+    address = resolved_address or address
     if name and name != address:
         return f"{name} @ {address}"
     return address
