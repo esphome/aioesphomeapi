@@ -139,6 +139,7 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
 
         assert type_ == pkt_type
         assert data == pkt_data
+        helper.close()
 
 
 @pytest.mark.asyncio
