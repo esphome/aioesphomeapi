@@ -176,7 +176,7 @@ from .model import (
     VoiceAssistantCommand,
     VoiceAssistantEventType,
 )
-from .util import buildlog_name
+from .util import build_log_name
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -327,7 +327,7 @@ class APIClient:
 
     def _setlog_name(self) -> None:
         """Set the log name of the device."""
-        self.log_name = buildlog_name(
+        self.log_name = build_log_name(
             self.cached_name,
             (
                 (connection := self._connection)
