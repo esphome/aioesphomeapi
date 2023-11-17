@@ -182,7 +182,7 @@ async def test_resolve_host_with_address(resolve_addr, resolve_zc):
 
 
 @pytest.mark.asyncio
-async def test_resolve_host_zeroconf_oserror(async_zeroconf: AsyncZeroconf, addr_infos):
+async def test_resolve_host_zeroconf_service_info_oserror(async_zeroconf: AsyncZeroconf, addr_infos):
     info = MagicMock(auto_spec=AsyncServiceInfo)
     info.ip_addresses_by_version.return_value = [
         ip_address(b"\n\x00\x00*"),
@@ -190,10 +190,27 @@ async def test_resolve_host_zeroconf_oserror(async_zeroconf: AsyncZeroconf, addr
     ]
     info.async_request = AsyncMock(return_value=True)
     with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo",
+        "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request",
         side_effect=OSError("out of buffers"),
     ), patch(
         "aioesphomeapi.zeroconf.AsyncZeroconf", return_value=async_zeroconf
+    ), pytest.raises(
+        ResolveAPIError, match="out of buffers"
+    ):
+        await hr._async_resolve_host_zeroconf("asdf", 6052)
+
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_create_zeroconf_oserror(async_zeroconf: AsyncZeroconf, addr_infos):
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.ip_addresses_by_version.return_value = [
+        ip_address(b"\n\x00\x00*"),
+        ip_address(b" \x01\r\xb8\x85\xa3\x00\x00\x00\x00\x8a.\x03ps4"),
+    ]
+    info.async_request = AsyncMock(return_value=True)
+    with patch(
+        "aioesphomeapi.zeroconf.AsyncZeroconf",  side_effect=OSError("out of buffers")
     ), pytest.raises(
         ResolveAPIError, match="out of buffers"
     ):
