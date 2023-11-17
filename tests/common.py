@@ -33,7 +33,7 @@ def get_mock_zeroconf() -> MagicMock:
     return zc
 
 
-def get_mock_async_zeroconf() -> MagicMock:
+def get_mock_async_zeroconf() -> AsyncZeroconf:
     aiozc = AsyncZeroconf(zc=get_mock_zeroconf())
     aiozc.async_close = AsyncMock()
     return aiozc
