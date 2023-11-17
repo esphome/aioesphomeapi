@@ -19,6 +19,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
+from .util import address_is_local
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,12 +77,12 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self.loop = asyncio.get_event_loop()
         self._cli = client
         self.name: str | None = None
-        if client.address.endswith(".local"):
-            self.name = client.address[:-6]
-            self._cli.set_cached_name_if_unset(self.name)
-        elif name:
+        if name:
             self.name = name
-            self._cli.set_cached_name_if_unset(name)
+        elif address_is_local(client.address):
+            self.name = client.address.partition(".")[0]
+        if self.name:
+            self._cli.set_cached_name_if_unset(self.name)
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error

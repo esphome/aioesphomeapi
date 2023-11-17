@@ -31,10 +31,14 @@ def host_is_name_part(address: str) -> bool:
     return "." not in address and ":" not in address
 
 
+def address_is_local(address: str) -> bool:
+    """Return True if the address is a local address."""
+    return address.removesuffix(".").endswith(".local")
+
+
 def build_log_name(name: str | None, address: str, resolved_address: str | None) -> str:
     """Return a log name for a connection."""
-    address.removesuffix(".")
-    if not name and address.endswith(".local") or host_is_name_part(address):
+    if not name and address_is_local(address) or host_is_name_part(address):
         name = address.partition(".")[0]
     preferred_address = resolved_address or address
     if (
