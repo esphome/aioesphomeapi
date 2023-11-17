@@ -34,10 +34,9 @@ def get_mock_zeroconf() -> MagicMock:
 
 
 def get_mock_async_zeroconf() -> MagicMock:
-    mock = MagicMock(spec=AsyncZeroconf)
-    mock.zeroconf = get_mock_zeroconf()
-    mock.async_close = AsyncMock()
-    return mock
+    aiozc = AsyncZeroconf(zc=get_mock_zeroconf())
+    aiozc.async_close = AsyncMock()
+    return aiozc
 
 
 class Estr(str):
