@@ -204,6 +204,7 @@ class APIConnection:
         self._handshake_complete = False
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
         self.received_name: str = ""
+        self.resolved_addr_info: hr.AddrInfo | None = None
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -509,8 +510,8 @@ class APIConnection:
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
         in_do_connect.set(True)
-        addr = await self._connect_resolve_host()
-        await self._connect_socket_connect(addr)
+        self.resolved_addr_info = await self._connect_resolve_host()
+        await self._connect_socket_connect(self.resolved_addr_info)
 
     async def start_connection(self) -> None:
         """Start the connection process.

@@ -325,13 +325,17 @@ class APIClient:
     def address(self) -> str:
         return self._params.address
 
-    def _get_log_name(self) -> str:
-        """Get the log name of the device."""
-        return build_log_name(self.cached_name, self.address)
-
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
-        self._log_name = self._get_log_name()
+        self._log_name = build_log_name(
+            self.cached_name,
+            (
+                (connection := self._connection)
+                and (addr_info := connection.resolved_addr_info)
+                and addr_info.sockaddr.address
+            )
+            or self.address,
+        )
 
     def set_cached_name_if_unset(self, name: str) -> None:
         """Set the cached name of the device if not set."""
@@ -376,6 +380,7 @@ class APIClient:
             raise UnhandledAPIConnectionError(
                 f"Unexpected error while connecting to {self._log_name}: {e}"
             ) from e
+        self._set_log_name()
 
     async def finish_connection(
         self,
