@@ -55,7 +55,7 @@ async def _async_zeroconf_get_service_info(
 ) -> AsyncServiceInfo | None:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     try:
-        zc = zeroconf_manager.get_zeroconf()
+        zc = zeroconf_manager.get_async_zeroconf().zeroconf
     except Exception as exc:
         raise ResolveAPIError(
             "Cannot start mDNS sockets, is this a docker container without "
