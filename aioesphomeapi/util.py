@@ -33,11 +33,12 @@ def host_is_name_part(address: str) -> bool:
 
 def build_log_name(name: str | None, address: str, resolved_address: str | None) -> str:
     """Return a log name for a connection."""
+    address.removesuffix(".")
     if not name:
         if host_is_name_part(address):
             name = address
         if address.endswith(".local"):
-            name = address[:-6]
+            name = address.partition(".")[0]
     preferred_address = resolved_address or address
     if (
         name

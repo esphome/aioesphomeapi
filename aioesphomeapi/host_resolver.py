@@ -190,6 +190,7 @@ async def async_resolve_host(
     addrs: list[AddrInfo] = []
 
     zc_error = None
+    host.removesuffix(".")  # Remove trailing dot
     if host_is_name_part(host) or host.endswith(".local"):
         name = host.partition(".")[0]
         try:
