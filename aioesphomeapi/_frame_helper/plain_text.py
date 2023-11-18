@@ -59,27 +59,39 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         super().connection_made(transport)
         self._ready_future.set_result(None)
 
-    def write_packet(self, type_: int, data: bytes) -> None:
-        """Write a packet to the socket.
+    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+        """Write a packets to the socket.
+
+        Packets are in the format of tuple[protobuf_type, protobuf_data]
 
         The entire packet must be written in a single call.
         """
         if TYPE_CHECKING:
             assert self._writer is not None, "Writer should be set"
 
-        data = b"\0" + varuint_to_bytes(len(data)) + varuint_to_bytes(type_) + data
-        if self._debug_enabled():
-            _LOGGER.debug("%s: Sending plaintext frame %s", self._log_name, data.hex())
+        out: list[bytes] = []
+        debug_enabled = self._debug_enabled()
+        for packet in packets:
+            type_: int = packet[0]
+            data: bytes = packet[1]
+            out.append(b"\0")
+            out.append(varuint_to_bytes(len(data)))
+            out.append(varuint_to_bytes(type_))
+            out.append(data)
+            if debug_enabled is True:
+                _LOGGER.debug(
+                    "%s: Sending plaintext frame %s", self._log_name, data.hex()
+                )
 
         try:
-            self._writer(data)
+            self._writer(b"".join(out))
         except WRITE_EXCEPTIONS as err:
             raise SocketAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
     def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
-        self, data: bytes
+        self, data: bytes | bytearray | memoryview
     ) -> None:
         self._add_to_buffer(data)
         while self._buffer:
@@ -154,7 +166,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 packet_data = maybe_packet_data
 
             self._remove_from_buffer()
-            self._on_pkt(msg_type_int, packet_data)
+            self._connection.process_packet(msg_type_int, packet_data)
             # If we have more data, continue processing
 
     def _error_on_incorrect_preamble(self, preamble: _int) -> None:

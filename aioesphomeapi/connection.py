@@ -49,6 +49,7 @@ from .core import (
     TimeoutAPIError,
 )
 from .model import APIVersion
+from .zeroconf import ZeroconfManager
 
 if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout
@@ -111,7 +112,7 @@ class ConnectionParams:
     password: str | None
     client_info: str
     keepalive: float
-    zeroconf_instance: hr.ZeroconfInstanceType
+    zeroconf_manager: ZeroconfManager
     noise_psk: str | None
     expected_name: str | None
 
@@ -159,6 +160,8 @@ class APIConnection:
         "is_connected",
         "_handshake_complete",
         "_debug_enabled",
+        "received_name",
+        "resolved_addr_info",
     )
 
     def __init__(
@@ -201,10 +204,14 @@ class APIConnection:
         self.is_connected = False
         self._handshake_complete = False
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
+        self.received_name: str = ""
+        self.resolved_addr_info: hr.AddrInfo | None = None
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
         self.log_name = name
+        if self._frame_helper is not None:
+            self._frame_helper.set_log_name(name)
 
     def _cleanup(self) -> None:
         """Clean up all resources that have been allocated.
@@ -276,7 +283,7 @@ class APIConnection:
                 return await hr.async_resolve_host(
                     self._params.address,
                     self._params.port,
-                    self._params.zeroconf_instance,
+                    self._params.zeroconf_manager,
                 )
         except asyncio_TimeoutError as err:
             raise ResolveAPIError(
@@ -337,8 +344,7 @@ class APIConnection:
         if (noise_psk := self._params.noise_psk) is None:
             _, fh = await loop.create_connection(  # type: ignore[type-var]
                 lambda: APIPlaintextFrameHelper(
-                    on_pkt=self._process_packet,
-                    on_error=self._report_fatal_error,
+                    connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,
                 ),
@@ -347,10 +353,9 @@ class APIConnection:
         else:
             _, fh = await loop.create_connection(  # type: ignore[type-var]
                 lambda: APINoiseFrameHelper(
-                    noise_psk=noise_psk,  # type: ignore[arg-type]
+                    noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
-                    on_pkt=self._process_packet,
-                    on_error=self._report_fatal_error,
+                    connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,
                 ),
@@ -395,7 +400,7 @@ class APIConnection:
                 CONNECT_REQUEST_TIMEOUT,
             )
         except TimeoutAPIError as err:
-            self._report_fatal_error(err)
+            self.report_fatal_error(err)
             raise TimeoutAPIError("Hello timed out") from err
 
         resp = responses.pop(0)
@@ -429,17 +434,16 @@ class APIConnection:
 
         self.api_version = api_version
         expected_name = self._params.expected_name
-        received_name = resp.name
-        if (
-            expected_name is not None
-            and received_name != ""
-            and received_name != expected_name
-        ):
-            raise BadNameAPIError(
-                f"Expected '{expected_name}' but server sent "
-                f"a different name: '{received_name}'",
-                received_name,
-            )
+        if received_name := resp.name:
+            if expected_name is not None and received_name != expected_name:
+                raise BadNameAPIError(
+                    f"Expected '{expected_name}' but server sent "
+                    f"a different name: '{received_name}'",
+                    received_name,
+                )
+
+            self.received_name = received_name
+            self.set_log_name(received_name)
 
     def _async_schedule_keep_alive(self, now: _float) -> None:
         """Start the keep alive task."""
@@ -499,7 +503,7 @@ class APIConnection:
             self.log_name,
             self._keep_alive_timeout,
         )
-        self._report_fatal_error(
+        self.report_fatal_error(
             PingFailedAPIError(
                 f"Ping response not received after {self._keep_alive_timeout} seconds"
             )
@@ -508,8 +512,8 @@ class APIConnection:
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
         in_do_connect.set(True)
-        addr = await self._connect_resolve_host()
-        await self._connect_socket_connect(addr)
+        self.resolved_addr_info = await self._connect_resolve_host()
+        await self._connect_socket_connect(self.resolved_addr_info)
 
     async def start_connection(self) -> None:
         """Start the connection process.
@@ -613,17 +617,11 @@ class APIConnection:
             connect.password = self._params.password
         return connect
 
-    def _send_messages(self, messages: tuple[message.Message, ...]) -> None:
-        """Send a message to the remote.
-
-        Currently this is a wrapper around send_message
-        but may be changed in the future to batch messages
-        together.
-        """
-        for msg in messages:
-            self.send_message(msg)
-
     def send_message(self, msg: message.Message) -> None:
+        """Send a message to the remote."""
+        self.send_messages((msg,))
+
+    def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
             if in_do_connect.get(False):
@@ -635,24 +633,31 @@ class APIConnection:
                 f"Connection isn't established yet ({self.connection_state})"
             )
 
-        msg_type = type(msg)
-        if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
-            raise ValueError(f"Message type id not found for type {msg_type}")
+        packets: list[tuple[int, bytes]] = []
+        debug_enabled = self._debug_enabled()
 
-        if self._debug_enabled() is True:
-            _LOGGER.debug("%s: Sending %s: %s", self.log_name, msg_type.__name__, msg)
+        for msg in msgs:
+            msg_type = type(msg)
+            if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
+                raise ValueError(f"Message type id not found for type {msg_type}")
+
+            if debug_enabled is True:
+                _LOGGER.debug(
+                    "%s: Sending %s: %s", self.log_name, msg_type.__name__, msg
+                )
+
+            packets.append((message_type, msg.SerializeToString()))
 
         if TYPE_CHECKING:
             assert self._frame_helper is not None
 
-        encoded = msg.SerializeToString()
         try:
-            self._frame_helper.write_packet(message_type, encoded)
+            self._frame_helper.write_packets(packets)
         except SocketAPIError as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
-            _LOGGER.info("%s: Error writing packet: %s", self.log_name, err)
-            self._report_fatal_error(err)
+            _LOGGER.info("%s: Error writing packets: %s", self.log_name, err)
+            self.report_fatal_error(err)
             raise
 
     def _add_message_callback_without_remove(
@@ -738,7 +743,7 @@ class APIConnection:
         # Send the message right away to reduce latency.
         # This is safe because we are not awaiting between
         # sending the message and registering the handler
-        self._send_messages(messages)
+        self.send_messages(messages)
         loop = self._loop
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = loop.create_future()
@@ -785,7 +790,7 @@ class APIConnection:
         )
         return response
 
-    def _report_fatal_error(self, err: Exception) -> None:
+    def report_fatal_error(self, err: Exception) -> None:
         """Report a fatal error that occurred during an operation.
 
         This should only be called for errors that mean the connection
@@ -805,8 +810,8 @@ class APIConnection:
         self._fatal_exception = err
         self._cleanup()
 
-    def _process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
-        """Factory to make a packet processor."""
+    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
+        """Process an incoming packet."""
         if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
             _LOGGER.debug(
                 "%s: Skipping message type %s",
@@ -830,7 +835,7 @@ class APIConnection:
                 e,
                 exc_info=True,
             )
-            self._report_fatal_error(
+            self.report_fatal_error(
                 ProtocolAPIError(
                     f"Invalid protobuf message: type={msg_type_proto} data={data!r}: {e}"
                 )

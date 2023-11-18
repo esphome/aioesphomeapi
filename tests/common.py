@@ -4,7 +4,7 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from functools import partial
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from google.protobuf import message
 from zeroconf import Zeroconf
@@ -27,26 +27,30 @@ PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 
 def get_mock_zeroconf() -> MagicMock:
-    return MagicMock(spec=Zeroconf)
+    with patch("zeroconf.Zeroconf.start"):
+        zc = Zeroconf()
+        zc.close = MagicMock()
+    return zc
 
 
-def get_mock_async_zeroconf() -> MagicMock:
-    mock = MagicMock(spec=AsyncZeroconf)
-    mock.zeroconf = get_mock_zeroconf()
-    mock.async_close = AsyncMock()
-    return mock
+def get_mock_async_zeroconf() -> AsyncZeroconf:
+    aiozc = AsyncZeroconf(zc=get_mock_zeroconf())
+    aiozc.async_close = AsyncMock()
+    return aiozc
 
 
 class Estr(str):
     """A subclassed string."""
 
 
-def generate_plaintext_packet(msg: bytes, type_: int) -> bytes:
+def generate_plaintext_packet(msg: message.Message) -> bytes:
+    type_ = PROTO_TO_MESSAGE_TYPE[msg.__class__]
+    bytes_ = msg.SerializeToString()
     return (
         b"\0"
-        + _cached_varuint_to_bytes(len(msg))
+        + _cached_varuint_to_bytes(len(bytes_))
         + _cached_varuint_to_bytes(type_)
-        + msg
+        + bytes_
     )
 
 
@@ -99,10 +103,7 @@ def send_plaintext_hello(protocol: APIPlaintextFrameHelper) -> None:
     hello_response.api_version_major = 1
     hello_response.api_version_minor = 9
     hello_response.name = "fake"
-    hello_msg = hello_response.SerializeToString()
-    protocol.data_received(
-        generate_plaintext_packet(hello_msg, PROTO_TO_MESSAGE_TYPE[HelloResponse])
-    )
+    protocol.data_received(generate_plaintext_packet(hello_response))
 
 
 def send_plaintext_connect_response(
@@ -110,8 +111,4 @@ def send_plaintext_connect_response(
 ) -> None:
     connect_response: message.Message = ConnectResponse()
     connect_response.invalid_password = invalid_password
-    connect_msg = connect_response.SerializeToString()
-
-    protocol.data_received(
-        generate_plaintext_packet(connect_msg, PROTO_TO_MESSAGE_TYPE[ConnectResponse])
-    )
+    protocol.data_received(generate_plaintext_packet(connect_response))

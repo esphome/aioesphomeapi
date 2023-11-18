@@ -18,6 +18,8 @@ from aioesphomeapi.api_pb2 import (
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    DeviceInfoResponse,
+    DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
@@ -34,6 +36,7 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
+from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -688,12 +691,7 @@ async def test_bluetooth_disconnect(
     response: message.Message = BluetoothDeviceConnectionResponse(
         address=1234, connected=False
     )
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceConnectionResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await disconnect_task
 
 
@@ -708,12 +706,7 @@ async def test_bluetooth_pair(
     pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDevicePairingResponse(address=1234)
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDevicePairingResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await pair_task
 
 
@@ -728,12 +721,7 @@ async def test_bluetooth_unpair(
     unpair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceUnpairingResponse(address=1234)
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceUnpairingResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await unpair_task
 
 
@@ -748,10 +736,36 @@ async def test_bluetooth_clear_cache(
     clear_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceClearCacheResponse(address=1234)
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[BluetoothDeviceClearCacheResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     await clear_task
+
+
+@pytest.mark.asyncio
+async def test_device_info(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test fetching device info."""
+    client, connection, transport, protocol = api_client
+    assert client.log_name == "mydevice.local"
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(
+        name="realname",
+        friendly_name="My Device",
+        has_deep_sleep=True,
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    device_info = await device_info_task
+    assert device_info.name == "realname"
+    assert device_info.friendly_name == "My Device"
+    assert device_info.has_deep_sleep
+    assert client.log_name == "realname @ 10.0.0.512"
+    disconnect_task = asyncio.create_task(client.disconnect())
+    await asyncio.sleep(0)
+    response: message.Message = DisconnectResponse()
+    protocol.data_received(generate_plaintext_packet(response))
+    await disconnect_task
+    with pytest.raises(APIConnectionError, match="CLOSED"):
+        await client.device_info()

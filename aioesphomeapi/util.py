@@ -24,3 +24,27 @@ def fix_float_single_double_conversion(value: float) -> float:
     l10 = math.ceil(math.log10(abs_val))
     prec = 7 - l10
     return round(value, prec)
+
+
+def host_is_name_part(address: str) -> bool:
+    """Return True if a host is the name part."""
+    return "." not in address and ":" not in address
+
+
+def address_is_local(address: str) -> bool:
+    """Return True if the address is a local address."""
+    return address.removesuffix(".").endswith(".local")
+
+
+def build_log_name(name: str | None, address: str, resolved_address: str | None) -> str:
+    """Return a log name for a connection."""
+    if not name and address_is_local(address) or host_is_name_part(address):
+        name = address.partition(".")[0]
+    preferred_address = resolved_address or address
+    if (
+        name
+        and name != preferred_address
+        and not preferred_address.startswith(f"{name}.")
+    ):
+        return f"{name} @ {preferred_address}"
+    return preferred_address

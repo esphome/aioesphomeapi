@@ -7,8 +7,6 @@ import logging
 import sys
 from datetime import datetime
 
-from zeroconf.asyncio import AsyncZeroconf
-
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
 from .log_runner import async_run
@@ -24,19 +22,16 @@ async def main(argv: list[str]) -> None:
     args = parser.parse_args(argv[1:])
 
     logging.basicConfig(
-        format="%(asctime)s %(levelname)-8s %(message)s",
+        format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
         level=logging.DEBUG if args.verbose else logging.INFO,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-
-    aiozc = AsyncZeroconf()
 
     cli = APIClient(
         args.address,
         args.port,
         args.password or "",
         noise_psk=args.noise_psk,
-        zeroconf_instance=aiozc.zeroconf,
         keepalive=10,
     )
 
@@ -46,12 +41,10 @@ async def main(argv: list[str]) -> None:
         text = message.decode("utf8", "backslashreplace")
         print(f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}]{text}")
 
-    stop = await async_run(cli, on_log, aio_zeroconf_instance=aiozc)
+    stop = await async_run(cli, on_log)
     try:
-        while True:
-            await asyncio.sleep(60)
+        await asyncio.Event().wait()
     finally:
-        await aiozc.async_close()
         await stop()
 
 

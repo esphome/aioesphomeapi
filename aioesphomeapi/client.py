@@ -111,7 +111,6 @@ from .core import (
     UnhandledAPIConnectionError,
     to_human_readable_address,
 )
-from .host_resolver import ZeroconfInstanceType
 from .model import (
     AlarmControlPanelCommand,
     AlarmControlPanelEntityState,
@@ -177,6 +176,8 @@ from .model import (
     VoiceAssistantCommand,
     VoiceAssistantEventType,
 )
+from .util import build_log_name
+from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -258,10 +259,10 @@ class APIClient:
     __slots__ = (
         "_params",
         "_connection",
-        "_cached_name",
+        "cached_name",
         "_background_tasks",
         "_loop",
-        "_log_name",
+        "log_name",
     )
 
     def __init__(
@@ -272,7 +273,7 @@ class APIClient:
         *,
         client_info: str = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
-        zeroconf_instance: ZeroconfInstanceType = None,
+        zeroconf_instance: ZeroconfInstanceType | None = None,
         noise_psk: str | None = None,
         expected_name: str | None = None,
     ) -> None:
@@ -297,16 +298,20 @@ class APIClient:
             password=password,
             client_info=client_info,
             keepalive=keepalive,
-            zeroconf_instance=zeroconf_instance,
+            zeroconf_manager=ZeroconfManager(zeroconf_instance),
             # treat empty '' psk string as missing (like password)
             noise_psk=_stringify_or_none(noise_psk) or None,
             expected_name=_stringify_or_none(expected_name) or None,
         )
         self._connection: APIConnection | None = None
-        self._cached_name: str | None = None
+        self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
         self._set_log_name()
+
+    @property
+    def zeroconf_manager(self) -> ZeroconfManager:
+        return self._params.zeroconf_manager
 
     @property
     def expected_name(self) -> str | None:
@@ -320,26 +325,23 @@ class APIClient:
     def address(self) -> str:
         return self._params.address
 
-    def _get_log_name(self) -> str:
-        """Get the log name of the device."""
-        address = self.address
-        address_is_host = address.endswith(".local")
-        if self._cached_name is not None:
-            if address_is_host:
-                return self._cached_name
-            return f"{self._cached_name} @ {address}"
-        if address_is_host:
-            return address[:-6]
-        return address
-
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
-        self._log_name = self._get_log_name()
+        resolved_address: str | None = None
+        if self._connection and self._connection.resolved_addr_info:
+            resolved_address = self._connection.resolved_addr_info.sockaddr.address
+        self.log_name = build_log_name(
+            self.cached_name,
+            self.address,
+            resolved_address,
+        )
+        if self._connection:
+            self._connection.set_log_name(self.log_name)
 
     def set_cached_name_if_unset(self, name: str) -> None:
         """Set the cached name of the device if not set."""
-        if not self._cached_name:
-            self._cached_name = name
+        if not self.cached_name:
+            self.cached_name = name
             self._set_log_name()
 
     async def connect(
@@ -357,7 +359,7 @@ class APIClient:
     ) -> None:
         """Start connecting to the device."""
         if self._connection is not None:
-            raise APIConnectionError(f"Already connected to {self._log_name}!")
+            raise APIConnectionError(f"Already connected to {self.log_name}!")
 
         async def _on_stop(expected_disconnect: bool) -> None:
             # Hook into on_stop handler to clear connection when stopped
@@ -365,9 +367,7 @@ class APIClient:
             if on_stop is not None:
                 await on_stop(expected_disconnect)
 
-        self._connection = APIConnection(
-            self._params, _on_stop, log_name=self._log_name
-        )
+        self._connection = APIConnection(self._params, _on_stop, log_name=self.log_name)
 
         try:
             await self._connection.start_connection()
@@ -377,8 +377,11 @@ class APIClient:
         except Exception as e:
             self._connection = None
             raise UnhandledAPIConnectionError(
-                f"Unexpected error while connecting to {self._log_name}: {e}"
+                f"Unexpected error while connecting to {self.log_name}: {e}"
             ) from e
+        # If we resolved the address, we should set the log name now
+        if self._connection.resolved_addr_info:
+            self._set_log_name()
 
     async def finish_connection(
         self,
@@ -394,8 +397,10 @@ class APIClient:
         except Exception as e:
             self._connection = None
             raise UnhandledAPIConnectionError(
-                f"Unexpected error while connecting to {self._log_name}: {e}"
+                f"Unexpected error while connecting to {self.log_name}: {e}"
             ) from e
+        if received_name := self._connection.received_name:
+            self._set_name_from_device(received_name)
 
     async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
@@ -408,10 +413,10 @@ class APIClient:
     def _check_authenticated(self) -> None:
         connection = self._connection
         if not connection:
-            raise APIConnectionError(f"Not connected to {self._log_name}!")
+            raise APIConnectionError(f"Not connected to {self.log_name}!")
         if not connection.is_connected:
             raise APIConnectionError(
-                f"Authenticated connection not ready yet for {self._log_name}; "
+                f"Authenticated connection not ready yet for {self.log_name}; "
                 f"current state is {connection.connection_state}!"
             )
 
@@ -423,10 +428,13 @@ class APIClient:
             DeviceInfoRequest(), DeviceInfoResponse
         )
         info = DeviceInfo.from_pb(resp)
-        self._cached_name = info.name
-        connection.set_log_name(self._log_name)
-        self._set_log_name()
+        self._set_name_from_device(info.name)
         return info
+
+    def _set_name_from_device(self, name: str) -> None:
+        """Set the name from a DeviceInfo message."""
+        self.cached_name = name
+        self._set_log_name()
 
     async def list_entities_services(
         self,
