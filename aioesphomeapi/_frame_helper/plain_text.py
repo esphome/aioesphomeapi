@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
-
-_LOGGER = logging.getLogger(__name__)
 
 _int = int
 _bytes = bytes

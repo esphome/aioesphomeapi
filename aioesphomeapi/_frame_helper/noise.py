@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import binascii
-import logging
 from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable
@@ -25,8 +24,6 @@ from .base import APIFrameHelper
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
-
-_LOGGER = logging.getLogger(__name__)
 
 
 PACK_NONCE = partial(Struct("<LQ").pack, 0)
@@ -271,12 +268,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         )
 
     def _handle_handshake(self, msg: bytes) -> None:
-        _LOGGER.debug("Starting handshake...")
         if msg[0] != 0:
             self._error_on_incorrect_preamble(msg)
             return
         self._proto.read_message(msg[1:])
-        _LOGGER.debug("Handshake complete")
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
         self._decrypt = partial(
