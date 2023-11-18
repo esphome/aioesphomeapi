@@ -180,3 +180,18 @@ class APIFrameHelper:
 
     def resume_writing(self) -> None:
         """Stub."""
+
+    def _write_bytes(self, data: bytes, debug_enabled: bool) -> None:
+        """Write bytes to the socket."""
+        if debug_enabled is True:
+            _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, data.hex())
+
+        if TYPE_CHECKING:
+            assert self._writer is not None, "Writer is not set"
+
+        try:
+            self._writer(data)
+        except WRITE_EXCEPTIONS as err:
+            raise SocketClosedAPIError(
+                f"{self._log_name}: Error while writing data: {err}"
+            ) from err

@@ -51,3 +51,5 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         frame_len=cython.uint
     )
     cpdef write_packets(self, list packets)
+
+    cdef _error_on_incorrect_preamble(self, bytes msg)
