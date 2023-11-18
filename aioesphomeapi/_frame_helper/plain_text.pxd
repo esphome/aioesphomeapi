@@ -33,6 +33,7 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
     @cython.locals(
         type_="unsigned int",
         data=bytes,
-        packet=tuple
+        packet=tuple,
+        type_=object
     )
     cpdef write_packets(self, list packets)

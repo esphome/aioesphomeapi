@@ -34,4 +34,4 @@ cdef class APIFrameHelper:
 
     cpdef write_packets(self, list packets)
 
-    cdef _write_bytes(self, bytes data, bint debug_enabled)
+    cdef _write_bytes(self, bytes data)

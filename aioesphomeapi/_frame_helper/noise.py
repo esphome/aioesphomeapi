@@ -20,9 +20,8 @@ from ..core import (
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
-    SocketAPIError,
 )
-from .base import WRITE_EXCEPTIONS, APIFrameHelper
+from .base import APIFrameHelper
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
@@ -184,7 +183,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         frame_len = len(handshake_frame)
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         hello_handshake = NOISE_HELLO + header + handshake_frame
-        self._write_bytes(hello_handshake, self._debug_enabled())
+        self._write_bytes(hello_handshake)
 
     def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
@@ -302,7 +301,6 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._encrypt is not None, "Handshake should be complete"
 
         out: list[bytes] = []
-        debug_enabled = self._debug_enabled()
         for packet in packets:
             type_: int = packet[0]
             data: bytes = packet[1]
@@ -321,7 +319,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             out.append(header)
             out.append(frame)
 
-        self._write_bytes(b"".join(out), debug_enabled)
+        self._write_bytes(b"".join(out))
 
     def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""

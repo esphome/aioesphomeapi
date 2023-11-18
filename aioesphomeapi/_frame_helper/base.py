@@ -181,9 +181,9 @@ class APIFrameHelper:
     def resume_writing(self) -> None:
         """Stub."""
 
-    def _write_bytes(self, data: bytes, debug_enabled: bool) -> None:
+    def _write_bytes(self, data: bytes) -> None:
         """Write bytes to the socket."""
-        if debug_enabled is True:
+        if self._debug_enabled() is True:
             _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, data.hex())
 
         if TYPE_CHECKING:

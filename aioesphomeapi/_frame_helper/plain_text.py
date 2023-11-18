@@ -5,8 +5,8 @@ import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from ..core import ProtocolAPIError, RequiresEncryptionAPIError, SocketAPIError
-from .base import WRITE_EXCEPTIONS, APIFrameHelper
+from ..core import ProtocolAPIError, RequiresEncryptionAPIError
+from .base import APIFrameHelper
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,7 +67,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         The entire packet must be written in a single call.
         """
         out: list[bytes] = []
-        debug_enabled = self._debug_enabled()
         for packet in packets:
             type_: int = packet[0]
             data: bytes = packet[1]
@@ -76,7 +75,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             out.append(varuint_to_bytes(type_))
             out.append(data)
 
-        self._write_bytes(b"".join(out), debug_enabled)
+        self._write_bytes(b"".join(out))
 
     def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
         self, data: bytes | bytearray | memoryview
