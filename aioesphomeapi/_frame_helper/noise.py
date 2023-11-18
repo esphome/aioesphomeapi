@@ -116,7 +116,7 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _handle_error(self, exc: Exception) -> None:
         """Handle an error, and provide a good message when during hello."""
         if isinstance(exc, ConnectionResetError) and self._state == NOISE_STATE_HELLO:
-            original_exc = exc
+            original_exc: Exception = exc
             exc = HandshakeAPIError(
                 f"{self._log_name}: The connection dropped immediately after encrypted hello; "
                 "Try enabling encryption on the device or turning off "
