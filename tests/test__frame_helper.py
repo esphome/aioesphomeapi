@@ -11,7 +11,6 @@ from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 
 from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.base import WRITE_EXCEPTIONS
 from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND, NOISE_HELLO
 from aioesphomeapi._frame_helper.plain_text import _bytes_to_varuint as bytes_to_varuint
 from aioesphomeapi._frame_helper.plain_text import (
@@ -27,6 +26,7 @@ from aioesphomeapi.core import (
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
     SocketAPIError,
+    SocketClosedAPIError,
 )
 
 from .common import async_fire_time_changed, utcnow
@@ -62,8 +62,8 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         try:
             self._writer(header + frame)
-        except WRITE_EXCEPTIONS as err:
-            raise SocketAPIError(
+        except (RuntimeError, ConnectionResetError, OSError) as err:
+            raise SocketClosedAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
