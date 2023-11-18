@@ -5,6 +5,7 @@ from ..connection cimport APIConnection
 
 
 cdef bint TYPE_CHECKING
+cdef object WRITE_EXCEPTIONS
 
 cdef class APIFrameHelper:
 
@@ -32,3 +33,5 @@ cdef class APIFrameHelper:
     cdef _remove_from_buffer(self)
 
     cpdef write_packets(self, list packets)
+
+    cdef _write_bytes(self, bytes data)

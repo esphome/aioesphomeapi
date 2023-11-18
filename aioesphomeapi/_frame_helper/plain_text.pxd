@@ -5,7 +5,6 @@ from .base cimport APIFrameHelper
 
 
 cdef bint TYPE_CHECKING
-cdef object WRITE_EXCEPTIONS
 cdef object bytes_to_varuint, varuint_to_bytes
 
 cpdef _varuint_to_bytes(cython.int value)
@@ -33,6 +32,7 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
     @cython.locals(
         type_="unsigned int",
         data=bytes,
-        packet=tuple
+        packet=tuple,
+        type_=object
     )
     cpdef write_packets(self, list packets)

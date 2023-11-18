@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import binascii
-import logging
 from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable
@@ -20,14 +19,11 @@ from ..core import (
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
-    SocketAPIError,
 )
-from .base import WRITE_EXCEPTIONS, APIFrameHelper
+from .base import APIFrameHelper
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
-
-_LOGGER = logging.getLogger(__name__)
 
 
 PACK_NONCE = partial(Struct("<LQ").pack, 0)
@@ -119,12 +115,18 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _handle_error(self, exc: Exception) -> None:
         """Handle an error, and provide a good message when during hello."""
-        if isinstance(exc, ConnectionResetError) and self._state == NOISE_STATE_HELLO:
-            original_exc = exc
+        if self._state == NOISE_STATE_HELLO and isinstance(exc, ConnectionResetError):
+            original_exc: Exception = exc
             exc = HandshakeAPIError(
                 f"{self._log_name}: The connection dropped immediately after encrypted hello; "
                 "Try enabling encryption on the device or turning off "
                 f"encryption on the client ({self._client_info})."
+            )
+            exc.__cause__ = original_exc
+        elif isinstance(exc, InvalidTag):
+            original_exc = exc
+            exc = InvalidEncryptionKeyAPIError(
+                f"{self._log_name}: Invalid encryption key", self._server_name
             )
             exc.__cause__ = original_exc
         super()._handle_error(exc)
@@ -159,43 +161,26 @@ class APINoiseFrameHelper(APIFrameHelper):
             if frame is None:
                 return
 
-            try:
-                if self._state == NOISE_STATE_READY:
-                    self._handle_frame(frame)
-                elif self._state == NOISE_STATE_HELLO:
-                    self._handle_hello(frame)
-                elif self._state == NOISE_STATE_HANDSHAKE:
-                    self._handle_handshake(frame)
-                else:
-                    self._handle_closed(frame)
-            except Exception as err:  # pylint: disable=broad-except
-                self._handle_error_and_close(err)
-            finally:
-                self._remove_from_buffer()
+            # asyncio already runs data_received in a try block
+            # which will call connection_lost if an exception is raised
+            if self._state == NOISE_STATE_READY:
+                self._handle_frame(frame)
+            elif self._state == NOISE_STATE_HELLO:
+                self._handle_hello(frame)
+            elif self._state == NOISE_STATE_HANDSHAKE:
+                self._handle_handshake(frame)
+            else:
+                self._handle_closed(frame)
+
+            self._remove_from_buffer()
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
-        if TYPE_CHECKING:
-            assert self._writer is not None, "Writer is not set"
-
         handshake_frame = b"\x00" + self._proto.write_message()
         frame_len = len(handshake_frame)
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         hello_handshake = NOISE_HELLO + header + handshake_frame
-
-        if self._debug_enabled():
-            _LOGGER.debug(
-                "%s: Sending encrypted hello handshake: [%s]",
-                self._log_name,
-                hello_handshake.hex(),
-            )
-
-        try:
-            self._writer(hello_handshake)
-        except WRITE_EXCEPTIONS as err:
-            raise SocketAPIError(
-                f"{self._log_name}: Error while writing data: {err}"
-            ) from err
+        self._write_bytes(hello_handshake)
 
     def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
@@ -268,31 +253,25 @@ class APINoiseFrameHelper(APIFrameHelper):
         proto.start_handshake()
         self._proto = proto
 
-    def _handle_handshake(self, msg: bytes) -> None:
-        _LOGGER.debug("Starting handshake...")
-        if msg[0] != 0:
-            explanation = msg[1:].decode()
-            if explanation == "Handshake MAC failure":
-                self._handle_error_and_close(
-                    InvalidEncryptionKeyAPIError(
-                        f"{self._log_name}: Invalid encryption key", self._server_name
-                    )
-                )
-                return
+    def _error_on_incorrect_preamble(self, msg: bytes) -> None:
+        """Handle an incorrect preamble."""
+        explanation = msg[1:].decode()
+        if explanation == "Handshake MAC failure":
             self._handle_error_and_close(
-                HandshakeAPIError(f"{self._log_name}: Handshake failure: {explanation}")
+                InvalidEncryptionKeyAPIError(
+                    f"{self._log_name}: Invalid encryption key", self._server_name
+                )
             )
             return
-        try:
-            self._proto.read_message(msg[1:])
-        except InvalidTag as invalid_tag_exc:
-            ex = InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Invalid encryption key", self._server_name
-            )
-            ex.__cause__ = invalid_tag_exc
-            self._handle_error_and_close(ex)
+        self._handle_error_and_close(
+            HandshakeAPIError(f"{self._log_name}: Handshake failure: {explanation}")
+        )
+
+    def _handle_handshake(self, msg: bytes) -> None:
+        if msg[0] != 0:
+            self._error_on_incorrect_preamble(msg)
             return
-        _LOGGER.debug("Handshake complete")
+        self._proto.read_message(msg[1:])
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
         self._decrypt = partial(
@@ -315,10 +294,8 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         if TYPE_CHECKING:
             assert self._encrypt is not None, "Handshake should be complete"
-            assert self._writer is not None, "Writer is not set"
 
         out: list[bytes] = []
-        debug_enabled = self._debug_enabled()
         for packet in packets:
             type_: int = packet[0]
             data: bytes = packet[1]
@@ -332,33 +309,18 @@ class APINoiseFrameHelper(APIFrameHelper):
                 )
             )
             frame = self._encrypt(data_header + data)
-
-            if debug_enabled is True:
-                _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, frame.hex())
-
             frame_len = len(frame)
             header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
             out.append(header)
             out.append(frame)
 
-        try:
-            self._writer(b"".join(out))
-        except WRITE_EXCEPTIONS as err:
-            raise SocketAPIError(
-                f"{self._log_name}: Error while writing data: {err}"
-            ) from err
+        self._write_bytes(b"".join(out))
 
     def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt is not None, "Handshake should be complete"
-        try:
-            msg = self._decrypt(frame)
-        except InvalidTag as ex:
-            self._handle_error_and_close(
-                ProtocolAPIError(f"{self._log_name}: Bad encryption frame: {ex!r}")
-            )
-            return
+        msg = self._decrypt(frame)
         # Message layout is
         # 2 bytes: message type
         # 2 bytes: message length

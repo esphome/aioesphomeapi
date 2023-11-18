@@ -186,13 +186,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         try:
             await self._cli.start_connection(on_stop=self._on_disconnect)
         except Exception as err:  # pylint: disable=broad-except
-            self._async_set_connection_state_while_locked(
-                ReconnectLogicState.DISCONNECTED
-            )
-            if self._on_connect_error_cb is not None:
-                await self._on_connect_error_cb(err)
-            self._async_log_connection_error(err)
-            self._tries += 1
+            await self._handle_connection_failure(err)
             return False
         finish_connect_time = time.perf_counter()
         connect_time = finish_connect_time - start_connect_time
@@ -204,18 +198,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         try:
             await self._cli.finish_connection(login=True)
         except Exception as err:  # pylint: disable=broad-except
-            self._async_set_connection_state_while_locked(
-                ReconnectLogicState.DISCONNECTED
-            )
-            if self._on_connect_error_cb is not None:
-                await self._on_connect_error_cb(err)
-            self._async_log_connection_error(err)
-            if isinstance(err, AUTH_EXCEPTIONS):
-                # If we get an encryption or password error,
-                # backoff for the maximum amount of time
-                self._tries = MAXIMUM_BACKOFF_TRIES
-            else:
-                self._tries += 1
+            await self._handle_connection_failure(err)
             return False
         self._tries = 0
         finish_handshake_time = time.perf_counter()
@@ -226,6 +209,19 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         await self._on_connect_cb()
         return True
+
+    async def _handle_connection_failure(self, err: Exception) -> None:
+        """Handle a connection failure."""
+        self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
+        if self._on_connect_error_cb is not None:
+            await self._on_connect_error_cb(err)
+        self._async_log_connection_error(err)
+        if isinstance(err, AUTH_EXCEPTIONS):
+            # If we get an encryption or password error,
+            # backoff for the maximum amount of time
+            self._tries = MAXIMUM_BACKOFF_TRIES
+        else:
+            self._tries += 1
 
     def _schedule_connect(self, delay: float) -> None:
         """Schedule a connect attempt."""
