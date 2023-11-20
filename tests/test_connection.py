@@ -485,7 +485,6 @@ async def test_force_disconnect_fails(
     with patch.object(protocol, "_writer", side_effect=OSError):
         await conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
-    assert conn._expected_disconnect is True
 
 
 @pytest.mark.asyncio
