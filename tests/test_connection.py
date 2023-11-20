@@ -7,11 +7,11 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from aioesphomeapi.api_pb2 import DisconnectRequest
-from aioesphomeapi.core import SocketAPIError
+
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
+    DisconnectRequest,
     HelloResponse,
     PingRequest,
     PingResponse,
@@ -22,13 +22,14 @@ from aioesphomeapi.core import (
     HandshakeAPIError,
     InvalidAuthAPIError,
     RequiresEncryptionAPIError,
+    SocketAPIError,
     TimeoutAPIError,
 )
 
 from .common import (
-    generate_plaintext_packet,
     async_fire_time_changed,
     connect,
+    generate_plaintext_packet,
     send_plaintext_connect_response,
     send_plaintext_hello,
     utcnow,
