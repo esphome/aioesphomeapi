@@ -7,7 +7,8 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
+from aioesphomeapi.api_pb2 import DisconnectRequest
+from aioesphomeapi.core import SocketAPIError
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
@@ -25,6 +26,7 @@ from aioesphomeapi.core import (
 )
 
 from .common import (
+    generate_plaintext_packet,
     async_fire_time_changed,
     connect,
     send_plaintext_connect_response,
@@ -461,3 +463,49 @@ async def test_connect_correct_password(
     await connect_task
 
     assert conn.is_connected
+
+
+
+@pytest.mark.asyncio
+async def test_force_disconnect_fails(
+    caplog: pytest.LogCaptureFixture,
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, False)
+
+    await connect_task
+    assert conn.is_connected
+
+    with patch.object(protocol,"write_packets", side_effect=SocketAPIError):
+        await conn.force_disconnect()
+    assert "Failed to send (forced) disconnect request" in caplog.text
+    assert conn._expected_disconnect is True
+
+
+
+
+@pytest.mark.asyncio
+async def test_disconnect_fails_to_send_response(
+    caplog: pytest.LogCaptureFixture,
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, False)
+
+    await connect_task
+    assert conn.is_connected
+
+    with pytest.raises(SocketAPIError), patch.object(protocol,"write_packets", side_effect=SocketAPIError):
+        disconnect_request = DisconnectRequest()
+        protocol.data_received(generate_plaintext_packet(disconnect_request))
+
+    assert conn._expected_disconnect is True

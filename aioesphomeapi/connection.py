@@ -883,8 +883,11 @@ class APIConnection:
         self, _msg: DisconnectRequest
     ) -> None:
         """Handle a DisconnectRequest."""
-        self.send_message(DISCONNECT_RESPONSE_MESSAGE)
+        # Set _expected_disconnect to True before sending
+        # the response if for some reason sending the response
+        # fails we will still mark the disconnect as expected
         self._expected_disconnect = True
+        self.send_message(DISCONNECT_RESPONSE_MESSAGE)
         self._cleanup()
 
     def _handle_ping_request_internal(  # pylint: disable=unused-argument
