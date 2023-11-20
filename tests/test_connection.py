@@ -492,6 +492,8 @@ async def test_force_disconnect_fails(
 async def test_disconnect_fails_to_send_response(
     connection_params: ConnectionParams,
     event_loop: asyncio.AbstractEventLoop,
+    resolve_host,
+    socket_socket
 ) -> None:
     loop = asyncio.get_event_loop()
     protocol: APIPlaintextFrameHelper | None = None
