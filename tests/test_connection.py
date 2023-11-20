@@ -465,7 +465,6 @@ async def test_connect_correct_password(
     assert conn.is_connected
 
 
-
 @pytest.mark.asyncio
 async def test_force_disconnect_fails(
     caplog: pytest.LogCaptureFixture,
@@ -481,12 +480,10 @@ async def test_force_disconnect_fails(
     await connect_task
     assert conn.is_connected
 
-    with patch.object(protocol,"write_packets", side_effect=SocketAPIError):
+    with patch.object(protocol, "_writer", side_effect=OSError):
         await conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
     assert conn._expected_disconnect is True
-
-
 
 
 @pytest.mark.asyncio
@@ -504,7 +501,9 @@ async def test_disconnect_fails_to_send_response(
     await connect_task
     assert conn.is_connected
 
-    with pytest.raises(SocketAPIError), patch.object(protocol,"write_packets", side_effect=SocketAPIError):
+    with pytest.raises(SocketAPIError), patch.object(
+        protocol, "_writer", side_effect=OSError
+    ):
         disconnect_request = DisconnectRequest()
         protocol.data_received(generate_plaintext_packet(disconnect_request))
 
