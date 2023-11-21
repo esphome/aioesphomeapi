@@ -31,6 +31,7 @@ from .common import (
     async_fire_time_changed,
     connect,
     generate_plaintext_packet,
+    get_mock_protocol,
     send_ping_response,
     send_plaintext_connect_response,
     send_plaintext_hello,
@@ -39,17 +40,6 @@ from .common import (
 from .conftest import KEEP_ALIVE_INTERVAL
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
-
-
-def _get_mock_protocol(conn: APIConnection):
-    protocol = APIPlaintextFrameHelper(
-        connection=conn,
-        client_info="mock",
-        log_name="mock_device",
-    )
-    transport = MagicMock()
-    protocol.connection_made(transport)
-    return protocol
 
 
 @pytest.mark.asyncio
@@ -152,7 +142,7 @@ async def test_disconnect_when_not_fully_connected(
 @pytest.mark.asyncio
 async def test_requires_encryption_propagates(conn: APIConnection):
     loop = asyncio.get_event_loop()
-    protocol = _get_mock_protocol(conn)
+    protocol = get_mock_protocol(conn)
     with patch.object(loop, "create_connection") as create_connection:
         create_connection.return_value = (MagicMock(), protocol)
 
@@ -357,7 +347,7 @@ async def test_plaintext_connection_fails_handshake(
     """
     loop = asyncio.get_event_loop()
     exception, raised_exception = exception_map
-    protocol = _get_mock_protocol(conn)
+    protocol = get_mock_protocol(conn)
     messages = []
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()

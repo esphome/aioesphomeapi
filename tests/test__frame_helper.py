@@ -4,7 +4,7 @@ import asyncio
 import base64
 from datetime import timedelta
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
@@ -20,16 +20,17 @@ from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
 )
 from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
+from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
+    APIConnectionError,
     BadNameAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
-    SocketAPIError,
     SocketClosedAPIError,
 )
 
-from .common import async_fire_time_changed, utcnow
+from .common import async_fire_time_changed, get_mock_protocol, utcnow
 
 PREAMBLE = b"\x00"
 
@@ -385,6 +386,10 @@ def test_bytes_to_varuint(val, encoded):
     assert cached_bytes_to_varuint(encoded) == val
 
 
+def test_bytes_to_varuint_invalid():
+    assert bytes_to_varuint(b"\xFF") is None
+
+
 @pytest.mark.asyncio
 async def test_noise_frame_helper_handshake_failure():
     """Test the noise frame helper handshake failure."""
@@ -568,3 +573,52 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
     with pytest.raises(ProtocolAPIError, match="Connection closed"):
         helper.data_received(encrypted_header + encrypted_payload)
+
+
+@pytest.mark.asyncio
+async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
+    loop = asyncio.get_event_loop()
+    protocol = get_mock_protocol(conn)
+    with patch.object(loop, "create_connection") as create_connection:
+        create_connection.return_value = (MagicMock(), protocol)
+
+        conn._socket = MagicMock()
+        await conn._connect_init_frame_helper()
+        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
+        conn.connection_state = ConnectionState.CONNECTED
+
+    task = asyncio.create_task(conn._connect_hello_login(login=True))
+    await asyncio.sleep(0)
+    # The preamble should be \x00 but we send \x09
+    protocol.data_received(b"\x09\x00\x00")
+
+    with pytest.raises(ProtocolAPIError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_eof_received_closes_connection(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    assert protocol.eof_received() is False
+    assert conn.is_connected is False
+    with pytest.raises(SocketClosedAPIError, match="EOF received"):
+        await connect_task
+
+
+@pytest.mark.asyncio
+async def test_connection_lost_closes_connection_and_logs(
+    caplog: pytest.LogCaptureFixture,
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    protocol.connection_lost(OSError("original message"))
+    assert conn.is_connected is False
+    assert "original message" in caplog.text
+    with pytest.raises(APIConnectionError, match="original message"):
+        await connect_task
