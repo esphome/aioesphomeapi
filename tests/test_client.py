@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -434,6 +435,23 @@ async def test_media_player_command(auth_client, cmd, req):
 
     await auth_client.media_player_command(**cmd)
     send.assert_called_once_with(MediaPlayerCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, state=False), dict(key=1, state=False)),
+        (dict(key=1, state=True), dict(key=1, state=True)),
+    ],
+)
+async def test_button_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    await auth_client.button_command(**cmd)
+    send.assert_called_once_with(SwitchCommandRequest(**req))
 
 
 @pytest.mark.asyncio
