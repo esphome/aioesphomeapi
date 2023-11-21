@@ -97,7 +97,7 @@ async def test_timeout_sending_message(
 
     with pytest.raises(TimeoutAPIError):
         await conn.send_messages_await_response_complex(
-            (PingRequest(),), None, None, (PingResponse,), timeout=0
+            (PingRequest(),), None, None, (PingResponse,), 0
         )
 
     transport.reset_mock()

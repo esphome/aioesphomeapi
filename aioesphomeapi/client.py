@@ -451,7 +451,7 @@ class APIClient:
 
         assert self._connection is not None
         resp = await self._connection.send_messages_await_response_complex(
-            (ListEntitiesRequest(),), do_append, do_stop, msg_types, timeout=60
+            (ListEntitiesRequest(),), do_append, do_stop, msg_types, 60
         )
         entities: list[EntityInfo] = []
         services: list[UserService] = []
@@ -567,7 +567,7 @@ class APIClient:
 
         message_filter = partial(self._filter_bluetooth_message, address, handle)
         resp = await self._connection.send_messages_await_response_complex(
-            (request,), message_filter, message_filter, msg_types, timeout=timeout
+            (request,), message_filter, message_filter, msg_types, timeout
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
@@ -893,7 +893,7 @@ class APIClient:
             do_append,
             do_stop,
             msg_types,
-            timeout=DEFAULT_BLE_TIMEOUT,
+            DEFAULT_BLE_TIMEOUT,
         )
         services = []
         for msg in resp:
