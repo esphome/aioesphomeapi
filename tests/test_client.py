@@ -15,6 +15,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceUnpairingResponse,
+    ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -441,8 +442,7 @@ async def test_media_player_command(auth_client, cmd, req):
 @pytest.mark.parametrize(
     "cmd, req",
     [
-        (dict(key=1, state=False), dict(key=1, state=False)),
-        (dict(key=1, state=True), dict(key=1, state=True)),
+        (dict(key=1), dict(key=1)),
     ],
 )
 async def test_button_command(
@@ -451,7 +451,7 @@ async def test_button_command(
     send = patch_send(auth_client)
 
     await auth_client.button_command(**cmd)
-    send.assert_called_once_with(SwitchCommandRequest(**req))
+    send.assert_called_once_with(ButtonCommandRequest(**req))
 
 
 @pytest.mark.asyncio
