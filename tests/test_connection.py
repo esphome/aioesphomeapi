@@ -601,6 +601,7 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
     send_plaintext_connect_response(protocol, False)
 
     await connect_task
+    ping_request_bytes = b"\x00\x00\x07"
 
     assert conn.is_connected
     transport.reset_mock()
@@ -611,6 +612,10 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
             start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL * count)
         )
         send_ping_response(protocol)
+
+    # We should only send 1 ping request if we are getting responses
+    assert transport.write.call_count == 1
+    assert transport.write.mock_calls == [call(ping_request_bytes)]
 
     # We should disconnect if we are getting ping responses
     assert conn.is_connected is True
