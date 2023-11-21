@@ -343,7 +343,7 @@ class APIConnection:
         if TYPE_CHECKING:
             assert self._socket is not None
 
-        fh_args = {
+        fh_args: dict[str, Any] = {
             "connection": self,
             "client_info": self._params.client_info,
             "log_name": self.log_name,
