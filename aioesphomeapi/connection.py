@@ -911,10 +911,10 @@ class APIConnection:
             # Try to wait for the handshake to finish so we can send
             # a disconnect request. If it doesn't finish in time
             # we will just close the socket.
-            _, pending = await asyncio.wait(
-                [self._finish_connect_task], timeout=DISCONNECT_CONNECT_TIMEOUT
-            )
-            if pending:
+            try:
+                async with asyncio_timeout(DISCONNECT_WAIT_CONNECT_TIMEOUT):
+                    await self._finish_connect_task
+            except asyncio_TimeoutError:
                 self._fatal_exception = TimeoutAPIError(
                     "Timed out waiting to finish connect before disconnecting"
                 )
