@@ -4,7 +4,7 @@ import asyncio
 import base64
 from datetime import timedelta
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
@@ -20,6 +20,7 @@ from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
 )
 from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
+from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     BadNameAPIError,
     HandshakeAPIError,
@@ -28,7 +29,7 @@ from aioesphomeapi.core import (
     SocketClosedAPIError,
 )
 
-from .common import async_fire_time_changed, utcnow
+from .common import async_fire_time_changed, get_mock_protocol, utcnow
 
 PREAMBLE = b"\x00"
 
@@ -387,6 +388,7 @@ def test_bytes_to_varuint(val, encoded):
 def test_bytes_to_varuint_invalid():
     assert bytes_to_varuint(b"\xFF") is None
 
+
 @pytest.mark.asyncio
 async def test_noise_frame_helper_handshake_failure():
     """Test the noise frame helper handshake failure."""
@@ -570,3 +572,23 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
     with pytest.raises(ProtocolAPIError, match="Connection closed"):
         helper.data_received(encrypted_header + encrypted_payload)
+
+
+@pytest.mark.asyncio
+async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
+    loop = asyncio.get_event_loop()
+    protocol = get_mock_protocol(conn)
+    with patch.object(loop, "create_connection") as create_connection:
+        create_connection.return_value = (MagicMock(), protocol)
+
+        conn._socket = MagicMock()
+        await conn._connect_init_frame_helper()
+        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
+        conn.connection_state = ConnectionState.CONNECTED
+
+        with pytest.raises(ProtocolAPIError):
+            task = asyncio.create_task(conn._connect_hello_login(login=True))
+            await asyncio.sleep(0)
+            # The preamble should be \x00 but we send \x09
+            protocol.data_received(b"\x09\x00\x00")
+            await task

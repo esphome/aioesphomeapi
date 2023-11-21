@@ -58,11 +58,7 @@ from aioesphomeapi.model import (
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
-from .common import (
-    Estr,
-    generate_plaintext_packet,
-    get_mock_zeroconf,
-)
+from .common import Estr, generate_plaintext_packet, get_mock_zeroconf
 
 
 @pytest.fixture
