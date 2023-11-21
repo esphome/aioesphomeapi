@@ -48,7 +48,7 @@ void = _reflection.GeneratedProtocolMessageType('void', (_message.Message,), {
   })
 _sym_db.RegisterMessage(void)
 
-if _descriptor._USE_C_DESCRIPTORS is False:
+if _descriptor._USE_C_DESCRIPTORS == False:
   google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(needs_setup_connection)
   google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(needs_authentication)
   google_dot_protobuf_dot_descriptor__pb2.MessageOptions.RegisterExtension(id)
