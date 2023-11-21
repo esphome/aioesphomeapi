@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,6 +15,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceUnpairingResponse,
+    ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
@@ -126,14 +128,16 @@ def patch_api_version(client: APIClient, version: APIVersion):
         ),
     ],
 )
-async def test_list_entities(auth_client, input, output):
+async def test_list_entities(
+    auth_client: APIClient, input: dict[str, Any], output: dict[str, Any]
+) -> None:
     patch_response_complex(auth_client, input)
     resp = await auth_client.list_entities_services()
     assert resp == output
 
 
 @pytest.mark.asyncio
-async def test_subscribe_states(auth_client):
+async def test_subscribe_states(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_state = MagicMock()
     await auth_client.subscribe_states(on_state)
@@ -144,7 +148,7 @@ async def test_subscribe_states(auth_client):
 
 
 @pytest.mark.asyncio
-async def test_subscribe_states_camera(auth_client):
+async def test_subscribe_states_camera(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_state = MagicMock()
     await auth_client.subscribe_states(on_state)
@@ -180,7 +184,9 @@ async def test_subscribe_states_camera(auth_client):
         ),
     ],
 )
-async def test_cover_command_legacy(auth_client, cmd, req):
+async def test_cover_command_legacy(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 0))
 
@@ -202,7 +208,9 @@ async def test_cover_command_legacy(auth_client, cmd, req):
         ),
     ],
 )
-async def test_cover_command(auth_client, cmd, req):
+async def test_cover_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 1))
 
@@ -234,7 +242,9 @@ async def test_cover_command(auth_client, cmd, req):
         ),
     ],
 )
-async def test_fan_command(auth_client, cmd, req):
+async def test_fan_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.fan_command(**cmd)
@@ -268,7 +278,9 @@ async def test_fan_command(auth_client, cmd, req):
         (dict(key=1, effect="special"), dict(key=1, has_effect=True, effect="special")),
     ],
 )
-async def test_light_command(auth_client, cmd, req):
+async def test_light_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.light_command(**cmd)
@@ -283,7 +295,9 @@ async def test_light_command(auth_client, cmd, req):
         (dict(key=1, state=True), dict(key=1, state=True)),
     ],
 )
-async def test_switch_command(auth_client, cmd, req):
+async def test_switch_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.switch_command(**cmd)
@@ -304,7 +318,9 @@ async def test_switch_command(auth_client, cmd, req):
         ),
     ],
 )
-async def test_climate_command_legacy(auth_client, cmd, req):
+async def test_climate_command_legacy(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 4))
 
@@ -354,7 +370,9 @@ async def test_climate_command_legacy(auth_client, cmd, req):
         ),
     ],
 )
-async def test_climate_command(auth_client, cmd, req):
+async def test_climate_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 5))
 
@@ -370,7 +388,9 @@ async def test_climate_command(auth_client, cmd, req):
         (dict(key=1, state=100.0), dict(key=1, state=100.0)),
     ],
 )
-async def test_number_command(auth_client, cmd, req):
+async def test_number_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.number_command(**cmd)
@@ -389,7 +409,9 @@ async def test_number_command(auth_client, cmd, req):
         (dict(key=1, command=LockCommand.OPEN), dict(key=1, command=LockCommand.OPEN)),
     ],
 )
-async def test_lock_command(auth_client, cmd, req):
+async def test_lock_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.lock_command(**cmd)
@@ -404,7 +426,9 @@ async def test_lock_command(auth_client, cmd, req):
         (dict(key=1, state="Two"), dict(key=1, state="Two")),
     ],
 )
-async def test_select_command(auth_client, cmd, req):
+async def test_select_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.select_command(**cmd)
@@ -429,7 +453,9 @@ async def test_select_command(auth_client, cmd, req):
         ),
     ],
 )
-async def test_media_player_command(auth_client, cmd, req):
+async def test_media_player_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.media_player_command(**cmd)
@@ -437,7 +463,23 @@ async def test_media_player_command(auth_client, cmd, req):
 
 
 @pytest.mark.asyncio
-async def test_execute_service(auth_client):
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1), dict(key=1)),
+    ],
+)
+async def test_button_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    await auth_client.button_command(**cmd)
+    send.assert_called_once_with(ButtonCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+async def test_execute_service(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 3))
 
@@ -539,7 +581,7 @@ async def test_execute_service(auth_client):
 
 
 @pytest.mark.asyncio
-async def test_request_single_image(auth_client):
+async def test_request_single_image(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
     await auth_client.request_single_image()
@@ -547,7 +589,7 @@ async def test_request_single_image(auth_client):
 
 
 @pytest.mark.asyncio
-async def test_request_image_stream(auth_client):
+async def test_request_image_stream(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
     await auth_client.request_image_stream()
@@ -572,7 +614,9 @@ async def test_request_image_stream(auth_client):
         ),
     ],
 )
-async def test_alarm_panel_command(auth_client, cmd, req):
+async def test_alarm_panel_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.alarm_control_panel_command(**cmd)
@@ -587,7 +631,9 @@ async def test_alarm_panel_command(auth_client, cmd, req):
         (dict(key=1, state="goodbye"), dict(key=1, state="goodbye")),
     ],
 )
-async def test_text_command(auth_client, cmd, req):
+async def test_text_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.text_command(**cmd)
