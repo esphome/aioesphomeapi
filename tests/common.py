@@ -114,9 +114,6 @@ def send_plaintext_connect_response(
     protocol.data_received(generate_plaintext_packet(connect_response))
 
 
-
-def send_ping_response(
-    protocol: APIPlaintextFrameHelper
-) -> None:
+def send_ping_response(protocol: APIPlaintextFrameHelper) -> None:
     ping_response: message.Message = PingResponse()
     protocol.data_received(generate_plaintext_packet(ping_response))

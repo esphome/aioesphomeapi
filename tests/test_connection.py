@@ -4,9 +4,10 @@ import asyncio
 from collections.abc import Coroutine
 from datetime import timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch,call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -25,18 +26,20 @@ from aioesphomeapi.core import (
     SocketAPIError,
     TimeoutAPIError,
 )
-from .conftest import KEEP_ALIVE_INTERVAL
+
 from .common import (
     async_fire_time_changed,
     connect,
     generate_plaintext_packet,
+    send_ping_response,
     send_plaintext_connect_response,
     send_plaintext_hello,
-    send_ping_response,
     utcnow,
 )
+from .conftest import KEEP_ALIVE_INTERVAL
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
+
 
 def _get_mock_protocol(conn: APIConnection):
     protocol = APIPlaintextFrameHelper(
@@ -566,21 +569,24 @@ async def test_ping_disconnects_after_no_responses(
     expected_calls = []
     start_time = utcnow()
     max_pings_to_disconnect_after = int(KEEP_ALIVE_TIMEOUT_RATIO)
-    for count in range (1,max_pings_to_disconnect_after+1):
-        async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL* count))
+    for count in range(1, max_pings_to_disconnect_after + 1):
+        async_fire_time_changed(
+            start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL * count)
+        )
         assert transport.write.call_count == count
         expected_calls.append(call(ping_request_bytes))
         assert transport.write.mock_calls == expected_calls
 
-
     assert conn.is_connected is True
 
     # We should disconnect once we reach more than 4 missed pings
-    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL* (max_pings_to_disconnect_after+1)))
+    async_fire_time_changed(
+        start_time
+        + timedelta(seconds=KEEP_ALIVE_INTERVAL * (max_pings_to_disconnect_after + 1))
+    )
     assert transport.write.call_count == max_pings_to_disconnect_after
 
     assert conn.is_connected is False
-
 
 
 @pytest.mark.asyncio
@@ -600,8 +606,10 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
     transport.reset_mock()
     start_time = utcnow()
     max_pings_to_disconnect_after = int(KEEP_ALIVE_TIMEOUT_RATIO)
-    for count in range (1,max_pings_to_disconnect_after+2):
-        async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL* count))
+    for count in range(1, max_pings_to_disconnect_after + 2):
+        async_fire_time_changed(
+            start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL * count)
+        )
         send_ping_response(protocol)
 
     # We should disconnect if we are getting ping responses

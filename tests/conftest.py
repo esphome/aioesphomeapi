@@ -18,6 +18,7 @@ from .common import connect, get_mock_async_zeroconf, send_plaintext_hello
 
 KEEP_ALIVE_INTERVAL = 15.0
 
+
 @pytest.fixture
 def async_zeroconf():
     return get_mock_async_zeroconf()
