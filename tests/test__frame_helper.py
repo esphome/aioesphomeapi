@@ -586,9 +586,10 @@ async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
         loop.call_soon(conn._frame_helper._ready_future.set_result, None)
         conn.connection_state = ConnectionState.CONNECTED
 
-        with pytest.raises(ProtocolAPIError):
-            task = asyncio.create_task(conn._connect_hello_login(login=True))
-            await asyncio.sleep(0)
-            # The preamble should be \x00 but we send \x09
-            protocol.data_received(b"\x09\x00\x00")
-            await task
+    task = asyncio.create_task(conn._connect_hello_login(login=True))
+    await asyncio.sleep(0)
+    # The preamble should be \x00 but we send \x09
+    protocol.data_received(b"\x09\x00\x00")
+
+    with pytest.raises(ProtocolAPIError):
+        await task
