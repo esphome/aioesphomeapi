@@ -41,7 +41,7 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
-from aioesphomeapi.core import APIConnectionError
+from aioesphomeapi.core import APIConnectionError, TimeoutAPIError
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -944,6 +944,26 @@ async def test_bluetooth_gatt_write(
 
 
 @pytest.mark.asyncio
+async def test_bluetooth_gatt_write_without_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_write without response."""
+    client, connection, transport, protocol = api_client
+    transport.reset_mock()
+    write_task = asyncio.create_task(
+        client.bluetooth_gatt_write(1234, 1234, b"1234", False)
+    )
+    await asyncio.sleep(0)
+    await write_task
+    assert transport.mock_calls[0][1][0] == b'\x00\x0cK\x08\xd2\t\x10\xd2\t"\x041234'
+
+    with pytest.raises(TimeoutAPIError, match="BluetoothGATTWriteResponse"):
+        await client.bluetooth_gatt_write(1234, 1234, b"1234", True, timeout=0)
+
+
+@pytest.mark.asyncio
 async def test_bluetooth_gatt_write_descriptor(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -964,6 +984,28 @@ async def test_bluetooth_gatt_write_descriptor(
     response: message.Message = BluetoothGATTWriteResponse(address=1234, handle=1234)
     protocol.data_received(generate_plaintext_packet(response))
     await write_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_write_descriptor_without_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_write_descriptor without response."""
+    client, connection, transport, protocol = api_client
+    transport.reset_mock()
+    write_task = asyncio.create_task(
+        client.bluetooth_gatt_write_descriptor(
+            1234, 1234, b"1234", wait_for_response=False
+        )
+    )
+    await asyncio.sleep(0)
+    await write_task
+    assert transport.mock_calls[0][1][0] == b"\x00\x0cM\x08\xd2\t\x10\xd2\t\x1a\x041234"
+
+    with pytest.raises(TimeoutAPIError, match="BluetoothGATTWriteResponse"):
+        await client.bluetooth_gatt_write_descriptor(1234, 1234, b"1234", timeout=0)
 
 
 @pytest.mark.asyncio
