@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import socket
 from datetime import timedelta
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
@@ -597,27 +598,29 @@ async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
 
 
 @pytest.mark.asyncio
-async def test_init_noise_with_wrong_preamble(noise_conn: APIConnection) -> None:
+async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:
     loop = asyncio.get_event_loop()
-    protocol = get_mock_protocol(noise_conn)
-    with patch.object(loop, "create_connection") as create_connection:
-        create_connection.return_value = (MagicMock(), protocol)
 
-        noise_conn._socket = MagicMock()
-        await noise_conn._connect_init_frame_helper()
-        loop.call_soon(noise_conn._frame_helper._ready_future.set_result, None)
-        noise_conn.connection_state = ConnectionState.CONNECTED
+    noise_conn._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    transport = MagicMock()
+    protocol: APINoiseFrameHelper
 
-    assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
-    task = asyncio.create_task(noise_conn._connect_hello_login(login=True))
-    await asyncio.sleep(0)
-    # The preamble should be \x01 but we send \x00
-    # which means the noise frame helper will raise
-    # because it expects a noise hello packet and not
-    # a plaintext hello packet
-    protocol.data_received(b"\x00\x00\x00")
-    with pytest.raises(ProtocolAPIError):
-        await task
+    async def _create_connection(create, sock, *args, **kwargs):
+        nonlocal protocol
+        protocol = create()
+        protocol.connection_made(transport)
+        return transport, protocol
+
+    with patch.object(loop, "create_connection", side_effect=_create_connection):
+        task = asyncio.create_task(noise_conn._connect_init_frame_helper())
+        await asyncio.sleep(0)
+
+        assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
+
+        protocol.data_received(b"\x00\x00\x00")
+
+        with pytest.raises(ProtocolAPIError, match="Marker byte invalid"):
+            await task
 
 
 @pytest.mark.asyncio
