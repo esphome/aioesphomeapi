@@ -15,6 +15,8 @@ from aioesphomeapi.api_pb2 import (
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceUnpairingResponse,
+    BluetoothGATTReadResponse,
+    BluetoothGATTWriteResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -870,3 +872,118 @@ async def test_device_info(
     await disconnect_task
     with pytest.raises(APIConnectionError, match="CLOSED"):
         await client.device_info()
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_read(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_read."""
+    client, connection, transport, protocol = api_client
+    read_task = asyncio.create_task(client.bluetooth_gatt_read(1234, 1234))
+    await asyncio.sleep(0)
+
+    other_response: message.Message = BluetoothGATTReadResponse(
+        address=1234, handle=4567, data=b"4567"
+    )
+    protocol.data_received(generate_plaintext_packet(other_response))
+
+    response: message.Message = BluetoothGATTReadResponse(
+        address=1234, handle=1234, data=b"1234"
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    assert await read_task == b"1234"
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_read_descriptor(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_read_descriptor."""
+    client, connection, transport, protocol = api_client
+    read_task = asyncio.create_task(client.bluetooth_gatt_read_descriptor(1234, 1234))
+    await asyncio.sleep(0)
+
+    other_response: message.Message = BluetoothGATTReadResponse(
+        address=1234, handle=4567, data=b"4567"
+    )
+    protocol.data_received(generate_plaintext_packet(other_response))
+
+    response: message.Message = BluetoothGATTReadResponse(
+        address=1234, handle=1234, data=b"1234"
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    assert await read_task == b"1234"
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_write(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_write."""
+    client, connection, transport, protocol = api_client
+    write_task = asyncio.create_task(
+        client.bluetooth_gatt_write(1234, 1234, b"1234", True)
+    )
+    await asyncio.sleep(0)
+
+    other_response: message.Message = BluetoothGATTWriteResponse(
+        address=1234, handle=4567
+    )
+    protocol.data_received(generate_plaintext_packet(other_response))
+
+    response: message.Message = BluetoothGATTWriteResponse(address=1234, handle=1234)
+    protocol.data_received(generate_plaintext_packet(response))
+    await write_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_write_descriptor(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_write_descriptor."""
+    client, connection, transport, protocol = api_client
+    write_task = asyncio.create_task(
+        client.bluetooth_gatt_write_descriptor(1234, 1234, b"1234", True)
+    )
+    await asyncio.sleep(0)
+
+    other_response: message.Message = BluetoothGATTWriteResponse(
+        address=1234, handle=4567
+    )
+    protocol.data_received(generate_plaintext_packet(other_response))
+
+    response: message.Message = BluetoothGATTWriteResponse(address=1234, handle=1234)
+    protocol.data_received(generate_plaintext_packet(response))
+    await write_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_read_descriptor(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_read_descriptor."""
+    client, connection, transport, protocol = api_client
+    read_task = asyncio.create_task(client.bluetooth_gatt_read_descriptor(1234, 1234))
+    await asyncio.sleep(0)
+
+    other_response: message.Message = BluetoothGATTReadResponse(
+        address=1234, handle=4567, data=b"4567"
+    )
+    protocol.data_received(generate_plaintext_packet(other_response))
+
+    response: message.Message = BluetoothGATTReadResponse(
+        address=1234, handle=1234, data=b"1234"
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    assert await read_task == b"1234"
