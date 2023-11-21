@@ -20,6 +20,7 @@ from aioesphomeapi.api_pb2 import (
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
+    ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
     RequiresEncryptionAPIError,
@@ -609,3 +610,12 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
 
     # We should disconnect if we are getting ping responses
     assert conn.is_connected is True
+
+
+def test_raise_during_send_messages_when_not_yet_connected(conn: APIConnection) -> None:
+    """Test that we raise when sending messages before we are connected."""
+    with pytest.raises(ConnectionNotEstablishedAPIError):
+        conn.send_message(PingRequest())
+
+    with pytest.raises(ConnectionNotEstablishedAPIError):
+        conn.send_messages((PingRequest(),))
