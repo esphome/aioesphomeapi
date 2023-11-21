@@ -339,7 +339,8 @@ class APIConnection:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
         fh: APIPlaintextFrameHelper | APINoiseFrameHelper
         loop = self._loop
-        assert self._socket is not None
+        if TYPE_CHECKING:
+            assert self._socket is not None
 
         if (noise_psk := self._params.noise_psk) is None:
             _, fh = await loop.create_connection(  # type: ignore[type-var]
