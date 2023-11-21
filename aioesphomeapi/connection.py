@@ -386,7 +386,7 @@ class APIConnection:
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
         messages = [self._make_hello_request()]
-        msg_types = (HelloResponse,)
+        msg_types = [HelloResponse]
         if login:
             messages.append(self._make_connect_request())
             msg_types.append(ConnectResponse)
