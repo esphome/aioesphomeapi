@@ -95,11 +95,6 @@ TCP_CONNECT_TIMEOUT = 60.0
 DISCONNECT_WAIT_CONNECT_TIMEOUT = 5.0
 
 
-in_do_connect: contextvars.ContextVar[bool | None] = contextvars.ContextVar(
-    "in_do_connect"
-)
-
-
 _int = int
 _bytes = bytes
 _float = float
@@ -236,11 +231,19 @@ class APIConnection:
         # If we are being called from do_connect we
         # need to make sure we don't cancel the task
         # that called us
-        if self._start_connect_task is not None and not in_do_connect.get(False):
+        current_task = asyncio.current_task()
+
+        if (
+            self._start_connect_task is not None
+            and self._start_connect_task is not current_task
+        ):
             self._start_connect_task.cancel("Connection cleanup")
             self._start_connect_task = None
 
-        if self._finish_connect_task is not None and not in_do_connect.get(False):
+        if (
+            self._finish_connect_task is not None
+            and self._finish_connect_task is not current_task
+        ):
             self._finish_connect_task.cancel("Connection cleanup")
             self._finish_connect_task = None
 
@@ -512,7 +515,6 @@ class APIConnection:
 
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
-        in_do_connect.set(True)
         self.resolved_addr_info = await self._connect_resolve_host()
         await self._connect_socket_connect(self.resolved_addr_info)
 
@@ -567,7 +569,6 @@ class APIConnection:
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
-        in_do_connect.set(True)
         await self._connect_init_frame_helper()
         self._register_internal_message_handlers()
         await self._connect_hello_login(login)
@@ -619,11 +620,6 @@ class APIConnection:
     def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
-            if in_do_connect.get(False):
-                # If we are in the do_connect task, we can't raise an error
-                # because it would obscure the original exception (ie encrypt error).
-                _LOGGER.debug("%s: Connection isn't established yet", self.log_name)
-                return
             raise ConnectionNotEstablishedAPIError(
                 f"Connection isn't established yet ({self.connection_state})"
             )

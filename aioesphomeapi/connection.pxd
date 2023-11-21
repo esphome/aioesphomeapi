@@ -42,7 +42,7 @@ cdef object PingFailedAPIError
 cdef object ReadFailedAPIError
 cdef object TimeoutAPIError
 
-cdef object in_do_connect, astuple
+cdef object astuple
 
 
 @cython.dataclasses.dataclass
