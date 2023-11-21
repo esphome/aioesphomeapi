@@ -1,9 +1,6 @@
 import cython
 
 from ._frame_helper.base cimport APIFrameHelper
-from ._frame_helper.noise cimport APINoiseFrameHelper
-from ._frame_helper.plain_text cimport APIPlaintextFrameHelper
-
 
 cdef dict MESSAGE_TYPE_TO_PROTO
 cdef dict PROTO_TO_MESSAGE_TYPE
