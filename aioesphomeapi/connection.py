@@ -548,7 +548,7 @@ class APIConnection:
         """Ensure a fatal exception is wrapped as as an APIConnectionError."""
         if isinstance(ex, APIConnectionError):
             return ex
-        cause: Exception | None = None
+        cause: BaseException | None = None
         if isinstance(ex, CancelledError):
             err_str = f"{action.title()} connection cancelled"
             if self._fatal_exception:
