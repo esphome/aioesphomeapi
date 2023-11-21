@@ -343,21 +343,20 @@ class APIConnection:
         if TYPE_CHECKING:
             assert self._socket is not None
 
+        fh: APIPlaintextFrameHelper | APINoiseFrameHelper
+        fh_klass: type[APINoiseFrameHelper] | type[APINoiseFrameHelper]
         fh_args: dict[str, Any] = {
             "connection": self,
             "client_info": self._params.client_info,
             "log_name": self.log_name,
         }
         if (noise_psk := self._params.noise_psk) is not None:
-            fh_klass: type[APINoiseFrameHelper] | type[
-                APINoiseFrameHelper
-            ] = APINoiseFrameHelper
+            fh_klass = APINoiseFrameHelper
             fh_args["expected_name"] = self._params.expected_name
             fh_args["noise_psk"] = noise_psk
         else:
             fh_klass = APIPlaintextFrameHelper
 
-        fh: APIPlaintextFrameHelper | APINoiseFrameHelper
         _, fh = await self._loop.create_connection(
             lambda: fh_klass(**fh_args), sock=self._socket
         )
