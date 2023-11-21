@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import socket
 from datetime import timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
@@ -601,7 +600,7 @@ async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
 async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:
     loop = asyncio.get_event_loop()
     transport = MagicMock()
-    protocol: APINoiseFrameHelper
+    protocol: APINoiseFrameHelper | None = None
 
     async def _create_connection(create, sock, *args, **kwargs):
         nonlocal protocol
@@ -613,6 +612,7 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
         task = asyncio.create_task(noise_conn._connect_init_frame_helper())
         await asyncio.sleep(0)
 
+        assert protocol is not None
         assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
 
         protocol.data_received(b"\x00\x00\x00")
