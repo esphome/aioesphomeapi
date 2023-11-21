@@ -20,6 +20,7 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
+from ._frame_helper.base import APIFrameHelper
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
@@ -344,7 +345,7 @@ class APIConnection:
             assert self._socket is not None
 
         fh: APIPlaintextFrameHelper | APINoiseFrameHelper
-        fh_klass: type[APINoiseFrameHelper] | type[APINoiseFrameHelper]
+        fh_klass: type[APIFrameHelper]
         fh_args: dict[str, Any] = {
             "connection": self,
             "client_info": self._params.client_info,
