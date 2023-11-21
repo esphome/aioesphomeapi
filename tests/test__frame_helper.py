@@ -597,6 +597,30 @@ async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
 
 
 @pytest.mark.asyncio
+async def test_init_noise_with_wrong_preamble(conn: APIConnection):
+    loop = asyncio.get_event_loop()
+    protocol = get_mock_protocol(conn)
+    with patch.object(loop, "create_connection") as create_connection:
+        create_connection.return_value = (MagicMock(), protocol)
+
+        conn._socket = MagicMock()
+        await conn._connect_init_frame_helper()
+        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
+        conn.connection_state = ConnectionState.CONNECTED
+
+    task = asyncio.create_task(conn._connect_hello_login(login=True))
+    await asyncio.sleep(0)
+    # The preamble should be \x01 but we send \x00
+    # which means the noise frame helper will raise
+    # because it expects a noise hello packet and not
+    # a plaintext hello packet
+    protocol.data_received(b"\x00\x00\x00")
+
+    with pytest.raises(ProtocolAPIError):
+        await task
+
+
+@pytest.mark.asyncio
 async def test_eof_received_closes_connection(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
