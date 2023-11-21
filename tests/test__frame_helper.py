@@ -25,7 +25,6 @@ from aioesphomeapi.core import (
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
-    SocketAPIError,
     SocketClosedAPIError,
 )
 
@@ -384,6 +383,9 @@ def test_bytes_to_varuint(val, encoded):
     assert bytes_to_varuint(encoded) == val
     assert cached_bytes_to_varuint(encoded) == val
 
+
+def test_bytes_to_varuint_invalid():
+    assert bytes_to_varuint(b"\xFF") is None
 
 @pytest.mark.asyncio
 async def test_noise_frame_helper_handshake_failure():
