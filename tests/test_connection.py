@@ -7,7 +7,6 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch,call
 
 import pytest
-from aioesphomeapi.connection import KEEP_ALIVE_TIMEOUT_RATIO
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -37,6 +36,7 @@ from .common import (
     utcnow,
 )
 
+KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
 def _get_mock_protocol(conn: APIConnection):
     protocol = APIPlaintextFrameHelper(
