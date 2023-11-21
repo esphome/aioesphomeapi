@@ -963,7 +963,7 @@ class APIClient:
         req: BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest,
         address: int,
         handle: int,
-        timeout: float
+        timeout: float,
     ) -> bytearray:
         """Perform a GATT read."""
         req.address = address
@@ -978,7 +978,6 @@ class APIClient:
         if TYPE_CHECKING:
             assert isinstance(resp, BluetoothGATTReadResponse)
         return bytearray(resp.data)
-
 
     async def bluetooth_gatt_write_descriptor(
         self,
