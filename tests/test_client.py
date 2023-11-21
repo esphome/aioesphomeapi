@@ -79,7 +79,7 @@ def auth_client():
 
 
 def patch_response_complex(client: APIClient, messages):
-    async def patched(req, app, stop, msg_types, timeout=5.0):
+    async def patched(req, app, stop, msg_types, timeout):
         resp = []
         for msg in messages:
             if app(msg):

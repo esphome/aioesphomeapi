@@ -461,7 +461,7 @@ class APIConnection:
         now = loop.time()
 
         if self._send_pending_ping:
-            self.send_message(PING_REQUEST_MESSAGE)
+            self.send_messages((PING_REQUEST_MESSAGE,))
             if self._pong_timer is None:
                 # Do not reset the timer if it's already set
                 # since the only thing we want to reset the timer
@@ -694,7 +694,7 @@ class APIConnection:
         msg_types: tuple[type[Any], ...],
     ) -> Callable[[], None]:
         """Send a message to the remote and register the given message handler."""
-        self.send_message(send_msg)
+        self.send_messages((send_msg,))
         # Since we do not return control to the event loop (no awaits)
         # between sending the message and registering the handler
         # we can be sure that we will not miss any messages even though
@@ -729,7 +729,7 @@ class APIConnection:
         do_append: Callable[[message.Message], bool] | None,
         do_stop: Callable[[message.Message], bool] | None,
         msg_types: tuple[type[Any], ...],
-        timeout: float = 10.0,
+        timeout: float,
     ) -> list[message.Message]:
         """Send a message to the remote and build up a list response.
 
@@ -887,14 +887,14 @@ class APIConnection:
         # the response if for some reason sending the response
         # fails we will still mark the disconnect as expected
         self._expected_disconnect = True
-        self.send_message(DISCONNECT_RESPONSE_MESSAGE)
+        self.send_messages((DISCONNECT_RESPONSE_MESSAGE,))
         self._cleanup()
 
     def _handle_ping_request_internal(  # pylint: disable=unused-argument
         self, _msg: PingRequest
     ) -> None:
         """Handle a PingRequest."""
-        self.send_message(PING_RESPONSE_MESSAGE)
+        self.send_messages((PING_RESPONSE_MESSAGE,))
 
     def _handle_get_time_request_internal(  # pylint: disable=unused-argument
         self, _msg: GetTimeRequest
@@ -902,7 +902,7 @@ class APIConnection:
         """Handle a GetTimeRequest."""
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
-        self.send_message(resp)
+        self.send_messages((resp,))
 
     async def disconnect(self) -> None:
         """Disconnect from the API."""
@@ -946,7 +946,7 @@ class APIConnection:
             # Still try to tell the esp to disconnect gracefully
             # but don't wait for it to finish
             try:
-                self.send_message(DISCONNECT_REQUEST_MESSAGE)
+                self.send_messages((DISCONNECT_REQUEST_MESSAGE,))
             except APIConnectionError as err:
                 _LOGGER.error(
                     "%s: Failed to send (forced) disconnect request: %s",
