@@ -24,6 +24,7 @@ from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     BadNameAPIError,
     HandshakeAPIError,
+    APIConnectionError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
     SocketClosedAPIError,
@@ -604,6 +605,8 @@ async def test_eof_received_closes_connection(
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
     assert protocol.eof_received() is False
     assert conn.is_connected is False
+    with pytest.raises(SocketClosedAPIError, match="EOF received"):
+        await connect_task
 
 
 @pytest.mark.asyncio
@@ -617,3 +620,5 @@ async def test_connection_lost_closes_connection_and_logs(
     protocol.connection_lost(OSError("original message"))
     assert conn.is_connected is False
     assert "original message" in caplog.text
+    with pytest.raises(APIConnectionError, match="original message"):
+        await connect_task

@@ -537,24 +537,33 @@ class APIConnection:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
-            if not isinstance(ex, APIConnectionError):
-                cause: Exception | None = None
-                if isinstance(ex, CancelledError):
-                    err_str = "Starting connection cancelled"
-                    if self._fatal_exception:
-                        err_str += f" due to fatal exception: {self._fatal_exception}"
-                        cause = self._fatal_exception
-                else:
-                    err_str = str(ex) or type(ex).__name__
-                new_exc = APIConnectionError(
-                    f"Error while starting connection: {err_str}"
-                )
-                new_exc.__cause__ = cause or ex
-                raise new_exc
-            raise ex
+            raise self._wrap_fatal_connection_exception("starting", ex)
         finally:
             self._start_connect_task = None
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
+
+    def _wrap_fatal_connection_exception(
+        self, action: str, ex: Exception
+    ) -> type[Exception] | None:
+        """Ensure a fatal exception is wrapped as as an APIConnectionError."""
+        if isinstance(ex, APIConnectionError):
+            return ex
+        cause: Exception | None = None
+        if isinstance(ex, CancelledError):
+            err_str = f"{action.title()} connection cancelled"
+            if self._fatal_exception:
+                err_str += f" due to fatal exception: {self._fatal_exception}"
+                cause = self._fatal_exception
+        else:
+            err_str = str(ex) or type(ex).__name__
+            cause = ex
+        if isinstance(self._fatal_exception, APIConnectionError):
+            klass = type(self._fatal_exception)
+        else:
+            klass = APIConnectionError
+        new_exc = klass(f"Error while {action} connection: {err_str}")
+        new_exc.__cause__ = cause or ex
+        return new_exc
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
@@ -585,22 +594,7 @@ class APIConnection:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
-            if not isinstance(ex, APIConnectionError):
-                cause: Exception | None = None
-                if isinstance(ex, CancelledError):
-                    err_str = "Finishing connection cancelled"
-                    if self._fatal_exception:
-                        err_str += f" due to fatal exception: {self._fatal_exception}"
-                        cause = self._fatal_exception
-                else:
-                    err_str = str(ex) or type(ex).__name__
-                    cause = ex
-                new_exc = APIConnectionError(
-                    f"Error while finishing connection: {err_str}"
-                )
-                new_exc.__cause__ = cause or ex
-                raise new_exc
-            raise ex
+            raise self._wrap_fatal_connection_exception("finishing", ex)
         finally:
             self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)
