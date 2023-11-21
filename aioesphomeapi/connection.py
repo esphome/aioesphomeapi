@@ -358,7 +358,7 @@ class APIConnection:
         else:
             fh_klass = APIPlaintextFrameHelper
 
-        _, fh = await self._loop.create_connection(
+        _, fh = await self._loop.create_connection( # type: ignore
             lambda: fh_klass(**fh_args), sock=self._socket
         )
 
