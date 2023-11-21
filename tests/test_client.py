@@ -33,6 +33,7 @@ from aioesphomeapi.api_pb2 import (
     MediaPlayerCommandRequest,
     NumberCommandRequest,
     SelectCommandRequest,
+    SirenCommandRequest,
     SwitchCommandRequest,
     TextCommandRequest,
 )
@@ -476,6 +477,40 @@ async def test_button_command(
 
     await auth_client.button_command(**cmd)
     send.assert_called_once_with(ButtonCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, state=True), dict(key=1, state=True, has_state=True)),
+        (dict(key=1, state=False), dict(key=1, state=False, has_state=True)),
+        (dict(key=1, state=None), dict(key=1, state=None, has_state=False)),
+        (
+            dict(key=1, state=True, tone="any"),
+            dict(key=1, state=True, has_state=True, has_tone=True, tone="any"),
+        ),
+        (
+            dict(key=1, state=True, tone=None),
+            dict(key=1, state=True, has_state=True, has_tone=False, tone=None),
+        ),
+        (
+            dict(key=1, state=True, volume=5),
+            dict(key=1, state=True, has_volume=True, volume=5, has_state=True),
+        ),
+        (
+            dict(key=1, state=True, duration=5),
+            dict(key=1, state=True, has_duration=True, duration=5, has_state=True),
+        ),
+    ],
+)
+async def test_siren_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    await auth_client.siren_command(**cmd)
+    send.assert_called_once_with(SirenCommandRequest(**req))
 
 
 @pytest.mark.asyncio
