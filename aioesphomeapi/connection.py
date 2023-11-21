@@ -386,7 +386,7 @@ class APIConnection:
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
         messages = [self._make_hello_request()]
-        msg_types = [HelloResponse]
+        msg_types = (HelloResponse,)
         if login:
             messages.append(self._make_connect_request())
             msg_types.append(ConnectResponse)
@@ -730,7 +730,7 @@ class APIConnection:
         do_append: Callable[[message.Message], bool] | None,
         do_stop: Callable[[message.Message], bool] | None,
         msg_types: tuple[type[Any], ...],
-        timeout: float,
+        timeout: _float,
     ) -> list[message.Message]:
         """Send a message to the remote and build up a list response.
 
@@ -780,7 +780,7 @@ class APIConnection:
         return responses
 
     async def send_message_await_response(
-        self, send_msg: message.Message, response_type: Any, timeout: float = 10.0
+        self, send_msg: message.Message, response_type: Any, timeout: _float = 10.0
     ) -> Any:
         [response] = await self.send_messages_await_response_complex(
             (send_msg,),
