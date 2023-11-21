@@ -22,9 +22,9 @@ from aioesphomeapi._frame_helper.plain_text import (
 from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
+    APIConnectionError,
     BadNameAPIError,
     HandshakeAPIError,
-    APIConnectionError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
     SocketClosedAPIError,
