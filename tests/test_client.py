@@ -53,6 +53,7 @@ from aioesphomeapi.model import (
     FanDirection,
     FanSpeed,
     LegacyCoverCommand,
+    LightColorCapability,
     LockCommand,
     MediaPlayerCommand,
     UserService,
@@ -269,6 +270,20 @@ async def test_fan_command(
             dict(key=1, has_color_temperature=True, color_temperature=0.0),
         ),
         (
+            dict(key=1, color_brightness=0.0),
+            dict(key=1, has_color_brightness=True, color_brightness=0.0),
+        ),
+        (
+            dict(key=1, cold_white=1.0, warm_white=2.0),
+            dict(
+                key=1,
+                has_cold_white=True,
+                cold_white=1.0,
+                has_warm_white=True,
+                warm_white=2.0,
+            ),
+        ),
+        (
             dict(key=1, transition_length=0.1),
             dict(key=1, has_transition_length=True, transition_length=100),
         ),
@@ -277,6 +292,20 @@ async def test_fan_command(
             dict(key=1, has_flash_length=True, flash_length=100),
         ),
         (dict(key=1, effect="special"), dict(key=1, has_effect=True, effect="special")),
+        (
+            dict(
+                key=1,
+                color_mode=LightColorCapability.COLOR_TEMPERATURE,
+                color_temperature=153.0,
+            ),
+            dict(
+                key=1,
+                has_color_mode=True,
+                color_mode=LightColorCapability.COLOR_TEMPERATURE,
+                has_color_temperature=True,
+                color_temperature=153.0,
+            ),
+        ),
     ],
 )
 async def test_light_command(
@@ -408,6 +437,10 @@ async def test_number_command(
             dict(key=1, command=LockCommand.UNLOCK),
         ),
         (dict(key=1, command=LockCommand.OPEN), dict(key=1, command=LockCommand.OPEN)),
+        (
+            dict(key=1, command=LockCommand.OPEN, code="1234"),
+            dict(key=1, command=LockCommand.OPEN, code="1234"),
+        ),
     ],
 )
 async def test_lock_command(
