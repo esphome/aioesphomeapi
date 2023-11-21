@@ -523,7 +523,7 @@ class APIConnection:
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self.connection_state != ConnectionState.INITIALIZED:
+        if self.connection_state is not ConnectionState.INITIALIZED:
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
             )
@@ -579,7 +579,7 @@ class APIConnection:
         This part of the process initializes the frame helper and sends the hello message
         than starts the keep alive process.
         """
-        if self.connection_state != ConnectionState.SOCKET_OPENED:
+        if self.connection_state is not ConnectionState.SOCKET_OPENED:
             raise ValueError(
                 "Connection must be in SOCKET_OPENED state to finish connection"
             )
