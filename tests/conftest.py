@@ -16,6 +16,7 @@ from aioesphomeapi.zeroconf import ZeroconfManager
 
 from .common import connect, get_mock_async_zeroconf, send_plaintext_hello
 
+KEEP_ALIVE_INTERVAL = 15.0
 
 @pytest.fixture
 def async_zeroconf():
@@ -47,7 +48,7 @@ def connection_params() -> ConnectionParams:
         port=6052,
         password=None,
         client_info="Tests client",
-        keepalive=15.0,
+        keepalive=KEEP_ALIVE_INTERVAL,
         zeroconf_manager=ZeroconfManager(),
         noise_psk=None,
         expected_name=None,
