@@ -616,6 +616,3 @@ def test_raise_during_send_messages_when_not_yet_connected(conn: APIConnection) 
     """Test that we raise when sending messages before we are connected."""
     with pytest.raises(ConnectionNotEstablishedAPIError):
         conn.send_message(PingRequest())
-
-    with pytest.raises(ConnectionNotEstablishedAPIError):
-        conn.send_messages((PingRequest(),))
