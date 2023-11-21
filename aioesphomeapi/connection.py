@@ -349,7 +349,9 @@ class APIConnection:
             "log_name": self.log_name,
         }
         if (noise_psk := self._params.noise_psk) is not None:
-            fh_klass = APINoiseFrameHelper
+            fh_klass: type[APINoiseFrameHelper] | type[
+                APINoiseFrameHelper
+            ] = APINoiseFrameHelper
             fh_args["expected_name"] = self._params.expected_name
             fh_args["noise_psk"] = noise_psk
         else:
