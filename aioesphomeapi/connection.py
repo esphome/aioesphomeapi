@@ -543,8 +543,8 @@ class APIConnection:
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
 
     def _wrap_fatal_connection_exception(
-        self, action: str, ex: Exception
-    ) -> type[Exception] | None:
+        self, action: str, ex: BaseException
+    ) -> APIConnectionError:
         """Ensure a fatal exception is wrapped as as an APIConnectionError."""
         if isinstance(ex, APIConnectionError):
             return ex
