@@ -600,8 +600,6 @@ async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
 @pytest.mark.asyncio
 async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:
     loop = asyncio.get_event_loop()
-
-    noise_conn._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     transport = MagicMock()
     protocol: APINoiseFrameHelper
 
