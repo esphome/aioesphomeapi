@@ -57,11 +57,31 @@ def connection_params() -> ConnectionParams:
 
 
 @pytest.fixture
-def conn(connection_params) -> APIConnection:
-    async def on_stop(expected_disconnect: bool) -> None:
-        pass
+def noise_connection_params() -> ConnectionParams:
+    return ConnectionParams(
+        address="fake.address",
+        port=6052,
+        password=None,
+        client_info="Tests client",
+        keepalive=KEEP_ALIVE_INTERVAL,
+        zeroconf_manager=ZeroconfManager(),
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="test",
+    )
 
+
+async def on_stop(expected_disconnect: bool) -> None:
+    pass
+
+
+@pytest.fixture
+def conn(connection_params: ConnectionParams) -> APIConnection:
     return APIConnection(connection_params, on_stop)
+
+
+@pytest.fixture
+def noise_conn(noise_connection_params: ConnectionParams) -> APIConnection:
+    return APIConnection(noise_connection_params, on_stop)
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_no_login")

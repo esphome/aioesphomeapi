@@ -20,7 +20,8 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
+from ._frame_helper.noise import APINoiseFrameHelper
+from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
