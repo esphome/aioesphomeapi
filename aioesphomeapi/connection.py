@@ -341,26 +341,31 @@ class APIConnection:
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
+        fh: APIPlaintextFrameHelper | APINoiseFrameHelper
+        loop = self._loop
         if TYPE_CHECKING:
             assert self._socket is not None
 
-        fh: APIPlaintextFrameHelper | APINoiseFrameHelper
-        fh_klass: type[APIFrameHelper]
-        fh_args: dict[str, Any] = {
-            "connection": self,
-            "client_info": self._params.client_info,
-            "log_name": self.log_name,
-        }
-        if (noise_psk := self._params.noise_psk) is not None:
-            fh_klass = APINoiseFrameHelper
-            fh_args["expected_name"] = self._params.expected_name
-            fh_args["noise_psk"] = noise_psk
+        if (noise_psk := self._params.noise_psk) is None:
+            _, fh = await loop.create_connection(  # type: ignore[type-var]
+                lambda: APIPlaintextFrameHelper(
+                    connection=self,
+                    client_info=self._params.client_info,
+                    log_name=self.log_name,
+                ),
+                sock=self._socket,
+            )
         else:
-            fh_klass = APIPlaintextFrameHelper
-
-        _, fh = await self._loop.create_connection(  # type: ignore
-            lambda: fh_klass(**fh_args), sock=self._socket
-        )
+            _, fh = await loop.create_connection(  # type: ignore[type-var]
+                lambda: APINoiseFrameHelper(
+                    noise_psk=noise_psk,
+                    expected_name=self._params.expected_name,
+                    connection=self,
+                    client_info=self._params.client_info,
+                    log_name=self.log_name,
+                ),
+                sock=self._socket,
+            )
 
         # Set the frame helper right away to ensure
         # the socket gets closed if we fail to handshake
