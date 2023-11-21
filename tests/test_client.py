@@ -581,7 +581,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_request_single_image(auth_client):
+async def test_request_single_image(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
     await auth_client.request_single_image()
@@ -589,7 +589,7 @@ async def test_request_single_image(auth_client):
 
 
 @pytest.mark.asyncio
-async def test_request_image_stream(auth_client):
+async def test_request_image_stream(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
     await auth_client.request_image_stream()
@@ -614,7 +614,9 @@ async def test_request_image_stream(auth_client):
         ),
     ],
 )
-async def test_alarm_panel_command(auth_client, cmd, req):
+async def test_alarm_panel_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.alarm_control_panel_command(**cmd)
@@ -629,7 +631,9 @@ async def test_alarm_panel_command(auth_client, cmd, req):
         (dict(key=1, state="goodbye"), dict(key=1, state="goodbye")),
     ],
 )
-async def test_text_command(auth_client, cmd, req):
+async def test_text_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
     send = patch_send(auth_client)
 
     await auth_client.text_command(**cmd)
