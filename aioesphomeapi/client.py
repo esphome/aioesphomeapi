@@ -873,33 +873,24 @@ class APIClient:
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
         self._check_authenticated()
-        msg_types = (
-            BluetoothGATTGetServicesResponse,
-            BluetoothGATTGetServicesDoneResponse,
-            BluetoothGATTErrorResponse,
-        )
         append_types = (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
         stop_types = (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse)
 
-        def do_append(msg: message.Message) -> bool:
-            return isinstance(msg, append_types) and msg.address == address
+        if TYPE_CHECKING:
+            assert self._connection is not None
 
-        def do_stop(msg: message.Message) -> bool:
-            return isinstance(msg, stop_types) and msg.address == address
-
-        assert self._connection is not None
         resp = await self._connection.send_messages_await_response_complex(
             (BluetoothGATTGetServicesRequest(address=address),),
-            do_append,
-            do_stop,
-            msg_types,
+            lambda msg: msg.address == address and type(msg) in append_types,
+            lambda msg: msg.address == address and type(msg) in stop_types,
+            tuple({*append_types, *stop_types}),
             DEFAULT_BLE_TIMEOUT,
         )
-        services = []
-        for msg in resp:
-            if isinstance(msg, BluetoothGATTErrorResponse):
-                raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(msg))
 
+        services: list[BluetoothGATTServices] = []
+        for msg in resp:
+            if type(msg) is BluetoothGATTErrorResponse:
+                raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(msg))
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
         return ESPHomeBluetoothGATTServices(address=address, services=services)  # type: ignore[call-arg]
