@@ -123,6 +123,7 @@ from .model import (
     BluetoothDeviceRequestType,
     BluetoothDeviceUnpairing,
     BluetoothGATTError,
+    BluetoothGATTService,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
@@ -887,7 +888,7 @@ class APIClient:
             DEFAULT_BLE_TIMEOUT,
         )
 
-        services: list[BluetoothGATTServices] = []
+        services: list[BluetoothGATTService] = []
         for msg in resp:
             if (
                 type(msg)  # pylint: disable=unidiomatic-typecheck
