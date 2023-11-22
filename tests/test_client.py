@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 from google.protobuf import message
@@ -31,6 +31,7 @@ from aioesphomeapi.api_pb2 import (
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
+    HomeassistantServiceResponse,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -40,6 +41,7 @@ from aioesphomeapi.api_pb2 import (
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
+    SubscribeLogsResponse,
     SwitchCommandRequest,
     TextCommandRequest,
 )
@@ -66,6 +68,7 @@ from aioesphomeapi.model import (
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
+    HomeassistantServiceCall,
     LegacyCoverCommand,
     LightColorCapability,
     LockCommand,
@@ -122,12 +125,43 @@ def patch_response_callback(client: APIClient):
 
 
 def patch_send(client: APIClient):
-    send = client._connection.send_message = AsyncMock()
+    send = client._connection.send_message = MagicMock()
     return send
 
 
 def patch_api_version(client: APIClient, version: APIVersion):
     client._connection.api_version = version
+
+
+def test_expected_name(auth_client: APIClient) -> None:
+    """Ensure expected name can be set externally."""
+    assert auth_client.expected_name is None
+    auth_client.expected_name = "awesome"
+    assert auth_client.expected_name == "awesome"
+
+
+@pytest.mark.asyncio
+async def test_connect_backwards_compat() -> None:
+    """Verify connect is a thin wrapper around start_connection and finish_connection."""
+
+    class PatchableApiClient(APIClient):
+        pass
+
+    cli = PatchableApiClient("host", 1234, None)
+    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
+        cli, "finish_connection"
+    ) as mock_finish_connection:
+        await cli.connect()
+
+    assert mock_start_connection.mock_calls == [call(None)]
+    assert mock_finish_connection.mock_calls == [call(False)]
+
+
+@pytest.mark.asyncio
+async def test_connect_while_already_connected(auth_client: APIClient) -> None:
+    """Test connecting while already connected raises."""
+    with pytest.raises(APIConnectionError):
+        await auth_client.start_connection()
 
 
 @pytest.mark.asyncio
@@ -1092,3 +1126,23 @@ async def test_bluetooth_gatt_get_services_errors(
 
     with pytest.raises(BluetoothGATTAPIError):
         await services_task
+
+
+@pytest.mark.asyncio
+async def test_subscribe_logs(auth_client: APIClient) -> None:
+    send = patch_response_callback(auth_client)
+    on_logs = MagicMock()
+    await auth_client.subscribe_logs(on_logs)
+    log_msg = SubscribeLogsResponse(level=1, message=b"asdf")
+    await send(log_msg)
+    on_logs.assert_called_with(log_msg)
+
+
+@pytest.mark.asyncio
+async def test_subscribe_logs(auth_client: APIClient) -> None:
+    send = patch_response_callback(auth_client)
+    on_service_call = MagicMock()
+    await auth_client.subscribe_service_calls(on_service_call)
+    service_msg = HomeassistantServiceResponse(service="bob")
+    await send(service_msg)
+    on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
