@@ -15,7 +15,11 @@ from aioesphomeapi.api_pb2 import (
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceUnpairingResponse,
+    BluetoothGATTErrorResponse,
+    BluetoothGATTGetServicesDoneResponse,
+    BluetoothGATTGetServicesResponse,
     BluetoothGATTReadResponse,
+    BluetoothGATTService,
     BluetoothGATTWriteResponse,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -41,17 +45,25 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
-from aioesphomeapi.core import APIConnectionError, TimeoutAPIError
+from aioesphomeapi.core import (
+    APIConnectionError,
+    BluetoothGATTAPIError,
+    TimeoutAPIError,
+)
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+)
+from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
+from aioesphomeapi.model import (
     CameraState,
     ClimateFanMode,
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
     LegacyCoverCommand,
@@ -1029,3 +1041,54 @@ async def test_bluetooth_gatt_read_descriptor(
     )
     protocol.data_received(generate_plaintext_packet(response))
     assert await read_task == b"1234"
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_get_services(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_get_services success case."""
+    client, connection, transport, protocol = api_client
+    services_task = asyncio.create_task(client.bluetooth_gatt_get_services(1234))
+    await asyncio.sleep(0)
+    service1: message.Message = BluetoothGATTService(
+        uuid=[1, 1], handle=1, characteristics=[]
+    )
+    response: message.Message = BluetoothGATTGetServicesResponse(
+        address=1234, services=[service1]
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    done_response: message.Message = BluetoothGATTGetServicesDoneResponse(address=1234)
+    protocol.data_received(generate_plaintext_packet(done_response))
+
+    services = await services_task
+    assert services == ESPHomeBluetoothGATTServices(
+        address=1234,
+        services=[BluetoothGATTServiceModel(uuid=[1, 1], handle=1, characteristics=[])],
+    )
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_get_services_errors(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_get_services with a failure."""
+    client, connection, transport, protocol = api_client
+    services_task = asyncio.create_task(client.bluetooth_gatt_get_services(1234))
+    await asyncio.sleep(0)
+    service1: message.Message = BluetoothGATTService(
+        uuid=[1, 1], handle=1, characteristics=[]
+    )
+    response: message.Message = BluetoothGATTGetServicesResponse(
+        address=1234, services=[service1]
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    done_response: message.Message = BluetoothGATTErrorResponse(address=1234)
+    protocol.data_received(generate_plaintext_packet(done_response))
+
+    with pytest.raises(BluetoothGATTAPIError):
+        await services_task
