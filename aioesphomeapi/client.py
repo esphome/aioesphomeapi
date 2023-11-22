@@ -889,7 +889,10 @@ class APIClient:
 
         services: list[BluetoothGATTServices] = []
         for msg in resp:
-            if type(msg) is BluetoothGATTErrorResponse:  # pylint: disable=unidiomatic-typecheck
+            if (
+                type(msg)  # pylint: disable=unidiomatic-typecheck
+                is BluetoothGATTErrorResponse
+            ):
                 raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(msg))
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
