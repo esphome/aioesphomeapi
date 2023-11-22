@@ -1171,7 +1171,7 @@ class APIClient:
             assert self._connection is not None
         self._connection.send_message(req)
 
-    async def light_command(
+    async def light_command(  # pylint: disable=too-many-branches
         self,
         key: int,
         state: bool | None = None,
