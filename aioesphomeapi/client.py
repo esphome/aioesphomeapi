@@ -123,7 +123,6 @@ from .model import (
     BluetoothDeviceRequestType,
     BluetoothDeviceUnpairing,
     BluetoothGATTError,
-    BluetoothGATTService,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
@@ -874,27 +873,33 @@ class APIClient:
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
         self._check_authenticated()
+        msg_types = (
+            BluetoothGATTGetServicesResponse,
+            BluetoothGATTGetServicesDoneResponse,
+            BluetoothGATTErrorResponse,
+        )
         append_types = (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
         stop_types = (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse)
 
-        if TYPE_CHECKING:
-            assert self._connection is not None
+        def do_append(msg: message.Message) -> bool:
+            return isinstance(msg, append_types) and msg.address == address
 
+        def do_stop(msg: message.Message) -> bool:
+            return isinstance(msg, stop_types) and msg.address == address
+
+        assert self._connection is not None
         resp = await self._connection.send_messages_await_response_complex(
             (BluetoothGATTGetServicesRequest(address=address),),
-            lambda msg: msg.address == address and type(msg) in append_types,  # type: ignore[attr-defined]
-            lambda msg: msg.address == address and type(msg) in stop_types,  # type: ignore[attr-defined]
-            tuple({*append_types, *stop_types}),
+            do_append,
+            do_stop,
+            msg_types,
             DEFAULT_BLE_TIMEOUT,
         )
-
-        services: list[BluetoothGATTService] = []
+        services = []
         for msg in resp:
-            if (
-                type(msg)  # pylint: disable=unidiomatic-typecheck
-                is BluetoothGATTErrorResponse
-            ):
+            if isinstance(msg, BluetoothGATTErrorResponse):
                 raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(msg))
+
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
         return ESPHomeBluetoothGATTServices(address=address, services=services)  # type: ignore[call-arg]
