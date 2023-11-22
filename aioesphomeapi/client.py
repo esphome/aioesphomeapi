@@ -388,7 +388,8 @@ class APIClient:
         login: bool = False,
     ) -> None:
         """Finish connecting to the device."""
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         try:
             await self._connection.finish_connection(login=login)
         except APIConnectionError:
@@ -423,7 +424,8 @@ class APIClient:
     async def device_info(self) -> DeviceInfo:
         self._check_authenticated()
         connection = self._connection
-        assert connection is not None
+        if TYPE_CHECKING:
+            assert connection is not None
         resp = await connection.send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
         )
@@ -449,7 +451,8 @@ class APIClient:
         def do_stop(msg: message.Message) -> bool:
             return isinstance(msg, ListEntitiesDoneResponse)
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         resp = await self._connection.send_messages_await_response_complex(
             (ListEntitiesRequest(),), do_append, do_stop, msg_types, 60
         )
@@ -491,7 +494,8 @@ class APIClient:
                     del image_stream[msg_key]
                     on_state(CameraState(key=msg.key, data=image_data))  # type: ignore[call-arg]
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message_callback_response(
             SubscribeStatesRequest(), _on_state_msg, msg_types
         )
@@ -508,7 +512,8 @@ class APIClient:
             req.level = log_level
         if dump_config is not None:
             req.dump_config = dump_config
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message_callback_response(
             req, on_log, (SubscribeLogsResponse,)
         )
@@ -523,7 +528,8 @@ class APIClient:
         ) -> None:
             on_service_call(HomeassistantServiceCall.from_pb(msg))
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
             _on_home_assistant_service_response,
@@ -563,7 +569,8 @@ class APIClient:
     ) -> message.Message:
         self._check_authenticated()
         msg_types = (response_type, BluetoothGATTErrorResponse)
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
 
         message_filter = partial(self._filter_bluetooth_message, address, handle)
         resp = await self._connection.send_messages_await_response_complex(
@@ -586,7 +593,8 @@ class APIClient:
         ) -> None:
             on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         unsub_callback = self._connection.send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(flags=0),
             _on_bluetooth_le_advertising_response,
@@ -608,7 +616,8 @@ class APIClient:
         self._check_authenticated()
         msg_types = (BluetoothLERawAdvertisementsResponse,)
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
 
         def _on_ble_raw_advertisement_response(
             data: BluetoothLERawAdvertisementsResponse,
@@ -643,7 +652,8 @@ class APIClient:
         ) -> None:
             on_bluetooth_connections_free_update(msg.free, msg.limit)
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         return self._connection.send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(),
             _on_bluetooth_connections_free_response,
@@ -687,7 +697,9 @@ class APIClient:
         debug = _LOGGER.isEnabledFor(logging.DEBUG)
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
+
         if has_cache:
             # REMOTE_CACHING feature with cache: requestor has services and mtu cached
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
@@ -854,7 +866,8 @@ class APIClient:
         timeout: float,
     ) -> message.Message:
         self._check_authenticated()
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         [response] = await self._connection.send_messages_await_response_complex(
             (
                 BluetoothDeviceRequest(
@@ -887,7 +900,8 @@ class APIClient:
         def do_stop(msg: message.Message) -> bool:
             return isinstance(msg, stop_types) and msg.address == address
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         resp = await self._connection.send_messages_await_response_complex(
             (BluetoothGATTGetServicesRequest(address=address),),
             do_append,
@@ -932,7 +946,8 @@ class APIClient:
         req.data = data
 
         if not response:
-            assert self._connection is not None
+            if TYPE_CHECKING:
+                assert self._connection is not None
             self._connection.send_message(req)
             return
 
@@ -993,7 +1008,8 @@ class APIClient:
         req.data = data
 
         if not wait_for_response:
-            assert self._connection is not None
+            if TYPE_CHECKING:
+                assert self._connection is not None
             self._connection.send_message(req)
             return
 
@@ -1035,7 +1051,8 @@ class APIClient:
             if address == msg.address and handle == msg.handle:
                 on_bluetooth_gatt_notify(handle, bytearray(msg.data))
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         remove_callback = self._connection.add_message_callback(
             _on_bluetooth_gatt_notify_data_response, (BluetoothGATTNotifyDataResponse,)
         )
@@ -1064,7 +1081,8 @@ class APIClient:
         ) -> None:
             on_state_sub(msg.entity_id, msg.attribute)
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
             _on_subscribe_home_assistant_state_response,
@@ -1076,7 +1094,8 @@ class APIClient:
     ) -> None:
         self._check_authenticated()
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(
             HomeAssistantStateResponse(
                 entity_id=entity_id,
@@ -1116,7 +1135,8 @@ class APIClient:
             elif position == 0.0:
                 req.legacy_command = LegacyCoverCommand.CLOSE
                 req.has_legacy_command = True
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def fan_command(
@@ -1147,7 +1167,8 @@ class APIClient:
         if direction is not None:
             req.has_direction = True
             req.direction = direction
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def light_command(
@@ -1208,7 +1229,8 @@ class APIClient:
         if effect is not None:
             req.has_effect = True
             req.effect = effect
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def switch_command(self, key: int, state: bool) -> None:
@@ -1217,7 +1239,8 @@ class APIClient:
         req = SwitchCommandRequest()
         req.key = key
         req.state = state
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def climate_command(
@@ -1269,7 +1292,8 @@ class APIClient:
         if custom_preset is not None:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
@@ -1278,7 +1302,8 @@ class APIClient:
         req = NumberCommandRequest()
         req.key = key
         req.state = state
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def select_command(self, key: int, state: str) -> None:
@@ -1287,7 +1312,8 @@ class APIClient:
         req = SelectCommandRequest()
         req.key = key
         req.state = state
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def siren_command(
@@ -1314,7 +1340,8 @@ class APIClient:
         if duration is not None:
             req.duration = duration
             req.has_duration = True
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def button_command(self, key: int) -> None:
@@ -1322,7 +1349,8 @@ class APIClient:
 
         req = ButtonCommandRequest()
         req.key = key
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def lock_command(
@@ -1338,7 +1366,8 @@ class APIClient:
         req.command = command
         if code is not None:
             req.code = code
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def media_player_command(
@@ -1362,7 +1391,8 @@ class APIClient:
         if media_url is not None:
             req.media_url = media_url
             req.has_media_url = True
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def text_command(self, key: int, state: str) -> None:
@@ -1371,7 +1401,8 @@ class APIClient:
         req = TextCommandRequest()
         req.key = key
         req.state = state
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def execute_service(
@@ -1409,7 +1440,8 @@ class APIClient:
             args.append(arg)
         # pylint: disable=no-member
         req.args.extend(args)
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def _request_image(
@@ -1418,7 +1450,8 @@ class APIClient:
         req = CameraImageRequest()
         req.single = single
         req.stream = stream
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def request_single_image(self) -> None:
@@ -1478,7 +1511,8 @@ class APIClient:
                 self._background_tasks.add(stop_task)
                 stop_task.add_done_callback(self._background_tasks.discard)
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
 
         self._connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
 
@@ -1517,7 +1551,8 @@ class APIClient:
         # pylint: disable=no-member
         req.data.extend(data_args)
 
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
 
     async def alarm_control_panel_command(
@@ -1533,5 +1568,6 @@ class APIClient:
         req.command = command
         if code is not None:
             req.code = code
-        assert self._connection is not None
+        if TYPE_CHECKING:
+            assert self._connection is not None
         self._connection.send_message(req)
