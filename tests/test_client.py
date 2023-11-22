@@ -1139,7 +1139,7 @@ async def test_subscribe_logs(auth_client: APIClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_subscribe_logs(auth_client: APIClient) -> None:
+async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_service_call = MagicMock()
     await auth_client.subscribe_service_calls(on_service_call)
