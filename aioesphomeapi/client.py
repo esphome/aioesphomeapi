@@ -881,8 +881,8 @@ class APIClient:
 
         resp = await self._connection.send_messages_await_response_complex(
             (BluetoothGATTGetServicesRequest(address=address),),
-            lambda msg: msg.address == address and type(msg) in append_types,
-            lambda msg: msg.address == address and type(msg) in stop_types,
+            lambda msg: msg.address == address and type(msg) in append_types,  # type: ignore[attr-defined]
+            lambda msg: msg.address == address and type(msg) in stop_types,  # type: ignore[attr-defined]
             tuple({*append_types, *stop_types}),
             DEFAULT_BLE_TIMEOUT,
         )
