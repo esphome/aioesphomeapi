@@ -643,7 +643,7 @@ class APIConnection:
             assert self._frame_helper is not None
 
         try:
-            self._frame_helper.write_packets(packets)
+            self._frame_helper.write_packets(packets, debug_enabled)
         except SocketAPIError as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection

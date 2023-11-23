@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import abstractmethod
-from functools import partial
 from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
@@ -39,7 +38,6 @@ class APIFrameHelper:
         "_pos",
         "_client_info",
         "_log_name",
-        "_debug_enabled",
     )
 
     def __init__(
@@ -60,7 +58,6 @@ class APIFrameHelper:
         self._pos = 0
         self._client_info = client_info
         self._log_name = log_name
-        self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
     def set_log_name(self, log_name: str) -> None:
         """Set the log name."""
@@ -139,7 +136,9 @@ class APIFrameHelper:
             handshake_handle.cancel()
 
     @abstractmethod
-    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+    def write_packets(
+        self, packets: list[tuple[int, bytes]], debug_enabled: bool
+    ) -> None:
         """Write a packets to the socket.
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]
@@ -181,9 +180,9 @@ class APIFrameHelper:
     def resume_writing(self) -> None:
         """Stub."""
 
-    def _write_bytes(self, data: bytes) -> None:
+    def _write_bytes(self, data: bytes, debug_enabled: bool) -> None:
         """Write bytes to the socket."""
-        if self._debug_enabled() is True:
+        if debug_enabled:
             _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, data.hex())
 
         if TYPE_CHECKING:
