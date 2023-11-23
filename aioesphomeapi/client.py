@@ -573,14 +573,13 @@ class APIClient:
     async def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
     ) -> Callable[[], None]:
-        msg_types = (BluetoothLEAdvertisementResponse,)
         unsub_callback = self._get_connection().send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(flags=0),
             partial(
                 self._on_bluetooth_le_advertising_response,
                 on_bluetooth_le_advertisement,
             ),
-            msg_types,
+            (BluetoothLEAdvertisementResponse,),
         )
 
         def unsub() -> None:
@@ -602,13 +601,12 @@ class APIClient:
     async def subscribe_bluetooth_le_raw_advertisements(
         self, on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
     ) -> Callable[[], None]:
-        msg_types = (BluetoothLERawAdvertisementsResponse,)
         unsub_callback = self._get_connection().send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
             partial(self._on_ble_raw_advertisement_response, on_advertisements),
-            msg_types,
+            (BluetoothLERawAdvertisementsResponse,),
         )
 
         def unsub() -> None:
