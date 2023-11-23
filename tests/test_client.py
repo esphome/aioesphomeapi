@@ -1200,7 +1200,9 @@ async def test_bluetooth_gatt_start_notify_fails(
     )
 
     with patch.object(
-        connection, "send_messages_await_response_complex", side_effect=APIConnectionError
+        connection,
+        "send_messages_await_response_complex",
+        side_effect=APIConnectionError,
     ), pytest.raises(APIConnectionError):
         await client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
 
