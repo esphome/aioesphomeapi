@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import binascii
+import logging
 from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable
-import logging
+
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
 from noise.backends.default import DefaultNoiseBackend  # type: ignore[import-untyped]
@@ -20,7 +21,7 @@ from ..core import (
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
 )
-from .base import APIFrameHelper, _LOGGER
+from .base import _LOGGER, APIFrameHelper
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
