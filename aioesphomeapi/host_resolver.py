@@ -90,7 +90,11 @@ async def _async_resolve_host_zeroconf(
 
     _LOGGER.debug("Resolving host %s via mDNS", service_name)
     info = await _async_zeroconf_get_service_info(
-        zeroconf_manager or ZeroconfManager(), SERVICE_TYPE, service_name, server, timeout
+        zeroconf_manager or ZeroconfManager(),
+        SERVICE_TYPE,
+        service_name,
+        server,
+        timeout,
     )
 
     if info is None:
