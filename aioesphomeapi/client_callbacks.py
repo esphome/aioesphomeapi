@@ -12,6 +12,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothLERawAdvertisementsResponse,
     CameraImageResponse,
     HomeassistantServiceResponse,
+    SubscribeHomeAssistantStateResponse,
 )
 from .model import (
     BluetoothLEAdvertisement,
@@ -85,3 +86,10 @@ def on_bluetooth_gatt_notify_data_response(
     """Handle a BluetoothGATTNotifyDataResponse message."""
     if address == msg.address and handle == msg.handle:
         on_bluetooth_gatt_notify(handle, bytearray(msg.data))
+
+
+def on_subscribe_home_assistant_state_response(
+    on_state_sub: Callable[[str, str | None], None],
+    msg: SubscribeHomeAssistantStateResponse,
+) -> None:
+    on_state_sub(msg.entity_id, msg.attribute)

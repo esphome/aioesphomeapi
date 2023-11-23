@@ -48,6 +48,7 @@ from aioesphomeapi.api_pb2 import (
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
+    SubscribeHomeAssistantStateResponse,
     SubscribeLogsResponse,
     SwitchCommandRequest,
     TextCommandRequest,
@@ -1321,6 +1322,32 @@ async def test_subscribe_bluetooth_connections_free(
 
     assert connections == [(2, 3)]
     unsub()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_home_assistant_states(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_home_assistant_states."""
+    client, connection, transport, protocol = api_client
+    states = []
+
+    def on_subscribe_home_assistant_states(
+        entity_id: str, attribute: str | None
+    ) -> None:
+        states.append((entity_id, attribute))
+
+    await client.subscribe_home_assistant_states(on_subscribe_home_assistant_states)
+    await asyncio.sleep(0)
+
+    response: message.Message = SubscribeHomeAssistantStateResponse(
+        entity_id="sensor.red", attribute="any"
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+
+    assert states == [("sensor.red", "any")]
 
 
 @pytest.mark.asyncio
