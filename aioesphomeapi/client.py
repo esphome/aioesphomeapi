@@ -435,11 +435,13 @@ class APIClient:
         ),
         timeout: float = 10.0,
     ) -> message.Message:
-        msg_types = (response_type, BluetoothGATTErrorResponse)
-
         message_filter = partial(self._filter_bluetooth_message, address, handle)
         resp = await self._get_connection().send_messages_await_response_complex(
-            (request,), message_filter, message_filter, msg_types, timeout
+            (request,),
+            message_filter,
+            message_filter,
+            (response_type, BluetoothGATTErrorResponse),
+            timeout,
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
@@ -532,7 +534,6 @@ class APIClient:
         has_cache: bool = False,
         address_type: int | None = None,
     ) -> Callable[[], None]:
-        msg_types = (BluetoothDeviceConnectionResponse,)
         debug = _LOGGER.isEnabledFor(logging.DEBUG)
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
@@ -563,7 +564,7 @@ class APIClient:
                 address,
                 on_bluetooth_connection_state,
             ),
-            msg_types,
+            (BluetoothDeviceConnectionResponse,),
         )
 
         loop = self._loop
@@ -629,14 +630,9 @@ class APIClient:
     async def bluetooth_device_pair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDevicePairing:
-        msg_types = (
-            BluetoothDevicePairingResponse,
-            BluetoothDeviceConnectionResponse,
-        )
-
-        def predicate_func(msg: message.Message) -> bool:
-            if TYPE_CHECKING:
-                assert isinstance(msg, msg_types)
+        def predicate_func(
+            msg: BluetoothDevicePairingResponse | BluetoothDeviceConnectionResponse,
+        ) -> bool:
             if msg.address != address:
                 return False
             if isinstance(msg, BluetoothDeviceConnectionResponse):
@@ -650,7 +646,10 @@ class APIClient:
                 address,
                 BluetoothDeviceRequestType.PAIR,
                 predicate_func,
-                msg_types,
+                (
+                    BluetoothDevicePairingResponse,
+                    BluetoothDeviceConnectionResponse,
+                ),
                 timeout,
             )
         )
@@ -718,11 +717,6 @@ class APIClient:
     async def bluetooth_gatt_get_services(
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
-        msg_types = (
-            BluetoothGATTGetServicesResponse,
-            BluetoothGATTGetServicesDoneResponse,
-            BluetoothGATTErrorResponse,
-        )
         append_types = (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
         stop_types = (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse)
 
@@ -736,7 +730,11 @@ class APIClient:
             (BluetoothGATTGetServicesRequest(address=address),),
             do_append,
             do_stop,
-            msg_types,
+            (
+                BluetoothGATTGetServicesResponse,
+                BluetoothGATTGetServicesDoneResponse,
+                BluetoothGATTErrorResponse,
+            ),
             DEFAULT_BLE_TIMEOUT,
         )
         services = []
