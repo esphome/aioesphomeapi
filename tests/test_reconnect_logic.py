@@ -454,7 +454,7 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake():
 
 @pytest.mark.asyncio
 async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventLoop):
-    """Test the log runner logic."""
+    """Test the disconnect callback fires with expected_disconnect=False."""
     loop = asyncio.get_event_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
