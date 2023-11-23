@@ -39,7 +39,7 @@ class IPv6Sockaddr(Sockaddr):
     """IPv6 socket address."""
 
     flowinfo: int
-    scope_id: int
+    scope_id: int | str
 
 
 @dataclass(frozen=True)
@@ -55,7 +55,7 @@ async def _async_zeroconf_get_service_info(
     service_type: str,
     service_name: str,
     timeout: float,
-) -> AsyncServiceInfo | None:
+) -> AsyncServiceInfo:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     try:
         zc = zeroconf_manager.get_async_zeroconf().zeroconf
@@ -66,8 +66,7 @@ async def _async_zeroconf_get_service_info(
         ) from exc
     try:
         info = AsyncServiceInfo(service_type, service_name)
-        if await info.async_request(zc, int(timeout * 1000)):
-            return info
+        await info.async_request(zc, int(timeout * 1000))
     except Exception as exc:
         raise ResolveAPIError(
             f"Error resolving mDNS {service_name} via mDNS: {exc}"
@@ -75,6 +74,13 @@ async def _async_zeroconf_get_service_info(
     finally:
         await zeroconf_manager.async_close()
     return info
+
+
+def _int_or_str(value: str) -> int | str:
+    try:
+        return int(value)
+    except ValueError:
+        return value
 
 
 async def _async_resolve_host_zeroconf(
@@ -90,20 +96,16 @@ async def _async_resolve_host_zeroconf(
     info = await _async_zeroconf_get_service_info(
         zeroconf_manager or ZeroconfManager(), SERVICE_TYPE, service_name, timeout
     )
-
-    if info is None:
-        return []
-
     addrs: list[AddrInfo] = []
     for ip_address in info.ip_addresses_by_version(IPVersion.All):
         is_ipv6 = ip_address.version == 6
         sockaddr: IPv6Sockaddr | IPv4Sockaddr
         if is_ipv6:
             sockaddr = IPv6Sockaddr(
-                address=str(ip_address),
+                address=str(ip_address).partition("%")[0],
                 port=port,
                 flowinfo=0,
-                scope_id=0,
+                scope_id=_int_or_str(ip_address.scope_id),
             )
         else:
             sockaddr = IPv4Sockaddr(
@@ -200,7 +202,7 @@ async def async_resolve_host(
                     name, port, zeroconf_manager=zeroconf_manager
                 )
             )
-        except APIConnectionError as err:
+        except ResolveAPIError as err:
             zc_error = err
 
     else:
