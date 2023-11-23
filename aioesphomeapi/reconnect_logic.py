@@ -112,7 +112,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # So therefore all these connection warnings are logged
         # as infos. The "unavailable" logic will still trigger so the
         # user knows if the device is not connected.
-        disconnect_type = "expected" if expected_disconnect else "unexpected"
+        if expected_disconnect:
+            disconnect_type = "expected"
+            wait = EXPECTED_DISCONNECT_COOLDOWN
+        else:
+            disconnect_type = "unexpected"
+            wait = 0
+
         _LOGGER.info(
             "Processing %s disconnect from ESPHome API for %s",
             disconnect_type,
@@ -120,21 +126,15 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
 
         # Run disconnect hook
-        await self._on_disconnect_cb(expected_disconnect)
+        async with self._connected_lock:
+            await self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
+            await self._on_disconnect_cb(expected_disconnect)
 
-        await self._async_set_connection_state(ReconnectLogicState.DISCONNECTED)
-
-        wait = EXPECTED_DISCONNECT_COOLDOWN if expected_disconnect else 0
         # If we expected the disconnect we need
         # to cooldown before connecting in case the remote
         # is rebooting so we don't establish a connection right
         # before its about to reboot in the event we are too fast.
         self._schedule_connect(wait)
-
-    async def _async_set_connection_state(self, state: ReconnectLogicState) -> None:
-        """Set the connection state."""
-        async with self._connected_lock:
-            self._async_set_connection_state_while_locked(state)
 
     def _async_set_connection_state_while_locked(
         self, state: ReconnectLogicState
