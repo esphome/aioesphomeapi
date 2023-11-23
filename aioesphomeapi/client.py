@@ -978,6 +978,17 @@ class APIClient:
             timeout=timeout,
         )
 
+    def _on_bluetooth_gatt_notify_data_response(
+        self,
+        address: int,
+        handle: int,
+        on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
+        msg: BluetoothGATTNotifyDataResponse,
+    ) -> None:
+        """Handle a BluetoothGATTNotifyDataResponse message."""
+        if address == msg.address and handle == msg.handle:
+            on_bluetooth_gatt_notify(handle, bytearray(msg.data))
+
     async def bluetooth_gatt_start_notify(
         self,
         address: int,
@@ -994,15 +1005,14 @@ class APIClient:
         callbacks without stopping the notify session on the remote device, which
         should be used when the connection is lost.
         """
-
-        def _on_bluetooth_gatt_notify_data_response(
-            msg: BluetoothGATTNotifyDataResponse,
-        ) -> None:
-            if address == msg.address and handle == msg.handle:
-                on_bluetooth_gatt_notify(handle, bytearray(msg.data))
-
         remove_callback = self._get_connection().add_message_callback(
-            _on_bluetooth_gatt_notify_data_response, (BluetoothGATTNotifyDataResponse,)
+            partial(
+                self._on_bluetooth_gatt_notify_data_response,
+                address,
+                handle,
+                on_bluetooth_gatt_notify,
+            ),
+            (BluetoothGATTNotifyDataResponse,),
         )
 
         try:
