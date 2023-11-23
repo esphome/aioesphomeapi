@@ -7,7 +7,8 @@ from aioesphomeapi.api_pb2 import (
     BluetoothLERawAdvertisementsResponse,
 )
 from aioesphomeapi.client import APIClient
-
+from aioesphomeapi.client_callbacks import on_ble_raw_advertisement_response
+# cythonize -X language_level=3 -a -i aioesphomeapi/client_callbacks.py
 # cythonize -X language_level=3 -a -i aioesphomeapi/connection.py
 
 
@@ -47,7 +48,7 @@ def on_advertisements(msgs: list[BluetoothLERawAdvertisement]):
 
 
 connection.add_message_callback(
-    partial(client._on_ble_raw_advertisement_response, on_advertisements),
+    partial(on_ble_raw_advertisement_response, on_advertisements),
     (BluetoothLERawAdvertisementsResponse,),
 )
 
