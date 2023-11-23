@@ -141,22 +141,22 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
 
 
 def _async_ip_address_to_addrs(
-    ip_address: IPv4Address | IPv6Address, port: int
+    ip: IPv4Address | IPv6Address, port: int
 ) -> list[AddrInfo]:
     """Convert an ipaddress to AddrInfo."""
     addrs: list[AddrInfo] = []
-    is_ipv6 = ip_address.version == 6
+    is_ipv6 = ip.version == 6
     sockaddr: IPv6Sockaddr | IPv4Sockaddr
     if is_ipv6:
         sockaddr = IPv6Sockaddr(
-            address=str(ip_address).partition("%")[0],
+            address=str(ip).partition("%")[0],
             port=port,
             flowinfo=0,
-            scope_id=_int_or_str(ip_address.scope_id),
+            scope_id=_int_or_str(ip.scope_id),
         )
     else:
         sockaddr = IPv4Sockaddr(
-            address=str(ip_address),
+            address=str(ip),
             port=port,
         )
 
