@@ -5,8 +5,8 @@ import contextlib
 import logging
 import socket
 from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv6Address
-from typing import cast
+from ipaddress import IPv4Address, IPv6Address, ip_address
+from typing import TYPE_CHECKING, cast
 
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo
@@ -54,8 +54,9 @@ async def _async_zeroconf_get_service_info(
     zeroconf_manager: ZeroconfManager,
     service_type: str,
     service_name: str,
+    server: str,
     timeout: float,
-) -> AsyncServiceInfo | None:
+) -> AsyncServiceInfo:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
     try:
         zc = zeroconf_manager.get_async_zeroconf().zeroconf
@@ -65,9 +66,8 @@ async def _async_zeroconf_get_service_info(
             "host network mode?"
         ) from exc
     try:
-        info = AsyncServiceInfo(service_type, service_name)
-        if await info.async_request(zc, int(timeout * 1000)):
-            return info
+        info = AsyncServiceInfo(service_type, service_name, server=server)
+        await info.async_request(zc, int(timeout * 1000))
     except Exception as exc:
         raise ResolveAPIError(
             f"Error resolving mDNS {service_name} via mDNS: {exc}"
@@ -75,6 +75,16 @@ async def _async_zeroconf_get_service_info(
     finally:
         await zeroconf_manager.async_close()
     return info
+
+
+def _scope_id_to_int(value: str | None) -> int:
+    """Convert a scope id to int if possible."""
+    if value is None:
+        return 0
+    try:
+        return int(value)
+    except ValueError:
+        return 0
 
 
 async def _async_resolve_host_zeroconf(
@@ -85,40 +95,19 @@ async def _async_resolve_host_zeroconf(
     zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
     service_name = f"{host}.{SERVICE_TYPE}"
+    server = f"{host}.local."
 
     _LOGGER.debug("Resolving host %s via mDNS", service_name)
     info = await _async_zeroconf_get_service_info(
-        zeroconf_manager or ZeroconfManager(), SERVICE_TYPE, service_name, timeout
+        zeroconf_manager or ZeroconfManager(),
+        SERVICE_TYPE,
+        service_name,
+        server,
+        timeout,
     )
-
-    if info is None:
-        return []
-
     addrs: list[AddrInfo] = []
-    for ip_address in info.ip_addresses_by_version(IPVersion.All):
-        is_ipv6 = ip_address.version == 6
-        sockaddr: IPv6Sockaddr | IPv4Sockaddr
-        if is_ipv6:
-            sockaddr = IPv6Sockaddr(
-                address=str(ip_address),
-                port=port,
-                flowinfo=0,
-                scope_id=0,
-            )
-        else:
-            sockaddr = IPv4Sockaddr(
-                address=str(ip_address),
-                port=port,
-            )
-
-        addrs.append(
-            AddrInfo(
-                family=socket.AF_INET6 if is_ipv6 else socket.AF_INET,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-                sockaddr=sockaddr,
-            )
-        )
+    for ip in info.ip_addresses_by_version(IPVersion.All):
+        addrs.extend(_async_ip_address_to_addrs(ip, port))  # type: ignore[arg-type]
     return addrs
 
 
@@ -154,34 +143,37 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
     return addrs
 
 
-def _async_ip_address_to_addrs(host: str, port: int) -> list[AddrInfo]:
+def _async_ip_address_to_addrs(
+    ip: IPv4Address | IPv6Address, port: int
+) -> list[AddrInfo]:
     """Convert an ipaddress to AddrInfo."""
-    with contextlib.suppress(ValueError):
-        return [
-            AddrInfo(
-                family=socket.AF_INET6,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-                sockaddr=IPv6Sockaddr(
-                    address=str(IPv6Address(host)), port=port, flowinfo=0, scope_id=0
-                ),
-            )
-        ]
+    addrs: list[AddrInfo] = []
+    is_ipv6 = ip.version == 6
+    sockaddr: IPv6Sockaddr | IPv4Sockaddr
+    if is_ipv6:
+        if TYPE_CHECKING:
+            assert isinstance(ip, IPv6Address)
+        sockaddr = IPv6Sockaddr(
+            address=str(ip).partition("%")[0],
+            port=port,
+            flowinfo=0,
+            scope_id=_scope_id_to_int(ip.scope_id),
+        )
+    else:
+        sockaddr = IPv4Sockaddr(
+            address=str(ip),
+            port=port,
+        )
 
-    with contextlib.suppress(ValueError):
-        return [
-            AddrInfo(
-                family=socket.AF_INET,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-                sockaddr=IPv4Sockaddr(
-                    address=str(IPv4Address(host)),
-                    port=port,
-                ),
-            )
-        ]
-
-    return []
+    addrs.append(
+        AddrInfo(
+            family=socket.AF_INET6 if is_ipv6 else socket.AF_INET,
+            type=socket.SOCK_STREAM,
+            proto=socket.IPPROTO_TCP,
+            sockaddr=sockaddr,
+        )
+    )
+    return addrs
 
 
 async def async_resolve_host(
@@ -200,11 +192,12 @@ async def async_resolve_host(
                     name, port, zeroconf_manager=zeroconf_manager
                 )
             )
-        except APIConnectionError as err:
+        except ResolveAPIError as err:
             zc_error = err
 
     else:
-        addrs.extend(_async_ip_address_to_addrs(host, port))
+        with contextlib.suppress(ValueError):
+            addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
 
     if not addrs:
         addrs.extend(await _async_resolve_host_getaddrinfo(host, port))

@@ -35,4 +35,4 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         packet=tuple,
         type_=object
     )
-    cpdef write_packets(self, list packets)
+    cpdef write_packets(self, list packets, bint debug_enabled)
