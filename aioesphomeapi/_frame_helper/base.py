@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import abstractmethod
-from functools import partial
 from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
