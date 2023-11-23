@@ -643,7 +643,7 @@ class APIConnection:
             assert self._frame_helper is not None
 
         try:
-            self._frame_helper.write_packets(packets)
+            self._frame_helper.write_packets(packets, debug_enabled)
         except SocketAPIError as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
@@ -946,3 +946,15 @@ class APIConnection:
                 )
 
         self._cleanup()
+
+    def _get_message_handlers(
+        self,
+    ) -> dict[Any, set[Callable[[message.Message], None]]]:
+        """Get the message handlers.
+
+        This function is only used for testing for leaks.
+
+        It has to be bound to the real instance to work since
+        _message_handlers is not a public attribute.
+        """
+        return self._message_handlers

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import binascii
+import logging
 from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable
@@ -20,7 +21,7 @@ from ..core import (
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
 )
-from .base import APIFrameHelper
+from .base import _LOGGER, APIFrameHelper
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
@@ -180,7 +181,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         frame_len = len(handshake_frame)
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         hello_handshake = NOISE_HELLO + header + handshake_frame
-        self._write_bytes(hello_handshake)
+        self._write_bytes(hello_handshake, _LOGGER.isEnabledFor(logging.DEBUG))
 
     def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
@@ -284,7 +285,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         )
         self._ready_future.set_result(None)
 
-    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+    def write_packets(
+        self, packets: list[tuple[int, bytes]], debug_enabled: bool
+    ) -> None:
         """Write a packets to the socket.
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]
@@ -314,7 +317,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             out.append(header)
             out.append(frame)
 
-        self._write_bytes(b"".join(out))
+        self._write_bytes(b"".join(out), debug_enabled)
 
     def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""

@@ -10,8 +10,6 @@ from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
     AlarmControlPanelCommandRequest,
-    AlarmControlPanelStateResponse,
-    BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
@@ -38,50 +36,23 @@ from .api_pb2 import (  # type: ignore
     CameraImageRequest,
     CameraImageResponse,
     ClimateCommandRequest,
-    ClimateStateResponse,
     CoverCommandRequest,
-    CoverStateResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
-    FanStateResponse,
     HomeassistantServiceResponse,
     HomeAssistantStateResponse,
     LightCommandRequest,
-    LightStateResponse,
-    ListEntitiesAlarmControlPanelResponse,
-    ListEntitiesBinarySensorResponse,
-    ListEntitiesButtonResponse,
-    ListEntitiesCameraResponse,
-    ListEntitiesClimateResponse,
-    ListEntitiesCoverResponse,
     ListEntitiesDoneResponse,
-    ListEntitiesFanResponse,
-    ListEntitiesLightResponse,
-    ListEntitiesLockResponse,
-    ListEntitiesMediaPlayerResponse,
-    ListEntitiesNumberResponse,
     ListEntitiesRequest,
-    ListEntitiesSelectResponse,
-    ListEntitiesSensorResponse,
     ListEntitiesServicesResponse,
-    ListEntitiesSirenResponse,
-    ListEntitiesSwitchResponse,
-    ListEntitiesTextResponse,
-    ListEntitiesTextSensorResponse,
     LockCommandRequest,
-    LockStateResponse,
     MediaPlayerCommandRequest,
-    MediaPlayerStateResponse,
     NumberCommandRequest,
-    NumberStateResponse,
     SelectCommandRequest,
-    SelectStateResponse,
-    SensorStateResponse,
     SirenCommandRequest,
-    SirenStateResponse,
     SubscribeBluetoothConnectionsFreeRequest,
     SubscribeBluetoothLEAdvertisementsRequest,
     SubscribeHomeassistantServicesRequest,
@@ -92,16 +63,22 @@ from .api_pb2 import (  # type: ignore
     SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
-    SwitchStateResponse,
     TextCommandRequest,
-    TextSensorStateResponse,
-    TextStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
     VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+)
+from .client_callbacks import (
+    on_ble_raw_advertisement_response,
+    on_bluetooth_connections_free_response,
+    on_bluetooth_gatt_notify_data_response,
+    on_bluetooth_le_advertising_response,
+    on_home_assistant_service_response,
+    on_state_msg,
+    on_subscribe_home_assistant_state_response,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -113,11 +90,7 @@ from .core import (
 )
 from .model import (
     AlarmControlPanelCommand,
-    AlarmControlPanelEntityState,
-    AlarmControlPanelInfo,
     APIVersion,
-    BinarySensorInfo,
-    BinarySensorState,
     BluetoothDeviceClearCache,
     BluetoothDevicePairing,
     BluetoothDeviceRequestType,
@@ -127,54 +100,29 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
     BluetoothProxySubscriptionFlag,
-    ButtonInfo,
-    CameraInfo,
-    CameraState,
     ClimateFanMode,
-    ClimateInfo,
     ClimateMode,
     ClimatePreset,
-    ClimateState,
     ClimateSwingMode,
-    CoverInfo,
-    CoverState,
     DeviceInfo,
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
     FanDirection,
-    FanInfo,
     FanSpeed,
-    FanState,
     HomeassistantServiceCall,
     LegacyCoverCommand,
-    LightInfo,
-    LightState,
     LockCommand,
-    LockEntityState,
-    LockInfo,
     LogLevel,
     MediaPlayerCommand,
-    MediaPlayerEntityState,
-    MediaPlayerInfo,
-    NumberInfo,
-    NumberState,
-    SelectInfo,
-    SelectState,
-    SensorInfo,
-    SensorState,
-    SirenInfo,
-    SirenState,
-    SwitchInfo,
-    SwitchState,
-    TextInfo,
-    TextSensorInfo,
-    TextSensorState,
-    TextState,
     UserService,
     UserServiceArgType,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
+)
+from .model_conversions import (
+    LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
+    SUBSCRIBE_STATES_RESPONSE_TYPES,
 )
 from .util import build_log_name
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
@@ -194,45 +142,9 @@ DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
 
-SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
-    BinarySensorStateResponse: BinarySensorState,
-    CoverStateResponse: CoverState,
-    FanStateResponse: FanState,
-    LightStateResponse: LightState,
-    NumberStateResponse: NumberState,
-    SelectStateResponse: SelectState,
-    SensorStateResponse: SensorState,
-    SirenStateResponse: SirenState,
-    SwitchStateResponse: SwitchState,
-    TextStateResponse: TextState,
-    TextSensorStateResponse: TextSensorState,
-    ClimateStateResponse: ClimateState,
-    LockStateResponse: LockEntityState,
-    MediaPlayerStateResponse: MediaPlayerEntityState,
-    AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
-}
+
 SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
 
-LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
-    ListEntitiesBinarySensorResponse: BinarySensorInfo,
-    ListEntitiesButtonResponse: ButtonInfo,
-    ListEntitiesCoverResponse: CoverInfo,
-    ListEntitiesFanResponse: FanInfo,
-    ListEntitiesLightResponse: LightInfo,
-    ListEntitiesNumberResponse: NumberInfo,
-    ListEntitiesSelectResponse: SelectInfo,
-    ListEntitiesSensorResponse: SensorInfo,
-    ListEntitiesSirenResponse: SirenInfo,
-    ListEntitiesSwitchResponse: SwitchInfo,
-    ListEntitiesTextResponse: TextInfo,
-    ListEntitiesTextSensorResponse: TextSensorInfo,
-    ListEntitiesServicesResponse: None,
-    ListEntitiesCameraResponse: CameraInfo,
-    ListEntitiesClimateResponse: ClimateInfo,
-    ListEntitiesLockResponse: LockInfo,
-    ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
-    ListEntitiesAlarmControlPanelResponse: AlarmControlPanelInfo,
-}
 LIST_ENTITIES_MSG_TYPES = (
     ListEntitiesDoneResponse,
     *LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
@@ -462,33 +374,11 @@ class APIClient:
         return entities, services
 
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
-        image_stream: dict[int, list[bytes]] = {}
-        response_types = SUBSCRIBE_STATES_RESPONSE_TYPES
-        msg_types = SUBSCRIBE_STATES_MSG_TYPES
-
-        def _on_state_msg(msg: message.Message) -> None:
-            msg_type = type(msg)
-            cls = response_types.get(msg_type)
-            if cls:
-                on_state(cls.from_pb(msg))
-            elif msg_type is CameraImageResponse:
-                if TYPE_CHECKING:
-                    assert isinstance(msg, CameraImageResponse)
-                msg_key = msg.key
-                data_parts: list[bytes] | None = image_stream.get(msg_key)
-                if not data_parts:
-                    data_parts = []
-                    image_stream[msg_key] = data_parts
-
-                data_parts.append(msg.data)
-                if msg.done:
-                    # Return CameraState with the merged data
-                    image_data = b"".join(data_parts)
-                    del image_stream[msg_key]
-                    on_state(CameraState(key=msg.key, data=image_data))  # type: ignore[call-arg]
-
+        """Subscribe to state updates."""
         self._get_connection().send_message_callback_response(
-            SubscribeStatesRequest(), _on_state_msg, msg_types
+            SubscribeStatesRequest(),
+            partial(on_state_msg, on_state, {}),
+            SUBSCRIBE_STATES_MSG_TYPES,
         )
 
     async def subscribe_logs(
@@ -509,14 +399,9 @@ class APIClient:
     async def subscribe_service_calls(
         self, on_service_call: Callable[[HomeassistantServiceCall], None]
     ) -> None:
-        def _on_home_assistant_service_response(
-            msg: HomeassistantServiceResponse,
-        ) -> None:
-            on_service_call(HomeassistantServiceCall.from_pb(msg))
-
         self._get_connection().send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
-            _on_home_assistant_service_response,
+            partial(on_home_assistant_service_response, on_service_call),
             (HomeassistantServiceResponse,),
         )
 
@@ -551,11 +436,13 @@ class APIClient:
         ),
         timeout: float = 10.0,
     ) -> message.Message:
-        msg_types = (response_type, BluetoothGATTErrorResponse)
-
         message_filter = partial(self._filter_bluetooth_message, address, handle)
         resp = await self._get_connection().send_messages_await_response_complex(
-            (request,), message_filter, message_filter, msg_types, timeout
+            (request,),
+            message_filter,
+            message_filter,
+            (response_type, BluetoothGATTErrorResponse),
+            timeout,
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
@@ -566,17 +453,13 @@ class APIClient:
     async def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
     ) -> Callable[[], None]:
-        msg_types = (BluetoothLEAdvertisementResponse,)
-
-        def _on_bluetooth_le_advertising_response(
-            msg: BluetoothLEAdvertisementResponse,
-        ) -> None:
-            on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
-
         unsub_callback = self._get_connection().send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(flags=0),
-            _on_bluetooth_le_advertising_response,
-            msg_types,
+            partial(
+                on_bluetooth_le_advertising_response,
+                on_bluetooth_le_advertisement,
+            ),
+            (BluetoothLEAdvertisementResponse,),
         )
 
         def unsub() -> None:
@@ -591,19 +474,12 @@ class APIClient:
     async def subscribe_bluetooth_le_raw_advertisements(
         self, on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
     ) -> Callable[[], None]:
-        msg_types = (BluetoothLERawAdvertisementsResponse,)
-
-        def _on_ble_raw_advertisement_response(
-            data: BluetoothLERawAdvertisementsResponse,
-        ) -> None:
-            on_advertisements(data.advertisements)
-
         unsub_callback = self._get_connection().send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
-            _on_ble_raw_advertisement_response,
-            msg_types,
+            partial(on_ble_raw_advertisement_response, on_advertisements),
+            (BluetoothLERawAdvertisementsResponse,),
         )
 
         def unsub() -> None:
@@ -618,17 +494,13 @@ class APIClient:
     async def subscribe_bluetooth_connections_free(
         self, on_bluetooth_connections_free_update: Callable[[int, int], None]
     ) -> Callable[[], None]:
-        msg_types = (BluetoothConnectionsFreeResponse,)
-
-        def _on_bluetooth_connections_free_response(
-            msg: BluetoothConnectionsFreeResponse,
-        ) -> None:
-            on_bluetooth_connections_free_update(msg.free, msg.limit)
-
         return self._get_connection().send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(),
-            _on_bluetooth_connections_free_response,
-            msg_types,
+            partial(
+                on_bluetooth_connections_free_response,
+                on_bluetooth_connections_free_update,
+            ),
+            (BluetoothConnectionsFreeResponse,),
         )
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
@@ -663,7 +535,6 @@ class APIClient:
         has_cache: bool = False,
         address_type: int | None = None,
     ) -> Callable[[], None]:
-        msg_types = (BluetoothDeviceConnectionResponse,)
         debug = _LOGGER.isEnabledFor(logging.DEBUG)
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
@@ -694,7 +565,7 @@ class APIClient:
                 address,
                 on_bluetooth_connection_state,
             ),
-            msg_types,
+            (BluetoothDeviceConnectionResponse,),
         )
 
         loop = self._loop
@@ -731,7 +602,7 @@ class APIClient:
                 except (KeyError, ValueError):
                     _LOGGER.warning(
                         "%s: Bluetooth device connection canceled but already unsubscribed",
-                        addr,
+                        to_human_readable_address(address),
                     )
             if not timeout_expired:
                 timeout_handle.cancel()
@@ -760,14 +631,9 @@ class APIClient:
     async def bluetooth_device_pair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDevicePairing:
-        msg_types = (
-            BluetoothDevicePairingResponse,
-            BluetoothDeviceConnectionResponse,
-        )
-
-        def predicate_func(msg: message.Message) -> bool:
-            if TYPE_CHECKING:
-                assert isinstance(msg, msg_types)
+        def predicate_func(
+            msg: BluetoothDevicePairingResponse | BluetoothDeviceConnectionResponse,
+        ) -> bool:
             if msg.address != address:
                 return False
             if isinstance(msg, BluetoothDeviceConnectionResponse):
@@ -781,7 +647,10 @@ class APIClient:
                 address,
                 BluetoothDeviceRequestType.PAIR,
                 predicate_func,
-                msg_types,
+                (
+                    BluetoothDevicePairingResponse,
+                    BluetoothDeviceConnectionResponse,
+                ),
                 timeout,
             )
         )
@@ -849,11 +718,6 @@ class APIClient:
     async def bluetooth_gatt_get_services(
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
-        msg_types = (
-            BluetoothGATTGetServicesResponse,
-            BluetoothGATTGetServicesDoneResponse,
-            BluetoothGATTErrorResponse,
-        )
         append_types = (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
         stop_types = (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse)
 
@@ -867,7 +731,11 @@ class APIClient:
             (BluetoothGATTGetServicesRequest(address=address),),
             do_append,
             do_stop,
-            msg_types,
+            (
+                BluetoothGATTGetServicesResponse,
+                BluetoothGATTGetServicesDoneResponse,
+                BluetoothGATTErrorResponse,
+            ),
             DEFAULT_BLE_TIMEOUT,
         )
         services = []
@@ -994,22 +862,26 @@ class APIClient:
         callbacks without stopping the notify session on the remote device, which
         should be used when the connection is lost.
         """
-        await self._send_bluetooth_message_await_response(
-            address,
-            handle,
-            BluetoothGATTNotifyRequest(address=address, handle=handle, enable=True),
-            BluetoothGATTNotifyResponse,
-        )
-
-        def _on_bluetooth_gatt_notify_data_response(
-            msg: BluetoothGATTNotifyDataResponse,
-        ) -> None:
-            if address == msg.address and handle == msg.handle:
-                on_bluetooth_gatt_notify(handle, bytearray(msg.data))
-
         remove_callback = self._get_connection().add_message_callback(
-            _on_bluetooth_gatt_notify_data_response, (BluetoothGATTNotifyDataResponse,)
+            partial(
+                on_bluetooth_gatt_notify_data_response,
+                address,
+                handle,
+                on_bluetooth_gatt_notify,
+            ),
+            (BluetoothGATTNotifyDataResponse,),
         )
+
+        try:
+            await self._send_bluetooth_message_await_response(
+                address,
+                handle,
+                BluetoothGATTNotifyRequest(address=address, handle=handle, enable=True),
+                BluetoothGATTNotifyResponse,
+            )
+        except Exception:
+            remove_callback()
+            raise
 
         async def stop_notify() -> None:
             if self._connection is None:
@@ -1026,14 +898,9 @@ class APIClient:
     async def subscribe_home_assistant_states(
         self, on_state_sub: Callable[[str, str | None], None]
     ) -> None:
-        def _on_subscribe_home_assistant_state_response(
-            msg: SubscribeHomeAssistantStateResponse,
-        ) -> None:
-            on_state_sub(msg.entity_id, msg.attribute)
-
         self._get_connection().send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
-            _on_subscribe_home_assistant_state_response,
+            partial(on_subscribe_home_assistant_state_response, on_state_sub),
             (SubscribeHomeAssistantStateResponse,),
         )
 

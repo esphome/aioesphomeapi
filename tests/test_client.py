@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -11,6 +12,7 @@ from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
@@ -18,9 +20,14 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesResponse,
+    BluetoothGATTNotifyDataResponse,
+    BluetoothGATTNotifyResponse,
     BluetoothGATTReadResponse,
     BluetoothGATTService,
     BluetoothGATTWriteResponse,
+    BluetoothLEAdvertisementResponse,
+    BluetoothLERawAdvertisement,
+    BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -41,6 +48,7 @@ from aioesphomeapi.api_pb2 import (
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
+    SubscribeHomeAssistantStateResponse,
     SubscribeLogsResponse,
     SwitchCommandRequest,
     TextCommandRequest,
@@ -60,6 +68,7 @@ from aioesphomeapi.model import (
 )
 from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
 from aioesphomeapi.model import (
+    BluetoothLEAdvertisement,
     CameraState,
     ClimateFanMode,
     ClimateMode,
@@ -1130,6 +1139,219 @@ async def test_bluetooth_gatt_get_services_errors(
 
     with pytest.raises(BluetoothGATTAPIError):
         await services_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_start_notify(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_start_notify."""
+    client, connection, transport, protocol = api_client
+    notifies = []
+
+    handlers_before = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        notifies.append((handle, data))
+
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    notify_response: message.Message = BluetoothGATTNotifyResponse(
+        address=1234, handle=1
+    )
+    data_response: message.Message = BluetoothGATTNotifyDataResponse(
+        address=1234, handle=1, data=b"gotit"
+    )
+    protocol.data_received(
+        generate_plaintext_packet(notify_response)
+        + generate_plaintext_packet(data_response)
+    )
+
+    cancel_cb, abort_cb = await notify_task
+    assert notifies == [(1, b"gotit")]
+
+    second_data_response: message.Message = BluetoothGATTNotifyDataResponse(
+        address=1234, handle=1, data=b"after finished"
+    )
+    protocol.data_received(generate_plaintext_packet(second_data_response))
+    assert notifies == [(1, b"gotit"), (1, b"after finished")]
+    await cancel_cb()
+
+    assert (
+        len(list(itertools.chain(*connection._get_message_handlers().values())))
+        == handlers_before
+    )
+    # Ensure abort callback is a no-op after cancel
+    # and doesn't raise
+    abort_cb()
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_start_notify_fails(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_start_notify failure does not leak."""
+    client, connection, transport, protocol = api_client
+    notifies = []
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        notifies.append((handle, data))
+
+    handlers_before = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
+
+    with patch.object(
+        connection,
+        "send_messages_await_response_complex",
+        side_effect=APIConnectionError,
+    ), pytest.raises(APIConnectionError):
+        await client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+
+    assert (
+        len(list(itertools.chain(*connection._get_message_handlers().values())))
+        == handlers_before
+    )
+
+
+@pytest.mark.asyncio
+async def test_subscribe_bluetooth_le_advertisements(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_bluetooth_le_advertisements."""
+    client, connection, transport, protocol = api_client
+    advs = []
+
+    def on_bluetooth_le_advertisements(adv: BluetoothLEAdvertisement) -> None:
+        advs.append(adv)
+
+    unsub = await client.subscribe_bluetooth_le_advertisements(
+        on_bluetooth_le_advertisements
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothLEAdvertisementResponse(
+        address=1234,
+        name=b"mydevice",
+        rssi=-50,
+        service_uuids=["1234"],
+        service_data={},
+        manufacturer_data={},
+        address_type=1,
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+
+    assert advs == [
+        BluetoothLEAdvertisement(
+            address=1234,
+            name="mydevice",
+            rssi=-50,
+            service_uuids=["000034-0000-1000-8000-00805f9b34fb"],
+            manufacturer_data={},
+            service_data={},
+            address_type=1,
+        )
+    ]
+    unsub()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_bluetooth_le_raw_advertisements(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_bluetooth_le_raw_advertisements."""
+    client, connection, transport, protocol = api_client
+    adv_groups = []
+
+    def on_raw_bluetooth_le_advertisements(
+        advs: list[BluetoothLERawAdvertisementsResponse],
+    ) -> None:
+        adv_groups.append(advs)
+
+    unsub = await client.subscribe_bluetooth_le_raw_advertisements(
+        on_raw_bluetooth_le_advertisements
+    )
+    await asyncio.sleep(0)
+
+    response: message.Message = BluetoothLERawAdvertisementsResponse(
+        advertisements=[
+            BluetoothLERawAdvertisement(
+                address=1234,
+                rssi=-50,
+                address_type=1,
+                data=b"1234",
+            )
+        ]
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    assert len(adv_groups) == 1
+    first_adv = adv_groups[0][0]
+    assert first_adv.address == 1234
+    assert first_adv.rssi == -50
+    assert first_adv.address_type == 1
+    assert first_adv.data == b"1234"
+    unsub()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_bluetooth_connections_free(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_bluetooth_connections_free."""
+    client, connection, transport, protocol = api_client
+    connections = []
+
+    def on_bluetooth_connections_free(free: int, limit: int) -> None:
+        connections.append((free, limit))
+
+    unsub = await client.subscribe_bluetooth_connections_free(
+        on_bluetooth_connections_free
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothConnectionsFreeResponse(free=2, limit=3)
+    protocol.data_received(generate_plaintext_packet(response))
+
+    assert connections == [(2, 3)]
+    unsub()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_home_assistant_states(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_home_assistant_states."""
+    client, connection, transport, protocol = api_client
+    states = []
+
+    def on_subscribe_home_assistant_states(
+        entity_id: str, attribute: str | None
+    ) -> None:
+        states.append((entity_id, attribute))
+
+    await client.subscribe_home_assistant_states(on_subscribe_home_assistant_states)
+    await asyncio.sleep(0)
+
+    response: message.Message = SubscribeHomeAssistantStateResponse(
+        entity_id="sensor.red", attribute="any"
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+
+    assert states == [("sensor.red", "any")]
 
 
 @pytest.mark.asyncio

@@ -19,6 +19,10 @@ from .common import connect, get_mock_async_zeroconf, send_plaintext_hello
 KEEP_ALIVE_INTERVAL = 15.0
 
 
+class PatchableAPIConnection(APIConnection):
+    pass
+
+
 @pytest.fixture
 def async_zeroconf():
     return get_mock_async_zeroconf()
@@ -76,12 +80,12 @@ async def on_stop(expected_disconnect: bool) -> None:
 
 @pytest.fixture
 def conn(connection_params: ConnectionParams) -> APIConnection:
-    return APIConnection(connection_params, on_stop)
+    return PatchableAPIConnection(connection_params, on_stop)
 
 
 @pytest.fixture
 def noise_conn(noise_connection_params: ConnectionParams) -> APIConnection:
-    return APIConnection(noise_connection_params, on_stop)
+    return PatchableAPIConnection(noise_connection_params, on_stop)
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_no_login")

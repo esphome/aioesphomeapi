@@ -56,7 +56,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         super().connection_made(transport)
         self._ready_future.set_result(None)
 
-    def write_packets(self, packets: list[tuple[int, bytes]]) -> None:
+    def write_packets(
+        self, packets: list[tuple[int, bytes]], debug_enabled: bool
+    ) -> None:
         """Write a packets to the socket.
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]
@@ -72,7 +74,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             out.append(varuint_to_bytes(type_))
             out.append(data)
 
-        self._write_bytes(b"".join(out))
+        self._write_bytes(b"".join(out), debug_enabled)
 
     def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
         self, data: bytes | bytearray | memoryview
