@@ -12,7 +12,12 @@ from zeroconf.asyncio import AsyncZeroconf
 
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
-from aioesphomeapi.api_pb2 import ConnectResponse, HelloResponse, PingResponse,PingRequest
+from aioesphomeapi.api_pb2 import (
+    ConnectResponse,
+    HelloResponse,
+    PingRequest,
+    PingResponse,
+)
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
 
@@ -117,8 +122,6 @@ def send_plaintext_connect_response(
 def send_ping_response(protocol: APIPlaintextFrameHelper) -> None:
     ping_response: message.Message = PingResponse()
     protocol.data_received(generate_plaintext_packet(ping_response))
-
-
 
 
 def send_ping_request(protocol: APIPlaintextFrameHelper) -> None:

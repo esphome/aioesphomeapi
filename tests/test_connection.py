@@ -541,7 +541,6 @@ async def test_disconnect_fails_to_send_response(
     assert expected_disconnect is True
 
 
-
 @pytest.mark.asyncio
 async def test_disconnect_success_case(
     connection_params: ConnectionParams,
@@ -596,6 +595,7 @@ async def test_disconnect_success_case(
     await asyncio.sleep(0)
     assert expected_disconnect is True
     assert not conn.is_connected
+
 
 @pytest.mark.asyncio
 async def test_ping_disconnects_after_no_responses(
@@ -673,7 +673,6 @@ def test_raise_during_send_messages_when_not_yet_connected(conn: APIConnection) 
     """Test that we raise when sending messages before we are connected."""
     with pytest.raises(ConnectionNotEstablishedAPIError):
         conn.send_message(PingRequest())
-
 
 
 @pytest.mark.asyncio
