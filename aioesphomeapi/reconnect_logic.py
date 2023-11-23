@@ -106,8 +106,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
         """Log and issue callbacks when disconnecting."""
-        if self._is_stopped:
-            return
         # This can happen often depending on WiFi signal strength.
         # So therefore all these connection warnings are logged
         # as infos. The "unavailable" logic will still trigger so the
@@ -130,6 +128,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             await self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
             await self._on_disconnect_cb(expected_disconnect)
 
+        if self._is_stopped:
+            return
         # If we expected the disconnect we need
         # to cooldown before connecting in case the remote
         # is rebooting so we don't establish a connection right
