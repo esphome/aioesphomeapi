@@ -1160,8 +1160,13 @@ async def test_bluetooth_gatt_start_notify(
     )
 
     await notify_task
-
     assert notifies == [(1, b"gotit")]
+
+    second_data_response: message.Message = BluetoothGATTNotifyDataResponse(
+        address=1234, handle=1, data=b"after finished"
+    )
+    protocol.data_received(generate_plaintext_packet(second_data_response))
+    assert notifies == [(1, b"gotit"), (1, b"after finished")]
 
 
 @pytest.mark.asyncio
