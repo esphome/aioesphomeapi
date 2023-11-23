@@ -125,7 +125,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         # Run disconnect hook
         async with self._connected_lock:
-            await self._async_set_connection_state_while_locked(
+            self._async_set_connection_state_while_locked(
                 ReconnectLogicState.DISCONNECTED
             )
             await self._on_disconnect_cb(expected_disconnect)
