@@ -1141,6 +1141,10 @@ async def test_bluetooth_gatt_start_notify(
     client, connection, transport, protocol = api_client
     notifies = []
 
+    handlers_before = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
+
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
         notifies.append((handle, data))
 
@@ -1159,7 +1163,7 @@ async def test_bluetooth_gatt_start_notify(
         + generate_plaintext_packet(data_response)
     )
 
-    await notify_task
+    cancel_cb, abort_cb = await notify_task
     assert notifies == [(1, b"gotit")]
 
     second_data_response: message.Message = BluetoothGATTNotifyDataResponse(
@@ -1167,7 +1171,13 @@ async def test_bluetooth_gatt_start_notify(
     )
     protocol.data_received(generate_plaintext_packet(second_data_response))
     assert notifies == [(1, b"gotit"), (1, b"after finished")]
+    await cancel_cb()
 
+    assert (
+        len(list(itertools.chain(*connection._get_message_handlers().values())))
+        == handlers_before
+    )
+    abort_cb()
 
 @pytest.mark.asyncio
 async def test_bluetooth_gatt_start_notify_fails(
