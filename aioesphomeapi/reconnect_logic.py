@@ -115,17 +115,17 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # to cooldown before connecting in case the remote
             # is rebooting so we don't establish a connection right
             # before its about to reboot in the event we are too fast.
+            disconnect_type = "expected"
             wait = EXPECTED_DISCONNECT_COOLDOWN
-            _LOGGER.info(
-                "Processing expected disconnect from ESPHome API for %s",
-                self._cli.log_name,
-            )
         else:
+            disconnect_type = "unexpected"
             wait = 0
-            _LOGGER.warning(
-                "Processing unexpected disconnect from ESPHome API for %s",
-                self._cli.log_name,
-            )
+
+        _LOGGER.info(
+            "Processing %s disconnect from ESPHome API for %s",
+            disconnect_type,
+            self._cli.log_name,
+        )
 
         # Run disconnect hook
         async with self._connected_lock:
