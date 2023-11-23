@@ -630,7 +630,10 @@ class APIClient:
     ) -> Callable[[], None]:
         return self._get_connection().send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(),
-            partial(self._on_bluetooth_connections_free_response, on_bluetooth_connections_free_update),
+            partial(
+                self._on_bluetooth_connections_free_response,
+                on_bluetooth_connections_free_update,
+            ),
             (BluetoothConnectionsFreeResponse,),
         )
 

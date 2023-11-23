@@ -12,12 +12,12 @@ from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
     BluetoothDeviceUnpairingResponse,
     BluetoothGATTErrorResponse,
-    BluetoothConnectionsFreeResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTNotifyDataResponse,
@@ -1316,9 +1316,7 @@ async def test_subscribe_bluetooth_connections_free(
         on_bluetooth_connections_free
     )
     await asyncio.sleep(0)
-    response: message.Message = BluetoothConnectionsFreeResponse(
-        free=2,limit=3
-    )
+    response: message.Message = BluetoothConnectionsFreeResponse(free=2, limit=3)
     protocol.data_received(generate_plaintext_packet(response))
 
     assert connections == [(2, 3)]
