@@ -24,6 +24,9 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTReadResponse,
     BluetoothGATTService,
     BluetoothGATTWriteResponse,
+    BluetoothLEAdvertisementResponse,
+    BluetoothLERawAdvertisement,
+    BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -63,6 +66,7 @@ from aioesphomeapi.model import (
 )
 from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
 from aioesphomeapi.model import (
+    BluetoothLEAdvertisement,
     CameraState,
     ClimateFanMode,
     ClimateMode,
@@ -1210,6 +1214,88 @@ async def test_bluetooth_gatt_start_notify_fails(
         len(list(itertools.chain(*connection._get_message_handlers().values())))
         == handlers_before
     )
+
+
+@pytest.mark.asyncio
+async def test_subscribe_bluetooth_le_advertisements(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_bluetooth_le_advertisements."""
+    client, connection, transport, protocol = api_client
+    advs = []
+
+    def on_bluetooth_le_advertisements(adv: BluetoothLEAdvertisement) -> None:
+        advs.append(adv)
+
+    unsub = await client.subscribe_bluetooth_le_advertisements(
+        on_bluetooth_le_advertisements
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothLEAdvertisementResponse(
+        address=1234,
+        name=b"mydevice",
+        rssi=-50,
+        service_uuids=["1234"],
+        service_data={},
+        manufacturer_data={},
+        address_type=1,
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+
+    assert advs == [
+        BluetoothLEAdvertisement(
+            address=1234,
+            name="mydevice",
+            rssi=-50,
+            service_uuids=["000034-0000-1000-8000-00805f9b34fb"],
+            manufacturer_data={},
+            service_data={},
+            address_type=1,
+        )
+    ]
+    unsub()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_bluetooth_le_raw_advertisements(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_bluetooth_le_raw_advertisements."""
+    client, connection, transport, protocol = api_client
+    adv_groups = []
+
+    def on_raw_bluetooth_le_advertisements(
+        advs: list[BluetoothLERawAdvertisementsResponse],
+    ) -> None:
+        adv_groups.append(advs)
+
+    unsub = await client.subscribe_bluetooth_le_raw_advertisements(
+        on_raw_bluetooth_le_advertisements
+    )
+    await asyncio.sleep(0)
+
+    response: message.Message = BluetoothLERawAdvertisementsResponse(
+        advertisements=[
+            BluetoothLERawAdvertisement(
+                address=1234,
+                rssi=-50,
+                address_type=1,
+                data=b"1234",
+            )
+        ]
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+    assert len(adv_groups) == 1
+    first_adv = adv_groups[0][0]
+    assert first_adv.address == 1234
+    assert first_adv.rssi == -50
+    assert first_adv.address_type == 1
+    assert first_adv.data == b"1234"
+    unsub()
 
 
 @pytest.mark.asyncio

@@ -563,19 +563,23 @@ class APIClient:
 
         return resp[0]
 
+    def _on_bluetooth_le_advertising_response(
+        self,
+        on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None],
+        msg: BluetoothLEAdvertisementResponse,
+    ) -> None:
+        on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
+
     async def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
     ) -> Callable[[], None]:
         msg_types = (BluetoothLEAdvertisementResponse,)
-
-        def _on_bluetooth_le_advertising_response(
-            msg: BluetoothLEAdvertisementResponse,
-        ) -> None:
-            on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
-
         unsub_callback = self._get_connection().send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(flags=0),
-            _on_bluetooth_le_advertising_response,
+            partial(
+                self._on_bluetooth_le_advertising_response,
+                on_bluetooth_le_advertisement,
+            ),
             msg_types,
         )
 
@@ -588,21 +592,22 @@ class APIClient:
 
         return unsub
 
+    def _on_ble_raw_advertisement_response(
+        self,
+        on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None],
+        msg: BluetoothLERawAdvertisementsResponse,
+    ) -> None:
+        on_advertisements(msg.advertisements)
+
     async def subscribe_bluetooth_le_raw_advertisements(
         self, on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
     ) -> Callable[[], None]:
         msg_types = (BluetoothLERawAdvertisementsResponse,)
-
-        def _on_ble_raw_advertisement_response(
-            data: BluetoothLERawAdvertisementsResponse,
-        ) -> None:
-            on_advertisements(data.advertisements)
-
         unsub_callback = self._get_connection().send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
-            _on_ble_raw_advertisement_response,
+            partial(self._on_ble_raw_advertisement_response, on_advertisements),
             msg_types,
         )
 
