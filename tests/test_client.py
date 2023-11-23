@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
-import itertools
+
 import pytest
 from google.protobuf import message
 
@@ -1181,7 +1182,9 @@ async def test_bluetooth_gatt_start_notify_fails(
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
         notifies.append((handle, data))
 
-    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+    handlers_before = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
 
     with patch.object(
         connection, "send_messages", side_effect=APIConnectionError
@@ -1189,7 +1192,7 @@ async def test_bluetooth_gatt_start_notify_fails(
         await client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
 
     assert (
-        len(list(itertools.chain(*connection._message_handlers.values())))
+        len(list(itertools.chain(*connection._get_message_handlers().values())))
         == handlers_before
     )
 
