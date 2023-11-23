@@ -5,7 +5,7 @@ import contextlib
 import logging
 import socket
 from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv6Address, _BaseAddress, ip_address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import TYPE_CHECKING, cast
 
 from zeroconf import IPVersion
