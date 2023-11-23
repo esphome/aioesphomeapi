@@ -18,10 +18,17 @@ from zeroconf.asyncio import AsyncZeroconf
 from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_PTR
 
 from aioesphomeapi import APIConnectionError
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
+from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
-from .common import get_mock_zeroconf
+from .common import (
+    get_mock_async_zeroconf,
+    get_mock_zeroconf,
+    send_plaintext_connect_response,
+    send_plaintext_hello,
+)
 
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
@@ -443,3 +450,70 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake():
         await asyncio.sleep(0)
     assert rl._is_stopped is True
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventLoop):
+    """Test the log runner logic."""
+    loop = asyncio.get_event_loop()
+    protocol: APIPlaintextFrameHelper | None = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    async_zeroconf = get_mock_async_zeroconf()
+
+    cli = PatchableAPIClient(
+        address="1.2.3.4",
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name="fake",
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    connected = asyncio.Event()
+    on_disconnect_calls = []
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        on_disconnect_calls.append(expected_disconnect)
+
+    async def on_connect() -> None:
+        connected.set()
+
+    logic = ReconnectLogic(
+        client=cli,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        zeroconf_instance=async_zeroconf,
+        name="fake",
+    )
+
+    with patch.object(event_loop, "sock_connect"), patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ):
+        await logic.start()
+        await connected.wait()
+        protocol = cli._connection._frame_helper
+        send_plaintext_hello(protocol)
+        send_plaintext_connect_response(protocol, False)
+        await connected.wait()
+
+    assert cli._connection.is_connected is True
+    await asyncio.sleep(0)
+
+    protocol.eof_received()
+    await asyncio.sleep(0)
+
+    assert len(on_disconnect_calls) == 1
+    assert on_disconnect_calls[0] is False
+    await logic.stop()
