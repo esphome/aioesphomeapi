@@ -437,7 +437,11 @@ class APIClient:
     ) -> message.Message:
         message_filter = partial(self._filter_bluetooth_message, address, handle)
         resp = await self._get_connection().send_messages_await_response_complex(
-            (request,), message_filter, message_filter, (response_type, BluetoothGATTErrorResponse), timeout
+            (request,),
+            message_filter,
+            message_filter,
+            (response_type, BluetoothGATTErrorResponse),
+            timeout,
         )
 
         if isinstance(resp[0], BluetoothGATTErrorResponse):
@@ -626,7 +630,9 @@ class APIClient:
     async def bluetooth_device_pair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDevicePairing:
-        def predicate_func(msg: BluetoothDevicePairingResponse | BluetoothDeviceConnectionResponse) -> bool:
+        def predicate_func(
+            msg: BluetoothDevicePairingResponse | BluetoothDeviceConnectionResponse,
+        ) -> bool:
             if msg.address != address:
                 return False
             if isinstance(msg, BluetoothDeviceConnectionResponse):
