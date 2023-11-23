@@ -734,7 +734,7 @@ class APIClient:
                 except (KeyError, ValueError):
                     _LOGGER.warning(
                         "%s: Bluetooth device connection canceled but already unsubscribed",
-                        addr,
+                        to_human_readable_address(address),
                     )
             if not timeout_expired:
                 timeout_handle.cancel()
