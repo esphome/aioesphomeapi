@@ -17,6 +17,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothDevicePairingResponse,
     BluetoothDeviceUnpairingResponse,
     BluetoothGATTErrorResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTNotifyDataResponse,
@@ -1295,6 +1296,32 @@ async def test_subscribe_bluetooth_le_raw_advertisements(
     assert first_adv.rssi == -50
     assert first_adv.address_type == 1
     assert first_adv.data == b"1234"
+    unsub()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_bluetooth_connections_free(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_bluetooth_connections_free."""
+    client, connection, transport, protocol = api_client
+    connections = []
+
+    def on_bluetooth_connections_free(free: int, limit: int) -> None:
+        connections.append((free, limit))
+
+    unsub = await client.subscribe_bluetooth_connections_free(
+        on_bluetooth_connections_free
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothConnectionsFreeResponse(
+        free=2,limit=3
+    )
+    protocol.data_received(generate_plaintext_packet(response))
+
+    assert connections == [(2, 3)]
     unsub()
 
 

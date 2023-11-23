@@ -618,20 +618,20 @@ class APIClient:
 
         return unsub
 
+    def _on_bluetooth_connections_free_response(
+        self,
+        on_bluetooth_connections_free_update: Callable[[int, int], None],
+        msg: BluetoothConnectionsFreeResponse,
+    ) -> None:
+        on_bluetooth_connections_free_update(msg.free, msg.limit)
+
     async def subscribe_bluetooth_connections_free(
         self, on_bluetooth_connections_free_update: Callable[[int, int], None]
     ) -> Callable[[], None]:
-        msg_types = (BluetoothConnectionsFreeResponse,)
-
-        def _on_bluetooth_connections_free_response(
-            msg: BluetoothConnectionsFreeResponse,
-        ) -> None:
-            on_bluetooth_connections_free_update(msg.free, msg.limit)
-
         return self._get_connection().send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(),
-            _on_bluetooth_connections_free_response,
-            msg_types,
+            partial(self._on_bluetooth_connections_free_response, on_bluetooth_connections_free_update),
+            (BluetoothConnectionsFreeResponse,),
         )
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
