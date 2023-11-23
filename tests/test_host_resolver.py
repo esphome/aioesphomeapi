@@ -84,6 +84,15 @@ async def test_resolve_host_zeroconf_empty(async_zeroconf: AsyncZeroconf):
 
 
 @pytest.mark.asyncio
+async def test_resolve_host_zeroconf_fails(async_zeroconf: AsyncZeroconf):
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request",
+        side_effect=Exception("no buffers"),
+    ), pytest.raises(ResolveAPIError, match="no buffers"):
+        await hr._async_resolve_host_zeroconf("asdf.local", 6052)
+
+
+@pytest.mark.asyncio
 async def test_resolve_host_getaddrinfo(event_loop, addr_infos):
     with patch.object(event_loop, "getaddrinfo") as mock:
         mock.return_value = [
