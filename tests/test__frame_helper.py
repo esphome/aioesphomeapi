@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import base64
 from datetime import timedelta
-from unittest.mock import MagicMock
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 
+from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.base import WRITE_EXCEPTIONS
 from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND, NOISE_HELLO
 from aioesphomeapi._frame_helper.plain_text import _bytes_to_varuint as bytes_to_varuint
 from aioesphomeapi._frame_helper.plain_text import (
@@ -19,16 +20,37 @@ from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
 )
 from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
+from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
+    APIConnectionError,
     BadNameAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
-    SocketAPIError,
+    ProtocolAPIError,
+    SocketClosedAPIError,
 )
 
-from .common import async_fire_time_changed, utcnow
+from .common import async_fire_time_changed, get_mock_protocol, utcnow
 
 PREAMBLE = b"\x00"
+
+
+def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
+    """Make a mock connection."""
+    packets: list[tuple[int, bytes]] = []
+
+    class MockConnection(APIConnection):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Swallow args."""
+
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
+
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
+    return connection, packets
 
 
 class MockAPINoiseFrameHelper(APINoiseFrameHelper):
@@ -41,13 +63,12 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         try:
             self._writer(header + frame)
-        except WRITE_EXCEPTIONS as err:
-            raise SocketAPIError(
+        except (RuntimeError, ConnectionResetError, OSError) as err:
+            raise SocketClosedAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
             ) from err
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "in_bytes, pkt_data, pkt_type",
     [
@@ -95,18 +116,13 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         ),
     ],
 )
-async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
+def test_plaintext_frame_helper(
+    in_bytes: bytes, pkt_data: bytes, pkt_type: int
+) -> None:
     for _ in range(3):
-        packets = []
-
-        def _packet(type_: int, data: bytes):
-            packets.append((type_, data))
-
-        def _on_error(exc: Exception):
-            raise exc
-
+        connection, packets = _make_mock_connection()
         helper = APIPlaintextFrameHelper(
-            on_pkt=_packet, on_error=_on_error, client_info="my client", log_name="test"
+            connection=connection, client_info="my client", log_name="test"
         )
 
         helper.data_received(in_bytes)
@@ -126,6 +142,91 @@ async def test_plaintext_frame_helper(in_bytes, pkt_data, pkt_type):
 
         assert type_ == pkt_type
         assert data == pkt_data
+        helper.close()
+
+
+@pytest.mark.parametrize(
+    "byte_type",
+    (bytes, bytearray, memoryview),
+)
+def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
+    """Test the plaintext frame helper with the protractor event loop.
+
+    With the protractor event loop, data_received is called with a bytearray
+    instead of bytes.
+
+    https://github.com/esphome/issues/issues/5117
+    """
+    for _ in range(3):
+        connection, packets = _make_mock_connection()
+        helper = APIPlaintextFrameHelper(
+            connection=connection, client_info="my client", log_name="test"
+        )
+        in_bytes = byte_type(
+            PREAMBLE + varuint_to_bytes(4) + varuint_to_bytes(100) + (b"\x42" * 4)
+        )
+
+        helper.data_received(in_bytes)
+
+        pkt = packets.pop()
+        type_, data = pkt
+
+        assert type_ == 100
+        assert data == b"\x42" * 4
+
+        # Make sure we correctly handle fragments
+        for i in range(len(in_bytes)):
+            helper.data_received(in_bytes[i : i + 1])
+
+        pkt = packets.pop()
+        type_, data = pkt
+
+        assert type_ == 100
+        assert data == b"\x42" * 4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "byte_type",
+    (bytes, bytearray, memoryview),
+)
+async def test_noise_protector_event_loop(byte_type: Any) -> None:
+    """Test the noise frame helper with the protractor event loop.
+
+    With the protractor event loop, data_received is called with a bytearray
+    instead of bytes.
+
+    https://github.com/esphome/issues/issues/5117
+    """
+    outgoing_packets = [
+        "010000",  # hello packet
+        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
+    ]
+    incoming_packets = [
+        "01000d01736572766963657465737400",
+        "0100160148616e647368616b65204d4143206661696c757265",
+    ]
+    connection, _ = _make_mock_connection()
+
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+    )
+    helper._transport = MagicMock()
+    helper._writer = MagicMock()
+
+    for pkt in outgoing_packets:
+        helper.mock_write_frame(byte_type(bytes.fromhex(pkt)))
+
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        for pkt in incoming_packets:
+            helper.data_received(byte_type(bytes.fromhex(pkt)))
+
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        await helper.perform_handshake(30)
 
 
 @pytest.mark.asyncio
@@ -139,17 +240,10 @@ async def test_noise_frame_helper_incorrect_key():
         "01000d01736572766963657465737400",
         "0100160148616e647368616b65204d4143206661696c757265",
     ]
-    packets = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
         client_info="my client",
@@ -180,17 +274,10 @@ async def test_noise_frame_helper_incorrect_key_fragments():
         "01000d01736572766963657465737400",
         "0100160148616e647368616b65204d4143206661696c757265",
     ]
-    packets = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="servicetest",
         client_info="my client",
@@ -223,17 +310,10 @@ async def test_noise_incorrect_name():
         "01000d01736572766963657465737400",
         "0100160148616e647368616b65204d4143206661696c757265",
     ]
-    packets = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="wrongname",
         client_info="my client",
@@ -260,17 +340,11 @@ async def test_noise_timeout():
         "010000",  # hello packet
         "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
     ]
-    packets = []
 
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
-
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         expected_name="wrongname",
         client_info="my client",
@@ -312,26 +386,24 @@ def test_bytes_to_varuint(val, encoded):
     assert cached_bytes_to_varuint(encoded) == val
 
 
+def test_bytes_to_varuint_invalid():
+    assert bytes_to_varuint(b"\xFF") is None
+
+
 @pytest.mark.asyncio
 async def test_noise_frame_helper_handshake_failure():
     """Test the noise frame helper handshake failure."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
-    packets = []
     writes = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
 
     def _writer(data: bytes):
         writes.append(data)
 
-    def _on_error(exc: Exception):
-        raise exc
+    connection, _ = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk=noise_psk,
         expected_name="servicetest",
         client_info="my client",
@@ -398,21 +470,15 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     """Test the noise frame helper handshake success with a single packet."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
-    packets = []
     writes = []
-
-    def _packet(type_: int, data: bytes):
-        packets.append((type_, data))
 
     def _writer(data: bytes):
         writes.append(data)
 
-    def _on_error(exc: Exception):
-        raise exc
+    connection, packets = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
-        on_pkt=_packet,
-        on_error=_on_error,
+        connection=connection,
         noise_psk=noise_psk,
         expected_name="servicetest",
         client_info="my client",
@@ -504,3 +570,80 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
     assert packets == [(42, b"from device")]
     helper.close()
+
+    with pytest.raises(ProtocolAPIError, match="Connection closed"):
+        helper.data_received(encrypted_header + encrypted_payload)
+
+
+@pytest.mark.asyncio
+async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
+    loop = asyncio.get_event_loop()
+    protocol = get_mock_protocol(conn)
+    with patch.object(loop, "create_connection") as create_connection:
+        create_connection.return_value = (MagicMock(), protocol)
+
+        conn._socket = MagicMock()
+        await conn._connect_init_frame_helper()
+        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
+        conn.connection_state = ConnectionState.CONNECTED
+
+    task = asyncio.create_task(conn._connect_hello_login(login=True))
+    await asyncio.sleep(0)
+    # The preamble should be \x00 but we send \x09
+    protocol.data_received(b"\x09\x00\x00")
+
+    with pytest.raises(ProtocolAPIError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    protocol: APINoiseFrameHelper | None = None
+
+    async def _create_connection(create, sock, *args, **kwargs):
+        nonlocal protocol
+        protocol = create()
+        protocol.connection_made(transport)
+        return transport, protocol
+
+    with patch.object(loop, "create_connection", side_effect=_create_connection):
+        task = asyncio.create_task(noise_conn._connect_init_frame_helper())
+        await asyncio.sleep(0)
+
+        assert protocol is not None
+        assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
+
+        protocol.data_received(b"\x00\x00\x00")
+
+        with pytest.raises(ProtocolAPIError, match="Marker byte invalid"):
+            await task
+
+
+@pytest.mark.asyncio
+async def test_eof_received_closes_connection(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    assert protocol.eof_received() is False
+    assert conn.is_connected is False
+    with pytest.raises(SocketClosedAPIError, match="EOF received"):
+        await connect_task
+
+
+@pytest.mark.asyncio
+async def test_connection_lost_closes_connection_and_logs(
+    caplog: pytest.LogCaptureFixture,
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    protocol.connection_lost(OSError("original message"))
+    assert conn.is_connected is False
+    assert "original message" in caplog.text
+    with pytest.raises(APIConnectionError, match="original message"):
+        await connect_task

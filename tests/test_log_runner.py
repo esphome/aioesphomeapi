@@ -14,7 +14,6 @@ from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.log_runner import async_run
 
 from .common import (
-    PROTO_TO_MESSAGE_TYPE,
     Estr,
     generate_plaintext_packet,
     get_mock_async_zeroconf,
@@ -75,21 +74,11 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
 
     response: message.Message = SubscribeLogsResponse()
     response.message = b"Hello world"
-    protocol.data_received(
-        generate_plaintext_packet(
-            response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[SubscribeLogsResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(response))
     assert len(messages) == 1
     assert messages[0].message == b"Hello world"
     stop_task = asyncio.create_task(stop())
     await asyncio.sleep(0)
     disconnect_response = DisconnectResponse()
-    protocol.data_received(
-        generate_plaintext_packet(
-            disconnect_response.SerializeToString(),
-            PROTO_TO_MESSAGE_TYPE[DisconnectResponse],
-        )
-    )
+    protocol.data_received(generate_plaintext_packet(disconnect_response))
     await stop_task

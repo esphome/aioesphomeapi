@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import HandshakeAPIError, SocketClosedAPIError
 
+if TYPE_CHECKING:
+    from ..connection import APIConnection
+
 _LOGGER = logging.getLogger(__name__)
 
 SOCKET_ERRORS = (
@@ -27,8 +30,7 @@ class APIFrameHelper:
 
     __slots__ = (
         "_loop",
-        "_on_pkt",
-        "_on_error",
+        "_connection",
         "_transport",
         "_writer",
         "_ready_future",
@@ -42,16 +44,14 @@ class APIFrameHelper:
 
     def __init__(
         self,
-        on_pkt: Callable[[int, bytes], None],
-        on_error: Callable[[Exception], None],
+        connection: "APIConnection",
         client_info: str,
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
         loop = asyncio.get_event_loop()
         self._loop = loop
-        self._on_pkt = on_pkt
-        self._on_error = on_error
+        self._connection = connection
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
         self._ready_future = self._loop.create_future()
@@ -62,25 +62,37 @@ class APIFrameHelper:
         self._log_name = log_name
         self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
 
+    def set_log_name(self, log_name: str) -> None:
+        """Set the log name."""
+        self._log_name = log_name
+
     def _set_ready_future_exception(self, exc: Exception | type[Exception]) -> None:
         if not self._ready_future.done():
             self._ready_future.set_exception(exc)
 
-    def _add_to_buffer(self, data: bytes) -> None:
+    def _add_to_buffer(self, data: bytes | bytearray | memoryview) -> None:
         """Add data to the buffer."""
+        # This should not be isinstance(data, bytes) because we want to
+        # to explicitly check for bytes and not for subclasses of bytes
+        if type(data) is not bytes:  # pylint: disable=unidiomatic-typecheck
+            # Protractor sends a bytearray, so we need to convert it to bytes
+            # https://github.com/esphome/issues/issues/5117
+            bytes_data = bytes(data)
+        else:
+            bytes_data = data
         if self._buffer_len == 0:
             # This is the best case scenario, we don't have to copy the data
             # and can just use the buffer directly. This is the most common
             # case as well.
-            self._buffer = data
+            self._buffer = bytes_data
         else:
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
-            # This is the worst case scenario, we have to copy the data
+            # This is the worst case scenario, we have to copy the bytes_data
             # and can't just use the buffer directly. This is also very
             # uncommon since we usually read the entire frame at once.
-            self._buffer += data
-        self._buffer_len += len(data)
+            self._buffer += bytes_data
+        self._buffer_len += len(bytes_data)
 
     def _remove_from_buffer(self) -> None:
         """Remove data from the buffer."""
@@ -143,7 +155,7 @@ class APIFrameHelper:
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
-        self._on_error(exc)
+        self._connection.report_fatal_error(exc)
 
     def connection_lost(self, exc: Exception | None) -> None:
         """Handle the connection being lost."""
@@ -168,3 +180,18 @@ class APIFrameHelper:
 
     def resume_writing(self) -> None:
         """Stub."""
+
+    def _write_bytes(self, data: bytes) -> None:
+        """Write bytes to the socket."""
+        if self._debug_enabled() is True:
+            _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, data.hex())
+
+        if TYPE_CHECKING:
+            assert self._writer is not None, "Writer is not set"
+
+        try:
+            self._writer(data)
+        except WRITE_EXCEPTIONS as err:
+            raise SocketClosedAPIError(
+                f"{self._log_name}: Error while writing data: {err}"
+            ) from err

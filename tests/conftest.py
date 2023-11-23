@@ -12,8 +12,16 @@ from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
+from aioesphomeapi.zeroconf import ZeroconfManager
 
-from .common import connect, send_plaintext_hello
+from .common import connect, get_mock_async_zeroconf, send_plaintext_hello
+
+KEEP_ALIVE_INTERVAL = 15.0
+
+
+@pytest.fixture
+def async_zeroconf():
+    return get_mock_async_zeroconf()
 
 
 @pytest.fixture
@@ -41,19 +49,39 @@ def connection_params() -> ConnectionParams:
         port=6052,
         password=None,
         client_info="Tests client",
-        keepalive=15.0,
-        zeroconf_instance=None,
+        keepalive=KEEP_ALIVE_INTERVAL,
+        zeroconf_manager=ZeroconfManager(),
         noise_psk=None,
         expected_name=None,
     )
 
 
 @pytest.fixture
-def conn(connection_params) -> APIConnection:
-    async def on_stop(expected_disconnect: bool) -> None:
-        pass
+def noise_connection_params() -> ConnectionParams:
+    return ConnectionParams(
+        address="fake.address",
+        port=6052,
+        password=None,
+        client_info="Tests client",
+        keepalive=KEEP_ALIVE_INTERVAL,
+        zeroconf_manager=ZeroconfManager(),
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="test",
+    )
 
+
+async def on_stop(expected_disconnect: bool) -> None:
+    pass
+
+
+@pytest.fixture
+def conn(connection_params: ConnectionParams) -> APIConnection:
     return APIConnection(connection_params, on_stop)
+
+
+@pytest.fixture
+def noise_conn(noise_connection_params: ConnectionParams) -> APIConnection:
+    return APIConnection(noise_connection_params, on_stop)
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_no_login")
