@@ -2,16 +2,12 @@ import timeit
 from functools import partial
 
 from aioesphomeapi import APIConnection
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
 )
 from aioesphomeapi.client import APIClient
 
-# cythonize -X language_level=3 -a -i aioesphomeapi/_frame_helper/plain_text.py
-# cythonize -X language_level=3 -a -i aioesphomeapi/_frame_helper/base.py
 # cythonize -X language_level=3 -a -i aioesphomeapi/connection.py
 
 
