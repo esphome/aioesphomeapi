@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
-
+import itertools
 import pytest
 from google.protobuf import message
 
@@ -1130,7 +1130,6 @@ async def test_bluetooth_gatt_get_services_errors(
         await services_task
 
 
-@pytest.mark.xfail(reason="There is a race condition here")
 @pytest.mark.asyncio
 async def test_bluetooth_gatt_start_notify(
     api_client: tuple[
@@ -1167,6 +1166,32 @@ async def test_bluetooth_gatt_start_notify(
     )
     protocol.data_received(generate_plaintext_packet(second_data_response))
     assert notifies == [(1, b"gotit"), (1, b"after finished")]
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_start_notify_fails(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_start_notify failure does not leak."""
+    client, connection, transport, protocol = api_client
+    notifies = []
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        notifies.append((handle, data))
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    with patch.object(
+        connection, "send_messages", side_effect=APIConnectionError
+    ), pytest.raises(APIConnectionError):
+        await client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+
+    assert (
+        len(list(itertools.chain(*connection._message_handlers.values())))
+        == handlers_before
+    )
 
 
 @pytest.mark.asyncio

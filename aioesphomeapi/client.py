@@ -994,12 +994,6 @@ class APIClient:
         callbacks without stopping the notify session on the remote device, which
         should be used when the connection is lost.
         """
-        await self._send_bluetooth_message_await_response(
-            address,
-            handle,
-            BluetoothGATTNotifyRequest(address=address, handle=handle, enable=True),
-            BluetoothGATTNotifyResponse,
-        )
 
         def _on_bluetooth_gatt_notify_data_response(
             msg: BluetoothGATTNotifyDataResponse,
@@ -1010,6 +1004,17 @@ class APIClient:
         remove_callback = self._get_connection().add_message_callback(
             _on_bluetooth_gatt_notify_data_response, (BluetoothGATTNotifyDataResponse,)
         )
+
+        try:
+            await self._send_bluetooth_message_await_response(
+                address,
+                handle,
+                BluetoothGATTNotifyRequest(address=address, handle=handle, enable=True),
+                BluetoothGATTNotifyResponse,
+            )
+        except Exception:
+            remove_callback()
+            raise
 
         async def stop_notify() -> None:
             if self._connection is None:
