@@ -78,6 +78,7 @@ from .client_callbacks import (
     on_bluetooth_le_advertising_response,
     on_home_assistant_service_response,
     on_state_msg,
+    on_subscribe_home_assistant_state_response,
 )
 from .connection import APIConnection, ConnectionParams
 from .core import (
@@ -897,14 +898,9 @@ class APIClient:
     async def subscribe_home_assistant_states(
         self, on_state_sub: Callable[[str, str | None], None]
     ) -> None:
-        def _on_subscribe_home_assistant_state_response(
-            msg: SubscribeHomeAssistantStateResponse,
-        ) -> None:
-            on_state_sub(msg.entity_id, msg.attribute)
-
         self._get_connection().send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
-            _on_subscribe_home_assistant_state_response,
+            partial(on_subscribe_home_assistant_state_response, on_state_sub),
             (SubscribeHomeAssistantStateResponse,),
         )
 
