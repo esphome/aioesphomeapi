@@ -111,6 +111,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # as infos. The "unavailable" logic will still trigger so the
         # user knows if the device is not connected.
         if expected_disconnect:
+            # If we expected the disconnect we need
+            # to cooldown before connecting in case the remote
+            # is rebooting so we don't establish a connection right
+            # before its about to reboot in the event we are too fast.
             disconnect_type = "expected"
             wait = EXPECTED_DISCONNECT_COOLDOWN
         else:
@@ -130,13 +134,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             )
             await self._on_disconnect_cb(expected_disconnect)
 
-        if self._is_stopped:
-            return
-        # If we expected the disconnect we need
-        # to cooldown before connecting in case the remote
-        # is rebooting so we don't establish a connection right
-        # before its about to reboot in the event we are too fast.
-        self._schedule_connect(wait)
+        if not self._is_stopped:
+            self._schedule_connect(wait)
 
     def _async_set_connection_state_while_locked(
         self, state: ReconnectLogicState
