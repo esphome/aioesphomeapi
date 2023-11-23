@@ -54,6 +54,7 @@ async def _async_zeroconf_get_service_info(
     zeroconf_manager: ZeroconfManager,
     service_type: str,
     service_name: str,
+    server: str,
     timeout: float,
 ) -> AsyncServiceInfo | None:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
@@ -65,7 +66,7 @@ async def _async_zeroconf_get_service_info(
             "host network mode?"
         ) from exc
     try:
-        info = AsyncServiceInfo(service_type, service_name)
+        info = AsyncServiceInfo(service_type, service_name, server=server)
         if await info.async_request(zc, int(timeout * 1000)):
             return info
     except Exception as exc:
@@ -85,10 +86,11 @@ async def _async_resolve_host_zeroconf(
     zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
     service_name = f"{host}.{SERVICE_TYPE}"
+    server = f"{host}.local."
 
     _LOGGER.debug("Resolving host %s via mDNS", service_name)
     info = await _async_zeroconf_get_service_info(
-        zeroconf_manager or ZeroconfManager(), SERVICE_TYPE, service_name, timeout
+        zeroconf_manager or ZeroconfManager(), SERVICE_TYPE, service_name, server, timeout
     )
 
     if info is None:
