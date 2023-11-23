@@ -71,6 +71,14 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantRequest,
     VoiceAssistantResponse,
 )
+from .client_callbacks import (
+    on_ble_raw_advertisement_response,
+    on_bluetooth_connections_free_response,
+    on_bluetooth_gatt_notify_data_response,
+    on_bluetooth_le_advertising_response,
+    on_home_assistant_service_response,
+    on_state_msg,
+)
 from .connection import APIConnection, ConnectionParams
 from .core import (
     APIConnectionError,
@@ -114,14 +122,6 @@ from .model import (
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
-)
-from .client_callbacks import (
-    on_state_msg,
-    on_home_assistant_service_response,
-    on_bluetooth_le_advertising_response,
-    on_ble_raw_advertisement_response,
-    on_bluetooth_connections_free_response,
-    on_bluetooth_gatt_notify_data_response,
 )
 from .util import build_log_name
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
