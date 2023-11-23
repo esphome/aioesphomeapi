@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -1130,7 +1131,6 @@ async def test_bluetooth_gatt_get_services_errors(
         await services_task
 
 
-@pytest.mark.xfail(reason="There is a race condition here")
 @pytest.mark.asyncio
 async def test_bluetooth_gatt_start_notify(
     api_client: tuple[
@@ -1140,6 +1140,10 @@ async def test_bluetooth_gatt_start_notify(
     """Test bluetooth_gatt_start_notify."""
     client, connection, transport, protocol = api_client
     notifies = []
+
+    handlers_before = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
 
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
         notifies.append((handle, data))
@@ -1159,7 +1163,7 @@ async def test_bluetooth_gatt_start_notify(
         + generate_plaintext_packet(data_response)
     )
 
-    await notify_task
+    cancel_cb, abort_cb = await notify_task
     assert notifies == [(1, b"gotit")]
 
     second_data_response: message.Message = BluetoothGATTNotifyDataResponse(
@@ -1167,6 +1171,45 @@ async def test_bluetooth_gatt_start_notify(
     )
     protocol.data_received(generate_plaintext_packet(second_data_response))
     assert notifies == [(1, b"gotit"), (1, b"after finished")]
+    await cancel_cb()
+
+    assert (
+        len(list(itertools.chain(*connection._get_message_handlers().values())))
+        == handlers_before
+    )
+    # Ensure abort callback is a no-op after cancel
+    # and doesn't raise
+    abort_cb()
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_start_notify_fails(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_start_notify failure does not leak."""
+    client, connection, transport, protocol = api_client
+    notifies = []
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        notifies.append((handle, data))
+
+    handlers_before = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
+
+    with patch.object(
+        connection,
+        "send_messages_await_response_complex",
+        side_effect=APIConnectionError,
+    ), pytest.raises(APIConnectionError):
+        await client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+
+    assert (
+        len(list(itertools.chain(*connection._get_message_handlers().values())))
+        == handlers_before
+    )
 
 
 @pytest.mark.asyncio
