@@ -5,8 +5,8 @@ import contextlib
 import logging
 import socket
 from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import cast
+from ipaddress import IPv4Address, IPv6Address, _BaseAddress, ip_address
+from typing import TYPE_CHECKING, cast
 
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo
@@ -39,7 +39,7 @@ class IPv6Sockaddr(Sockaddr):
     """IPv6 socket address."""
 
     flowinfo: int
-    scope_id: int | str
+    scope_id: int | str | None
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,10 @@ async def _async_zeroconf_get_service_info(
     return info
 
 
-def _int_or_str(value: str) -> int | str:
+def _int_or_str(value: str | None) -> int | str | None:
+    """Convert a string to int if possible."""
+    if value is None:
+        return value
     try:
         return int(value)
     except ValueError:
@@ -104,7 +107,7 @@ async def _async_resolve_host_zeroconf(
     )
     addrs: list[AddrInfo] = []
     for ip in info.ip_addresses_by_version(IPVersion.All):
-        addrs.extend(_async_ip_address_to_addrs(ip, port))
+        addrs.extend(_async_ip_address_to_addrs(ip, port))  # type: ignore[arg-type]
     return addrs
 
 
@@ -148,6 +151,8 @@ def _async_ip_address_to_addrs(
     is_ipv6 = ip.version == 6
     sockaddr: IPv6Sockaddr | IPv4Sockaddr
     if is_ipv6:
+        if TYPE_CHECKING:
+            assert isinstance(ip, IPv6Address)
         sockaddr = IPv6Sockaddr(
             address=str(ip).partition("%")[0],
             port=port,
