@@ -5,7 +5,7 @@ import contextlib
 import logging
 import socket
 from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import cast
 
 from zeroconf import IPVersion
@@ -97,30 +97,8 @@ async def _async_resolve_host_zeroconf(
         zeroconf_manager or ZeroconfManager(), SERVICE_TYPE, service_name, timeout
     )
     addrs: list[AddrInfo] = []
-    for ip_address in info.ip_addresses_by_version(IPVersion.All):
-        is_ipv6 = ip_address.version == 6
-        sockaddr: IPv6Sockaddr | IPv4Sockaddr
-        if is_ipv6:
-            sockaddr = IPv6Sockaddr(
-                address=str(ip_address).partition("%")[0],
-                port=port,
-                flowinfo=0,
-                scope_id=_int_or_str(ip_address.scope_id),
-            )
-        else:
-            sockaddr = IPv4Sockaddr(
-                address=str(ip_address),
-                port=port,
-            )
-
-        addrs.append(
-            AddrInfo(
-                family=socket.AF_INET6 if is_ipv6 else socket.AF_INET,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-                sockaddr=sockaddr,
-            )
-        )
+    for ip in info.ip_addresses_by_version(IPVersion.All):
+        addrs.extend(_async_ip_address_to_addrs(ip, port))
     return addrs
 
 
@@ -156,34 +134,35 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
     return addrs
 
 
-def _async_ip_address_to_addrs(host: str, port: int) -> list[AddrInfo]:
+def _async_ip_address_to_addrs(
+    ip_address: IPv4Address | IPv6Address, port: int
+) -> list[AddrInfo]:
     """Convert an ipaddress to AddrInfo."""
-    with contextlib.suppress(ValueError):
-        return [
-            AddrInfo(
-                family=socket.AF_INET6,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-                sockaddr=IPv6Sockaddr(
-                    address=str(IPv6Address(host)), port=port, flowinfo=0, scope_id=0
-                ),
-            )
-        ]
+    addrs: list[AddrInfo] = []
+    is_ipv6 = ip_address.version == 6
+    sockaddr: IPv6Sockaddr | IPv4Sockaddr
+    if is_ipv6:
+        sockaddr = IPv6Sockaddr(
+            address=str(ip_address).partition("%")[0],
+            port=port,
+            flowinfo=0,
+            scope_id=_int_or_str(ip_address.scope_id),
+        )
+    else:
+        sockaddr = IPv4Sockaddr(
+            address=str(ip_address),
+            port=port,
+        )
 
-    with contextlib.suppress(ValueError):
-        return [
-            AddrInfo(
-                family=socket.AF_INET,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-                sockaddr=IPv4Sockaddr(
-                    address=str(IPv4Address(host)),
-                    port=port,
-                ),
-            )
-        ]
-
-    return []
+    addrs.append(
+        AddrInfo(
+            family=socket.AF_INET6 if is_ipv6 else socket.AF_INET,
+            type=socket.SOCK_STREAM,
+            proto=socket.IPPROTO_TCP,
+            sockaddr=sockaddr,
+        )
+    )
+    return addrs
 
 
 async def async_resolve_host(
@@ -206,7 +185,8 @@ async def async_resolve_host(
             zc_error = err
 
     else:
-        addrs.extend(_async_ip_address_to_addrs(host, port))
+        with contextlib.suppress(ValueError):
+            addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
 
     if not addrs:
         addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
