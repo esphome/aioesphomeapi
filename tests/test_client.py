@@ -18,6 +18,8 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesResponse,
+    BluetoothGATTNotifyDataResponse,
+    BluetoothGATTNotifyResponse,
     BluetoothGATTReadResponse,
     BluetoothGATTService,
     BluetoothGATTWriteResponse,
@@ -1126,6 +1128,40 @@ async def test_bluetooth_gatt_get_services_errors(
 
     with pytest.raises(BluetoothGATTAPIError):
         await services_task
+
+
+@pytest.mark.xfail(reason="There is a race condition here")
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_start_notify(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_start_notify."""
+    client, connection, transport, protocol = api_client
+    notifies = []
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        notifies.append((handle, data))
+
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    notify_response: message.Message = BluetoothGATTNotifyResponse(
+        address=1234, handle=1
+    )
+    data_response: message.Message = BluetoothGATTNotifyDataResponse(
+        address=1234, handle=1, data=b"gotit"
+    )
+    protocol.data_received(
+        generate_plaintext_packet(notify_response)
+        + generate_plaintext_packet(data_response)
+    )
+
+    await notify_task
+
+    assert notifies == [(1, b"gotit")]
 
 
 @pytest.mark.asyncio
