@@ -30,6 +30,7 @@ GITHUB_URL = "https://github.com/{}".format(GITHUB_PATH)
 DOWNLOAD_URL = "{}/archive/{}.zip".format(GITHUB_URL, VERSION)
 
 MODULES_TO_CYTHONIZE = [
+    "aioesphomeapi/client_callbacks.py",
     "aioesphomeapi/connection.py",
     "aioesphomeapi/_frame_helper/plain_text.py",
     "aioesphomeapi/_frame_helper/noise.py",
