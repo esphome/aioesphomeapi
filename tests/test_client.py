@@ -1177,7 +1177,10 @@ async def test_bluetooth_gatt_start_notify(
         len(list(itertools.chain(*connection._get_message_handlers().values())))
         == handlers_before
     )
+    # Ensure abort callback is a no-op after cancel
+    # and doesn't raise
     abort_cb()
+
 
 @pytest.mark.asyncio
 async def test_bluetooth_gatt_start_notify_fails(
