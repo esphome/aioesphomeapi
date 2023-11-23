@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextvars
 import enum
 import logging
 import socket
@@ -21,7 +20,8 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
+from ._frame_helper.noise import APINoiseFrameHelper
+from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
     ConnectRequest,
     ConnectResponse,
@@ -93,11 +93,6 @@ TCP_CONNECT_TIMEOUT = 60.0
 # gracefully without closing the socket out from under the
 # the esp device
 DISCONNECT_WAIT_CONNECT_TIMEOUT = 5.0
-
-
-in_do_connect: contextvars.ContextVar[bool | None] = contextvars.ContextVar(
-    "in_do_connect"
-)
 
 
 _int = int
@@ -236,11 +231,19 @@ class APIConnection:
         # If we are being called from do_connect we
         # need to make sure we don't cancel the task
         # that called us
-        if self._start_connect_task is not None and not in_do_connect.get(False):
+        current_task = asyncio.current_task()
+
+        if (
+            self._start_connect_task is not None
+            and self._start_connect_task is not current_task
+        ):
             self._start_connect_task.cancel("Connection cleanup")
             self._start_connect_task = None
 
-        if self._finish_connect_task is not None and not in_do_connect.get(False):
+        if (
+            self._finish_connect_task is not None
+            and self._finish_connect_task is not current_task
+        ):
             self._finish_connect_task.cancel("Connection cleanup")
             self._finish_connect_task = None
 
@@ -339,7 +342,8 @@ class APIConnection:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
         fh: APIPlaintextFrameHelper | APINoiseFrameHelper
         loop = self._loop
-        assert self._socket is not None
+        if TYPE_CHECKING:
+            assert self._socket is not None
 
         if (noise_psk := self._params.noise_psk) is None:
             _, fh = await loop.create_connection(  # type: ignore[type-var]
@@ -461,7 +465,7 @@ class APIConnection:
         now = loop.time()
 
         if self._send_pending_ping:
-            self.send_message(PING_REQUEST_MESSAGE)
+            self.send_messages((PING_REQUEST_MESSAGE,))
             if self._pong_timer is None:
                 # Do not reset the timer if it's already set
                 # since the only thing we want to reset the timer
@@ -511,7 +515,6 @@ class APIConnection:
 
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
-        in_do_connect.set(True)
         self.resolved_addr_info = await self._connect_resolve_host()
         await self._connect_socket_connect(self.resolved_addr_info)
 
@@ -521,7 +524,7 @@ class APIConnection:
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self.connection_state != ConnectionState.INITIALIZED:
+        if self.connection_state is not ConnectionState.INITIALIZED:
             raise ValueError(
                 "Connection can only be used once, connection is not in init state"
             )
@@ -536,28 +539,36 @@ class APIConnection:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
-            if not isinstance(ex, APIConnectionError):
-                cause: Exception | None = None
-                if isinstance(ex, CancelledError):
-                    err_str = "Starting connection cancelled"
-                    if self._fatal_exception:
-                        err_str += f" due to fatal exception: {self._fatal_exception}"
-                        cause = self._fatal_exception
-                else:
-                    err_str = str(ex) or type(ex).__name__
-                new_exc = APIConnectionError(
-                    f"Error while starting connection: {err_str}"
-                )
-                new_exc.__cause__ = cause or ex
-                raise new_exc
-            raise ex
+            raise self._wrap_fatal_connection_exception("starting", ex)
         finally:
             self._start_connect_task = None
         self._set_connection_state(ConnectionState.SOCKET_OPENED)
 
+    def _wrap_fatal_connection_exception(
+        self, action: str, ex: BaseException
+    ) -> APIConnectionError:
+        """Ensure a fatal exception is wrapped as as an APIConnectionError."""
+        if isinstance(ex, APIConnectionError):
+            return ex
+        cause: BaseException | None = None
+        if isinstance(ex, CancelledError):
+            err_str = f"{action.title()} connection cancelled"
+            if self._fatal_exception:
+                err_str += f" due to fatal exception: {self._fatal_exception}"
+                cause = self._fatal_exception
+        else:
+            err_str = str(ex) or type(ex).__name__
+            cause = ex
+        if isinstance(self._fatal_exception, APIConnectionError):
+            klass = type(self._fatal_exception)
+        else:
+            klass = APIConnectionError
+        new_exc = klass(f"Error while {action} connection: {err_str}")
+        new_exc.__cause__ = cause or ex
+        return new_exc
+
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
-        in_do_connect.set(True)
         await self._connect_init_frame_helper()
         self._register_internal_message_handlers()
         await self._connect_hello_login(login)
@@ -569,7 +580,7 @@ class APIConnection:
         This part of the process initializes the frame helper and sends the hello message
         than starts the keep alive process.
         """
-        if self.connection_state != ConnectionState.SOCKET_OPENED:
+        if self.connection_state is not ConnectionState.SOCKET_OPENED:
             raise ValueError(
                 "Connection must be in SOCKET_OPENED state to finish connection"
             )
@@ -584,22 +595,7 @@ class APIConnection:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
-            if not isinstance(ex, APIConnectionError):
-                cause: Exception | None = None
-                if isinstance(ex, CancelledError):
-                    err_str = "Finishing connection cancelled"
-                    if self._fatal_exception:
-                        err_str += f" due to fatal exception: {self._fatal_exception}"
-                        cause = self._fatal_exception
-                else:
-                    err_str = str(ex) or type(ex).__name__
-                    cause = ex
-                new_exc = APIConnectionError(
-                    f"Error while finishing connection: {err_str}"
-                )
-                new_exc.__cause__ = cause or ex
-                raise new_exc
-            raise ex
+            raise self._wrap_fatal_connection_exception("finishing", ex)
         finally:
             self._finish_connect_task = None
         self._set_connection_state(ConnectionState.CONNECTED)
@@ -624,11 +620,6 @@ class APIConnection:
     def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
-            if in_do_connect.get(False):
-                # If we are in the do_connect task, we can't raise an error
-                # because it would obscure the original exception (ie encrypt error).
-                _LOGGER.debug("%s: Connection isn't established yet", self.log_name)
-                return
             raise ConnectionNotEstablishedAPIError(
                 f"Connection isn't established yet ({self.connection_state})"
             )
@@ -694,7 +685,7 @@ class APIConnection:
         msg_types: tuple[type[Any], ...],
     ) -> Callable[[], None]:
         """Send a message to the remote and register the given message handler."""
-        self.send_message(send_msg)
+        self.send_messages((send_msg,))
         # Since we do not return control to the event loop (no awaits)
         # between sending the message and registering the handler
         # we can be sure that we will not miss any messages even though
@@ -729,7 +720,7 @@ class APIConnection:
         do_append: Callable[[message.Message], bool] | None,
         do_stop: Callable[[message.Message], bool] | None,
         msg_types: tuple[type[Any], ...],
-        timeout: float = 10.0,
+        timeout: _float,
     ) -> list[message.Message]:
         """Send a message to the remote and build up a list response.
 
@@ -779,7 +770,7 @@ class APIConnection:
         return responses
 
     async def send_message_await_response(
-        self, send_msg: message.Message, response_type: Any, timeout: float = 10.0
+        self, send_msg: message.Message, response_type: Any, timeout: _float = 10.0
     ) -> Any:
         [response] = await self.send_messages_await_response_complex(
             (send_msg,),
@@ -883,15 +874,18 @@ class APIConnection:
         self, _msg: DisconnectRequest
     ) -> None:
         """Handle a DisconnectRequest."""
-        self.send_message(DISCONNECT_RESPONSE_MESSAGE)
+        # Set _expected_disconnect to True before sending
+        # the response if for some reason sending the response
+        # fails we will still mark the disconnect as expected
         self._expected_disconnect = True
+        self.send_messages((DISCONNECT_RESPONSE_MESSAGE,))
         self._cleanup()
 
     def _handle_ping_request_internal(  # pylint: disable=unused-argument
         self, _msg: PingRequest
     ) -> None:
         """Handle a PingRequest."""
-        self.send_message(PING_RESPONSE_MESSAGE)
+        self.send_messages((PING_RESPONSE_MESSAGE,))
 
     def _handle_get_time_request_internal(  # pylint: disable=unused-argument
         self, _msg: GetTimeRequest
@@ -899,7 +893,7 @@ class APIConnection:
         """Handle a GetTimeRequest."""
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
-        self.send_message(resp)
+        self.send_messages((resp,))
 
     async def disconnect(self) -> None:
         """Disconnect from the API."""
@@ -943,7 +937,7 @@ class APIConnection:
             # Still try to tell the esp to disconnect gracefully
             # but don't wait for it to finish
             try:
-                self.send_message(DISCONNECT_REQUEST_MESSAGE)
+                self.send_messages((DISCONNECT_REQUEST_MESSAGE,))
             except APIConnectionError as err:
                 _LOGGER.error(
                     "%s: Failed to send (forced) disconnect request: %s",

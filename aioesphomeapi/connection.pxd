@@ -33,7 +33,7 @@ cdef object partial
 cdef object hr
 
 cdef object RESOLVE_TIMEOUT
-cdef object CONNECT_AND_SETUP_TIMEOUT
+cdef object CONNECT_AND_SETUP_TIMEOUT, CONNECT_REQUEST_TIMEOUT
 
 cdef object APIConnectionError
 cdef object BadNameAPIError
@@ -42,10 +42,23 @@ cdef object PingFailedAPIError
 cdef object ReadFailedAPIError
 cdef object TimeoutAPIError
 
+cdef object astuple
+
+
+@cython.dataclasses.dataclass
+cdef class ConnectionParams:
+    cdef public str address
+    cdef public object port
+    cdef public object password
+    cdef public object client_info
+    cdef public object keepalive
+    cdef public object zeroconf_manager
+    cdef public object noise_psk
+    cdef public object expected_name
 
 cdef class APIConnection:
 
-    cdef object _params
+    cdef ConnectionParams _params
     cdef public object on_stop
     cdef object _on_stop_task
     cdef public object _socket
@@ -95,3 +108,9 @@ cdef class APIConnection:
 
     @cython.locals(handlers=set)
     cpdef _remove_message_callback(self, object on_message, tuple msg_types)
+
+    cpdef _handle_disconnect_request_internal(self, object msg)
+
+    cpdef _handle_ping_request_internal(self, object msg)
+
+    cpdef _handle_get_time_request_internal(self, object msg)

@@ -14,7 +14,6 @@ from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.log_runner import async_run
 
 from .common import (
-    PROTO_TO_MESSAGE_TYPE,
     Estr,
     generate_plaintext_packet,
     get_mock_async_zeroconf,

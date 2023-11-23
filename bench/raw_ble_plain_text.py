@@ -1,6 +1,6 @@
-import io
 import timeit
 
+from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
@@ -10,6 +10,7 @@ from aioesphomeapi.api_pb2 import (
 
 # cythonize -X language_level=3 -a -i aioesphomeapi/_frame_helper/plain_text.py
 # cythonize -X language_level=3 -a -i aioesphomeapi/_frame_helper/base.py
+# cythonize -X language_level=3 -a -i aioesphomeapi/connection.py
 
 adv = BluetoothLERawAdvertisementsResponse()
 fake_adv = BluetoothLERawAdvertisement(
@@ -32,16 +33,21 @@ data = (
 )
 
 
-def _packet(type_: int, data: bytes):
-    pass
+class MockConnection(APIConnection):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def process_packet(self, type_: int, data: bytes):
+        pass
+
+    def report_fatal_error(self, exc: Exception):
+        raise exc
 
 
-def _on_error(exc: Exception):
-    raise exc
-
+connection = MockConnection()
 
 helper = APIPlaintextFrameHelper(
-    on_pkt=_packet, on_error=_on_error, client_info="my client", log_name="test"
+    connection=connection, client_info="my client", log_name="test"
 )
 
 
