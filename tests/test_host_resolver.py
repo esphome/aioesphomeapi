@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import socket
-from ipaddress import ip_address, IPv6Address
+from ipaddress import IPv6Address, ip_address
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -38,7 +38,7 @@ def addr_infos():
 @pytest.mark.asyncio
 async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     info = MagicMock(auto_spec=AsyncServiceInfo)
-    ipv6 = IPv6Address('2001:db8:85a3::8a2e:370:7334%0')
+    ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
     info.ip_addresses_by_version.return_value = [
         ip_address(b"\n\x00\x00*"),
         ipv6,
@@ -58,7 +58,7 @@ async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
 async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
     zeroconf_manager = ZeroconfManager()
     info = MagicMock(auto_spec=AsyncServiceInfo)
-    ipv6 = IPv6Address('2001:db8:85a3::8a2e:370:7334%0')
+    ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
     info.ip_addresses_by_version.return_value = [
         ip_address(b"\n\x00\x00*"),
         ipv6,
@@ -147,7 +147,7 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
 async def test_resolve_host_mdns_no_results(resolve_addr, addr_infos):
     resolve_addr.return_value = addr_infos
     with pytest.raises(ResolveAPIError):
-         await hr.async_resolve_host("example.local", 6052)
+        await hr.async_resolve_host("example.local", 6052)
 
 
 @pytest.mark.asyncio
@@ -227,6 +227,7 @@ async def test_resolve_host_create_zeroconf_oserror(
         "aioesphomeapi.zeroconf.AsyncZeroconf", side_effect=OSError("out of buffers")
     ), pytest.raises(ResolveAPIError, match="out of buffers"):
         await hr._async_resolve_host_zeroconf("asdf", 6052)
+
 
 def test_int_or_str():
     hr._int_or_str("123") == 123
