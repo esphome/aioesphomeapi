@@ -39,7 +39,7 @@ class IPv6Sockaddr(Sockaddr):
     """IPv6 socket address."""
 
     flowinfo: int
-    scope_id: int | str | None
+    scope_id: int
 
 
 @dataclass(frozen=True)
@@ -77,14 +77,14 @@ async def _async_zeroconf_get_service_info(
     return info
 
 
-def _int_or_str(value: str | None) -> int | str | None:
-    """Convert a string to int if possible."""
+def _scope_id_to_int(value: str | None) -> int:
+    """Convert a scope id to int if possible."""
     if value is None:
-        return value
+        return 0
     try:
         return int(value)
     except ValueError:
-        return value
+        return 0
 
 
 async def _async_resolve_host_zeroconf(
@@ -157,7 +157,7 @@ def _async_ip_address_to_addrs(
             address=str(ip).partition("%")[0],
             port=port,
             flowinfo=0,
-            scope_id=_int_or_str(ip.scope_id),
+            scope_id=_scope_id_to_int(ip.scope_id),
         )
     else:
         sockaddr = IPv4Sockaddr(

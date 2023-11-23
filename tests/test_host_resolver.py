@@ -248,7 +248,7 @@ async def test_resolve_host_create_zeroconf_oserror(
         await hr._async_resolve_host_zeroconf("asdf", 6052)
 
 
-def test_int_or_str():
-    assert hr._int_or_str("123") == 123
-    assert hr._int_or_str("eth0") == "eth0"
-    assert hr._int_or_str(None) is None
+def test_scope_id_to_int():
+    assert hr._scope_id_to_int("123") == 123
+    assert hr._scope_id_to_int("eth0") == 0
+    assert hr._scope_id_to_int(None) == 0
