@@ -230,5 +230,6 @@ async def test_resolve_host_create_zeroconf_oserror(
 
 
 def test_int_or_str():
-    hr._int_or_str("123") == 123
-    hr._int_or_str("eth0") == "eth0"
+    assert hr._int_or_str("123") == 123
+    assert hr._int_or_str("eth0") == "eth0"
+    assert hr._int_or_str(None) is None
