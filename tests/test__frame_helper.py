@@ -621,6 +621,33 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
             await task
 
 
+@pytest.mark.xfail(reason="We get the wrong exception from the task")
+@pytest.mark.asyncio
+async def test_init_noise_attempted_when_esp_uses_plaintext(noise_conn: APIConnection) -> None:
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    protocol: APINoiseFrameHelper | None = None
+
+    async def _create_connection(create, sock, *args, **kwargs):
+        nonlocal protocol
+        protocol = create()
+        protocol.connection_made(transport)
+        return transport, protocol
+
+    with patch.object(loop, "create_connection", side_effect=_create_connection):
+        task = asyncio.create_task(noise_conn._connect_init_frame_helper())
+        await asyncio.sleep(0)
+
+        assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
+        protocol = noise_conn._frame_helper
+
+        protocol.connection_lost(ConnectionResetError())
+
+        with pytest.raises(APIConnectionError, match="The connection dropped immediately"):
+            await task
+
+
+
 @pytest.mark.asyncio
 async def test_eof_received_closes_connection(
     plaintext_connect_task_with_login: tuple[
