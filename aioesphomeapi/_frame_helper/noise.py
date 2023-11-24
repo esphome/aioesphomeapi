@@ -288,9 +288,6 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]
         """
-        if self._state != NOISE_STATE_READY:
-            raise HandshakeAPIError(f"{self._log_name}: Noise connection is not ready")
-
         if TYPE_CHECKING:
             assert self._encrypt is not None, "Handshake should be complete"
 
