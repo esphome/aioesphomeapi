@@ -636,8 +636,6 @@ async def test_noise_frame_helper_empty_hello():
     helper._writer = MagicMock()
 
     handshake_task = asyncio.create_task(helper.perform_handshake(30))
-    await asyncio.sleep(0)  # let the task run to read the hello packet
-
     empty_hello_pkt = b""
     preamble = 1
     hello_pkg_length = len(empty_hello_pkt)
