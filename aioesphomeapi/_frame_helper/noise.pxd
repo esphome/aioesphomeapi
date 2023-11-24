@@ -11,12 +11,10 @@ cdef unsigned int NOISE_STATE_HANDSHAKE
 cdef unsigned int NOISE_STATE_READY
 cdef unsigned int NOISE_STATE_CLOSED
 
-cdef bytes NOISE_HELLO
-
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef object _noise_psk
-    cdef str _expected_name
+    cdef object _expected_name
     cdef unsigned int _state
     cdef object _dispatch
     cdef object _server_name
@@ -26,36 +24,23 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     @cython.locals(
         header=bytes,
-        preamble=char,
-        msg_size_high=char,
-        msg_size_low=char,
+        preamble=cython.uint,
+        msg_size_high=cython.uint,
+        msg_size_low=cython.uint,
     )
     cpdef data_received(self, object data)
 
     @cython.locals(
-        msg=bytes,
-        type_high=char,
-        type_low=char
+        type_high=cython.uint,
+        type_low=cython.uint
     )
     cdef _handle_frame(self, bytes frame)
 
-    @cython.locals(
-        chosen_proto=char,
-        server_name_i="unsigned int"
-    )
     cdef _handle_hello(self, bytes server_hello)
 
     cdef _handle_handshake(self, bytes msg)
 
     cdef _handle_closed(self, bytes frame)
-
-    @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
-    cdef _send_hello_handshake(self)
-
-    cdef _setup_proto(self)
-
-    @cython.locals(psk_bytes=bytes)
-    cdef _decode_noise_psk(self)
 
     @cython.locals(
         type_="unsigned int",
@@ -64,6 +49,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         data_len=cython.uint,
         frame=bytes,
         frame_len=cython.uint,
+        type_=object
     )
     cpdef write_packets(self, list packets, bint debug_enabled)
 
