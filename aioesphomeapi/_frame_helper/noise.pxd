@@ -18,7 +18,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef object _noise_psk
     cdef str _expected_name
     cdef unsigned int _state
-    cdef object _dispatch
     cdef object _server_name
     cdef object _proto
     cdef object _decrypt
