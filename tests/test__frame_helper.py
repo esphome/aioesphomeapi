@@ -621,7 +621,6 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
             await task
 
 
-@pytest.mark.xfail(reason="We get the wrong exception from the task")
 @pytest.mark.asyncio
 async def test_init_noise_attempted_when_esp_uses_plaintext(
     noise_conn: APIConnection,
