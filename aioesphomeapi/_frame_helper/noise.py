@@ -110,10 +110,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._state = NOISE_STATE_CLOSED
         super().close()
 
-    def _handle_error_and_close(self, exc: Exception) -> None:
-        self._set_ready_future_exception(exc)
-        super()._handle_error_and_close(exc)
-
     def _handle_error(self, exc: Exception) -> None:
         """Handle an error, and provide a good message when during hello."""
         if self._state == NOISE_STATE_HELLO and isinstance(exc, ConnectionResetError):

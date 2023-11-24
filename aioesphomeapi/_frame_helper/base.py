@@ -154,6 +154,7 @@ class APIFrameHelper:
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
+        self._set_ready_future_exception(exc)
         self._connection.report_fatal_error(exc)
 
     def connection_lost(self, exc: Exception | None) -> None:
