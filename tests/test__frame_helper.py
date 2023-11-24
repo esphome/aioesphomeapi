@@ -715,3 +715,24 @@ async def test_connection_lost_closes_connection_and_logs(
     assert "original message" in caplog.text
     with pytest.raises(APIConnectionError, match="original message"):
         await connect_task
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("bad_psk", "error"),
+    (
+        ("dGhpc2lzbm90MzJieXRlcw==", "expected 32-bytes of base64 data"),
+        ("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc", "Malformed PSK"),
+    ),
+)
+async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
+    """Test we raise on bad psks."""
+    connection, _ = _make_mock_connection()
+    with pytest.raises(InvalidEncryptionKeyAPIError, match=error):
+        MockAPINoiseFrameHelper(
+            connection=connection,
+            noise_psk=bad_psk,
+            expected_name="wrongname",
+            client_info="my client",
+            log_name="test",
+        )
