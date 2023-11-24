@@ -621,7 +621,6 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
             await task
 
 
-
 @pytest.mark.asyncio
 async def test_noise_frame_helper_empty_hello():
     """Test empty hello with noise."""
@@ -686,7 +685,6 @@ async def test_noise_frame_helper_empty_hello():
 
     with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
         await handshake_task
-
 
 
 @pytest.mark.asyncio
