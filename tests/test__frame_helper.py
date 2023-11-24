@@ -42,6 +42,7 @@ PREAMBLE = b"\x00"
 
 NOISE_HELLO = b"\x01\x00\x00"
 
+
 def _extract_encrypted_payload_from_handshake(handshake_pkt: bytes) -> bytes:
     noise_hello = handshake_pkt[0:3]
     pkt_header = handshake_pkt[3:6]
