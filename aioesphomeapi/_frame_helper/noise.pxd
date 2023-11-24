@@ -49,7 +49,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef _handle_closed(self, bytes frame)
 
-    @cython.locals(handshake_frame=bytes, frame_len="unsigned int")
+    @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
     cdef _send_hello_handshake(self)
 
     cdef _setup_proto(self)
