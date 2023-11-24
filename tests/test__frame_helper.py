@@ -577,7 +577,9 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
 
 @pytest.mark.asyncio
-async def test_noise_frame_helper_bad_encryption():
+async def test_noise_frame_helper_bad_encryption(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test the noise frame helper closes connection on encryption error."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
@@ -629,9 +631,11 @@ async def test_noise_frame_helper_bad_encryption():
 
     encrypted_packet = _make_encrypted_packet_from_encrypted_payload(b"corrupt")
     mock_data_received(helper, encrypted_packet)
+    await asyncio.sleep(0)
 
     assert packets == []
     assert connection.is_connected is False
+    assert "Invalid encryption key" in caplog.text
     helper.close()
 
 
