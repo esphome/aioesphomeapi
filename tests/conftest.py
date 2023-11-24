@@ -46,8 +46,7 @@ def socket_socket():
         yield func
 
 
-@pytest.fixture
-def connection_params() -> ConnectionParams:
+def get_mock_connection_params() -> ConnectionParams:
     return ConnectionParams(
         address="fake.address",
         port=6052,
@@ -58,6 +57,11 @@ def connection_params() -> ConnectionParams:
         noise_psk=None,
         expected_name=None,
     )
+
+
+@pytest.fixture
+def connection_params() -> ConnectionParams:
+    return get_mock_connection_params()
 
 
 @pytest.fixture
