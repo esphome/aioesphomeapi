@@ -23,7 +23,7 @@ cdef class APIFrameHelper:
     cpdef set_log_name(self, str log_name)
 
     @cython.locals(original_pos="unsigned int", new_pos="unsigned int")
-    cdef bytes _read(self, int length)
+    cdef bytes _read_exactly(self, int length)
 
     @cython.locals(bytes_data=bytes)
     cdef _add_to_buffer(self, object data)
