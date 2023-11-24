@@ -26,11 +26,11 @@ cdef class APIFrameHelper:
     cdef bytes _read(self, int length)
 
     @cython.locals(bytes_data=bytes)
-    cdef _add_to_buffer(self, object data)
+    cdef void _add_to_buffer(self, object data)
 
     @cython.locals(end_of_frame_pos="unsigned int")
-    cdef _remove_from_buffer(self)
+    cdef void _remove_from_buffer(self)
 
     cpdef write_packets(self, list packets, bint debug_enabled)
 
-    cdef _write_bytes(self, bytes data, bint debug_enabled)
+    cdef void _write_bytes(self, bytes data, bint debug_enabled)

@@ -27,7 +27,7 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
     )
     cpdef data_received(self, object data)
 
-    cdef _error_on_incorrect_preamble(self, object preamble)
+    cdef void _error_on_incorrect_preamble(self, object preamble)
 
     @cython.locals(
         type_="unsigned int",
