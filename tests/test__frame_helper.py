@@ -41,6 +41,17 @@ from .conftest import get_mock_connection_params
 PREAMBLE = b"\x00"
 
 
+def _mock_responder_proto(psk_bytes: bytes) -> NoiseConnection:
+    proto = NoiseConnection.from_name(
+        b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+    )
+    proto.set_as_responder()
+    proto.set_psks(psk_bytes)
+    proto.set_prologue(b"NoiseAPIInit\x00\x00")
+    proto.start_handshake()
+    return proto
+
+
 def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
     """Make a mock connection."""
     packets: list[tuple[int, bytes]] = []
@@ -412,13 +423,7 @@ async def test_noise_frame_helper_handshake_failure():
         writer=_writer,
     )
 
-    proto = NoiseConnection.from_name(
-        b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
-    )
-    proto.set_as_responder()
-    proto.set_psks(psk_bytes)
-    proto.set_prologue(b"NoiseAPIInit\x00\x00")
-    proto.start_handshake()
+    proto = _mock_responder_proto(psk_bytes)
 
     handshake_task = asyncio.create_task(helper.perform_handshake(30))
     await asyncio.sleep(0)  # let the task run to read the hello packet
@@ -485,13 +490,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
         writer=_writer,
     )
 
-    proto = NoiseConnection.from_name(
-        b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
-    )
-    proto.set_as_responder()
-    proto.set_psks(psk_bytes)
-    proto.set_prologue(b"NoiseAPIInit\x00\x00")
-    proto.start_handshake()
+    proto = _mock_responder_proto(psk_bytes)
 
     handshake_task = asyncio.create_task(helper.perform_handshake(30))
     await asyncio.sleep(0)  # let the task run to read the hello packet
