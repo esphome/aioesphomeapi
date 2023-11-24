@@ -80,7 +80,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         self, data: bytes | bytearray | memoryview
     ) -> None:
         self._add_to_buffer(data)
-        while self._buffer:
+        while self._buffer_len:
             # Read preamble, which should always 0x00
             # Also try to get the length and msg type
             # to avoid multiple calls to _read
