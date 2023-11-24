@@ -254,15 +254,14 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Handle an incorrect preamble."""
         explanation = msg[1:].decode()
         if explanation == "Handshake MAC failure":
-            self._handle_error_and_close(
-                InvalidEncryptionKeyAPIError(
-                    f"{self._log_name}: Invalid encryption key", self._server_name
-                )
+            exc = InvalidEncryptionKeyAPIError(
+                f"{self._log_name}: Invalid encryption key", self._server_name
             )
-            return
-        self._handle_error_and_close(
-            HandshakeAPIError(f"{self._log_name}: Handshake failure: {explanation}")
-        )
+        else:
+            exc = HandshakeAPIError(
+                f"{self._log_name}: Handshake failure: {explanation}"
+            )
+        self._handle_error_and_close(exc)
 
     def _handle_handshake(self, msg: bytes) -> None:
         if msg[0] != 0:
