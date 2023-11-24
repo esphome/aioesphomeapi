@@ -16,7 +16,7 @@ def _varuint_to_bytes(value: _int) -> bytes:
     if value <= 0x7F:
         return bytes((value,))
 
-    result = []
+    result = bytearray()
     while value:
         temp = value & 0x7F
         value >>= 7
