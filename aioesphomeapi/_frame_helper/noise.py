@@ -138,7 +138,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
-            if (header := self._read_exactly(3)) is None:
+            if (header := self._read(3)) is None:
                 return
             preamble = header[0]
             msg_size_high = header[1]
@@ -150,13 +150,12 @@ class APINoiseFrameHelper(APIFrameHelper):
                     )
                 )
                 return
-            frame = self._read_exactly((msg_size_high << 8) | msg_size_low)
-            # The complete frame is not yet available, wait for more data
-            # to arrive before continuing, since callback_packet has not
-            # been called yet the buffer will not be cleared and the next
-            # call to data_received will continue processing the packet
-            # at the start of the frame.
-            if frame is None:
+            if (frame := self._read((msg_size_high << 8) | msg_size_low)) is None:
+                # The complete frame is not yet available, wait for more data
+                # to arrive before continuing, since callback_packet has not
+                # been called yet the buffer will not be cleared and the next
+                # call to data_received will continue processing the packet
+                # at the start of the frame.
                 return
 
             # asyncio already runs data_received in a try block
@@ -174,11 +173,13 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
-        handshake_frame = b"\x00" + self._proto.write_message()
-        frame_len = len(handshake_frame)
+        handshake_frame = self._proto.write_message()
+        frame_len = len(handshake_frame) + 1
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
-        hello_handshake = NOISE_HELLO + header + handshake_frame
-        self._write_bytes(hello_handshake, _LOGGER.isEnabledFor(logging.DEBUG))
+        self._write_bytes(
+            b"".join((NOISE_HELLO, header, b"\x00", handshake_frame)),
+            _LOGGER.isEnabledFor(logging.DEBUG),
+        )
 
     def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
