@@ -622,6 +622,36 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
 
 
 @pytest.mark.asyncio
+async def test_noise_frame_helper_empty_hello():
+    """Test empty hello with noise."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+    )
+    helper._transport = MagicMock()
+    helper._writer = MagicMock()
+
+    handshake_task = asyncio.create_task(helper.perform_handshake(30))
+    empty_hello_pkt = b""
+    preamble = 1
+    hello_pkg_length = len(empty_hello_pkt)
+    hello_pkg_length_high = (hello_pkg_length >> 8) & 0xFF
+    hello_pkg_length_low = hello_pkg_length & 0xFF
+    hello_header = bytes((preamble, hello_pkg_length_high, hello_pkg_length_low))
+    hello_pkt_with_header = hello_header + empty_hello_pkt
+
+    with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
+        helper.data_received(hello_pkt_with_header)
+
+    with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
+        await handshake_task
+
+
+@pytest.mark.asyncio
 async def test_init_noise_attempted_when_esp_uses_plaintext(
     noise_conn: APIConnection,
 ) -> None:
