@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import binascii
 import logging
 from functools import partial
@@ -110,10 +111,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._state = NOISE_STATE_CLOSED
         super().close()
 
-    def _handle_error_and_close(self, exc: Exception) -> None:
-        self._set_ready_future_exception(exc)
-        super()._handle_error_and_close(exc)
-
     def _handle_error(self, exc: Exception) -> None:
         """Handle an error, and provide a good message when during hello."""
         if self._state == NOISE_STATE_HELLO and isinstance(exc, ConnectionResetError):
@@ -132,16 +129,16 @@ class APINoiseFrameHelper(APIFrameHelper):
             exc.__cause__ = original_exc
         super()._handle_error(exc)
 
-    async def perform_handshake(self, timeout: float) -> None:
-        """Perform the handshake with the server."""
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        """Handle a new connection."""
+        super().connection_made(transport)
         self._send_hello_handshake()
-        await super().perform_handshake(timeout)
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
         while self._buffer:
             self._pos = 0
-            if (header := self._read_exactly(3)) is None:
+            if (header := self._read(3)) is None:
                 return
             preamble = header[0]
             msg_size_high = header[1]
@@ -153,13 +150,12 @@ class APINoiseFrameHelper(APIFrameHelper):
                     )
                 )
                 return
-            frame = self._read_exactly((msg_size_high << 8) | msg_size_low)
-            # The complete frame is not yet available, wait for more data
-            # to arrive before continuing, since callback_packet has not
-            # been called yet the buffer will not be cleared and the next
-            # call to data_received will continue processing the packet
-            # at the start of the frame.
-            if frame is None:
+            if (frame := self._read((msg_size_high << 8) | msg_size_low)) is None:
+                # The complete frame is not yet available, wait for more data
+                # to arrive before continuing, since callback_packet has not
+                # been called yet the buffer will not be cleared and the next
+                # call to data_received will continue processing the packet
+                # at the start of the frame.
                 return
 
             # asyncio already runs data_received in a try block
@@ -177,11 +173,13 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
-        handshake_frame = b"\x00" + self._proto.write_message()
-        frame_len = len(handshake_frame)
+        handshake_frame = self._proto.write_message()
+        frame_len = len(handshake_frame) + 1
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
-        hello_handshake = NOISE_HELLO + header + handshake_frame
-        self._write_bytes(hello_handshake, _LOGGER.isEnabledFor(logging.DEBUG))
+        self._write_bytes(
+            b"".join((NOISE_HELLO, header, b"\x00", handshake_frame)),
+            _LOGGER.isEnabledFor(logging.DEBUG),
+        )
 
     def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
@@ -257,16 +255,15 @@ class APINoiseFrameHelper(APIFrameHelper):
     def _error_on_incorrect_preamble(self, msg: bytes) -> None:
         """Handle an incorrect preamble."""
         explanation = msg[1:].decode()
-        if explanation == "Handshake MAC failure":
-            self._handle_error_and_close(
-                InvalidEncryptionKeyAPIError(
-                    f"{self._log_name}: Invalid encryption key", self._server_name
-                )
+        if explanation != "Handshake MAC failure":
+            exc = HandshakeAPIError(
+                f"{self._log_name}: Handshake failure: {explanation}"
             )
-            return
-        self._handle_error_and_close(
-            HandshakeAPIError(f"{self._log_name}: Handshake failure: {explanation}")
-        )
+        else:
+            exc = InvalidEncryptionKeyAPIError(
+                f"{self._log_name}: Invalid encryption key", self._server_name
+            )
+        self._handle_error_and_close(exc)
 
     def _handle_handshake(self, msg: bytes) -> None:
         if msg[0] != 0:
@@ -292,9 +289,6 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]
         """
-        if self._state != NOISE_STATE_READY:
-            raise HandshakeAPIError(f"{self._log_name}: Noise connection is not ready")
-
         if TYPE_CHECKING:
             assert self._encrypt is not None, "Handshake should be complete"
 

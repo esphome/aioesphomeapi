@@ -21,9 +21,9 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         add_length=bytes,
         end_of_frame_pos=cython.uint,
         length_int=cython.uint,
-        preamble=cython.uint,
-        length_high=cython.uint,
-        maybe_msg_type=cython.uint
+        preamble="unsigned char",
+        length_high="unsigned char",
+        maybe_msg_type="unsigned char"
     )
     cpdef data_received(self, object data)
 

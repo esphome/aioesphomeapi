@@ -108,7 +108,7 @@ class APIFrameHelper:
         # is blocked and we cannot pull the data out of the buffer fast enough.
         self._buffer = self._buffer[end_of_frame_pos:]
 
-    def _read_exactly(self, length: _int) -> bytes | None:
+    def _read(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
@@ -154,6 +154,7 @@ class APIFrameHelper:
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
+        self._set_ready_future_exception(exc)
         self._connection.report_fatal_error(exc)
 
     def connection_lost(self, exc: Exception | None) -> None:
