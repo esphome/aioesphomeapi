@@ -621,6 +621,74 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
             await task
 
 
+
+@pytest.mark.asyncio
+async def test_noise_frame_helper_empty_hello():
+    """Test empty hello with noise."""
+    noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+    psk_bytes = base64.b64decode(noise_psk)
+    writes = []
+
+    def _writer(data: bytes):
+        writes.append(data)
+
+    connection, packets = _make_mock_connection()
+
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk=noise_psk,
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+    )
+    helper._transport = MagicMock()
+    helper._writer = _writer
+
+    proto = NoiseConnection.from_name(
+        b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+    )
+    proto.set_as_responder()
+    proto.set_psks(psk_bytes)
+    proto.set_prologue(b"NoiseAPIInit\x00\x00")
+    proto.start_handshake()
+
+    handshake_task = asyncio.create_task(helper.perform_handshake(30))
+    await asyncio.sleep(0)  # let the task run to read the hello packet
+
+    assert len(writes) == 1
+    handshake_pkt = writes.pop()
+
+    noise_hello = handshake_pkt[0:3]
+    pkt_header = handshake_pkt[3:6]
+    assert noise_hello == NOISE_HELLO
+    assert pkt_header[0] == 1  # type
+    pkg_length_high = pkt_header[1]
+    pkg_length_low = pkt_header[2]
+    pkg_length = (pkg_length_high << 8) + pkg_length_low
+    assert pkg_length == 49
+    noise_prefix = handshake_pkt[6:7]
+    assert noise_prefix == b"\x00"
+    encrypted_payload = handshake_pkt[7:]
+
+    decrypted = proto.read_message(encrypted_payload)
+    assert decrypted == b""
+
+    empty_hello_pkt = b""
+    preamble = 1
+    hello_pkg_length = len(empty_hello_pkt)
+    hello_pkg_length_high = (hello_pkg_length >> 8) & 0xFF
+    hello_pkg_length_low = hello_pkg_length & 0xFF
+    hello_header = bytes((preamble, hello_pkg_length_high, hello_pkg_length_low))
+    hello_pkt_with_header = hello_header + empty_hello_pkt
+
+    with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
+        helper.data_received(hello_pkt_with_header)
+
+    with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
+        await handshake_task
+
+
+
 @pytest.mark.asyncio
 async def test_init_noise_attempted_when_esp_uses_plaintext(
     noise_conn: APIConnection,
