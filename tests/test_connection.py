@@ -33,6 +33,7 @@ from .common import (
     connect,
     generate_plaintext_packet,
     get_mock_protocol,
+    mock_data_received,
     send_ping_request,
     send_ping_response,
     send_plaintext_connect_response,
@@ -52,20 +53,22 @@ async def test_connect(
 ) -> None:
     """Test that a plaintext connection works."""
     conn, transport, protocol, connect_task = plaintext_connect_task_no_login
-    protocol.data_received(
+    mock_data_received(
+        protocol,
         bytes.fromhex(
             "003602080110091a216d6173746572617672656c61792028657"
             "370686f6d652076323032332e362e3329220d6d617374657261"
             "7672656c6179"
-        )
+        ),
     )
-    protocol.data_received(
+    mock_data_received(
+        protocol,
         bytes.fromhex(
             "005b0a120d6d6173746572617672656c61791a1130383a33413a"
             "46323a33453a35453a36302208323032332e362e332a154a756e"
             "20323820323032332c2031383a31323a3236320965737033322d"
             "65766250506209457370726573736966"
-        )
+        ),
     )
     await connect_task
     assert conn.is_connected
@@ -80,13 +83,14 @@ async def test_timeout_sending_message(
 ) -> None:
     conn, transport, protocol, connect_task = plaintext_connect_task_no_login
 
-    protocol.data_received(
+    mock_data_received(
+        protocol,
         b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
         b"5stackatomproxy"
         b"\x00\x00$"
         b"\x00\x00\x04"
         b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d'
-        b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
+        b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif",
     )
 
     await connect_task
@@ -117,8 +121,9 @@ async def test_disconnect_when_not_fully_connected(
 
     # Only send the first part of the handshake
     # so we are stuck in the middle of the connection process
-    protocol.data_received(
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    mock_data_received(
+        protocol,
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
     )
 
     await asyncio.sleep(0)
@@ -156,7 +161,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         with pytest.raises(RequiresEncryptionAPIError):
             task = asyncio.create_task(conn._connect_hello_login(login=True))
             await asyncio.sleep(0)
-            protocol.data_received(b"\x01\x00\x00")
+            mock_data_received(protocol, b"\x01\x00\x00")
             await task
 
 
@@ -175,17 +180,19 @@ async def test_plaintext_connection(
         messages.append(msg)
 
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
-    protocol.data_received(
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    mock_data_received(
+        protocol,
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
     )
-    protocol.data_received(b"5stackatomproxy")
-    protocol.data_received(b"\x00\x00$")
-    protocol.data_received(b"\x00\x00\x04")
-    protocol.data_received(
-        b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d'
+    mock_data_received(protocol, b"5stackatomproxy")
+    mock_data_received(protocol, b"\x00\x00$")
+    mock_data_received(protocol, b"\x00\x00\x04")
+    mock_data_received(
+        protocol,
+        b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d',
     )
-    protocol.data_received(
-        b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
+    mock_data_received(
+        protocol, b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
     )
     await asyncio.sleep(0)
     await connect_task
@@ -308,8 +315,9 @@ async def test_finish_connection_times_out(
         messages.append(msg)
 
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
-    protocol.data_received(
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    mock_data_received(
+        protocol,
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
     )
     await asyncio.sleep(0)
 
@@ -386,17 +394,19 @@ async def test_plaintext_connection_fails_handshake(
     assert conn._socket is not None
     assert conn._frame_helper is not None
 
-    protocol.data_received(
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m'
+    mock_data_received(
+        protocol,
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
     )
-    protocol.data_received(b"5stackatomproxy")
-    protocol.data_received(b"\x00\x00$")
-    protocol.data_received(b"\x00\x00\x04")
-    protocol.data_received(
-        b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d'
+    mock_data_received(protocol, b"5stackatomproxy")
+    mock_data_received(protocol, b"\x00\x00$")
+    mock_data_received(protocol, b"\x00\x00\x04")
+    mock_data_received(
+        protocol,
+        b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d',
     )
-    protocol.data_received(
-        b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
+    mock_data_received(
+        protocol, b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
     )
 
     call_order = []
@@ -530,11 +540,9 @@ async def test_disconnect_fails_to_send_response(
     await connect_task
     assert conn.is_connected
 
-    with pytest.raises(SocketAPIError), patch.object(
-        protocol, "_writer", side_effect=OSError
-    ):
+    with patch.object(protocol, "_writer", side_effect=OSError):
         disconnect_request = DisconnectRequest()
-        protocol.data_received(generate_plaintext_packet(disconnect_request))
+        mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
 
     # Wait one loop iteration for the disconnect to be processed
     await asyncio.sleep(0)
@@ -589,7 +597,7 @@ async def test_disconnect_success_case(
     assert conn.is_connected
 
     disconnect_request = DisconnectRequest()
-    protocol.data_received(generate_plaintext_packet(disconnect_request))
+    mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
 
     # Wait one loop iteration for the disconnect to be processed
     await asyncio.sleep(0)

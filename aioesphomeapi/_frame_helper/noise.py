@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import binascii
 import logging
 from functools import partial
@@ -128,10 +129,10 @@ class APINoiseFrameHelper(APIFrameHelper):
             exc.__cause__ = original_exc
         super()._handle_error(exc)
 
-    async def perform_handshake(self, timeout: float) -> None:
-        """Perform the handshake with the server."""
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        """Handle a new connection."""
+        super().connection_made(transport)
         self._send_hello_handshake()
-        await super().perform_handshake(timeout)
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)

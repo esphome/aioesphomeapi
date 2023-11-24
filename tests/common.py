@@ -10,7 +10,7 @@ from google.protobuf import message
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
     ConnectResponse,
@@ -29,6 +29,20 @@ utcnow: partial[datetime] = partial(datetime.now, UTC)
 utcnow.__doc__ = "Get now in UTC time."
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
+
+def mock_data_received(
+    protocol: APINoiseFrameHelper | APIPlaintextFrameHelper, data: bytes
+) -> None:
+    """Mock data received on the protocol."""
+    try:
+        protocol.data_received(data)
+    except Exception as err:  # pylint: disable=broad-except
+        loop = asyncio.get_running_loop()
+        loop.call_soon(
+            protocol.connection_lost,
+            err,
+        )
 
 
 def get_mock_zeroconf() -> MagicMock:

@@ -17,6 +17,7 @@ from .common import (
     Estr,
     generate_plaintext_packet,
     get_mock_async_zeroconf,
+    mock_data_received,
     send_plaintext_connect_response,
     send_plaintext_hello,
 )
@@ -74,11 +75,11 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
 
     response: message.Message = SubscribeLogsResponse()
     response.message = b"Hello world"
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     assert len(messages) == 1
     assert messages[0].message == b"Hello world"
     stop_task = asyncio.create_task(stop())
     await asyncio.sleep(0)
     disconnect_response = DisconnectResponse()
-    protocol.data_received(generate_plaintext_packet(disconnect_response))
+    mock_data_received(protocol, generate_plaintext_packet(disconnect_response))
     await stop_task

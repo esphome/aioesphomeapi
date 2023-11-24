@@ -4,7 +4,7 @@ import asyncio
 import base64
 from datetime import timedelta
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
@@ -30,7 +30,13 @@ from aioesphomeapi.core import (
     SocketClosedAPIError,
 )
 
-from .common import async_fire_time_changed, get_mock_protocol, utcnow
+from .common import (
+    async_fire_time_changed,
+    get_mock_protocol,
+    mock_data_received,
+    utcnow,
+)
+from .conftest import get_mock_connection_params
 
 PREAMBLE = b"\x00"
 
@@ -42,18 +48,27 @@ def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
     class MockConnection(APIConnection):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             """Swallow args."""
+            super().__init__(get_mock_connection_params(), AsyncMock(), *args, **kwargs)
 
         def process_packet(self, type_: int, data: bytes):
             packets.append((type_, data))
-
-        def report_fatal_error(self, exc: Exception):
-            raise exc
 
     connection = MockConnection()
     return connection, packets
 
 
 class MockAPINoiseFrameHelper(APINoiseFrameHelper):
+    def __init__(self, *args: Any, writer: Any | None = None, **kwargs: Any) -> None:
+        """Swallow args."""
+        super().__init__(*args, **kwargs)
+        transport = MagicMock()
+        transport.write = writer or MagicMock()
+        self.__transport = transport
+        self.connection_made(transport)
+
+    def connection_made(self, transport: Any) -> None:
+        return super().connection_made(self.__transport)
+
     def mock_write_frame(self, frame: bytes) -> None:
         """Write a packet to the socket.
 
@@ -125,7 +140,7 @@ def test_plaintext_frame_helper(
             connection=connection, client_info="my client", log_name="test"
         )
 
-        helper.data_received(in_bytes)
+        mock_data_received(helper, in_bytes)
 
         pkt = packets.pop()
         type_, data = pkt
@@ -135,7 +150,7 @@ def test_plaintext_frame_helper(
 
         # Make sure we correctly handle fragments
         for i in range(len(in_bytes)):
-            helper.data_received(in_bytes[i : i + 1])
+            mock_data_received(helper, in_bytes[i : i + 1])
 
         pkt = packets.pop()
         type_, data = pkt
@@ -166,7 +181,7 @@ def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
             PREAMBLE + varuint_to_bytes(4) + varuint_to_bytes(100) + (b"\x42" * 4)
         )
 
-        helper.data_received(in_bytes)
+        mock_data_received(helper, in_bytes)
 
         pkt = packets.pop()
         type_, data = pkt
@@ -176,7 +191,7 @@ def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
 
         # Make sure we correctly handle fragments
         for i in range(len(in_bytes)):
-            helper.data_received(in_bytes[i : i + 1])
+            mock_data_received(helper, in_bytes[i : i + 1])
 
         pkt = packets.pop()
         type_, data = pkt
@@ -215,15 +230,12 @@ async def test_noise_protector_event_loop(byte_type: Any) -> None:
         client_info="my client",
         log_name="test",
     )
-    helper._transport = MagicMock()
-    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper.mock_write_frame(byte_type(bytes.fromhex(pkt)))
 
-    with pytest.raises(InvalidEncryptionKeyAPIError):
-        for pkt in incoming_packets:
-            helper.data_received(byte_type(bytes.fromhex(pkt)))
+    for pkt in incoming_packets:
+        mock_data_received(helper, byte_type(bytes.fromhex(pkt)))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
         await helper.perform_handshake(30)
@@ -249,15 +261,12 @@ async def test_noise_frame_helper_incorrect_key():
         client_info="my client",
         log_name="test",
     )
-    helper._transport = MagicMock()
-    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper.mock_write_frame(bytes.fromhex(pkt))
 
-    with pytest.raises(InvalidEncryptionKeyAPIError):
-        for pkt in incoming_packets:
-            helper.data_received(bytes.fromhex(pkt))
+    for pkt in incoming_packets:
+        mock_data_received(helper, bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
         await helper.perform_handshake(30)
@@ -283,17 +292,14 @@ async def test_noise_frame_helper_incorrect_key_fragments():
         client_info="my client",
         log_name="test",
     )
-    helper._transport = MagicMock()
-    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper.mock_write_frame(bytes.fromhex(pkt))
 
-    with pytest.raises(InvalidEncryptionKeyAPIError):
-        for pkt in incoming_packets:
-            in_pkt = bytes.fromhex(pkt)
-            for i in range(len(in_pkt)):
-                helper.data_received(in_pkt[i : i + 1])
+    for pkt in incoming_packets:
+        in_pkt = bytes.fromhex(pkt)
+        for i in range(len(in_pkt)):
+            mock_data_received(helper, in_pkt[i : i + 1])
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
         await helper.perform_handshake(30)
@@ -319,15 +325,12 @@ async def test_noise_incorrect_name():
         client_info="my client",
         log_name="test",
     )
-    helper._transport = MagicMock()
-    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper.mock_write_frame(bytes.fromhex(pkt))
 
-    with pytest.raises(BadNameAPIError):
-        for pkt in incoming_packets:
-            helper.data_received(bytes.fromhex(pkt))
+    for pkt in incoming_packets:
+        mock_data_received(helper, bytes.fromhex(pkt))
 
     with pytest.raises(BadNameAPIError):
         await helper.perform_handshake(30)
@@ -350,8 +353,6 @@ async def test_noise_timeout():
         client_info="my client",
         log_name="test",
     )
-    helper._transport = MagicMock()
-    helper._writer = MagicMock()
 
     for pkt in outgoing_packets:
         helper.mock_write_frame(bytes.fromhex(pkt))
@@ -408,9 +409,8 @@ async def test_noise_frame_helper_handshake_failure():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
+        writer=_writer,
     )
-    helper._transport = MagicMock()
-    helper._writer = _writer
 
     proto = NoiseConnection.from_name(
         b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
@@ -448,7 +448,7 @@ async def test_noise_frame_helper_handshake_failure():
     hello_pkg_length_low = hello_pkg_length & 0xFF
     hello_header = bytes((preamble, hello_pkg_length_high, hello_pkg_length_low))
     hello_pkt_with_header = hello_header + hello_pkt
-    helper.data_received(hello_pkt_with_header)
+    mock_data_received(helper, hello_pkt_with_header)
 
     error_pkt = b"\x01forced to fail"
     preamble = 1
@@ -458,8 +458,7 @@ async def test_noise_frame_helper_handshake_failure():
     error_header = bytes((preamble, error_pkg_length_high, error_pkg_length_low))
     error_pkt_with_header = error_header + error_pkt
 
-    with pytest.raises(HandshakeAPIError, match="forced to fail"):
-        helper.data_received(error_pkt_with_header)
+    mock_data_received(helper, error_pkt_with_header)
 
     with pytest.raises(HandshakeAPIError, match="forced to fail"):
         await handshake_task
@@ -483,9 +482,8 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
+        writer=_writer,
     )
-    helper._transport = MagicMock()
-    helper._writer = _writer
 
     proto = NoiseConnection.from_name(
         b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
@@ -523,7 +521,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     hello_pkg_length_low = hello_pkg_length & 0xFF
     hello_header = bytes((preamble, hello_pkg_length_high, hello_pkg_length_low))
     hello_pkt_with_header = hello_header + hello_pkt
-    helper.data_received(hello_pkt_with_header)
+    mock_data_received(helper, hello_pkt_with_header)
 
     handshake = proto.write_message(b"")
     handshake_pkt = b"\x00" + handshake
@@ -536,7 +534,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     )
     handshake_with_header = handshake_header + handshake_pkt
 
-    helper.data_received(handshake_with_header)
+    mock_data_received(helper, handshake_with_header)
 
     assert not writes
 
@@ -566,13 +564,12 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     encrypted_header = bytes(
         (preamble, encrypted_pkg_length_high, encrypted_pkg_length_low)
     )
-    helper.data_received(encrypted_header + encrypted_payload)
+    mock_data_received(helper, encrypted_header + encrypted_payload)
 
     assert packets == [(42, b"from device")]
     helper.close()
 
-    with pytest.raises(ProtocolAPIError, match="Connection closed"):
-        helper.data_received(encrypted_header + encrypted_payload)
+    mock_data_received(helper, encrypted_header + encrypted_payload)
 
 
 @pytest.mark.asyncio
@@ -590,7 +587,7 @@ async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
     task = asyncio.create_task(conn._connect_hello_login(login=True))
     await asyncio.sleep(0)
     # The preamble should be \x00 but we send \x09
-    protocol.data_received(b"\x09\x00\x00")
+    mock_data_received(protocol, b"\x09\x00\x00")
 
     with pytest.raises(ProtocolAPIError):
         await task
@@ -615,7 +612,7 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
         assert protocol is not None
         assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
 
-        protocol.data_received(b"\x00\x00\x00")
+        mock_data_received(protocol, b"\x00\x00\x00")
 
         with pytest.raises(ProtocolAPIError, match="Marker byte invalid"):
             await task
@@ -632,8 +629,6 @@ async def test_noise_frame_helper_empty_hello():
         client_info="my client",
         log_name="test",
     )
-    helper._transport = MagicMock()
-    helper._writer = MagicMock()
 
     handshake_task = asyncio.create_task(helper.perform_handshake(30))
     empty_hello_pkt = b""
@@ -644,8 +639,7 @@ async def test_noise_frame_helper_empty_hello():
     hello_header = bytes((preamble, hello_pkg_length_high, hello_pkg_length_low))
     hello_pkt_with_header = hello_header + empty_hello_pkt
 
-    with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
-        helper.data_received(hello_pkt_with_header)
+    mock_data_received(helper, hello_pkt_with_header)
 
     with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
         await handshake_task

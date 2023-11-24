@@ -88,7 +88,12 @@ from aioesphomeapi.model import (
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
-from .common import Estr, generate_plaintext_packet, get_mock_zeroconf
+from .common import (
+    Estr,
+    generate_plaintext_packet,
+    get_mock_zeroconf,
+    mock_data_received,
+)
 
 
 @pytest.fixture
@@ -849,7 +854,7 @@ async def test_bluetooth_disconnect(
     response: message.Message = BluetoothDeviceConnectionResponse(
         address=1234, connected=False
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     await disconnect_task
 
 
@@ -864,7 +869,7 @@ async def test_bluetooth_pair(
     pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDevicePairingResponse(address=1234)
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     await pair_task
 
 
@@ -879,7 +884,7 @@ async def test_bluetooth_unpair(
     unpair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceUnpairingResponse(address=1234)
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     await unpair_task
 
 
@@ -894,7 +899,7 @@ async def test_bluetooth_clear_cache(
     clear_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceClearCacheResponse(address=1234)
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     await clear_task
 
 
@@ -914,7 +919,7 @@ async def test_device_info(
         friendly_name="My Device",
         has_deep_sleep=True,
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     device_info = await device_info_task
     assert device_info.name == "realname"
     assert device_info.friendly_name == "My Device"
@@ -923,7 +928,7 @@ async def test_device_info(
     disconnect_task = asyncio.create_task(client.disconnect())
     await asyncio.sleep(0)
     response: message.Message = DisconnectResponse()
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     await disconnect_task
     with pytest.raises(APIConnectionError, match="CLOSED"):
         await client.device_info()
@@ -943,12 +948,12 @@ async def test_bluetooth_gatt_read(
     other_response: message.Message = BluetoothGATTReadResponse(
         address=1234, handle=4567, data=b"4567"
     )
-    protocol.data_received(generate_plaintext_packet(other_response))
+    mock_data_received(protocol, generate_plaintext_packet(other_response))
 
     response: message.Message = BluetoothGATTReadResponse(
         address=1234, handle=1234, data=b"1234"
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     assert await read_task == b"1234"
 
 
@@ -966,12 +971,12 @@ async def test_bluetooth_gatt_read_descriptor(
     other_response: message.Message = BluetoothGATTReadResponse(
         address=1234, handle=4567, data=b"4567"
     )
-    protocol.data_received(generate_plaintext_packet(other_response))
+    mock_data_received(protocol, generate_plaintext_packet(other_response))
 
     response: message.Message = BluetoothGATTReadResponse(
         address=1234, handle=1234, data=b"1234"
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     assert await read_task == b"1234"
 
 
@@ -991,10 +996,10 @@ async def test_bluetooth_gatt_write(
     other_response: message.Message = BluetoothGATTWriteResponse(
         address=1234, handle=4567
     )
-    protocol.data_received(generate_plaintext_packet(other_response))
+    mock_data_received(protocol, generate_plaintext_packet(other_response))
 
     response: message.Message = BluetoothGATTWriteResponse(address=1234, handle=1234)
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     await write_task
 
 
@@ -1034,10 +1039,10 @@ async def test_bluetooth_gatt_write_descriptor(
     other_response: message.Message = BluetoothGATTWriteResponse(
         address=1234, handle=4567
     )
-    protocol.data_received(generate_plaintext_packet(other_response))
+    mock_data_received(protocol, generate_plaintext_packet(other_response))
 
     response: message.Message = BluetoothGATTWriteResponse(address=1234, handle=1234)
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     await write_task
 
 
@@ -1077,12 +1082,12 @@ async def test_bluetooth_gatt_read_descriptor(
     other_response: message.Message = BluetoothGATTReadResponse(
         address=1234, handle=4567, data=b"4567"
     )
-    protocol.data_received(generate_plaintext_packet(other_response))
+    mock_data_received(protocol, generate_plaintext_packet(other_response))
 
     response: message.Message = BluetoothGATTReadResponse(
         address=1234, handle=1234, data=b"1234"
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     assert await read_task == b"1234"
 
 
@@ -1102,9 +1107,9 @@ async def test_bluetooth_gatt_get_services(
     response: message.Message = BluetoothGATTGetServicesResponse(
         address=1234, services=[service1]
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     done_response: message.Message = BluetoothGATTGetServicesDoneResponse(address=1234)
-    protocol.data_received(generate_plaintext_packet(done_response))
+    mock_data_received(protocol, generate_plaintext_packet(done_response))
 
     services = await services_task
     assert services == ESPHomeBluetoothGATTServices(
@@ -1129,9 +1134,9 @@ async def test_bluetooth_gatt_get_services_errors(
     response: message.Message = BluetoothGATTGetServicesResponse(
         address=1234, services=[service1]
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     done_response: message.Message = BluetoothGATTErrorResponse(address=1234)
-    protocol.data_received(generate_plaintext_packet(done_response))
+    mock_data_received(protocol, generate_plaintext_packet(done_response))
 
     with pytest.raises(BluetoothGATTAPIError):
         await services_task
@@ -1164,9 +1169,10 @@ async def test_bluetooth_gatt_start_notify(
     data_response: message.Message = BluetoothGATTNotifyDataResponse(
         address=1234, handle=1, data=b"gotit"
     )
-    protocol.data_received(
+    mock_data_received(
+        protocol,
         generate_plaintext_packet(notify_response)
-        + generate_plaintext_packet(data_response)
+        + generate_plaintext_packet(data_response),
     )
 
     cancel_cb, abort_cb = await notify_task
@@ -1175,7 +1181,7 @@ async def test_bluetooth_gatt_start_notify(
     second_data_response: message.Message = BluetoothGATTNotifyDataResponse(
         address=1234, handle=1, data=b"after finished"
     )
-    protocol.data_received(generate_plaintext_packet(second_data_response))
+    mock_data_received(protocol, generate_plaintext_packet(second_data_response))
     assert notifies == [(1, b"gotit"), (1, b"after finished")]
     await cancel_cb()
 
@@ -1244,7 +1250,7 @@ async def test_subscribe_bluetooth_le_advertisements(
         manufacturer_data={},
         address_type=1,
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
 
     assert advs == [
         BluetoothLEAdvertisement(
@@ -1290,7 +1296,7 @@ async def test_subscribe_bluetooth_le_raw_advertisements(
             )
         ]
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
     assert len(adv_groups) == 1
     first_adv = adv_groups[0][0]
     assert first_adv.address == 1234
@@ -1318,7 +1324,7 @@ async def test_subscribe_bluetooth_connections_free(
     )
     await asyncio.sleep(0)
     response: message.Message = BluetoothConnectionsFreeResponse(free=2, limit=3)
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
 
     assert connections == [(2, 3)]
     unsub()
@@ -1345,7 +1351,7 @@ async def test_subscribe_home_assistant_states(
     response: message.Message = SubscribeHomeAssistantStateResponse(
         entity_id="sensor.red", attribute="any"
     )
-    protocol.data_received(generate_plaintext_packet(response))
+    mock_data_received(protocol, generate_plaintext_packet(response))
 
     assert states == [("sensor.red", "any")]
 
