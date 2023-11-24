@@ -36,22 +36,22 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         type_high="unsigned char",
         type_low="unsigned char"
     )
-    cdef _handle_frame(self, bytes frame)
+    cdef void _handle_frame(self, bytes frame)
 
     @cython.locals(
         chosen_proto=char,
         server_name_i=int
     )
-    cdef _handle_hello(self, bytes server_hello)
+    cdef void _handle_hello(self, bytes server_hello)
 
-    cdef _handle_handshake(self, bytes msg)
+    cdef void _handle_handshake(self, bytes msg)
 
-    cdef _handle_closed(self, bytes frame)
+    cdef void _handle_closed(self, bytes frame)
 
     @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
-    cdef _send_hello_handshake(self)
+    cdef void _send_hello_handshake(self)
 
-    cdef _setup_proto(self)
+    cdef void _setup_proto(self)
 
     @cython.locals(psk_bytes=bytes)
     cdef _decode_noise_psk(self)

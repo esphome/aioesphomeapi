@@ -135,7 +135,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
-        while self._buffer:
+        while self._buffer_len:
             self._pos = 0
             if (header := self._read(3)) is None:
                 return
