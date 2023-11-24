@@ -40,7 +40,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     @cython.locals(
         chosen_proto=char,
-        server_name_i="unsigned int"
+        server_name_i="int"
     )
     cdef _handle_hello(self, bytes server_hello)
 
