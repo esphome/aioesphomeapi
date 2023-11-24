@@ -623,7 +623,9 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
 
 @pytest.mark.xfail(reason="We get the wrong exception from the task")
 @pytest.mark.asyncio
-async def test_init_noise_attempted_when_esp_uses_plaintext(noise_conn: APIConnection) -> None:
+async def test_init_noise_attempted_when_esp_uses_plaintext(
+    noise_conn: APIConnection,
+) -> None:
     loop = asyncio.get_event_loop()
     transport = MagicMock()
     protocol: APINoiseFrameHelper | None = None
@@ -643,9 +645,10 @@ async def test_init_noise_attempted_when_esp_uses_plaintext(noise_conn: APIConne
 
         protocol.connection_lost(ConnectionResetError())
 
-        with pytest.raises(APIConnectionError, match="The connection dropped immediately"):
+        with pytest.raises(
+            APIConnectionError, match="The connection dropped immediately"
+        ):
             await task
-
 
 
 @pytest.mark.asyncio
