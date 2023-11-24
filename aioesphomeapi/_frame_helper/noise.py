@@ -75,7 +75,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_noise_psk",
         "_expected_name",
         "_state",
-        "_dispatch",
         "_server_name",
         "_proto",
         "_decrypt",
