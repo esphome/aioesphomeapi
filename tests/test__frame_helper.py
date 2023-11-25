@@ -124,7 +124,9 @@ def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
     class MockConnection(APIConnection):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             """Swallow args."""
-            super().__init__(get_mock_connection_params(), AsyncMock(), *args, **kwargs)
+            super().__init__(
+                get_mock_connection_params(), AsyncMock(), True, None, *args, **kwargs
+            )
 
         def process_packet(self, type_: int, data: bytes):
             packets.append((type_, data))
