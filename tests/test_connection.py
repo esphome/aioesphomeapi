@@ -478,6 +478,23 @@ async def test_connect_correct_password(
 
 
 @pytest.mark.asyncio
+async def test_connect_wrong_version(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    send_plaintext_hello(protocol, 3, 2)
+    send_plaintext_connect_response(protocol, False)
+
+    with pytest.raises(APIConnectionError, match="Incompatible API version"):
+        await connect_task
+
+    assert conn.is_connected is False
+
+
+@pytest.mark.asyncio
 async def test_force_disconnect_fails(
     caplog: pytest.LogCaptureFixture,
     plaintext_connect_task_with_login: tuple[

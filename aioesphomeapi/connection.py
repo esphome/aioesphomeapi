@@ -419,7 +419,7 @@ class APIConnection:
                 self.log_name,
                 api_version.major,
             )
-            raise APIConnectionError("Incompatible API version.")
+            raise APIConnectionError(f"Incompatible API version ({api_version}).")
 
         self.api_version = api_version
         expected_name = self._params.expected_name

@@ -129,10 +129,14 @@ async def connect_client(
     await client.finish_connection(login=login)
 
 
-def send_plaintext_hello(protocol: APIPlaintextFrameHelper) -> None:
+def send_plaintext_hello(
+    protocol: APIPlaintextFrameHelper,
+    major: int | None = None,
+    minor: int | None = None,
+) -> None:
     hello_response: message.Message = HelloResponse()
-    hello_response.api_version_major = 1
-    hello_response.api_version_minor = 9
+    hello_response.api_version_major = major or 1
+    hello_response.api_version_minor = minor or 9
     hello_response.name = "fake"
     protocol.data_received(generate_plaintext_packet(hello_response))
 
