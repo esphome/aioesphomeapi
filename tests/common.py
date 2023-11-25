@@ -5,11 +5,12 @@ import time
 from datetime import datetime, timezone
 from functools import partial
 from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Awaitable, Callable
 
 from google.protobuf import message
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
-
+from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
@@ -115,6 +116,11 @@ async def connect(conn: APIConnection, login: bool = True):
     """Wrapper for connection logic to do both parts."""
     await conn.start_connection()
     await conn.finish_connection(login=login)
+
+async def connect_client(client: APIClient, login: bool = True, on_stop: Callable[[bool], Awaitable[None]] | None = None) -> None:
+    """Wrapper for connection logic to do both parts."""
+    await client.start_connection(on_stop=on_stop)
+    await client.finish_connection(login=login)
 
 
 def send_plaintext_hello(protocol: APIPlaintextFrameHelper) -> None:

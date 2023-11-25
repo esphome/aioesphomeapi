@@ -30,6 +30,7 @@ from aioesphomeapi.core import (
 
 from .common import (
     async_fire_time_changed,
+    connect_client,
     connect,
     generate_plaintext_packet,
     get_mock_protocol,
@@ -515,8 +516,6 @@ async def test_disconnect_fails_to_send_response(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    conn = APIConnection(connection_params, _on_stop)
-
     def _create_mock_transport_protocol(create_func, **kwargs):
         nonlocal protocol
         protocol = create_func()
@@ -527,10 +526,9 @@ async def test_disconnect_fails_to_send_response(
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
+        connect_task = asyncio.create_task(connect_client(client, login=False, on_stop=_on_stop))
         await connected.wait()
         send_plaintext_hello(protocol)
-        client._connection = conn
         await connect_task
         transport.reset_mock()
 
@@ -538,7 +536,7 @@ async def test_disconnect_fails_to_send_response(
     send_plaintext_connect_response(protocol, False)
 
     await connect_task
-    assert conn.is_connected
+    assert client._connection.is_connected
 
     with patch.object(protocol, "_writer", side_effect=OSError):
         disconnect_request = DisconnectRequest()
@@ -571,8 +569,6 @@ async def test_disconnect_success_case(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    conn = APIConnection(connection_params, _on_stop)
-
     def _create_mock_transport_protocol(create_func, **kwargs):
         nonlocal protocol
         protocol = create_func()
@@ -583,10 +579,9 @@ async def test_disconnect_success_case(
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
+        connect_task = asyncio.create_task(connect_client(client, login=False, on_stop=_on_stop))
         await connected.wait()
         send_plaintext_hello(protocol)
-        client._connection = conn
         await connect_task
         transport.reset_mock()
 
@@ -594,7 +589,7 @@ async def test_disconnect_success_case(
     send_plaintext_connect_response(protocol, False)
 
     await connect_task
-    assert conn.is_connected
+    assert client._connection.is_connected
 
     disconnect_request = DisconnectRequest()
     mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
@@ -602,7 +597,7 @@ async def test_disconnect_success_case(
     # Wait one loop iteration for the disconnect to be processed
     await asyncio.sleep(0)
     assert expected_disconnect is True
-    assert not conn.is_connected
+    assert not client._connection
 
 
 @pytest.mark.asyncio
