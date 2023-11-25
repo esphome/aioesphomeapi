@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Coroutine
 from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+from google.protobuf import message
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
     DisconnectRequest,
@@ -491,6 +494,7 @@ async def test_force_disconnect_fails(
     with patch.object(protocol, "_writer", side_effect=OSError):
         await conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
+    await asyncio.sleep(0)
 
 
 @pytest.mark.asyncio
@@ -702,3 +706,35 @@ async def test_respond_to_ping_request(
     ping_response_bytes = b"\x00\x00\x08"
     assert transport.write.call_count == 1
     assert transport.write.mock_calls == [call(ping_response_bytes)]
+
+
+@pytest.mark.asyncio
+async def test_unknown_protobuf_message_type_logged(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test unknown protobuf messages are logged but do not cause the connection to collapse."""
+    client, connection, transport, protocol = api_client
+    response: message.Message = DeviceInfoResponse(
+        name="realname",
+        friendly_name="My Device",
+        has_deep_sleep=True,
+    )
+    caplog.set_level(logging.DEBUG)
+    client.set_debug(True)
+    bytes_ = response.SerializeToString()
+    message_with_invalid_protobuf_number = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(bytes_))
+        + _cached_varuint_to_bytes(16385)
+        + bytes_
+    )
+
+    mock_data_received(protocol, message_with_invalid_protobuf_number)
+
+    assert "Skipping unknown message type 16385" in caplog.text
+    assert connection.is_connected
+    await connection.force_disconnect()
+    await asyncio.sleep(0)

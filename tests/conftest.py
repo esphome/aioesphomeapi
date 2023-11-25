@@ -78,18 +78,18 @@ def noise_connection_params() -> ConnectionParams:
     )
 
 
-async def on_stop(expected_disconnect: bool) -> None:
+def on_stop(expected_disconnect: bool) -> None:
     pass
 
 
 @pytest.fixture
 def conn(connection_params: ConnectionParams) -> APIConnection:
-    return PatchableAPIConnection(connection_params, on_stop)
+    return PatchableAPIConnection(connection_params, on_stop, True, None)
 
 
 @pytest.fixture
 def noise_conn(noise_connection_params: ConnectionParams) -> APIConnection:
-    return PatchableAPIConnection(noise_connection_params, on_stop)
+    return PatchableAPIConnection(noise_connection_params, on_stop, True, None)
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_no_login")
