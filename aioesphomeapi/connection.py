@@ -220,14 +220,13 @@ class APIConnection:
         if self._debug_enabled:
             _LOGGER.debug("Cleaning up connection to %s", self.log_name)
         for fut in self._read_exception_futures:
-            if fut.done():
-                continue
-            err = self._fatal_exception or APIConnectionError("Connection closed")
-            new_exc = err
-            if not isinstance(err, APIConnectionError):
-                new_exc = ReadFailedAPIError("Read failed")
-                new_exc.__cause__ = err
-            fut.set_exception(new_exc)
+            if not fut.done():
+                err = self._fatal_exception or APIConnectionError("Connection closed")
+                new_exc = err
+                if not isinstance(err, APIConnectionError):
+                    new_exc = ReadFailedAPIError("Read failed")
+                    new_exc.__cause__ = err
+                fut.set_exception(new_exc)
         self._read_exception_futures.clear()
         # If we are being called from do_connect we
         # need to make sure we don't cancel the task
@@ -676,9 +675,8 @@ class APIConnection:
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
         """Handle a timeout."""
-        if fut.done():
-            return
-        fut.set_exception(asyncio_TimeoutError)
+        if not fut.done():
+            fut.set_exception(asyncio_TimeoutError)
 
     def _handle_complex_message(
         self,
@@ -689,12 +687,11 @@ class APIConnection:
         resp: message.Message,
     ) -> None:
         """Handle a message that is part of a response."""
-        if fut.done():
-            return
-        if do_append is None or do_append(resp):
-            responses.append(resp)
-        if do_stop is None or do_stop(resp):
-            fut.set_result(None)
+        if not fut.done():
+            if do_append is None or do_append(resp):
+                responses.append(resp)
+            if do_stop is None or do_stop(resp):
+                fut.set_result(None)
 
     async def send_messages_await_response_complex(  # pylint: disable=too-many-locals
         self,
