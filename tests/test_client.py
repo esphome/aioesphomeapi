@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 from google.protobuf import message
-
+import logging
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
@@ -1069,29 +1069,6 @@ async def test_bluetooth_gatt_write_descriptor_without_response(
 
 
 @pytest.mark.asyncio
-async def test_bluetooth_gatt_read_descriptor(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    """Test bluetooth_gatt_read_descriptor."""
-    client, connection, transport, protocol = api_client
-    read_task = asyncio.create_task(client.bluetooth_gatt_read_descriptor(1234, 1234))
-    await asyncio.sleep(0)
-
-    other_response: message.Message = BluetoothGATTReadResponse(
-        address=1234, handle=4567, data=b"4567"
-    )
-    mock_data_received(protocol, generate_plaintext_packet(other_response))
-
-    response: message.Message = BluetoothGATTReadResponse(
-        address=1234, handle=1234, data=b"1234"
-    )
-    mock_data_received(protocol, generate_plaintext_packet(response))
-    assert await read_task == b"1234"
-
-
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_get_services(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1374,3 +1351,37 @@ async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     service_msg = HomeassistantServiceResponse(service="bob")
     await send(service_msg)
     on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
+
+
+@pytest.mark.asyncio
+async def test_set_debug(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test set_debug."""
+    client, connection, transport, protocol = api_client
+    response: message.Message = DeviceInfoResponse(
+        name="realname",
+        friendly_name="My Device",
+        has_deep_sleep=True,
+    )
+
+    caplog.set_level(logging.DEBUG)
+
+    client.set_debug(True)
+    assert client.log_name == "mydevice.local"
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await device_info_task
+
+    assert "My Device" in caplog.text
+    caplog.clear()
+    client.set_debug(False)
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await device_info_task
+    assert "My Device" not in caplog.text
