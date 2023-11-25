@@ -76,47 +76,39 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
         self._write_bytes(b"".join(out), debug_enabled)
 
-    def _read_varuint(self) -> _int | None:
+    def _read_varuint(self) -> _int:
         """Read a varuint from the buffer or None if all the bytes are not yet available."""
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
         result = 0
         bitpos = 0
-        import pprint
-        pprint.pprint([self._buffer, self._buffer_len, self._pos])
-        while True:
-            if self._buffer_len <= self._pos:
-                return -1
+        while self._buffer_len > self._pos:
             val = self._buffer[self._pos]
             self._pos += 1
             result |= (val & 0x7F) << bitpos
             if (val & 0x80) == 0:
                 return result
             bitpos += 7
+        return -1
 
     def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
         self, data: bytes | bytearray | memoryview
     ) -> None:
         self._add_to_buffer(data)
         while self._buffer_len:
-            # Read preamble, which should always 0x00
-            # Also try to get the length and msg type
-            # to avoid multiple calls to _read
             self._pos = 0
-            if (preamble := self._read_varuint()) is None:
+            # Read preamble, which should always 0x00
+            if (preamble := self._read_varuint()) == -1:
                 return
             if preamble != 0x00:
                 self._error_on_incorrect_preamble(preamble)
                 return
-            if (length_int := self._read_varuint()) is None:
+            if (length := self._read_varuint())  == -1:
                 return
-            if (msg_type_int := self._read_varuint()) is None:
+            if (msg_type := self._read_varuint())  == -1:
                 return
 
-            if TYPE_CHECKING:
-                assert msg_type_int is not None
-
-            if length_int == 0:
+            if length == 0:
                 packet_data = b""
             else:
                 # The packet data is not yet available, wait for more data
@@ -124,12 +116,12 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 # been called yet the buffer will not be cleared and the next
                 # call to data_received will continue processing the packet
                 # at the start of the frame.
-                if (maybe_packet_data := self._read(length_int)) is None:
+                if (maybe_packet_data := self._read(length)) is None:
                     return
                 packet_data = maybe_packet_data
 
             self._remove_from_buffer()
-            self._connection.process_packet(msg_type_int, packet_data)
+            self._connection.process_packet(msg_type, packet_data)
             # If we have more data, continue processing
 
     def _error_on_incorrect_preamble(self, preamble: _int) -> None:
