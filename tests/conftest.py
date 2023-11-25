@@ -95,7 +95,7 @@ def _create_mock_transport_protocol(
     connected: asyncio.Event,
     create_func: Callable[[], APIPlaintextFrameHelper],
     **kwargs,
-):
+) -> tuple[asyncio.Transport, APIPlaintextFrameHelper]:
     protocol: APIPlaintextFrameHelper = create_func()
     protocol.connection_made(transport)
     connected.set()
