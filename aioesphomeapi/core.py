@@ -351,3 +351,7 @@ MESSAGE_TYPE_TO_PROTO = {
     98: TextStateResponse,
     99: TextCommandRequest,
 }
+
+PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+MESSAGE_TYPE_LOOKUP = (None, *(MESSAGE_TYPE_TO_PROTO.values()))
+MAX_MESSAGE_TYPE_INDEX = len(MESSAGE_TYPE_LOOKUP) + 1

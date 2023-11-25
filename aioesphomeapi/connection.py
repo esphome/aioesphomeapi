@@ -34,7 +34,10 @@ from .api_pb2 import (  # type: ignore
     PingResponse,
 )
 from .core import (
+    MAX_MESSAGE_TYPE_INDEX,
+    MESSAGE_TYPE_LOOKUP,
     MESSAGE_TYPE_TO_PROTO,
+    PROTO_TO_MESSAGE_TYPE,
     APIConnectionCancelledError,
     APIConnectionError,
     BadNameAPIError,
@@ -67,7 +70,6 @@ DISCONNECT_RESPONSE_MESSAGE = DisconnectResponse()
 PING_REQUEST_MESSAGE = PingRequest()
 PING_RESPONSE_MESSAGE = PingResponse()
 
-PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 #
@@ -786,7 +788,7 @@ class APIConnection:
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
         debug_enabled = self._debug_enabled
-        if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
+        if not (0 < msg_type_proto <= MAX_MESSAGE_TYPE_INDEX):
             if debug_enabled:
                 _LOGGER.debug(
                     "%s: Skipping unknown message type %s",
@@ -795,6 +797,7 @@ class APIConnection:
                 )
             return
 
+        klass = MESSAGE_TYPE_LOOKUP[msg_type_proto]
         try:
             msg = klass()
             # MergeFromString instead of ParseFromString since

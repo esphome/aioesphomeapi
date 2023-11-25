@@ -5,6 +5,8 @@ from ._frame_helper.base cimport APIFrameHelper
 
 cdef dict MESSAGE_TYPE_TO_PROTO
 cdef dict PROTO_TO_MESSAGE_TYPE
+cdef tuple MESSAGE_TYPE_LOOKUP
+cdef unsigned int MAX_MESSAGE_TYPE_INDEX
 
 cdef set OPEN_STATES
 
@@ -96,7 +98,7 @@ cdef class APIConnection:
     cdef send_messages(self, tuple messages)
 
     @cython.locals(handlers=set, handlers_copy=set)
-    cpdef void process_packet(self, object msg_type_proto, object data)
+    cpdef void process_packet(self, unsigned int msg_type_proto, object data)
 
     cpdef _async_cancel_pong_timer(self)
 
