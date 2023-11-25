@@ -220,8 +220,6 @@ class APIConnection:
         if self._debug_enabled:
             _LOGGER.debug("Cleaning up connection to %s", self.log_name)
         for fut in self._read_exception_futures:
-            if fut.done():
-                continue
             err = self._fatal_exception or APIConnectionError("Connection closed")
             new_exc = err
             if not isinstance(err, APIConnectionError):
