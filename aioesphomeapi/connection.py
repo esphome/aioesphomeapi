@@ -449,9 +449,6 @@ class APIConnection:
 
     def _async_send_keep_alive(self) -> None:
         """Send a keep alive message."""
-        if not self.is_connected:
-            return
-
         loop = self._loop
         now = loop.time()
 
@@ -491,8 +488,6 @@ class APIConnection:
 
     def _async_pong_not_received(self) -> None:
         """Ping not received."""
-        if not self.is_connected:
-            return
         if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Ping response not received after %s seconds",
