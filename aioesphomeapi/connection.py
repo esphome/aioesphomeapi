@@ -46,6 +46,7 @@ from .core import (
     ResolveAPIError,
     SocketAPIError,
     TimeoutAPIError,
+    UnhandledAPIConnectionError,
 )
 from .model import APIVersion
 from .zeroconf import ZeroconfManager
@@ -547,8 +548,12 @@ class APIConnection:
             cause = ex
         if isinstance(self._fatal_exception, APIConnectionError):
             klass = type(self._fatal_exception)
-        else:
+        elif isinstance(ex, CancelledError):
             klass = APIConnectionError
+        elif isinstance(ex, OSError):
+            klass = SocketAPIError
+        else:
+            klass = UnhandledAPIConnectionError
         new_exc = klass(f"Error while {action} connection: {err_str}")
         new_exc.__cause__ = cause or ex
         return new_exc

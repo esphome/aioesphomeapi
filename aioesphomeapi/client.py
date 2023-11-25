@@ -324,9 +324,9 @@ class APIClient:
 
         try:
             await self._connection.start_connection()
-        except Exception as e:
+        except Exception:
             self._connection = None
-            raise self._wrap_api_connection_error(e)
+            raise
         # If we resolved the address, we should set the log name now
         if self._connection.resolved_addr_info:
             self._set_log_name()
@@ -340,21 +340,11 @@ class APIClient:
             assert self._connection is not None
         try:
             await self._connection.finish_connection(login=login)
-        except Exception as e:
+        except Exception:
             self._connection = None
-            raise self._wrap_api_connection_error(e)
+            raise
         if received_name := self._connection.received_name:
             self._set_name_from_device(received_name)
-
-    def _wrap_api_connection_error(self, exc: Exception) -> APIConnectionError:
-        """Wrap an APIConnectionError."""
-        if isinstance(exc, APIConnectionError):
-            return exc
-        new_exc = UnhandledAPIConnectionError(
-            f"Unexpected error while connecting to {self.log_name}: {exc}"
-        )
-        new_exc.__cause__ = exc
-        return new_exc
 
     async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
