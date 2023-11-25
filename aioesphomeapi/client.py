@@ -205,6 +205,7 @@ class APIClient:
             Can be used to prevent accidentally connecting to a different device if
             IP passed as address but DHCP reassigned IP.
         """
+        self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
             address=str(address),
             port=port,
@@ -222,7 +223,6 @@ class APIClient:
         self._loop = asyncio.get_event_loop()
         self._on_stop_task: asyncio.Task[None] | None = None
         self._set_log_name()
-        self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
 
     def set_debug(self, enabled: bool) -> None:
         """Enable debug logging."""
