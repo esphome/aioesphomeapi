@@ -292,14 +292,7 @@ class APIConnection:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # Try to reduce the pressure on esphome device as it measures
         # ram in bytes and we measure ram in megabytes.
-        try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
-        except OSError as err:
-            _LOGGER.warning(
-                "%s: Failed to set socket receive buffer size: %s",
-                self.log_name,
-                err,
-            )
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
 
         if self._debug_enabled:
             _LOGGER.debug(
