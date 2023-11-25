@@ -616,14 +616,11 @@ class APIConnection:
 
         for msg in msgs:
             msg_type = type(msg)
-            if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
-                raise ValueError(f"Message type id not found for type {msg_type}")
-
+            message_type = PROTO_TO_MESSAGE_TYPE[msg_type]
             if debug_enabled:
                 _LOGGER.debug(
                     "%s: Sending %s: %s", self.log_name, msg_type.__name__, msg
                 )
-
             packets.append((message_type, msg.SerializeToString()))
 
         if TYPE_CHECKING:
