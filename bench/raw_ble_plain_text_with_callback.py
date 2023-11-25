@@ -18,7 +18,9 @@ class MockConnection(APIConnection):
 
 
 client = APIClient("fake.address", 6052, None)
-connection = MockConnection(client._params, lambda expected_disconnect: None, None)
+connection = MockConnection(
+    client._params, lambda expected_disconnect: None, False, None
+)
 
 
 def process_incoming_msg():
