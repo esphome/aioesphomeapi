@@ -260,7 +260,7 @@ class APIClient:
 
     async def connect(
         self,
-        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+        on_stop: Callable[[bool], Coroutine[None]] | None = None,
         login: bool = False,
     ) -> None:
         """Connect to the device."""
@@ -269,7 +269,7 @@ class APIClient:
 
     def _on_stop(
         self,
-        on_stop: Callable[[bool], Awaitable[None]] | None,
+        on_stop: Callable[[bool], Coroutine[None]] | None,
         expected_disconnect: bool,
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
