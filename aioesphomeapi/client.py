@@ -85,7 +85,6 @@ from .core import (
     APIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
-    UnhandledAPIConnectionError,
     to_human_readable_address,
 )
 from .model import (
