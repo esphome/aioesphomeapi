@@ -161,6 +161,7 @@ class APIConnection:
         self,
         params: ConnectionParams,
         on_stop: Callable[[bool], None],
+        debug_enabled: bool,
         log_name: str | None = None,
     ) -> None:
         self._params = params
@@ -195,7 +196,7 @@ class APIConnection:
         self._loop = asyncio.get_event_loop()
         self.is_connected = False
         self._handshake_complete = False
-        self._debug_enabled = partial(_LOGGER.isEnabledFor, logging.DEBUG)
+        self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self.resolved_addr_info: hr.AddrInfo | None = None
 
@@ -214,7 +215,8 @@ class APIConnection:
             return
         was_connected = self.is_connected
         self._set_connection_state(ConnectionState.CLOSED)
-        _LOGGER.debug("Cleaning up connection to %s", self.log_name)
+        if self._debug_enabled:
+            _LOGGER.debug("Cleaning up connection to %s", self.log_name)
         for fut in self._read_exception_futures:
             if fut.done():
                 continue
@@ -262,6 +264,10 @@ class APIConnection:
             self.on_stop = None
             on_stop(self._expected_disconnect)
 
+    def set_debug(self, enable: bool) -> None:
+        """Enable or disable debug logging."""
+        self._debug_enabled = enable
+
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
         try:
@@ -278,7 +284,6 @@ class APIConnection:
 
     async def _connect_socket_connect(self, addr: hr.AddrInfo) -> None:
         """Step 2 in connect process: connect the socket."""
-        debug_enable = self._debug_enabled()
         sock = socket.socket(family=addr.family, type=addr.type, proto=addr.proto)
         self._socket = sock
         sock.setblocking(False)
@@ -294,7 +299,7 @@ class APIConnection:
                 err,
             )
 
-        if debug_enable is True:
+        if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Connecting to %s:%s (%s)",
                 self.log_name,
@@ -312,7 +317,7 @@ class APIConnection:
         except OSError as err:
             raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
 
-        if debug_enable is True:
+        if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Opened socket to %s:%s (%s)",
                 self.log_name,
@@ -403,13 +408,14 @@ class APIConnection:
 
     def _process_hello_resp(self, resp: HelloResponse) -> None:
         """Process a HelloResponse."""
-        _LOGGER.debug(
-            "%s: Successfully connected ('%s' API=%s.%s)",
-            self.log_name,
-            resp.server_info,
-            resp.api_version_major,
-            resp.api_version_minor,
-        )
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Successfully connected ('%s' API=%s.%s)",
+                self.log_name,
+                resp.server_info,
+                resp.api_version_major,
+                resp.api_version_minor,
+            )
         api_version = APIVersion(resp.api_version_major, resp.api_version_minor)
         if api_version.major > 2:
             _LOGGER.error(
@@ -456,7 +462,7 @@ class APIConnection:
                 self._pong_timer = loop.call_at(
                     now + self._keep_alive_timeout, self._async_pong_not_received
                 )
-            elif self._debug_enabled() is True:
+            elif self._debug_enabled:
                 #
                 # We haven't reached the ping response (pong) timeout yet
                 # and we haven't seen a response to the last ping
@@ -485,11 +491,12 @@ class APIConnection:
         """Ping not received."""
         if not self.is_connected:
             return
-        _LOGGER.debug(
-            "%s: Ping response not received after %s seconds",
-            self.log_name,
-            self._keep_alive_timeout,
-        )
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Ping response not received after %s seconds",
+                self.log_name,
+                self._keep_alive_timeout,
+            )
         self.report_fatal_error(
             PingFailedAPIError(
                 f"Ping response not received after {self._keep_alive_timeout} seconds"
@@ -608,14 +615,14 @@ class APIConnection:
             )
 
         packets: list[tuple[int, bytes]] = []
-        debug_enabled = self._debug_enabled()
+        debug_enabled = self._debug_enabled
 
         for msg in msgs:
             msg_type = type(msg)
             if (message_type := PROTO_TO_MESSAGE_TYPE.get(msg_type)) is None:
                 raise ValueError(f"Message type id not found for type {msg_type}")
 
-            if debug_enabled is True:
+            if debug_enabled:
                 _LOGGER.debug(
                     "%s: Sending %s: %s", self.log_name, msg_type.__name__, msg
                 )
@@ -786,12 +793,14 @@ class APIConnection:
 
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
+        debug_enabled = self._debug_enabled
         if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
-            _LOGGER.debug(
-                "%s: Skipping message type %s",
-                self.log_name,
-                msg_type_proto,
-            )
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s: Skipping unknown message type %s",
+                    self.log_name,
+                    msg_type_proto,
+                )
             return
 
         try:
@@ -818,7 +827,7 @@ class APIConnection:
 
         msg_type = type(msg)
 
-        if self._debug_enabled() is True:
+        if debug_enabled:
             _LOGGER.debug(
                 "%s: Got message of type %s: %s",
                 self.log_name,
@@ -891,10 +900,11 @@ class APIConnection:
                 self._fatal_exception = TimeoutAPIError(
                     "Timed out waiting to finish connect before disconnecting"
                 )
-                _LOGGER.debug(
-                    "%s: Connect task didn't finish before disconnect",
-                    self.log_name,
-                )
+                if self._debug_enabled:
+                    _LOGGER.debug(
+                        "%s: Connect task didn't finish before disconnect",
+                        self.log_name,
+                    )
 
         self._expected_disconnect = True
         if self._handshake_complete:

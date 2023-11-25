@@ -222,6 +222,13 @@ class APIClient:
         self._loop = asyncio.get_event_loop()
         self._on_stop_task: asyncio.Task[None] | None = None
         self._set_log_name()
+        self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
+
+    def set_debug(self, enabled: bool) -> None:
+        """Enable debug logging."""
+        self._debug_enabled = enabled
+        if self._connection:
+            self._connection.set_debug(enabled)
 
     @property
     def zeroconf_manager(self) -> ZeroconfManager:
@@ -556,7 +563,6 @@ class APIClient:
         has_cache: bool = False,
         address_type: int | None = None,
     ) -> Callable[[], None]:
-        debug = _LOGGER.isEnabledFor(logging.DEBUG)
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
         if has_cache:
@@ -570,7 +576,7 @@ class APIClient:
             # of the connection. This can crash the esp if the service list is too large.
             request_type = BluetoothDeviceRequestType.CONNECT
 
-        if debug:
+        if self._debug_enabled:
             _LOGGER.debug("%s: Using connection version %s", address, request_type)
 
         unsub = self._get_connection().send_message_callback_response(
@@ -604,7 +610,7 @@ class APIClient:
             # the slot is recovered before the timeout is raised
             # to avoid race were we run out even though we have a slot.
             addr = to_human_readable_address(address)
-            if debug:
+            if self._debug_enabled:
                 _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
             disconnect_timed_out = (
                 not await self._bluetooth_device_disconnect_guard_timeout(
@@ -640,7 +646,7 @@ class APIClient:
         try:
             await self.bluetooth_device_disconnect(address, timeout=timeout)
         except TimeoutAPIError:
-            if _LOGGER.isEnabledFor(logging.DEBUG):
+            if self._debug_enabled:
                 _LOGGER.debug(
                     "%s: Disconnect timed out: %s",
                     to_human_readable_address(address),
