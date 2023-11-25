@@ -174,6 +174,7 @@ class APIClient:
         "cached_name",
         "_background_tasks",
         "_loop",
+        "_on_stop_task",
         "log_name",
     )
 
@@ -219,6 +220,7 @@ class APIClient:
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
+        self._on_stop_task: asyncio.Task[None] | None = None
         self._set_log_name()
 
     @property
@@ -265,6 +267,30 @@ class APIClient:
         await self.start_connection(on_stop)
         await self.finish_connection(login)
 
+    def _on_stop(
+        self,
+        on_stop: Callable[[bool], Awaitable[None]] | None,
+        expected_disconnect: bool,
+    ) -> None:
+        # Hook into on_stop handler to clear connection when stopped
+        self._connection = None
+        if on_stop is None:
+            return
+        self._on_stop_task = asyncio.create_task(
+            on_stop(expected_disconnect),
+            name=f"{self.log_name} aioesphomeapi on_stop",
+        )
+        self._on_stop_task.add_done_callback(self._remove_on_stop_task)
+
+    def _remove_on_stop_task(self, _fut: asyncio.Future[None]) -> None:
+        """Remove the stop task.
+
+        We need to do this because the asyncio does not hold
+        a strong reference to the task, so it can be garbage
+        collected unexpectedly.
+        """
+        self._on_stop_task = None
+
     async def start_connection(
         self,
         on_stop: Callable[[bool], Awaitable[None]] | None = None,
@@ -273,13 +299,9 @@ class APIClient:
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self.log_name}!")
 
-        async def _on_stop(expected_disconnect: bool) -> None:
-            # Hook into on_stop handler to clear connection when stopped
-            self._connection = None
-            if on_stop is not None:
-                await on_stop(expected_disconnect)
-
-        self._connection = APIConnection(self._params, _on_stop, log_name=self.log_name)
+        self._connection = APIConnection(
+            self._params, partial(self._on_stop, on_stop), log_name=self.log_name
+        )
 
         try:
             await self._connection.start_connection()
