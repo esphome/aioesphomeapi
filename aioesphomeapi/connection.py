@@ -611,17 +611,16 @@ class APIConnection:
                 f"Connection isn't established yet ({self.connection_state})"
             )
 
-        packets: list[tuple[int, bytes]] = []
-        debug_enabled = self._debug_enabled
+        packets: list[tuple[int, bytes]] = [
+            (PROTO_TO_MESSAGE_TYPE[type(msg)], msg.SerializeToString()) for msg in msgs
+        ]
 
-        for msg in msgs:
-            msg_type = type(msg)
-            message_type = PROTO_TO_MESSAGE_TYPE[msg_type]
-            if debug_enabled:
+        debug_enabled = self._debug_enabled
+        if debug_enabled:
+            for msg in msgs:
                 _LOGGER.debug(
-                    "%s: Sending %s: %s", self.log_name, msg_type.__name__, msg
+                    "%s: Sending %s: %s", self.log_name, type(msg).__name__, msg
                 )
-            packets.append((message_type, msg.SerializeToString()))
 
         if TYPE_CHECKING:
             assert self._frame_helper is not None

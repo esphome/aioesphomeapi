@@ -41,6 +41,7 @@ cdef object HandshakeAPIError
 cdef object PingFailedAPIError
 cdef object ReadFailedAPIError
 cdef object TimeoutAPIError
+cdef object SocketAPIError
 
 cdef object astuple
 
