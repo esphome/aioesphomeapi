@@ -1386,3 +1386,18 @@ async def test_set_debug(
     mock_data_received(protocol, generate_plaintext_packet(response))
     await device_info_task
     assert "My Device" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_force_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test force disconnect can be called multiple times."""
+    client, connection, transport, protocol = api_client
+    await client.disconnect(force=True)
+    assert connection.is_connected is False
+    await client.disconnect(force=False)
+    assert connection.is_connected is False
