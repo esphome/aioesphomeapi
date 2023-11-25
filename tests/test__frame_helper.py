@@ -12,10 +12,6 @@ from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND
-from aioesphomeapi._frame_helper.plain_text import _bytes_to_varuint as bytes_to_varuint
-from aioesphomeapi._frame_helper.plain_text import (
-    _cached_bytes_to_varuint as cached_bytes_to_varuint,
-)
 from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
 )
@@ -457,16 +453,6 @@ VARUINT_TESTCASES = [
 def test_varuint_to_bytes(val, encoded):
     assert varuint_to_bytes(val) == encoded
     assert cached_varuint_to_bytes(val) == encoded
-
-
-@pytest.mark.parametrize("val, encoded", VARUINT_TESTCASES)
-def test_bytes_to_varuint(val, encoded):
-    assert bytes_to_varuint(encoded) == val
-    assert cached_bytes_to_varuint(encoded) == val
-
-
-def test_bytes_to_varuint_invalid():
-    assert bytes_to_varuint(b"\xFF") is None
 
 
 @pytest.mark.asyncio

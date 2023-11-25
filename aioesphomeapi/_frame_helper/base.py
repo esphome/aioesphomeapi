@@ -119,6 +119,21 @@ class APIFrameHelper:
             assert self._buffer is not None, "Buffer should be set"
         return self._buffer[original_pos:new_pos]
 
+    def _read_varuint(self) -> _int:
+        """Read a varuint from the buffer or -1 if the buffer runs out of bytes."""
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
+        result = 0
+        bitpos = 0
+        while self._buffer_len > self._pos:
+            val = self._buffer[self._pos]
+            self._pos += 1
+            result |= (val & 0x7F) << bitpos
+            if (val & 0x80) == 0:
+                return result
+            bitpos += 7
+        return -1
+
     async def perform_handshake(self, timeout: float) -> None:
         """Perform the handshake with the server."""
         handshake_handle = self._loop.call_at(
