@@ -815,14 +815,14 @@ class APIConnection:
             _LOGGER.error(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
                 self.log_name,
-                msg_type_proto,
+                klass.__name__,
                 data,
                 e,
                 exc_info=True,
             )
             self.report_fatal_error(
                 ProtocolAPIError(
-                    f"Invalid protobuf message: type={msg_type_proto} data={data!r}: {e}"
+                    f"Invalid protobuf message: type={klass.__name__} data={data!r}: {e}"
                 )
             )
             raise

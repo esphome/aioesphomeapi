@@ -19,6 +19,7 @@ from aioesphomeapi.api_pb2 import (
     HelloResponse,
     PingRequest,
     PingResponse,
+    TextSensorStateResponse,
 )
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
@@ -738,3 +739,33 @@ async def test_unknown_protobuf_message_type_logged(
     assert connection.is_connected
     await connection.force_disconnect()
     await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_bad_protobuf_message_drops_connection(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test ad bad protobuf messages is logged and causes the connection to collapse."""
+    client, connection, transport, protocol = api_client
+    msg: message.Message = TextSensorStateResponse(
+        key=1, state="invalid", missing_state=False
+    )
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
+    client.set_debug(True)
+    bytes_ = msg.SerializeToString()
+    # Replace the bytes with invalid UTF-8
+    bytes_ = bytes.replace(bytes_, b"invalid", b"inval\xe9 ")
+
+    message_with_bad_protobuf_data = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(bytes_))
+        + _cached_varuint_to_bytes(27)
+        + bytes_
+    )
+    mock_data_received(protocol, message_with_bad_protobuf_data)
+    assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert connection.is_connected is False
