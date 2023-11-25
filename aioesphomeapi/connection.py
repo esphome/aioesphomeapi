@@ -615,8 +615,7 @@ class APIConnection:
             (PROTO_TO_MESSAGE_TYPE[type(msg)], msg.SerializeToString()) for msg in msgs
         ]
 
-        debug_enabled = self._debug_enabled
-        if debug_enabled:
+        if debug_enabled := self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(
                     "%s: Sending %s: %s", self.log_name, type(msg).__name__, msg
