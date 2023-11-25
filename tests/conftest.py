@@ -78,7 +78,7 @@ def noise_connection_params() -> ConnectionParams:
     )
 
 
-async def on_stop(expected_disconnect: bool) -> None:
+def on_stop(expected_disconnect: bool) -> None:
     pass
 
 
