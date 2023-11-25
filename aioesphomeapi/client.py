@@ -274,13 +274,12 @@ class APIClient:
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
         self._connection = None
-        if on_stop is None:
-            return
-        self._on_stop_task = asyncio.create_task(
-            on_stop(expected_disconnect),
-            name=f"{self.log_name} aioesphomeapi on_stop",
-        )
-        self._on_stop_task.add_done_callback(self._remove_on_stop_task)
+        if on_stop:
+            self._on_stop_task = asyncio.create_task(
+                on_stop(expected_disconnect),
+                name=f"{self.log_name} aioesphomeapi on_stop",
+            )
+            self._on_stop_task.add_done_callback(self._remove_on_stop_task)
 
     def _remove_on_stop_task(self, _fut: asyncio.Future[None]) -> None:
         """Remove the stop task.
