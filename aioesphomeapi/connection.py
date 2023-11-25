@@ -35,6 +35,7 @@ from .api_pb2 import (  # type: ignore
 )
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
+    APIConnectionCancelledError,
     APIConnectionError,
     BadNameAPIError,
     ConnectionNotEstablishedAPIError,
@@ -46,6 +47,7 @@ from .core import (
     ResolveAPIError,
     SocketAPIError,
     TimeoutAPIError,
+    UnhandledAPIConnectionError,
 )
 from .model import APIVersion
 from .zeroconf import ZeroconfManager
@@ -540,8 +542,12 @@ class APIConnection:
             cause = ex
         if isinstance(self._fatal_exception, APIConnectionError):
             klass = type(self._fatal_exception)
+        elif isinstance(ex, CancelledError):
+            klass = APIConnectionCancelledError
+        elif isinstance(ex, OSError):
+            klass = SocketAPIError
         else:
-            klass = APIConnectionError
+            klass = UnhandledAPIConnectionError
         new_exc = klass(f"Error while {action} connection: {err_str}")
         new_exc.__cause__ = cause or ex
         return new_exc

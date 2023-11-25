@@ -60,6 +60,7 @@ from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
+    UnhandledAPIConnectionError,
 )
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
@@ -95,6 +96,7 @@ from .common import (
     get_mock_zeroconf,
     mock_data_received,
 )
+from .conftest import PatchableAPIConnection
 
 
 @pytest.fixture
@@ -170,6 +172,26 @@ async def test_connect_backwards_compat() -> None:
 
     assert mock_start_connection.mock_calls == [call(None)]
     assert mock_finish_connection.mock_calls == [call(False)]
+
+
+@pytest.mark.asyncio
+async def test_finish_connection_wraps_exceptions_as_unhandled_api_error() -> None:
+    """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
+
+    cli = APIClient("1.2.3.4", 1234, None)
+    loop = asyncio.get_event_loop()
+    with patch(
+        "aioesphomeapi.client.APIConnection", PatchableAPIConnection
+    ), patch.object(loop, "sock_connect"):
+        await cli.start_connection()
+
+    with patch.object(
+        cli._connection,
+        "send_messages_await_response_complex",
+        side_effect=Exception("foo"),
+    ):
+        with pytest.raises(UnhandledAPIConnectionError, match="foo"):
+            await cli.finish_connection(False)
 
 
 @pytest.mark.asyncio
