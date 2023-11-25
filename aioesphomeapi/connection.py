@@ -361,17 +361,15 @@ class APIConnection:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         self._set_connection_state(ConnectionState.HANDSHAKE_COMPLETE)
 
-    def _make_hello_request(self) -> HelloRequest:
-        """Make a HelloRequest."""
-        hello = HelloRequest()
-        hello.client_info = self._params.client_info
-        hello.api_version_major = 1
-        hello.api_version_minor = 9
-        return hello
-
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
-        messages = [self._make_hello_request()]
+        messages = [
+            HelloRequest(
+                client_info=self._params.client_info,
+                api_version_major=1,
+                api_version_minor=9,
+            )
+        ]
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_connect_request())

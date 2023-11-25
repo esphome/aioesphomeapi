@@ -797,11 +797,9 @@ class APIClient:
         response: bool,
         timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> None:
-        req = BluetoothGATTWriteRequest()
-        req.address = address
-        req.handle = handle
-        req.response = response
-        req.data = data
+        req = BluetoothGATTWriteRequest(
+            address=address, handle=handle, response=response, data=data
+        )
 
         if not response:
             self._get_connection().send_message(req)
@@ -858,10 +856,9 @@ class APIClient:
         timeout: float = DEFAULT_BLE_TIMEOUT,
         wait_for_response: bool = True,
     ) -> None:
-        req = BluetoothGATTWriteDescriptorRequest()
-        req.address = address
-        req.handle = handle
-        req.data = data
+        req = BluetoothGATTWriteDescriptorRequest(
+            address=address, handle=handle, data=data
+        )
 
         if not wait_for_response:
             self._get_connection().send_message(req)
