@@ -168,7 +168,17 @@ def _stringify_or_none(value: str | None) -> str | None:
 
 # pylint: disable=too-many-public-methods
 class APIClient:
+    """The ESPHome API client.
+
+    This class is the main entrypoint for interacting with the API.
+
+    It is recommended to use this class in combination with the
+    ReconnectLogic class to automatically reconnect to the device
+    if the connection is lost.
+    """
+
     __slots__ = (
+        "_debug_enabled",
         "_params",
         "_connection",
         "cached_name",
