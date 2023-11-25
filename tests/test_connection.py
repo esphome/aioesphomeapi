@@ -496,19 +496,17 @@ async def test_connect_wrong_version(
 
 @pytest.mark.asyncio
 async def test_connect_wrong_name(
-    plaintext_connect_task_with_login: tuple[
+    plaintext_connect_task_expected_name: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
-    conn._params.expected_name = "wrongname"
-
+    conn, transport, protocol, connect_task = plaintext_connect_task_expected_name
     send_plaintext_hello(protocol)
     send_plaintext_connect_response(protocol, False)
 
     with pytest.raises(
         APIConnectionError,
-        match="Expected 'wrongname' but server sent a different name: 'fake'",
+        match="Expected 'test' but server sent a different name: 'fake'",
     ):
         await connect_task
 
