@@ -35,6 +35,7 @@ from .api_pb2 import (  # type: ignore
 )
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
+    APIConnectionCancelledError,
     APIConnectionError,
     BadNameAPIError,
     ConnectionNotEstablishedAPIError,
@@ -549,7 +550,7 @@ class APIConnection:
         if isinstance(self._fatal_exception, APIConnectionError):
             klass = type(self._fatal_exception)
         elif isinstance(ex, CancelledError):
-            klass = APIConnectionError
+            klass = APIConnectionCancelledError
         elif isinstance(ex, OSError):
             klass = SocketAPIError
         else:

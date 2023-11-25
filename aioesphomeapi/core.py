@@ -160,6 +160,10 @@ class APIConnectionError(Exception):
     pass
 
 
+class APIConnectionCancelledError(APIConnectionError):
+    pass
+
+
 class InvalidAuthAPIError(APIConnectionError):
     pass
 
