@@ -24,14 +24,13 @@ from aioesphomeapi.core import (
     HandshakeAPIError,
     InvalidAuthAPIError,
     RequiresEncryptionAPIError,
-    SocketAPIError,
     TimeoutAPIError,
 )
 
 from .common import (
     async_fire_time_changed,
-    connect_client,
     connect,
+    connect_client,
     generate_plaintext_packet,
     get_mock_protocol,
     mock_data_received,
@@ -526,7 +525,9 @@ async def test_disconnect_fails_to_send_response(
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        connect_task = asyncio.create_task(connect_client(client, login=False, on_stop=_on_stop))
+        connect_task = asyncio.create_task(
+            connect_client(client, login=False, on_stop=_on_stop)
+        )
         await connected.wait()
         send_plaintext_hello(protocol)
         await connect_task
@@ -579,7 +580,9 @@ async def test_disconnect_success_case(
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        connect_task = asyncio.create_task(connect_client(client, login=False, on_stop=_on_stop))
+        connect_task = asyncio.create_task(
+            connect_client(client, login=False, on_stop=_on_stop)
+        )
         await connected.wait()
         send_plaintext_hello(protocol)
         await connect_task
