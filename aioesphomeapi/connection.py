@@ -11,7 +11,6 @@ import time
 # instead of the one from asyncio since they are the same in Python 3.11+
 from asyncio import CancelledError
 from asyncio import TimeoutError as asyncio_TimeoutError
-from collections.abc import Coroutine
 from dataclasses import astuple, dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable
