@@ -360,7 +360,7 @@ class APIClient:
         if self._connection is None:
             return
         if force:
-            await self._connection.force_disconnect()
+            self._connection.force_disconnect()
         else:
             await self._connection.disconnect()
 
