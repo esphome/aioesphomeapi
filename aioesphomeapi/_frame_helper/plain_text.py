@@ -58,9 +58,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
         self._write_bytes(b"".join(out), debug_enabled)
 
-    def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
-        self, data: bytes | bytearray | memoryview
-    ) -> None:
+    def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
         while self._buffer_len:
             self._pos = 0
