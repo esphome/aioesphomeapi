@@ -784,3 +784,12 @@ async def test_connection_cannot_be_reused(
     await connect_task
     with pytest.raises(RuntimeError):
         await conn.start_connection()
+
+
+@pytest.mark.asyncio
+async def test_attempting_to_finish_unstarted_connection(
+    conn: APIConnection,
+) -> None:
+    """Test that we raise when trying to finish an unstarted connection."""
+    with pytest.raises(RuntimeError):
+        await conn.finish_connection(login=False)
