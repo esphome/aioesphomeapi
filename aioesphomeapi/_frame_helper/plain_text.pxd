@@ -3,14 +3,9 @@ import cython
 from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
 
-
-cdef bint TYPE_CHECKING
-cdef object bytes_to_varuint, varuint_to_bytes
+cdef object varuint_to_bytes
 
 cpdef _varuint_to_bytes(cython.int value)
-
-@cython.locals(result=cython.int, bitpos=cython.int, val=cython.int)
-cpdef _bytes_to_varuint(cython.bytes value)
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
