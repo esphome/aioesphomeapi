@@ -11,7 +11,6 @@ import time
 # instead of the one from asyncio since they are the same in Python 3.11+
 from asyncio import CancelledError
 from asyncio import TimeoutError as asyncio_TimeoutError
-from collections.abc import Coroutine
 from dataclasses import astuple, dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable
@@ -134,7 +133,6 @@ class APIConnection:
     __slots__ = (
         "_params",
         "on_stop",
-        "_on_stop_task",
         "_socket",
         "_frame_helper",
         "api_version",
@@ -162,12 +160,11 @@ class APIConnection:
     def __init__(
         self,
         params: ConnectionParams,
-        on_stop: Callable[[bool], Coroutine[Any, Any, None]],
+        on_stop: Callable[[bool], None],
         log_name: str | None = None,
     ) -> None:
         self._params = params
-        self.on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = on_stop
-        self._on_stop_task: asyncio.Task[None] | None = None
+        self.on_stop: Callable[[bool], None] | None = on_stop
         self._socket: socket.socket | None = None
         self._frame_helper: None | (
             APINoiseFrameHelper | APIPlaintextFrameHelper
@@ -261,23 +258,9 @@ class APIConnection:
             self._ping_timer.cancel()
             self._ping_timer = None
 
-        if self.on_stop is not None and was_connected:
-            # Ensure on_stop is called only once
-            self._on_stop_task = asyncio.create_task(
-                self.on_stop(self._expected_disconnect),
-                name=f"{self.log_name} aioesphomeapi connection on_stop",
-            )
-            self._on_stop_task.add_done_callback(self._remove_on_stop_task)
+        if (on_stop := self.on_stop) is not None and was_connected:
             self.on_stop = None
-
-    def _remove_on_stop_task(self, _fut: asyncio.Future[None]) -> None:
-        """Remove the stop task.
-
-        We need to do this because the asyncio does not hold
-        a strong reference to the task, so it can be garbage
-        collected unexpectedly.
-        """
-        self._on_stop_task = None
+            on_stop(self._expected_disconnect)
 
     async def _connect_resolve_host(self) -> hr.AddrInfo:
         """Step 1 in connect process: resolve the address."""
