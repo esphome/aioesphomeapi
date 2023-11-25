@@ -68,9 +68,9 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if (preamble := self._read_varuint()) != 0x00:
                 self._error_on_incorrect_preamble(preamble)
                 return
-            if (length := self._read_varuint())  == -1:
+            if (length := self._read_varuint()) == -1:
                 return
-            if (msg_type := self._read_varuint())  == -1:
+            if (msg_type := self._read_varuint()) == -1:
                 return
 
             if length == 0:

@@ -3,6 +3,7 @@ import cython
 from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
 
+
 cdef object varuint_to_bytes
 
 cpdef _varuint_to_bytes(cython.int value)
