@@ -769,3 +769,18 @@ async def test_bad_protobuf_message_drops_connection(
     mock_data_received(protocol, message_with_bad_protobuf_data)
     assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
     assert connection.is_connected is False
+
+
+@pytest.mark.asyncio
+async def test_connection_cannot_be_reused(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """Test that we raise when trying to connect when already connected."""
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, False)
+    await connect_task
+    with pytest.raises(RuntimeError):
+        await conn.start_connection()

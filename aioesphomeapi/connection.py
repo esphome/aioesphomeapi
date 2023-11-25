@@ -512,7 +512,7 @@ class APIConnection:
         does not initialize the frame helper or send the hello message.
         """
         if self.connection_state is not ConnectionState.INITIALIZED:
-            raise ValueError(
+            raise RuntimeError(
                 "Connection can only be used once, connection is not in init state"
             )
 
