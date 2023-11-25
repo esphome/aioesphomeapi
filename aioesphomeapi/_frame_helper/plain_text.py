@@ -76,6 +76,24 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
         self._write_bytes(b"".join(out), debug_enabled)
 
+    def _read_varuint(self) -> _int | None:
+        """Read a varuint from the buffer or None if all the bytes are not yet available."""
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
+        result = 0
+        bitpos = 0
+        import pprint
+        pprint.pprint([self._buffer, self._buffer_len, self._pos])
+        while True:
+            if self._buffer_len <= self._pos:
+                return -1
+            val = self._buffer[self._pos]
+            self._pos += 1
+            result |= (val & 0x7F) << bitpos
+            if (val & 0x80) == 0:
+                return result
+            bitpos += 7
+
     def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
         self, data: bytes | bytearray | memoryview
     ) -> None:
@@ -85,56 +103,15 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # Also try to get the length and msg type
             # to avoid multiple calls to _read
             self._pos = 0
-            if (init_bytes := self._read(3)) is None:
+            if (preamble := self._read_varuint()) is None:
                 return
-            msg_type_int: int | None = None
-            length_int = 0
-            preamble = init_bytes[0]
-            length_high = init_bytes[1]
-            maybe_msg_type = init_bytes[2]
             if preamble != 0x00:
                 self._error_on_incorrect_preamble(preamble)
                 return
-
-            if length_high & 0x80 != 0x80:
-                # Length is only 1 byte
-                #
-                # This is the most common case needing a single byte for
-                # length and type which means we avoid 2 calls to _read
-                length_int = length_high
-                if maybe_msg_type & 0x80 != 0x80:
-                    # Message type is also only 1 byte
-                    msg_type_int = maybe_msg_type
-                else:
-                    # Message type is longer than 1 byte
-                    msg_type = init_bytes[2:3]
-            else:
-                # Length is longer than 1 byte
-                length = init_bytes[1:3]
-                # If the message is long, we need to read the rest of the length
-                while length[-1] & 0x80 == 0x80:
-                    if (add_length := self._read(1)) is None:
-                        return
-                    length += add_length
-                length_int = bytes_to_varuint(length) or 0
-                # Since the length is longer than 1 byte we do not have the
-                # message type yet.
-                if (msg_type_byte := self._read(1)) is None:
-                    return
-                msg_type = msg_type_byte
-                if msg_type[-1] & 0x80 != 0x80:
-                    # Message type is only 1 byte
-                    msg_type_int = msg_type[0]
-
-            # If the we do not have the message type yet because the message
-            # length was so long it did not fit into the first byte we need
-            # to read the (rest) of the message type
-            if msg_type_int is None:
-                while msg_type[-1] & 0x80 == 0x80:
-                    if (add_msg_type := self._read(1)) is None:
-                        return
-                    msg_type += add_msg_type
-                msg_type_int = bytes_to_varuint(msg_type)
+            if (length_int := self._read_varuint()) is None:
+                return
+            if (msg_type_int := self._read_varuint()) is None:
+                return
 
             if TYPE_CHECKING:
                 assert msg_type_int is not None

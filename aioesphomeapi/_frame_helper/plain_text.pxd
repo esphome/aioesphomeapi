@@ -27,6 +27,14 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
     )
     cpdef data_received(self, object data)
 
+    @cython.locals(
+        result="unsigned int",
+        bitpos="unsigned int",
+        val="unsigned char",
+        current_pos="unsigned int"
+    )
+    cdef int _read_varuint(self)
+
     cdef void _error_on_incorrect_preamble(self, object preamble)
 
     @cython.locals(
