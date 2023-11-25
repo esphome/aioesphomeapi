@@ -350,7 +350,9 @@ class APIClient:
         """Wrap an APIConnectionError."""
         if isinstance(exc, APIConnectionError):
             return exc
-        new_exc = UnhandledAPIConnectionError(f"Unexpected error while connecting to {self.log_name}: {exc}")
+        new_exc = UnhandledAPIConnectionError(
+            f"Unexpected error while connecting to {self.log_name}: {exc}"
+        )
         new_exc.__cause__ = exc
         return new_exc
 
