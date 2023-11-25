@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -64,20 +65,6 @@ def connection_params() -> ConnectionParams:
     return get_mock_connection_params()
 
 
-@pytest.fixture
-def noise_connection_params() -> ConnectionParams:
-    return ConnectionParams(
-        address="fake.address",
-        port=6052,
-        password=None,
-        client_info="Tests client",
-        keepalive=KEEP_ALIVE_INTERVAL,
-        zeroconf_manager=ZeroconfManager(),
-        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
-        expected_name="test",
-    )
-
-
 def on_stop(expected_disconnect: bool) -> None:
     pass
 
@@ -88,8 +75,17 @@ def conn(connection_params: ConnectionParams) -> APIConnection:
 
 
 @pytest.fixture
-def noise_conn(noise_connection_params: ConnectionParams) -> APIConnection:
-    return PatchableAPIConnection(noise_connection_params, on_stop, True, None)
+def conn_with_password(connection_params: ConnectionParams) -> APIConnection:
+    connection_params = replace(connection_params, password="password")
+    return PatchableAPIConnection(connection_params, on_stop, True, None)
+
+
+@pytest.fixture
+def noise_conn(connection_params: ConnectionParams) -> APIConnection:
+    connection_params = replace(
+        connection_params, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+    )
+    return PatchableAPIConnection(connection_params, on_stop, True, None)
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_no_login")
@@ -118,7 +114,7 @@ async def plaintext_connect_task_no_login(
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_with_login")
 async def plaintext_connect_task_with_login(
-    conn: APIConnection, resolve_host, socket_socket, event_loop
+    conn_with_password: APIConnection, resolve_host, socket_socket, event_loop
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     loop = asyncio.get_event_loop()
     protocol: APIPlaintextFrameHelper | None = None
@@ -135,9 +131,9 @@ async def plaintext_connect_task_with_login(
     with patch.object(event_loop, "sock_connect"), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
     ):
-        connect_task = asyncio.create_task(connect(conn, login=True))
+        connect_task = asyncio.create_task(connect(conn_with_password, login=True))
         await connected.wait()
-        yield conn, transport, protocol, connect_task
+        yield conn_with_password, transport, protocol, connect_task
 
 
 @pytest_asyncio.fixture(name="api_client")
