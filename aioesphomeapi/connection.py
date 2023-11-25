@@ -566,7 +566,7 @@ class APIConnection:
         than starts the keep alive process.
         """
         if self.connection_state is not ConnectionState.SOCKET_OPENED:
-            raise ValueError(
+            raise RuntimeError(
                 "Connection must be in SOCKET_OPENED state to finish connection"
             )
         finish_connect_task = asyncio.create_task(
