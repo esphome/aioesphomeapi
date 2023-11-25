@@ -206,7 +206,7 @@ async def test_plaintext_connection(
     assert isinstance(messages[1], DeviceInfoResponse)
     assert messages[1].name == "m5stackatomproxy"
     remove()
-    await conn.force_disconnect()
+    conn.force_disconnect()
     await asyncio.sleep(0)
 
 
@@ -336,7 +336,7 @@ async def test_finish_connection_times_out(
 
     assert not conn.is_connected
     remove()
-    await conn.force_disconnect()
+    conn.force_disconnect()
     await asyncio.sleep(0)
 
 
@@ -440,7 +440,7 @@ async def test_plaintext_connection_fails_handshake(
     assert isinstance(messages[1], DeviceInfoResponse)
     assert messages[1].name == "m5stackatomproxy"
     remove()
-    await conn.force_disconnect()
+    conn.force_disconnect()
     await asyncio.sleep(0)
 
 
@@ -493,7 +493,7 @@ async def test_force_disconnect_fails(
     assert conn.is_connected
 
     with patch.object(protocol, "_writer", side_effect=OSError):
-        await conn.force_disconnect()
+        conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
     await asyncio.sleep(0)
 
@@ -737,7 +737,7 @@ async def test_unknown_protobuf_message_type_logged(
 
     assert "Skipping unknown message type 16385" in caplog.text
     assert connection.is_connected
-    await connection.force_disconnect()
+    connection.force_disconnect()
     await asyncio.sleep(0)
 
 

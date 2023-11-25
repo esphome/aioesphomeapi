@@ -915,7 +915,7 @@ class APIConnection:
 
         self._cleanup()
 
-    async def force_disconnect(self) -> None:
+    def force_disconnect(self) -> None:
         """Forcefully disconnect from the API."""
         self._expected_disconnect = True
         if self._handshake_complete:
