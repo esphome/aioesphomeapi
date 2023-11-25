@@ -128,6 +128,8 @@ class APIConnection:
 
     An instance of this class may only be used once, for every new connection
     a new instance should be established.
+
+    This class should only be created from APIClient and should not be used directly.
     """
 
     __slots__ = (
