@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import Coroutine
 from datetime import timedelta
+from functools import partial
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -27,12 +28,11 @@ from aioesphomeapi.core import (
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
-    ResolveAPIError,
     RequiresEncryptionAPIError,
+    ResolveAPIError,
     TimeoutAPIError,
 )
-from .conftest import _create_mock_transport_protocol
-from functools import partial
+
 from .common import (
     async_fire_time_changed,
     connect,
@@ -46,7 +46,7 @@ from .common import (
     send_plaintext_hello,
     utcnow,
 )
-from .conftest import KEEP_ALIVE_INTERVAL
+from .conftest import KEEP_ALIVE_INTERVAL, _create_mock_transport_protocol
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
