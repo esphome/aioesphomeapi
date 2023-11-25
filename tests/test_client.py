@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 from google.protobuf import message
-import logging
+
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
