@@ -85,7 +85,6 @@ from .core import (
     APIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
-    UnhandledAPIConnectionError,
     to_human_readable_address,
 )
 from .model import (
@@ -168,12 +167,23 @@ def _stringify_or_none(value: str | None) -> str | None:
 
 # pylint: disable=too-many-public-methods
 class APIClient:
+    """The ESPHome API client.
+
+    This class is the main entrypoint for interacting with the API.
+
+    It is recommended to use this class in combination with the
+    ReconnectLogic class to automatically reconnect to the device
+    if the connection is lost.
+    """
+
     __slots__ = (
+        "_debug_enabled",
         "_params",
         "_connection",
         "cached_name",
         "_background_tasks",
         "_loop",
+        "_on_stop_task",
         "log_name",
     )
 
@@ -204,6 +214,7 @@ class APIClient:
             Can be used to prevent accidentally connecting to a different device if
             IP passed as address but DHCP reassigned IP.
         """
+        self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
             address=str(address),
             port=port,
@@ -219,7 +230,14 @@ class APIClient:
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
+        self._on_stop_task: asyncio.Task[None] | None = None
         self._set_log_name()
+
+    def set_debug(self, enabled: bool) -> None:
+        """Enable debug logging."""
+        self._debug_enabled = enabled
+        if self._connection:
+            self._connection.set_debug(enabled)
 
     @property
     def zeroconf_manager(self) -> ZeroconfManager:
@@ -258,12 +276,35 @@ class APIClient:
 
     async def connect(
         self,
-        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
         login: bool = False,
     ) -> None:
         """Connect to the device."""
         await self.start_connection(on_stop)
         await self.finish_connection(login)
+
+    def _on_stop(
+        self,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None,
+        expected_disconnect: bool,
+    ) -> None:
+        # Hook into on_stop handler to clear connection when stopped
+        self._connection = None
+        if on_stop:
+            self._on_stop_task = asyncio.create_task(
+                on_stop(expected_disconnect),
+                name=f"{self.log_name} aioesphomeapi on_stop",
+            )
+            self._on_stop_task.add_done_callback(self._remove_on_stop_task)
+
+    def _remove_on_stop_task(self, _fut: asyncio.Future[None]) -> None:
+        """Remove the stop task.
+
+        We need to do this because the asyncio does not hold
+        a strong reference to the task, so it can be garbage
+        collected unexpectedly.
+        """
+        self._on_stop_task = None
 
     async def start_connection(
         self,
@@ -273,24 +314,18 @@ class APIClient:
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self.log_name}!")
 
-        async def _on_stop(expected_disconnect: bool) -> None:
-            # Hook into on_stop handler to clear connection when stopped
-            self._connection = None
-            if on_stop is not None:
-                await on_stop(expected_disconnect)
-
-        self._connection = APIConnection(self._params, _on_stop, log_name=self.log_name)
+        self._connection = APIConnection(
+            self._params,
+            partial(self._on_stop, on_stop),
+            self._debug_enabled,
+            self.log_name,
+        )
 
         try:
             await self._connection.start_connection()
-        except APIConnectionError:
+        except Exception:
             self._connection = None
             raise
-        except Exception as e:
-            self._connection = None
-            raise UnhandledAPIConnectionError(
-                f"Unexpected error while connecting to {self.log_name}: {e}"
-            ) from e
         # If we resolved the address, we should set the log name now
         if self._connection.resolved_addr_info:
             self._set_log_name()
@@ -304,14 +339,9 @@ class APIClient:
             assert self._connection is not None
         try:
             await self._connection.finish_connection(login=login)
-        except APIConnectionError:
+        except Exception:
             self._connection = None
             raise
-        except Exception as e:
-            self._connection = None
-            raise UnhandledAPIConnectionError(
-                f"Unexpected error while connecting to {self.log_name}: {e}"
-            ) from e
         if received_name := self._connection.received_name:
             self._set_name_from_device(received_name)
 
@@ -319,7 +349,7 @@ class APIClient:
         if self._connection is None:
             return
         if force:
-            await self._connection.force_disconnect()
+            self._connection.force_disconnect()
         else:
             await self._connection.disconnect()
 
@@ -535,7 +565,6 @@ class APIClient:
         has_cache: bool = False,
         address_type: int | None = None,
     ) -> Callable[[], None]:
-        debug = _LOGGER.isEnabledFor(logging.DEBUG)
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
         if has_cache:
@@ -549,7 +578,7 @@ class APIClient:
             # of the connection. This can crash the esp if the service list is too large.
             request_type = BluetoothDeviceRequestType.CONNECT
 
-        if debug:
+        if self._debug_enabled:
             _LOGGER.debug("%s: Using connection version %s", address, request_type)
 
         unsub = self._get_connection().send_message_callback_response(
@@ -583,7 +612,7 @@ class APIClient:
             # the slot is recovered before the timeout is raised
             # to avoid race were we run out even though we have a slot.
             addr = to_human_readable_address(address)
-            if debug:
+            if self._debug_enabled:
                 _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
             disconnect_timed_out = (
                 not await self._bluetooth_device_disconnect_guard_timeout(
@@ -619,7 +648,7 @@ class APIClient:
         try:
             await self.bluetooth_device_disconnect(address, timeout=timeout)
         except TimeoutAPIError:
-            if _LOGGER.isEnabledFor(logging.DEBUG):
+            if self._debug_enabled:
                 _LOGGER.debug(
                     "%s: Disconnect timed out: %s",
                     to_human_readable_address(address),
@@ -768,11 +797,9 @@ class APIClient:
         response: bool,
         timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> None:
-        req = BluetoothGATTWriteRequest()
-        req.address = address
-        req.handle = handle
-        req.response = response
-        req.data = data
+        req = BluetoothGATTWriteRequest(
+            address=address, handle=handle, response=response, data=data
+        )
 
         if not response:
             self._get_connection().send_message(req)
@@ -829,10 +856,9 @@ class APIClient:
         timeout: float = DEFAULT_BLE_TIMEOUT,
         wait_for_response: bool = True,
     ) -> None:
-        req = BluetoothGATTWriteDescriptorRequest()
-        req.address = address
-        req.handle = handle
-        req.data = data
+        req = BluetoothGATTWriteDescriptorRequest(
+            address=address, handle=handle, data=data
+        )
 
         if not wait_for_response:
             self._get_connection().send_message(req)

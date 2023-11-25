@@ -1,21 +1,26 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Coroutine
 from datetime import timedelta
+from functools import partial
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+from google.protobuf import message
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
     DisconnectRequest,
     HelloResponse,
     PingRequest,
     PingResponse,
+    TextSensorStateResponse,
 )
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
@@ -24,13 +29,14 @@ from aioesphomeapi.core import (
     HandshakeAPIError,
     InvalidAuthAPIError,
     RequiresEncryptionAPIError,
-    SocketAPIError,
+    ResolveAPIError,
     TimeoutAPIError,
 )
 
 from .common import (
     async_fire_time_changed,
     connect,
+    connect_client,
     generate_plaintext_packet,
     get_mock_protocol,
     mock_data_received,
@@ -40,7 +46,7 @@ from .common import (
     send_plaintext_hello,
     utcnow,
 )
-from .conftest import KEEP_ALIVE_INTERVAL
+from .conftest import KEEP_ALIVE_INTERVAL, _create_mock_transport_protocol
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
@@ -202,7 +208,7 @@ async def test_plaintext_connection(
     assert isinstance(messages[1], DeviceInfoResponse)
     assert messages[1].name == "m5stackatomproxy"
     remove()
-    await conn.force_disconnect()
+    conn.force_disconnect()
     await asyncio.sleep(0)
 
 
@@ -332,7 +338,7 @@ async def test_finish_connection_times_out(
 
     assert not conn.is_connected
     remove()
-    await conn.force_disconnect()
+    conn.force_disconnect()
     await asyncio.sleep(0)
 
 
@@ -357,9 +363,7 @@ async def test_plaintext_connection_fails_handshake(
     """
     loop = asyncio.get_event_loop()
     exception, raised_exception = exception_map
-    protocol = get_mock_protocol(conn)
     messages = []
-    protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
 
@@ -368,13 +372,6 @@ async def test_plaintext_connection_fails_handshake(
 
         def perform_handshake(self, timeout: float) -> Coroutine[Any, Any, None]:
             raise exception
-
-    def _create_mock_transport_protocol(create_func, **kwargs):
-        nonlocal protocol
-        protocol = create_func()
-        protocol.connection_made(transport)
-        connected.set()
-        return transport, protocol
 
     def on_msg(msg):
         messages.append(msg)
@@ -386,11 +383,14 @@ async def test_plaintext_connection_fails_handshake(
         "aioesphomeapi.connection.APIPlaintextFrameHelper",
         APIPlaintextFrameHelperHandshakeException,
     ), patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
+    protocol = conn._frame_helper
     assert conn._socket is not None
     assert conn._frame_helper is not None
 
@@ -436,7 +436,7 @@ async def test_plaintext_connection_fails_handshake(
     assert isinstance(messages[1], DeviceInfoResponse)
     assert messages[1].name == "m5stackatomproxy"
     remove()
-    await conn.force_disconnect()
+    conn.force_disconnect()
     await asyncio.sleep(0)
 
 
@@ -474,6 +474,42 @@ async def test_connect_correct_password(
 
 
 @pytest.mark.asyncio
+async def test_connect_wrong_version(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    send_plaintext_hello(protocol, 3, 2)
+    send_plaintext_connect_response(protocol, False)
+
+    with pytest.raises(APIConnectionError, match="Incompatible API version"):
+        await connect_task
+
+    assert conn.is_connected is False
+
+
+@pytest.mark.asyncio
+async def test_connect_wrong_name(
+    plaintext_connect_task_expected_name: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_expected_name
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, False)
+
+    with pytest.raises(
+        APIConnectionError,
+        match="Expected 'test' but server sent a different name: 'fake'",
+    ):
+        await connect_task
+
+    assert conn.is_connected is False
+
+
+@pytest.mark.asyncio
 async def test_force_disconnect_fails(
     caplog: pytest.LogCaptureFixture,
     plaintext_connect_task_with_login: tuple[
@@ -489,8 +525,29 @@ async def test_force_disconnect_fails(
     assert conn.is_connected
 
     with patch.object(protocol, "_writer", side_effect=OSError):
-        await conn.force_disconnect()
+        conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_connect_resolver_times_out(
+    conn: APIConnection, socket_socket, event_loop
+) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    with patch(
+        "aioesphomeapi.host_resolver.async_resolve_host",
+        side_effect=asyncio.TimeoutError,
+    ), patch.object(event_loop, "sock_connect"), patch.object(
+        event_loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ), pytest.raises(
+        ResolveAPIError, match="Timeout while resolving IP address for fake.address"
+    ):
+        await connect(conn, login=False)
 
 
 @pytest.mark.asyncio
@@ -501,7 +558,6 @@ async def test_disconnect_fails_to_send_response(
     socket_socket,
 ) -> None:
     loop = asyncio.get_event_loop()
-    protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
     client = APIClient(
@@ -515,22 +571,17 @@ async def test_disconnect_fails_to_send_response(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    conn = APIConnection(connection_params, _on_stop)
-
-    def _create_mock_transport_protocol(create_func, **kwargs):
-        nonlocal protocol
-        protocol = create_func()
-        protocol.connection_made(transport)
-        connected.set()
-        return transport, protocol
-
     with patch.object(event_loop, "sock_connect"), patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
     ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
+        connect_task = asyncio.create_task(
+            connect_client(client, login=False, on_stop=_on_stop)
+        )
         await connected.wait()
+        protocol = client._connection._frame_helper
         send_plaintext_hello(protocol)
-        client._connection = conn
         await connect_task
         transport.reset_mock()
 
@@ -538,7 +589,7 @@ async def test_disconnect_fails_to_send_response(
     send_plaintext_connect_response(protocol, False)
 
     await connect_task
-    assert conn.is_connected
+    assert client._connection.is_connected
 
     with patch.object(protocol, "_writer", side_effect=OSError):
         disconnect_request = DisconnectRequest()
@@ -557,7 +608,6 @@ async def test_disconnect_success_case(
     socket_socket,
 ) -> None:
     loop = asyncio.get_event_loop()
-    protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
     client = APIClient(
@@ -571,22 +621,17 @@ async def test_disconnect_success_case(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    conn = APIConnection(connection_params, _on_stop)
-
-    def _create_mock_transport_protocol(create_func, **kwargs):
-        nonlocal protocol
-        protocol = create_func()
-        protocol.connection_made(transport)
-        connected.set()
-        return transport, protocol
-
     with patch.object(event_loop, "sock_connect"), patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
     ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
+        connect_task = asyncio.create_task(
+            connect_client(client, login=False, on_stop=_on_stop)
+        )
         await connected.wait()
+        protocol = client._connection._frame_helper
         send_plaintext_hello(protocol)
-        client._connection = conn
         await connect_task
         transport.reset_mock()
 
@@ -594,7 +639,7 @@ async def test_disconnect_success_case(
     send_plaintext_connect_response(protocol, False)
 
     await connect_task
-    assert conn.is_connected
+    assert client._connection.is_connected
 
     disconnect_request = DisconnectRequest()
     mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
@@ -602,7 +647,7 @@ async def test_disconnect_success_case(
     # Wait one loop iteration for the disconnect to be processed
     await asyncio.sleep(0)
     assert expected_disconnect is True
-    assert not conn.is_connected
+    assert not client._connection
 
 
 @pytest.mark.asyncio
@@ -704,3 +749,89 @@ async def test_respond_to_ping_request(
     ping_response_bytes = b"\x00\x00\x08"
     assert transport.write.call_count == 1
     assert transport.write.mock_calls == [call(ping_response_bytes)]
+
+
+@pytest.mark.asyncio
+async def test_unknown_protobuf_message_type_logged(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test unknown protobuf messages are logged but do not cause the connection to collapse."""
+    client, connection, transport, protocol = api_client
+    response: message.Message = DeviceInfoResponse(
+        name="realname",
+        friendly_name="My Device",
+        has_deep_sleep=True,
+    )
+    caplog.set_level(logging.DEBUG)
+    client.set_debug(True)
+    bytes_ = response.SerializeToString()
+    message_with_invalid_protobuf_number = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(bytes_))
+        + _cached_varuint_to_bytes(16385)
+        + bytes_
+    )
+
+    mock_data_received(protocol, message_with_invalid_protobuf_number)
+
+    assert "Skipping unknown message type 16385" in caplog.text
+    assert connection.is_connected
+    connection.force_disconnect()
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_bad_protobuf_message_drops_connection(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test ad bad protobuf messages is logged and causes the connection to collapse."""
+    client, connection, transport, protocol = api_client
+    msg: message.Message = TextSensorStateResponse(
+        key=1, state="invalid", missing_state=False
+    )
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
+    client.set_debug(True)
+    bytes_ = msg.SerializeToString()
+    # Replace the bytes with invalid UTF-8
+    bytes_ = bytes.replace(bytes_, b"invalid", b"inval\xe9 ")
+
+    message_with_bad_protobuf_data = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(bytes_))
+        + _cached_varuint_to_bytes(27)
+        + bytes_
+    )
+    mock_data_received(protocol, message_with_bad_protobuf_data)
+    assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert connection.is_connected is False
+
+
+@pytest.mark.asyncio
+async def test_connection_cannot_be_reused(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """Test that we raise when trying to connect when already connected."""
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, False)
+    await connect_task
+    with pytest.raises(RuntimeError):
+        await conn.start_connection()
+
+
+@pytest.mark.asyncio
+async def test_attempting_to_finish_unstarted_connection(
+    conn: APIConnection,
+) -> None:
+    """Test that we raise when trying to finish an unstarted connection."""
+    with pytest.raises(RuntimeError):
+        await conn.finish_connection(login=False)

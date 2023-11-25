@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -59,6 +60,7 @@ from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
+    UnhandledAPIConnectionError,
 )
 from aioesphomeapi.model import (
     AlarmControlPanelCommand,
@@ -94,6 +96,7 @@ from .common import (
     get_mock_zeroconf,
     mock_data_received,
 )
+from .conftest import PatchableAPIConnection
 
 
 @pytest.fixture
@@ -169,6 +172,26 @@ async def test_connect_backwards_compat() -> None:
 
     assert mock_start_connection.mock_calls == [call(None)]
     assert mock_finish_connection.mock_calls == [call(False)]
+
+
+@pytest.mark.asyncio
+async def test_finish_connection_wraps_exceptions_as_unhandled_api_error() -> None:
+    """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
+
+    cli = APIClient("1.2.3.4", 1234, None)
+    loop = asyncio.get_event_loop()
+    with patch(
+        "aioesphomeapi.client.APIConnection", PatchableAPIConnection
+    ), patch.object(loop, "sock_connect"):
+        await cli.start_connection()
+
+    with patch.object(
+        cli._connection,
+        "send_messages_await_response_complex",
+        side_effect=Exception("foo"),
+    ):
+        with pytest.raises(UnhandledAPIConnectionError, match="foo"):
+            await cli.finish_connection(False)
 
 
 @pytest.mark.asyncio
@@ -1077,29 +1100,6 @@ async def test_bluetooth_gatt_write_descriptor_without_response(
 
 
 @pytest.mark.asyncio
-async def test_bluetooth_gatt_read_descriptor(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    """Test bluetooth_gatt_read_descriptor."""
-    client, connection, transport, protocol = api_client
-    read_task = asyncio.create_task(client.bluetooth_gatt_read_descriptor(1234, 1234))
-    await asyncio.sleep(0)
-
-    other_response: message.Message = BluetoothGATTReadResponse(
-        address=1234, handle=4567, data=b"4567"
-    )
-    mock_data_received(protocol, generate_plaintext_packet(other_response))
-
-    response: message.Message = BluetoothGATTReadResponse(
-        address=1234, handle=1234, data=b"1234"
-    )
-    mock_data_received(protocol, generate_plaintext_packet(response))
-    assert await read_task == b"1234"
-
-
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_get_services(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1382,3 +1382,52 @@ async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     service_msg = HomeassistantServiceResponse(service="bob")
     await send(service_msg)
     on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
+
+
+@pytest.mark.asyncio
+async def test_set_debug(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test set_debug."""
+    client, connection, transport, protocol = api_client
+    response: message.Message = DeviceInfoResponse(
+        name="realname",
+        friendly_name="My Device",
+        has_deep_sleep=True,
+    )
+
+    caplog.set_level(logging.DEBUG)
+
+    client.set_debug(True)
+    assert client.log_name == "mydevice.local"
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await device_info_task
+
+    assert "My Device" in caplog.text
+    caplog.clear()
+    client.set_debug(False)
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await device_info_task
+    assert "My Device" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_force_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test force disconnect can be called multiple times."""
+    client, connection, transport, protocol = api_client
+    await client.disconnect(force=True)
+    assert connection.is_connected is False
+    await client.disconnect(force=False)
+    assert connection.is_connected is False

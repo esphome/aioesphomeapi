@@ -25,6 +25,7 @@ cdef object ConnectResponse
 cdef object DisconnectRequest
 cdef object PingRequest
 cdef object GetTimeRequest, GetTimeResponse
+cdef object HelloRequest, HelloResponse
 
 cdef object APIVersion
 
@@ -41,9 +42,16 @@ cdef object HandshakeAPIError
 cdef object PingFailedAPIError
 cdef object ReadFailedAPIError
 cdef object TimeoutAPIError
+cdef object SocketAPIError
+cdef object InvalidAuthAPIError
 
 cdef object astuple
 
+cdef object CONNECTION_STATE_INITIALIZED
+cdef object CONNECTION_STATE_SOCKET_OPENED
+cdef object CONNECTION_STATE_HANDSHAKE_COMPLETE
+cdef object CONNECTION_STATE_CONNECTED
+cdef object CONNECTION_STATE_CLOSED
 
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
@@ -60,7 +68,6 @@ cdef class APIConnection:
 
     cdef ConnectionParams _params
     cdef public object on_stop
-    cdef object _on_stop_task
     cdef public object _socket
     cdef public APIFrameHelper _frame_helper
     cdef public object api_version
@@ -80,7 +87,7 @@ cdef class APIConnection:
     cdef bint _send_pending_ping
     cdef public bint is_connected
     cdef bint _handshake_complete
-    cdef object _debug_enabled
+    cdef bint _debug_enabled
     cdef public str received_name
     cdef public object resolved_addr_info
 
@@ -96,6 +103,14 @@ cdef class APIConnection:
     cpdef _async_schedule_keep_alive(self, object now)
 
     cpdef _cleanup(self)
+
+    cpdef set_log_name(self, str name)
+
+    cdef _make_connect_request(self)
+
+    cdef _process_hello_resp(self, object resp)
+
+    cdef _process_login_response(self, object hello_response)
 
     cpdef _set_connection_state(self, object state)
 
