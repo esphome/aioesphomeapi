@@ -135,8 +135,8 @@ def send_plaintext_hello(
     minor: int | None = None,
 ) -> None:
     hello_response: message.Message = HelloResponse()
-    hello_response.api_version_major = major or 1
-    hello_response.api_version_minor = minor or 9
+    hello_response.api_version_major = 1 if major is None else major
+    hello_response.api_version_minor = 9 if minor is None else minor
     hello_response.name = "fake"
     protocol.data_received(generate_plaintext_packet(hello_response))
 
