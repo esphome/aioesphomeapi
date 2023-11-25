@@ -162,7 +162,7 @@ class APIConnection:
         params: ConnectionParams,
         on_stop: Callable[[bool], None],
         debug_enabled: bool,
-        log_name: str | None = None,
+        log_name: str,
     ) -> None:
         self._params = params
         self.on_stop: Callable[[bool], None] | None = on_stop

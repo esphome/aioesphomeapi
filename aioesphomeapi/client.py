@@ -319,7 +319,7 @@ class APIClient:
             self._params,
             partial(self._on_stop, on_stop),
             self._debug_enabled,
-            log_name=self.log_name,
+            self.log_name,
         )
 
         try:
