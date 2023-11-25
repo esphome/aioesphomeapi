@@ -76,21 +76,6 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
         self._write_bytes(b"".join(out), debug_enabled)
 
-    def _read_varuint(self) -> _int:
-        """Read a varuint from the buffer or None if all the bytes are not yet available."""
-        if TYPE_CHECKING:
-            assert self._buffer is not None, "Buffer should be set"
-        result = 0
-        bitpos = 0
-        while self._buffer_len > self._pos:
-            val = self._buffer[self._pos]
-            self._pos += 1
-            result |= (val & 0x7F) << bitpos
-            if (val & 0x80) == 0:
-                return result
-            bitpos += 7
-        return -1
-
     def data_received(  # pylint: disable=too-many-branches,too-many-return-statements
         self, data: bytes | bytearray | memoryview
     ) -> None:
