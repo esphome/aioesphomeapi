@@ -316,7 +316,10 @@ class APIClient:
             raise APIConnectionError(f"Already connected to {self.log_name}!")
 
         self._connection = APIConnection(
-            self._params, partial(self._on_stop, on_stop), log_name=self.log_name
+            self._params,
+            partial(self._on_stop, on_stop),
+            self._debug_enabled,
+            log_name=self.log_name,
         )
 
         try:
