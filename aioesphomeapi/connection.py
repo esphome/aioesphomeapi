@@ -80,6 +80,11 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 #
 
 DISCONNECT_CONNECT_TIMEOUT = 5.0
+# How long to wait for an existing connection to finish being
+# setup when requesting a disconnect so we can try to disconnect
+# gracefully without closing the socket out from under the
+# the esp device
+
 DISCONNECT_RESPONSE_TIMEOUT = 10.0
 HANDSHAKE_TIMEOUT = 30.0
 RESOLVE_TIMEOUT = 30.0
@@ -88,12 +93,6 @@ CONNECT_REQUEST_TIMEOUT = 30.0
 # The connect timeout should be the maximum time we expect the esp to take
 # to reboot and connect to the network/WiFi.
 TCP_CONNECT_TIMEOUT = 60.0
-
-# How long to wait for an existing connection to finish being
-# setup when requesting a disconnect so we can try to disconnect
-# gracefully without closing the socket out from under the
-# the esp device
-DISCONNECT_WAIT_CONNECT_TIMEOUT = 5.0
 
 
 _int = int
