@@ -124,6 +124,13 @@ class ConnectionState(enum.Enum):
     CLOSED = 3
 
 
+CONNECTION_STATE_INITIALIZED = ConnectionState.INITIALIZED
+CONNECTION_STATE_SOCKET_OPENED = ConnectionState.SOCKET_OPENED
+CONNECTION_STATE_HANDSHAKE_COMPLETE = ConnectionState.HANDSHAKE_COMPLETE
+CONNECTION_STATE_CONNECTED = ConnectionState.CONNECTED
+CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
+
+
 class APIConnection:
     """This class represents _one_ connection to a remote native API device.
 
@@ -175,7 +182,7 @@ class APIConnection:
         ) = None
         self.api_version: APIVersion | None = None
 
-        self.connection_state = ConnectionState.INITIALIZED
+        self.connection_state = CONNECTION_STATE_INITIALIZED
 
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
@@ -214,10 +221,10 @@ class APIConnection:
 
         Safe to call multiple times.
         """
-        if self.connection_state is ConnectionState.CLOSED:
+        if self.connection_state is CONNECTION_STATE_CLOSED:
             return
         was_connected = self.is_connected
-        self._set_connection_state(ConnectionState.CLOSED)
+        self._set_connection_state(CONNECTION_STATE_CLOSED)
         if self._debug_enabled:
             _LOGGER.debug("Cleaning up connection to %s", self.log_name)
         for fut in self._read_exception_futures:
@@ -359,7 +366,7 @@ class APIConnection:
             raise TimeoutAPIError("Handshake timed out") from err
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
-        self._set_connection_state(ConnectionState.HANDSHAKE_COMPLETE)
+        self._set_connection_state(CONNECTION_STATE_HANDSHAKE_COMPLETE)
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
@@ -429,7 +436,7 @@ class APIConnection:
                 )
 
             self.received_name = received_name
-            self.set_log_name(received_name)
+            self.set_log_name(self.received_name)
 
     def _async_schedule_keep_alive(self, now: _float) -> None:
         """Start the keep alive task."""
@@ -502,7 +509,7 @@ class APIConnection:
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self.connection_state is not ConnectionState.INITIALIZED:
+        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
             raise RuntimeError(
                 "Connection can only be used once, connection is not in init state"
             )
@@ -520,7 +527,7 @@ class APIConnection:
             raise self._wrap_fatal_connection_exception("starting", ex)
         finally:
             self._start_connect_task = None
-        self._set_connection_state(ConnectionState.SOCKET_OPENED)
+        self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
 
     def _wrap_fatal_connection_exception(
         self, action: str, ex: BaseException
@@ -562,7 +569,7 @@ class APIConnection:
         This part of the process initializes the frame helper and sends the hello message
         than starts the keep alive process.
         """
-        if self.connection_state is not ConnectionState.SOCKET_OPENED:
+        if self.connection_state is not CONNECTION_STATE_SOCKET_OPENED:
             raise RuntimeError(
                 "Connection must be in SOCKET_OPENED state to finish connection"
             )
@@ -580,13 +587,13 @@ class APIConnection:
             raise self._wrap_fatal_connection_exception("finishing", ex)
         finally:
             self._finish_connect_task = None
-        self._set_connection_state(ConnectionState.CONNECTED)
+        self._set_connection_state(CONNECTION_STATE_CONNECTED)
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log the change."""
         self.connection_state = state
-        self.is_connected = state is ConnectionState.CONNECTED
-        self._handshake_complete = state is ConnectionState.HANDSHAKE_COMPLETE
+        self.is_connected = state is CONNECTION_STATE_CONNECTED
+        self._handshake_complete = state is CONNECTION_STATE_HANDSHAKE_COMPLETE
 
     def _make_connect_request(self) -> ConnectRequest:
         """Make a ConnectRequest."""
