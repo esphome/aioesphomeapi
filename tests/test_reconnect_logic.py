@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from functools import partial
 from ipaddress import ip_address
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,7 +15,6 @@ from zeroconf import (
     Zeroconf,
     current_time_millis,
 )
-from functools import partial
 from zeroconf.asyncio import AsyncZeroconf
 from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_PTR
 
@@ -493,7 +493,9 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
     )
 
     with patch.object(event_loop, "sock_connect"), patch.object(
-        loop, "create_connection", side_effect=partial(_create_mock_transport_protocol, transport, connected)
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
     ):
         await logic.start()
         await connected.wait()
@@ -506,7 +508,9 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
     await asyncio.sleep(0)
 
     with patch.object(event_loop, "sock_connect"), patch.object(
-        loop, "create_connection", side_effect=partial(_create_mock_transport_protocol, transport, connected)
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
     ) as mock_create_connection:
         protocol.eof_received()
         # Wait for the task to run
