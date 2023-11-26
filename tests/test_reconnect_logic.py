@@ -38,6 +38,15 @@ from .conftest import _create_mock_transport_protocol
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
 
+async def slow_connect_fail(*args, **kwargs):
+    await asyncio.sleep(10)
+    raise APIConnectionError
+
+
+async def quick_connect_fail(*args, **kwargs):
+    raise APIConnectionError
+
+
 @pytest.mark.asyncio
 async def test_reconnect_logic_name_from_host():
     """Test that the name is set correctly from the host."""
@@ -362,13 +371,6 @@ async def test_reconnect_zeroconf(
     )
     assert cli.log_name == "mydevice @ 1.2.3.4"
 
-    async def slow_connect_fail(*args, **kwargs):
-        await asyncio.sleep(10)
-        raise APIConnectionError
-
-    async def quick_connect_fail(*args, **kwargs):
-        raise APIConnectionError
-
     with patch.object(
         cli, "start_connection", side_effect=quick_connect_fail
     ) as mock_start_connection:
@@ -434,13 +436,6 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         on_connect_error=AsyncMock(),
     )
     assert cli.log_name == "mydevice @ 1.2.3.4"
-
-    async def slow_connect_fail(*args, **kwargs):
-        await asyncio.sleep(10)
-        raise APIConnectionError
-
-    async def quick_connect_fail(*args, **kwargs):
-        raise APIConnectionError
 
     with patch.object(
         cli, "start_connection", side_effect=quick_connect_fail
@@ -517,10 +512,6 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
         name="mydevice",
     )
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-
-    async def slow_connect_fail(*args, **kwargs):
-        await asyncio.sleep(10)
-        raise APIConnectionError
 
     with patch.object(cli, "start_connection"), patch.object(
         cli, "finish_connection", side_effect=slow_connect_fail
