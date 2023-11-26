@@ -226,7 +226,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _schedule_connect(self, delay: float) -> None:
         """Schedule a connect attempt."""
-        self._cancel_connect("Scheduling new connect attempt")
         if not delay:
             self._call_connect_once()
             return
@@ -240,10 +239,14 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _schedule_connect.
         """
-        if self._connect_task:
+        if self._connect_task and not self._connect_task.done():
             if self._connection_state != ReconnectLogicState.CONNECTING:
                 # Connection state is far enough along that we should
                 # not restart the connect task
+                _LOGGER.debug(
+                    "%s: Not cancelling existing connect task as its too far along!",
+                    self._cli.log_name,
+                )
                 return
             _LOGGER.debug(
                 "%s: Cancelling existing connect task, to try again now!",
@@ -400,5 +403,5 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             #
             # So we schedule a stop for the next event loop iteration.
             self.loop.call_soon(self._stop_zc_listen)
-            self._schedule_connect(0.0)
+            self._call_connect_once()
             return

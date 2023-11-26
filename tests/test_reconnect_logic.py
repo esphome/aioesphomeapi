@@ -294,7 +294,7 @@ async def test_reconnect_retry(
 
 
 @pytest.mark.parametrize(
-    ("record", "should_trigger_zeroconf", "log_text"),
+    ("record", "should_trigger_zeroconf", "expected_state_after_trigger", "log_text"),
     (
         (
             DNSPointer(
@@ -305,6 +305,7 @@ async def test_reconnect_retry(
                 "mydevice._esphomelib._tcp.local.",
             ),
             True,
+            ReconnectLogicState.READY,
             "received mDNS record",
         ),
         (
@@ -316,6 +317,7 @@ async def test_reconnect_retry(
                 "wrong_name._esphomelib._tcp.local.",
             ),
             False,
+            ReconnectLogicState.CONNECTING,
             "",
         ),
         (
@@ -327,6 +329,7 @@ async def test_reconnect_retry(
                 ip_address("1.2.3.4").packed,
             ),
             True,
+            ReconnectLogicState.READY,
             "received mDNS record",
         ),
     ),
@@ -336,6 +339,7 @@ async def test_reconnect_zeroconf(
     caplog: pytest.LogCaptureFixture,
     record: DNSRecord,
     should_trigger_zeroconf: bool,
+    expected_state_after_trigger: ReconnectLogicState,
     log_text: str,
 ) -> None:
     """Test that reconnect logic retry."""
@@ -379,17 +383,36 @@ async def test_reconnect_zeroconf(
     with patch.object(
         cli, "start_connection", side_effect=slow_connect_fail
     ) as mock_start_connection:
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._accept_zeroconf_records is True
+        assert not rl._is_stopped
+
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
         await asyncio.sleep(0)
+        assert mock_start_connection.call_count == 1
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+        assert rl._accept_zeroconf_records is True
+        assert not rl._is_stopped
 
-        assert mock_start_connection.call_count == 0
-
+    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
+        cli, "finish_connection"
+    ):
+        assert rl._zc_listening is True
         rl.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(record, None)]
         )
+        assert (
+            "Triggering connect because of received mDNS record" in caplog.text
+        ) is should_trigger_zeroconf
+        assert rl._zc_listening is True  # should change after one iteration of the loop
         await asyncio.sleep(0)
+        assert rl._zc_listening is not should_trigger_zeroconf
+
         assert mock_start_connection.call_count == int(should_trigger_zeroconf)
         assert log_text in caplog.text
 
+    assert rl._connection_state is expected_state_after_trigger
     await rl.stop()
     assert rl._is_stopped is True
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
