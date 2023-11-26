@@ -1487,7 +1487,6 @@ async def test_bluetooth_device_connect(
 ) -> None:
     """Test bluetooth_device_connect."""
     client, connection, transport, protocol = api_client
-    send = client._connection.send_messages = MagicMock()
     states = []
 
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
@@ -1512,8 +1511,8 @@ async def test_bluetooth_device_connect(
 
     await connect_task
     assert states == [(True, 23, 0)]
-    send.assert_called_once_with(
-        (
+    transport.write.assert_called_once_with(
+        generate_plaintext_packet(
             BluetoothDeviceRequest(
                 address=1234,
                 request_type=method,
