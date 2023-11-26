@@ -26,6 +26,11 @@ class ZeroconfManager:
         if zeroconf is not None:
             self.set_instance(zeroconf)
 
+    @property
+    def has_instance(self) -> bool:
+        """Return True if a Zeroconf instance is set."""
+        return self._aiozc is not None
+
     def set_instance(self, zc: AsyncZeroconf | Zeroconf) -> None:
         """Set the AsyncZeroconf instance."""
         if self._aiozc:
