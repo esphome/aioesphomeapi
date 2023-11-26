@@ -1607,3 +1607,46 @@ async def test_bluetooth_device_connect_times_out_disconnect_ok(
     with pytest.raises(TimeoutAPIError):
         await connect_task
     assert states == []
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_device_connect_cancelled(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_connect handles cancellation."""
+    client, connection, transport, protocol = api_client
+    states = []
+
+    handlers_before = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    connect_task = asyncio.create_task(
+        client.bluetooth_device_connect(
+            1234,
+            on_bluetooth_connection_state,
+            timeout=10,
+            feature_flags=0,
+            has_cache=True,
+            disconnect_timeout=10,
+            address_type=1,
+        )
+    )
+    await asyncio.sleep(0)
+    # The connect request should be written
+    assert len(transport.write.mock_calls) == 1
+    connect_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await connect_task
+    assert states == []
+
+    handlers_after = len(
+        list(itertools.chain(*connection._get_message_handlers().values()))
+    )
+    # Make sure we do not leak message handlers
+    assert handlers_after == handlers_before
