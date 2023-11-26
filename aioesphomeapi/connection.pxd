@@ -53,6 +53,10 @@ cdef object CONNECTION_STATE_HANDSHAKE_COMPLETE
 cdef object CONNECTION_STATE_CONNECTED
 cdef object CONNECTION_STATE_CLOSED
 
+
+cdef set TYPES_TO_CACHE
+#cdef object cached_merge_from_string
+
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
     cdef public str address

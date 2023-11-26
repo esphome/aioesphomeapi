@@ -12,13 +12,13 @@ import time
 from asyncio import CancelledError
 from asyncio import TimeoutError as asyncio_TimeoutError
 from dataclasses import astuple, dataclass
-from functools import partial
+from functools import partial, lru_cache
 from typing import TYPE_CHECKING, Any, Callable
 
 from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
-
+from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES, LIST_ENTITIES_SERVICES_RESPONSE_TYPES
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
@@ -30,6 +30,7 @@ from .api_pb2 import (  # type: ignore
     GetTimeResponse,
     HelloRequest,
     HelloResponse,
+    BluetoothLERawAdvertisementsResponse,
     PingRequest,
     PingResponse,
 )
@@ -130,6 +131,23 @@ CONNECTION_STATE_HANDSHAKE_COMPLETE = ConnectionState.HANDSHAKE_COMPLETE
 CONNECTION_STATE_CONNECTED = ConnectionState.CONNECTED
 CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 
+TYPES_TO_CACHE = {
+    *SUBSCRIBE_STATES_RESPONSE_TYPES.values(),
+    *LIST_ENTITIES_SERVICES_RESPONSE_TYPES.values(),
+    BluetoothLERawAdvertisementsResponse
+}
+TYPES_TO_CACHE.discard(None)
+
+@lru_cache(maxsize=1024)
+def _cached_merge_from_string(
+    klass: type[message.Message], data: _bytes
+) -> message.Message:
+    """Deserialize a packet."""
+    msg = klass()
+    msg.MergeFromString(data)
+    return msg
+
+cached_merge_from_string = _cached_merge_from_string
 
 class APIConnection:
     """This class represents _one_ connection to a remote native API device.
@@ -796,11 +814,11 @@ class APIConnection:
             return
 
         try:
-            msg = klass()
-            # MergeFromString instead of ParseFromString since
-            # ParseFromString will clear the message first and
-            # the msg is already empty.
-            msg.MergeFromString(data)
+            if klass not in TYPES_TO_CACHE:
+                msg = klass()
+                msg.MergeFromString(data)
+            else:
+                msg = cached_merge_from_string(klass, data)
         except Exception as e:
             _LOGGER.error(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
