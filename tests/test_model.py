@@ -62,6 +62,7 @@ from aioesphomeapi.model import (
     FanState,
     HomeassistantServiceCall,
     LegacyCoverState,
+    LightColorCapability,
     LightInfo,
     LightState,
     LockEntityState,
@@ -400,3 +401,99 @@ def test_bluetooth_backcompat_for_device_info(
     )
     info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 8)) is flags
     info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 9)) == 42
+
+
+@pytest.mark.parametrize(
+    (
+        "legacy_supports_brightness",
+        "legacy_supports_rgb",
+        "legacy_supports_white_value",
+        "legacy_supports_color_temperature",
+        "capability",
+    ),
+    [
+        (False, False, False, False, [LightColorCapability.ON_OFF]),
+        (
+            True,
+            False,
+            False,
+            False,
+            [LightColorCapability.ON_OFF | LightColorCapability.BRIGHTNESS],
+        ),
+        (
+            True,
+            False,
+            False,
+            True,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.COLOR_TEMPERATURE
+            ],
+        ),
+        (
+            True,
+            True,
+            False,
+            False,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+            ],
+        ),
+        (
+            True,
+            True,
+            True,
+            False,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+                | LightColorCapability.WHITE
+            ],
+        ),
+        (
+            True,
+            True,
+            False,
+            True,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+                | LightColorCapability.COLOR_TEMPERATURE
+            ],
+        ),
+        (
+            True,
+            True,
+            True,
+            True,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+                | LightColorCapability.WHITE
+                | LightColorCapability.COLOR_TEMPERATURE
+            ],
+        ),
+    ],
+)
+def test_supported_color_modes_compat(
+    legacy_supports_brightness: bool,
+    legacy_supports_rgb: bool,
+    legacy_supports_white_value: bool,
+    legacy_supports_color_temperature: bool,
+    capability: LightColorCapability,
+) -> None:
+    info = LightInfo(
+        legacy_supports_brightness=legacy_supports_brightness,
+        legacy_supports_rgb=legacy_supports_rgb,
+        legacy_supports_white_value=legacy_supports_white_value,
+        legacy_supports_color_temperature=legacy_supports_color_temperature,
+        supported_color_modes=[42],
+    )
+    info.supported_color_modes_compat(APIVersion(1, 6)) is capability
+    info.supported_color_modes_compat(APIVersion(1, 9)) == [42]
