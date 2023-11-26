@@ -12,16 +12,17 @@ import time
 from asyncio import CancelledError
 from asyncio import TimeoutError as asyncio_TimeoutError
 from dataclasses import astuple, dataclass
-from functools import partial, lru_cache
+from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable
 
 from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
-from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES, LIST_ENTITIES_SERVICES_RESPONSE_TYPES
+
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
+    BluetoothLERawAdvertisementsResponse,
     ConnectRequest,
     ConnectResponse,
     DisconnectRequest,
@@ -30,7 +31,6 @@ from .api_pb2 import (  # type: ignore
     GetTimeResponse,
     HelloRequest,
     HelloResponse,
-    BluetoothLERawAdvertisementsResponse,
     PingRequest,
     PingResponse,
 )
@@ -51,6 +51,10 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .model import APIVersion
+from .model_conversions import (
+    LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
+    SUBSCRIBE_STATES_RESPONSE_TYPES,
+)
 from .zeroconf import ZeroconfManager
 
 if sys.version_info[:2] < (3, 11):
@@ -134,9 +138,10 @@ CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 TYPES_TO_CACHE = {
     *SUBSCRIBE_STATES_RESPONSE_TYPES.values(),
     *LIST_ENTITIES_SERVICES_RESPONSE_TYPES.values(),
-    BluetoothLERawAdvertisementsResponse
+    BluetoothLERawAdvertisementsResponse,
 }
 TYPES_TO_CACHE.discard(None)
+
 
 @lru_cache(maxsize=1024)
 def _cached_merge_from_string(
@@ -147,7 +152,9 @@ def _cached_merge_from_string(
     msg.MergeFromString(data)
     return msg
 
+
 cached_merge_from_string = _cached_merge_from_string
+
 
 class APIConnection:
     """This class represents _one_ connection to a remote native API device.
