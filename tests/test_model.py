@@ -49,6 +49,7 @@ from aioesphomeapi.model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothProxyFeature,
     ButtonInfo,
     CameraInfo,
     ClimateInfo,
@@ -357,3 +358,45 @@ def test_user_service_conversion():
 def test_build_unique_id(model):
     obj = model(object_id="id")
     assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+
+
+@pytest.mark.parametrize(
+    ("version", "flags"),
+    [
+        (1, BluetoothProxyFeature.PASSIVE_SCAN),
+        (
+            2,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS,
+        ),
+        (
+            3,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            | BluetoothProxyFeature.REMOTE_CACHING,
+        ),
+        (
+            4,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            | BluetoothProxyFeature.REMOTE_CACHING
+            | BluetoothProxyFeature.PAIRING,
+        ),
+        (
+            5,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            | BluetoothProxyFeature.REMOTE_CACHING
+            | BluetoothProxyFeature.PAIRING
+            | BluetoothProxyFeature.CACHE_CLEARING,
+        ),
+    ],
+)
+def test_bluetooth_backcompat_for_device_info(
+    version: int, flags: BluetoothProxyFeature
+) -> None:
+    info = DeviceInfo(
+        legacy_bluetooth_proxy_version=version, bluetooth_proxy_feature_flags=42
+    )
+    info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 8)) is flags
+    info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 9)) == 42
