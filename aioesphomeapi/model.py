@@ -874,9 +874,6 @@ class UserService(APIModelBase):
 
 def _join_split_uuid(value: list[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    import pprint
-
-    pprint.pprint(["_join_split_uuid", value])
     return _join_split_uuid_high_low(value[0], value[1])
 
 
