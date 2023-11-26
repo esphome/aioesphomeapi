@@ -1729,7 +1729,7 @@ async def test_subscribe_voice_assistant(
     async def handle_stop() -> None:
         stops.append(True)
 
-    await client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = await client.subscribe_voice_assistant(handle_start, handle_stop)
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
@@ -1767,6 +1767,11 @@ async def test_subscribe_voice_assistant(
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
     assert stops == [True]
+    unsub()
+    await client.disconnect(force=True)
+    # Ensure abort callback is a no-op after disconnect
+    # and does not raise
+    unsub()
 
 
 @pytest.mark.asyncio
@@ -1791,7 +1796,7 @@ async def test_subscribe_voice_assistant_failure(
     async def handle_stop() -> None:
         stops.append(True)
 
-    await client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = await client.subscribe_voice_assistant(handle_start, handle_stop)
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
@@ -1829,3 +1834,8 @@ async def test_subscribe_voice_assistant_failure(
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
     assert stops == [True]
+    unsub()
+    await client.disconnect(force=True)
+    # Ensure abort callback is a no-op after disconnect
+    # and does not raise
+    unsub()
