@@ -19,6 +19,8 @@ from aioesphomeapi.api_pb2 import (
     BluetoothDevicePairingResponse,
     BluetoothDeviceRequest,
     BluetoothDeviceUnpairingResponse,
+    BluetoothGATTCharacteristic,
+    BluetoothGATTDescriptor,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
     BluetoothGATTGetServicesResponse,
@@ -1124,7 +1126,16 @@ async def test_bluetooth_gatt_get_services(
     services_task = asyncio.create_task(client.bluetooth_gatt_get_services(1234))
     await asyncio.sleep(0)
     service1: message.Message = BluetoothGATTService(
-        uuid=[1, 1], handle=1, characteristics=[]
+        uuid=[1, 1],
+        handle=1,
+        characteristics=[
+            BluetoothGATTCharacteristic(
+                uuid=[1, 2],
+                handle=2,
+                properties=1,
+                descriptors=[BluetoothGATTDescriptor(uuid=[1, 3], handle=3)],
+            )
+        ],
     )
     response: message.Message = BluetoothGATTGetServicesResponse(
         address=1234, services=[service1]
@@ -1134,9 +1145,10 @@ async def test_bluetooth_gatt_get_services(
     mock_data_received(protocol, generate_plaintext_packet(done_response))
 
     services = await services_task
+    service = BluetoothGATTServiceModel.from_pb(service1)
     assert services == ESPHomeBluetoothGATTServices(
         address=1234,
-        services=[BluetoothGATTServiceModel(uuid=[1, 1], handle=1, characteristics=[])],
+        services=[service],
     )
 
 
