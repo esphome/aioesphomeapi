@@ -40,6 +40,7 @@ from aioesphomeapi.api_pb2 import (
     ExecuteServiceRequest,
     FanCommandRequest,
     HomeassistantServiceResponse,
+    HomeAssistantStateResponse,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -1382,6 +1383,17 @@ async def test_subscribe_logs(auth_client: APIClient) -> None:
     log_msg = SubscribeLogsResponse(level=1, message=b"asdf")
     await send(log_msg)
     on_logs.assert_called_with(log_msg)
+
+
+@pytest.mark.asyncio
+async def test_send_home_assistant_state(auth_client: APIClient) -> None:
+    send = patch_send(auth_client)
+    await auth_client.send_home_assistant_state("binary_sensor.bla", None, "on")
+    send.assert_called_once_with(
+        HomeAssistantStateResponse(
+            entity_id="binary_sensor.bla", state="on", attribute=None
+        )
+    )
 
 
 @pytest.mark.asyncio
