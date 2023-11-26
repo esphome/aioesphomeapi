@@ -297,6 +297,12 @@ async def test_reconnect_retry(
     assert len(on_connect_called) == 1
     assert len(on_connect_fail_called) == 2
     assert rl._connection_state is ReconnectLogicState.READY
+    original_when = rl._connect_timer.when()
+
+    # Ensure starting the connection logic again does not trigger a new connection
+    await rl.start()
+    # Verify no new timer is started
+    assert rl._connect_timer.when() == original_when
 
     await rl.stop()
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
