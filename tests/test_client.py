@@ -1217,7 +1217,7 @@ async def test_bluetooth_gatt_start_notify(
     await client.disconnect(force=True)
     # Ensure abort callback is a no-op after disconnect
     # and does not raise
-    abort_cb()
+    await cancel_cb()
 
 
 @pytest.mark.asyncio
