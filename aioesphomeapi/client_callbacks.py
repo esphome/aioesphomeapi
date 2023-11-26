@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from asyncio import Future
+from asyncio import TimeoutError as asyncio_TimeoutError
 from typing import TYPE_CHECKING, Callable
 
 from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
+    BluetoothDeviceConnectionResponse,
     BluetoothGATTNotifyDataResponse,
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisement,
@@ -93,3 +96,25 @@ def on_subscribe_home_assistant_state_response(
     msg: SubscribeHomeAssistantStateResponse,
 ) -> None:
     on_state_sub(msg.entity_id, msg.attribute)
+
+
+def handle_timeout(fut: Future[None]) -> None:
+    """Handle a timeout."""
+    if not fut.done():
+        fut.set_exception(asyncio_TimeoutError)
+
+
+def on_bluetooth_device_connection_response(
+    connect_future: Future[None],
+    address: int,
+    on_bluetooth_connection_state: Callable[[bool, int, int], None],
+    msg: BluetoothDeviceConnectionResponse,
+) -> None:
+    """Handle a BluetoothDeviceConnectionResponse message.""" ""
+    if address == msg.address:
+        on_bluetooth_connection_state(msg.connected, msg.mtu, msg.error)
+        # Resolve on ANY connection state since we do not want
+        # to wait the whole timeout if the device disconnects
+        # or we get an error.
+        if not connect_future.done():
+            connect_future.set_result(None)
