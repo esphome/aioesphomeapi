@@ -93,9 +93,10 @@ class APIModelBase:
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
+    result = field(metadata=metadata, **kwargs)
     if TYPE_CHECKING:
-        return cast(_V, field(metadata=metadata, **kwargs))
-    return field(metadata=metadata, **kwargs)
+        return cast(_V, result)
+    return result
 
 
 @dataclass(frozen=True, order=True)
