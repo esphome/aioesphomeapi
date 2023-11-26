@@ -582,6 +582,11 @@ class APIClient:
             await connect_future
             connect_ok = True
         except asyncio.TimeoutError as err:
+            # If the timeout expires, make sure
+            # to unsub before calling _bluetooth_device_disconnect_guard_timeout
+            # so that the disconnect message is not propagated back to the caller
+            # since we are going to raise a TimeoutAPIError.
+            unsub()
             timeout_expired = True
             # Disconnect before raising the exception to ensure
             # the slot is recovered before the timeout is raised
@@ -600,14 +605,8 @@ class APIClient:
                 f" after {disconnect_timeout}s"
             ) from err
         finally:
-            if not connect_ok:
-                try:
-                    unsub()
-                except (KeyError, ValueError):
-                    _LOGGER.warning(
-                        "%s: Bluetooth device connection canceled but already unsubscribed",
-                        to_human_readable_address(address),
-                    )
+            if not connect_ok and not timeout_expired:
+                unsub()
             if not timeout_expired:
                 timeout_handle.cancel()
 
