@@ -29,7 +29,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         msg_size_high="unsigned char",
         msg_size_low="unsigned char",
     )
-    cpdef data_received(self, object data)
+    cpdef void data_received(self, object data)
 
     @cython.locals(
         msg=bytes,
@@ -64,6 +64,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         frame=bytes,
         frame_len=cython.uint,
     )
-    cpdef write_packets(self, list packets, bint debug_enabled)
+    cpdef void write_packets(self, list packets, bint debug_enabled)
 
     cdef _error_on_incorrect_preamble(self, bytes msg)

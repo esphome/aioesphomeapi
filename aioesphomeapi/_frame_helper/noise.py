@@ -140,8 +140,6 @@ class APINoiseFrameHelper(APIFrameHelper):
             if (header := self._read(3)) is None:
                 return
             preamble = header[0]
-            msg_size_high = header[1]
-            msg_size_low = header[2]
             if preamble != 0x01:
                 self._handle_error_and_close(
                     ProtocolAPIError(
@@ -149,6 +147,8 @@ class APINoiseFrameHelper(APIFrameHelper):
                     )
                 )
                 return
+            msg_size_high = header[1]
+            msg_size_low = header[2]
             if (frame := self._read((msg_size_high << 8) | msg_size_low)) is None:
                 # The complete frame is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
