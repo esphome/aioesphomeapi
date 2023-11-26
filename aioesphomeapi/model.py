@@ -78,12 +78,13 @@ class APIModelBase:
     def from_dict(
         cls: type[_V], data: dict[str, Any], *, ignore_missing: bool = True
     ) -> _V:
-        init_args = {
-            f.name: data[f.name]
-            for f in cached_fields(cls)  # type: ignore[arg-type]
-            if f.name in data or (not ignore_missing)
-        }
-        return cls(**init_args)
+        return cls(
+            **{
+                f.name: data[f.name]
+                for f in cached_fields(cls)  # type: ignore[arg-type]
+                if f.name in data or (not ignore_missing)
+            }
+        )
 
     @classmethod
     def from_pb(cls: type[_V], data: Any) -> _V:
@@ -873,6 +874,9 @@ class UserService(APIModelBase):
 
 def _join_split_uuid(value: list[int]) -> str:
     """Convert a high/low uuid into a single string."""
+    import pprint
+
+    pprint.pprint(["_join_split_uuid", value])
     return _join_split_uuid_high_low(value[0], value[1])
 
 
