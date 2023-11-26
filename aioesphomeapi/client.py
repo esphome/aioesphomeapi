@@ -530,9 +530,8 @@ class APIClient:
 
     def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
         """Handle a timeout."""
-        if fut.done():
-            return
-        fut.set_exception(asyncio.TimeoutError)
+        if not fut.done():
+            fut.set_exception(asyncio.TimeoutError)
 
     def _on_bluetooth_device_connection_response(
         self,
