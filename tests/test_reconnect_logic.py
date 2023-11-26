@@ -86,13 +86,14 @@ async def test_reconnect_logic_name_from_host_and_set():
     async def on_connect() -> None:
         pass
 
-    ReconnectLogic(
+    rl = ReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
         zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
+    assert rl.name == "mydevice"
     assert cli.log_name == "mydevice.local"
 
 
@@ -143,6 +144,31 @@ async def test_reconnect_logic_name_from_name():
         name="mydevice",
     )
     assert cli.log_name == "mydevice @ 1.2.3.4"
+
+
+@pytest.mark.asyncio
+async def test_reconnect_logic_name_from_cli_address():
+    """Test that the name is set correctly from the address."""
+    cli = APIClient(
+        address="mydevice",
+        port=6052,
+        password=None,
+    )
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        pass
+
+    async def on_connect() -> None:
+        pass
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=on_disconnect,
+        on_connect=on_connect,
+        zeroconf_instance=get_mock_zeroconf(),
+    )
+    assert cli.log_name == "mydevice"
+    assert rl.name == "mydevice"
 
 
 @pytest.mark.asyncio
