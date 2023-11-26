@@ -1267,6 +1267,8 @@ class APIClient:
                     self._connection.send_message(VoiceAssistantResponse(error=True))
 
         def _on_voice_assistant_request(msg: VoiceAssistantRequest) -> None:
+            nonlocal start_task
+
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
                 start_task = asyncio.create_task(
@@ -1289,6 +1291,8 @@ class APIClient:
         )
 
         def unsub() -> None:
+            nonlocal start_task
+
             if self._connection is not None:
                 remove_callback()
                 self._connection.send_message(
