@@ -386,21 +386,22 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         for record_update in records:
             # We only consider PTR records and match using the alias name
             new_record = record_update.new
-            if (
-                new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias
-            ) or (  # type: ignore[attr-defined]
-                new_record.type == TYPE_A and new_record.name == self._a_name
+            if not (
+                (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)  # type: ignore[attr-defined]
+                or (new_record.type == TYPE_A and new_record.name == self._a_name)
             ):
-                # Tell connection logic to retry connection attempt now (even before connect timer finishes)
-                _LOGGER.debug(
-                    "%s: Triggering connect because of received mDNS record %s",
-                    self._cli.log_name,
-                    record_update.new,
-                )
-                # We can't stop the zeroconf listener here because we are in the middle of
-                # a zeroconf callback which is iterating the listeners.
-                #
-                # So we schedule a stop for the next event loop iteration.
-                self.loop.call_soon(self._stop_zc_listen)
-                self._schedule_connect(0.0)
-                return
+                continue
+
+            # Tell connection logic to retry connection attempt now (even before connect timer finishes)
+            _LOGGER.debug(
+                "%s: Triggering connect because of received mDNS record %s",
+                self._cli.log_name,
+                record_update.new,
+            )
+            # We can't stop the zeroconf listener here because we are in the middle of
+            # a zeroconf callback which is iterating the listeners.
+            #
+            # So we schedule a stop for the next event loop iteration.
+            self.loop.call_soon(self._stop_zc_listen)
+            self._schedule_connect(0.0)
+            return
