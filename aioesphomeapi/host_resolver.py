@@ -58,6 +58,7 @@ async def _async_zeroconf_get_service_info(
     timeout: float,
 ) -> AsyncServiceInfo:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
+    had_instance = zeroconf_manager.has_instance
     try:
         zc = zeroconf_manager.get_async_zeroconf().zeroconf
     except Exception as exc:
@@ -73,7 +74,8 @@ async def _async_zeroconf_get_service_info(
             f"Error resolving mDNS {service_name} via mDNS: {exc}"
         ) from exc
     finally:
-        await zeroconf_manager.async_close()
+        if not had_instance:
+            await zeroconf_manager.async_close()
     return info
 
 
