@@ -1509,7 +1509,7 @@ async def test_bluetooth_device_connect(
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
 
-    await connect_task
+    cancel = await connect_task
     assert states == [(True, 23, 0)]
     transport.write.assert_called_once_with(
         generate_plaintext_packet(
@@ -1521,6 +1521,21 @@ async def test_bluetooth_device_connect(
             ),
         )
     )
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, mtu=23, error=7
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    assert states == [(True, 23, 0), (False, 23, 7)]
+    cancel()
+
+    # After cancel, no more messages should called back
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, mtu=23, error=8
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    assert states == [(True, 23, 0), (False, 23, 7)]
 
 
 @pytest.mark.asyncio
