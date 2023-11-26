@@ -57,6 +57,8 @@ from aioesphomeapi.api_pb2 import (
     SubscribeLogsResponse,
     SwitchCommandRequest,
     TextCommandRequest,
+    VoiceAssistantEventData,
+    VoiceAssistantEventResponse,
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
@@ -94,6 +96,7 @@ from aioesphomeapi.model import (
     UserServiceArg,
     UserServiceArgType,
 )
+from aioesphomeapi.model import VoiceAssistantEventType as VoiceAssistantEventModelType
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import (
@@ -1666,3 +1669,33 @@ async def test_bluetooth_device_connect_cancelled(
     )
     # Make sure we do not leak message handlers
     assert handlers_after == handlers_before
+
+
+@pytest.mark.asyncio
+async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.send_voice_assistant_event(
+        VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR,
+        {"error": "error", "ok": "ok"},
+    )
+    send.assert_called_once_with(
+        VoiceAssistantEventResponse(
+            event_type=VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR.value,
+            data=[
+                VoiceAssistantEventData(name="error", value="error"),
+                VoiceAssistantEventData(name="ok", value="ok"),
+            ],
+        )
+    )
+
+    send.reset_mock()
+    auth_client.send_voice_assistant_event(
+        VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR, None
+    )
+    send.assert_called_once_with(
+        VoiceAssistantEventResponse(
+            event_type=VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR.value,
+            data=[],
+        )
+    )
