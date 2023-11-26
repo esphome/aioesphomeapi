@@ -1303,8 +1303,7 @@ class APIClient:
     def send_voice_assistant_event(
         self, event_type: VoiceAssistantEventType, data: dict[str, str] | None
     ) -> None:
-        req = VoiceAssistantEventResponse()
-        req.event_type = event_type
+        req = VoiceAssistantEventResponse(event_type=event_type)
 
         data_args = []
         if data is not None:
