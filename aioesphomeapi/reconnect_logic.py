@@ -226,11 +226,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _schedule_connect(self, delay: float) -> None:
         """Schedule a connect attempt."""
-        self._cancel_connect("Scheduling new connect attempt")
         if not delay:
             self._call_connect_once()
             return
         _LOGGER.debug("Scheduling new connect attempt in %f seconds", delay)
+        self._cancel_connect_timer()
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
         )
@@ -240,17 +240,22 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _schedule_connect.
         """
-        if self._connect_task:
+        if self._connect_task and not self._connect_task.done():
             if self._connection_state != ReconnectLogicState.CONNECTING:
                 # Connection state is far enough along that we should
                 # not restart the connect task
+                _LOGGER.debug(
+                    "%s: Not cancelling existing connect task as its already %s!",
+                    self._cli.log_name,
+                    self._connection_state,
+                )
                 return
             _LOGGER.debug(
-                "%s: Cancelling existing connect task, to try again now!",
+                "%s: Cancelling existing connect task with state %s, to try again now!",
                 self._cli.log_name,
+                self._connection_state,
             )
-            self._connect_task.cancel("Scheduling new connect attempt")
-            self._connect_task = None
+            self._cancel_connect_task("Scheduling new connect attempt")
             self._async_set_connection_state_without_lock(
                 ReconnectLogicState.DISCONNECTED
             )
@@ -260,14 +265,22 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             name=f"{self._cli.log_name}: aioesphomeapi connect",
         )
 
-    def _cancel_connect(self, msg: str) -> None:
-        """Cancel the connect."""
+    def _cancel_connect_timer(self) -> None:
+        """Cancel the connect timer."""
         if self._connect_timer:
             self._connect_timer.cancel()
             self._connect_timer = None
+
+    def _cancel_connect_task(self, msg: str) -> None:
+        """Cancel the connect task."""
         if self._connect_task:
             self._connect_task.cancel(msg)
             self._connect_task = None
+
+    def _cancel_connect(self, msg: str) -> None:
+        """Cancel the connect."""
+        self._cancel_connect_timer()
+        self._cancel_connect_task(msg)
 
     async def _connect_once_or_reschedule(self) -> None:
         """Connect once or schedule connect.
