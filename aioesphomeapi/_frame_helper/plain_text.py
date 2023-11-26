@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
 
 _int = int
+
+EMPTY_PACKET = b""
 
 
 def _varuint_to_bytes(value: _int) -> bytes:
@@ -71,17 +74,19 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if (msg_type := self._read_varuint()) == -1:
                 return
 
+            packet_data: bytes | None
             if length == 0:
-                packet_data = b""
+                packet_data = EMPTY_PACKET
             else:
                 # The packet data is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next
                 # call to data_received will continue processing the packet
                 # at the start of the frame.
-                if (maybe_packet_data := self._read(length)) is None:
+                if (packet_data := self._read(length)) is None:
                     return
-                packet_data = maybe_packet_data
+                if TYPE_CHECKING:
+                    assert packet_data is not None, "Packet data should be set"
 
             self._remove_from_buffer()
             self._connection.process_packet(msg_type, packet_data)
