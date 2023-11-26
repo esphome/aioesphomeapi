@@ -1688,3 +1688,14 @@ async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
             ],
         )
     )
+
+    send.reset_mock()
+    auth_client.send_voice_assistant_event(
+        VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR, None
+    )
+    send.assert_called_once_with(
+        VoiceAssistantEventResponse(
+            event_type=VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR.value,
+            data=[],
+        )
+    )
