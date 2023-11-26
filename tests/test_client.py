@@ -1868,3 +1868,16 @@ async def test_subscribe_voice_assistant_failure(
     # and does not raise
     unsub()
     assert len(send.mock_calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_api_version_after_connection_closed(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test api version is None after connection close."""
+    client, connection, transport, protocol = api_client
+    assert client.api_version == APIVersion(1, 9)
+    await client.disconnect(force=True)
+    assert client.api_version is None
