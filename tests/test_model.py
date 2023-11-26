@@ -399,8 +399,8 @@ def test_bluetooth_backcompat_for_device_info(
     info = DeviceInfo(
         legacy_bluetooth_proxy_version=version, bluetooth_proxy_feature_flags=42
     )
-    info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 8)) is flags
-    info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 9)) == 42
+    assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 8)) is flags
+    assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 9)) == 42
 
 
 @pytest.mark.parametrize(
@@ -486,7 +486,7 @@ def test_supported_color_modes_compat(
     legacy_supports_rgb: bool,
     legacy_supports_white_value: bool,
     legacy_supports_color_temperature: bool,
-    capability: LightColorCapability,
+    capability: list[LightColorCapability],
 ) -> None:
     info = LightInfo(
         legacy_supports_brightness=legacy_supports_brightness,
@@ -495,5 +495,5 @@ def test_supported_color_modes_compat(
         legacy_supports_color_temperature=legacy_supports_color_temperature,
         supported_color_modes=[42],
     )
-    info.supported_color_modes_compat(APIVersion(1, 6)) is capability
-    info.supported_color_modes_compat(APIVersion(1, 9)) == [42]
+    assert info.supported_color_modes_compat(APIVersion(1, 5)) == capability
+    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [42]
