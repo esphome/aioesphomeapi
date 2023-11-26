@@ -93,7 +93,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._a_name: str | None = None
         # Flag to check if the device is connected
         self._connection_state = ReconnectLogicState.DISCONNECTED
-        self._accept_zeroconf_records = True
+        self._accept_zeroconf_records: bool = True
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
         self._zc_listening = False
@@ -378,6 +378,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             )
             self._zc_listening = False
 
+    def _connect_from_zeroconf(self) -> None:
+        """Connect from zeroconf."""
+        self._stop_zc_listen()
+        self._schedule_connect(0.0)
+
     def async_update_records(
         self,
         zc: zeroconf.Zeroconf,  # pylint: disable=unused-argument
@@ -411,8 +416,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # We can't stop the zeroconf listener here because we are in the middle of
             # a zeroconf callback which is iterating the listeners.
             #
-            # So we schedule a stop for the next event loop iteration.
-            self.loop.call_soon(self._stop_zc_listen)
+            # So we schedule a stop for the next event loop iteration as well as the
+            # connect attempt.
+            #
+            # If we scheduled the connect attempt immediately, the listener could fire
+            # again before the connect attempt and we cancel and reschedule the connect
+            # attempt again.
+            #
+            self.loop.call_soon(self._connect_from_zeroconf)
             self._accept_zeroconf_records = False
-            self._schedule_connect(0.0)
             return
