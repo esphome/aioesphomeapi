@@ -83,7 +83,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def __init__(
         self,
-        connection: "APIConnection",
+        connection: APIConnection,
         noise_psk: str,
         expected_name: str | None,
         client_info: str,
