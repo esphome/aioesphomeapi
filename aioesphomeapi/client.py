@@ -65,7 +65,6 @@ from .api_pb2 import (  # type: ignore
     SwitchCommandRequest,
     TextCommandRequest,
     UnsubscribeBluetoothLEAdvertisementsRequest,
-    VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
@@ -118,9 +117,9 @@ from .model import (
     MediaPlayerCommand,
     UserService,
     UserServiceArgType,
-    VoiceAssistantCommand,
-    VoiceAssistantEventType,
 )
+from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
+from .model import VoiceAssistantCommand, VoiceAssistantEventType
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
@@ -1240,7 +1239,8 @@ class APIClient:
     async def subscribe_voice_assistant(
         self,
         handle_start: Callable[
-            [str, int, VoiceAssistantAudioSettings], Coroutine[Any, Any, int | None]
+            [str, int, VoiceAssistantAudioSettingsModel],
+            Coroutine[Any, Any, int | None],
         ],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
     ) -> Callable[[], None]:
