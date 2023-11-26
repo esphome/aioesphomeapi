@@ -476,8 +476,9 @@ class APIClient:
         )
 
         if (
-            type(resp) is BluetoothGATTErrorResponse
-        ):  # pylint: disable=unidiomatic-typecheck
+            type(resp)
+            is BluetoothGATTErrorResponse  # pylint: disable=unidiomatic-typecheck
+        ):
             raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp))
 
         return resp
