@@ -981,6 +981,24 @@ async def test_bluetooth_gatt_read(
 
 
 @pytest.mark.asyncio
+async def test_bluetooth_gatt_read_error(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_read that errors."""
+    client, connection, transport, protocol = api_client
+    read_task = asyncio.create_task(client.bluetooth_gatt_read(1234, 1234))
+    await asyncio.sleep(0)
+    error_response: message.Message = BluetoothGATTErrorResponse(
+        address=1234, handle=1234
+    )
+    mock_data_received(protocol, generate_plaintext_packet(error_response))
+    with pytest.raises(BluetoothGATTAPIError):
+        await read_task
+
+
+@pytest.mark.asyncio
 async def test_bluetooth_gatt_read_descriptor(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
