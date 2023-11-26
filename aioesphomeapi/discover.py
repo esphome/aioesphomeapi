@@ -44,7 +44,17 @@ def async_service_update(
     if addresses := info.ip_addresses_by_version(IPVersion.V4Only):
         address = str(addresses[0])
 
-    print(FORMAT.format(state, short_name, address, mac, version, platform, board))
+    print(
+        FORMAT.format(
+            state,
+            short_name,
+            address or "",
+            mac or "",
+            version or "",
+            platform or "",
+            board or "",
+        )
+    )
 
 
 async def main() -> None:
