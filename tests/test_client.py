@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
+from functools import partial
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -208,6 +209,29 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error() -> No
     ):
         with pytest.raises(UnhandledAPIConnectionError, match="foo"):
             await cli.finish_connection(False)
+
+
+@pytest.mark.asyncio
+async def test_request_while_handshaking(event_loop) -> None:
+    """Test trying a request while handshaking raises."""
+
+    class PatchableApiClient(APIClient):
+        pass
+
+    cli = PatchableApiClient("host", 1234, None)
+    with patch.object(
+        event_loop, "sock_connect", side_effect=partial(asyncio.sleep, 1)
+    ), patch.object(cli, "finish_connection"):
+        connect_task = asyncio.create_task(cli.connect())
+
+    await asyncio.sleep(0)
+    with pytest.raises(
+        APIConnectionError, match="Authenticated connection not ready yet"
+    ):
+        await cli.device_info()
+
+    connect_task.cancel()
+    await asyncio.sleep(0)
 
 
 @pytest.mark.asyncio
