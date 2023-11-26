@@ -466,6 +466,13 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         assert rl._accept_zeroconf_records is False
         assert not rl._is_stopped
 
+    rl.async_update_records(
+        mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+    )
+    assert (
+        "Triggering connect because of received mDNS record" in caplog.text
+    ) is False
+
     rl._cancel_connect("forced cancel in test")
     await rl.stop()
     assert rl._is_stopped is True
