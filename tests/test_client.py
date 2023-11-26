@@ -33,6 +33,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothServiceData,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -1343,8 +1344,18 @@ async def test_subscribe_bluetooth_le_advertisements(
         name=b"mydevice",
         rssi=-50,
         service_uuids=["1234"],
-        service_data={},
-        manufacturer_data={},
+        service_data=[
+            BluetoothServiceData(
+                uuid="1234",
+                data=b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            )
+        ],
+        manufacturer_data=[
+            BluetoothServiceData(
+                uuid="1234",
+                data=b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            )
+        ],
         address_type=1,
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
@@ -1355,8 +1366,12 @@ async def test_subscribe_bluetooth_le_advertisements(
             name="mydevice",
             rssi=-50,
             service_uuids=["000034-0000-1000-8000-00805f9b34fb"],
-            manufacturer_data={},
-            service_data={},
+            manufacturer_data={
+                4660: b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            },
+            service_data={
+                "000034-0000-1000-8000-00805f9b34fb": b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            },
             address_type=1,
         )
     ]
