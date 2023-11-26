@@ -907,6 +907,10 @@ async def test_bluetooth_pair(
     client, connection, transport, protocol = api_client
     pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
     await asyncio.sleep(0)
+    response: message.Message = BluetoothDevicePairingResponse(address=4567)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    assert not pair_task.done()
     response: message.Message = BluetoothDevicePairingResponse(address=1234)
     mock_data_received(protocol, generate_plaintext_packet(response))
     await pair_task
