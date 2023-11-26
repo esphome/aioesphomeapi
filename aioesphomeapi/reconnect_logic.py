@@ -19,7 +19,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
-from .util import address_is_local
+from .util import address_is_local, host_is_name_part
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self.name: str | None = None
         if name:
             self.name = name
-        elif address_is_local(client.address):
+        elif host_is_name_part(client.address) or address_is_local(client.address):
             self.name = client.address.partition(".")[0]
         if self.name:
             self._cli.set_cached_name_if_unset(self.name)
@@ -229,7 +229,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if not delay:
             self._call_connect_once()
             return
-        _LOGGER.debug("Scheduling new connect attempt in %f seconds", delay)
+        _LOGGER.debug("Scheduling new connect attempt in %.2f seconds", delay)
         self._cancel_connect_timer()
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
@@ -303,7 +303,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 _LOGGER.info(
                     "Trying to connect to %s in the background", self._cli.log_name
                 )
-            _LOGGER.debug("Retrying %s in %d seconds", self._cli.log_name, wait_time)
+            _LOGGER.debug("Retrying %s in %.2f seconds", self._cli.log_name, wait_time)
             if wait_time:
                 # If we are waiting, start listening for mDNS records
                 self._start_zc_listen()
