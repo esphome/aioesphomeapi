@@ -488,13 +488,10 @@ async def test_connect_task_not_cancelled_while_handshaking(
     """Test that reconnect logic will not cancel an in progress handshake."""
     cli = patchable_api_client
 
-    mock_zeroconf = MagicMock(spec=Zeroconf)
-
     rl = ReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
-        zeroconf_instance=mock_zeroconf,
         name="mydevice",
         on_connect_error=AsyncMock(),
     )
@@ -524,12 +521,15 @@ async def test_connect_task_not_cancelled_while_handshaking(
         assert rl._accept_zeroconf_records is False
         assert not rl._is_stopped
 
-    rl.async_update_records(
-        mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-    )
+    caplog.clear()
+    # This can likely never happen in practice, but we should handle it
+    # in the event there is a race as the consequence is that we could
+    # disconnect a working connection.
+    rl._call_connect_once()
     assert (
-        "Triggering connect because of received mDNS record" in caplog.text
-    ) is False
+        "Not cancelling existing connect task as its already ReconnectLogicState.HANDSHAKING"
+        in caplog.text
+    )
 
     rl._cancel_connect("forced cancel in test")
     await rl.stop()
