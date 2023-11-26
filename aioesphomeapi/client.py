@@ -483,6 +483,14 @@ class APIClient:
 
         return resp
 
+    def _unsub_bluetooth_advertisements(
+        self, unsub_callback: Callable[[], None]
+    ) -> None:
+        """Unsubscribe Bluetooth advertisements if connected."""
+        if self._connection is not None:
+            unsub_callback()
+            self._connection.send_message(UnsubscribeBluetoothLEAdvertisementsRequest())
+
     async def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
     ) -> Callable[[], None]:
@@ -494,15 +502,7 @@ class APIClient:
             ),
             (BluetoothLEAdvertisementResponse,),
         )
-
-        def unsub() -> None:
-            if self._connection is not None:
-                unsub_callback()
-                self._connection.send_message(
-                    UnsubscribeBluetoothLEAdvertisementsRequest()
-                )
-
-        return unsub
+        return partial(self._unsub_bluetooth_advertisements, unsub_callback)
 
     async def subscribe_bluetooth_le_raw_advertisements(
         self, on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
@@ -514,15 +514,7 @@ class APIClient:
             partial(on_ble_raw_advertisement_response, on_advertisements),
             (BluetoothLERawAdvertisementsResponse,),
         )
-
-        def unsub() -> None:
-            if self._connection is not None:
-                unsub_callback()
-                self._connection.send_message(
-                    UnsubscribeBluetoothLEAdvertisementsRequest()
-                )
-
-        return unsub
+        return partial(self._unsub_bluetooth_advertisements, unsub_callback)
 
     async def subscribe_bluetooth_connections_free(
         self, on_bluetooth_connections_free_update: Callable[[int, int], None]
