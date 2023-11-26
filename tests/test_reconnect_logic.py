@@ -209,20 +209,12 @@ async def test_reconnect_logic_state():
 
 
 @pytest.mark.asyncio
-async def test_reconnect_retry():
+async def test_reconnect_retry(patchable_api_client: APIClient):
     """Test that reconnect logic retry."""
     on_disconnect_called = []
     on_connect_called = []
     on_connect_fail_called = []
-
-    class PatchableAPIClient(APIClient):
-        pass
-
-    cli = PatchableAPIClient(
-        address="1.2.3.4",
-        port=6052,
-        password=None,
-    )
+    cli = patchable_api_client
 
     async def on_disconnect(expected_disconnect: bool) -> None:
         nonlocal on_disconnect_called
@@ -377,13 +369,9 @@ async def test_reconnect_zeroconf(
 
 
 @pytest.mark.asyncio
-async def test_reconnect_logic_stop_callback():
+async def test_reconnect_logic_stop_callback(patchable_api_client: APIClient):
     """Test that the stop_callback stops the ReconnectLogic."""
-    cli = APIClient(
-        address="1.2.3.4",
-        port=6052,
-        password=None,
-    )
+    cli = patchable_api_client
     rl = ReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
@@ -405,17 +393,11 @@ async def test_reconnect_logic_stop_callback():
 
 
 @pytest.mark.asyncio
-async def test_reconnect_logic_stop_callback_waits_for_handshake():
+async def test_reconnect_logic_stop_callback_waits_for_handshake(
+    patchable_api_client: APIClient,
+):
     """Test that the stop_callback waits for a handshake."""
-
-    class PatchableAPIClient(APIClient):
-        pass
-
-    cli = PatchableAPIClient(
-        address="1.2.3.4",
-        port=6052,
-        password=None,
-    )
+    cli = patchable_api_client
     rl = ReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),

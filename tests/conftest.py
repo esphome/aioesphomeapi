@@ -49,6 +49,19 @@ def socket_socket():
         yield func
 
 
+@pytest.fixture
+def patchable_api_client() -> APIClient:
+    class PatchableAPIClient(APIClient):
+        pass
+
+    cli = PatchableAPIClient(
+        address="1.2.3.4",
+        port=6052,
+        password=None,
+    )
+    return cli
+
+
 def get_mock_connection_params() -> ConnectionParams:
     return ConnectionParams(
         address="fake.address",
