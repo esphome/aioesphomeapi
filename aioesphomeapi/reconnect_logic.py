@@ -236,7 +236,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
 
     def _call_connect_once(self) -> None:
-        """Call the connect logic once."""
+        """Call the connect logic once.
+
+        Must only be called from _schedule_connect.
+        """
         if self._connect_task and not self._connect_task.done():
             if self._connection_state != ReconnectLogicState.CONNECTING:
                 # Connection state is far enough along that we should
@@ -326,7 +329,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if self._connection_state != ReconnectLogicState.DISCONNECTED:
                 return
             self._tries = 0
-            self._call_connect_once()
+            self._schedule_connect(0.0)
 
     async def stop(self) -> None:
         """Stop the connecting logic background task. Does not disconnect the client."""
@@ -407,5 +410,5 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             #
             # So we schedule a stop for the next event loop iteration.
             self.loop.call_soon(self._stop_zc_listen)
-            self._call_connect_once()
+            self._schedule_connect(0.0)
             return
