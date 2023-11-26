@@ -640,7 +640,7 @@ class APIClient:
                 return False
             if isinstance(msg, BluetoothDeviceConnectionResponse):
                 raise APIConnectionError(
-                    "Peripheral changed connections status while pairing"
+                    f"Peripheral changed connections status while pairing: {msg.error}"
                 )
             return True
 

@@ -913,6 +913,27 @@ async def test_bluetooth_pair(
 
 
 @pytest.mark.asyncio
+async def test_bluetooth_pair_connection_drops(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test connection drop during bluetooth_device_pair."""
+    client, connection, transport, protocol = api_client
+    pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, error=13
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    with pytest.raises(
+        APIConnectionError,
+        match="Peripheral changed connections status while pairing: 13",
+    ):
+        await pair_task
+
+
+@pytest.mark.asyncio
 async def test_bluetooth_unpair(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
