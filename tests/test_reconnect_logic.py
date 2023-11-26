@@ -202,7 +202,9 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
 
 
 @pytest.mark.asyncio
-async def test_reconnect_retry(patchable_api_client: APIClient, caplog: pytest.LogCaptureFixture):
+async def test_reconnect_retry(
+    patchable_api_client: APIClient, caplog: pytest.LogCaptureFixture
+):
     """Test that reconnect logic retry."""
     on_disconnect_called = []
     on_connect_called = []
@@ -280,7 +282,6 @@ async def test_reconnect_retry(patchable_api_client: APIClient, caplog: pytest.L
     assert len(on_connect_called) == 1
     assert len(on_connect_fail_called) == 2
     assert rl._connection_state is ReconnectLogicState.READY
-
 
     await rl.stop()
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
