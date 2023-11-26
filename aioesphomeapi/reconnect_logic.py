@@ -403,5 +403,5 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             #
             # So we schedule a stop for the next event loop iteration.
             self.loop.call_soon(self._stop_zc_listen)
-            self._call_connect_once()
+            self._schedule_connect(0.0)
             return
