@@ -502,7 +502,6 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
         send_plaintext_connect_response(protocol, False)
-        await connected.wait()
 
     assert cli._connection.is_connected is True
     await asyncio.sleep(0)
