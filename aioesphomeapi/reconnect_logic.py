@@ -255,8 +255,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._cli.log_name,
                 self._connection_state,
             )
-            self._connect_task.cancel("Scheduling new connect attempt")
-            self._connect_task = None
+            self._cancel_connect_task("Scheduling new connect attempt")
             self._async_set_connection_state_without_lock(
                 ReconnectLogicState.DISCONNECTED
             )
@@ -272,12 +271,16 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._connect_timer.cancel()
             self._connect_timer = None
 
-    def _cancel_connect(self, msg: str) -> None:
-        """Cancel the connect."""
-        self._cancel_connect_timer()
+    def _cancel_connect_task(self, msg: str) -> None:
+        """Cancel the connect task."""
         if self._connect_task:
             self._connect_task.cancel(msg)
             self._connect_task = None
+
+    def _cancel_connect(self, msg: str) -> None:
+        """Cancel the connect."""
+        self._cancel_connect_timer()
+        self._cancel_connect_task(msg)
 
     async def _connect_once_or_reschedule(self) -> None:
         """Connect once or schedule connect.
