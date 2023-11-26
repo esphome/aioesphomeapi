@@ -538,6 +538,46 @@ async def test_connect_task_not_cancelled_while_handshaking(
 
 
 @pytest.mark.asyncio
+async def test_connect_aborts_if_stopped(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that reconnect logic will abort connecting if stopped."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+    assert cli.log_name == "mydevice @ 1.2.3.4"
+
+    with patch.object(
+        cli, "start_connection", side_effect=quick_connect_fail
+    ) as mock_start_connection:
+        await rl.start()
+        await asyncio.sleep(0)
+
+    assert mock_start_connection.call_count == 1
+
+    with patch.object(cli, "start_connection") as mock_start_connection:
+        timer = rl._connect_timer
+        assert timer is not None
+        await rl.stop()
+        assert rl._is_stopped is True
+        rl._call_connect_once()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    # We should never try to connect again
+    # once we are stopped
+    assert mock_start_connection.call_count == 0
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+@pytest.mark.asyncio
 async def test_reconnect_logic_stop_callback(patchable_api_client: APIClient):
     """Test that the stop_callback stops the ReconnectLogic."""
     cli = patchable_api_client
