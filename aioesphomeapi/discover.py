@@ -12,11 +12,13 @@ FORMAT = "{: <7}|{: <32}|{: <15}|{: <12}|{: <16}|{: <10}|{: <32}"
 COLUMN_NAMES = ("Status", "Name", "Address", "MAC", "Version", "Platform", "Board")
 
 
-def decode_bytes_or_none(data: bytes | None) -> str | None:
+def decode_bytes_or_none(data: str | bytes | None) -> str | None:
     """Decode bytes or return None."""
     if data is None:
         return None
-    return data.decode()
+    if isinstance(data, bytes):
+        return data.decode()
+    return data
 
 
 def async_service_update(
