@@ -934,7 +934,7 @@ async def test_device_info(
 ) -> None:
     """Test fetching device info."""
     client, connection, transport, protocol = api_client
-    assert client.log_name == "mydevice.local"
+    assert client.log_name == "fake @ 10.0.0.512"
     device_info_task = asyncio.create_task(client.device_info())
     await asyncio.sleep(0)
     response: message.Message = DeviceInfoResponse(
@@ -953,7 +953,7 @@ async def test_device_info(
     response: message.Message = DisconnectResponse()
     mock_data_received(protocol, generate_plaintext_packet(response))
     await disconnect_task
-    with pytest.raises(APIConnectionError, match="CLOSED"):
+    with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_info()
 
 
@@ -1394,7 +1394,7 @@ async def test_set_debug(
     caplog.set_level(logging.DEBUG)
 
     client.set_debug(True)
-    assert client.log_name == "mydevice.local"
+    assert client.log_name == "fake @ 10.0.0.512"
     device_info_task = asyncio.create_task(client.device_info())
     await asyncio.sleep(0)
     mock_data_received(protocol, generate_plaintext_packet(response))
@@ -1415,11 +1415,13 @@ async def test_force_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test force disconnect can be called multiple times."""
     client, connection, transport, protocol = api_client
+    assert connection.is_connected is True
+    assert connection.on_stop is not None
     await client.disconnect(force=True)
+    assert client._connection is None
     assert connection.is_connected is False
     await client.disconnect(force=False)
     assert connection.is_connected is False
