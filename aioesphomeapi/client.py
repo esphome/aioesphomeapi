@@ -475,7 +475,9 @@ class APIClient:
             timeout,
         )
 
-        if isinstance(resp, BluetoothGATTErrorResponse):
+        if (
+            type(resp) is BluetoothGATTErrorResponse
+        ):  # pylint: disable=unidiomatic-typecheck
             raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp))
 
         return resp
