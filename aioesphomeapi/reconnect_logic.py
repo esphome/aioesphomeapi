@@ -230,6 +230,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._call_connect_once()
             return
         _LOGGER.debug("Scheduling new connect attempt in %f seconds", delay)
+        self._cancel_connect_timer()
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
         )
@@ -265,11 +266,15 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             name=f"{self._cli.log_name}: aioesphomeapi connect",
         )
 
-    def _cancel_connect(self, msg: str) -> None:
-        """Cancel the connect."""
+    def _cancel_connect_timer(self) -> None:
+        """Cancel the connect timer."""
         if self._connect_timer:
             self._connect_timer.cancel()
             self._connect_timer = None
+
+    def _cancel_connect(self, msg: str) -> None:
+        """Cancel the connect."""
+        self._cancel_connect_timer()
         if self._connect_task:
             self._connect_task.cancel(msg)
             self._connect_task = None
@@ -324,7 +329,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if self._connection_state != ReconnectLogicState.DISCONNECTED:
                 return
             self._tries = 0
-            self._schedule_connect(0.0)
+            self._call_connect_once()
 
     async def stop(self) -> None:
         """Stop the connecting logic background task. Does not disconnect the client."""
@@ -405,5 +410,5 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             #
             # So we schedule a stop for the next event loop iteration.
             self.loop.call_soon(self._stop_zc_listen)
-            self._schedule_connect(0.0)
+            self._call_connect_once()
             return

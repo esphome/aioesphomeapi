@@ -428,7 +428,64 @@ async def test_reconnect_zeroconf_not_while_handshaking(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test that reconnect logic retry."""
+    """Test that reconnect logic retry will not trigger a zeroconf reconnect while handshaking."""
+    cli = patchable_api_client
+
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+    assert cli.log_name == "mydevice @ 1.2.3.4"
+
+    with patch.object(
+        cli, "start_connection", side_effect=quick_connect_fail
+    ) as mock_start_connection:
+        await rl.start()
+        await asyncio.sleep(0)
+
+    assert mock_start_connection.call_count == 1
+
+    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
+        cli, "finish_connection", side_effect=slow_connect_fail
+    ) as mock_finish_connection:
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._accept_zeroconf_records is True
+        assert not rl._is_stopped
+
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        assert mock_start_connection.call_count == 1
+        assert mock_finish_connection.call_count == 1
+        assert rl._connection_state is ReconnectLogicState.HANDSHAKING
+        assert rl._accept_zeroconf_records is False
+        assert not rl._is_stopped
+
+    rl.async_update_records(
+        mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+    )
+    assert (
+        "Triggering connect because of received mDNS record" in caplog.text
+    ) is False
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_connect_task_not_cancelled_while_handshaking(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that reconnect logic will not cancel an in progress handshake."""
     cli = patchable_api_client
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
