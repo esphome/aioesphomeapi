@@ -61,7 +61,8 @@ setup_kwargs = {
     "test_suite": "tests",
     "entry_points": {
         "console_scripts": [
-            "aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point"
+            "aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point",
+            "aioesphomeapi-discover=aioesphomeapi.discover:cli_entry_point",
         ],
     },
 }

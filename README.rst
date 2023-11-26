@@ -135,6 +135,12 @@ A cli tool is also available for watching logs:
 
    aioesphomeapi-logs --help
 
+A cli tool is also available to discover devices:
+
+.. code:: bash
+
+   aioesphomeapi-discover
+
 License
 -------
 
