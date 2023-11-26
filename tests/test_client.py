@@ -1767,11 +1767,15 @@ async def test_subscribe_voice_assistant(
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
     assert stops == [True]
+    send.reset_mock()
     unsub()
+    send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=False))
+    send.reset_mock()
     await client.disconnect(force=True)
     # Ensure abort callback is a no-op after disconnect
     # and does not raise
     unsub()
+    assert len(send.mock_calls) == 0
 
 
 @pytest.mark.asyncio
@@ -1834,8 +1838,12 @@ async def test_subscribe_voice_assistant_failure(
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
     assert stops == [True]
+    send.reset_mock()
     unsub()
+    send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=False))
+    send.reset_mock()
     await client.disconnect(force=True)
     # Ensure abort callback is a no-op after disconnect
     # and does not raise
     unsub()
+    assert len(send.mock_calls) == 0
