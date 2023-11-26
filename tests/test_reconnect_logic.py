@@ -293,17 +293,20 @@ async def test_reconnect_retry(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
+DNS_POINTER = DNSPointer(
+    "_esphomelib._tcp.local.",
+    _TYPE_PTR,
+    _CLASS_IN,
+    1000,
+    "mydevice._esphomelib._tcp.local.",
+)
+
+
 @pytest.mark.parametrize(
     ("record", "should_trigger_zeroconf", "expected_state_after_trigger", "log_text"),
     (
         (
-            DNSPointer(
-                "_esphomelib._tcp.local.",
-                _TYPE_PTR,
-                _CLASS_IN,
-                1000,
-                "mydevice._esphomelib._tcp.local.",
-            ),
+            DNS_POINTER,
             True,
             ReconnectLogicState.READY,
             "received mDNS record",
@@ -336,6 +339,7 @@ async def test_reconnect_retry(
 )
 @pytest.mark.asyncio
 async def test_reconnect_zeroconf(
+    patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
     record: DNSRecord,
     should_trigger_zeroconf: bool,
@@ -344,14 +348,7 @@ async def test_reconnect_zeroconf(
 ) -> None:
     """Test that reconnect logic retry."""
 
-    class PatchableAPIClient(APIClient):
-        pass
-
-    cli = PatchableAPIClient(
-        address="1.2.3.4",
-        port=6052,
-        password=None,
-    )
+    cli = patchable_api_client
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
@@ -413,6 +410,63 @@ async def test_reconnect_zeroconf(
         assert log_text in caplog.text
 
     assert rl._connection_state is expected_state_after_trigger
+    await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_reconnect_zeroconf_not_while_handshaking(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that reconnect logic retry."""
+    cli = patchable_api_client
+
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+    assert cli.log_name == "mydevice @ 1.2.3.4"
+
+    async def slow_connect_fail(*args, **kwargs):
+        await asyncio.sleep(10)
+        raise APIConnectionError
+
+    async def quick_connect_fail(*args, **kwargs):
+        raise APIConnectionError
+
+    with patch.object(
+        cli, "start_connection", side_effect=quick_connect_fail
+    ) as mock_start_connection:
+        await rl.start()
+        await asyncio.sleep(0)
+
+    assert mock_start_connection.call_count == 1
+
+    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
+        cli, "finish_connection", side_effect=slow_connect_fail
+    ) as mock_finish_connection:
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._accept_zeroconf_records is True
+        assert not rl._is_stopped
+
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        assert mock_start_connection.call_count == 1
+        assert mock_finish_connection.call_count == 1
+        assert rl._connection_state is ReconnectLogicState.HANDSHAKING
+        assert rl._accept_zeroconf_records is False
+        assert not rl._is_stopped
+
+    rl._cancel_connect("forced cancel in test")
     await rl.stop()
     assert rl._is_stopped is True
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
