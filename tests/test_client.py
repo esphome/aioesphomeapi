@@ -1521,3 +1521,32 @@ async def test_bluetooth_device_connect(
             ),
         )
     )
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_device_connect_times_out(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_connect times out."""
+    client, connection, transport, protocol = api_client
+    states = []
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    connect_task = asyncio.create_task(
+        client.bluetooth_device_connect(
+            1234,
+            on_bluetooth_connection_state,
+            timeout=0,
+            feature_flags=0,
+            has_cache=True,
+            disconnect_timeout=0,
+            address_type=1,
+        )
+    )
+    with pytest.raises(TimeoutAPIError):
+        await connect_task
+    assert states == []
