@@ -14,6 +14,7 @@ from zeroconf import (
     Zeroconf,
     current_time_millis,
 )
+from functools import partial
 from zeroconf.asyncio import AsyncZeroconf
 from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_PTR
 
@@ -28,6 +29,7 @@ from .common import (
     send_plaintext_connect_response,
     send_plaintext_hello,
 )
+from .conftest import _create_mock_transport_protocol
 
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
@@ -473,13 +475,6 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         zeroconf_instance=async_zeroconf.zeroconf,
     )
 
-    def _create_mock_transport_protocol(create_func, **kwargs):
-        nonlocal protocol
-        protocol = create_func()
-        protocol.connection_made(transport)
-        connected.set()
-        return transport, protocol
-
     connected = asyncio.Event()
     on_disconnect_calls = []
 
@@ -498,7 +493,7 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
     )
 
     with patch.object(event_loop, "sock_connect"), patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
+        loop, "create_connection", side_effect=partial(_create_mock_transport_protocol, transport, connected)
     ):
         await logic.start()
         await connected.wait()
@@ -511,7 +506,7 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
     await asyncio.sleep(0)
 
     with patch.object(event_loop, "sock_connect"), patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
+        loop, "create_connection", side_effect=partial(_create_mock_transport_protocol, transport, connected)
     ) as mock_create_connection:
         protocol.eof_received()
         # Wait for the task to run
