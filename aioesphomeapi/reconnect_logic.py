@@ -244,13 +244,15 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 # Connection state is far enough along that we should
                 # not restart the connect task
                 _LOGGER.debug(
-                    "%s: Not cancelling existing connect task as its too far along!",
+                    "%s: Not cancelling existing connect task as its already %s!",
                     self._cli.log_name,
+                    self._connection_state,
                 )
                 return
             _LOGGER.debug(
-                "%s: Cancelling existing connect task, to try again now!",
+                "%s: Cancelling existing connect task with state %s, to try again now!",
                 self._cli.log_name,
+                self._connection_state,
             )
             self._connect_task.cancel("Scheduling new connect attempt")
             self._connect_task = None
