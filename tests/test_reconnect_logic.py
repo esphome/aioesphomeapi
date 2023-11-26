@@ -18,10 +18,14 @@ from zeroconf import (
 from zeroconf.asyncio import AsyncZeroconf
 from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_PTR
 
-from aioesphomeapi import APIConnectionError
+from aioesphomeapi import APIConnectionError, RequiresEncryptionAPIError
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
+from aioesphomeapi.reconnect_logic import (
+    MAXIMUM_BACKOFF_TRIES,
+    ReconnectLogic,
+    ReconnectLogicState,
+)
 
 from .common import (
     get_mock_async_zeroconf,
@@ -173,9 +177,10 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert len(on_connect_fail_called) == 1
     assert isinstance(on_connect_fail_called[-1], APIConnectionError)
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._tries == 1
 
     with patch.object(cli, "start_connection"), patch.object(
-        cli, "finish_connection", side_effect=APIConnectionError
+        cli, "finish_connection", side_effect=RequiresEncryptionAPIError
     ):
         await rl.start()
         await asyncio.sleep(0)
@@ -184,8 +189,9 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert len(on_disconnect_called) == 0
     assert len(on_connect_called) == 0
     assert len(on_connect_fail_called) == 2
-    assert isinstance(on_connect_fail_called[-1], APIConnectionError)
+    assert isinstance(on_connect_fail_called[-1], RequiresEncryptionAPIError)
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._tries == MAXIMUM_BACKOFF_TRIES
 
     with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
         await rl.start()
@@ -196,7 +202,7 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert len(on_connect_called) == 1
     assert len(on_connect_fail_called) == 2
     assert rl._connection_state is ReconnectLogicState.READY
-
+    assert rl._tries == 0
     await rl.stop()
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
