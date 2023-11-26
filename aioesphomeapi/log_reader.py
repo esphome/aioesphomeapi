@@ -39,7 +39,10 @@ async def main(argv: list[str]) -> None:
         time_ = datetime.now()
         message: bytes = msg.message
         text = message.decode("utf8", "backslashreplace")
-        print(f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}]{text}")
+        nanoseconds = time_.microsecond // 1000
+        print(
+            f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}.{nanoseconds:03}]{text}"
+        )
 
     stop = await async_run(cli, on_log)
     try:
