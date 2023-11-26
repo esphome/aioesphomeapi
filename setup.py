@@ -11,7 +11,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "19.0.2"
+VERSION = "19.1.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -23,11 +23,11 @@ PROJECT_EMAIL = "esphome@nabucasa.com"
 PROJECT_GITHUB_USERNAME = "esphome"
 PROJECT_GITHUB_REPOSITORY = "aioesphomeapi"
 
-PYPI_URL = "https://pypi.python.org/pypi/{}".format(PROJECT_PACKAGE_NAME)
-GITHUB_PATH = "{}/{}".format(PROJECT_GITHUB_USERNAME, PROJECT_GITHUB_REPOSITORY)
-GITHUB_URL = "https://github.com/{}".format(GITHUB_PATH)
+PYPI_URL = f"https://pypi.python.org/pypi/{PROJECT_PACKAGE_NAME}"
+GITHUB_PATH = f"{PROJECT_GITHUB_USERNAME}/{PROJECT_GITHUB_REPOSITORY}"
+GITHUB_URL = f"https://github.com/{GITHUB_PATH}"
 
-DOWNLOAD_URL = "{}/archive/{}.zip".format(GITHUB_URL, VERSION)
+DOWNLOAD_URL = f"{GITHUB_URL}/archive/{VERSION}.zip"
 
 MODULES_TO_CYTHONIZE = [
     "aioesphomeapi/client_callbacks.py",
@@ -61,7 +61,8 @@ setup_kwargs = {
     "test_suite": "tests",
     "entry_points": {
         "console_scripts": [
-            "aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point"
+            "aioesphomeapi-logs=aioesphomeapi.log_reader:cli_entry_point",
+            "aioesphomeapi-discover=aioesphomeapi.discover:cli_entry_point",
         ],
     },
 }

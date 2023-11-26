@@ -5,6 +5,7 @@ omit =
     aioesphomeapi/api_options_pb2.py
     aioesphomeapi/api_pb2.py
     aioesphomeapi/log_reader.py
+    aioesphomeapi/discover.py
     bench/*.py
 
 [report]

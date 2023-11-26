@@ -42,7 +42,7 @@ class APIFrameHelper:
 
     def __init__(
         self,
-        connection: "APIConnection",
+        connection: APIConnection,
         client_info: str,
         log_name: str,
     ) -> None:

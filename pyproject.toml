@@ -30,5 +30,10 @@ disable = [
   "too-many-lines",
 ]
 
+[tool.ruff]
+ignore = [
+  "E721", # We want type() check for protobuf messages
+]
+
 [build-system]
 requires = ['setuptools>=65.4.1', 'wheel', 'Cython>=3.0.2']

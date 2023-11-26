@@ -19,7 +19,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
-from .util import address_is_local
+from .util import address_is_local, host_is_name_part
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self.name: str | None = None
         if name:
             self.name = name
-        elif address_is_local(client.address):
+        elif host_is_name_part(client.address) or address_is_local(client.address):
             self.name = client.address.partition(".")[0]
         if self.name:
             self._cli.set_cached_name_if_unset(self.name)
@@ -93,7 +93,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._a_name: str | None = None
         # Flag to check if the device is connected
         self._connection_state = ReconnectLogicState.DISCONNECTED
-        self._accept_zeroconf_records = True
+        self._accept_zeroconf_records: bool = True
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
         self._zc_listening = False
@@ -226,11 +226,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _schedule_connect(self, delay: float) -> None:
         """Schedule a connect attempt."""
-        self._cancel_connect("Scheduling new connect attempt")
         if not delay:
             self._call_connect_once()
             return
-        _LOGGER.debug("Scheduling new connect attempt in %f seconds", delay)
+        _LOGGER.debug("Scheduling new connect attempt in %.2f seconds", delay)
+        self._cancel_connect_timer()
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
         )
@@ -240,17 +240,22 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         Must only be called from _schedule_connect.
         """
-        if self._connect_task:
+        if self._connect_task and not self._connect_task.done():
             if self._connection_state != ReconnectLogicState.CONNECTING:
                 # Connection state is far enough along that we should
                 # not restart the connect task
+                _LOGGER.debug(
+                    "%s: Not cancelling existing connect task as its already %s!",
+                    self._cli.log_name,
+                    self._connection_state,
+                )
                 return
             _LOGGER.debug(
-                "%s: Cancelling existing connect task, to try again now!",
+                "%s: Cancelling existing connect task with state %s, to try again now!",
                 self._cli.log_name,
+                self._connection_state,
             )
-            self._connect_task.cancel("Scheduling new connect attempt")
-            self._connect_task = None
+            self._cancel_connect_task("Scheduling new connect attempt")
             self._async_set_connection_state_without_lock(
                 ReconnectLogicState.DISCONNECTED
             )
@@ -260,14 +265,22 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             name=f"{self._cli.log_name}: aioesphomeapi connect",
         )
 
-    def _cancel_connect(self, msg: str) -> None:
-        """Cancel the connect."""
+    def _cancel_connect_timer(self) -> None:
+        """Cancel the connect timer."""
         if self._connect_timer:
             self._connect_timer.cancel()
             self._connect_timer = None
+
+    def _cancel_connect_task(self, msg: str) -> None:
+        """Cancel the connect task."""
         if self._connect_task:
             self._connect_task.cancel(msg)
             self._connect_task = None
+
+    def _cancel_connect(self, msg: str) -> None:
+        """Cancel the connect."""
+        self._cancel_connect_timer()
+        self._cancel_connect_task(msg)
 
     async def _connect_once_or_reschedule(self) -> None:
         """Connect once or schedule connect.
@@ -290,7 +303,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 _LOGGER.info(
                     "Trying to connect to %s in the background", self._cli.log_name
                 )
-            _LOGGER.debug("Retrying %s in %d seconds", self._cli.log_name, wait_time)
+            _LOGGER.debug("Retrying %s in %.2f seconds", self._cli.log_name, wait_time)
             if wait_time:
                 # If we are waiting, start listening for mDNS records
                 self._start_zc_listen()
@@ -365,6 +378,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             )
             self._zc_listening = False
 
+    def _connect_from_zeroconf(self) -> None:
+        """Connect from zeroconf."""
+        self._stop_zc_listen()
+        self._schedule_connect(0.0)
+
     def async_update_records(
         self,
         zc: zeroconf.Zeroconf,  # pylint: disable=unused-argument
@@ -398,7 +416,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # We can't stop the zeroconf listener here because we are in the middle of
             # a zeroconf callback which is iterating the listeners.
             #
-            # So we schedule a stop for the next event loop iteration.
-            self.loop.call_soon(self._stop_zc_listen)
-            self._schedule_connect(0.0)
+            # So we schedule a stop for the next event loop iteration as well as the
+            # connect attempt.
+            #
+            # If we scheduled the connect attempt immediately, the listener could fire
+            # again before the connect attempt and we cancel and reschedule the connect
+            # attempt again.
+            #
+            self.loop.call_soon(self._connect_from_zeroconf)
+            self._accept_zeroconf_records = False
             return
