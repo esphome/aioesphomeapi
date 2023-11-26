@@ -467,7 +467,7 @@ class APIClient:
         timeout: float = 10.0,
     ) -> message.Message:
         message_filter = partial(self._filter_bluetooth_message, address, handle)
-        resp = await self._get_connection().send_messages_await_response_complex(
+        [resp] = await self._get_connection().send_messages_await_response_complex(
             (request,),
             message_filter,
             message_filter,
@@ -475,10 +475,10 @@ class APIClient:
             timeout,
         )
 
-        if isinstance(resp[0], BluetoothGATTErrorResponse):
-            raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp[0]))
+        if isinstance(resp, BluetoothGATTErrorResponse):
+            raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp))
 
-        return resp[0]
+        return resp
 
     async def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
