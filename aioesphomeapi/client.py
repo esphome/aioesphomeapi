@@ -1304,18 +1304,14 @@ class APIClient:
         self, event_type: VoiceAssistantEventType, data: dict[str, str] | None
     ) -> None:
         req = VoiceAssistantEventResponse(event_type=event_type)
-
-        data_args = []
         if data is not None:
-            for name, value in data.items():
-                arg = VoiceAssistantEventData()
-                arg.name = name
-                arg.value = value
-                data_args.append(arg)
-
-        # pylint: disable=no-member
-        req.data.extend(data_args)
-
+            # pylint: disable=no-member
+            req.data.extend(
+                [
+                    VoiceAssistantEventData(name=name, value=value)
+                    for name, value in data.items()
+                ]
+            )
         self._get_connection().send_message(req)
 
     async def alarm_control_panel_command(

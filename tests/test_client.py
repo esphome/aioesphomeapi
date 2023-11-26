@@ -1677,13 +1677,14 @@ async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
 
     auth_client.send_voice_assistant_event(
         VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR,
-        {
-            "error": "error",
-        },
+        {"error": "error", "ok": "ok"},
     )
     send.assert_called_once_with(
         VoiceAssistantEventResponse(
             event_type=VoiceAssistantEventModelType.VOICE_ASSISTANT_ERROR.value,
-            data=[VoiceAssistantEventData(name="error", value="error")],
+            data=[
+                VoiceAssistantEventData(name="error", value="error"),
+                VoiceAssistantEventData(name="ok", value="ok"),
+            ],
         )
     )
