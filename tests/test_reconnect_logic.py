@@ -133,20 +133,13 @@ async def test_reconnect_logic_name_from_name():
 
 
 @pytest.mark.asyncio
-async def test_reconnect_logic_state():
+async def test_reconnect_logic_state(patchable_api_client: APIClient):
     """Test that reconnect logic state changes."""
     on_disconnect_called = []
     on_connect_called = []
     on_connect_fail_called = []
 
-    class PatchableAPIClient(APIClient):
-        pass
-
-    cli = PatchableAPIClient(
-        address="1.2.3.4",
-        port=6052,
-        password=None,
-    )
+    cli = patchable_api_client
 
     async def on_disconnect(expected_disconnect: bool) -> None:
         nonlocal on_disconnect_called
@@ -209,7 +202,9 @@ async def test_reconnect_logic_state():
 
 
 @pytest.mark.asyncio
-async def test_reconnect_retry(patchable_api_client: APIClient):
+async def test_reconnect_retry(
+    patchable_api_client: APIClient, caplog: pytest.LogCaptureFixture
+):
     """Test that reconnect logic retry."""
     on_disconnect_called = []
     on_connect_called = []
@@ -237,6 +232,7 @@ async def test_reconnect_retry(patchable_api_client: APIClient):
         on_connect_error=on_connect_fail,
     )
     assert cli.log_name == "mydevice @ 1.2.3.4"
+    caplog.clear()
 
     with patch.object(cli, "start_connection", side_effect=APIConnectionError):
         await rl.start()
@@ -249,8 +245,14 @@ async def test_reconnect_retry(patchable_api_client: APIClient):
     assert len(on_connect_fail_called) == 1
     assert isinstance(on_connect_fail_called[-1], APIConnectionError)
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert "connect to ESPHome API for mydevice @ 1.2.3.4" in caplog.text
+    for record in caplog.records:
+        if "connect to ESPHome API for mydevice @ 1.2.3.4" in record.message:
+            assert record.levelno == logging.WARNING
 
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+    caplog.clear()
+    # Next retry should run at debug level
+    with patch.object(cli, "start_connection", side_effect=APIConnectionError):
         # Should now retry
         assert rl._connect_timer is not None
         rl._connect_timer._run()
@@ -258,8 +260,27 @@ async def test_reconnect_retry(patchable_api_client: APIClient):
         await asyncio.sleep(0)
 
     assert len(on_disconnect_called) == 0
+    assert len(on_connect_called) == 0
+    assert len(on_connect_fail_called) == 2
+    assert isinstance(on_connect_fail_called[-1], APIConnectionError)
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert "connect to ESPHome API for mydevice @ 1.2.3.4" in caplog.text
+    for record in caplog.records:
+        if "connect to ESPHome API for mydevice @ 1.2.3.4" in record.message:
+            assert record.levelno == logging.DEBUG
+
+    caplog.clear()
+    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+        # Should now retry
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert "connect to ESPHome API for mydevice @ 1.2.3.4" not in caplog.text
+    assert len(on_disconnect_called) == 0
     assert len(on_connect_called) == 1
-    assert len(on_connect_fail_called) == 1
+    assert len(on_connect_fail_called) == 2
     assert rl._connection_state is ReconnectLogicState.READY
 
     await rl.stop()
