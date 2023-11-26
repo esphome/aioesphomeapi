@@ -17,6 +17,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothDeviceClearCacheResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothDevicePairingResponse,
+    BluetoothDeviceRequest,
     BluetoothDeviceUnpairingResponse,
     BluetoothGATTErrorResponse,
     BluetoothGATTGetServicesDoneResponse,
@@ -68,10 +69,12 @@ from aioesphomeapi.model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothDeviceRequestType,
 )
 from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
 from aioesphomeapi.model import (
     BluetoothLEAdvertisement,
+    BluetoothProxyFeature,
     CameraState,
     ClimateFanMode,
     ClimateMode,
@@ -1455,3 +1458,67 @@ async def test_force_disconnect(
     assert connection.is_connected is False
     await client.disconnect(force=False)
     assert connection.is_connected is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("has_cache", "feature_flags", "method"),
+    [
+        (False, BluetoothProxyFeature(0), BluetoothDeviceRequestType.CONNECT),
+        (
+            False,
+            BluetoothProxyFeature.REMOTE_CACHING,
+            BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE,
+        ),
+        (
+            True,
+            BluetoothProxyFeature.REMOTE_CACHING,
+            BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE,
+        ),
+    ],
+)
+async def test_bluetooth_device_connect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    has_cache: bool,
+    feature_flags: BluetoothProxyFeature,
+    method: BluetoothDeviceRequestType,
+) -> None:
+    """Test bluetooth_device_connect."""
+    client, connection, transport, protocol = api_client
+    send = client._connection.send_messages = MagicMock()
+    states = []
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    connect_task = asyncio.create_task(
+        client.bluetooth_device_connect(
+            1234,
+            on_bluetooth_connection_state,
+            timeout=1,
+            feature_flags=feature_flags,
+            has_cache=has_cache,
+            disconnect_timeout=1,
+            address_type=1,
+        )
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=True, mtu=23, error=0
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    await connect_task
+    assert states == [(True, 23, 0)]
+    send.assert_called_once_with(
+        (
+            BluetoothDeviceRequest(
+                address=1234,
+                request_type=method,
+                has_address_type=True,
+                address_type=1,
+            ),
+        )
+    )
