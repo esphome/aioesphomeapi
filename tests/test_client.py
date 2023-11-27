@@ -1375,6 +1375,29 @@ async def test_subscribe_bluetooth_le_advertisements(
             address_type=1,
         )
     ]
+    advs.clear()
+    response: message.Message = BluetoothLEAdvertisementResponse(
+        address=1234,
+        name=b"mydevice",
+        rssi=-50,
+        service_uuids=[],
+        service_data=[],
+        manufacturer_data=[],
+        address_type=1,
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert advs == [
+        BluetoothLEAdvertisement(
+            address=1234,
+            name="mydevice",
+            rssi=-50,
+            service_uuids=[],
+            manufacturer_data={},
+            service_data={},
+            address_type=1,
+        )
+    ]
     unsub()
 
 
