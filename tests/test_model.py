@@ -344,6 +344,9 @@ def test_user_service_conversion():
     assert UserService.from_dict({"args": [{"name": "arg", "type": 1}]}) == UserService(
         args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)]
     )
+    assert UserService.from_dict(
+        {"args": [{"name": "arg", "type_": 1}]}
+    ) == UserService(args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)])
 
 
 @pytest.mark.parametrize(
