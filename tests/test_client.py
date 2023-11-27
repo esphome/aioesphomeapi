@@ -1398,6 +1398,43 @@ async def test_subscribe_bluetooth_le_advertisements(
             address_type=1,
         )
     ]
+    advs.clear()
+    response: message.Message = BluetoothLEAdvertisementResponse(
+        address=1234,
+        name=b"mydevice",
+        rssi=-50,
+        service_uuids=["1234"],
+        service_data=[
+            BluetoothServiceData(
+                uuid="1234",
+                legacy_data=b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            )
+        ],
+        manufacturer_data=[
+            BluetoothServiceData(
+                uuid="1234",
+                legacy_data=b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            )
+        ],
+        address_type=1,
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert advs == [
+        BluetoothLEAdvertisement(
+            address=1234,
+            name="mydevice",
+            rssi=-50,
+            service_uuids=["000034-0000-1000-8000-00805f9b34fb"],
+            manufacturer_data={
+                4660: b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            },
+            service_data={
+                "000034-0000-1000-8000-00805f9b34fb": b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            },
+            address_type=1,
+        )
+    ]
     unsub()
 
 
