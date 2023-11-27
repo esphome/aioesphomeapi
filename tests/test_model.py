@@ -54,6 +54,10 @@ from aioesphomeapi.model import (
     BinarySensorInfo,
     BinarySensorState,
 )
+from aioesphomeapi.model import (
+    BluetoothGATTCharacteristic as BluetoothGATTCharacteristicModel,
+)
+from aioesphomeapi.model import BluetoothGATTDescriptor as BluetoothGATTDescriptorModel
 from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
 from aioesphomeapi.model import BluetoothGATTServices as BluetoothGATTServicesModel
 from aioesphomeapi.model import (
@@ -542,3 +546,51 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
             )
         ],
     )
+    services == BluetoothGATTServicesModel.from_dict(
+        {
+            "services": [
+                {
+                    "uuid": [1, 1],
+                    "handle": 1,
+                    "characteristics": [
+                        {
+                            "uuid": [1, 2],
+                            "handle": 2,
+                            "properties": 1,
+                            "descriptors": [
+                                {"uuid": [1, 3], "handle": 3},
+                            ],
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+    assert services.services[0] == BluetoothGATTServiceModel(
+        uuid=[1, 1],
+        handle=1,
+        characteristics=[
+            BluetoothGATTCharacteristic(
+                uuid=[1, 2],
+                handle=2,
+                properties=1,
+                descriptors=[BluetoothGATTDescriptor(uuid=[1, 3], handle=3)],
+            )
+        ],
+    )
+    assert BluetoothGATTCharacteristicModel.from_dict(
+        {
+            "uuid": [1, 2],
+            "handle": 2,
+            "properties": 1,
+            "descriptors": [],
+        }
+    ) == BluetoothGATTCharacteristicModel(
+        uuid=[1, 2],
+        handle=2,
+        properties=1,
+        descriptors=[],
+    )
+    assert BluetoothGATTDescriptorModel.from_dict(
+        {"uuid": [1, 3], "handle": 3},
+    ) == BluetoothGATTDescriptorModel(uuid=[1, 3], handle=3)
