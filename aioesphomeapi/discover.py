@@ -40,7 +40,7 @@ def async_service_update(
     version = decode_bytes_or_none(properties.get(b"version"))
     platform = decode_bytes_or_none(properties.get(b"platform"))
     board = decode_bytes_or_none(properties.get(b"board"))
-    address = None
+    address = ""
     if addresses := info.ip_addresses_by_version(IPVersion.V4Only):
         address = str(addresses[0])
 
