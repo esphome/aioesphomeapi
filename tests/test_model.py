@@ -10,7 +10,7 @@ from aioesphomeapi.api_pb2 import (
     BinarySensorStateResponse,
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
-    BluetoothGATTService,
+    BluetoothGATTGetServicesResponse,
     ClimateStateResponse,
     CoverStateResponse,
     DeviceInfoResponse,
@@ -55,6 +55,7 @@ from aioesphomeapi.model import (
     BinarySensorState,
 )
 from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
+from aioesphomeapi.model import BluetoothGATTServices as BluetoothGATTServicesModel
 from aioesphomeapi.model import (
     BluetoothProxyFeature,
     ButtonInfo,
@@ -509,22 +510,27 @@ def test_supported_color_modes_compat(
 @pytest.mark.asyncio
 async def test_bluetooth_gatt_services_from_dict() -> None:
     """Test bluetooth_gatt_get_services success case."""
-    service1: message.Message = BluetoothGATTService(
-        uuid=[1, 1],
-        handle=1,
-        characteristics=[
+    services: message.Message = BluetoothGATTGetServicesResponse(
+        address=1234,
+        services=[
             {
-                "uuid": [1, 2],
-                "handle": 2,
-                "properties": 1,
-                "descriptors": [
-                    {"uuid": [1, 3], "handle": 3},
+                "uuid": [1, 1],
+                "handle": 1,
+                "characteristics": [
+                    {
+                        "uuid": [1, 2],
+                        "handle": 2,
+                        "properties": 1,
+                        "descriptors": [
+                            {"uuid": [1, 3], "handle": 3},
+                        ],
+                    },
                 ],
-            },
+            }
         ],
     )
-    service = BluetoothGATTServiceModel.from_pb(service1)
-    assert service == BluetoothGATTServiceModel(
+    services = BluetoothGATTServicesModel.from_pb(services)
+    assert services.services[0] == BluetoothGATTServiceModel(
         uuid=[1, 1],
         handle=1,
         characteristics=[
