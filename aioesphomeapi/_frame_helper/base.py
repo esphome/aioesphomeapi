@@ -22,6 +22,7 @@ SOCKET_ERRORS = (
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 _int = int
+_bytes = bytes
 
 
 class APIFrameHelper:
@@ -196,7 +197,7 @@ class APIFrameHelper:
     def resume_writing(self) -> None:
         """Stub."""
 
-    def _write_bytes(self, data: bytes, debug_enabled: bool) -> None:
+    def _write_bytes(self, data: _bytes, debug_enabled: bool) -> None:
         """Write bytes to the socket."""
         if debug_enabled:
             _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, data.hex())

@@ -49,6 +49,7 @@ from aioesphomeapi.model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothProxyFeature,
     ButtonInfo,
     CameraInfo,
     ClimateInfo,
@@ -61,6 +62,7 @@ from aioesphomeapi.model import (
     FanState,
     HomeassistantServiceCall,
     LegacyCoverState,
+    LightColorCapability,
     LightInfo,
     LightState,
     LockEntityState,
@@ -357,3 +359,141 @@ def test_user_service_conversion():
 def test_build_unique_id(model):
     obj = model(object_id="id")
     assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+
+
+@pytest.mark.parametrize(
+    ("version", "flags"),
+    [
+        (1, BluetoothProxyFeature.PASSIVE_SCAN),
+        (
+            2,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS,
+        ),
+        (
+            3,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            | BluetoothProxyFeature.REMOTE_CACHING,
+        ),
+        (
+            4,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            | BluetoothProxyFeature.REMOTE_CACHING
+            | BluetoothProxyFeature.PAIRING,
+        ),
+        (
+            5,
+            BluetoothProxyFeature.PASSIVE_SCAN
+            | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+            | BluetoothProxyFeature.REMOTE_CACHING
+            | BluetoothProxyFeature.PAIRING
+            | BluetoothProxyFeature.CACHE_CLEARING,
+        ),
+    ],
+)
+def test_bluetooth_backcompat_for_device_info(
+    version: int, flags: BluetoothProxyFeature
+) -> None:
+    info = DeviceInfo(
+        legacy_bluetooth_proxy_version=version, bluetooth_proxy_feature_flags=42
+    )
+    assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 8)) is flags
+    assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 9)) == 42
+
+
+@pytest.mark.parametrize(
+    (
+        "legacy_supports_brightness",
+        "legacy_supports_rgb",
+        "legacy_supports_white_value",
+        "legacy_supports_color_temperature",
+        "capability",
+    ),
+    [
+        (False, False, False, False, [LightColorCapability.ON_OFF]),
+        (
+            True,
+            False,
+            False,
+            False,
+            [LightColorCapability.ON_OFF | LightColorCapability.BRIGHTNESS],
+        ),
+        (
+            True,
+            False,
+            False,
+            True,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.COLOR_TEMPERATURE
+            ],
+        ),
+        (
+            True,
+            True,
+            False,
+            False,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+            ],
+        ),
+        (
+            True,
+            True,
+            True,
+            False,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+                | LightColorCapability.WHITE
+            ],
+        ),
+        (
+            True,
+            True,
+            False,
+            True,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+                | LightColorCapability.COLOR_TEMPERATURE
+            ],
+        ),
+        (
+            True,
+            True,
+            True,
+            True,
+            [
+                LightColorCapability.ON_OFF
+                | LightColorCapability.BRIGHTNESS
+                | LightColorCapability.RGB
+                | LightColorCapability.WHITE
+                | LightColorCapability.COLOR_TEMPERATURE
+            ],
+        ),
+    ],
+)
+def test_supported_color_modes_compat(
+    legacy_supports_brightness: bool,
+    legacy_supports_rgb: bool,
+    legacy_supports_white_value: bool,
+    legacy_supports_color_temperature: bool,
+    capability: list[LightColorCapability],
+) -> None:
+    info = LightInfo(
+        legacy_supports_brightness=legacy_supports_brightness,
+        legacy_supports_rgb=legacy_supports_rgb,
+        legacy_supports_white_value=legacy_supports_white_value,
+        legacy_supports_color_temperature=legacy_supports_color_temperature,
+        supported_color_modes=[42],
+    )
+    assert info.supported_color_modes_compat(APIVersion(1, 5)) == capability
+    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [42]
