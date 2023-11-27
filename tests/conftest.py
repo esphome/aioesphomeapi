@@ -17,7 +17,12 @@ from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 from aioesphomeapi.zeroconf import ZeroconfManager
 
-from .common import connect, get_mock_async_zeroconf, send_plaintext_hello
+from .common import (
+    connect,
+    connect_client,
+    get_mock_async_zeroconf,
+    send_plaintext_hello,
+)
 
 KEEP_ALIVE_INTERVAL = 15.0
 
@@ -80,19 +85,19 @@ def connection_params() -> ConnectionParams:
     return get_mock_connection_params()
 
 
-def on_stop(expected_disconnect: bool) -> None:
+def mock_on_stop(expected_disconnect: bool) -> None:
     pass
 
 
 @pytest.fixture
 def conn(connection_params: ConnectionParams) -> APIConnection:
-    return PatchableAPIConnection(connection_params, on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture
 def conn_with_password(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(connection_params, password="password")
-    return PatchableAPIConnection(connection_params, on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture
@@ -100,13 +105,13 @@ def noise_conn(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(
         connection_params, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     )
-    return PatchableAPIConnection(connection_params, on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture
 def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(connection_params, expected_name="test")
-    return PatchableAPIConnection(connection_params, on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 def _create_mock_transport_protocol(
@@ -177,7 +182,7 @@ async def plaintext_connect_task_with_login(
 
 @pytest_asyncio.fixture(name="api_client")
 async def api_client(
-    conn: APIConnection, resolve_host, socket_socket, event_loop
+    resolve_host, socket_socket, event_loop
 ) -> tuple[APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
@@ -192,12 +197,12 @@ async def api_client(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
-    ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
+    ), patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
+        connect_task = asyncio.create_task(connect_client(client, login=False))
         await connected.wait()
+        conn = client._connection
         protocol = conn._frame_helper
         send_plaintext_hello(protocol)
-        client._connection = conn
         await connect_task
         transport.reset_mock()
         yield client, conn, transport, protocol

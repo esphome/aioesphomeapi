@@ -78,12 +78,13 @@ class APIModelBase:
     def from_dict(
         cls: type[_V], data: dict[str, Any], *, ignore_missing: bool = True
     ) -> _V:
-        init_args = {
-            f.name: data[f.name]
-            for f in cached_fields(cls)  # type: ignore[arg-type]
-            if f.name in data or (not ignore_missing)
-        }
-        return cls(**init_args)
+        return cls(
+            **{
+                f.name: data[f.name]
+                for f in cached_fields(cls)  # type: ignore[arg-type]
+                if f.name in data or (not ignore_missing)
+            }
+        )
 
     @classmethod
     def from_pb(cls: type[_V], data: Any) -> _V:
