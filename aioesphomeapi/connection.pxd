@@ -102,7 +102,7 @@ cdef class APIConnection:
 
     cpdef _async_schedule_keep_alive(self, object now)
 
-    cpdef _cleanup(self)
+    cdef _cleanup(self)
 
     cpdef set_log_name(self, str name)
 
@@ -112,7 +112,7 @@ cdef class APIConnection:
 
     cdef _process_login_response(self, object hello_response)
 
-    cpdef _set_connection_state(self, object state)
+    cdef _set_connection_state(self, object state)
 
     cpdef report_fatal_error(self, Exception err)
 
