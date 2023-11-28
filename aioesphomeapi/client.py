@@ -764,10 +764,18 @@ class APIClient:
             BluetoothGATTErrorResponse,
         )
 
-        def do_append(msg: message.Message) -> bool:
+        def do_append(
+            msg: BluetoothDeviceConnectionResponse
+            | BluetoothGATTGetServicesResponse
+            | BluetoothGATTErrorResponse,
+        ) -> bool:
             return type(msg) in append_types and msg.address == address
 
-        def do_stop(msg: message.Message) -> bool:
+        def do_stop(
+            msg: BluetoothDeviceConnectionResponse
+            | BluetoothGATTGetServicesDoneResponse
+            | BluetoothGATTErrorResponse,
+        ) -> bool:
             return type(msg) in stop_types and msg.address == address
 
         resp = await self._get_connection().send_messages_await_response_complex(
