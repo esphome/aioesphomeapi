@@ -392,10 +392,10 @@ class APIClient:
         msg_types = LIST_ENTITIES_MSG_TYPES
 
         def do_append(msg: message.Message) -> bool:
-            return not isinstance(msg, ListEntitiesDoneResponse)
+            return type(msg) is not ListEntitiesDoneResponse
 
         def do_stop(msg: message.Message) -> bool:
-            return isinstance(msg, ListEntitiesDoneResponse)
+            return type(msg) is ListEntitiesDoneResponse
 
         resp = await self._get_connection().send_messages_await_response_complex(
             (ListEntitiesRequest(),), do_append, do_stop, msg_types, 60
@@ -403,7 +403,7 @@ class APIClient:
         entities: list[EntityInfo] = []
         services: list[UserService] = []
         for msg in resp:
-            if isinstance(msg, ListEntitiesServicesResponse):
+            if type(msg) is ListEntitiesServicesResponse:
                 services.append(UserService.from_pb(msg))
                 continue
             cls = response_types[type(msg)]
@@ -769,7 +769,7 @@ class APIClient:
         services = []
         for msg in resp:
             self._raise_for_ble_connection_change(address, msg, msg_types)
-            if isinstance(msg, BluetoothGATTErrorResponse):
+            if type(msg) is BluetoothGATTErrorResponse:
                 raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(msg))
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
