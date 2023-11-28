@@ -767,12 +767,14 @@ class APIClient:
         def do_append(
             msg: BluetoothDeviceConnectionResponse
             | BluetoothGATTGetServicesResponse
+            | BluetoothGATTGetServicesDoneResponse
             | BluetoothGATTErrorResponse,
         ) -> bool:
             return type(msg) in append_types and msg.address == address
 
         def do_stop(
             msg: BluetoothDeviceConnectionResponse
+            | BluetoothGATTGetServicesResponse
             | BluetoothGATTGetServicesDoneResponse
             | BluetoothGATTErrorResponse,
         ) -> bool:
