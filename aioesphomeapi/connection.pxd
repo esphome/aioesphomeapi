@@ -66,7 +66,7 @@ cpdef _handle_complex_message(
     object resp,
 )
 
-cdef object handle_timeout
+cpdef object handle_timeout
 cdef object handle_complex_message
 
 @cython.dataclasses.dataclass
