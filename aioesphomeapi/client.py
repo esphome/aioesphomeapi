@@ -757,30 +757,35 @@ class APIClient:
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
         append_types = (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
-        stop_types = (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse)
+        stop_types = (
+            BluetoothDeviceConnectionResponse,
+            BluetoothGATTGetServicesDoneResponse,
+            BluetoothGATTErrorResponse,
+        )
+        msg_types = (
+            BluetoothGATTGetServicesResponse,
+            BluetoothGATTGetServicesDoneResponse,
+            BluetoothGATTErrorResponse,
+        )
 
         def do_append(msg: message.Message) -> bool:
-            return isinstance(msg, append_types) and msg.address == address
+            return type(msg) in append_types and msg.address == address
 
         def do_stop(msg: message.Message) -> bool:
-            return isinstance(msg, stop_types) and msg.address == address
+            return type(msg) in stop_types and msg.address == address
 
         resp = await self._get_connection().send_messages_await_response_complex(
             (BluetoothGATTGetServicesRequest(address=address),),
             do_append,
             do_stop,
-            (
-                BluetoothGATTGetServicesResponse,
-                BluetoothGATTGetServicesDoneResponse,
-                BluetoothGATTErrorResponse,
-            ),
+            (*msg_types, BluetoothDeviceConnectionResponse),
             DEFAULT_BLE_TIMEOUT,
         )
         services = []
         for msg in resp:
+            self._raise_for_ble_connection_change(address, msg, msg_types)
             if isinstance(msg, BluetoothGATTErrorResponse):
                 raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(msg))
-
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
         return ESPHomeBluetoothGATTServices(address=address, services=services)  # type: ignore[call-arg]
