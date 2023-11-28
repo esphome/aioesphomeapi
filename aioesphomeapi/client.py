@@ -83,6 +83,7 @@ from .client_callbacks import (
 from .connection import APIConnection, ConnectionParams, handle_timeout
 from .core import (
     APIConnectionError,
+    BluetoothConnectionDroppedError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
     to_human_readable_address,
@@ -158,10 +159,6 @@ LIST_ENTITIES_MSG_TYPES = (
 ExecuteServiceDataType = dict[
     str, Union[bool, int, float, str, list[bool], list[int], list[float], list[str]]
 ]
-
-
-class BluetoothConnectionDroppedError(APIConnectionError):
-    """Raised when a Bluetooth connection is dropped."""
 
 
 def _stringify_or_none(value: str | None) -> str | None:
