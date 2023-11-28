@@ -1101,6 +1101,31 @@ async def test_bluetooth_gatt_read(
 
 
 @pytest.mark.asyncio
+async def test_bluetooth_gatt_read_connection_drops(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test connection drop during bluetooth_gatt_read."""
+    client, connection, transport, protocol = api_client
+    read_task = asyncio.create_task(client.bluetooth_gatt_read(1234, 1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, error=13
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    message = (
+        "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
+        " for BluetoothGATTReadResponse, BluetoothGATTErrorResponse: Invalid attribute length"
+    )
+    with pytest.raises(
+        BluetoothConnectionDroppedError,
+        match=message,
+    ):
+        await read_task
+
+
+@pytest.mark.asyncio
 async def test_bluetooth_gatt_read_error(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
