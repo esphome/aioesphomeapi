@@ -30,6 +30,7 @@ from aioesphomeapi.reconnect_logic import (
 from .common import (
     get_mock_async_zeroconf,
     get_mock_zeroconf,
+    mock_data_received,
     send_plaintext_connect_response,
     send_plaintext_hello,
 )
@@ -720,7 +721,7 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         send_plaintext_hello(protocol)
         send_plaintext_connect_response(protocol, False)
 
-    assert cli._connection.is_connected is True
+    assert cli._connection.is_connected is False
     await asyncio.sleep(0)
 
     with patch.object(event_loop, "sock_connect"), patch.object(
@@ -735,6 +736,71 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         # since its an unexpected disconnect
         assert mock_create_connection.call_count == 0
 
-    assert len(on_disconnect_calls) == 1
-    assert on_disconnect_calls[0] is False
+    # We never actually finished the connection
+    assert len(on_disconnect_calls) == 0
+    await logic.stop()
+
+
+@pytest.mark.asyncio
+async def test_backoff_on_encryption_error(
+    event_loop: asyncio.AbstractEventLoop, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test we backoff on encryption error."""
+    loop = asyncio.get_event_loop()
+    protocol: APIPlaintextFrameHelper | None = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    async_zeroconf = get_mock_async_zeroconf()
+
+    cli = PatchableAPIClient(
+        address="1.2.3.4",
+        port=6052,
+        password=None,
+        noise_psk="",
+        expected_name="fake",
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    connected = asyncio.Event()
+    on_disconnect_calls = []
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        on_disconnect_calls.append(expected_disconnect)
+
+    async def on_connect() -> None:
+        connected.set()
+
+    logic = ReconnectLogic(
+        client=cli,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        zeroconf_instance=async_zeroconf,
+        name="fake",
+    )
+
+    with patch.object(event_loop, "sock_connect"), patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        await logic.start()
+        await connected.wait()
+        protocol = cli._connection._frame_helper
+        mock_data_received(protocol, b"\x01\x00\x00")
+
+    assert cli._connection.is_connected is False
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert len(on_disconnect_calls) == 0
+
+    assert "Scheduling new connect attempt in 60.00 seconds" in caplog.text
+    assert "Connection requires encryption (RequiresEncryptionAPIError)" in caplog.text
+    now = loop.time()
+    assert logic._connect_timer.when() - now == pytest.approx(60, 1)
+    assert logic._tries == MAXIMUM_BACKOFF_TRIES
     await logic.stop()

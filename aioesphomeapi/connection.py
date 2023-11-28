@@ -120,8 +120,8 @@ class ConnectionState(enum.Enum):
     # The handshake has been completed, messages can be exchanged
     HANDSHAKE_COMPLETE = 2
     # The connection has been established, authenticated data can be exchanged
-    CONNECTED = 2
-    CLOSED = 3
+    CONNECTED = 3
+    CLOSED = 4
 
 
 CONNECTION_STATE_INITIALIZED = ConnectionState.INITIALIZED
@@ -593,7 +593,10 @@ class APIConnection:
         """Set the connection state and log the change."""
         self.connection_state = state
         self.is_connected = state is CONNECTION_STATE_CONNECTED
-        self._handshake_complete = state is CONNECTION_STATE_HANDSHAKE_COMPLETE
+        self._handshake_complete = (
+            state is CONNECTION_STATE_HANDSHAKE_COMPLETE
+            or state is CONNECTION_STATE_CONNECTED
+        )
 
     def _make_connect_request(self) -> ConnectRequest:
         """Make a ConnectRequest."""
@@ -772,15 +775,21 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
-        if self._expected_disconnect is False and not self._fatal_exception:
-            # Only log the first error
-            _LOGGER.warning(
-                "%s: Connection error occurred: %s",
-                self.log_name,
-                err or type(err),
-                exc_info=not str(err),  # Log the full stack on empty error string
-            )
-        self._fatal_exception = err
+        if not self._fatal_exception:
+            if self._expected_disconnect is False:
+                # Only log the first error
+                _LOGGER.warning(
+                    "%s: Connection error occurred: %s",
+                    self.log_name,
+                    err or type(err),
+                    exc_info=not str(err),  # Log the full stack on empty error string
+                )
+
+            # Only set the first error since otherwise the original
+            # error will be lost (ie RequiresEncryptionAPIError) and than
+            # SocketClosedAPIError will be raised instead
+            self._fatal_exception = err
+
         self._cleanup()
 
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
