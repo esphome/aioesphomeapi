@@ -143,7 +143,6 @@ def on_bluetooth_message_types(
     | BluetoothGATTReadResponse
     | BluetoothGATTWriteResponse
     | BluetoothDeviceConnectionResponse
-    | BluetoothDeviceConnectionResponse
     | BluetoothGATTGetServicesResponse
     | BluetoothGATTGetServicesDoneResponse
     | BluetoothGATTErrorResponse,
