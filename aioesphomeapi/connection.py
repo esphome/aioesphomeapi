@@ -400,7 +400,7 @@ class APIConnection:
         # Set the frame helper right away to ensure
         # the socket gets closed if we fail to handshake
         self._frame_helper = fh
-        future = self._frame_helper.get_handshake_future()
+        future = self._frame_helper.ready_future
         handshake_handle = self._loop.call_at(
             self._loop.time() + HANDSHAKE_TIMEOUT, handle_timeout, future
         )

@@ -39,7 +39,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""
         super().connection_made(transport)
-        self._ready_future.set_result(None)
+        self.ready_future.set_result(None)
 
     def write_packets(
         self, packets: list[tuple[int, bytes]], debug_enabled: bool

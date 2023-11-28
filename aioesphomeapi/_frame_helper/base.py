@@ -34,7 +34,7 @@ class APIFrameHelper:
         "_connection",
         "_transport",
         "_writer",
-        "_ready_future",
+        "ready_future",
         "_buffer",
         "_buffer_len",
         "_pos",
@@ -54,7 +54,7 @@ class APIFrameHelper:
         self._connection = connection
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
-        self._ready_future = self._loop.create_future()
+        self.ready_future = self._loop.create_future()
         self._buffer: bytes | None = None
         self._buffer_len = 0
         self._pos = 0
@@ -65,9 +65,9 @@ class APIFrameHelper:
         """Set the log name."""
         self._log_name = log_name
 
-    def _set_ready_future_exception(self, exc: Exception | type[Exception]) -> None:
-        if not self._ready_future.done():
-            self._ready_future.set_exception(exc)
+    def _setready_future_exception(self, exc: Exception | type[Exception]) -> None:
+        if not self.ready_future.done():
+            self.ready_future.set_exception(exc)
 
     def _add_to_buffer(self, data: bytes | bytearray | memoryview) -> None:
         """Add data to the buffer."""
@@ -138,7 +138,7 @@ class APIFrameHelper:
 
     def get_handshake_future(self) -> None:
         """Get the handshake future."""
-        return self._ready_future
+        return self.ready_future
 
     @abstractmethod
     def write_packets(
@@ -159,7 +159,7 @@ class APIFrameHelper:
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
-        self._set_ready_future_exception(exc)
+        self._setready_future_exception(exc)
         self._connection.report_fatal_error(exc)
 
     def connection_lost(self, exc: Exception | None) -> None:
