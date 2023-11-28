@@ -1,3 +1,4 @@
+# pylint: disable=unidiomatic-typecheck
 from __future__ import annotations
 
 from asyncio import Future
