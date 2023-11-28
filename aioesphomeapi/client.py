@@ -71,7 +71,6 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
 )
 from .client_callbacks import (
-    handle_timeout,
     on_ble_raw_advertisement_response,
     on_bluetooth_connections_free_response,
     on_bluetooth_device_connection_response,
@@ -81,7 +80,7 @@ from .client_callbacks import (
     on_state_msg,
     on_subscribe_home_assistant_state_response,
 )
-from .connection import APIConnection, ConnectionParams
+from .connection import APIConnection, ConnectionParams, handle_timeout
 from .core import (
     APIConnectionError,
     BluetoothGATTAPIError,

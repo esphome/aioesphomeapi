@@ -5,7 +5,7 @@ import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Callable, cast
 
-from ..core import HandshakeAPIError, SocketClosedAPIError
+from ..core import SocketClosedAPIError
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
@@ -23,6 +23,7 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 _int = int
 _bytes = bytes
+_float = float
 
 
 class APIFrameHelper:
@@ -33,7 +34,7 @@ class APIFrameHelper:
         "_connection",
         "_transport",
         "_writer",
-        "_ready_future",
+        "ready_future",
         "_buffer",
         "_buffer_len",
         "_pos",
@@ -53,7 +54,7 @@ class APIFrameHelper:
         self._connection = connection
         self._transport: asyncio.Transport | None = None
         self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
-        self._ready_future = self._loop.create_future()
+        self.ready_future = self._loop.create_future()
         self._buffer: bytes | None = None
         self._buffer_len = 0
         self._pos = 0
@@ -65,8 +66,8 @@ class APIFrameHelper:
         self._log_name = log_name
 
     def _set_ready_future_exception(self, exc: Exception | type[Exception]) -> None:
-        if not self._ready_future.done():
-            self._ready_future.set_exception(exc)
+        if not self.ready_future.done():
+            self.ready_future.set_exception(exc)
 
     def _add_to_buffer(self, data: bytes | bytearray | memoryview) -> None:
         """Add data to the buffer."""
@@ -134,22 +135,6 @@ class APIFrameHelper:
                 return result
             bitpos += 7
         return -1
-
-    async def perform_handshake(self, timeout: float) -> None:
-        """Perform the handshake with the server."""
-        handshake_handle = self._loop.call_at(
-            self._loop.time() + timeout,
-            self._set_ready_future_exception,
-            asyncio.TimeoutError,
-        )
-        try:
-            await self._ready_future
-        except asyncio.TimeoutError as err:
-            raise HandshakeAPIError(
-                f"{self._log_name}: Timeout during handshake"
-            ) from err
-        finally:
-            handshake_handle.cancel()
 
     @abstractmethod
     def write_packets(
