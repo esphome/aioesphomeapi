@@ -809,30 +809,6 @@ class APIClient:
             timeout,
         )
 
-    async def bluetooth_gatt_write(
-        self,
-        address: int,
-        handle: int,
-        data: bytes,
-        response: bool,
-        timeout: float = DEFAULT_BLE_TIMEOUT,
-    ) -> None:
-        req = BluetoothGATTWriteRequest(
-            address=address, handle=handle, response=response, data=data
-        )
-
-        if not response:
-            self._get_connection().send_message(req)
-            return
-
-        await self._send_bluetooth_message_await_response(
-            address,
-            handle,
-            req,
-            BluetoothGATTWriteResponse,
-            timeout,
-        )
-
     async def bluetooth_gatt_read_descriptor(
         self,
         address: int,
@@ -868,6 +844,22 @@ class APIClient:
             assert isinstance(resp, BluetoothGATTReadResponse)
         return bytearray(resp.data)
 
+    async def bluetooth_gatt_write(
+        self,
+        address: int,
+        handle: int,
+        data: bytes,
+        response: bool,
+        timeout: float = DEFAULT_BLE_TIMEOUT,
+    ) -> None:
+        await self._bluetooth_gatt_write(
+            address,
+            handle,
+            BluetoothGATTWriteRequest(response=response, data=data),
+            timeout,
+            response,
+        )
+
     async def bluetooth_gatt_write_descriptor(
         self,
         address: int,
@@ -876,14 +868,28 @@ class APIClient:
         timeout: float = DEFAULT_BLE_TIMEOUT,
         wait_for_response: bool = True,
     ) -> None:
-        req = BluetoothGATTWriteDescriptorRequest(
-            address=address, handle=handle, data=data
+        await self._bluetooth_gatt_write(
+            address,
+            handle,
+            BluetoothGATTWriteDescriptorRequest(data=data),
+            timeout,
+            wait_for_response,
         )
 
+    async def _bluetooth_gatt_write(
+        self,
+        address: int,
+        handle: int,
+        req: BluetoothGATTWriteDescriptorRequest | BluetoothGATTWriteRequest,
+        timeout: float,
+        wait_for_response: bool,
+    ) -> None:
+        """Perform a GATT write to a char or descriptor."""
+        req.address = address
+        req.handle = handle
         if not wait_for_response:
             self._get_connection().send_message(req)
             return
-
         await self._send_bluetooth_message_await_response(
             address,
             handle,
