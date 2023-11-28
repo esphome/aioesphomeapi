@@ -66,7 +66,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantRequest,
     VoiceAssistantResponse,
 )
-from aioesphomeapi.client import APIClient
+from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -956,8 +956,50 @@ async def test_bluetooth_pair_connection_drops(
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     with pytest.raises(
-        APIConnectionError,
-        match="Peripheral changed connections status while pairing: 13",
+        BluetoothConnectionDroppedError,
+        match="Peripheral changed connection status while waiting for BluetoothDevicePairingResponse: Invalid attribute length",
+    ):
+        await pair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_unpair_connection_drops(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test connection drop during bluetooth_device_unpair."""
+    client, connection, transport, protocol = api_client
+    pair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, error=13
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    with pytest.raises(
+        BluetoothConnectionDroppedError,
+        match="Peripheral changed connection status while waiting for BluetoothDeviceUnpairingResponse: Invalid attribute length",
+    ):
+        await pair_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_clear_cache_connection_drops(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test connection drop during bluetooth_device_clear_cache."""
+    client, connection, transport, protocol = api_client
+    pair_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, error=13
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    with pytest.raises(
+        BluetoothConnectionDroppedError,
+        match="Peripheral changed connection status while waiting for BluetoothDeviceClearCacheResponse: Invalid attribute length",
     ):
         await pair_task
 
