@@ -49,7 +49,7 @@ from .core import (
     TimeoutAPIError,
     UnhandledAPIConnectionError,
 )
-from .model import APIVersion
+from .model import APIVersion, message_types_to_names
 from .zeroconf import ZeroconfManager
 
 if sys.version_info[:2] < (3, 11):
@@ -758,7 +758,7 @@ class APIConnection:
             await fut
         except asyncio_TimeoutError as err:
             timeout_expired = True
-            response_names = ", ".join(t.__name__ for t in msg_types)
+            response_names = message_types_to_names(msg_types)
             raise TimeoutAPIError(
                 f"Timeout waiting for {response_names} after {timeout}s"
             ) from err

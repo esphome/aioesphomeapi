@@ -228,6 +228,10 @@ class UnhandledAPIConnectionError(APIConnectionError):
     pass
 
 
+class BluetoothConnectionDroppedError(APIConnectionError):
+    """Raised when a Bluetooth connection is dropped."""
+
+
 def to_human_readable_address(address: int) -> str:
     """Convert a MAC address to a human readable format."""
     return ":".join(TWO_CHAR.findall(f"{address:012X}"))
