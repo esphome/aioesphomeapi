@@ -8,6 +8,8 @@ from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
+from google.protobuf import message
+
 from .util import fix_float_single_double_conversion
 
 if sys.version_info[:2] < (3, 10):
@@ -1166,3 +1168,7 @@ def build_unique_id(formatted_mac: str, entity_info: EntityInfo) -> str:
     """
     # <mac>-<entity type>-<object_id>
     return f"{formatted_mac}-{_TYPE_TO_NAME[type(entity_info)]}-{entity_info.object_id}"
+
+
+def message_types_to_names(msg_types: Iterable[type[message.Message]]) -> list[str]:
+    return ", ".join(t.__name__ for t in msg_types)

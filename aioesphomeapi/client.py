@@ -702,8 +702,9 @@ class APIClient:
             timeout,
         )
         if (
-            type(response) is BluetoothDeviceConnectionResponse
-        ):  # pylint: disable=unidiomatic-typecheck
+            type(response)
+            is BluetoothDeviceConnectionResponse  # pylint: disable=unidiomatic-typecheck
+        ):
             self._raise_for_ble_connection_change(address, response, msg_types)
         return response
 
