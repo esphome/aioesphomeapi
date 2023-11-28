@@ -463,8 +463,8 @@ class APIClient:
             type(msg)  # pylint: disable=unidiomatic-typecheck
             is BluetoothDeviceConnectionResponse
         ):
-            return msg.address == address
-        return msg.address == address and msg.handle == handle
+            return bool(msg.address == address)
+        return bool(msg.address == address and msg.handle == handle)
 
     async def _send_bluetooth_message_await_response(
         self,
