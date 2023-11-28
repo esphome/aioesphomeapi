@@ -336,19 +336,13 @@ class APIClient:
         """Start connecting to the device."""
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self.log_name}!")
-
         self._connection = APIConnection(
             self._params,
             partial(self._on_stop, on_stop),
             self._debug_enabled,
             self.log_name,
         )
-
-        try:
-            await self._connection.start_connection()
-        except Exception:
-            self._connection = None
-            raise
+        await self._execute_connection_coro(self._connection.start_connection())
         # If we resolved the address, we should set the log name now
         if self._connection.resolved_addr_info:
             self._set_log_name()
@@ -360,13 +354,19 @@ class APIClient:
         """Finish connecting to the device."""
         if TYPE_CHECKING:
             assert self._connection is not None
-        try:
-            await self._connection.finish_connection(login=login)
-        except Exception:
-            self._connection = None
-            raise
+        await self._execute_connection_coro(
+            self._connection.finish_connection(login=login)
+        )
         if received_name := self._connection.received_name:
             self._set_name_from_device(received_name)
+
+    async def _execute_connection_coro(self, coro: Awaitable[None]) -> None:
+        """Execute a coroutine and reset the _connection if it fails."""
+        try:
+            await coro
+        except Exception:  # pylint: disable=broad-except
+            self._connection = None
+            raise
 
     async def disconnect(self, force: bool = False) -> None:
         if self._connection is None:
