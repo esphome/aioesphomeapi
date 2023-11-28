@@ -76,8 +76,9 @@ from .client_callbacks import (
     on_bluetooth_connections_free_response,
     on_bluetooth_device_connection_response,
     on_bluetooth_gatt_notify_data_response,
+    on_bluetooth_handle_message,
     on_bluetooth_le_advertising_response,
-    on_bluetooth_message,
+    on_bluetooth_message_types,
     on_home_assistant_service_response,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
@@ -465,7 +466,7 @@ class APIClient:
         ),
         timeout: float = 10.0,
     ) -> message.Message:
-        message_filter = partial(on_bluetooth_message, address, handle)
+        message_filter = partial(on_bluetooth_handle_message, address, handle)
         msg_types = (response_type, BluetoothGATTErrorResponse)
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (request,),
@@ -684,11 +685,12 @@ class APIClient:
         timeout: float,
     ) -> message.Message:
         """Send a BluetoothDeviceRequest watch for the connection state to change."""
+        types_with_response = (BluetoothDeviceConnectionResponse, *msg_types)
         response = await self._bluetooth_device_request(
             address,
             request_type,
-            lambda msg: msg.address == address,
-            (BluetoothDeviceConnectionResponse, *msg_types),
+            partial(on_bluetooth_message_types, address, types_with_response),
+            types_with_response,
             timeout,
         )
         self._raise_for_ble_connection_change(address, response, msg_types)
@@ -720,13 +722,9 @@ class APIClient:
         timeout: float,
     ) -> message.Message:
         """Send a BluetoothDeviceRequest and wait for a response."""
+        req = BluetoothDeviceRequest(address=address, request_type=request_type)
         [response] = await self._get_connection().send_messages_await_response_complex(
-            (
-                BluetoothDeviceRequest(
-                    address=address,
-                    request_type=request_type,
-                ),
-            ),
+            (req,),
             predicate_func,
             predicate_func,
             msg_types,
@@ -737,42 +735,18 @@ class APIClient:
     async def bluetooth_gatt_get_services(
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
-        append_types = (
-            BluetoothDeviceConnectionResponse,
-            BluetoothGATTGetServicesResponse,
-            BluetoothGATTErrorResponse,
-        )
-        stop_types = (
-            BluetoothDeviceConnectionResponse,
-            BluetoothGATTGetServicesDoneResponse,
-            BluetoothGATTErrorResponse,
-        )
+        error_types = (BluetoothGATTErrorResponse, BluetoothDeviceConnectionResponse)
+        append_types = (*error_types, BluetoothGATTGetServicesResponse)
+        stop_types = (*error_types, BluetoothGATTGetServicesDoneResponse)
         msg_types = (
             BluetoothGATTGetServicesResponse,
             BluetoothGATTGetServicesDoneResponse,
             BluetoothGATTErrorResponse,
         )
-
-        def do_append(
-            msg: BluetoothDeviceConnectionResponse
-            | BluetoothGATTGetServicesResponse
-            | BluetoothGATTGetServicesDoneResponse
-            | BluetoothGATTErrorResponse,
-        ) -> bool:
-            return type(msg) in append_types and msg.address == address
-
-        def do_stop(
-            msg: BluetoothDeviceConnectionResponse
-            | BluetoothGATTGetServicesResponse
-            | BluetoothGATTGetServicesDoneResponse
-            | BluetoothGATTErrorResponse,
-        ) -> bool:
-            return type(msg) in stop_types and msg.address == address
-
         resp = await self._get_connection().send_messages_await_response_complex(
             (BluetoothGATTGetServicesRequest(address=address),),
-            do_append,
-            do_stop,
+            partial(on_bluetooth_message_types, address, append_types),
+            partial(on_bluetooth_message_types, address, stop_types),
             (*msg_types, BluetoothDeviceConnectionResponse),
             DEFAULT_BLE_TIMEOUT,
         )
