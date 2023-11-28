@@ -388,27 +388,23 @@ class APIClient:
     async def list_entities_services(
         self,
     ) -> tuple[list[EntityInfo], list[UserService]]:
-        response_types = LIST_ENTITIES_SERVICES_RESPONSE_TYPES
-        msg_types = LIST_ENTITIES_MSG_TYPES
-
-        def do_append(msg: message.Message) -> bool:
-            return type(msg) is not ListEntitiesDoneResponse
-
-        def do_stop(msg: message.Message) -> bool:
-            return type(msg) is ListEntitiesDoneResponse
-
-        resp = await self._get_connection().send_messages_await_response_complex(
-            (ListEntitiesRequest(),), do_append, do_stop, msg_types, 60
+        msgs = await self._get_connection().send_messages_await_response_complex(
+            (ListEntitiesRequest(),),
+            lambda msg: type(msg) is not ListEntitiesDoneResponse,
+            lambda msg: type(msg) is ListEntitiesDoneResponse,
+            LIST_ENTITIES_MSG_TYPES,
+            60,
         )
         entities: list[EntityInfo] = []
         services: list[UserService] = []
-        for msg in resp:
-            if type(msg) is ListEntitiesServicesResponse:
+        response_types = LIST_ENTITIES_SERVICES_RESPONSE_TYPES
+        for msg in msgs:
+            msg_type = type(msg)
+            if msg_type is ListEntitiesServicesResponse:
                 services.append(UserService.from_pb(msg))
                 continue
-            cls = response_types[type(msg)]
-            assert cls is not None
-            entities.append(cls.from_pb(msg))
+            if cls := response_types[msg_type]:
+                entities.append(cls.from_pb(msg))
         return entities, services
 
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
