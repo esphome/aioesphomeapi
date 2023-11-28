@@ -830,7 +830,7 @@ class APIClient:
             handle,
             req,
             BluetoothGATTWriteResponse,
-            timeout=timeout,
+            timeout,
         )
 
     async def bluetooth_gatt_read_descriptor(
@@ -862,7 +862,7 @@ class APIClient:
             handle,
             req,
             BluetoothGATTReadResponse,
-            timeout=timeout,
+            timeout,
         )
         if TYPE_CHECKING:
             assert isinstance(resp, BluetoothGATTReadResponse)
@@ -889,7 +889,7 @@ class APIClient:
             handle,
             req,
             BluetoothGATTWriteResponse,
-            timeout=timeout,
+            timeout,
         )
 
     async def bluetooth_gatt_start_notify(
@@ -897,6 +897,7 @@ class APIClient:
         address: int,
         handle: int,
         on_bluetooth_gatt_notify: Callable[[int, bytearray], None],
+        timeout: float = 10.0,
     ) -> tuple[Callable[[], Coroutine[Any, Any, None]], Callable[[], None]]:
         """Start a notify session for a GATT characteristic.
 
@@ -924,6 +925,7 @@ class APIClient:
                 handle,
                 BluetoothGATTNotifyRequest(address=address, handle=handle, enable=True),
                 BluetoothGATTNotifyResponse,
+                timeout,
             )
         except Exception:
             remove_callback()
