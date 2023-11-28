@@ -399,10 +399,11 @@ class APIClient:
         services: list[UserService] = []
         response_types = LIST_ENTITIES_SERVICES_RESPONSE_TYPES
         for msg in msgs:
-            if type(msg) is ListEntitiesServicesResponse:
+            msg_type = type(msg)
+            if msg_type is ListEntitiesServicesResponse:
                 services.append(UserService.from_pb(msg))
                 continue
-            if cls := response_types[type(msg)]:
+            if cls := response_types[msg_type]:
                 entities.append(cls.from_pb(msg))
         return entities, services
 
