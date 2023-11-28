@@ -1163,7 +1163,6 @@ class APIClient:
         apiv = self.api_version
         if TYPE_CHECKING:
             assert apiv is not None
-        int_type = "int_" if apiv >= APIVersion(1, 3) else "legacy_int"
         map_single = USER_SERVICE_MAP_SINGLE
         map_array = USER_SERVICE_MAP_ARRAY
         for arg_desc in service.args:
