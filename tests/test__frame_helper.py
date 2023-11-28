@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,12 +25,7 @@ from aioesphomeapi.core import (
     SocketClosedAPIError,
 )
 
-from .common import (
-    async_fire_time_changed,
-    get_mock_protocol,
-    mock_data_received,
-    utcnow,
-)
+from .common import get_mock_protocol, mock_data_received
 from .conftest import get_mock_connection_params
 
 PREAMBLE = b"\x00"
@@ -407,35 +401,6 @@ async def test_noise_incorrect_name():
         mock_data_received(helper, bytes.fromhex(pkt))
 
     with pytest.raises(BadNameAPIError):
-        await helper.ready_future
-
-
-@pytest.mark.skip
-@pytest.mark.asyncio
-async def test_noise_timeout():
-    """Test we raise on bad name."""
-    outgoing_packets = [
-        "010000",  # hello packet
-        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
-    ]
-
-    connection, _ = _make_mock_connection()
-
-    helper = MockAPINoiseFrameHelper(
-        connection=connection,
-        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
-        expected_name="wrongname",
-        client_info="my client",
-        log_name="test",
-    )
-
-    for pkt in outgoing_packets:
-        helper.mock_write_frame(bytes.fromhex(pkt))
-
-    await asyncio.sleep(0)
-    async_fire_time_changed(utcnow() + timedelta(seconds=60))
-    await asyncio.sleep(0)
-    with pytest.raises(HandshakeAPIError):
         await helper.ready_future
 
 
