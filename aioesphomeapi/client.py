@@ -704,13 +704,23 @@ class APIClient:
         if (
             type(response) is BluetoothDeviceConnectionResponse
         ):  # pylint: disable=unidiomatic-typecheck
-            response_names = message_types_to_names(msg_types)
-            raise BluetoothConnectionDroppedError(
-                "Peripheral changed connection status while waiting for "
-                f"{response_names}: {to_human_readable_gatt_error(response.error)} "
-                f"({response.error})"
-            )
+            self._raise_for_ble_connection_change(address, response, msg_types)
         return response
+
+    def _raise_for_ble_connection_change(
+        self,
+        address: int,
+        response: BluetoothDeviceConnectionResponse,
+        msg_types: tuple[type[message.Message], ...],
+    ) -> None:
+        """Raise an exception if the connection status changed."""
+        response_names = message_types_to_names(msg_types)
+        human_readable_address = to_human_readable_address(address)
+        raise BluetoothConnectionDroppedError(
+            f"Peripheral {human_readable_address} changed connection status while waiting for "
+            f"{response_names}: {to_human_readable_gatt_error(response.error)} "
+            f"({response.error})"
+        )
 
     async def _bluetooth_device_request(
         self,
