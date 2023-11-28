@@ -118,19 +118,16 @@ def on_bluetooth_device_connection_response(
             connect_future.set_result(None)
 
 
-def on_bluetooth_message(address: int, handle: int, msg: message.Message) -> bool:
+def on_bluetooth_message(
+    address: int,
+    handle: int,
+    msg: BluetoothGATTErrorResponse
+    | BluetoothGATTNotifyResponse
+    | BluetoothGATTReadResponse
+    | BluetoothGATTWriteResponse
+    | BluetoothDeviceConnectionResponse,
+) -> bool:
     """Handle a Bluetooth message."""
-    if TYPE_CHECKING:
-        assert isinstance(
-            msg,
-            (
-                BluetoothGATTErrorResponse,
-                BluetoothGATTNotifyResponse,
-                BluetoothGATTReadResponse,
-                BluetoothGATTWriteResponse,
-                BluetoothDeviceConnectionResponse,
-            ),
-        )
     if type(msg) is BluetoothDeviceConnectionResponse:
         return bool(msg.address == address)
     return bool(msg.address == address and msg.handle == handle)
