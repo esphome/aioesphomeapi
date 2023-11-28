@@ -119,7 +119,11 @@ from .model import (
     UserServiceArgType,
 )
 from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
-from .model import VoiceAssistantCommand, VoiceAssistantEventType
+from .model import (
+    VoiceAssistantCommand,
+    VoiceAssistantEventType,
+    message_types_to_names,
+)
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
@@ -697,8 +701,10 @@ class APIClient:
             (BluetoothDeviceConnectionResponse, *msg_types),
             timeout,
         )
-        if type(response) is BluetoothDeviceConnectionResponse:
-            response_names = ", ".join(t.__name__ for t in msg_types)
+        if (
+            type(response) is BluetoothDeviceConnectionResponse
+        ):  # pylint: disable=unidiomatic-typecheck
+            response_names = message_types_to_names(msg_types)
             raise BluetoothConnectionDroppedError(
                 "Peripheral changed connection status while waiting for "
                 f"{response_names}: {to_human_readable_gatt_error(response.error)} "
