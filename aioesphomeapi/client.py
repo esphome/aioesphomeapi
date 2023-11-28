@@ -723,15 +723,14 @@ class APIClient:
     ) -> message.Message:
         """Send a BluetoothDeviceRequest and wait for a response."""
         req = BluetoothDeviceRequest(address=address, request_type=request_type)
-        return (
-            await self._get_connection().send_messages_await_response_complex(
-                req,
-                predicate_func,
-                predicate_func,
-                msg_types,
-                timeout,
-            )
-        )[0]
+        [response] = await self._get_connection().send_messages_await_response_complex(
+            req,
+            predicate_func,
+            predicate_func,
+            msg_types,
+            timeout,
+        )
+        return response
 
     async def bluetooth_gatt_get_services(
         self, address: int
