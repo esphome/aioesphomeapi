@@ -920,8 +920,7 @@ class APIClient:
         tilt: float | None = None,
         stop: bool = False,
     ) -> None:
-        req = CoverCommandRequest()
-        req.key = key
+        req = CoverCommandRequest(key=key)
         apiv = cast(APIVersion, self.api_version)
         if apiv >= APIVersion(1, 1):
             if position is not None:
@@ -954,8 +953,7 @@ class APIClient:
         oscillating: bool | None = None,
         direction: FanDirection | None = None,
     ) -> None:
-        req = FanCommandRequest()
-        req.key = key
+        req = FanCommandRequest(key=key)
         if state is not None:
             req.has_state = True
             req.state = state
@@ -990,8 +988,7 @@ class APIClient:
         flash_length: float | None = None,
         effect: str | None = None,
     ) -> None:
-        req = LightCommandRequest()
-        req.key = key
+        req = LightCommandRequest(key=key)
         if state is not None:
             req.has_state = True
             req.state = state
@@ -1034,11 +1031,7 @@ class APIClient:
         self._get_connection().send_message(req)
 
     async def switch_command(self, key: int, state: bool) -> None:
-        req = SwitchCommandRequest()
-        req.key = key
-        req.state = state
-
-        self._get_connection().send_message(req)
+        self._get_connection().send_message(SwitchCommandRequest(key=key, state=state))
 
     async def climate_command(  # pylint: disable=too-many-branches
         self,
@@ -1055,8 +1048,7 @@ class APIClient:
         target_humidity: float | None = None,
         aux_heat: bool | None = None,
     ) -> None:
-        req = ClimateCommandRequest()
-        req.key = key
+        req = ClimateCommandRequest(key=key)
         if mode is not None:
             req.has_mode = True
             req.mode = mode
@@ -1099,18 +1091,10 @@ class APIClient:
         self._get_connection().send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
-        req = NumberCommandRequest()
-        req.key = key
-        req.state = state
-
-        self._get_connection().send_message(req)
+        self._get_connection().send_message(NumberCommandRequest(key=key, state=state))
 
     async def select_command(self, key: int, state: str) -> None:
-        req = SelectCommandRequest()
-        req.key = key
-        req.state = state
-
-        self._get_connection().send_message(req)
+        self._get_connection().send_message(SelectCommandRequest(key=key, state=state))
 
     async def siren_command(
         self,
@@ -1120,8 +1104,7 @@ class APIClient:
         volume: float | None = None,
         duration: int | None = None,
     ) -> None:
-        req = SirenCommandRequest()
-        req.key = key
+        req = SirenCommandRequest(key=key)
         if state is not None:
             req.state = state
             req.has_state = True
@@ -1138,10 +1121,7 @@ class APIClient:
         self._get_connection().send_message(req)
 
     async def button_command(self, key: int) -> None:
-        req = ButtonCommandRequest()
-        req.key = key
-
-        self._get_connection().send_message(req)
+        self._get_connection().send_message(ButtonCommandRequest(key=key))
 
     async def lock_command(
         self,
@@ -1149,12 +1129,9 @@ class APIClient:
         command: LockCommand,
         code: str | None = None,
     ) -> None:
-        req = LockCommandRequest()
-        req.key = key
-        req.command = command
+        req = LockCommandRequest(key=key, command=command)
         if code is not None:
             req.code = code
-
         self._get_connection().send_message(req)
 
     async def media_player_command(
@@ -1165,8 +1142,7 @@ class APIClient:
         volume: float | None = None,
         media_url: str | None = None,
     ) -> None:
-        req = MediaPlayerCommandRequest()
-        req.key = key
+        req = MediaPlayerCommandRequest(key=key)
         if command is not None:
             req.command = command
             req.has_command = True
@@ -1180,17 +1156,12 @@ class APIClient:
         self._get_connection().send_message(req)
 
     async def text_command(self, key: int, state: str) -> None:
-        req = TextCommandRequest()
-        req.key = key
-        req.state = state
-
-        self._get_connection().send_message(req)
+        self._get_connection().send_message(TextCommandRequest(key=key, state=state))
 
     async def execute_service(
         self, service: UserService, data: ExecuteServiceDataType
     ) -> None:
-        req = ExecuteServiceRequest()
-        req.key = service.key
+        req = ExecuteServiceRequest(key=service.key)
         args = []
         for arg_desc in service.args:
             arg = ExecuteServiceArgument()
@@ -1225,11 +1196,9 @@ class APIClient:
     async def _request_image(
         self, *, single: bool = False, stream: bool = False
     ) -> None:
-        req = CameraImageRequest()
-        req.single = single
-        req.stream = stream
-
-        self._get_connection().send_message(req)
+        self._get_connection().send_message(
+            CameraImageRequest(single=single, stream=stream)
+        )
 
     async def request_single_image(self) -> None:
         await self._request_image(single=True)
@@ -1331,10 +1300,7 @@ class APIClient:
         command: AlarmControlPanelCommand,
         code: str | None = None,
     ) -> None:
-        req = AlarmControlPanelCommandRequest()
-        req.key = key
-        req.command = command
+        req = AlarmControlPanelCommandRequest(key=key, command=command)
         if code is not None:
             req.code = code
-
         self._get_connection().send_message(req)
