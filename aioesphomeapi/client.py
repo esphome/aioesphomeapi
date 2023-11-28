@@ -83,9 +83,11 @@ from .client_callbacks import (
 from .connection import APIConnection, ConnectionParams, handle_timeout
 from .core import (
     APIConnectionError,
+    BluetoothConnectionDroppedError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
     to_human_readable_address,
+    to_human_readable_gatt_error,
 )
 from .model import (
     AlarmControlPanelCommand,
@@ -118,7 +120,11 @@ from .model import (
     UserServiceArgType,
 )
 from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
-from .model import VoiceAssistantCommand, VoiceAssistantEventType
+from .model import (
+    VoiceAssistantCommand,
+    VoiceAssistantEventType,
+    message_types_to_names,
+)
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
@@ -632,26 +638,11 @@ class APIClient:
     async def bluetooth_device_pair(
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDevicePairing:
-        def predicate_func(
-            msg: BluetoothDevicePairingResponse | BluetoothDeviceConnectionResponse,
-        ) -> bool:
-            if msg.address != address:
-                return False
-            if isinstance(msg, BluetoothDeviceConnectionResponse):
-                raise APIConnectionError(
-                    f"Peripheral changed connections status while pairing: {msg.error}"
-                )
-            return True
-
         return BluetoothDevicePairing.from_pb(
-            await self._bluetooth_device_request(
+            await self._bluetooth_device_request_watch_connection(
                 address,
                 BluetoothDeviceRequestType.PAIR,
-                predicate_func,
-                (
-                    BluetoothDevicePairingResponse,
-                    BluetoothDeviceConnectionResponse,
-                ),
+                (BluetoothDevicePairingResponse,),
                 timeout,
             )
         )
@@ -660,10 +651,9 @@ class APIClient:
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDeviceUnpairing:
         return BluetoothDeviceUnpairing.from_pb(
-            await self._bluetooth_device_request(
+            await self._bluetooth_device_request_watch_connection(
                 address,
                 BluetoothDeviceRequestType.UNPAIR,
-                lambda msg: msg.address == address,
                 (BluetoothDeviceUnpairingResponse,),
                 timeout,
             )
@@ -673,10 +663,9 @@ class APIClient:
         self, address: int, timeout: float = DEFAULT_BLE_TIMEOUT
     ) -> BluetoothDeviceClearCache:
         return BluetoothDeviceClearCache.from_pb(
-            await self._bluetooth_device_request(
+            await self._bluetooth_device_request_watch_connection(
                 address,
                 BluetoothDeviceRequestType.CLEAR_CACHE,
-                lambda msg: msg.address == address,
                 (BluetoothDeviceClearCacheResponse,),
                 timeout,
             )
@@ -694,6 +683,43 @@ class APIClient:
             timeout,
         )
 
+    async def _bluetooth_device_request_watch_connection(
+        self,
+        address: int,
+        request_type: BluetoothDeviceRequestType,
+        msg_types: tuple[type[message.Message], ...],
+        timeout: float,
+    ) -> message.Message:
+        """Send a BluetoothDeviceRequest watch for the connection state to change."""
+        response = await self._bluetooth_device_request(
+            address,
+            request_type,
+            lambda msg: msg.address == address,
+            (BluetoothDeviceConnectionResponse, *msg_types),
+            timeout,
+        )
+        if (
+            type(response)  # pylint: disable=unidiomatic-typecheck
+            is BluetoothDeviceConnectionResponse
+        ):
+            self._raise_for_ble_connection_change(address, response, msg_types)
+        return response
+
+    def _raise_for_ble_connection_change(
+        self,
+        address: int,
+        response: BluetoothDeviceConnectionResponse,
+        msg_types: tuple[type[message.Message], ...],
+    ) -> None:
+        """Raise an exception if the connection status changed."""
+        response_names = message_types_to_names(msg_types)
+        human_readable_address = to_human_readable_address(address)
+        raise BluetoothConnectionDroppedError(
+            f"Peripheral {human_readable_address} changed connection status while waiting for "
+            f"{response_names}: {to_human_readable_gatt_error(response.error)} "
+            f"({response.error})"
+        )
+
     async def _bluetooth_device_request(
         self,
         address: int,
@@ -702,6 +728,7 @@ class APIClient:
         msg_types: tuple[type[message.Message], ...],
         timeout: float,
     ) -> message.Message:
+        """Send a BluetoothDeviceRequest and wait for a response."""
         [response] = await self._get_connection().send_messages_await_response_complex(
             (
                 BluetoothDeviceRequest(
@@ -941,7 +968,6 @@ class APIClient:
             elif position == 0.0:
                 req.legacy_command = LegacyCoverCommand.CLOSE
                 req.has_legacy_command = True
-
         self._get_connection().send_message(req)
 
     async def fan_command(
@@ -969,7 +995,6 @@ class APIClient:
         if direction is not None:
             req.has_direction = True
             req.direction = direction
-
         self._get_connection().send_message(req)
 
     async def light_command(  # pylint: disable=too-many-branches
@@ -1027,7 +1052,6 @@ class APIClient:
         if effect is not None:
             req.has_effect = True
             req.effect = effect
-
         self._get_connection().send_message(req)
 
     async def switch_command(self, key: int, state: bool) -> None:
@@ -1079,7 +1103,6 @@ class APIClient:
         if custom_preset is not None:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
-
         self._get_connection().send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
@@ -1109,7 +1132,6 @@ class APIClient:
         if duration is not None:
             req.duration = duration
             req.has_duration = True
-
         self._get_connection().send_message(req)
 
     async def button_command(self, key: int) -> None:
@@ -1144,7 +1166,6 @@ class APIClient:
         if media_url is not None:
             req.media_url = media_url
             req.has_media_url = True
-
         self._get_connection().send_message(req)
 
     async def text_command(self, key: int, state: str) -> None:
