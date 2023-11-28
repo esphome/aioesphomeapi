@@ -5,7 +5,7 @@ import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Callable, cast
 
-from ..core import HandshakeAPIError, SocketClosedAPIError
+from ..core import SocketClosedAPIError
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
@@ -23,6 +23,7 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 _int = int
 _bytes = bytes
+_float = float
 
 
 class APIFrameHelper:
@@ -135,21 +136,9 @@ class APIFrameHelper:
             bitpos += 7
         return -1
 
-    async def perform_handshake(self, timeout: float) -> None:
-        """Perform the handshake with the server."""
-        handshake_handle = self._loop.call_at(
-            self._loop.time() + timeout,
-            self._set_ready_future_exception,
-            asyncio.TimeoutError,
-        )
-        try:
-            await self._ready_future
-        except asyncio.TimeoutError as err:
-            raise HandshakeAPIError(
-                f"{self._log_name}: Timeout during handshake"
-            ) from err
-        finally:
-            handshake_handle.cancel()
+    def get_handshake_future(self) -> None:
+        """Get the handshake future."""
+        return self._ready_future
 
     @abstractmethod
     def write_packets(

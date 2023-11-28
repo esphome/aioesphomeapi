@@ -12,7 +12,7 @@ import time
 from asyncio import CancelledError
 from asyncio import TimeoutError as asyncio_TimeoutError
 from dataclasses import astuple, dataclass
-from functools import partial
+from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable
 
 from google.protobuf import message
@@ -66,6 +66,7 @@ DISCONNECT_REQUEST_MESSAGE = DisconnectRequest()
 DISCONNECT_RESPONSE_MESSAGE = DisconnectResponse()
 PING_REQUEST_MESSAGE = PingRequest()
 PING_RESPONSE_MESSAGE = PingResponse()
+NO_PASSWORD_CONNECT_REQUEST = ConnectRequest()
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
@@ -129,6 +130,46 @@ CONNECTION_STATE_SOCKET_OPENED = ConnectionState.SOCKET_OPENED
 CONNECTION_STATE_HANDSHAKE_COMPLETE = ConnectionState.HANDSHAKE_COMPLETE
 CONNECTION_STATE_CONNECTED = ConnectionState.CONNECTED
 CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
+
+
+def _make_hello_request(client_info: str) -> HelloRequest:
+    """Make a HelloRequest."""
+    return HelloRequest(
+        client_info=client_info,
+        api_version_major=1,
+        api_version_minor=9,
+    )
+
+
+_cached_make_hello_request = lru_cache(maxsize=16)(_make_hello_request)
+make_hello_request = _cached_make_hello_request
+
+
+def _handle_timeout(fut: asyncio.Future[None]) -> None:
+    """Handle a timeout."""
+    if not fut.done():
+        fut.set_exception(asyncio_TimeoutError)
+
+
+handle_timeout = _handle_timeout
+
+
+def _handle_complex_message(
+    fut: asyncio.Future[None],
+    responses: list[message.Message],
+    do_append: Callable[[message.Message], bool] | None,
+    do_stop: Callable[[message.Message], bool] | None,
+    resp: message.Message,
+) -> None:
+    """Handle a message that is part of a response."""
+    if not fut.done():
+        if do_append is None or do_append(resp):
+            responses.append(resp)
+        if do_stop is None or do_stop(resp):
+            fut.set_result(None)
+
+
+handle_complex_message = _handle_complex_message
 
 
 class APIConnection:
@@ -359,24 +400,23 @@ class APIConnection:
         # Set the frame helper right away to ensure
         # the socket gets closed if we fail to handshake
         self._frame_helper = fh
-
+        future = self._frame_helper.get_handshake_future()
+        handshake_handle = self._loop.call_at(
+            self._loop.time() + HANDSHAKE_TIMEOUT, handle_timeout, future
+        )
         try:
-            await fh.perform_handshake(HANDSHAKE_TIMEOUT)
+            await future
         except asyncio_TimeoutError as err:
             raise TimeoutAPIError("Handshake timed out") from err
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
+        finally:
+            handshake_handle.cancel()
         self._set_connection_state(CONNECTION_STATE_HANDSHAKE_COMPLETE)
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
-        messages = [
-            HelloRequest(
-                client_info=self._params.client_info,
-                api_version_major=1,
-                api_version_minor=9,
-            )
-        ]
+        messages = [make_hello_request(self._params.client_info)]
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_connect_request())
@@ -600,10 +640,9 @@ class APIConnection:
 
     def _make_connect_request(self) -> ConnectRequest:
         """Make a ConnectRequest."""
-        connect = ConnectRequest()
         if self._params.password is not None:
-            connect.password = self._params.password
-        return connect
+            return ConnectRequest(password=self._params.password)
+        return NO_PASSWORD_CONNECT_REQUEST
 
     def send_message(self, msg: message.Message) -> None:
         """Send a message to the remote."""
@@ -679,26 +718,6 @@ class APIConnection:
         # we register the handler after sending the message
         return self.add_message_callback(on_message, msg_types)
 
-    def _handle_timeout(self, fut: asyncio.Future[None]) -> None:
-        """Handle a timeout."""
-        if not fut.done():
-            fut.set_exception(asyncio_TimeoutError)
-
-    def _handle_complex_message(
-        self,
-        fut: asyncio.Future[None],
-        responses: list[message.Message],
-        do_append: Callable[[message.Message], bool] | None,
-        do_stop: Callable[[message.Message], bool] | None,
-        resp: message.Message,
-    ) -> None:
-        """Handle a message that is part of a response."""
-        if not fut.done():
-            if do_append is None or do_append(resp):
-                responses.append(resp)
-            if do_stop is None or do_stop(resp):
-                fut.set_result(None)
-
     async def send_messages_await_response_complex(  # pylint: disable=too-many-locals
         self,
         messages: tuple[message.Message, ...],
@@ -724,19 +743,16 @@ class APIConnection:
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = loop.create_future()
         responses: list[message.Message] = []
-        handler = self._handle_complex_message
-        on_message = partial(handler, fut, responses, do_append, do_stop)
-
-        read_exception_futures = self._read_exception_futures
+        on_message = partial(handle_complex_message, fut, responses, do_append, do_stop)
         self._add_message_callback_without_remove(on_message, msg_types)
 
-        read_exception_futures.add(fut)
+        self._read_exception_futures.add(fut)
         # Now safe to await since we have registered the handler
 
         # We must not await without a finally or
         # the message could fail to be removed if the
         # the await is cancelled
-        timeout_handle = loop.call_at(loop.time() + timeout, self._handle_timeout, fut)
+        timeout_handle = loop.call_at(loop.time() + timeout, handle_timeout, fut)
         timeout_expired = False
         try:
             await fut
@@ -750,7 +766,7 @@ class APIConnection:
             if not timeout_expired:
                 timeout_handle.cancel()
             self._remove_message_callback(on_message, msg_types)
-            read_exception_futures.discard(fut)
+            self._read_exception_futures.discard(fut)
 
         return responses
 
@@ -775,7 +791,7 @@ class APIConnection:
         The connection will be closed, all exception handlers notified.
         This method does not log the error, the call site should do so.
         """
-        if not self._fatal_exception:
+        if self._fatal_exception is None:
             if self._expected_disconnect is False:
                 # Only log the first error
                 _LOGGER.warning(
@@ -810,7 +826,7 @@ class APIConnection:
             return
 
         try:
-            msg = klass()
+            msg: message.Message = klass()
             # MergeFromString instead of ParseFromString since
             # ParseFromString will clear the message first and
             # the msg is already empty.
@@ -895,7 +911,7 @@ class APIConnection:
 
     async def disconnect(self) -> None:
         """Disconnect from the API."""
-        if self._finish_connect_task:
+        if self._finish_connect_task is not None:
             # Try to wait for the handshake to finish so we can send
             # a disconnect request. If it doesn't finish in time
             # we will just close the socket.

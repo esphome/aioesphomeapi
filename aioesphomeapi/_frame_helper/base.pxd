@@ -42,3 +42,5 @@ cdef class APIFrameHelper:
     cpdef void write_packets(self, list packets, bint debug_enabled)
 
     cdef void _write_bytes(self, object data, bint debug_enabled)
+
+    cdef get_handshake_future(self)
