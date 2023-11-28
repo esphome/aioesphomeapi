@@ -739,16 +739,9 @@ class APIClient:
     async def bluetooth_gatt_get_services(
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
-        append_types = (
-            BluetoothDeviceConnectionResponse,
-            BluetoothGATTGetServicesResponse,
-            BluetoothGATTErrorResponse,
-        )
-        stop_types = (
-            BluetoothDeviceConnectionResponse,
-            BluetoothGATTGetServicesDoneResponse,
-            BluetoothGATTErrorResponse,
-        )
+        error_types = (BluetoothGATTErrorResponse, BluetoothDeviceConnectionResponse)
+        append_types = (*error_types, BluetoothGATTGetServicesResponse)
+        stop_types = (*error_types, BluetoothGATTGetServicesDoneResponse)
         msg_types = (
             BluetoothGATTGetServicesResponse,
             BluetoothGATTGetServicesDoneResponse,
