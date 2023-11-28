@@ -65,7 +65,8 @@ class APIFrameHelper:
         """Set the log name."""
         self._log_name = log_name
 
-    def _setready_future_exception(self, exc: Exception | type[Exception]) -> None:
+    def _set_ready_future_exception(self, exc: Exception | type[Exception]) -> None:
+        """Set the ready future to an exception."""
         if not self.ready_future.done():
             self.ready_future.set_exception(exc)
 
@@ -159,7 +160,7 @@ class APIFrameHelper:
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
-        self._setready_future_exception(exc)
+        self._set_ready_future_exception(exc)
         self._connection.report_fatal_error(exc)
 
     def connection_lost(self, exc: Exception | None) -> None:

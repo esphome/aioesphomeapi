@@ -104,7 +104,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Make sure we set the ready event if its not already set
         # so that we don't block forever on the ready event if we
         # are waiting for the handshake to complete.
-        self._setready_future_exception(
+        self._set_ready_future_exception(
             APIConnectionError(f"{self._log_name}: Connection closed")
         )
         self._state = NOISE_STATE_CLOSED
