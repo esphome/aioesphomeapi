@@ -56,6 +56,16 @@ cdef object CONNECTION_STATE_CONNECTED
 cdef object CONNECTION_STATE_CLOSED
 
 cdef object make_hello_request
+
+cpdef _handle_timeout(object fut)
+cpdef _handle_complex_message(
+    object fut,
+    list responses,
+    object do_append,
+    object do_stop,
+    object resp,
+)
+
 cdef object handle_timeout
 cdef object handle_complex_message
 
