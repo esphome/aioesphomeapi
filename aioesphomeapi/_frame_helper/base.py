@@ -23,7 +23,6 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 _int = int
 _bytes = bytes
-_float = float
 
 
 class APIFrameHelper:

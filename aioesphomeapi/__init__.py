@@ -11,6 +11,7 @@ from .core import (
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
     BadNameAPIError,
+    BluetoothConnectionDroppedError,
     HandshakeAPIError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
