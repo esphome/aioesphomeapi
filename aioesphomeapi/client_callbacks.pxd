@@ -8,5 +8,3 @@ cdef object CameraImageResponse, CameraState
 cdef object HomeassistantServiceCall
 
 cdef object BluetoothLEAdvertisement
-
-cdef object asyncio_TimeoutError
