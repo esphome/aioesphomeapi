@@ -782,7 +782,7 @@ class APIClient:
         timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> bytearray:
         return await self._bluetooth_gatt_read(
-            BluetoothGATTReadRequest(),
+            BluetoothGATTReadRequest,
             address,
             handle,
             timeout,
@@ -796,7 +796,7 @@ class APIClient:
     ) -> bytearray:
         """Read a GATT descriptor."""
         return await self._bluetooth_gatt_read(
-            BluetoothGATTReadDescriptorRequest(),
+            BluetoothGATTReadDescriptorRequest,
             address,
             handle,
             timeout,
@@ -804,18 +804,17 @@ class APIClient:
 
     async def _bluetooth_gatt_read(
         self,
-        req: BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest,
+        req_type: type[BluetoothGATTReadDescriptorRequest]
+        | type[BluetoothGATTReadRequest],
         address: int,
         handle: int,
         timeout: float,
     ) -> bytearray:
         """Perform a GATT read."""
-        req.address = address
-        req.handle = handle
         resp = await self._send_bluetooth_message_await_response(
             address,
             handle,
-            req,
+            req_type(address=address, handle=handle),
             BluetoothGATTReadResponse,
             timeout,
         )
