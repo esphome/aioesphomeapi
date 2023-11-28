@@ -1259,9 +1259,7 @@ class APIClient:
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
             else:
-                stop_task = asyncio.create_task(handle_stop())
-                self._background_tasks.add(stop_task)
-                stop_task.add_done_callback(self._background_tasks.discard)
+                self._create_background_task(handle_stop())
 
         connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
 
@@ -1282,6 +1280,12 @@ class APIClient:
                 start_task.cancel("Unsubscribing from voice assistant")
 
         return unsub
+
+    def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
+        """Create a background task and add it to the background tasks set."""
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
     def send_voice_assistant_event(
         self, event_type: VoiceAssistantEventType, data: dict[str, str] | None
