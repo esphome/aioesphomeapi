@@ -77,6 +77,7 @@ from .client_callbacks import (
     on_bluetooth_device_connection_response,
     on_bluetooth_gatt_notify_data_response,
     on_bluetooth_le_advertising_response,
+    on_bluetooth_message,
     on_home_assistant_service_response,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
@@ -442,28 +443,6 @@ class APIClient:
             (HomeassistantServiceResponse,),
         )
 
-    def _filter_bluetooth_message(
-        self,
-        address: int,
-        handle: int,
-        msg: message.Message,
-    ) -> bool:
-        """Handle a Bluetooth message."""
-        if TYPE_CHECKING:
-            assert isinstance(
-                msg,
-                (
-                    BluetoothGATTErrorResponse,
-                    BluetoothGATTNotifyResponse,
-                    BluetoothGATTReadResponse,
-                    BluetoothGATTWriteResponse,
-                    BluetoothDeviceConnectionResponse,
-                ),
-            )
-        if type(msg) is BluetoothDeviceConnectionResponse:
-            return bool(msg.address == address)
-        return bool(msg.address == address and msg.handle == handle)
-
     async def _send_bluetooth_message_await_response(
         self,
         address: int,
@@ -476,7 +455,7 @@ class APIClient:
         ),
         timeout: float = 10.0,
     ) -> message.Message:
-        message_filter = partial(self._filter_bluetooth_message, address, handle)
+        message_filter = partial(on_bluetooth_message, address, handle)
         msg_types = (response_type, BluetoothGATTErrorResponse)
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (request,),

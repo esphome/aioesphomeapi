@@ -1,3 +1,4 @@
+# pylint: disable=unidiomatic-typecheck
 from __future__ import annotations
 
 from asyncio import Future
@@ -8,7 +9,11 @@ from google.protobuf import message
 from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
+    BluetoothGATTErrorResponse,
     BluetoothGATTNotifyDataResponse,
+    BluetoothGATTNotifyResponse,
+    BluetoothGATTReadResponse,
+    BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
@@ -111,3 +116,18 @@ def on_bluetooth_device_connection_response(
         # or we get an error.
         if not connect_future.done():
             connect_future.set_result(None)
+
+
+def on_bluetooth_message(
+    address: int,
+    handle: int,
+    msg: BluetoothGATTErrorResponse
+    | BluetoothGATTNotifyResponse
+    | BluetoothGATTReadResponse
+    | BluetoothGATTWriteResponse
+    | BluetoothDeviceConnectionResponse,
+) -> bool:
+    """Handle a Bluetooth message."""
+    if type(msg) is BluetoothDeviceConnectionResponse:
+        return bool(msg.address == address)
+    return bool(msg.address == address and msg.handle == handle)
