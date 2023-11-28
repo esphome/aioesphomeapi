@@ -253,7 +253,6 @@ class APIClient:
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
-        self._on_stop_task: asyncio.Task[None] | None = None
         self._set_log_name()
 
     def set_debug(self, enabled: bool) -> None:
@@ -314,20 +313,7 @@ class APIClient:
         # Hook into on_stop handler to clear connection when stopped
         self._connection = None
         if on_stop:
-            self._on_stop_task = asyncio.create_task(
-                on_stop(expected_disconnect),
-                name=f"{self.log_name} aioesphomeapi on_stop",
-            )
-            self._on_stop_task.add_done_callback(self._remove_on_stop_task)
-
-    def _remove_on_stop_task(self, _fut: asyncio.Future[None]) -> None:
-        """Remove the stop task.
-
-        We need to do this because the asyncio does not hold
-        a strong reference to the task, so it can be garbage
-        collected unexpectedly.
-        """
-        self._on_stop_task = None
+            self._create_background_task(on_stop(expected_disconnect))
 
     async def start_connection(
         self,
