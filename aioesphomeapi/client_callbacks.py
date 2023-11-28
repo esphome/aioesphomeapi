@@ -10,6 +10,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothGATTErrorResponse,
+    BluetoothGATTGetServicesDoneResponse,
+    BluetoothGATTGetServicesResponse,
     BluetoothGATTNotifyDataResponse,
     BluetoothGATTNotifyResponse,
     BluetoothGATTReadResponse,
@@ -118,7 +120,7 @@ def on_bluetooth_device_connection_response(
             connect_future.set_result(None)
 
 
-def on_bluetooth_message(
+def on_bluetooth_handle_message(
     address: int,
     handle: int,
     msg: BluetoothGATTErrorResponse
@@ -127,7 +129,24 @@ def on_bluetooth_message(
     | BluetoothGATTWriteResponse
     | BluetoothDeviceConnectionResponse,
 ) -> bool:
-    """Handle a Bluetooth message."""
+    """Filter a Bluetooth message for an address and handle."""
     if type(msg) is BluetoothDeviceConnectionResponse:
         return bool(msg.address == address)
     return bool(msg.address == address and msg.handle == handle)
+
+
+def on_bluetooth_message_types(
+    address: int,
+    msg_types: tuple[type[message.Message]],
+    msg: BluetoothGATTErrorResponse
+    | BluetoothGATTNotifyResponse
+    | BluetoothGATTReadResponse
+    | BluetoothGATTWriteResponse
+    | BluetoothDeviceConnectionResponse
+    | BluetoothDeviceConnectionResponse
+    | BluetoothGATTGetServicesResponse
+    | BluetoothGATTGetServicesDoneResponse
+    | BluetoothGATTErrorResponse,
+) -> bool:
+    """Filter Bluetooth messages of a specific type and address."""
+    return type(msg) in msg_types and bool(msg.address == address)
