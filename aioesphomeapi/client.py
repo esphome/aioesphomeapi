@@ -724,7 +724,7 @@ class APIClient:
         """Send a BluetoothDeviceRequest and wait for a response."""
         req = BluetoothDeviceRequest(address=address, request_type=request_type)
         [response] = await self._get_connection().send_messages_await_response_complex(
-            req,
+            (req,),
             predicate_func,
             predicate_func,
             msg_types,
