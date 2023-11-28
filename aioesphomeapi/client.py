@@ -456,8 +456,14 @@ class APIClient:
                     BluetoothGATTNotifyResponse,
                     BluetoothGATTReadResponse,
                     BluetoothGATTWriteResponse,
+                    BluetoothDeviceConnectionResponse,
                 ),
             )
+        if (
+            type(msg)  # pylint: disable=unidiomatic-typecheck
+            is BluetoothDeviceConnectionResponse
+        ):
+            return bool(msg.address == address)
         return bool(msg.address == address and msg.handle == handle)
 
     async def _send_bluetooth_message_await_response(
@@ -473,11 +479,12 @@ class APIClient:
         timeout: float = 10.0,
     ) -> message.Message:
         message_filter = partial(self._filter_bluetooth_message, address, handle)
+        msg_types = (response_type, BluetoothGATTErrorResponse)
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (request,),
             message_filter,
             message_filter,
-            (response_type, BluetoothGATTErrorResponse),
+            (*msg_types, BluetoothDeviceConnectionResponse),
             timeout,
         )
 
@@ -486,6 +493,8 @@ class APIClient:
             is BluetoothGATTErrorResponse
         ):
             raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp))
+
+        self._raise_for_ble_connection_change(address, resp, msg_types)
 
         return resp
 
@@ -698,11 +707,7 @@ class APIClient:
             (BluetoothDeviceConnectionResponse, *msg_types),
             timeout,
         )
-        if (
-            type(response)  # pylint: disable=unidiomatic-typecheck
-            is BluetoothDeviceConnectionResponse
-        ):
-            self._raise_for_ble_connection_change(address, response, msg_types)
+        self._raise_for_ble_connection_change(address, response, msg_types)
         return response
 
     def _raise_for_ble_connection_change(
@@ -712,6 +717,11 @@ class APIClient:
         msg_types: tuple[type[message.Message], ...],
     ) -> None:
         """Raise an exception if the connection status changed."""
+        if (
+            type(response)  # pylint: disable=unidiomatic-typecheck
+            is not BluetoothDeviceConnectionResponse
+        ):
+            return
         response_names = message_types_to_names(msg_types)
         human_readable_address = to_human_readable_address(address)
         raise BluetoothConnectionDroppedError(
