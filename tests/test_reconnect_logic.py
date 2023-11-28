@@ -720,8 +720,10 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
         send_plaintext_connect_response(protocol, False)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
 
-    assert cli._connection.is_connected is False
+    assert cli._connection.is_connected is True
     await asyncio.sleep(0)
 
     with patch.object(event_loop, "sock_connect"), patch.object(
@@ -736,8 +738,9 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         # since its an unexpected disconnect
         assert mock_create_connection.call_count == 0
 
-    # We never actually finished the connection
-    assert len(on_disconnect_calls) == 0
+    assert len(on_disconnect_calls) == 1
+    expected_disconnect = on_disconnect_calls[-1]
+    assert expected_disconnect is False
     await logic.stop()
 
 
