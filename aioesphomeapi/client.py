@@ -1,3 +1,4 @@
+# pylint: disable=unidiomatic-typecheck
 from __future__ import annotations
 
 import asyncio
@@ -459,10 +460,7 @@ class APIClient:
                     BluetoothDeviceConnectionResponse,
                 ),
             )
-        if (
-            type(msg)  # pylint: disable=unidiomatic-typecheck
-            is BluetoothDeviceConnectionResponse
-        ):
+        if type(msg) is BluetoothDeviceConnectionResponse:
             return bool(msg.address == address)
         return bool(msg.address == address and msg.handle == handle)
 
@@ -488,10 +486,7 @@ class APIClient:
             timeout,
         )
 
-        if (
-            type(resp)  # pylint: disable=unidiomatic-typecheck
-            is BluetoothGATTErrorResponse
-        ):
+        if type(resp) is BluetoothGATTErrorResponse:
             raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(resp))
 
         self._raise_for_ble_connection_change(address, resp, msg_types)
@@ -717,10 +712,7 @@ class APIClient:
         msg_types: tuple[type[message.Message], ...],
     ) -> None:
         """Raise an exception if the connection status changed."""
-        if (
-            type(response)  # pylint: disable=unidiomatic-typecheck
-            is not BluetoothDeviceConnectionResponse
-        ):
+        if type(response) is not BluetoothDeviceConnectionResponse:
             return
         response_names = message_types_to_names(msg_types)
         human_readable_address = to_human_readable_address(address)
@@ -756,31 +748,50 @@ class APIClient:
     async def bluetooth_gatt_get_services(
         self, address: int
     ) -> ESPHomeBluetoothGATTServices:
-        append_types = (BluetoothGATTGetServicesResponse, BluetoothGATTErrorResponse)
-        stop_types = (BluetoothGATTGetServicesDoneResponse, BluetoothGATTErrorResponse)
+        append_types = (
+            BluetoothDeviceConnectionResponse,
+            BluetoothGATTGetServicesResponse,
+            BluetoothGATTErrorResponse,
+        )
+        stop_types = (
+            BluetoothDeviceConnectionResponse,
+            BluetoothGATTGetServicesDoneResponse,
+            BluetoothGATTErrorResponse,
+        )
+        msg_types = (
+            BluetoothGATTGetServicesResponse,
+            BluetoothGATTGetServicesDoneResponse,
+            BluetoothGATTErrorResponse,
+        )
 
-        def do_append(msg: message.Message) -> bool:
-            return isinstance(msg, append_types) and msg.address == address
+        def do_append(
+            msg: BluetoothDeviceConnectionResponse
+            | BluetoothGATTGetServicesResponse
+            | BluetoothGATTGetServicesDoneResponse
+            | BluetoothGATTErrorResponse,
+        ) -> bool:
+            return type(msg) in append_types and msg.address == address
 
-        def do_stop(msg: message.Message) -> bool:
-            return isinstance(msg, stop_types) and msg.address == address
+        def do_stop(
+            msg: BluetoothDeviceConnectionResponse
+            | BluetoothGATTGetServicesResponse
+            | BluetoothGATTGetServicesDoneResponse
+            | BluetoothGATTErrorResponse,
+        ) -> bool:
+            return type(msg) in stop_types and msg.address == address
 
         resp = await self._get_connection().send_messages_await_response_complex(
             (BluetoothGATTGetServicesRequest(address=address),),
             do_append,
             do_stop,
-            (
-                BluetoothGATTGetServicesResponse,
-                BluetoothGATTGetServicesDoneResponse,
-                BluetoothGATTErrorResponse,
-            ),
+            (*msg_types, BluetoothDeviceConnectionResponse),
             DEFAULT_BLE_TIMEOUT,
         )
         services = []
         for msg in resp:
+            self._raise_for_ble_connection_change(address, msg, msg_types)
             if isinstance(msg, BluetoothGATTErrorResponse):
                 raise BluetoothGATTAPIError(BluetoothGATTError.from_pb(msg))
-
             services.extend(BluetoothGATTServices.from_pb(msg).services)
 
         return ESPHomeBluetoothGATTServices(address=address, services=services)  # type: ignore[call-arg]
