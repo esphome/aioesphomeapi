@@ -459,7 +459,9 @@ class APIClient:
                     BluetoothDeviceConnectionResponse,
                 ),
             )
-        if type(msg) is BluetoothDeviceConnectionResponse:
+        if (
+            type(msg) is BluetoothDeviceConnectionResponse
+        ):  # pylint: disable=unidiomatic-typecheck
             return msg.address == address
         return msg.address == address and msg.handle == handle
 
