@@ -206,7 +206,6 @@ class APIClient:
         "cached_name",
         "_background_tasks",
         "_loop",
-        "_on_stop_task",
         "log_name",
     )
 
