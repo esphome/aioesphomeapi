@@ -1114,7 +1114,6 @@ class APIClient:
         if aux_heat is not None:
             req.has_aux_heat = True
             req.aux_heat = aux_heat
-
         self._get_connection().send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
