@@ -13,7 +13,7 @@ cdef class APIFrameHelper:
     cdef APIConnection _connection
     cdef object _transport
     cdef public object _writer
-    cdef public object _ready_future
+    cdef public object ready_future
     cdef bytes _buffer
     cdef unsigned int _buffer_len
     cdef unsigned int _pos

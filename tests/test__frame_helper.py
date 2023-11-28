@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,12 +25,7 @@ from aioesphomeapi.core import (
     SocketClosedAPIError,
 )
 
-from .common import (
-    async_fire_time_changed,
-    get_mock_protocol,
-    mock_data_received,
-    utcnow,
-)
+from .common import get_mock_protocol, mock_data_received
 from .conftest import get_mock_connection_params
 
 PREAMBLE = b"\x00"
@@ -312,7 +306,7 @@ async def test_noise_protector_event_loop(byte_type: Any) -> None:
         mock_data_received(helper, byte_type(bytes.fromhex(pkt)))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
-        await helper.perform_handshake(30)
+        await helper.ready_future
 
 
 @pytest.mark.asyncio
@@ -343,7 +337,7 @@ async def test_noise_frame_helper_incorrect_key():
         mock_data_received(helper, bytes.fromhex(pkt))
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
-        await helper.perform_handshake(30)
+        await helper.ready_future
 
 
 @pytest.mark.asyncio
@@ -376,7 +370,7 @@ async def test_noise_frame_helper_incorrect_key_fragments():
             mock_data_received(helper, in_pkt[i : i + 1])
 
     with pytest.raises(InvalidEncryptionKeyAPIError):
-        await helper.perform_handshake(30)
+        await helper.ready_future
 
 
 @pytest.mark.asyncio
@@ -407,36 +401,7 @@ async def test_noise_incorrect_name():
         mock_data_received(helper, bytes.fromhex(pkt))
 
     with pytest.raises(BadNameAPIError):
-        await helper.perform_handshake(30)
-
-
-@pytest.mark.asyncio
-async def test_noise_timeout():
-    """Test we raise on bad name."""
-    outgoing_packets = [
-        "010000",  # hello packet
-        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
-    ]
-
-    connection, _ = _make_mock_connection()
-
-    helper = MockAPINoiseFrameHelper(
-        connection=connection,
-        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
-        expected_name="wrongname",
-        client_info="my client",
-        log_name="test",
-    )
-
-    for pkt in outgoing_packets:
-        helper.mock_write_frame(bytes.fromhex(pkt))
-
-    task = asyncio.create_task(helper.perform_handshake(30))
-    await asyncio.sleep(0)
-    async_fire_time_changed(utcnow() + timedelta(seconds=60))
-    await asyncio.sleep(0)
-    with pytest.raises(HandshakeAPIError):
-        await task
+        await helper.ready_future
 
 
 VARUINT_TESTCASES = [
@@ -478,7 +443,6 @@ async def test_noise_frame_helper_handshake_failure():
 
     proto = _mock_responder_proto(psk_bytes)
 
-    handshake_task = asyncio.create_task(helper.perform_handshake(30))
     await asyncio.sleep(0)  # let the task run to read the hello packet
 
     assert len(writes) == 1
@@ -502,7 +466,7 @@ async def test_noise_frame_helper_handshake_failure():
     mock_data_received(helper, error_pkt_with_header)
 
     with pytest.raises(HandshakeAPIError, match="forced to fail"):
-        await handshake_task
+        await helper.ready_future
 
 
 @pytest.mark.asyncio
@@ -528,7 +492,6 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
     proto = _mock_responder_proto(psk_bytes)
 
-    handshake_task = asyncio.create_task(helper.perform_handshake(30))
     await asyncio.sleep(0)  # let the task run to read the hello packet
 
     assert len(writes) == 1
@@ -546,7 +509,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
     assert not writes
 
-    await handshake_task
+    await helper.ready_future
     helper.write_packets([(1, b"to device")], True)
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
@@ -591,7 +554,6 @@ async def test_noise_frame_helper_bad_encryption(
 
     proto = _mock_responder_proto(psk_bytes)
 
-    handshake_task = asyncio.create_task(helper.perform_handshake(30))
     await asyncio.sleep(0)  # let the task run to read the hello packet
 
     assert len(writes) == 1
@@ -609,7 +571,7 @@ async def test_noise_frame_helper_bad_encryption(
 
     assert not writes
 
-    await handshake_task
+    await helper.ready_future
     helper.write_packets([(1, b"to device")], True)
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
@@ -638,7 +600,7 @@ async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
 
         conn._socket = MagicMock()
         await conn._connect_init_frame_helper()
-        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
+        loop.call_soon(conn._frame_helper.ready_future.set_result, None)
         conn.connection_state = ConnectionState.CONNECTED
 
     task = asyncio.create_task(conn._connect_hello_login(login=True))
@@ -687,13 +649,12 @@ async def test_noise_frame_helper_empty_hello():
         log_name="test",
     )
 
-    handshake_task = asyncio.create_task(helper.perform_handshake(30))
     hello_pkt_with_header = _make_noise_hello_pkt(b"")
 
     mock_data_received(helper, hello_pkt_with_header)
 
     with pytest.raises(HandshakeAPIError, match="ServerHello is empty"):
-        await handshake_task
+        await helper.ready_future
 
 
 @pytest.mark.asyncio
@@ -708,7 +669,6 @@ async def test_noise_frame_helper_wrong_protocol():
         log_name="test",
     )
 
-    handshake_task = asyncio.create_task(helper.perform_handshake(30))
     # wrong protocol 5 instead of 1
     hello_pkt_with_header = _make_noise_hello_pkt(b"\x05servicetest\0")
 
@@ -717,7 +677,7 @@ async def test_noise_frame_helper_wrong_protocol():
     with pytest.raises(
         HandshakeAPIError, match="Unknown protocol selected by client 5"
     ):
-        await handshake_task
+        await helper.ready_future
 
 
 @pytest.mark.asyncio
