@@ -137,10 +137,6 @@ class APIFrameHelper:
             bitpos += 7
         return -1
 
-    def get_handshake_future(self) -> None:
-        """Get the handshake future."""
-        return self.ready_future
-
     @abstractmethod
     def write_packets(
         self, packets: list[tuple[int, bytes]], debug_enabled: bool
