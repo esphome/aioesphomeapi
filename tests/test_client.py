@@ -959,10 +959,7 @@ async def test_bluetooth_pair_connection_drops(
         "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
         " for BluetoothDevicePairingResponse: Invalid attribute length"
     )
-    with pytest.raises(
-        BluetoothConnectionDroppedError,
-        match=message,
-    ):
+    with pytest.raises(BluetoothConnectionDroppedError, match=message):
         await pair_task
 
 
@@ -984,10 +981,7 @@ async def test_bluetooth_unpair_connection_drops(
         "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
         " for BluetoothDeviceUnpairingResponse: Invalid attribute length"
     )
-    with pytest.raises(
-        BluetoothConnectionDroppedError,
-        match=message,
-    ):
+    with pytest.raises(BluetoothConnectionDroppedError, match=message):
         await pair_task
 
 
@@ -1009,10 +1003,7 @@ async def test_bluetooth_clear_cache_connection_drops(
         "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
         " for BluetoothDeviceClearCacheResponse: Invalid attribute length"
     )
-    with pytest.raises(
-        BluetoothConnectionDroppedError,
-        match=message,
-    ):
+    with pytest.raises(BluetoothConnectionDroppedError, match=message):
         await pair_task
 
 
@@ -1118,10 +1109,7 @@ async def test_bluetooth_gatt_read_connection_drops(
         "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
         " for BluetoothGATTReadResponse, BluetoothGATTErrorResponse: Invalid attribute length"
     )
-    with pytest.raises(
-        BluetoothConnectionDroppedError,
-        match=message,
-    ):
+    with pytest.raises(BluetoothConnectionDroppedError, match=message):
         await read_task
 
 
@@ -1187,6 +1175,30 @@ async def test_bluetooth_gatt_write(
     response: message.Message = BluetoothGATTWriteResponse(address=1234, handle=1234)
     mock_data_received(protocol, generate_plaintext_packet(response))
     await write_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_write_connection_drops(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test connection drop during bluetooth_gatt_read."""
+    client, connection, transport, protocol = api_client
+    write_task = asyncio.create_task(
+        client.bluetooth_gatt_write(1234, 1234, b"1234", True)
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, error=13
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    message = (
+        "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
+        " for BluetoothGATTWriteResponse, BluetoothGATTErrorResponse: Invalid attribute length"
+    )
+    with pytest.raises(BluetoothConnectionDroppedError, match=message):
+        await write_task
 
 
 @pytest.mark.asyncio
@@ -1313,6 +1325,30 @@ async def test_bluetooth_gatt_get_services_errors(
 
     with pytest.raises(BluetoothGATTAPIError):
         await services_task
+
+
+@pytest.mark.asyncio
+async def test_bluetooth_gatt_start_notify_connection_drops(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test connection drop during bluetooth_gatt_start_notify."""
+    client, connection, transport, protocol = api_client
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, lambda handle, data: None)
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothDeviceConnectionResponse(
+        address=1234, connected=False, error=13
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    message = (
+        "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
+        " for BluetoothGATTNotifyResponse, BluetoothGATTErrorResponse: Invalid attribute length"
+    )
+    with pytest.raises(BluetoothConnectionDroppedError, match=message):
+        await notify_task
 
 
 @pytest.mark.asyncio
