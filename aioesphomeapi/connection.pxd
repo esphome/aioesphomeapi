@@ -72,7 +72,7 @@ cdef class APIConnection:
     cdef public APIFrameHelper _frame_helper
     cdef public object api_version
     cdef public object connection_state
-    cdef dict _message_handlers
+    cdef public dict _message_handlers
     cdef public str log_name
     cdef set _read_exception_futures
     cdef object _ping_timer
@@ -81,7 +81,7 @@ cdef class APIConnection:
     cdef float _keep_alive_timeout
     cdef object _start_connect_task
     cdef object _finish_connect_task
-    cdef object _fatal_exception
+    cdef public Exception _fatal_exception
     cdef bint _expected_disconnect
     cdef object _loop
     cdef bint _send_pending_ping
@@ -102,7 +102,7 @@ cdef class APIConnection:
 
     cpdef _async_schedule_keep_alive(self, object now)
 
-    cpdef _cleanup(self)
+    cdef _cleanup(self)
 
     cpdef set_log_name(self, str name)
 
@@ -112,7 +112,7 @@ cdef class APIConnection:
 
     cdef _process_login_response(self, object hello_response)
 
-    cpdef _set_connection_state(self, object state)
+    cdef _set_connection_state(self, object state)
 
     cpdef report_fatal_error(self, Exception err)
 
@@ -129,3 +129,5 @@ cdef class APIConnection:
     cpdef _handle_ping_request_internal(self, object msg)
 
     cpdef _handle_get_time_request_internal(self, object msg)
+
+    cdef _set_fatal_exception_if_unset(self, Exception err)

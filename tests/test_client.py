@@ -1254,9 +1254,7 @@ async def test_bluetooth_gatt_start_notify(
     client, connection, transport, protocol = api_client
     notifies = []
 
-    handlers_before = len(
-        list(itertools.chain(*connection._get_message_handlers().values()))
-    )
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
 
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
         notifies.append((handle, data))
@@ -1288,7 +1286,7 @@ async def test_bluetooth_gatt_start_notify(
     await cancel_cb()
 
     assert (
-        len(list(itertools.chain(*connection._get_message_handlers().values())))
+        len(list(itertools.chain(*connection._message_handlers.values())))
         == handlers_before
     )
     # Ensure abort callback is a no-op after cancel
@@ -1313,9 +1311,7 @@ async def test_bluetooth_gatt_start_notify_fails(
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
         notifies.append((handle, data))
 
-    handlers_before = len(
-        list(itertools.chain(*connection._get_message_handlers().values()))
-    )
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
 
     with patch.object(
         connection,
@@ -1325,7 +1321,7 @@ async def test_bluetooth_gatt_start_notify_fails(
         await client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
 
     assert (
-        len(list(itertools.chain(*connection._get_message_handlers().values())))
+        len(list(itertools.chain(*connection._message_handlers.values())))
         == handlers_before
     )
 
@@ -1777,9 +1773,7 @@ async def test_bluetooth_device_connect_cancelled(
     client, connection, transport, protocol = api_client
     states = []
 
-    handlers_before = len(
-        list(itertools.chain(*connection._get_message_handlers().values()))
-    )
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
 
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
         states.append((connected, mtu, error))
@@ -1803,9 +1797,7 @@ async def test_bluetooth_device_connect_cancelled(
         await connect_task
     assert states == []
 
-    handlers_after = len(
-        list(itertools.chain(*connection._get_message_handlers().values()))
-    )
+    handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
     # Make sure we do not leak message handlers
     assert handlers_after == handlers_before
 
