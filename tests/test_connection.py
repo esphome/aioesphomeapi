@@ -173,6 +173,10 @@ async def test_requires_encryption_propagates(conn: APIConnection):
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     assert isinstance(conn._fatal_exception, RequiresEncryptionAPIError)
+    conn.force_disconnect()
+    assert isinstance(conn._fatal_exception, RequiresEncryptionAPIError)
+    conn.report_fatal_error(Exception("test"))
+    assert isinstance(conn._fatal_exception, RequiresEncryptionAPIError)
 
 
 @pytest.mark.asyncio

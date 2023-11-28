@@ -788,9 +788,14 @@ class APIConnection:
             # Only set the first error since otherwise the original
             # error will be lost (ie RequiresEncryptionAPIError) and than
             # SocketClosedAPIError will be raised instead
-            self._fatal_exception = err
+            self._set_fatal_exception_if_unset(err)
 
         self._cleanup()
+
+    def _set_fatal_exception_if_unset(self, err: Exception) -> None:
+        """Set the fatal exception if it hasn't been set yet."""
+        if self._fatal_exception is None:
+            self._fatal_exception = err
 
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
@@ -898,8 +903,10 @@ class APIConnection:
                 [self._finish_connect_task], timeout=DISCONNECT_CONNECT_TIMEOUT
             )
             if pending:
-                self._fatal_exception = TimeoutAPIError(
-                    "Timed out waiting to finish connect before disconnecting"
+                self._set_fatal_exception_if_unset(
+                    TimeoutAPIError(
+                        "Timed out waiting to finish connect before disconnecting"
+                    )
                 )
                 if self._debug_enabled:
                     _LOGGER.debug(

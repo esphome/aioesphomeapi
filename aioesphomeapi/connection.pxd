@@ -129,3 +129,5 @@ cdef class APIConnection:
     cpdef _handle_ping_request_internal(self, object msg)
 
     cpdef _handle_get_time_request_internal(self, object msg)
+
+    cdef _set_fatal_exception_if_unset(self, Exception err)
