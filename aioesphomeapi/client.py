@@ -402,9 +402,8 @@ class APIClient:
             if type(msg) is ListEntitiesServicesResponse:
                 services.append(UserService.from_pb(msg))
                 continue
-            cls = response_types[type(msg)]
-            assert cls is not None
-            entities.append(cls.from_pb(msg))
+            if cls := response_types[type(msg)]:
+                entities.append(cls.from_pb(msg))
         return entities, services
 
     async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
