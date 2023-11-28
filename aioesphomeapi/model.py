@@ -1170,5 +1170,5 @@ def build_unique_id(formatted_mac: str, entity_info: EntityInfo) -> str:
     return f"{formatted_mac}-{_TYPE_TO_NAME[type(entity_info)]}-{entity_info.object_id}"
 
 
-def message_types_to_names(msg_types: Iterable[type[message.Message]]) -> list[str]:
+def message_types_to_names(msg_types: Iterable[type[message.Message]]) -> str:
     return ", ".join(t.__name__ for t in msg_types)
