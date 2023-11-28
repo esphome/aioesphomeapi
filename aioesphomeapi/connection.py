@@ -400,12 +400,13 @@ class APIConnection:
         # Set the frame helper right away to ensure
         # the socket gets closed if we fail to handshake
         self._frame_helper = fh
-        future = self._frame_helper.ready_future
         handshake_handle = self._loop.call_at(
-            self._loop.time() + HANDSHAKE_TIMEOUT, handle_timeout, future
+            self._loop.time() + HANDSHAKE_TIMEOUT,
+            handle_timeout,
+            self._frame_helper.ready_future,
         )
         try:
-            await future
+            await self._frame_helper.ready_future
         except asyncio_TimeoutError as err:
             raise TimeoutAPIError("Handshake timed out") from err
         except OSError as err:
