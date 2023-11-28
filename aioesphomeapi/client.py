@@ -1002,7 +1002,6 @@ class APIClient:
         if preset_mode is not None:
             req.has_preset_mode = True
             req.preset_mode = preset_mode
-
         self._get_connection().send_message(req)
 
     async def light_command(  # pylint: disable=too-many-branches
