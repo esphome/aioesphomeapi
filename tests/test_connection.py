@@ -170,6 +170,10 @@ async def test_requires_encryption_propagates(conn: APIConnection):
             mock_data_received(protocol, b"\x01\x00\x00")
             await task
 
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert isinstance(conn._fatal_exception, RequiresEncryptionAPIError)
+
 
 @pytest.mark.asyncio
 async def test_plaintext_connection(
