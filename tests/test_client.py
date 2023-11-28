@@ -955,9 +955,13 @@ async def test_bluetooth_pair_connection_drops(
         address=1234, connected=False, error=13
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
+    message = (
+        "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
+        " for BluetoothDevicePairingResponse: Invalid attribute length"
+    )
     with pytest.raises(
         BluetoothConnectionDroppedError,
-        match="Peripheral changed connection status while waiting for BluetoothDevicePairingResponse: Invalid attribute length",
+        match=message,
     ):
         await pair_task
 
@@ -976,9 +980,13 @@ async def test_bluetooth_unpair_connection_drops(
         address=1234, connected=False, error=13
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
+    message = (
+        "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
+        " for BluetoothDeviceUnpairingResponse: Invalid attribute length"
+    )
     with pytest.raises(
         BluetoothConnectionDroppedError,
-        match="Peripheral changed connection status while waiting for BluetoothDeviceUnpairingResponse: Invalid attribute length",
+        match=message,
     ):
         await pair_task
 
@@ -997,9 +1005,13 @@ async def test_bluetooth_clear_cache_connection_drops(
         address=1234, connected=False, error=13
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
+    message = (
+        "Peripheral 00:00:00:00:04:D2 changed connection status while waiting"
+        " for BluetoothDeviceClearCacheResponse: Invalid attribute length"
+    )
     with pytest.raises(
         BluetoothConnectionDroppedError,
-        match="Peripheral changed connection status while waiting for BluetoothDeviceClearCacheResponse: Invalid attribute length",
+        match=message,
     ):
         await pair_task
 
