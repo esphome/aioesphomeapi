@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Coroutine
 from datetime import timedelta
 from functools import partial
-from typing import Any
+from typing import Callable, cast
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -161,7 +160,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
 
         conn._socket = MagicMock()
         await conn._connect_init_frame_helper()
-        loop.call_soon(conn._frame_helper._ready_future.set_result, None)
+        loop.call_soon(conn._frame_helper.ready_future.set_result, None)
         conn.connection_state = ConnectionState.CONNECTED
 
         with pytest.raises(RequiresEncryptionAPIError):
@@ -378,8 +377,18 @@ async def test_plaintext_connection_fails_handshake(
     class APIPlaintextFrameHelperHandshakeException(APIPlaintextFrameHelper):
         """Plaintext frame helper that raises exception on handshake."""
 
-        def perform_handshake(self, timeout: float) -> Coroutine[Any, Any, None]:
-            raise exception
+    def _create_failing_mock_transport_protocol(
+        transport: asyncio.Transport,
+        connected: asyncio.Event,
+        create_func: Callable[[], APIPlaintextFrameHelper],
+        **kwargs,
+    ) -> tuple[asyncio.Transport, APIPlaintextFrameHelperHandshakeException]:
+        protocol: APIPlaintextFrameHelperHandshakeException = create_func()
+        protocol._transport = cast(asyncio.Transport, transport)
+        protocol._writer = transport.write
+        protocol.ready_future.set_exception(exception)
+        connected.set()
+        return transport, protocol
 
     def on_msg(msg):
         messages.append(msg)
@@ -393,7 +402,9 @@ async def test_plaintext_connection_fails_handshake(
     ), patch.object(
         loop,
         "create_connection",
-        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        side_effect=partial(
+            _create_failing_mock_transport_protocol, transport, connected
+        ),
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()

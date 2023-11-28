@@ -9,19 +9,21 @@ cdef dict PROTO_TO_MESSAGE_TYPE
 cdef set OPEN_STATES
 
 cdef float KEEP_ALIVE_TIMEOUT_RATIO
+cdef object HANDSHAKE_TIMEOUT
 
 cdef bint TYPE_CHECKING
 
 cdef object DISCONNECT_REQUEST_MESSAGE
-cdef object DISCONNECT_RESPONSE_MESSAGE
-cdef object PING_REQUEST_MESSAGE
-cdef object PING_RESPONSE_MESSAGE
+cdef tuple DISCONNECT_RESPONSE_MESSAGES
+cdef tuple PING_REQUEST_MESSAGES
+cdef tuple PING_RESPONSE_MESSAGES
+cdef object NO_PASSWORD_CONNECT_REQUEST
 
 cdef object asyncio_timeout
 cdef object CancelledError
 cdef object asyncio_TimeoutError
 
-cdef object ConnectResponse
+cdef object ConnectRequest, ConnectResponse
 cdef object DisconnectRequest
 cdef object PingRequest
 cdef object GetTimeRequest, GetTimeResponse
@@ -52,6 +54,20 @@ cdef object CONNECTION_STATE_SOCKET_OPENED
 cdef object CONNECTION_STATE_HANDSHAKE_COMPLETE
 cdef object CONNECTION_STATE_CONNECTED
 cdef object CONNECTION_STATE_CLOSED
+
+cdef object make_hello_request
+
+cpdef handle_timeout(object fut)
+cpdef handle_complex_message(
+    object fut,
+    list responses,
+    object do_append,
+    object do_stop,
+    object resp,
+)
+
+cdef object _handle_timeout
+cdef object _handle_complex_message
 
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
@@ -91,43 +107,45 @@ cdef class APIConnection:
     cdef public str received_name
     cdef public object resolved_addr_info
 
-    cpdef send_message(self, object msg)
+    cpdef void send_message(self, object msg)
 
-    cdef send_messages(self, tuple messages)
+    cdef void send_messages(self, tuple messages)
 
     @cython.locals(handlers=set, handlers_copy=set)
     cpdef void process_packet(self, object msg_type_proto, object data)
 
-    cpdef _async_cancel_pong_timer(self)
+    cdef void _async_cancel_pong_timer(self)
 
-    cpdef _async_schedule_keep_alive(self, object now)
+    cdef void _async_schedule_keep_alive(self, object now)
 
-    cdef _cleanup(self)
+    cdef void _cleanup(self)
 
     cpdef set_log_name(self, str name)
 
     cdef _make_connect_request(self)
 
-    cdef _process_hello_resp(self, object resp)
+    cdef void _process_hello_resp(self, object resp)
 
-    cdef _process_login_response(self, object hello_response)
+    cdef void _process_login_response(self, object hello_response)
 
-    cdef _set_connection_state(self, object state)
+    cdef void _set_connection_state(self, object state)
 
     cpdef report_fatal_error(self, Exception err)
 
     @cython.locals(handlers=set)
-    cpdef _add_message_callback_without_remove(self, object on_message, tuple msg_types)
+    cdef void _add_message_callback_without_remove(self, object on_message, tuple msg_types)
 
     cpdef add_message_callback(self, object on_message, tuple msg_types)
 
     @cython.locals(handlers=set)
-    cpdef _remove_message_callback(self, object on_message, tuple msg_types)
+    cpdef void _remove_message_callback(self, object on_message, tuple msg_types)
 
-    cpdef _handle_disconnect_request_internal(self, object msg)
+    cpdef void _handle_disconnect_request_internal(self, object msg)
 
-    cpdef _handle_ping_request_internal(self, object msg)
+    cpdef void _handle_ping_request_internal(self, object msg)
 
-    cpdef _handle_get_time_request_internal(self, object msg)
+    cpdef void _handle_get_time_request_internal(self, object msg)
 
-    cdef _set_fatal_exception_if_unset(self, Exception err)
+    cdef void _set_fatal_exception_if_unset(self, Exception err)
+
+    cdef void _register_internal_message_handlers(self)

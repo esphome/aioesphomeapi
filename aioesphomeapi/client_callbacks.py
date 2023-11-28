@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from asyncio import Future
-from asyncio import TimeoutError as asyncio_TimeoutError
 from typing import TYPE_CHECKING, Callable
 
 from google.protobuf import message
@@ -96,12 +95,6 @@ def on_subscribe_home_assistant_state_response(
     msg: SubscribeHomeAssistantStateResponse,
 ) -> None:
     on_state_sub(msg.entity_id, msg.attribute)
-
-
-def handle_timeout(fut: Future[None]) -> None:
-    """Handle a timeout."""
-    if not fut.done():
-        fut.set_exception(asyncio_TimeoutError)
 
 
 def on_bluetooth_device_connection_response(

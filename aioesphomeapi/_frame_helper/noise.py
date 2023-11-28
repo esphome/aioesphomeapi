@@ -279,7 +279,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             noise_protocol.cipher_state_encrypt.encrypt_with_ad,  # pylint: disable=no-member
             None,
         )
-        self._ready_future.set_result(None)
+        self.ready_future.set_result(None)
 
     def write_packets(
         self, packets: list[tuple[int, bytes]], debug_enabled: bool
