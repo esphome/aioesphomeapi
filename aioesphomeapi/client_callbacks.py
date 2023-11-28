@@ -8,7 +8,11 @@ from google.protobuf import message
 from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
+    BluetoothGATTErrorResponse,
     BluetoothGATTNotifyDataResponse,
+    BluetoothGATTNotifyResponse,
+    BluetoothGATTReadResponse,
+    BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
@@ -111,3 +115,21 @@ def on_bluetooth_device_connection_response(
         # or we get an error.
         if not connect_future.done():
             connect_future.set_result(None)
+
+
+def on_bluetooth_message(address: int, handle: int, msg: message.Message) -> bool:
+    """Handle a Bluetooth message."""
+    if TYPE_CHECKING:
+        assert isinstance(
+            msg,
+            (
+                BluetoothGATTErrorResponse,
+                BluetoothGATTNotifyResponse,
+                BluetoothGATTReadResponse,
+                BluetoothGATTWriteResponse,
+                BluetoothDeviceConnectionResponse,
+            ),
+        )
+    if type(msg) is BluetoothDeviceConnectionResponse:
+        return bool(msg.address == address)
+    return bool(msg.address == address and msg.handle == handle)
