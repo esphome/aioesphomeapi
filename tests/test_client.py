@@ -1821,6 +1821,15 @@ async def test_bluetooth_device_connect(
     await asyncio.sleep(0)
     assert states == [(True, 23, 0), (False, 23, 7)]
 
+    # Make sure cancel is safe to call again
+    cancel()
+
+    await client.disconnect(force=True)
+    await asyncio.sleep(0)
+    assert not client._connection
+    # Make sure cancel is safe to call after disconnect
+    cancel()
+
 
 @pytest.mark.asyncio
 async def test_bluetooth_device_connect_and_disconnect_times_out(
