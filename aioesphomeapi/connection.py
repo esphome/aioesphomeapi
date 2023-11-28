@@ -143,16 +143,16 @@ _cached_make_hello_request = lru_cache(maxsize=16)(_make_hello_request)
 make_hello_request = _cached_make_hello_request
 
 
-def _handle_timeout(fut: asyncio.Future[None]) -> None:
+def handle_timeout(fut: asyncio.Future[None]) -> None:
     """Handle a timeout."""
     if not fut.done():
         fut.set_exception(asyncio_TimeoutError)
 
 
-handle_timeout = _handle_timeout
+_handle_timeout = handle_timeout
 
 
-def _handle_complex_message(
+def handle_complex_message(
     fut: asyncio.Future[None],
     responses: list[message.Message],
     do_append: Callable[[message.Message], bool] | None,
@@ -167,7 +167,7 @@ def _handle_complex_message(
             fut.set_result(None)
 
 
-handle_complex_message = _handle_complex_message
+_handle_complex_message = handle_complex_message
 
 
 class APIConnection:
@@ -400,7 +400,7 @@ class APIConnection:
         self._frame_helper = fh
         handshake_handle = self._loop.call_at(
             self._loop.time() + HANDSHAKE_TIMEOUT,
-            handle_timeout,
+            _handle_timeout,
             self._frame_helper.ready_future,
         )
         try:
@@ -742,7 +742,9 @@ class APIConnection:
         # Unsafe to await between sending the message and registering the handler
         fut: asyncio.Future[None] = loop.create_future()
         responses: list[message.Message] = []
-        on_message = partial(handle_complex_message, fut, responses, do_append, do_stop)
+        on_message = partial(
+            _handle_complex_message, fut, responses, do_append, do_stop
+        )
         self._add_message_callback_without_remove(on_message, msg_types)
 
         self._read_exception_futures.add(fut)
@@ -751,7 +753,7 @@ class APIConnection:
         # We must not await without a finally or
         # the message could fail to be removed if the
         # the await is cancelled
-        timeout_handle = loop.call_at(loop.time() + timeout, handle_timeout, fut)
+        timeout_handle = loop.call_at(loop.time() + timeout, _handle_timeout, fut)
         timeout_expired = False
         try:
             await fut

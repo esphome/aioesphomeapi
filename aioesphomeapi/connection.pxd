@@ -57,8 +57,8 @@ cdef object CONNECTION_STATE_CLOSED
 
 cdef object make_hello_request
 
-cpdef _handle_timeout(object fut)
-cpdef _handle_complex_message(
+cpdef handle_timeout(object fut)
+cpdef handle_complex_message(
     object fut,
     list responses,
     object do_append,
@@ -66,8 +66,8 @@ cpdef _handle_complex_message(
     object resp,
 )
 
-cpdef object handle_timeout
-cdef object handle_complex_message
+cdef object _handle_timeout
+cdef object _handle_complex_message
 
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
