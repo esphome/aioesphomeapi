@@ -1048,7 +1048,6 @@ class APIClient:
         preset: ClimatePreset | None = None,
         custom_preset: str | None = None,
         target_humidity: float | None = None,
-        aux_heat: bool | None = None,
     ) -> None:
         req = ClimateCommandRequest(key=key)
         if mode is not None:
@@ -1088,9 +1087,6 @@ class APIClient:
         if target_humidity is not None:
             req.has_target_humidity = True
             req.target_humidity = target_humidity
-        if aux_heat is not None:
-            req.has_aux_heat = True
-            req.aux_heat = aux_heat
         self._get_connection().send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
