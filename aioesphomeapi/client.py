@@ -349,7 +349,7 @@ class APIClient:
         """Execute a coroutine and reset the _connection if it fails."""
         try:
             await coro
-        except Exception:  # pylint: disable=broad-except
+        except (Exception, asyncio.CancelledError):  # pylint: disable=broad-except
             self._connection = None
             raise
 
