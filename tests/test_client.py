@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import itertools
 import logging
 from functools import partial
@@ -210,6 +211,37 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error() -> No
     ):
         with pytest.raises(UnhandledAPIConnectionError, match="foo"):
             await cli.finish_connection(False)
+
+
+@pytest.mark.asyncio
+async def test_connection_released_if_connecting_is_cancelled() -> None:
+    """Verify connection is unset if connecting is cancelled."""
+    cli = APIClient("1.2.3.4", 1234, None)
+    loop = asyncio.get_event_loop()
+
+    with patch.object(loop, "sock_connect", side_effect=partial(asyncio.sleep, 1)):
+        start_task = asyncio.create_task(cli.start_connection())
+        await asyncio.sleep(0)
+        assert cli._connection is not None
+
+    start_task.cancel()
+    with contextlib.suppress(BaseException):
+        await start_task
+    assert cli._connection is None
+
+    with patch(
+        "aioesphomeapi.client.APIConnection", PatchableAPIConnection
+    ), patch.object(loop, "sock_connect"):
+        await cli.start_connection()
+        await asyncio.sleep(0)
+
+    assert cli._connection is not None
+    task = asyncio.create_task(cli.finish_connection(False))
+    await asyncio.sleep(0)
+    task.cancel()
+    with contextlib.suppress(BaseException):
+        await task
+    assert cli._connection is None
 
 
 @pytest.mark.asyncio
