@@ -548,6 +548,10 @@ class ClimateInfo(EntityInfo):
     supported_custom_presets: list[str] = converter_field(
         default_factory=list, converter=list
     )
+    supports_current_humidity: bool = False
+    supports_target_humidity: bool = False
+    visual_min_humidity: float = 0
+    visual_max_humidity: float = 0
 
     def supported_presets_compat(self, api_version: APIVersion) -> list[ClimatePreset]:
         if api_version < APIVersion(1, 5):
@@ -591,6 +595,8 @@ class ClimateState(EntityState):
         default=ClimatePreset.NONE, converter=ClimatePreset.convert
     )
     custom_preset: str = ""
+    current_humidity: float = 0
+    target_humidity: float = 0
 
     def preset_compat(self, api_version: APIVersion) -> ClimatePreset | None:
         if api_version < APIVersion(1, 5):

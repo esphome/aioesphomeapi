@@ -349,7 +349,7 @@ class APIClient:
         """Execute a coroutine and reset the _connection if it fails."""
         try:
             await coro
-        except Exception:  # pylint: disable=broad-except
+        except (Exception, asyncio.CancelledError):  # pylint: disable=broad-except
             self._connection = None
             raise
 
@@ -1039,7 +1039,7 @@ class APIClient:
     async def switch_command(self, key: int, state: bool) -> None:
         self._get_connection().send_message(SwitchCommandRequest(key=key, state=state))
 
-    async def climate_command(
+    async def climate_command(  # pylint: disable=too-many-branches
         self,
         key: int,
         mode: ClimateMode | None = None,
@@ -1051,6 +1051,7 @@ class APIClient:
         custom_fan_mode: str | None = None,
         preset: ClimatePreset | None = None,
         custom_preset: str | None = None,
+        target_humidity: float | None = None,
     ) -> None:
         req = ClimateCommandRequest(key=key)
         if mode is not None:
@@ -1087,6 +1088,9 @@ class APIClient:
         if custom_preset is not None:
             req.has_custom_preset = True
             req.custom_preset = custom_preset
+        if target_humidity is not None:
+            req.has_target_humidity = True
+            req.target_humidity = target_humidity
         self._get_connection().send_message(req)
 
     async def number_command(self, key: int, state: float) -> None:
