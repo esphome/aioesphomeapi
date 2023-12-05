@@ -5,7 +5,6 @@ from ..connection cimport APIConnection
 
 
 cdef bint TYPE_CHECKING
-cdef object WRITE_EXCEPTIONS
 
 cdef class APIFrameHelper:
 

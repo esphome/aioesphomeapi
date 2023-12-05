@@ -19,7 +19,6 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper.base import WRITE_EXCEPTIONS
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
@@ -96,6 +95,8 @@ CONNECT_REQUEST_TIMEOUT = 30.0
 # The connect timeout should be the maximum time we expect the esp to take
 # to reboot and connect to the network/WiFi.
 TCP_CONNECT_TIMEOUT = 60.0
+
+WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 
 _int = int
