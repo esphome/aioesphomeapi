@@ -19,6 +19,7 @@ from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
 
+from ._frame_helper.base import WRITE_EXCEPTIONS
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
@@ -46,6 +47,7 @@ from .core import (
     ReadFailedAPIError,
     ResolveAPIError,
     SocketAPIError,
+    SocketClosedAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
 )
@@ -667,12 +669,16 @@ class APIConnection:
 
         try:
             self._frame_helper.write_packets(packets, debug_enabled)
-        except SocketAPIError as err:
+        except WRITE_EXCEPTIONS as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             _LOGGER.info("%s: Error writing packets: %s", self.log_name, err)
-            self.report_fatal_error(err)
-            raise
+            wrapped_err = SocketClosedAPIError(
+                f"{self.log_name}: Error writing packets: {err}"
+            )
+            wrapped_err.__cause__ = err
+            self.report_fatal_error(wrapped_err)
+            raise wrapped_err from err
 
     def _add_message_callback_without_remove(
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]

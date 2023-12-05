@@ -189,9 +189,4 @@ class APIFrameHelper:
         if TYPE_CHECKING:
             assert self._writer is not None, "Writer is not set"
 
-        try:
-            self._writer(data)
-        except WRITE_EXCEPTIONS as err:
-            raise SocketClosedAPIError(
-                f"{self._log_name}: Error while writing data: {err}"
-            ) from err
+        self._writer(data)
