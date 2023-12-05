@@ -46,6 +46,7 @@ from .core import (
     ReadFailedAPIError,
     ResolveAPIError,
     SocketAPIError,
+    SocketClosedAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
 )
@@ -94,6 +95,8 @@ CONNECT_REQUEST_TIMEOUT = 30.0
 # The connect timeout should be the maximum time we expect the esp to take
 # to reboot and connect to the network/WiFi.
 TCP_CONNECT_TIMEOUT = 60.0
+
+WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 
 _int = int
@@ -667,12 +670,16 @@ class APIConnection:
 
         try:
             self._frame_helper.write_packets(packets, debug_enabled)
-        except SocketAPIError as err:
+        except WRITE_EXCEPTIONS as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
             _LOGGER.info("%s: Error writing packets: %s", self.log_name, err)
-            self.report_fatal_error(err)
-            raise
+            wrapped_err = SocketClosedAPIError(
+                f"{self.log_name}: Error writing packets: {err}"
+            )
+            wrapped_err.__cause__ = err
+            self.report_fatal_error(wrapped_err)
+            raise wrapped_err from err
 
     def _add_message_callback_without_remove(
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
