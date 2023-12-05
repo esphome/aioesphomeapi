@@ -13,6 +13,8 @@ cdef object HANDSHAKE_TIMEOUT
 
 cdef bint TYPE_CHECKING
 
+cdef object WRITE_EXCEPTIONS
+
 cdef object DISCONNECT_REQUEST_MESSAGE
 cdef tuple DISCONNECT_RESPONSE_MESSAGES
 cdef tuple PING_REQUEST_MESSAGES
@@ -46,6 +48,7 @@ cdef object ReadFailedAPIError
 cdef object TimeoutAPIError
 cdef object SocketAPIError
 cdef object InvalidAuthAPIError
+cdef object SocketClosedAPIError
 
 cdef object astuple
 
@@ -57,8 +60,8 @@ cdef object CONNECTION_STATE_CLOSED
 
 cdef object make_hello_request
 
-cpdef handle_timeout(object fut)
-cpdef handle_complex_message(
+cpdef void handle_timeout(object fut)
+cpdef void handle_complex_message(
     object fut,
     list responses,
     object do_append,
@@ -130,7 +133,7 @@ cdef class APIConnection:
 
     cdef void _set_connection_state(self, object state)
 
-    cpdef report_fatal_error(self, Exception err)
+    cpdef void report_fatal_error(self, Exception err)
 
     @cython.locals(handlers=set)
     cdef void _add_message_callback_without_remove(self, object on_message, tuple msg_types)
