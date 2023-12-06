@@ -248,6 +248,9 @@ class FanInfo(EntityInfo):
     supports_speed: bool = False
     supports_direction: bool = False
     supported_speed_levels: int = 0
+    supported_preset_modes: list[str] = converter_field(
+        default_factory=list, converter=list
+    )
 
 
 class FanSpeed(APIIntEnum):
@@ -272,6 +275,7 @@ class FanState(EntityState):
     direction: FanDirection | None = converter_field(
         default=FanDirection.FORWARD, converter=FanDirection.convert
     )
+    preset_mode: str = ""
 
 
 # ==================== LIGHT ====================

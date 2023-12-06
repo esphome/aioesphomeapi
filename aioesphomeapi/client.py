@@ -956,6 +956,7 @@ class APIClient:
         speed_level: int | None = None,
         oscillating: bool | None = None,
         direction: FanDirection | None = None,
+        preset_mode: str | None = None,
     ) -> None:
         req = FanCommandRequest(key=key)
         if state is not None:
@@ -973,6 +974,9 @@ class APIClient:
         if direction is not None:
             req.has_direction = True
             req.direction = direction
+        if preset_mode is not None:
+            req.has_preset_mode = True
+            req.preset_mode = preset_mode
         self._get_connection().send_message(req)
 
     async def light_command(  # pylint: disable=too-many-branches
