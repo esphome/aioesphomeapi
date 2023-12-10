@@ -39,12 +39,14 @@ def async_zeroconf():
 @pytest.fixture
 def resolve_host():
     with patch("aioesphomeapi.host_resolver.async_resolve_host") as func:
-        func.return_value = AddrInfo(
-            family=socket.AF_INET,
-            type=socket.SOCK_STREAM,
-            proto=socket.IPPROTO_TCP,
-            sockaddr=IPv4Sockaddr("10.0.0.512", 6052),
-        )
+        func.return_value = [
+            AddrInfo(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=IPv4Sockaddr("10.0.0.512", 6052),
+            )
+        ]
         yield func
 
 
