@@ -39,9 +39,9 @@ def addr_infos():
 async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     info = MagicMock(auto_spec=AsyncServiceInfo)
     ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
-    info.ip_addresses_by_version.return_value = [
-        ip_address(b"\n\x00\x00*"),
-        ipv6,
+    info.ip_addresses_by_version.side_effect = [
+        [ip_address(b"\n\x00\x00*")],
+        [ipv6],
     ]
     info.async_request = AsyncMock(return_value=True)
     with patch(
@@ -59,9 +59,9 @@ async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
     zeroconf_manager = ZeroconfManager()
     info = MagicMock(auto_spec=AsyncServiceInfo)
     ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
-    info.ip_addresses_by_version.return_value = [
-        ip_address(b"\n\x00\x00*"),
-        ipv6,
+    info.ip_addresses_by_version.side_effect = [
+        [ip_address(b"\n\x00\x00*")],
+        [ipv6],
     ]
     info.async_request = AsyncMock(return_value=True)
     with patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info):
