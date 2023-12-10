@@ -108,8 +108,10 @@ async def _async_resolve_host_zeroconf(
         timeout,
     )
     addrs: list[AddrInfo] = []
-    for ip in info.ip_addresses_by_version(IPVersion.All):
-        addrs.extend(_async_ip_address_to_addrs(ip, port))  # type: ignore[arg-type]
+    for ip in info.ip_addresses_by_version(IPVersion.V6Only):
+        addrs.extend(_async_ip_address_to_addrs(ip, port))
+    for ip in info.ip_addresses_by_version(IPVersion.V4Only):
+        addrs.extend(_async_ip_address_to_addrs(ip, port))
     return addrs
 
 
@@ -182,7 +184,7 @@ async def async_resolve_host(
     host: str,
     port: int,
     zeroconf_manager: ZeroconfManager | None = None,
-) -> AddrInfo:
+) -> list[AddrInfo]:
     addrs: list[AddrInfo] = []
 
     zc_error = None
@@ -210,6 +212,4 @@ async def async_resolve_host(
             raise zc_error
         raise ResolveAPIError(f"Could not resolve host {host} - got no results from OS")
 
-    # Use first matching result
-    # Future: return all matches and use first working one
-    return addrs[0]
+    return addrs

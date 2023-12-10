@@ -15,6 +15,7 @@ from dataclasses import astuple, dataclass
 from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable
 
+import aiohappyeyeballs
 from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
@@ -250,7 +251,7 @@ class APIConnection:
         self._handshake_complete = False
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
-        self.resolved_addr_info: hr.AddrInfo | None = None
+        self.resolved_addr_info: list[hr.AddrInfo] = []
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -319,7 +320,7 @@ class APIConnection:
         """Enable or disable debug logging."""
         self._debug_enabled = enable
 
-    async def _connect_resolve_host(self) -> hr.AddrInfo:
+    async def _connect_resolve_host(self) -> list[hr.AddrInfo]:
         """Step 1 in connect process: resolve the address."""
         try:
             async with asyncio_timeout(RESOLVE_TIMEOUT):
@@ -333,9 +334,54 @@ class APIConnection:
                 f"Timeout while resolving IP address for {self.log_name}"
             ) from err
 
-    async def _connect_socket_connect(self, addr: hr.AddrInfo) -> None:
+    async def _connect_socket_connect(self, addrs: list[hr.AddrInfo]) -> None:
         """Step 2 in connect process: connect the socket."""
-        sock = socket.socket(family=addr.family, type=addr.type, proto=addr.proto)
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Connecting to %s:%s (%s)",
+                self.log_name,
+                self._params.address,
+                self._params.port,
+                addrs,
+            )
+
+        addr_infos: list[aiohappyeyeballs.AddrInfoType] = [
+            (
+                addr.family,
+                addr.type,
+                addr.proto,
+                self._params.address,
+                astuple(addr.sockaddr),
+            )
+            for addr in addrs
+        ]
+        last_exception: Exception | None = None
+        sock: socket.socket | None = None
+        interleave = 1
+        while addr_infos:
+            try:
+                async with asyncio_timeout(TCP_CONNECT_TIMEOUT):
+                    sock = await aiohappyeyeballs.start_connection(
+                        addr_infos,
+                        happy_eyeballs_delay=0.25,
+                        interleave=interleave,
+                        loop=self._loop,
+                    )
+                    break
+            except (OSError, asyncio_TimeoutError) as err:
+                last_exception = err
+                aiohappyeyeballs.pop_addr_infos_interleave(addr_infos, interleave)
+
+        if not sock:
+            if isinstance(last_exception, OSError):
+                raise SocketAPIError(
+                    f"Error connecting to {addr_infos}: {last_exception}"
+                ) from last_exception
+            else:
+                raise SocketAPIError(
+                    f"Timeout while connecting to {addr_infos}"
+                ) from last_exception
+
         self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -345,29 +391,11 @@ class APIConnection:
 
         if self._debug_enabled:
             _LOGGER.debug(
-                "%s: Connecting to %s:%s (%s)",
-                self.log_name,
-                self._params.address,
-                self._params.port,
-                addr,
-            )
-        sockaddr = astuple(addr.sockaddr)
-
-        try:
-            async with asyncio_timeout(TCP_CONNECT_TIMEOUT):
-                await self._loop.sock_connect(sock, sockaddr)
-        except asyncio_TimeoutError as err:
-            raise SocketAPIError(f"Timeout while connecting to {sockaddr}") from err
-        except OSError as err:
-            raise SocketAPIError(f"Error connecting to {sockaddr}: {err}") from err
-
-        if self._debug_enabled:
-            _LOGGER.debug(
                 "%s: Opened socket to %s:%s (%s)",
                 self.log_name,
                 self._params.address,
                 self._params.port,
-                addr,
+                addrs,
             )
 
     async def _connect_init_frame_helper(self) -> None:
