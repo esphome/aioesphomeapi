@@ -558,7 +558,7 @@ async def test_force_disconnect_fails(
 
 @pytest.mark.asyncio
 async def test_connect_resolver_times_out(
-    conn: APIConnection, socket_socket, event_loop
+    conn: APIConnection, socket_socket, event_loop, aiohappyeyeballs_start_connection
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
@@ -566,8 +566,6 @@ async def test_connect_resolver_times_out(
     with patch(
         "aioesphomeapi.host_resolver.async_resolve_host",
         side_effect=asyncio.TimeoutError,
-    ), patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
     ), patch.object(
         event_loop,
         "create_connection",
@@ -584,6 +582,7 @@ async def test_disconnect_fails_to_send_response(
     event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     socket_socket,
+    aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_event_loop()
     transport = MagicMock()
@@ -599,9 +598,7 @@ async def test_disconnect_fails_to_send_response(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    with patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
-    ), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -636,6 +633,7 @@ async def test_disconnect_success_case(
     event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     socket_socket,
+    aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_event_loop()
     transport = MagicMock()
@@ -651,9 +649,7 @@ async def test_disconnect_success_case(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    with patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
-    ), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),

@@ -194,14 +194,14 @@ async def test_connect_backwards_compat() -> None:
 
 
 @pytest.mark.asyncio
-async def test_finish_connection_wraps_exceptions_as_unhandled_api_error() -> None:
+async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
+    aiohappyeyeballs_start_connection,
+) -> None:
     """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
 
     cli = APIClient("1.2.3.4", 1234, None)
     asyncio.get_event_loop()
-    with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection), patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
-    ):
+    with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
         await cli.start_connection()
 
     with patch.object(
