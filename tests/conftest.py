@@ -134,7 +134,9 @@ async def plaintext_connect_task_no_login(
     transport = MagicMock()
     connected = asyncio.Event()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -151,7 +153,9 @@ async def plaintext_connect_task_no_login_with_expected_name(
     transport = MagicMock()
     connected = asyncio.Event()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -170,7 +174,9 @@ async def plaintext_connect_task_with_login(
     transport = MagicMock()
     connected = asyncio.Event()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -193,11 +199,15 @@ async def api_client(
         password=None,
     )
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
-    ), patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
+    ), patch(
+        "aioesphomeapi.client.APIConnection", PatchableAPIConnection
+    ):
         connect_task = asyncio.create_task(connect_client(client, login=False))
         await connected.wait()
         conn = client._connection

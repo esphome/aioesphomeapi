@@ -710,7 +710,9 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         name="fake",
     )
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -726,7 +728,9 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
     assert cli._connection.is_connected is True
     await asyncio.sleep(0)
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -785,7 +789,9 @@ async def test_backoff_on_encryption_error(
         name="fake",
     )
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),

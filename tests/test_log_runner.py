@@ -69,9 +69,13 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
+    ), patch.object(
+        cli, "subscribe_logs", _wait_subscribe_cli
+    ):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -135,9 +139,13 @@ async def test_log_runner_reconnects_on_disconnect(
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
+    ), patch.object(
+        cli, "subscribe_logs", _wait_subscribe_cli
+    ):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -214,7 +222,9 @@ async def test_log_runner_reconnects_on_subscribe_failure(
     with patch.object(
         cli, "disconnect", partial(cli.disconnect, force=True)
     ), patch.object(cli, "subscribe_logs", _wait_and_fail_subscribe_cli):
-        with patch.object(loop, "sock_connect"), patch.object(
+        with patch(
+            "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+        ), patch.object(
             loop, "create_connection", side_effect=_create_mock_transport_protocol
         ):
             stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
@@ -227,9 +237,13 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     assert cli._connection is None
 
-    with patch.object(loop, "sock_connect"), patch.object(
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ), patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(cli, "subscribe_logs"):
+    ), patch.object(
+        cli, "subscribe_logs"
+    ):
         connected.clear()
         await asyncio.sleep(0)
         async_fire_time_changed(
