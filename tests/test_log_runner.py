@@ -30,7 +30,11 @@ from .common import (
 
 
 @pytest.mark.asyncio
-async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnection):
+async def test_log_runner(
+    event_loop: asyncio.AbstractEventLoop,
+    conn: APIConnection,
+    aiohappyeyeballs_start_connection,
+):
     """Test the log runner logic."""
     loop = asyncio.get_event_loop()
     protocol: APIPlaintextFrameHelper | None = None
@@ -69,13 +73,9 @@ async def test_log_runner(event_loop: asyncio.AbstractEventLoop, conn: APIConnec
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
-    ), patch.object(
+    with patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(
-        cli, "subscribe_logs", _wait_subscribe_cli
-    ):
+    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -100,6 +100,7 @@ async def test_log_runner_reconnects_on_disconnect(
     event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
+    aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on disconnect."""
     loop = asyncio.get_event_loop()
@@ -139,13 +140,9 @@ async def test_log_runner_reconnects_on_disconnect(
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
-    ), patch.object(
+    with patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(
-        cli, "subscribe_logs", _wait_subscribe_cli
-    ):
+    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -181,6 +178,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
     event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
+    aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on subscribe failure."""
     loop = asyncio.get_event_loop()
@@ -222,9 +220,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
     with patch.object(
         cli, "disconnect", partial(cli.disconnect, force=True)
     ), patch.object(cli, "subscribe_logs", _wait_and_fail_subscribe_cli):
-        with patch(
-            "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
-        ), patch.object(
+        with patch.object(
             loop, "create_connection", side_effect=_create_mock_transport_protocol
         ):
             stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
@@ -237,13 +233,9 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     assert cli._connection is None
 
-    with patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
-    ), patch.object(
+    with patch.object(
         loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(
-        cli, "subscribe_logs"
-    ):
+    ), patch.object(cli, "subscribe_logs"):
         connected.clear()
         await asyncio.sleep(0)
         async_fire_time_changed(
