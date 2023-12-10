@@ -372,15 +372,14 @@ class APIConnection:
                 last_exception = err
                 aiohappyeyeballs.pop_addr_infos_interleave(addr_infos, interleave)
 
-        if not sock:
+        if sock is None:
             if isinstance(last_exception, OSError):
                 raise SocketAPIError(
                     f"Error connecting to {addr_infos}: {last_exception}"
                 ) from last_exception
-            else:
-                raise SocketAPIError(
-                    f"Timeout while connecting to {addr_infos}"
-                ) from last_exception
+            raise SocketAPIError(
+                f"Timeout while connecting to {addr_infos}"
+            ) from last_exception
 
         self._socket = sock
         sock.setblocking(False)
