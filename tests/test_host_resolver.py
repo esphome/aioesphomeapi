@@ -39,9 +39,9 @@ def addr_infos():
 async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     info = MagicMock(auto_spec=AsyncServiceInfo)
     ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
-    info.ip_addresses_by_version.return_value = [
-        ip_address(b"\n\x00\x00*"),
-        ipv6,
+    info.ip_addresses_by_version.side_effect = [
+        [ip_address(b"\n\x00\x00*")],
+        [ipv6],
     ]
     info.async_request = AsyncMock(return_value=True)
     with patch(
@@ -59,9 +59,9 @@ async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
     zeroconf_manager = ZeroconfManager()
     info = MagicMock(auto_spec=AsyncServiceInfo)
     ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
-    info.ip_addresses_by_version.return_value = [
-        ip_address(b"\n\x00\x00*"),
-        ipv6,
+    info.ip_addresses_by_version.side_effect = [
+        [ip_address(b"\n\x00\x00*")],
+        [ipv6],
     ]
     info.async_request = AsyncMock(return_value=True)
     with patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info):
@@ -144,7 +144,7 @@ async def test_resolve_host_mdns(resolve_addr, resolve_zc, addr_infos):
 
     resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
     resolve_addr.assert_not_called()
-    assert ret == addr_infos[0]
+    assert ret == addr_infos
 
 
 @pytest.mark.asyncio
@@ -157,7 +157,7 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
 
     resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
     resolve_addr.assert_called_once_with("example.local", 6052)
-    assert ret == addr_infos[0]
+    assert ret == addr_infos
 
 
 @pytest.mark.asyncio
@@ -178,7 +178,7 @@ async def test_resolve_host_addrinfo(resolve_addr, resolve_zc, addr_infos):
 
     resolve_zc.assert_not_called()
     resolve_addr.assert_called_once_with("example.com", 6052)
-    assert ret == addr_infos[0]
+    assert ret == addr_infos
 
 
 @pytest.mark.asyncio
@@ -203,12 +203,14 @@ async def test_resolve_host_with_address(resolve_addr, resolve_zc):
 
     resolve_zc.assert_not_called()
     resolve_addr.assert_not_called()
-    assert ret == hr.AddrInfo(
-        family=socket.AddressFamily.AF_INET,
-        type=socket.SocketKind.SOCK_STREAM,
-        proto=6,
-        sockaddr=hr.IPv4Sockaddr(address="127.0.0.1", port=6052),
-    )
+    assert ret == [
+        hr.AddrInfo(
+            family=socket.AddressFamily.AF_INET,
+            type=socket.SocketKind.SOCK_STREAM,
+            proto=6,
+            sockaddr=hr.IPv4Sockaddr(address="127.0.0.1", port=6052),
+        )
+    ]
 
 
 @pytest.mark.asyncio

@@ -39,12 +39,14 @@ def async_zeroconf():
 @pytest.fixture
 def resolve_host():
     with patch("aioesphomeapi.host_resolver.async_resolve_host") as func:
-        func.return_value = AddrInfo(
-            family=socket.AF_INET,
-            type=socket.SOCK_STREAM,
-            proto=socket.IPPROTO_TCP,
-            sockaddr=IPv4Sockaddr("10.0.0.512", 6052),
-        )
+        func.return_value = [
+            AddrInfo(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=IPv4Sockaddr("10.0.0.512", 6052),
+            )
+        ]
         yield func
 
 
@@ -114,6 +116,13 @@ def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnectio
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
+@pytest.fixture()
+def aiohappyeyeballs_start_connection():
+    with patch("aioesphomeapi.connection.aiohappyeyeballs.start_connection") as func:
+        func.return_value = MagicMock(type=socket.SOCK_STREAM)
+        yield func
+
+
 def _create_mock_transport_protocol(
     transport: asyncio.Transport,
     connected: asyncio.Event,
@@ -128,13 +137,17 @@ def _create_mock_transport_protocol(
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_no_login")
 async def plaintext_connect_task_no_login(
-    conn: APIConnection, resolve_host, socket_socket, event_loop
+    conn: APIConnection,
+    resolve_host,
+    socket_socket,
+    event_loop,
+    aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     loop = asyncio.get_event_loop()
     transport = MagicMock()
     connected = asyncio.Event()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -146,12 +159,16 @@ async def plaintext_connect_task_no_login(
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_expected_name")
 async def plaintext_connect_task_no_login_with_expected_name(
-    conn_with_expected_name: APIConnection, resolve_host, socket_socket, event_loop
+    conn_with_expected_name: APIConnection,
+    resolve_host,
+    socket_socket,
+    event_loop,
+    aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -165,12 +182,16 @@ async def plaintext_connect_task_no_login_with_expected_name(
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_with_login")
 async def plaintext_connect_task_with_login(
-    conn_with_password: APIConnection, resolve_host, socket_socket, event_loop
+    conn_with_password: APIConnection,
+    resolve_host,
+    socket_socket,
+    event_loop,
+    aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -182,7 +203,7 @@ async def plaintext_connect_task_with_login(
 
 @pytest_asyncio.fixture(name="api_client")
 async def api_client(
-    resolve_host, socket_socket, event_loop
+    resolve_host, socket_socket, event_loop, aiohappyeyeballs_start_connection
 ) -> tuple[APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
@@ -193,7 +214,7 @@ async def api_client(
         password=None,
     )
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),

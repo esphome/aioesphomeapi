@@ -194,14 +194,14 @@ async def test_connect_backwards_compat() -> None:
 
 
 @pytest.mark.asyncio
-async def test_finish_connection_wraps_exceptions_as_unhandled_api_error() -> None:
+async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
+    aiohappyeyeballs_start_connection,
+) -> None:
     """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
 
     cli = APIClient("1.2.3.4", 1234, None)
-    loop = asyncio.get_event_loop()
-    with patch(
-        "aioesphomeapi.client.APIConnection", PatchableAPIConnection
-    ), patch.object(loop, "sock_connect"):
+    asyncio.get_event_loop()
+    with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
         await cli.start_connection()
 
     with patch.object(
@@ -217,9 +217,12 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error() -> No
 async def test_connection_released_if_connecting_is_cancelled() -> None:
     """Verify connection is unset if connecting is cancelled."""
     cli = APIClient("1.2.3.4", 1234, None)
-    loop = asyncio.get_event_loop()
+    asyncio.get_event_loop()
 
-    with patch.object(loop, "sock_connect", side_effect=partial(asyncio.sleep, 1)):
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+        side_effect=partial(asyncio.sleep, 1),
+    ):
         start_task = asyncio.create_task(cli.start_connection())
         await asyncio.sleep(0)
         assert cli._connection is not None
@@ -229,9 +232,9 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
         await start_task
     assert cli._connection is None
 
-    with patch(
-        "aioesphomeapi.client.APIConnection", PatchableAPIConnection
-    ), patch.object(loop, "sock_connect"):
+    with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection), patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+    ):
         await cli.start_connection()
         await asyncio.sleep(0)
 
@@ -252,8 +255,9 @@ async def test_request_while_handshaking(event_loop) -> None:
         pass
 
     cli = PatchableApiClient("host", 1234, None)
-    with patch.object(
-        event_loop, "sock_connect", side_effect=partial(asyncio.sleep, 1)
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+        side_effect=partial(asyncio.sleep, 1),
     ), patch.object(cli, "finish_connection"):
         connect_task = asyncio.create_task(cli.connect())
 

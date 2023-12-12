@@ -672,7 +672,9 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
 
 
 @pytest.mark.asyncio
-async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventLoop):
+async def test_handling_unexpected_disconnect(
+    event_loop: asyncio.AbstractEventLoop, aiohappyeyeballs_start_connection
+):
     """Test the disconnect callback fires with expected_disconnect=False."""
     loop = asyncio.get_event_loop()
     protocol: APIPlaintextFrameHelper | None = None
@@ -710,7 +712,7 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
         name="fake",
     )
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -726,7 +728,7 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
     assert cli._connection.is_connected is True
     await asyncio.sleep(0)
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -746,7 +748,9 @@ async def test_handling_unexpected_disconnect(event_loop: asyncio.AbstractEventL
 
 @pytest.mark.asyncio
 async def test_backoff_on_encryption_error(
-    event_loop: asyncio.AbstractEventLoop, caplog: pytest.LogCaptureFixture
+    event_loop: asyncio.AbstractEventLoop,
+    caplog: pytest.LogCaptureFixture,
+    aiohappyeyeballs_start_connection,
 ) -> None:
     """Test we backoff on encryption error."""
     loop = asyncio.get_event_loop()
@@ -785,7 +789,7 @@ async def test_backoff_on_encryption_error(
         name="fake",
     )
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),

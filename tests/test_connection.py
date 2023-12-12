@@ -241,14 +241,15 @@ async def test_start_connection_times_out(
     conn: APIConnection, resolve_host, socket_socket
 ):
     """Test handling of start connection timing out."""
-    loop = asyncio.get_event_loop()
+    asyncio.get_event_loop()
 
     async def _mock_socket_connect(*args, **kwargs):
         await asyncio.sleep(500)
 
-    with patch.object(loop, "sock_connect", side_effect=_mock_socket_connect), patch(
-        "aioesphomeapi.connection.TCP_CONNECT_TIMEOUT", 0.0
-    ):
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+        side_effect=_mock_socket_connect,
+    ), patch("aioesphomeapi.connection.TCP_CONNECT_TIMEOUT", 0.0):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await asyncio.sleep(0)
 
@@ -267,9 +268,12 @@ async def test_start_connection_os_error(
     conn: APIConnection, resolve_host, socket_socket
 ):
     """Test handling of start connection has an OSError."""
-    loop = asyncio.get_event_loop()
+    asyncio.get_event_loop()
 
-    with patch.object(loop, "sock_connect", side_effect=OSError("Socket error")):
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+        side_effect=OSError("Socket error"),
+    ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await asyncio.sleep(0)
         with pytest.raises(APIConnectionError, match="Socket error"):
@@ -284,9 +288,12 @@ async def test_start_connection_is_cancelled(
     conn: APIConnection, resolve_host, socket_socket
 ):
     """Test handling of start connection is cancelled."""
-    loop = asyncio.get_event_loop()
+    asyncio.get_event_loop()
 
-    with patch.object(loop, "sock_connect", side_effect=asyncio.CancelledError):
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+        side_effect=asyncio.CancelledError,
+    ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await asyncio.sleep(0)
         with pytest.raises(APIConnectionError, match="Starting connection cancelled"):
@@ -551,7 +558,7 @@ async def test_force_disconnect_fails(
 
 @pytest.mark.asyncio
 async def test_connect_resolver_times_out(
-    conn: APIConnection, socket_socket, event_loop
+    conn: APIConnection, socket_socket, event_loop, aiohappyeyeballs_start_connection
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
@@ -559,7 +566,7 @@ async def test_connect_resolver_times_out(
     with patch(
         "aioesphomeapi.host_resolver.async_resolve_host",
         side_effect=asyncio.TimeoutError,
-    ), patch.object(event_loop, "sock_connect"), patch.object(
+    ), patch.object(
         event_loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -575,6 +582,7 @@ async def test_disconnect_fails_to_send_response(
     event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     socket_socket,
+    aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_event_loop()
     transport = MagicMock()
@@ -590,7 +598,7 @@ async def test_disconnect_fails_to_send_response(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
@@ -625,6 +633,7 @@ async def test_disconnect_success_case(
     event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     socket_socket,
+    aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_event_loop()
     transport = MagicMock()
@@ -640,7 +649,7 @@ async def test_disconnect_success_case(
         nonlocal expected_disconnect
         expected_disconnect = _expected_disconnect
 
-    with patch.object(event_loop, "sock_connect"), patch.object(
+    with patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
