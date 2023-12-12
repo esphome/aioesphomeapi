@@ -4,9 +4,10 @@ import asyncio
 import contextlib
 import itertools
 import logging
+import socket
 from functools import partial
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
 import pytest
 from google.protobuf import message
@@ -219,9 +220,15 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
     cli = APIClient("1.2.3.4", 1234, None)
     asyncio.get_event_loop()
 
+    async def _start_connection_with_delay(*args, **kwargs):
+        await asyncio.sleep(1)
+        mock_socket = create_autospec(socket.socket, spec_set=True, instance=True)
+        mock_socket.getpeername.return_value = ("4.3.3.3", 323)
+        return mock_socket
+
     with patch(
         "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
-        side_effect=partial(asyncio.sleep, 1),
+        _start_connection_with_delay,
     ):
         start_task = asyncio.create_task(cli.start_connection())
         await asyncio.sleep(0)
@@ -232,8 +239,14 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
         await start_task
     assert cli._connection is None
 
+    async def _start_connection_without_delay(*args, **kwargs):
+        mock_socket = create_autospec(socket.socket, spec_set=True, instance=True)
+        mock_socket.getpeername.return_value = ("4.3.3.3", 323)
+        return mock_socket
+
     with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection), patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection"
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+        _start_connection_without_delay,
     ):
         await cli.start_connection()
         await asyncio.sleep(0)
@@ -894,7 +907,7 @@ async def test_noise_psk_handles_subclassed_string():
     )
     # Make sure its not a subclassed string
     assert type(cli._params.noise_psk) is str
-    assert type(cli._params.address) is str
+    assert type(cli._params.addresses[0]) is str
     assert type(cli._params.expected_name) is str
 
     rl = ReconnectLogic(
@@ -930,7 +943,7 @@ async def test_no_noise_psk():
     )
     # Make sure its not a subclassed string
     assert cli._params.noise_psk is None
-    assert type(cli._params.address) is str
+    assert type(cli._params.addresses[0]) is str
     assert type(cli._params.expected_name) is str
 
 
@@ -945,7 +958,7 @@ async def test_empty_noise_psk_or_expected_name():
         expected_name="",
     )
     assert cli._params.noise_psk is None
-    assert type(cli._params.address) is str
+    assert type(cli._params.addresses[0]) is str
     assert cli._params.expected_name is None
 
 

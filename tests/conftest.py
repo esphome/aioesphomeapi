@@ -6,7 +6,7 @@ import socket
 from dataclasses import replace
 from functools import partial
 from typing import Callable
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytest_asyncio
@@ -119,7 +119,11 @@ def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnectio
 @pytest.fixture()
 def aiohappyeyeballs_start_connection():
     with patch("aioesphomeapi.connection.aiohappyeyeballs.start_connection") as func:
-        func.return_value = MagicMock(type=socket.SOCK_STREAM)
+        mock_socket = Mock()
+        mock_socket.type = socket.SOCK_STREAM
+        mock_socket.fileno.return_value = 1
+        mock_socket.getpeername.return_value = ("10.0.0.512", 323)
+        func.return_value = mock_socket
         yield func
 
 
