@@ -17,8 +17,6 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTReadResponse,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
-    BluetoothLERawAdvertisement,
-    BluetoothLERawAdvertisementsResponse,
     CameraImageResponse,
     HomeassistantServiceResponse,
     SubscribeHomeAssistantStateResponse,
@@ -70,13 +68,6 @@ def on_bluetooth_le_advertising_response(
     msg: BluetoothLEAdvertisementResponse,
 ) -> None:
     on_bluetooth_le_advertisement(BluetoothLEAdvertisement.from_pb(msg))  # type: ignore[misc]
-
-
-def on_ble_raw_advertisement_response(
-    on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None],
-    msg: BluetoothLERawAdvertisementsResponse,
-) -> None:
-    on_advertisements(msg.advertisements)
 
 
 def on_bluetooth_connections_free_response(
