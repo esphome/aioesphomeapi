@@ -46,6 +46,8 @@ def build_log_name(
             name = address.partition(".")[0]
         elif not preferred_address:
             preferred_address = address
+    if not preferred_address:
+        return name or addresses[0]
     if (
         name
         and name != preferred_address
