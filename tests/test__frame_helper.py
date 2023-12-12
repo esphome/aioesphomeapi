@@ -199,7 +199,8 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         ),
     ],
 )
-def test_plaintext_frame_helper(
+@pytest.mark.asyncio
+async def test_plaintext_frame_helper(
     in_bytes: bytes, pkt_data: bytes, pkt_type: int
 ) -> None:
     for _ in range(3):
