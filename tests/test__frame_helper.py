@@ -593,7 +593,9 @@ async def test_noise_frame_helper_bad_encryption(
 
 
 @pytest.mark.asyncio
-async def test_init_plaintext_with_wrong_preamble(conn: APIConnection):
+async def test_init_plaintext_with_wrong_preamble(
+    conn: APIConnection, aiohappyeyeballs_start_connection
+):
     loop = asyncio.get_event_loop()
     protocol = get_mock_protocol(conn)
     with patch.object(loop, "create_connection") as create_connection:
