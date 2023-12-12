@@ -107,7 +107,7 @@ _float = float
 
 @dataclass
 class ConnectionParams:
-    address: str
+    addresses: list[str]
     port: int
     password: str | None
     client_info: str
@@ -208,6 +208,7 @@ class APIConnection:
         "_debug_enabled",
         "received_name",
         "resolved_addr_info",
+        "connected_address",
     )
 
     def __init__(
@@ -230,7 +231,7 @@ class APIConnection:
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
-        self.log_name = log_name or params.address
+        self.log_name = log_name or params.addresses
 
         # futures currently subscribed to exceptions in the read task
         self._read_exception_futures: set[asyncio.Future[None]] = set()
@@ -252,6 +253,7 @@ class APIConnection:
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self.resolved_addr_info: list[hr.AddrInfo] = []
+        self.connected_address: str | None = None
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -325,7 +327,7 @@ class APIConnection:
         try:
             async with asyncio_timeout(RESOLVE_TIMEOUT):
                 return await hr.async_resolve_host(
-                    self._params.address,
+                    self._params.addresses,
                     self._params.port,
                     self._params.zeroconf_manager,
                 )
@@ -340,7 +342,7 @@ class APIConnection:
             _LOGGER.debug(
                 "%s: Connecting to %s:%s (%s)",
                 self.log_name,
-                self._params.address,
+                self._params.addresses,
                 self._params.port,
                 addrs,
             )
@@ -350,7 +352,7 @@ class APIConnection:
                 addr.family,
                 addr.type,
                 addr.proto,
-                self._params.address,
+                "",
                 astuple(addr.sockaddr),
             )
             for addr in addrs
@@ -361,9 +363,11 @@ class APIConnection:
         while addr_infos:
             try:
                 async with asyncio_timeout(TCP_CONNECT_TIMEOUT):
+                    # Devices are likely on the local network so we
+                    # only use a 100ms happy eyeballs delay
                     sock = await aiohappyeyeballs.start_connection(
                         addr_infos,
-                        happy_eyeballs_delay=0.25,
+                        happy_eyeballs_delay=0.1,
                         interleave=interleave,
                         loop=self._loop,
                     )
@@ -387,12 +391,13 @@ class APIConnection:
         # Try to reduce the pressure on esphome device as it measures
         # ram in bytes and we measure ram in megabytes.
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
+        self.connected_address = sock.getpeername()[0]
 
         if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Opened socket to %s:%s (%s)",
                 self.log_name,
-                self._params.address,
+                self.connected_address,
                 self._params.port,
                 addrs,
             )

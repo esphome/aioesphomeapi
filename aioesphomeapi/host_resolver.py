@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import socket
 from dataclasses import dataclass
@@ -181,14 +180,23 @@ def _async_ip_address_to_addrs(
 
 
 async def async_resolve_host(
-    host: str,
+    hosts: list[str],
     port: int,
     zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
     addrs: list[AddrInfo] = []
+    zc_error: Exception | None = None
 
-    zc_error = None
-    if host_is_name_part(host) or address_is_local(host):
+    for host in hosts:
+        host_is_name = host_is_name_part(host) or address_is_local(host)
+
+        if not host_is_name:
+            try:
+                addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
+            except ValueError:
+                # Not an IP address
+                continue
+
         name = host.partition(".")[0]
         try:
             addrs.extend(
@@ -198,13 +206,7 @@ async def async_resolve_host(
             )
         except ResolveAPIError as err:
             zc_error = err
-
-    else:
-        with contextlib.suppress(ValueError):
-            addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
-
-    if not addrs:
-        addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
+            addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
 
     if not addrs:
         if zc_error:

@@ -220,6 +220,7 @@ class APIClient:
         zeroconf_instance: ZeroconfInstanceType | None = None,
         noise_psk: str | None = None,
         expected_name: str | None = None,
+        addresses: list[str] | None = None,
     ) -> None:
         """Create a client, this object is shared across sessions.
 
@@ -235,10 +236,14 @@ class APIClient:
         :param expected_name: Require the devices name to match the given expected name.
             Can be used to prevent accidentally connecting to a different device if
             IP passed as address but DHCP reassigned IP.
+        :param addresses: Optional list of IP addresses to connect to which takes
+            precedence over the address parameter. This is most commonly used when
+            the device has dual stack IPv4 and IPv6 addresses and you do not know
+            which one to connect to.
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
-            address=str(address),
+            addresses=addresses if addresses else [str(address)],
             port=port,
             password=password,
             client_info=client_info,
@@ -274,17 +279,20 @@ class APIClient:
 
     @property
     def address(self) -> str:
-        return self._params.address
+        return self._params.addresses[0]
 
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
-        resolved_address: str | None = None
-        if self._connection and self._connection.resolved_addr_info:
-            resolved_address = self._connection.resolved_addr_info[0].sockaddr.address
+        ip_address: str | None = None
+        if self._connection:
+            if self._connection.connected_address:
+                ip_address = self._connection.connected_address
+            elif self._connection.resolved_addr_info:
+                ip_address = self._connection.resolved_addr_info[0].sockaddr.address
         self.log_name = build_log_name(
             self.cached_name,
             self.address,
-            resolved_address,
+            ip_address,
         )
         if self._connection:
             self._connection.set_log_name(self.log_name)
