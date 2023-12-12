@@ -1641,9 +1641,9 @@ async def test_subscribe_bluetooth_le_raw_advertisements(
     adv_groups = []
 
     def on_raw_bluetooth_le_advertisements(
-        advs: list[BluetoothLERawAdvertisementsResponse],
+        advs: BluetoothLERawAdvertisementsResponse,
     ) -> None:
-        adv_groups.append(advs)
+        adv_groups.append(advs.advertisements)
 
     unsub = await client.subscribe_bluetooth_le_raw_advertisements(
         on_raw_bluetooth_le_advertisements
