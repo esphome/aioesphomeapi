@@ -231,7 +231,7 @@ class APIConnection:
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
-        self.log_name = log_name or params.addresses
+        self.log_name = log_name or ",".join(params.addresses)
 
         # futures currently subscribed to exceptions in the read task
         self._read_exception_futures: set[asyncio.Future[None]] = set()
