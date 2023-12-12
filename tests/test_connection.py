@@ -572,7 +572,7 @@ async def test_connect_resolver_times_out(
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
     ), pytest.raises(
         ResolveAPIError,
-        match=r"Timeout while resolving IP address for \['fake.address'\]",
+        match="Timeout while resolving IP address for fake.address",
     ):
         await connect(conn, login=False)
 
