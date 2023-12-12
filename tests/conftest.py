@@ -71,7 +71,7 @@ def patchable_api_client() -> APIClient:
 
 def get_mock_connection_params() -> ConnectionParams:
     return ConnectionParams(
-        address="fake.address",
+        addresses=["fake.address"],
         port=6052,
         password=None,
         client_info="Tests client",

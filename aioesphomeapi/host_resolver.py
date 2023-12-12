@@ -188,25 +188,31 @@ async def async_resolve_host(
     zc_error: Exception | None = None
 
     for host in hosts:
+        host_addrs: list[AddrInfo] = []
         host_is_name = host_is_name_part(host) or address_is_local(host)
+
+        if host_is_name:
+            name = host.partition(".")[0]
+            try:
+                host_addrs.extend(
+                    await _async_resolve_host_zeroconf(
+                        name, port, zeroconf_manager=zeroconf_manager
+                    )
+                )
+            except ResolveAPIError as err:
+                zc_error = err
 
         if not host_is_name:
             try:
-                addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
+                host_addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
             except ValueError:
                 # Not an IP address
                 continue
 
-        name = host.partition(".")[0]
-        try:
-            addrs.extend(
-                await _async_resolve_host_zeroconf(
-                    name, port, zeroconf_manager=zeroconf_manager
-                )
-            )
-        except ResolveAPIError as err:
-            zc_error = err
-            addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
+        if not host_addrs:
+            host_addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
+
+        addrs.extend(host_addrs)
 
     if not addrs:
         if zc_error:
