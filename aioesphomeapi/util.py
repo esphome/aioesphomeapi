@@ -36,11 +36,15 @@ def address_is_local(address: str) -> bool:
     return address.removesuffix(".").endswith(".local")
 
 
-def build_log_name(name: str | None, address: str, resolved_address: str | None) -> str:
+def build_log_name(
+    name: str | None, addresses: list[str], connected_address: str | None
+) -> str:
     """Return a log name for a connection."""
-    if not name and address_is_local(address) or host_is_name_part(address):
-        name = address.partition(".")[0]
-    preferred_address = resolved_address or address
+    for address in addresses:
+        if not name and address_is_local(address) or host_is_name_part(address):
+            name = address.partition(".")[0]
+            break
+    preferred_address = connected_address or address
     if (
         name
         and name != preferred_address

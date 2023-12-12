@@ -288,7 +288,7 @@ class APIClient:
             ip_address = self._connection.connected_address
         self.log_name = build_log_name(
             self.cached_name,
-            self.address,
+            self._params.addresses,
             ip_address,
         )
         if self._connection:
