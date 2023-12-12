@@ -218,6 +218,8 @@ async def async_resolve_host(
         if zc_error:
             # Only show ZC error if getaddrinfo also didn't work
             raise zc_error
-        raise ResolveAPIError(f"Could not resolve host {host} - got no results from OS")
+        raise ResolveAPIError(
+            f"Could not resolve host {hosts} - got no results from OS"
+        )
 
     return addrs
