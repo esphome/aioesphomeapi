@@ -189,9 +189,9 @@ async def async_resolve_host(
 
     for host in hosts:
         host_addrs: list[AddrInfo] = []
-        host_is_name = host_is_name_part(host) or address_is_local(host)
+        host_is_local_name = host_is_name_part(host) or address_is_local(host)
 
-        if host_is_name:
+        if host_is_local_name:
             name = host.partition(".")[0]
             try:
                 host_addrs.extend(
@@ -202,7 +202,7 @@ async def async_resolve_host(
             except ResolveAPIError as err:
                 zc_error = err
 
-        if not host_is_name:
+        if not host_is_local_name:
             try:
                 host_addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
             except ValueError:
