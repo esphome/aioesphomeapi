@@ -221,7 +221,7 @@ async def test_plaintext_connection(
 
 @pytest.mark.asyncio
 async def test_start_connection_socket_error(
-    conn: APIConnection, resolve_host, socket_socket
+    conn: APIConnection, resolve_host, aiohappyeyeballs_start_connection
 ):
     """Test handling of socket error during start connection."""
     loop = asyncio.get_event_loop()
@@ -238,7 +238,7 @@ async def test_start_connection_socket_error(
 
 @pytest.mark.asyncio
 async def test_start_connection_times_out(
-    conn: APIConnection, resolve_host, socket_socket
+    conn: APIConnection, resolve_host, aiohappyeyeballs_start_connection
 ):
     """Test handling of start connection timing out."""
     asyncio.get_event_loop()
@@ -264,9 +264,7 @@ async def test_start_connection_times_out(
 
 
 @pytest.mark.asyncio
-async def test_start_connection_os_error(
-    conn: APIConnection, resolve_host, socket_socket
-):
+async def test_start_connection_os_error(conn: APIConnection, resolve_host):
     """Test handling of start connection has an OSError."""
     asyncio.get_event_loop()
 
@@ -284,9 +282,7 @@ async def test_start_connection_os_error(
 
 
 @pytest.mark.asyncio
-async def test_start_connection_is_cancelled(
-    conn: APIConnection, resolve_host, socket_socket
-):
+async def test_start_connection_is_cancelled(conn: APIConnection, resolve_host):
     """Test handling of start connection is cancelled."""
     asyncio.get_event_loop()
 
@@ -305,7 +301,7 @@ async def test_start_connection_is_cancelled(
 
 @pytest.mark.asyncio
 async def test_finish_connection_is_cancelled(
-    conn: APIConnection, resolve_host, socket_socket
+    conn: APIConnection, resolve_host, aiohappyeyeballs_start_connection
 ):
     """Test handling of finishing connection being cancelled."""
     loop = asyncio.get_event_loop()
@@ -368,7 +364,7 @@ async def test_finish_connection_times_out(
 async def test_plaintext_connection_fails_handshake(
     conn: APIConnection,
     resolve_host: AsyncMock,
-    socket_socket: MagicMock,
+    aiohappyeyeballs_start_connection: MagicMock,
     exception_map: tuple[Exception, Exception],
 ) -> None:
     """Test that the frame helper is closed before the underlying socket.
@@ -558,7 +554,7 @@ async def test_force_disconnect_fails(
 
 @pytest.mark.asyncio
 async def test_connect_resolver_times_out(
-    conn: APIConnection, socket_socket, event_loop, aiohappyeyeballs_start_connection
+    conn: APIConnection, event_loop, aiohappyeyeballs_start_connection
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
@@ -571,7 +567,8 @@ async def test_connect_resolver_times_out(
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
     ), pytest.raises(
-        ResolveAPIError, match="Timeout while resolving IP address for fake.address"
+        ResolveAPIError,
+        match="Timeout while resolving IP address for fake.address",
     ):
         await connect(conn, login=False)
 
@@ -581,7 +578,6 @@ async def test_disconnect_fails_to_send_response(
     connection_params: ConnectionParams,
     event_loop: asyncio.AbstractEventLoop,
     resolve_host,
-    socket_socket,
     aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_event_loop()
@@ -632,7 +628,6 @@ async def test_disconnect_success_case(
     connection_params: ConnectionParams,
     event_loop: asyncio.AbstractEventLoop,
     resolve_host,
-    socket_socket,
     aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_event_loop()

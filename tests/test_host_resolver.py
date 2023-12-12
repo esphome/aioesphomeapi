@@ -99,7 +99,7 @@ async def test_resolve_host_zeroconf_fails_end_to_end(async_zeroconf: AsyncZeroc
         "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request",
         side_effect=Exception("no buffers"),
     ), pytest.raises(ResolveAPIError, match="no buffers"):
-        await hr.async_resolve_host("asdf.local", 6052)
+        await hr.async_resolve_host(["asdf.local"], 6052)
 
 
 @pytest.mark.asyncio
@@ -140,7 +140,7 @@ async def test_resolve_host_getaddrinfo_oserror(event_loop):
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_mdns(resolve_addr, resolve_zc, addr_infos):
     resolve_zc.return_value = addr_infos
-    ret = await hr.async_resolve_host("example.local", 6052)
+    ret = await hr.async_resolve_host(["example.local"], 6052)
 
     resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
     resolve_addr.assert_not_called()
@@ -153,7 +153,7 @@ async def test_resolve_host_mdns(resolve_addr, resolve_zc, addr_infos):
 async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
     resolve_zc.return_value = []
     resolve_addr.return_value = addr_infos
-    ret = await hr.async_resolve_host("example.local", 6052)
+    ret = await hr.async_resolve_host(["example.local"], 6052)
 
     resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
     resolve_addr.assert_called_once_with("example.local", 6052)
@@ -166,7 +166,7 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
 async def test_resolve_host_mdns_no_results(resolve_addr, addr_infos):
     resolve_addr.return_value = addr_infos
     with pytest.raises(ResolveAPIError):
-        await hr.async_resolve_host("example.local", 6052)
+        await hr.async_resolve_host(["example.local"], 6052)
 
 
 @pytest.mark.asyncio
@@ -174,7 +174,7 @@ async def test_resolve_host_mdns_no_results(resolve_addr, addr_infos):
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_addrinfo(resolve_addr, resolve_zc, addr_infos):
     resolve_addr.return_value = addr_infos
-    ret = await hr.async_resolve_host("example.com", 6052)
+    ret = await hr.async_resolve_host(["example.com"], 6052)
 
     resolve_zc.assert_not_called()
     resolve_addr.assert_called_once_with("example.com", 6052)
@@ -187,7 +187,7 @@ async def test_resolve_host_addrinfo(resolve_addr, resolve_zc, addr_infos):
 async def test_resolve_host_addrinfo_empty(resolve_addr, resolve_zc, addr_infos):
     resolve_addr.return_value = []
     with pytest.raises(APIConnectionError):
-        await hr.async_resolve_host("example.com", 6052)
+        await hr.async_resolve_host(["example.com"], 6052)
 
     resolve_zc.assert_not_called()
     resolve_addr.assert_called_once_with("example.com", 6052)
@@ -199,7 +199,7 @@ async def test_resolve_host_addrinfo_empty(resolve_addr, resolve_zc, addr_infos)
 async def test_resolve_host_with_address(resolve_addr, resolve_zc):
     resolve_zc.return_value = []
     resolve_addr.return_value = addr_infos
-    ret = await hr.async_resolve_host("127.0.0.1", 6052)
+    ret = await hr.async_resolve_host(["127.0.0.1"], 6052)
 
     resolve_zc.assert_not_called()
     resolve_addr.assert_not_called()

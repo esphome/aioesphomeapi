@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import socket
 from dataclasses import dataclass
@@ -181,35 +180,46 @@ def _async_ip_address_to_addrs(
 
 
 async def async_resolve_host(
-    host: str,
+    hosts: list[str],
     port: int,
     zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
     addrs: list[AddrInfo] = []
+    zc_error: Exception | None = None
 
-    zc_error = None
-    if host_is_name_part(host) or address_is_local(host):
-        name = host.partition(".")[0]
-        try:
-            addrs.extend(
-                await _async_resolve_host_zeroconf(
-                    name, port, zeroconf_manager=zeroconf_manager
+    for host in hosts:
+        host_addrs: list[AddrInfo] = []
+        host_is_local_name = host_is_name_part(host) or address_is_local(host)
+
+        if host_is_local_name:
+            name = host.partition(".")[0]
+            try:
+                host_addrs.extend(
+                    await _async_resolve_host_zeroconf(
+                        name, port, zeroconf_manager=zeroconf_manager
+                    )
                 )
-            )
-        except ResolveAPIError as err:
-            zc_error = err
+            except ResolveAPIError as err:
+                zc_error = err
 
-    else:
-        with contextlib.suppress(ValueError):
-            addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
+        if not host_is_local_name:
+            try:
+                host_addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
+            except ValueError:
+                # Not an IP address
+                pass
 
-    if not addrs:
-        addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
+        if not host_addrs:
+            host_addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
+
+        addrs.extend(host_addrs)
 
     if not addrs:
         if zc_error:
             # Only show ZC error if getaddrinfo also didn't work
             raise zc_error
-        raise ResolveAPIError(f"Could not resolve host {host} - got no results from OS")
+        raise ResolveAPIError(
+            f"Could not resolve host {hosts} - got no results from OS"
+        )
 
     return addrs

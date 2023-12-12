@@ -74,7 +74,7 @@ cdef object _handle_complex_message
 
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
-    cdef public str address
+    cdef public list addresses
     cdef public object port
     cdef public object password
     cdef public object client_info
@@ -108,7 +108,7 @@ cdef class APIConnection:
     cdef bint _handshake_complete
     cdef bint _debug_enabled
     cdef public str received_name
-    cdef public object resolved_addr_info
+    cdef public str connected_address
 
     cpdef void send_message(self, object msg)
 

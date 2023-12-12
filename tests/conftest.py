@@ -6,7 +6,7 @@ import socket
 from dataclasses import replace
 from functools import partial
 from typing import Callable
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 import pytest_asyncio
@@ -51,12 +51,6 @@ def resolve_host():
 
 
 @pytest.fixture
-def socket_socket():
-    with patch("socket.socket") as func:
-        yield func
-
-
-@pytest.fixture
 def patchable_api_client() -> APIClient:
     class PatchableAPIClient(APIClient):
         pass
@@ -71,7 +65,7 @@ def patchable_api_client() -> APIClient:
 
 def get_mock_connection_params() -> ConnectionParams:
     return ConnectionParams(
-        address="fake.address",
+        addresses=["fake.address"],
         port=6052,
         password=None,
         client_info="Tests client",
@@ -119,7 +113,11 @@ def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnectio
 @pytest.fixture()
 def aiohappyeyeballs_start_connection():
     with patch("aioesphomeapi.connection.aiohappyeyeballs.start_connection") as func:
-        func.return_value = MagicMock(type=socket.SOCK_STREAM)
+        mock_socket = create_autospec(socket.socket, spec_set=True, instance=True)
+        mock_socket.type = socket.SOCK_STREAM
+        mock_socket.fileno.return_value = 1
+        mock_socket.getpeername.return_value = ("10.0.0.512", 323)
+        func.return_value = mock_socket
         yield func
 
 
@@ -139,7 +137,6 @@ def _create_mock_transport_protocol(
 async def plaintext_connect_task_no_login(
     conn: APIConnection,
     resolve_host,
-    socket_socket,
     event_loop,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
@@ -161,7 +158,6 @@ async def plaintext_connect_task_no_login(
 async def plaintext_connect_task_no_login_with_expected_name(
     conn_with_expected_name: APIConnection,
     resolve_host,
-    socket_socket,
     event_loop,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
@@ -184,7 +180,6 @@ async def plaintext_connect_task_no_login_with_expected_name(
 async def plaintext_connect_task_with_login(
     conn_with_password: APIConnection,
     resolve_host,
-    socket_socket,
     event_loop,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
@@ -203,7 +198,7 @@ async def plaintext_connect_task_with_login(
 
 @pytest_asyncio.fixture(name="api_client")
 async def api_client(
-    resolve_host, socket_socket, event_loop, aiohappyeyeballs_start_connection
+    resolve_host, event_loop, aiohappyeyeballs_start_connection
 ) -> tuple[APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
