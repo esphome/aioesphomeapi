@@ -338,11 +338,9 @@ class APIConnection:
         """Step 2 in connect process: connect the socket."""
         if self._debug_enabled:
             _LOGGER.debug(
-                "%s: Connecting to %s:%s (%s)",
+                "%s: Connecting to %s",
                 self.log_name,
-                self._params.addresses,
-                self._params.port,
-                addrs,
+                ", ".join(str(addr.sockaddr) for addr in addrs),
             )
 
         addr_infos: list[aiohappyeyeballs.AddrInfoType] = [
