@@ -393,11 +393,10 @@ class APIConnection:
 
         if self._debug_enabled:
             _LOGGER.debug(
-                "%s: Opened socket to %s:%s (%s)",
+                "%s: Opened socket to %s:%s",
                 self.log_name,
                 self.connected_address,
                 self._params.port,
-                addrs,
             )
 
     async def _connect_init_frame_helper(self) -> None:
