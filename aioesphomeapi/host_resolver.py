@@ -207,7 +207,7 @@ async def async_resolve_host(
                 host_addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
             except ValueError:
                 # Not an IP address
-                continue
+                pass
 
         if not host_addrs:
             host_addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
