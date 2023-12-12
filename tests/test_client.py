@@ -170,7 +170,8 @@ def patch_api_version(client: APIClient, version: APIVersion):
     client._connection.api_version = version
 
 
-def test_expected_name(auth_client: APIClient) -> None:
+@pytest.mark.asyncio
+async def test_expected_name(auth_client: APIClient) -> None:
     """Ensure expected name can be set externally."""
     assert auth_client.expected_name is None
     auth_client.expected_name = "awesome"
