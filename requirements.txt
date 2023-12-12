@@ -1,4 +1,4 @@
-aiohappyeyeballs>=2.2.0
+aiohappyeyeballs>=2.3.0
 protobuf>=3.19.0
 zeroconf>=0.128.4,<1.0
 chacha20poly1305-reuseable>=0.12.0
