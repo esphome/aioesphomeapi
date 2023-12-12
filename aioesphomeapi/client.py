@@ -284,11 +284,8 @@ class APIClient:
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
         ip_address: str | None = None
-        if self._connection:
-            if self._connection.connected_address:
-                ip_address = self._connection.connected_address
-            elif self._connection.resolved_addr_info:
-                ip_address = self._connection.resolved_addr_info[0].sockaddr.address
+        if self._connection and self._connection.connected_address:
+            ip_address = self._connection.connected_address
         self.log_name = build_log_name(
             self.cached_name,
             self.address,
@@ -336,8 +333,8 @@ class APIClient:
             self.log_name,
         )
         await self._execute_connection_coro(self._connection.start_connection())
-        # If we resolved the address, we should set the log name now
-        if self._connection.resolved_addr_info:
+        # If we connected, we should set the log name now
+        if self._connection.connected_address:
             self._set_log_name()
 
     async def finish_connection(

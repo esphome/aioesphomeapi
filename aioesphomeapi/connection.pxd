@@ -108,7 +108,6 @@ cdef class APIConnection:
     cdef bint _handshake_complete
     cdef bint _debug_enabled
     cdef public str received_name
-    cdef public object resolved_addr_info
     cdef public str connected_address
 
     cpdef void send_message(self, object msg)
