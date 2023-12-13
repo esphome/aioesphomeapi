@@ -31,7 +31,6 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteRequest,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
-    BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -72,7 +71,6 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
 )
 from .client_callbacks import (
-    on_ble_raw_advertisement_response,
     on_bluetooth_connections_free_response,
     on_bluetooth_device_connection_response,
     on_bluetooth_gatt_notify_data_response,
@@ -495,13 +493,13 @@ class APIClient:
         return partial(self._unsub_bluetooth_advertisements, unsub_callback)
 
     async def subscribe_bluetooth_le_raw_advertisements(
-        self, on_advertisements: Callable[[list[BluetoothLERawAdvertisement]], None]
+        self, on_advertisements: Callable[[BluetoothLERawAdvertisementsResponse], None]
     ) -> Callable[[], None]:
         unsub_callback = self._get_connection().send_message_callback_response(
             SubscribeBluetoothLEAdvertisementsRequest(
                 flags=BluetoothProxySubscriptionFlag.RAW_ADVERTISEMENTS
             ),
-            partial(on_ble_raw_advertisement_response, on_advertisements),
+            on_advertisements,
             (BluetoothLERawAdvertisementsResponse,),
         )
         return partial(self._unsub_bluetooth_advertisements, unsub_callback)
