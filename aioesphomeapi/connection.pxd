@@ -152,3 +152,5 @@ cdef class APIConnection:
     cdef void _set_fatal_exception_if_unset(self, Exception err)
 
     cdef void _register_internal_message_handlers(self)
+
+    cdef void _increase_recv_buffer_size(self)

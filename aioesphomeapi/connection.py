@@ -62,7 +62,8 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
-BUFFER_SIZE = 1024 * 1024 * 2  # Set buffer limit to 2MB
+PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
+MIN_BUFFER_SIZE = 131072  # Minimum buffer size to use
 
 DISCONNECT_REQUEST_MESSAGE = DisconnectRequest()
 DISCONNECT_RESPONSE_MESSAGES = (DisconnectResponse(),)
@@ -384,9 +385,7 @@ class APIConnection:
         self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        # Try to reduce the pressure on esphome device as it measures
-        # ram in bytes and we measure ram in megabytes.
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
+        self._increase_recv_buffer_size()
         self.connected_address = sock.getpeername()[0]
 
         if self._debug_enabled:
@@ -396,6 +395,32 @@ class APIConnection:
                 self.connected_address,
                 self._params.port,
             )
+
+    def _increase_recv_buffer_size(self) -> None:
+        """Increase the recv buffer size."""
+        if TYPE_CHECKING:
+            assert self._socket is not None
+        new_buffer_size = PREFERRED_BUFFER_SIZE
+        while True:
+            # Try to reduce the pressure on ESPHome device as it measures
+            # ram in bytes and we measure ram in megabytes.
+            try:
+                self._socket.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_RCVBUF, new_buffer_size
+                )
+                return
+            except OSError as err:
+                if new_buffer_size <= MIN_BUFFER_SIZE:
+                    _LOGGER.warning(
+                        "%s: Unable to increase the socket receive buffer size to %s; "
+                        "The connection may not be unstable if the ESPHome device "
+                        "sends at volume (ex. a Bluetooth proxy or camera): %s",
+                        self.log_name,
+                        new_buffer_size,
+                        err,
+                    )
+                    return
+                new_buffer_size //= 2
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
