@@ -413,8 +413,8 @@ class APIConnection:
                 if new_buffer_size <= MIN_BUFFER_SIZE:
                     _LOGGER.warning(
                         "%s: Unable to increase the socket receive buffer size to %s; "
-                        "The connection may not be unstable if the ESPHome device "
-                        "sends at volume (ex. a Bluetooth proxy or camera): %s",
+                        "The connection may unstable if the ESPHome device sends "
+                        "data at volume (ex. a Bluetooth proxy or camera): %s",
                         self.log_name,
                         new_buffer_size,
                         err,
