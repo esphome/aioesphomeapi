@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from datetime import timedelta
 from functools import partial
 from typing import Callable, cast
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
 import pytest
 from google.protobuf import message
@@ -234,6 +235,103 @@ async def test_start_connection_socket_error(
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
     await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_start_connection_cannot_increase_recv_buffer(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test failing to increase the recv buffer."""
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    tried_sizes = []
+
+    def _setsockopt(*args, **kwargs):
+        if args[0] == socket.SOL_SOCKET and args[1] == socket.SO_RCVBUF:
+            size = args[2]
+            tried_sizes.append(size)
+            raise OSError("Socket error")
+
+    mock_socket: socket.socket = create_autospec(
+        socket.socket, spec_set=True, instance=True, name="bad_buffer_socket"
+    )
+    mock_socket.type = socket.SOCK_STREAM
+    mock_socket.fileno.return_value = 1
+    mock_socket.getpeername.return_value = ("10.0.0.512", 323)
+    mock_socket.setsockopt = _setsockopt
+    mock_socket.sendmsg.side_effect = OSError("Socket error")
+    aiohappyeyeballs_start_connection.return_value = mock_socket
+
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        await connected.wait()
+        protocol = conn._frame_helper
+        send_plaintext_hello(protocol)
+        await connect_task
+
+    assert "Unable to increase the socket receive buffer size to 131072" in caplog.text
+    assert tried_sizes == [2097152, 1048576, 524288, 262144, 131072]
+
+    # Failure to increase the buffer size should not cause the connection to fail
+    assert conn.is_connected
+
+
+@pytest.mark.asyncio
+async def test_start_connection_can_only_increase_buffer_size_to_262144(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test the receive buffer can only be increased to 262144."""
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    tried_sizes = []
+
+    def _setsockopt(*args, **kwargs):
+        if args[0] == socket.SOL_SOCKET and args[1] == socket.SO_RCVBUF:
+            size = args[2]
+            tried_sizes.append(size)
+            if size != 262144:
+                raise OSError("Socket error")
+
+    mock_socket: socket.socket = create_autospec(
+        socket.socket, spec_set=True, instance=True, name="bad_buffer_socket"
+    )
+    mock_socket.type = socket.SOCK_STREAM
+    mock_socket.fileno.return_value = 1
+    mock_socket.getpeername.return_value = ("10.0.0.512", 323)
+    mock_socket.setsockopt = _setsockopt
+    mock_socket.sendmsg.side_effect = OSError("Socket error")
+    aiohappyeyeballs_start_connection.return_value = mock_socket
+
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await asyncio.sleep(0)
+        await connected.wait()
+        protocol = conn._frame_helper
+        send_plaintext_hello(protocol)
+        await connect_task
+
+    assert "Unable to increase the socket receive buffer size" not in caplog.text
+    assert tried_sizes == [2097152, 1048576, 524288, 262144]
+
+    # Failure to increase the buffer size should not cause the connection to fail
+    assert conn.is_connected
 
 
 @pytest.mark.asyncio
