@@ -281,6 +281,9 @@ async def test_start_connection_cannot_increase_recv_buffer(
     assert "Unable to increase the socket receive buffer size to 131072" in caplog.text
     assert tried_sizes == [2097152, 1048576, 524288, 262144, 131072]
 
+    # Failure to increase the buffer size should not cause the connection to fail
+    assert conn.is_connected
+
 
 @pytest.mark.asyncio
 async def test_start_connection_can_only_increase_buffer_size_to_262144(
@@ -326,6 +329,9 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
 
     assert "Unable to increase the socket receive buffer size" not in caplog.text
     assert tried_sizes == [2097152, 1048576, 524288, 262144]
+
+    # Failure to increase the buffer size should not cause the connection to fail
+    assert conn.is_connected
 
 
 @pytest.mark.asyncio
