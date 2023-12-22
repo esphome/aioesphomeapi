@@ -98,6 +98,12 @@ CONNECT_REQUEST_TIMEOUT = 30.0
 # to reboot and connect to the network/WiFi.
 TCP_CONNECT_TIMEOUT = 60.0
 
+# How often to sync the time with the ESPHome device
+# to ensure the ESPHome device has the correct time
+# after the initial sync.
+TIME_SYNC_INTERVAL_SECONDS = 86400.0
+
+
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 
@@ -209,6 +215,7 @@ class APIConnection:
         "_debug_enabled",
         "received_name",
         "connected_address",
+        "_time_sync_timer",
     )
 
     def __init__(
@@ -253,6 +260,7 @@ class APIConnection:
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self.connected_address: str | None = None
+        self._time_sync_timer: asyncio.TimerHandle | None = None
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -312,6 +320,8 @@ class APIConnection:
         if self._ping_timer is not None:
             self._ping_timer.cancel()
             self._ping_timer = None
+
+        self._cancel_next_time_sync()
 
         if (on_stop := self.on_stop) is not None and was_connected:
             self.on_stop = None
@@ -962,7 +972,37 @@ class APIConnection:
     def _handle_get_time_request_internal(  # pylint: disable=unused-argument
         self, _msg: GetTimeRequest
     ) -> None:
-        """Handle a GetTimeRequest."""
+        """Handle a GetTimeRequest.
+
+        Once the ESPHome device has asked for time, we will
+        send a time response and schedule the next periodic sync
+        to ensure the ESPHome device has the correct time as the
+        ESPHome device clock is not very accurate and will drift
+        over time.
+        """
+        self._send_time_response_schedule_next()
+
+    def _send_time_response_schedule_next(self) -> None:
+        """Send a time response and schedule the next periodic sync."""
+        self._send_time_response()
+        self._schedule_next_time_sync()
+
+    def _schedule_next_time_sync(self) -> None:
+        """Schedule the next time sync."""
+        self._cancel_next_time_sync()
+        self._time_sync_timer = self._loop.call_at(
+            self._loop.time() + TIME_SYNC_INTERVAL_SECONDS,
+            self._send_time_response_schedule_next,
+        )
+
+    def _cancel_next_time_sync(self) -> None:
+        """Cancel the next time sync."""
+        if self._time_sync_timer is not None:
+            self._time_sync_timer.cancel()
+            self._time_sync_timer = None
+
+    def _send_time_response(self) -> None:
+        """Send a time response."""
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
         self.send_messages((resp,))

@@ -109,6 +109,7 @@ cdef class APIConnection:
     cdef bint _debug_enabled
     cdef public str received_name
     cdef public str connected_address
+    cdef object _time_sync_timer
 
     cpdef void send_message(self, object msg)
 
@@ -154,3 +155,11 @@ cdef class APIConnection:
     cdef void _register_internal_message_handlers(self)
 
     cdef void _increase_recv_buffer_size(self)
+
+    cdef void _cancel_next_time_sync(self)
+
+    cdef void _send_time_response(self)
+
+    cdef void _schedule_next_time_sync(self)
+
+    cpdef void _send_time_response_schedule_next(self)
