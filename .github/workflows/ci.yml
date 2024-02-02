@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
