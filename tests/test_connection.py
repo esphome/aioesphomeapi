@@ -652,10 +652,11 @@ async def test_force_disconnect_fails(
 
 @pytest.mark.asyncio
 async def test_connect_resolver_times_out(
-    conn: APIConnection, event_loop, aiohappyeyeballs_start_connection
+    conn: APIConnection, aiohappyeyeballs_start_connection
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
+    event_loop = asyncio.get_running_loop()
 
     with patch(
         "aioesphomeapi.host_resolver.async_resolve_host",
@@ -674,7 +675,6 @@ async def test_connect_resolver_times_out(
 @pytest.mark.asyncio
 async def test_disconnect_fails_to_send_response(
     connection_params: ConnectionParams,
-    event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     aiohappyeyeballs_start_connection,
 ) -> None:
@@ -724,11 +724,10 @@ async def test_disconnect_fails_to_send_response(
 @pytest.mark.asyncio
 async def test_disconnect_success_case(
     connection_params: ConnectionParams,
-    event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     aiohappyeyeballs_start_connection,
 ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
     client = APIClient(
