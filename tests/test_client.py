@@ -202,7 +202,6 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
     """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
 
     cli = APIClient("1.2.3.4", 1234, None)
-    asyncio.get_event_loop()
     with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
         await cli.start_connection()
 
@@ -262,7 +261,7 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
 
 
 @pytest.mark.asyncio
-async def test_request_while_handshaking(event_loop) -> None:
+async def test_request_while_handshaking() -> None:
     """Test trying a request while handshaking raises."""
 
     class PatchableApiClient(APIClient):

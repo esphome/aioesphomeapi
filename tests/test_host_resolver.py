@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import socket
 from ipaddress import IPv6Address, ip_address
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -103,7 +104,8 @@ async def test_resolve_host_zeroconf_fails_end_to_end(async_zeroconf: AsyncZeroc
 
 
 @pytest.mark.asyncio
-async def test_resolve_host_getaddrinfo(event_loop, addr_infos):
+async def test_resolve_host_getaddrinfo(addr_infos):
+    event_loop = asyncio.get_running_loop()
     with patch.object(event_loop, "getaddrinfo") as mock:
         mock.return_value = [
             (
@@ -128,7 +130,8 @@ async def test_resolve_host_getaddrinfo(event_loop, addr_infos):
 
 
 @pytest.mark.asyncio
-async def test_resolve_host_getaddrinfo_oserror(event_loop):
+async def test_resolve_host_getaddrinfo_oserror():
+    event_loop = asyncio.get_running_loop()
     with patch.object(event_loop, "getaddrinfo") as mock:
         mock.side_effect = OSError()
         with pytest.raises(APIConnectionError):
