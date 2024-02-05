@@ -186,9 +186,10 @@ async def test_connect_backwards_compat() -> None:
         pass
 
     cli = PatchableApiClient("host", 1234, None)
-    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
-        cli, "finish_connection"
-    ) as mock_finish_connection:
+    with (
+        patch.object(cli, "start_connection") as mock_start_connection,
+        patch.object(cli, "finish_connection") as mock_finish_connection,
+    ):
         await cli.connect()
 
     assert mock_start_connection.mock_calls == [call(None)]
@@ -244,9 +245,12 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
         mock_socket.getpeername.return_value = ("4.3.3.3", 323)
         return mock_socket
 
-    with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection), patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
-        _start_connection_without_delay,
+    with (
+        patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection),
+        patch(
+            "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+            _start_connection_without_delay,
+        ),
     ):
         await cli.start_connection()
         await asyncio.sleep(0)
@@ -268,10 +272,13 @@ async def test_request_while_handshaking() -> None:
         pass
 
     cli = PatchableApiClient("host", 1234, None)
-    with patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
-        side_effect=partial(asyncio.sleep, 1),
-    ), patch.object(cli, "finish_connection"):
+    with (
+        patch(
+            "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+            side_effect=partial(asyncio.sleep, 1),
+        ),
+        patch.object(cli, "finish_connection"),
+    ):
         connect_task = asyncio.create_task(cli.connect())
 
     await asyncio.sleep(0)
@@ -1500,11 +1507,14 @@ async def test_bluetooth_gatt_start_notify_fails(
 
     handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
 
-    with patch.object(
-        connection,
-        "send_messages_await_response_complex",
-        side_effect=APIConnectionError,
-    ), pytest.raises(APIConnectionError):
+    with (
+        patch.object(
+            connection,
+            "send_messages_await_response_complex",
+            side_effect=APIConnectionError,
+        ),
+        pytest.raises(APIConnectionError),
+    ):
         await client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
 
     assert (
