@@ -114,13 +114,11 @@ def on_bluetooth_device_connection_response(
 def on_bluetooth_handle_message(
     address: int,
     handle: int,
-    msg: (
-        BluetoothGATTErrorResponse
-        | BluetoothGATTNotifyResponse
-        | BluetoothGATTReadResponse
-        | BluetoothGATTWriteResponse
-        | BluetoothDeviceConnectionResponse
-    ),
+    msg: BluetoothGATTErrorResponse
+    | BluetoothGATTNotifyResponse
+    | BluetoothGATTReadResponse
+    | BluetoothGATTWriteResponse
+    | BluetoothDeviceConnectionResponse,
 ) -> bool:
     """Filter a Bluetooth message for an address and handle."""
     if type(msg) is BluetoothDeviceConnectionResponse:
@@ -131,16 +129,14 @@ def on_bluetooth_handle_message(
 def on_bluetooth_message_types(
     address: int,
     msg_types: tuple[type[message.Message]],
-    msg: (
-        BluetoothGATTErrorResponse
-        | BluetoothGATTNotifyResponse
-        | BluetoothGATTReadResponse
-        | BluetoothGATTWriteResponse
-        | BluetoothDeviceConnectionResponse
-        | BluetoothGATTGetServicesResponse
-        | BluetoothGATTGetServicesDoneResponse
-        | BluetoothGATTErrorResponse
-    ),
+    msg: BluetoothGATTErrorResponse
+    | BluetoothGATTNotifyResponse
+    | BluetoothGATTReadResponse
+    | BluetoothGATTWriteResponse
+    | BluetoothDeviceConnectionResponse
+    | BluetoothGATTGetServicesResponse
+    | BluetoothGATTGetServicesDoneResponse
+    | BluetoothGATTErrorResponse,
 ) -> bool:
     """Filter Bluetooth messages of a specific type and address."""
     return type(msg) in msg_types and bool(msg.address == address)

@@ -776,9 +776,8 @@ class APIClient:
 
     async def _bluetooth_gatt_read(
         self,
-        req_type: (
-            type[BluetoothGATTReadDescriptorRequest] | type[BluetoothGATTReadRequest]
-        ),
+        req_type: type[BluetoothGATTReadDescriptorRequest]
+        | type[BluetoothGATTReadRequest],
         address: int,
         handle: int,
         timeout: float,

@@ -1,5 +1,4 @@
 """Test fixtures."""
-
 from __future__ import annotations
 
 import asyncio
@@ -218,14 +217,11 @@ async def api_client(
         password=None,
     )
 
-    with (
-        patch.object(
-            event_loop,
-            "create_connection",
-            side_effect=partial(_create_mock_transport_protocol, transport, connected),
-        ),
-        patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection),
-    ):
+    with patch.object(
+        event_loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ), patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
         connect_task = asyncio.create_task(connect_client(client, login=False))
         await connected.wait()
         conn = client._connection

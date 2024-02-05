@@ -72,12 +72,9 @@ async def test_log_runner(
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with (
-        patch.object(
-            loop, "create_connection", side_effect=_create_mock_transport_protocol
-        ),
-        patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
-    ):
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -141,12 +138,9 @@ async def test_log_runner_reconnects_on_disconnect(
         await original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with (
-        patch.object(
-            loop, "create_connection", side_effect=_create_mock_transport_protocol
-        ),
-        patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
-    ):
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -220,10 +214,9 @@ async def test_log_runner_reconnects_on_subscribe_failure(
         subscribed.set()
         raise APIConnectionError("subscribed force to fail")
 
-    with (
-        patch.object(cli, "disconnect", partial(cli.disconnect, force=True)),
-        patch.object(cli, "subscribe_logs", _wait_and_fail_subscribe_cli),
-    ):
+    with patch.object(
+        cli, "disconnect", partial(cli.disconnect, force=True)
+    ), patch.object(cli, "subscribe_logs", _wait_and_fail_subscribe_cli):
         with patch.object(
             loop, "create_connection", side_effect=_create_mock_transport_protocol
         ):
@@ -237,12 +230,9 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     assert cli._connection is None
 
-    with (
-        patch.object(
-            loop, "create_connection", side_effect=_create_mock_transport_protocol
-        ),
-        patch.object(cli, "subscribe_logs"),
-    ):
+    with patch.object(
+        loop, "create_connection", side_effect=_create_mock_transport_protocol
+    ), patch.object(cli, "subscribe_logs"):
         connected.clear()
         await asyncio.sleep(0)
         async_fire_time_changed(

@@ -135,9 +135,8 @@ async def test_disconnect_when_not_fully_connected(
     await asyncio.sleep(0)
     transport.reset_mock()
 
-    with (
-        patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0),
-        patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0),
+    with patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0), patch(
+        "aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0
     ):
         await conn.disconnect()
 
@@ -345,13 +344,10 @@ async def test_start_connection_times_out(
     async def _mock_socket_connect(*args, **kwargs):
         await asyncio.sleep(500)
 
-    with (
-        patch(
-            "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
-            side_effect=_mock_socket_connect,
-        ),
-        patch("aioesphomeapi.connection.TCP_CONNECT_TIMEOUT", 0.0),
-    ):
+    with patch(
+        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+        side_effect=_mock_socket_connect,
+    ), patch("aioesphomeapi.connection.TCP_CONNECT_TIMEOUT", 0.0):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await asyncio.sleep(0)
 
@@ -501,17 +497,14 @@ async def test_plaintext_connection_fails_handshake(
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
     transport = MagicMock()
 
-    with (
-        patch(
-            "aioesphomeapi.connection.APIPlaintextFrameHelper",
-            APIPlaintextFrameHelperHandshakeException,
-        ),
-        patch.object(
-            loop,
-            "create_connection",
-            side_effect=partial(
-                _create_failing_mock_transport_protocol, transport, connected
-            ),
+    with patch(
+        "aioesphomeapi.connection.APIPlaintextFrameHelper",
+        APIPlaintextFrameHelperHandshakeException,
+    ), patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(
+            _create_failing_mock_transport_protocol, transport, connected
         ),
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
@@ -544,10 +537,12 @@ async def test_plaintext_connection_fails_handshake(
     def _frame_helper_close_call():
         call_order.append("frame_helper_close")
 
-    with (
-        patch.object(conn._socket, "close", side_effect=_socket_close_call),
-        patch.object(conn._frame_helper, "close", side_effect=_frame_helper_close_call),
-        pytest.raises(raised_exception),
+    with patch.object(
+        conn._socket, "close", side_effect=_socket_close_call
+    ), patch.object(
+        conn._frame_helper, "close", side_effect=_frame_helper_close_call
+    ), pytest.raises(
+        raised_exception
     ):
         await asyncio.sleep(0)
         await connect_task
@@ -663,20 +658,16 @@ async def test_connect_resolver_times_out(
     connected = asyncio.Event()
     event_loop = asyncio.get_running_loop()
 
-    with (
-        patch(
-            "aioesphomeapi.host_resolver.async_resolve_host",
-            side_effect=asyncio.TimeoutError,
-        ),
-        patch.object(
-            event_loop,
-            "create_connection",
-            side_effect=partial(_create_mock_transport_protocol, transport, connected),
-        ),
-        pytest.raises(
-            ResolveAPIError,
-            match="Timeout while resolving IP address for fake.address",
-        ),
+    with patch(
+        "aioesphomeapi.host_resolver.async_resolve_host",
+        side_effect=asyncio.TimeoutError,
+    ), patch.object(
+        event_loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ), pytest.raises(
+        ResolveAPIError,
+        match="Timeout while resolving IP address for fake.address",
     ):
         await connect(conn, login=False)
 

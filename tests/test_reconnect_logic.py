@@ -215,9 +215,8 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
     assert rl._tries == 1
 
-    with (
-        patch.object(cli, "start_connection"),
-        patch.object(cli, "finish_connection", side_effect=RequiresEncryptionAPIError),
+    with patch.object(cli, "start_connection"), patch.object(
+        cli, "finish_connection", side_effect=RequiresEncryptionAPIError
     ):
         await rl.start()
         await asyncio.sleep(0)
@@ -429,9 +428,8 @@ async def test_reconnect_zeroconf(
         assert not rl._is_stopped
 
     caplog.clear()
-    with (
-        patch.object(cli, "start_connection") as mock_start_connection,
-        patch.object(cli, "finish_connection"),
+    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
+        cli, "finish_connection"
     ):
         assert rl._zc_listening is True
         rl.async_update_records(
@@ -484,12 +482,9 @@ async def test_reconnect_zeroconf_not_while_handshaking(
 
     assert mock_start_connection.call_count == 1
 
-    with (
-        patch.object(cli, "start_connection") as mock_start_connection,
-        patch.object(
-            cli, "finish_connection", side_effect=slow_connect_fail
-        ) as mock_finish_connection,
-    ):
+    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
+        cli, "finish_connection", side_effect=slow_connect_fail
+    ) as mock_finish_connection:
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
         assert rl._accept_zeroconf_records is True
         assert not rl._is_stopped
@@ -541,12 +536,9 @@ async def test_connect_task_not_cancelled_while_handshaking(
 
     assert mock_start_connection.call_count == 1
 
-    with (
-        patch.object(cli, "start_connection") as mock_start_connection,
-        patch.object(
-            cli, "finish_connection", side_effect=slow_connect_fail
-        ) as mock_finish_connection,
-    ):
+    with patch.object(cli, "start_connection") as mock_start_connection, patch.object(
+        cli, "finish_connection", side_effect=slow_connect_fail
+    ) as mock_finish_connection:
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
         assert rl._accept_zeroconf_records is True
         assert not rl._is_stopped
@@ -655,9 +647,8 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
     )
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
-    with (
-        patch.object(cli, "start_connection"),
-        patch.object(cli, "finish_connection", side_effect=slow_connect_fail),
+    with patch.object(cli, "start_connection"), patch.object(
+        cli, "finish_connection", side_effect=slow_connect_fail
     ):
         await rl.start()
         for _ in range(3):
