@@ -77,7 +77,7 @@ def get_mock_connection_params() -> ConnectionParams:
 
 
 @pytest.fixture
-def connection_params() -> ConnectionParams:
+def connection_params(event_loop: asyncio.AbstractEventLoop) -> ConnectionParams:
     return get_mock_connection_params()
 
 
@@ -86,18 +86,24 @@ def mock_on_stop(expected_disconnect: bool) -> None:
 
 
 @pytest.fixture
-def conn(connection_params: ConnectionParams) -> APIConnection:
+def conn(
+    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
+) -> APIConnection:
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture
-def conn_with_password(connection_params: ConnectionParams) -> APIConnection:
+def conn_with_password(
+    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
+) -> APIConnection:
     connection_params = replace(connection_params, password="password")
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture
-def noise_conn(connection_params: ConnectionParams) -> APIConnection:
+def noise_conn(
+    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
+) -> APIConnection:
     connection_params = replace(
         connection_params, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     )
@@ -105,13 +111,15 @@ def noise_conn(connection_params: ConnectionParams) -> APIConnection:
 
 
 @pytest.fixture
-def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnection:
+def conn_with_expected_name(
+    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
+) -> APIConnection:
     connection_params = replace(connection_params, expected_name="test")
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture()
-def aiohappyeyeballs_start_connection():
+def aiohappyeyeballs_start_connection(event_loop: asyncio.AbstractEventLoop):
     with patch("aioesphomeapi.connection.aiohappyeyeballs.start_connection") as func:
         mock_socket = create_autospec(socket.socket, spec_set=True, instance=True)
         mock_socket.type = socket.SOCK_STREAM
@@ -137,7 +145,6 @@ def _create_mock_transport_protocol(
 async def plaintext_connect_task_no_login(
     conn: APIConnection,
     resolve_host,
-    event_loop,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     loop = asyncio.get_event_loop()
@@ -158,9 +165,9 @@ async def plaintext_connect_task_no_login(
 async def plaintext_connect_task_no_login_with_expected_name(
     conn_with_expected_name: APIConnection,
     resolve_host,
-    event_loop,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
+    event_loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
 
@@ -180,11 +187,11 @@ async def plaintext_connect_task_no_login_with_expected_name(
 async def plaintext_connect_task_with_login(
     conn_with_password: APIConnection,
     resolve_host,
-    event_loop,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
+    event_loop = asyncio.get_running_loop()
 
     with patch.object(
         event_loop,
@@ -198,8 +205,9 @@ async def plaintext_connect_task_with_login(
 
 @pytest_asyncio.fixture(name="api_client")
 async def api_client(
-    resolve_host, event_loop, aiohappyeyeballs_start_connection
+    resolve_host, aiohappyeyeballs_start_connection
 ) -> tuple[APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
+    event_loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
