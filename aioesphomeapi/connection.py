@@ -221,9 +221,9 @@ class APIConnection:
         self._params = params
         self.on_stop: Callable[[bool], None] | None = on_stop
         self._socket: socket.socket | None = None
-        self._frame_helper: None | (
-            APINoiseFrameHelper | APIPlaintextFrameHelper
-        ) = None
+        self._frame_helper: None | (APINoiseFrameHelper | APIPlaintextFrameHelper) = (
+            None
+        )
         self.api_version: APIVersion | None = None
 
         self.connection_state = CONNECTION_STATE_INITIALIZED
