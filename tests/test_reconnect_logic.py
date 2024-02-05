@@ -672,9 +672,7 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
 
 
 @pytest.mark.asyncio
-async def test_handling_unexpected_disconnect(
-    event_loop: asyncio.AbstractEventLoop, aiohappyeyeballs_start_connection
-):
+async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection):
     """Test the disconnect callback fires with expected_disconnect=False."""
     loop = asyncio.get_event_loop()
     protocol: APIPlaintextFrameHelper | None = None
@@ -748,7 +746,6 @@ async def test_handling_unexpected_disconnect(
 
 @pytest.mark.asyncio
 async def test_backoff_on_encryption_error(
-    event_loop: asyncio.AbstractEventLoop,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
 ) -> None:

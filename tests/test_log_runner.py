@@ -31,7 +31,6 @@ from .common import (
 
 @pytest.mark.asyncio
 async def test_log_runner(
-    event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     aiohappyeyeballs_start_connection,
 ):
@@ -97,7 +96,6 @@ async def test_log_runner(
 
 @pytest.mark.asyncio
 async def test_log_runner_reconnects_on_disconnect(
-    event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
@@ -175,7 +173,6 @@ async def test_log_runner_reconnects_on_disconnect(
 
 @pytest.mark.asyncio
 async def test_log_runner_reconnects_on_subscribe_failure(
-    event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
