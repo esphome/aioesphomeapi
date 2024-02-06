@@ -1,6 +1,7 @@
 aiohappyeyeballs>=2.3.0
 protobuf>=3.19.0
 zeroconf>=0.128.4,<1.0
-chacha20poly1305-reuseable>=0.12.0
+chacha20poly1305-reuseable>=0.12.1
+cryptography>=42.0.2
 noiseprotocol>=0.3.1,<1.0
 async-timeout>=4.0;python_version<'3.11'
