@@ -637,6 +637,24 @@ class NumberState(EntityState):
     missing_state: bool = False
 
 
+
+# ==================== DATETIME ====================
+class DatetimeMode(APIIntEnum):
+    AUTO = 0
+
+
+@_frozen_dataclass_decorator
+class DatetimeInfo(EntityInfo):
+    mode: DatetimeMode | None = converter_field(
+        default=DatetimeMode.AUTO, converter=DatetimeMode.convert
+    )
+
+
+@_frozen_dataclass_decorator
+class DatetimeState(EntityState):
+    state: str = ""
+    missing_state: bool = False
+
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
@@ -806,6 +824,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "camera": CameraInfo,
     "climate": ClimateInfo,
     "number": NumberInfo,
+    "datetime": DatetimeInfo,
     "select": SelectInfo,
     "siren": SirenInfo,
     "button": ButtonInfo,
@@ -1153,6 +1172,7 @@ _TYPE_TO_NAME = {
     FanInfo: "fan",
     LightInfo: "light",
     NumberInfo: "number",
+    DatetimeInfo: "datetime",
     SelectInfo: "select",
     SensorInfo: "sensor",
     SirenInfo: "siren",

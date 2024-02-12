@@ -55,6 +55,7 @@ from aioesphomeapi.api_pb2 import (
     LockCommandRequest,
     MediaPlayerCommandRequest,
     NumberCommandRequest,
+    DatetimeCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
     SubscribeHomeAssistantStateResponse,
@@ -615,6 +616,14 @@ async def test_number_command(
 
     await auth_client.number_command(**cmd)
     send.assert_called_once_with(NumberCommandRequest(**req))
+
+async def test_datetime_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    await auth_client.datetime_command(**cmd)
+    send.assert_called_once_with(DatetimeCommandRequest(**req))
 
 
 @pytest.mark.asyncio

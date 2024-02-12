@@ -39,6 +39,7 @@ service APIConnection {
   rpc camera_image (CameraImageRequest) returns (void) {}
   rpc climate_command (ClimateCommandRequest) returns (void) {}
   rpc number_command (NumberCommandRequest) returns (void) {}
+  rpc datetime_command (DatetimeCommandRequest) returns (void) {}
   rpc select_command (SelectCommandRequest) returns (void) {}
   rpc text_command (TextCommandRequest) returns (void) {}
   rpc siren_command (SirenCommandRequest) returns (void) {}
@@ -953,6 +954,50 @@ message NumberCommandRequest {
   fixed32 key = 1;
   float state = 2;
 }
+
+
+// ==================== DATETIME ====================
+enum DatetimeMode {
+  DATETIME_MODE_AUTO = 0;
+}
+message ListEntitiesDatetimeResponse {
+  option (id) = 100;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_DATETIME";
+
+  string object_id = 1;
+  fixed32 key = 2;
+  string name = 3;
+  string unique_id = 4;
+
+  string icon = 5;
+  bool disabled_by_default = 6;
+  EntityCategory entity_category = 7;
+  string unit_of_measurement = 8;
+  DatetimeMode mode = 9;
+}
+message DatetimeStateResponse {
+  option (id) = 101;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_DATETIME";
+  option (no_delay) = true;
+
+  fixed32 key = 1;
+  float state = 2;
+  // If the dattime does not have a valid state yet.
+  // Equivalent to `!obj->has_state()` - inverse logic to make state packets smaller
+  bool missing_state = 3;
+}
+message DatetimeCommandRequest {
+  option (id) = 102;
+  option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_DATETIME";
+  option (no_delay) = true;
+
+  fixed32 key = 1;
+  float state = 2;
+}
+
 
 // ==================== SELECT ====================
 message ListEntitiesSelectResponse {
