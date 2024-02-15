@@ -617,6 +617,21 @@ async def test_number_command(
     await auth_client.number_command(**cmd)
     send.assert_called_once_with(NumberCommandRequest(**req))
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, state="2024-02-15"), dict(key=1, state="2024-02-15")),
+        (dict(key=1, state="18:30"), dict(key=1, state="18:30")),
+        (dict(key=1, state="18:30:45"), dict(key=1, state="18:30:45")),
+        (dict(key=1, state="2024-02-15 18:30"), dict(key=1, state="2024-02-15 18:30")),
+        (
+            dict(key=1, state="2024-02-15 18:30:45"),
+            dict(key=1, state="2024-02-15 18:30:45"),
+        ),
+    ],
+)
 async def test_datetime_command(
     auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
 ) -> None:

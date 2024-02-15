@@ -637,7 +637,6 @@ class NumberState(EntityState):
     missing_state: bool = False
 
 
-
 # ==================== DATETIME ====================
 class DatetimeMode(APIIntEnum):
     AUTO = 0
@@ -654,6 +653,7 @@ class DatetimeInfo(EntityInfo):
 class DatetimeState(EntityState):
     state: str = ""
     missing_state: bool = False
+
 
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
