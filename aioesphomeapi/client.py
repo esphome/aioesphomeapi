@@ -1102,7 +1102,9 @@ class APIClient:
         self._get_connection().send_message(NumberCommandRequest(key=key, state=state))
 
     async def datetime_command(self, key: int, state: str) -> None:
-        self._get_connection().send_message(DatetimeCommandRequest(key=key, state=state))
+        self._get_connection().send_message(
+            DatetimeCommandRequest(key=key, state=state)
+        )
 
     async def select_command(self, key: int, state: str) -> None:
         self._get_connection().send_message(SelectCommandRequest(key=key, state=state))
