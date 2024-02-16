@@ -154,3 +154,7 @@ cdef class APIConnection:
     cdef void _register_internal_message_handlers(self)
 
     cdef void _increase_recv_buffer_size(self)
+
+    cdef void _set_start_connect_future(self)
+
+    cdef void _set_finish_connect_future(self)

@@ -286,19 +286,8 @@ class APIConnection:
                 fut.set_exception(new_exc)
         self._read_exception_futures.clear()
 
-        if (
-            self._start_connect_future is not None
-            and not self._start_connect_future.done()
-        ):
-            self._start_connect_future.set_result(None)
-            self._start_connect_future = None
-
-        if (
-            self._finish_connect_future is not None
-            and not self._finish_connect_future.done()
-        ):
-            self._finish_connect_future.set_result(None)
-            self._finish_connect_future = None
+        self._set_start_connect_future()
+        self._set_finish_connect_future()
 
         if self._frame_helper is not None:
             self._frame_helper.close()
@@ -620,13 +609,16 @@ class APIConnection:
             self._cleanup()
             raise self._wrap_fatal_connection_exception("starting", ex)
         finally:
-            if (
-                self._start_connect_future is not None
-                and not self._start_connect_future.done()
-            ):
-                self._start_connect_future.set_result(None)
-                self._start_connect_future = None
+            self._set_start_connect_future()
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
+
+    def _set_start_connect_future(self) -> None:
+        if (
+            self._start_connect_future is not None
+            and not self._start_connect_future.done()
+        ):
+            self._start_connect_future.set_result(None)
+            self._start_connect_future = None
 
     def _wrap_fatal_connection_exception(
         self, action: str, ex: BaseException
@@ -684,13 +676,16 @@ class APIConnection:
             self._cleanup()
             raise self._wrap_fatal_connection_exception("finishing", ex)
         finally:
-            if (
-                self._finish_connect_future is not None
-                and not self._finish_connect_future.done()
-            ):
-                self._finish_connect_future.set_result(None)
-                self._finish_connect_future = None
+            self._set_finish_connect_future()
         self._set_connection_state(CONNECTION_STATE_CONNECTED)
+
+    def _set_finish_connect_future(self) -> None:
+        if (
+            self._finish_connect_future is not None
+            and not self._finish_connect_future.done()
+        ):
+            self._finish_connect_future.set_result(None)
+            self._finish_connect_future = None
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log the change."""
