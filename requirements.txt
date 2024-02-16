@@ -1,4 +1,5 @@
 aiohappyeyeballs>=2.3.0
+async-interrupt>=1.1.1
 protobuf>=3.19.0
 zeroconf>=0.128.4,<1.0
 chacha20poly1305-reuseable>=0.12.1
