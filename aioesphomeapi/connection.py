@@ -281,7 +281,7 @@ class APIConnection:
                 err = self._fatal_exception or APIConnectionError("Connection closed")
                 new_exc = err
                 if not isinstance(err, APIConnectionError):
-                    new_exc = ReadFailedAPIError("Read failed")
+                    new_exc = ReadFailedAPIError(str(err) or "Read failed")
                     new_exc.__cause__ = err
                 fut.set_exception(new_exc)
         self._read_exception_futures.clear()
@@ -461,7 +461,9 @@ class APIConnection:
         try:
             await self._frame_helper.ready_future
         except asyncio_TimeoutError as err:
-            raise TimeoutAPIError("Handshake timed out") from err
+            raise TimeoutAPIError(
+                f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
+            ) from err
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         finally:
@@ -487,7 +489,7 @@ class APIConnection:
             )
         except TimeoutAPIError as err:
             self.report_fatal_error(err)
-            raise TimeoutAPIError("Hello timed out") from err
+            raise
 
         resp = responses.pop(0)
         self._process_hello_resp(resp)

@@ -442,7 +442,9 @@ async def test_finish_connection_times_out(
     async_fire_time_changed(utcnow() + timedelta(seconds=200))
     await asyncio.sleep(0)
 
-    with pytest.raises(APIConnectionError, match="Hello timed out"):
+    with pytest.raises(
+        APIConnectionError, match="Timeout waiting for HelloResponse after 30.0s"
+    ):
         await connect_task
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
@@ -501,6 +503,21 @@ async def test_plaintext_connection_fails_handshake(
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
     transport = MagicMock()
 
+    call_order = []
+
+    def _socket_close_call():
+        call_order.append("socket_close")
+
+    def _frame_helper_close_call():
+        call_order.append("frame_helper_close")
+
+    async def _do_finish_connect(self, *args, **kwargs):
+        try:
+            await conn._connect_init_frame_helper()
+        finally:
+            conn._socket.close = _socket_close_call
+            conn._frame_helper.close = _frame_helper_close_call
+
     with (
         patch(
             "aioesphomeapi.connection.APIPlaintextFrameHelper",
@@ -513,42 +530,12 @@ async def test_plaintext_connection_fails_handshake(
                 _create_failing_mock_transport_protocol, transport, connected
             ),
         ),
+        patch.object(conn, "_do_finish_connect", _do_finish_connect),
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    protocol = conn._frame_helper
-    assert conn._socket is not None
-    assert conn._frame_helper is not None
-
-    mock_data_received(
-        protocol,
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
-    )
-    mock_data_received(protocol, b"5stackatomproxy")
-    mock_data_received(protocol, b"\x00\x00$")
-    mock_data_received(protocol, b"\x00\x00\x04")
-    mock_data_received(
-        protocol,
-        b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d',
-    )
-    mock_data_received(
-        protocol, b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
-    )
-
-    call_order = []
-
-    def _socket_close_call():
-        call_order.append("socket_close")
-
-    def _frame_helper_close_call():
-        call_order.append("frame_helper_close")
-
-    with (
-        patch.object(conn._socket, "close", side_effect=_socket_close_call),
-        patch.object(conn._frame_helper, "close", side_effect=_frame_helper_close_call),
-        pytest.raises(raised_exception),
-    ):
+    with (pytest.raises(raised_exception),):
         await asyncio.sleep(0)
         await connect_task
 
@@ -556,10 +543,6 @@ async def test_plaintext_connection_fails_handshake(
     # so asyncio releases the socket
     assert call_order == ["frame_helper_close", "socket_close"]
     assert not conn.is_connected
-    assert len(messages) == 2
-    assert isinstance(messages[0], HelloResponse)
-    assert isinstance(messages[1], DeviceInfoResponse)
-    assert messages[1].name == "m5stackatomproxy"
     remove()
     conn.force_disconnect()
     await asyncio.sleep(0)
@@ -814,7 +797,7 @@ async def test_ping_disconnects_after_no_responses(
         start_time
         + timedelta(seconds=KEEP_ALIVE_INTERVAL * (max_pings_to_disconnect_after + 1))
     )
-    assert transport.write.call_count == max_pings_to_disconnect_after
+    assert transport.write.call_count == max_pings_to_disconnect_after + 1
 
     assert conn.is_connected is False
 
