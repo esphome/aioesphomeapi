@@ -467,19 +467,14 @@ class APIConnection:
             messages.append(self._make_connect_request())
             msg_types.append(ConnectResponse)
 
-        try:
-            responses = await self.send_messages_await_response_complex(
-                tuple(messages),
-                None,
-                lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
-                is msg_types[-1],
-                tuple(msg_types),
-                CONNECT_REQUEST_TIMEOUT,
-            )
-        except TimeoutAPIError as err:
-            self.report_fatal_error(err)
-            raise
-
+        responses = await self.send_messages_await_response_complex(
+            tuple(messages),
+            None,
+            lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
+            is msg_types[-1],
+            tuple(msg_types),
+            CONNECT_REQUEST_TIMEOUT,
+        )
         resp = responses.pop(0)
         self._process_hello_resp(resp)
         if login:
