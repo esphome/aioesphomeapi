@@ -627,7 +627,7 @@ class APIConnection:
         if isinstance(ex, APIConnectionError):
             return ex
         cause: BaseException | None = None
-        if isinstance(ex, CancelledError):
+        if isinstance(ex, (ConnectionInterruptedError, CancelledError)):
             err_str = f"{action.title()} connection cancelled"
             if self._fatal_exception:
                 err_str += f" due to fatal exception: {self._fatal_exception}"
