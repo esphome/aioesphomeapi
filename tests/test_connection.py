@@ -460,6 +460,7 @@ async def test_finish_connection_times_out(
     ("exception_map"),
     [
         (OSError("Socket error"), HandshakeAPIError),
+        (APIConnectionError, APIConnectionError),
         (asyncio.TimeoutError, TimeoutAPIError),
         (asyncio.CancelledError, APIConnectionError),
     ],
