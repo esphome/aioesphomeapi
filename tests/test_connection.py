@@ -30,6 +30,7 @@ from aioesphomeapi.core import (
     InvalidAuthAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
+    SocketClosedAPIError,
     TimeoutAPIError,
 )
 
@@ -461,6 +462,7 @@ async def test_finish_connection_times_out(
     [
         (OSError("Socket error"), HandshakeAPIError),
         (APIConnectionError, APIConnectionError),
+        (SocketClosedAPIError, SocketClosedAPIError),
         (asyncio.TimeoutError, TimeoutAPIError),
         (asyncio.CancelledError, APIConnectionError),
     ],
