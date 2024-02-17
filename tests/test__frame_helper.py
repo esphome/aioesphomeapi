@@ -22,6 +22,7 @@ from aioesphomeapi.core import (
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
+    ReadFailedAPIError,
     SocketClosedAPIError,
 )
 
@@ -725,18 +726,29 @@ async def test_eof_received_closes_connection(
         await connect_task
 
 
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), ReadFailedAPIError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+        (asyncio.CancelledError("original message"), APIConnectionError),
+    ],
+)
 @pytest.mark.asyncio
 async def test_connection_lost_closes_connection_and_logs(
     caplog: pytest.LogCaptureFixture,
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
+    exception_map: tuple[Exception, Exception],
 ) -> None:
+    exception, raised_exception = exception_map
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
-    protocol.connection_lost(OSError("original message"))
+    protocol.connection_lost(exception)
     assert conn.is_connected is False
     assert "original message" in caplog.text
-    with pytest.raises(APIConnectionError, match="original message"):
+    with pytest.raises(raised_exception):
         await connect_task
 
 
