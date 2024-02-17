@@ -31,6 +31,7 @@ from aioesphomeapi.core import (
     ReadFailedAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
+    SocketAPIError,
     SocketClosedAPIError,
     TimeoutAPIError,
 )
@@ -661,6 +662,58 @@ async def test_connection_lost_while_connecting(
 
     exception, raised_exception = exception_map
     protocol.connection_lost(exception)
+
+    with pytest.raises(raised_exception, match="original message"):
+        await connect_task
+
+    assert not conn.is_connected
+
+
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), SocketAPIError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_connection_error_during_hello(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+    exception_map: tuple[Exception, Exception],
+) -> None:
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    exception, raised_exception = exception_map
+    protocol: APIPlaintextFrameHelper
+    ready_future: asyncio.Future
+
+    def _delayed_create_mock_transport_protocol(
+        create_func: Callable[[], APIPlaintextFrameHelper],
+        **kwargs,
+    ) -> tuple[asyncio.Transport, APIPlaintextFrameHelper]:
+        nonlocal protocol
+        nonlocal ready_future
+        protocol = create_func()
+        connected.set()
+        ready_future = protocol.ready_future
+        protocol.ready_future = loop.create_future()
+        protocol.connection_made(transport)
+        return transport, protocol
+
+    with (
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=_delayed_create_mock_transport_protocol,
+        ),
+        patch.object(conn, "_connect_hello_login", side_effect=exception),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
 
     with pytest.raises(raised_exception, match="original message"):
         await connect_task
