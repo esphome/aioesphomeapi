@@ -651,7 +651,7 @@ async def test_force_disconnect_fails(
     ],
 )
 @pytest.mark.asyncio
-async def test_connect_lost_while_connecting(
+async def test_connection_lost_while_connecting(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
