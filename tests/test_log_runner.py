@@ -252,6 +252,11 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     stop_task = asyncio.create_task(stop())
     await asyncio.sleep(0)
+
+    send_plaintext_connect_response(protocol, False)
+    send_plaintext_hello(protocol)
+
     disconnect_response = DisconnectResponse()
     mock_data_received(protocol, generate_plaintext_packet(disconnect_response))
+
     await stop_task
