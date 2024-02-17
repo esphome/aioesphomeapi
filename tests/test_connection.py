@@ -28,6 +28,7 @@ from aioesphomeapi.core import (
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
+    ReadFailedAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
     SocketClosedAPIError,
@@ -639,6 +640,32 @@ async def test_force_disconnect_fails(
         conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
     await asyncio.sleep(0)
+
+
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), ReadFailedAPIError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_connect_lost_while_connecting(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+    exception_map: tuple[Exception, Exception],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    exception, raised_exception = exception_map
+    protocol.connection_lost(exception)
+
+    with pytest.raises(raised_exception, match="original message"):
+        await connect_task
+
+    assert not conn.is_connected
 
 
 @pytest.mark.asyncio
