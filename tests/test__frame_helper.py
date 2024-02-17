@@ -748,7 +748,7 @@ async def test_connection_lost_closes_connection_and_logs(
     protocol.connection_lost(exception)
     assert conn.is_connected is False
     assert "original message" in caplog.text
-    with pytest.raises(raised_exception):
+    with pytest.raises(raised_exception, match="original message"):
         await connect_task
 
 
