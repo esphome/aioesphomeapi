@@ -16,6 +16,7 @@ from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable
 
 import aiohappyeyeballs
+from async_interrupt import interrupt
 from google.protobuf import message
 
 import aioesphomeapi.host_resolver as hr
@@ -104,6 +105,10 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 _int = int
 _bytes = bytes
 _float = float
+
+
+class ConnectionInterruptedError(Exception):
+    """An error that is raised when a connection is interrupted."""
 
 
 @dataclass
@@ -198,8 +203,8 @@ class APIConnection:
         "_pong_timer",
         "_keep_alive_interval",
         "_keep_alive_timeout",
-        "_start_connect_task",
-        "_finish_connect_task",
+        "_start_connect_future",
+        "_finish_connect_future",
         "_fatal_exception",
         "_expected_disconnect",
         "_loop",
@@ -242,8 +247,8 @@ class APIConnection:
         self._keep_alive_interval = keepalive
         self._keep_alive_timeout = keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
-        self._start_connect_task: asyncio.Task[None] | None = None
-        self._finish_connect_task: asyncio.Task[None] | None = None
+        self._start_connect_future: asyncio.Future[None] | None = None
+        self._finish_connect_future: asyncio.Future[None] | None = None
         self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
         self._send_pending_ping = False
@@ -276,28 +281,13 @@ class APIConnection:
                 err = self._fatal_exception or APIConnectionError("Connection closed")
                 new_exc = err
                 if not isinstance(err, APIConnectionError):
-                    new_exc = ReadFailedAPIError("Read failed")
+                    new_exc = ReadFailedAPIError(str(err) or "Read failed")
                     new_exc.__cause__ = err
                 fut.set_exception(new_exc)
         self._read_exception_futures.clear()
-        # If we are being called from do_connect we
-        # need to make sure we don't cancel the task
-        # that called us
-        current_task = asyncio.current_task()
 
-        if (
-            self._start_connect_task is not None
-            and self._start_connect_task is not current_task
-        ):
-            self._start_connect_task.cancel("Connection cleanup")
-            self._start_connect_task = None
-
-        if (
-            self._finish_connect_task is not None
-            and self._finish_connect_task is not current_task
-        ):
-            self._finish_connect_task.cancel("Connection cleanup")
-            self._finish_connect_task = None
+        self._set_start_connect_future()
+        self._set_finish_connect_future()
 
         if self._frame_helper is not None:
             self._frame_helper.close()
@@ -460,7 +450,9 @@ class APIConnection:
         try:
             await self._frame_helper.ready_future
         except asyncio_TimeoutError as err:
-            raise TimeoutAPIError("Handshake timed out") from err
+            raise TimeoutAPIError(
+                f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
+            ) from err
         except OSError as err:
             raise HandshakeAPIError(f"Handshake failed: {err}") from err
         finally:
@@ -475,19 +467,14 @@ class APIConnection:
             messages.append(self._make_connect_request())
             msg_types.append(ConnectResponse)
 
-        try:
-            responses = await self.send_messages_await_response_complex(
-                tuple(messages),
-                None,
-                lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
-                is msg_types[-1],
-                tuple(msg_types),
-                CONNECT_REQUEST_TIMEOUT,
-            )
-        except TimeoutAPIError as err:
-            self.report_fatal_error(err)
-            raise TimeoutAPIError("Hello timed out") from err
-
+        responses = await self.send_messages_await_response_complex(
+            tuple(messages),
+            None,
+            lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
+            is msg_types[-1],
+            tuple(msg_types),
+            CONNECT_REQUEST_TIMEOUT,
+        )
         resp = responses.pop(0)
         self._process_hello_resp(resp)
         if login:
@@ -605,20 +592,28 @@ class APIConnection:
                 "Connection can only be used once, connection is not in init state"
             )
 
-        start_connect_task = asyncio.create_task(
-            self._do_connect(), name=f"{self.log_name}: aioesphomeapi do_connect"
-        )
-        self._start_connect_task = start_connect_task
+        self._start_connect_future = self._loop.create_future()
         try:
-            await start_connect_task
+            async with interrupt(
+                self._start_connect_future, ConnectionInterruptedError, None
+            ):
+                await self._do_connect()
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
             raise self._wrap_fatal_connection_exception("starting", ex)
         finally:
-            self._start_connect_task = None
+            self._set_start_connect_future()
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
+
+    def _set_start_connect_future(self) -> None:
+        if (
+            self._start_connect_future is not None
+            and not self._start_connect_future.done()
+        ):
+            self._start_connect_future.set_result(None)
+            self._start_connect_future = None
 
     def _wrap_fatal_connection_exception(
         self, action: str, ex: BaseException
@@ -627,7 +622,7 @@ class APIConnection:
         if isinstance(ex, APIConnectionError):
             return ex
         cause: BaseException | None = None
-        if isinstance(ex, CancelledError):
+        if isinstance(ex, (ConnectionInterruptedError, CancelledError)):
             err_str = f"{action.title()} connection cancelled"
             if self._fatal_exception:
                 err_str += f" due to fatal exception: {self._fatal_exception}"
@@ -664,21 +659,28 @@ class APIConnection:
             raise RuntimeError(
                 "Connection must be in SOCKET_OPENED state to finish connection"
             )
-        finish_connect_task = asyncio.create_task(
-            self._do_finish_connect(login),
-            name=f"{self.log_name}: aioesphomeapi _do_finish_connect",
-        )
-        self._finish_connect_task = finish_connect_task
+        self._finish_connect_future = self._loop.create_future()
         try:
-            await self._finish_connect_task
+            async with interrupt(
+                self._finish_connect_future, ConnectionInterruptedError, None
+            ):
+                await self._do_finish_connect(login)
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
             self._cleanup()
             raise self._wrap_fatal_connection_exception("finishing", ex)
         finally:
-            self._finish_connect_task = None
+            self._set_finish_connect_future()
         self._set_connection_state(CONNECTION_STATE_CONNECTED)
+
+    def _set_finish_connect_future(self) -> None:
+        if (
+            self._finish_connect_future is not None
+            and not self._finish_connect_future.done()
+        ):
+            self._finish_connect_future.set_result(None)
+            self._finish_connect_future = None
 
     def _set_connection_state(self, state: ConnectionState) -> None:
         """Set the connection state and log the change."""
@@ -969,12 +971,12 @@ class APIConnection:
 
     async def disconnect(self) -> None:
         """Disconnect from the API."""
-        if self._finish_connect_task is not None:
+        if self._finish_connect_future is not None:
             # Try to wait for the handshake to finish so we can send
             # a disconnect request. If it doesn't finish in time
             # we will just close the socket.
             _, pending = await asyncio.wait(
-                [self._finish_connect_task], timeout=DISCONNECT_CONNECT_TIMEOUT
+                [self._finish_connect_future], timeout=DISCONNECT_CONNECT_TIMEOUT
             )
             if pending:
                 self._set_fatal_exception_if_unset(

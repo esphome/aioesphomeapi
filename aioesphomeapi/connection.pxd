@@ -98,8 +98,8 @@ cdef class APIConnection:
     cdef object _pong_timer
     cdef float _keep_alive_interval
     cdef float _keep_alive_timeout
-    cdef object _start_connect_task
-    cdef object _finish_connect_task
+    cdef object _start_connect_future
+    cdef object _finish_connect_future
     cdef public Exception _fatal_exception
     cdef bint _expected_disconnect
     cdef object _loop
@@ -154,3 +154,7 @@ cdef class APIConnection:
     cdef void _register_internal_message_handlers(self)
 
     cdef void _increase_recv_buffer_size(self)
+
+    cdef void _set_start_connect_future(self)
+
+    cdef void _set_finish_connect_future(self)
