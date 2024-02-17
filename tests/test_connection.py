@@ -24,6 +24,7 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
+    APIConnectionCancelledError,
     APIConnectionError,
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
@@ -688,29 +689,55 @@ async def test_connection_error_during_hello(
     transport = MagicMock()
     connected = asyncio.Event()
     exception, raised_exception = exception_map
-    protocol: APIPlaintextFrameHelper
-    ready_future: asyncio.Future
-
-    def _delayed_create_mock_transport_protocol(
-        create_func: Callable[[], APIPlaintextFrameHelper],
-        **kwargs,
-    ) -> tuple[asyncio.Transport, APIPlaintextFrameHelper]:
-        nonlocal protocol
-        nonlocal ready_future
-        protocol = create_func()
-        connected.set()
-        ready_future = protocol.ready_future
-        protocol.ready_future = loop.create_future()
-        protocol.connection_made(transport)
-        return transport, protocol
 
     with (
         patch.object(
             loop,
             "create_connection",
-            side_effect=_delayed_create_mock_transport_protocol,
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
         ),
         patch.object(conn, "_connect_hello_login", side_effect=exception),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    with pytest.raises(raised_exception, match="original message"):
+        await connect_task
+
+    assert not conn.is_connected
+
+
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), APIConnectionCancelledError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_connection_cancelled_during_hello(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+    exception_map: tuple[Exception, Exception],
+) -> None:
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    exception, raised_exception = exception_map
+
+    async def _mock_frame_helper_error(*args, **kwargs):
+        conn._frame_helper.connection_lost(exception)
+        raise asyncio.CancelledError
+
+    with (
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        patch.object(conn, "_connect_hello_login", _mock_frame_helper_error),
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
