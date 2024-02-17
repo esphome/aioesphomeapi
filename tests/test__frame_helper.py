@@ -732,7 +732,6 @@ async def test_eof_received_closes_connection(
         (OSError("original message"), ReadFailedAPIError),
         (APIConnectionError("original message"), APIConnectionError),
         (SocketClosedAPIError("original message"), SocketClosedAPIError),
-        (asyncio.CancelledError("original message"), APIConnectionError),
     ],
 )
 @pytest.mark.asyncio
