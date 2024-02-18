@@ -637,7 +637,7 @@ async def test_datetime_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.datetime_command(**cmd)
+    auth_client.datetime_command(**cmd)
     send.assert_called_once_with(DatetimeCommandRequest(**req))
 
 
