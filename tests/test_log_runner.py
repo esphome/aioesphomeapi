@@ -68,8 +68,8 @@ async def test_log_runner(
     subscribed = asyncio.Event()
     original_subscribe_logs = cli.subscribe_logs
 
-    async def _wait_subscribe_cli(*args, **kwargs):
-        await original_subscribe_logs(*args, **kwargs)
+    def _wait_subscribe_cli(*args, **kwargs):
+        original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
     with (
@@ -137,8 +137,8 @@ async def test_log_runner_reconnects_on_disconnect(
     subscribed = asyncio.Event()
     original_subscribe_logs = cli.subscribe_logs
 
-    async def _wait_subscribe_cli(*args, **kwargs):
-        await original_subscribe_logs(*args, **kwargs)
+    def _wait_subscribe_cli(*args, **kwargs):
+        original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
     with (
@@ -216,7 +216,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     subscribed = asyncio.Event()
 
-    async def _wait_and_fail_subscribe_cli(*args, **kwargs):
+    def _wait_and_fail_subscribe_cli(*args, **kwargs):
         subscribed.set()
         raise APIConnectionError("subscribed force to fail")
 
