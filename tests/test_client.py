@@ -324,7 +324,7 @@ async def test_list_entities(
 async def test_subscribe_states(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_state = MagicMock()
-    await auth_client.subscribe_states(on_state)
+    auth_client.subscribe_states(on_state)
     on_state.assert_not_called()
 
     await send(BinarySensorStateResponse())
@@ -335,7 +335,7 @@ async def test_subscribe_states(auth_client: APIClient) -> None:
 async def test_subscribe_states_camera(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_state = MagicMock()
-    await auth_client.subscribe_states(on_state)
+    auth_client.subscribe_states(on_state)
     await send(CameraImageResponse(key=1, data=b"asdf"))
     on_state.assert_not_called()
 
@@ -374,7 +374,7 @@ async def test_cover_command_legacy(
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 0))
 
-    await auth_client.cover_command(**cmd)
+    auth_client.cover_command(**cmd)
     send.assert_called_once_with(CoverCommandRequest(**req))
 
 
@@ -398,7 +398,7 @@ async def test_cover_command(
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 1))
 
-    await auth_client.cover_command(**cmd)
+    auth_client.cover_command(**cmd)
     send.assert_called_once_with(CoverCommandRequest(**req))
 
 
@@ -435,7 +435,7 @@ async def test_fan_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.fan_command(**cmd)
+    auth_client.fan_command(**cmd)
     send.assert_called_once_with(FanCommandRequest(**req))
 
 
@@ -499,7 +499,7 @@ async def test_light_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.light_command(**cmd)
+    auth_client.light_command(**cmd)
     send.assert_called_once_with(LightCommandRequest(**req))
 
 
@@ -516,7 +516,7 @@ async def test_switch_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.switch_command(**cmd)
+    auth_client.switch_command(**cmd)
     send.assert_called_once_with(SwitchCommandRequest(**req))
 
 
@@ -540,7 +540,7 @@ async def test_climate_command_legacy(
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 4))
 
-    await auth_client.climate_command(**cmd)
+    auth_client.climate_command(**cmd)
     send.assert_called_once_with(ClimateCommandRequest(**req))
 
 
@@ -596,7 +596,7 @@ async def test_climate_command(
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 5))
 
-    await auth_client.climate_command(**cmd)
+    auth_client.climate_command(**cmd)
     send.assert_called_once_with(ClimateCommandRequest(**req))
 
 
@@ -613,7 +613,7 @@ async def test_number_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.number_command(**cmd)
+    auth_client.number_command(**cmd)
     send.assert_called_once_with(NumberCommandRequest(**req))
 
 
@@ -638,7 +638,7 @@ async def test_lock_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.lock_command(**cmd)
+    auth_client.lock_command(**cmd)
     send.assert_called_once_with(LockCommandRequest(**req))
 
 
@@ -655,7 +655,7 @@ async def test_select_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.select_command(**cmd)
+    auth_client.select_command(**cmd)
     send.assert_called_once_with(SelectCommandRequest(**req))
 
 
@@ -682,7 +682,7 @@ async def test_media_player_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.media_player_command(**cmd)
+    auth_client.media_player_command(**cmd)
     send.assert_called_once_with(MediaPlayerCommandRequest(**req))
 
 
@@ -698,7 +698,7 @@ async def test_button_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.button_command(**cmd)
+    auth_client.button_command(**cmd)
     send.assert_called_once_with(ButtonCommandRequest(**req))
 
 
@@ -732,7 +732,7 @@ async def test_siren_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.siren_command(**cmd)
+    auth_client.siren_command(**cmd)
     send.assert_called_once_with(SirenCommandRequest(**req))
 
 
@@ -757,9 +757,9 @@ async def test_execute_service(auth_client: APIClient) -> None:
     )
 
     with pytest.raises(KeyError):
-        await auth_client.execute_service(service, data={})
+        auth_client.execute_service(service, data={})
 
-    await auth_client.execute_service(
+    auth_client.execute_service(
         service,
         data={
             "arg1": False,
@@ -800,7 +800,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
     )
 
     # Test legacy_int
-    await auth_client.execute_service(
+    auth_client.execute_service(
         service,
         data={
             "arg1": False,
@@ -819,7 +819,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
     send.reset_mock()
 
     # Test arg order
-    await auth_client.execute_service(
+    auth_client.execute_service(
         service,
         data={
             "arg2": 42,
@@ -842,7 +842,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
 async def test_request_single_image(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.request_single_image()
+    auth_client.request_single_image()
     send.assert_called_once_with(CameraImageRequest(single=True, stream=False))
 
 
@@ -850,7 +850,7 @@ async def test_request_single_image(auth_client: APIClient) -> None:
 async def test_request_image_stream(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.request_image_stream()
+    auth_client.request_image_stream()
     send.assert_called_once_with(CameraImageRequest(single=False, stream=True))
 
 
@@ -877,7 +877,7 @@ async def test_alarm_panel_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.alarm_control_panel_command(**cmd)
+    auth_client.alarm_control_panel_command(**cmd)
     send.assert_called_once_with(AlarmControlPanelCommandRequest(**req))
 
 
@@ -894,7 +894,7 @@ async def test_text_command(
 ) -> None:
     send = patch_send(auth_client)
 
-    await auth_client.text_command(**cmd)
+    auth_client.text_command(**cmd)
     send.assert_called_once_with(TextCommandRequest(**req))
 
 
@@ -1536,9 +1536,7 @@ async def test_subscribe_bluetooth_le_advertisements(
     def on_bluetooth_le_advertisements(adv: BluetoothLEAdvertisement) -> None:
         advs.append(adv)
 
-    unsub = await client.subscribe_bluetooth_le_advertisements(
-        on_bluetooth_le_advertisements
-    )
+    unsub = client.subscribe_bluetooth_le_advertisements(on_bluetooth_le_advertisements)
     await asyncio.sleep(0)
     response: message.Message = BluetoothLEAdvertisementResponse(
         address=1234,
@@ -1654,7 +1652,7 @@ async def test_subscribe_bluetooth_le_raw_advertisements(
     ) -> None:
         adv_groups.append(advs.advertisements)
 
-    unsub = await client.subscribe_bluetooth_le_raw_advertisements(
+    unsub = client.subscribe_bluetooth_le_raw_advertisements(
         on_raw_bluetooth_le_advertisements
     )
     await asyncio.sleep(0)
@@ -1692,9 +1690,7 @@ async def test_subscribe_bluetooth_connections_free(
     def on_bluetooth_connections_free(free: int, limit: int) -> None:
         connections.append((free, limit))
 
-    unsub = await client.subscribe_bluetooth_connections_free(
-        on_bluetooth_connections_free
-    )
+    unsub = client.subscribe_bluetooth_connections_free(on_bluetooth_connections_free)
     await asyncio.sleep(0)
     response: message.Message = BluetoothConnectionsFreeResponse(free=2, limit=3)
     mock_data_received(protocol, generate_plaintext_packet(response))
@@ -1718,7 +1714,7 @@ async def test_subscribe_home_assistant_states(
     ) -> None:
         states.append((entity_id, attribute))
 
-    await client.subscribe_home_assistant_states(on_subscribe_home_assistant_states)
+    client.subscribe_home_assistant_states(on_subscribe_home_assistant_states)
     await asyncio.sleep(0)
 
     response: message.Message = SubscribeHomeAssistantStateResponse(
@@ -1733,7 +1729,7 @@ async def test_subscribe_home_assistant_states(
 async def test_subscribe_logs(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_logs = MagicMock()
-    await auth_client.subscribe_logs(on_logs)
+    auth_client.subscribe_logs(on_logs)
     log_msg = SubscribeLogsResponse(level=1, message=b"asdf")
     await send(log_msg)
     on_logs.assert_called_with(log_msg)
@@ -1742,7 +1738,7 @@ async def test_subscribe_logs(auth_client: APIClient) -> None:
 @pytest.mark.asyncio
 async def test_send_home_assistant_state(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
-    await auth_client.send_home_assistant_state("binary_sensor.bla", None, "on")
+    auth_client.send_home_assistant_state("binary_sensor.bla", None, "on")
     send.assert_called_once_with(
         HomeAssistantStateResponse(
             entity_id="binary_sensor.bla", state="on", attribute=None
@@ -1754,7 +1750,7 @@ async def test_send_home_assistant_state(auth_client: APIClient) -> None:
 async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_service_call = MagicMock()
-    await auth_client.subscribe_service_calls(on_service_call)
+    auth_client.subscribe_service_calls(on_service_call)
     service_msg = HomeassistantServiceResponse(service="bob")
     await send(service_msg)
     on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
@@ -2059,7 +2055,7 @@ async def test_subscribe_voice_assistant(
     async def handle_stop() -> None:
         stops.append(True)
 
-    unsub = await client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = client.subscribe_voice_assistant(handle_start, handle_stop)
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
@@ -2130,7 +2126,7 @@ async def test_subscribe_voice_assistant_failure(
     async def handle_stop() -> None:
         stops.append(True)
 
-    unsub = await client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = client.subscribe_voice_assistant(handle_start, handle_stop)
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
@@ -2203,7 +2199,7 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     async def handle_stop() -> None:
         stops.append(True)
 
-    unsub = await client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = client.subscribe_voice_assistant(handle_start, handle_stop)
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
