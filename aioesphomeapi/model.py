@@ -1115,6 +1115,7 @@ class VoiceAssistantCommand(APIModelBase):
         default=VoiceAssistantAudioSettings(),
         converter=VoiceAssistantAudioSettings.from_pb,
     )
+    wake_word_phrase: str = ""
 
 
 class LogLevel(APIIntEnum):

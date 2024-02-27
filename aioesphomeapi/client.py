@@ -1212,7 +1212,7 @@ class APIClient:
     def subscribe_voice_assistant(
         self,
         handle_start: Callable[
-            [str, int, VoiceAssistantAudioSettingsModel],
+            [str, int, VoiceAssistantAudioSettingsModel, str | None],
             Coroutine[Any, Any, int | None],
         ],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
@@ -1244,9 +1244,12 @@ class APIClient:
 
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
+                wake_word_phrase = command.wake_word_phrase
+                if wake_word_phrase == "":
+                    wake_word_phrase = None
                 start_task = asyncio.create_task(
                     handle_start(
-                        command.conversation_id, command.flags, command.audio_settings
+                        command.conversation_id, command.flags, command.audio_settings, wake_word_phrase,
                     )
                 )
                 start_task.add_done_callback(_started)
