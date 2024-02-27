@@ -2047,9 +2047,12 @@ async def test_subscribe_voice_assistant(
     stops = []
 
     async def handle_start(
-        conversation_id: str, flags: int, audio_settings: VoiceAssistantAudioSettings
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
     ) -> int | None:
-        starts.append((conversation_id, flags, audio_settings))
+        starts.append((conversation_id, flags, audio_settings, wake_word_phrase))
         return 42
 
     async def handle_stop() -> None:
@@ -2068,6 +2071,7 @@ async def test_subscribe_voice_assistant(
         start=True,
         flags=42,
         audio_settings=audio_settings,
+        wake_word_phrase="okay nabu",
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
@@ -2081,6 +2085,7 @@ async def test_subscribe_voice_assistant(
                 auto_gain=42,
                 volume_multiplier=42,
             ),
+            "okay nabu",
         )
     ]
     assert stops == []
@@ -2117,9 +2122,12 @@ async def test_subscribe_voice_assistant_failure(
     stops = []
 
     async def handle_start(
-        conversation_id: str, flags: int, audio_settings: VoiceAssistantAudioSettings
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
     ) -> int | None:
-        starts.append((conversation_id, flags, audio_settings))
+        starts.append((conversation_id, flags, audio_settings, wake_word_phrase))
         # Return None to indicate failure
         return None
 
@@ -2188,9 +2196,12 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     stops = []
 
     async def handle_start(
-        conversation_id: str, flags: int, audio_settings: VoiceAssistantAudioSettings
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
     ) -> int | None:
-        starts.append((conversation_id, flags, audio_settings))
+        starts.append((conversation_id, flags, audio_settings, wake_word_phrase))
         await asyncio.sleep(10)
         # Return None to indicate failure
         starts.append("never")
