@@ -1249,7 +1249,10 @@ class APIClient:
                     wake_word_phrase = None
                 start_task = asyncio.create_task(
                     handle_start(
-                        command.conversation_id, command.flags, command.audio_settings, wake_word_phrase,
+                        command.conversation_id,
+                        command.flags,
+                        command.audio_settings,
+                        wake_word_phrase,
                     )
                 )
                 start_task.add_done_callback(_started)
