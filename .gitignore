@@ -93,3 +93,6 @@ desktop.ini
 
 # mypy
 /.mypy_cache/*
+
+# cython generated source
+*.c
