@@ -2160,6 +2160,7 @@ async def test_subscribe_voice_assistant_failure(
                 auto_gain=42,
                 volume_multiplier=42,
             ),
+            None,
         )
     ]
     assert stops == []
@@ -2239,6 +2240,7 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
                 auto_gain=42,
                 volume_multiplier=42,
             ),
+            None,
         )
     ]
 
