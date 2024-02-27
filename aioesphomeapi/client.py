@@ -1244,7 +1244,7 @@ class APIClient:
 
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
-                wake_word_phrase = command.wake_word_phrase
+                wake_word_phrase: str | None = command.wake_word_phrase
                 if wake_word_phrase == "":
                     wake_word_phrase = None
                 start_task = asyncio.create_task(
