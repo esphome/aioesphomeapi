@@ -1,6 +1,9 @@
 {
     "name": "ESPHome API Client Dev",
     "image": "ghcr.io/esphome/aioesphomeapi-proto-builder:latest",
+    "features": {
+      "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
     "customizations": {
         "vscode": {
             "extensions": [
