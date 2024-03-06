@@ -441,7 +441,7 @@ class SwitchState(EntityState):
 # ==================== TEXT SENSOR ====================
 @_frozen_dataclass_decorator
 class TextSensorInfo(EntityInfo):
-    pass
+    device_class: str = ""
 
 
 @_frozen_dataclass_decorator
@@ -1134,6 +1134,7 @@ class VoiceAssistantCommand(APIModelBase):
         default=VoiceAssistantAudioSettings(),
         converter=VoiceAssistantAudioSettings.from_pb,
     )
+    wake_word_phrase: str = ""
 
 
 class LogLevel(APIIntEnum):

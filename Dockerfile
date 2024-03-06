@@ -16,6 +16,10 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
     && unzip /tmp/protoc.zip -d /usr -x readme.txt \
     && rm /tmp/protoc.zip
 
+RUN useradd -ms /bin/bash esphome
+
+USER esphome
+
 WORKDIR /aioesphomeapi
 
 COPY requirements_test.txt ./
