@@ -93,6 +93,7 @@ jobs:
       - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
+            -u "$(id -u):$(id -g)" \
             ghcr.io/esphome/aioesphomeapi-proto-builder:latest
           if ! git diff --quiet; then
             echo "You have altered the generated proto files but they do not match what is expected."
