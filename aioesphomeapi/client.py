@@ -37,7 +37,7 @@ from .api_pb2 import (  # type: ignore
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
-    DatetimeCommandRequest,
+    DateCommandRequest,
     DeviceInfoRequest,
     DeviceInfoResponse,
     ExecuteServiceArgument,
@@ -1101,9 +1101,9 @@ class APIClient:
     def number_command(self, key: int, state: float) -> None:
         self._get_connection().send_message(NumberCommandRequest(key=key, state=state))
 
-    def datetime_command(self, key: int, state: str) -> None:
+    def date_command(self, key: int, year: int, month: int, day: int) -> None:
         self._get_connection().send_message(
-            DatetimeCommandRequest(key=key, state=state)
+            DateCommandRequest(key=key, year=year, month=month, day=day)
         )
 
     def select_command(self, key: int, state: str) -> None:
