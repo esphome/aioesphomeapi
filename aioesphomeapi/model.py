@@ -639,6 +639,7 @@ class NumberState(EntityState):
 
 # ==================== DATETIME DATE ====================
 
+
 @_frozen_dataclass_decorator
 class DateInfo(EntityInfo):
     pass

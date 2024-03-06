@@ -622,8 +622,14 @@ async def test_number_command(
 @pytest.mark.parametrize(
     "cmd, req",
     [
-        (dict(key=1, year=2024, month=2, day=29), dict(key=1, year=2024, month=2, day=29)),
-        (dict(key=1, year=2000, month=6, day=10), dict(key=1, year=2000, month=6, day=10)),
+        (
+            dict(key=1, year=2024, month=2, day=29),
+            dict(key=1, year=2024, month=2, day=29),
+        ),
+        (
+            dict(key=1, year=2000, month=6, day=10),
+            dict(key=1, year=2000, month=6, day=10),
+        ),
     ],
 )
 async def test_date_command(
