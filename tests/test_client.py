@@ -41,6 +41,7 @@ from aioesphomeapi.api_pb2 import (
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    DateCommandRequest,
     DeviceInfoResponse,
     DisconnectResponse,
     ExecuteServiceArgument,
@@ -615,6 +616,29 @@ async def test_number_command(
 
     auth_client.number_command(**cmd)
     send.assert_called_once_with(NumberCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, year=2024, month=2, day=29),
+            dict(key=1, year=2024, month=2, day=29),
+        ),
+        (
+            dict(key=1, year=2000, month=6, day=10),
+            dict(key=1, year=2000, month=6, day=10),
+        ),
+    ],
+)
+async def test_date_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.date_command(**cmd)
+    send.assert_called_once_with(DateCommandRequest(**req))
 
 
 @pytest.mark.asyncio

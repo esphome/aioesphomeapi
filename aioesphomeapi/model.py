@@ -637,6 +637,22 @@ class NumberState(EntityState):
     missing_state: bool = False
 
 
+# ==================== DATETIME DATE ====================
+
+
+@_frozen_dataclass_decorator
+class DateInfo(EntityInfo):
+    pass
+
+
+@_frozen_dataclass_decorator
+class DateState(EntityState):
+    missing_state: bool = False
+    year: int = 0
+    month: int = 0
+    day: int = 0
+
+
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
@@ -806,6 +822,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "camera": CameraInfo,
     "climate": ClimateInfo,
     "number": NumberInfo,
+    "date": DateInfo,
     "select": SelectInfo,
     "siren": SirenInfo,
     "button": ButtonInfo,
@@ -1154,6 +1171,7 @@ _TYPE_TO_NAME = {
     FanInfo: "fan",
     LightInfo: "light",
     NumberInfo: "number",
+    DateInfo: "date",
     SelectInfo: "select",
     SensorInfo: "sensor",
     SirenInfo: "siren",
