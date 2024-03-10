@@ -2280,3 +2280,55 @@ async def test_api_version_after_connection_closed(
     assert client.api_version == APIVersion(1, 9)
     await client.disconnect(force=True)
     assert client.api_version is None
+
+
+@pytest.mark.asyncio
+async def test_calls_after_connection_closed(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test calls after connection close should raise APIConnectionError."""
+    client, connection, transport, protocol = api_client
+    assert client.api_version == APIVersion(1, 9)
+    await client.disconnect(force=True)
+    assert client.api_version is None
+    service = UserService(
+        name="my_service",
+        key=1,
+        args=[],
+    )
+    with pytest.raises(APIConnectionError):
+        client.execute_service(service, {})
+    for method in (
+        client.button_command,
+        client.climate_command,
+        client.cover_command,
+        client.fan_command,
+        client.light_command,
+        client.media_player_command,
+        client.siren_command,
+    ):
+        with pytest.raises(APIConnectionError):
+            await method(1)
+
+    with pytest.raises(APIConnectionError):
+        await client.alarm_control_panel_command(1, AlarmControlPanelCommand.ARM_HOME)
+
+    with pytest.raises(APIConnectionError):
+        await client.date_command(1, 1, 1, 1)
+
+    with pytest.raises(APIConnectionError):
+        await client.lock_command(1, LockCommand.LOCK)
+
+    with pytest.raises(APIConnectionError):
+        await client.number_command(1, 1)
+
+    with pytest.raises(APIConnectionError):
+        await client.select_command(1, "1")
+
+    with pytest.raises(APIConnectionError):
+        await client.switch_command(1, True)
+
+    with pytest.raises(APIConnectionError):
+        await client.text_command(1, "1")
