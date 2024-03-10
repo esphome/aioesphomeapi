@@ -928,6 +928,7 @@ class APIClient:
         tilt: float | None = None,
         stop: bool = False,
     ) -> None:
+        connection = self._get_connection()
         req = CoverCommandRequest(key=key)
         apiv = self.api_version
         if TYPE_CHECKING:
@@ -951,7 +952,7 @@ class APIClient:
             elif position == 0.0:
                 req.legacy_command = LegacyCoverCommand.CLOSE
                 req.has_legacy_command = True
-        self._get_connection().send_message(req)
+        connection.send_message(req)
 
     def fan_command(
         self,
@@ -1058,6 +1059,7 @@ class APIClient:
         custom_preset: str | None = None,
         target_humidity: float | None = None,
     ) -> None:
+        connection = self._get_connection()
         req = ClimateCommandRequest(key=key)
         if mode is not None:
             req.has_mode = True
@@ -1096,7 +1098,7 @@ class APIClient:
         if target_humidity is not None:
             req.has_target_humidity = True
             req.target_humidity = target_humidity
-        self._get_connection().send_message(req)
+        connection.send_message(req)
 
     def number_command(self, key: int, state: float) -> None:
         self._get_connection().send_message(NumberCommandRequest(key=key, state=state))
@@ -1172,6 +1174,7 @@ class APIClient:
     def execute_service(
         self, service: UserService, data: ExecuteServiceDataType
     ) -> None:
+        connection = self._get_connection()
         req = ExecuteServiceRequest(key=service.key)
         args = []
         apiv = self.api_version
@@ -1196,7 +1199,7 @@ class APIClient:
         # pylint: disable=no-member
         req.args.extend(args)
 
-        self._get_connection().send_message(req)
+        connection.send_message(req)
 
     def _request_image(self, *, single: bool = False, stream: bool = False) -> None:
         self._get_connection().send_message(
