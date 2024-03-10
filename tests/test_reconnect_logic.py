@@ -102,7 +102,7 @@ async def test_reconnect_logic_name_from_host_and_set():
 async def test_reconnect_logic_name_from_address():
     """Test that the name is set correctly from the address."""
     cli = APIClient(
-        address="1.2.3.4",
+        address="127.0.0.1",
         port=6052,
         password=None,
     )
@@ -119,14 +119,14 @@ async def test_reconnect_logic_name_from_address():
         on_connect=on_connect,
         zeroconf_instance=get_mock_zeroconf(),
     )
-    assert cli.log_name == "1.2.3.4"
+    assert cli.log_name == "127.0.0.1"
 
 
 @pytest.mark.asyncio
 async def test_reconnect_logic_name_from_name():
     """Test that the name is set correctly from the address."""
     cli = APIClient(
-        address="1.2.3.4",
+        address="127.0.0.1",
         port=6052,
         password=None,
     )
@@ -144,7 +144,7 @@ async def test_reconnect_logic_name_from_name():
         zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
-    assert cli.log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 127.0.0.1"
 
 
 @pytest.mark.asyncio
@@ -201,7 +201,7 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
         name="mydevice",
         on_connect_error=on_connect_fail,
     )
-    assert cli.log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(cli, "start_connection", side_effect=APIConnectionError):
         await rl.start()
@@ -274,7 +274,7 @@ async def test_reconnect_retry(
         name="mydevice",
         on_connect_error=on_connect_fail,
     )
-    assert cli.log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 127.0.0.1"
     caplog.clear()
 
     with patch.object(cli, "start_connection", side_effect=APIConnectionError):
@@ -288,9 +288,9 @@ async def test_reconnect_retry(
     assert len(on_connect_fail_called) == 1
     assert isinstance(on_connect_fail_called[-1], APIConnectionError)
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-    assert "connect to ESPHome API for mydevice @ 1.2.3.4" in caplog.text
+    assert "connect to ESPHome API for mydevice @ 127.0.0.1" in caplog.text
     for record in caplog.records:
-        if "connect to ESPHome API for mydevice @ 1.2.3.4" in record.message:
+        if "connect to ESPHome API for mydevice @ 127.0.0.1" in record.message:
             assert record.levelno == logging.WARNING
 
     caplog.clear()
@@ -307,9 +307,9 @@ async def test_reconnect_retry(
     assert len(on_connect_fail_called) == 2
     assert isinstance(on_connect_fail_called[-1], APIConnectionError)
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-    assert "connect to ESPHome API for mydevice @ 1.2.3.4" in caplog.text
+    assert "connect to ESPHome API for mydevice @ 127.0.0.1" in caplog.text
     for record in caplog.records:
-        if "connect to ESPHome API for mydevice @ 1.2.3.4" in record.message:
+        if "connect to ESPHome API for mydevice @ 127.0.0.1" in record.message:
             assert record.levelno == logging.DEBUG
 
     caplog.clear()
@@ -320,7 +320,7 @@ async def test_reconnect_retry(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
 
-    assert "connect to ESPHome API for mydevice @ 1.2.3.4" not in caplog.text
+    assert "connect to ESPHome API for mydevice @ 127.0.0.1" not in caplog.text
     assert len(on_disconnect_called) == 0
     assert len(on_connect_called) == 1
     assert len(on_connect_fail_called) == 2
@@ -372,7 +372,7 @@ DNS_POINTER = DNSPointer(
                 _TYPE_A,
                 _CLASS_IN,
                 1000,
-                ip_address("1.2.3.4").packed,
+                ip_address("127.0.0.1").packed,
             ),
             True,
             ReconnectLogicState.READY,
@@ -403,7 +403,7 @@ async def test_reconnect_zeroconf(
         name="mydevice",
         on_connect_error=AsyncMock(),
     )
-    assert cli.log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
         cli, "start_connection", side_effect=quick_connect_fail
@@ -474,7 +474,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         name="mydevice",
         on_connect_error=AsyncMock(),
     )
-    assert cli.log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
         cli, "start_connection", side_effect=quick_connect_fail
@@ -531,7 +531,7 @@ async def test_connect_task_not_cancelled_while_handshaking(
         name="mydevice",
         on_connect_error=AsyncMock(),
     )
-    assert cli.log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
         cli, "start_connection", side_effect=quick_connect_fail
@@ -591,7 +591,7 @@ async def test_connect_aborts_if_stopped(
         name="mydevice",
         on_connect_error=AsyncMock(),
     )
-    assert cli.log_name == "mydevice @ 1.2.3.4"
+    assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
         cli, "start_connection", side_effect=quick_connect_fail
@@ -694,7 +694,7 @@ async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection)
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address="1.2.3.4",
+        address="127.0.0.1",
         port=6052,
         password=None,
         noise_psk=None,
@@ -770,7 +770,7 @@ async def test_backoff_on_encryption_error(
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address="1.2.3.4",
+        address="127.0.0.1",
         port=6052,
         password=None,
         noise_psk="",

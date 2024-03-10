@@ -203,7 +203,7 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
 ) -> None:
     """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
 
-    cli = APIClient("1.2.3.4", 1234, None)
+    cli = APIClient("127.0.0.1", 1234, None)
     with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
         await cli.start_connection()
 
@@ -219,7 +219,7 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
 @pytest.mark.asyncio
 async def test_connection_released_if_connecting_is_cancelled() -> None:
     """Verify connection is unset if connecting is cancelled."""
-    cli = APIClient("1.2.3.4", 1234, None)
+    cli = APIClient("127.0.0.1", 1234, None)
     asyncio.get_event_loop()
 
     async def _start_connection_with_delay(*args, **kwargs):
@@ -930,7 +930,7 @@ async def test_noise_psk_handles_subclassed_string():
         pass
 
     cli = PatchableAPIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=Estr("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="),
@@ -966,7 +966,7 @@ async def test_noise_psk_handles_subclassed_string():
 async def test_no_noise_psk():
     """Test not using a noise_psk."""
     cli = APIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=None,
@@ -982,7 +982,7 @@ async def test_no_noise_psk():
 async def test_empty_noise_psk_or_expected_name():
     """Test an empty noise_psk is treated as None."""
     cli = APIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk="",

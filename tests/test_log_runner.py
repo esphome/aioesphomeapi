@@ -46,7 +46,7 @@ async def test_log_runner(
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=None,
@@ -115,7 +115,7 @@ async def test_log_runner_reconnects_on_disconnect(
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=None,
@@ -195,7 +195,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=None,

@@ -57,7 +57,7 @@ def patchable_api_client() -> APIClient:
         pass
 
     cli = PatchableAPIClient(
-        address="1.2.3.4",
+        address="127.0.0.1",
         port=6052,
         password=None,
     )
