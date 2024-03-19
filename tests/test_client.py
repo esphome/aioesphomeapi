@@ -641,6 +641,7 @@ async def test_date_command(
     auth_client.date_command(**cmd)
     send.assert_called_once_with(DateCommandRequest(**req))
 
+
 # Test time command
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -663,6 +664,7 @@ async def test_time_command(
 
     auth_client.time_command(**cmd)
     send.assert_called_once_with(TimeCommandRequest(**req))
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(

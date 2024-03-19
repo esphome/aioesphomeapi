@@ -39,7 +39,7 @@ from .api_pb2 import (  # type: ignore
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
-    TimeStateResponse
+    TimeStateResponse,
 )
 from .model import (
     AlarmControlPanelEntityState,
