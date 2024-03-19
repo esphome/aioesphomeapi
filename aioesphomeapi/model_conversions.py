@@ -29,6 +29,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesSwitchResponse,
     ListEntitiesTextResponse,
     ListEntitiesTextSensorResponse,
+    ListEntitiesTimeResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
     NumberStateResponse,
@@ -38,6 +39,7 @@ from .api_pb2 import (  # type: ignore
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
+    TimeStateResponse
 )
 from .model import (
     AlarmControlPanelEntityState,
@@ -76,6 +78,8 @@ from .model import (
     TextSensorInfo,
     TextSensorState,
     TextState,
+    TimeInfo,
+    TimeState,
 )
 
 SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
@@ -95,6 +99,7 @@ SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
     LockStateResponse: LockEntityState,
     MediaPlayerStateResponse: MediaPlayerEntityState,
     AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
+    TimeStateResponse: TimeState,
 }
 
 LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
@@ -117,4 +122,5 @@ LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
     ListEntitiesLockResponse: LockInfo,
     ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
     ListEntitiesAlarmControlPanelResponse: AlarmControlPanelInfo,
+    ListEntitiesTimeResponse: TimeInfo,
 }

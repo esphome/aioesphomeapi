@@ -653,6 +653,20 @@ class DateState(EntityState):
     day: int = 0
 
 
+# ==================== DATETIME TIME ====================
+
+@_frozen_dataclass_decorator
+class TimeInfo(EntityInfo):
+    pass
+
+
+@_frozen_dataclass_decorator
+class TimeState(EntityState):
+    missing_state: bool = False
+    hour: int = 0
+    minute: int = 0
+    second: int = 0
+
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
@@ -830,6 +844,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "media_player": MediaPlayerInfo,
     "alarm_control_panel": AlarmControlPanelInfo,
     "text": TextInfo,
+    "time": TimeInfo,
 }
 
 
@@ -1183,6 +1198,7 @@ _TYPE_TO_NAME = {
     MediaPlayerInfo: "media_player",
     AlarmControlPanelInfo: "alarm_control_panel",
     TextInfo: "text_info",
+    TimeInfo: "time",
 }
 
 
