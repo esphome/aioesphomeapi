@@ -1515,6 +1515,14 @@ message VoiceAssistantEventResponse {
   repeated VoiceAssistantEventData data = 2;
 }
 
+message VoiceAssistantAudio {
+  option (id) = 106;
+  option (source) = SOURCE_BOTH;
+  option (ifdef) = "USE_VOICE_ASSISTANT";
+
+  bytes data = 1;
+}
+
 // ==================== ALARM CONTROL PANEL ====================
 enum AlarmControlPanelState {
   ALARM_STATE_DISARMED = 0;

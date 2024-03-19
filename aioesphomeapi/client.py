@@ -71,6 +71,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantAudio,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
@@ -1295,6 +1296,31 @@ class APIClient:
                 start_task.cancel("Unsubscribing from voice assistant")
 
         return unsub
+
+    def subscribe_voice_assistant_audio(
+        self,
+        handle_audio: Callable[
+            [VoiceAssistantAudio],
+            Coroutine[Any, Any, None],
+        ],
+    ) -> Callable[[], None]:
+        connection = self._get_connection()
+
+        audio_task: asyncio.Task[int | None] | None = None
+
+        def _on_voice_assistant_audio(msg: VoiceAssistantRequest) -> None:
+            nonlocal audio_task
+
+            audio = VoiceAssistantAudio.from_pb(msg)
+            self._create_background_task(handle_audio(audio))
+
+        connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
+
+        remove_callback = connection.add_message_callback(
+            _on_voice_assistant_audio, (VoiceAssistantAudio,)
+        )
+
+        return remove_callback
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""
