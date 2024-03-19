@@ -667,6 +667,7 @@ class TimeState(EntityState):
     minute: int = 0
     second: int = 0
 
+
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
