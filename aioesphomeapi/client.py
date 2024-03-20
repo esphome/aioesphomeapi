@@ -65,6 +65,7 @@ from .api_pb2 import (  # type: ignore
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     TextCommandRequest,
+    TimeCommandRequest,
     UnsubscribeBluetoothLEAdvertisementsRequest,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
@@ -1106,6 +1107,11 @@ class APIClient:
     def date_command(self, key: int, year: int, month: int, day: int) -> None:
         self._get_connection().send_message(
             DateCommandRequest(key=key, year=year, month=month, day=day)
+        )
+
+    def time_command(self, key: int, hour: int, minute: int, second: int) -> None:
+        self._get_connection().send_message(
+            TimeCommandRequest(key=key, hour=hour, minute=minute, second=second)
         )
 
     def select_command(self, key: int, state: str) -> None:

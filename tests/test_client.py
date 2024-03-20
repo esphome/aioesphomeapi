@@ -63,6 +63,7 @@ from aioesphomeapi.api_pb2 import (
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     TextCommandRequest,
+    TimeCommandRequest,
     VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
@@ -639,6 +640,30 @@ async def test_date_command(
 
     auth_client.date_command(**cmd)
     send.assert_called_once_with(DateCommandRequest(**req))
+
+
+# Test time command
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, hour=12, minute=30, second=30),
+            dict(key=1, hour=12, minute=30, second=30),
+        ),
+        (
+            dict(key=1, hour=0, minute=0, second=0),
+            dict(key=1, hour=0, minute=0, second=0),
+        ),
+    ],
+)
+async def test_time_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.time_command(**cmd)
+    send.assert_called_once_with(TimeCommandRequest(**req))
 
 
 @pytest.mark.asyncio
