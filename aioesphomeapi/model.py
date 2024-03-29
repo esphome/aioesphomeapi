@@ -753,6 +753,34 @@ class LockEntityState(EntityState):
     )
 
 
+# ==================== VALVE ====================
+@_frozen_dataclass_decorator
+class ValveInfo(EntityInfo):
+    assumed_state: bool = False
+    supports_stop: bool = False
+    supports_position: bool = False
+    device_class: str = ""
+
+
+class ValveOperation(APIIntEnum):
+    IDLE = 0
+    IS_OPENING = 1
+    IS_CLOSING = 2
+
+
+@_frozen_dataclass_decorator
+class ValveState(EntityState):
+    position: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    current_operation: ValveOperation | None = converter_field(
+        default=ValveOperation.IDLE, converter=ValveOperation.convert
+    )
+
+    def is_closed(self) -> bool:
+        return self.position == 0.0
+
+
 # ==================== MEDIA PLAYER ====================
 class MediaPlayerState(APIIntEnum):
     NONE = 0
@@ -868,6 +896,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "alarm_control_panel": AlarmControlPanelInfo,
     "text": TextInfo,
     "time": TimeInfo,
+    "valve": ValveInfo,
 }
 
 
@@ -1228,6 +1257,7 @@ _TYPE_TO_NAME = {
     AlarmControlPanelInfo: "alarm_control_panel",
     TextInfo: "text_info",
     TimeInfo: "time",
+    ValveInfo: "valve",
 }
 
 

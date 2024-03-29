@@ -37,6 +37,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
     ListEntitiesTimeResponse,
+    ListEntitiesValveResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
     NumberStateResponse,
@@ -47,6 +48,7 @@ from aioesphomeapi.api_pb2 import (
     TextSensorStateResponse,
     TextStateResponse,
     TimeStateResponse,
+    ValveStateResponse,
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
@@ -105,6 +107,8 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
+    ValveInfo,
+    ValveState,
     VoiceAssistantFeature,
     build_unique_id,
     converter_field,
@@ -261,6 +265,8 @@ def test_api_version_ord():
         (ButtonInfo, ListEntitiesButtonResponse),
         (LockInfo, ListEntitiesLockResponse),
         (LockEntityState, LockStateResponse),
+        (ValveInfo, ListEntitiesValveResponse),
+        (ValveState, ValveStateResponse),
         (MediaPlayerInfo, ListEntitiesMediaPlayerResponse),
         (MediaPlayerEntityState, MediaPlayerStateResponse),
         (AlarmControlPanelInfo, ListEntitiesAlarmControlPanelResponse),
@@ -286,6 +292,18 @@ def test_basic_pb_conversions(model, pb):
 )
 def test_cover_state_legacy_state(state, version, out):
     assert state.is_closed(APIVersion(*version)) is out
+
+
+@pytest.mark.parametrize(
+    "state, version, out",
+    [
+        (ValveState(position=1.0), (1, 1), False),
+        (ValveState(position=0.5), (1, 1), False),
+        (ValveState(position=0.0), (1, 1), True),
+    ],
+)
+def test_valve_state(state, version, out):
+    assert state.is_closed() is out
 
 
 @pytest.mark.parametrize(
@@ -380,6 +398,7 @@ def test_user_service_conversion():
         CameraInfo,
         ClimateInfo,
         LockInfo,
+        ValveInfo,
         MediaPlayerInfo,
         AlarmControlPanelInfo,
         TextInfo,
