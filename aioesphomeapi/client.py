@@ -67,11 +67,11 @@ from .api_pb2 import (  # type: ignore
     TextCommandRequest,
     TimeCommandRequest,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantAudio,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
-    VoiceAssistantAudio,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
@@ -122,10 +122,10 @@ from .model import (
     MediaPlayerCommand,
     UserService,
     UserServiceArgType,
+    VoiceAssistantAudioData,
 )
 from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
 from .model import (
-    VoiceAssistantAudioData,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
