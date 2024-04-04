@@ -1234,7 +1234,7 @@ class APIClient:
             [str, int, VoiceAssistantAudioSettingsModel, str | None],
             Coroutine[Any, Any, int | None],
         ],
-        handle_stop: Callable[[], Coroutine[Any, Any, None]] | None = None,
+        handle_stop: Callable[[], Coroutine[Any, Any, None]],
         handle_audio: (
             Callable[
                 [bytes],
@@ -1284,7 +1284,7 @@ class APIClient:
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
-            elif handle_stop is not None:
+            elif handle_audio is None:
                 self._create_background_task(handle_stop())
 
         remove_callbacks = []
