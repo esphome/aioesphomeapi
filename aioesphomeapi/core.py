@@ -107,6 +107,7 @@ from .api_pb2 import (  # type: ignore
     TimeCommandRequest,
     TimeStateResponse,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantAudio,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
@@ -366,4 +367,5 @@ MESSAGE_TYPE_TO_PROTO = {
     103: ListEntitiesTimeResponse,
     104: TimeStateResponse,
     105: TimeCommandRequest,
+    106: VoiceAssistantAudio,
 }
