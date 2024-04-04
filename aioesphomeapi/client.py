@@ -125,8 +125,10 @@ from .model import (
 )
 from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
 from .model import (
+    VoiceAssistantAudioData,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
+    VoiceAssistantSubscriptionFlag,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -1227,11 +1229,19 @@ class APIClient:
 
     def subscribe_voice_assistant(
         self,
+        *,
         handle_start: Callable[
             [str, int, VoiceAssistantAudioSettingsModel, str | None],
             Coroutine[Any, Any, int | None],
         ],
-        handle_stop: Callable[[], Coroutine[Any, Any, None]],
+        handle_stop: Callable[[], Coroutine[Any, Any, None]] | None = None,
+        handle_audio: (
+            Callable[
+                [bytes],
+                Coroutine[Any, Any, None],
+            ]
+            | None
+        ) = None,
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
 
@@ -1274,20 +1284,43 @@ class APIClient:
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
-            else:
+            elif handle_stop is not None:
                 self._create_background_task(handle_stop())
 
-        connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
+        remove_callbacks = []
+        flags = 0
+        if handle_audio is not None:
+            flags |= VoiceAssistantSubscriptionFlag.API_AUDIO
 
-        remove_callback = connection.add_message_callback(
-            _on_voice_assistant_request, (VoiceAssistantRequest,)
+            def _on_voice_assistant_audio(msg: VoiceAssistantRequest) -> None:
+                audio = VoiceAssistantAudioData.from_pb(msg)
+                if audio.end:
+                    self._create_background_task(handle_stop())
+                else:
+                    self._create_background_task(handle_audio(audio.data))
+
+            remove_callbacks.append(
+                connection.add_message_callback(
+                    _on_voice_assistant_audio, (VoiceAssistantAudio,)
+                )
+            )
+
+        connection.send_message(
+            SubscribeVoiceAssistantRequest(subscribe=True, flags=flags)
+        )
+
+        remove_callbacks.append(
+            connection.add_message_callback(
+                _on_voice_assistant_request, (VoiceAssistantRequest,)
+            )
         )
 
         def unsub() -> None:
             nonlocal start_task
 
             if self._connection is not None:
-                remove_callback()
+                for remove_callback in remove_callbacks:
+                    remove_callback()
                 self._connection.send_message(
                     SubscribeVoiceAssistantRequest(subscribe=False)
                 )
@@ -1296,31 +1329,6 @@ class APIClient:
                 start_task.cancel("Unsubscribing from voice assistant")
 
         return unsub
-
-    def subscribe_voice_assistant_audio(
-        self,
-        handle_audio: Callable[
-            [VoiceAssistantAudio],
-            Coroutine[Any, Any, None],
-        ],
-    ) -> Callable[[], None]:
-        connection = self._get_connection()
-
-        audio_task: asyncio.Task[int | None] | None = None
-
-        def _on_voice_assistant_audio(msg: VoiceAssistantRequest) -> None:
-            nonlocal audio_task
-
-            audio = VoiceAssistantAudio.from_pb(msg)
-            self._create_background_task(handle_audio(audio))
-
-        connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
-
-        remove_callback = connection.add_message_callback(
-            _on_voice_assistant_audio, (VoiceAssistantAudio,)
-        )
-
-        return remove_callback
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""
@@ -1340,6 +1348,10 @@ class APIClient:
                     for name, value in data.items()
                 ]
             )
+        self._get_connection().send_message(req)
+
+    def send_voice_assistant_audio(self, data: bytes) -> None:
+        req = VoiceAssistantAudio(data=data)
         self._get_connection().send_message(req)
 
     def alarm_control_panel_command(

@@ -120,6 +120,16 @@ class BluetoothProxySubscriptionFlag(enum.IntFlag):
     RAW_ADVERTISEMENTS = 1 << 0
 
 
+class VoiceAssistantFeature(enum.IntFlag):
+    VOICE_ASSISTANT = 1 << 0
+    SPEAKER = 1 << 1
+    API_AUDIO = 1 << 2
+
+
+class VoiceAssistantSubscriptionFlag(enum.IntFlag):
+    API_AUDIO = 1 << 2
+
+
 @_frozen_dataclass_decorator
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
@@ -134,7 +144,8 @@ class DeviceInfo(APIModelBase):
     project_name: str = ""
     project_version: str = ""
     webserver_port: int = 0
-    voice_assistant_version: int = 0
+    legacy_voice_assistant_version: int = 0
+    voice_assistant_feature_flags: int = 0
     legacy_bluetooth_proxy_version: int = 0
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
@@ -154,6 +165,16 @@ class DeviceInfo(APIModelBase):
                 flags |= BluetoothProxyFeature.CACHE_CLEARING
             return flags
         return self.bluetooth_proxy_feature_flags
+
+    def voice_assistant_feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 10):
+            flags: int = 0
+            if self.legacy_voice_assistant_version >= 1:
+                flags |= VoiceAssistantFeature.VOICE_ASSISTANT
+            if self.legacy_voice_assistant_version == 2:
+                flags |= VoiceAssistantFeature.SPEAKER
+            return flags
+        return self.voice_assistant_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -1150,6 +1171,12 @@ class VoiceAssistantCommand(APIModelBase):
         converter=VoiceAssistantAudioSettings.from_pb,
     )
     wake_word_phrase: str = ""
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantAudioData(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+    end: bool = False
 
 
 class LogLevel(APIIntEnum):

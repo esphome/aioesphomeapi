@@ -218,7 +218,8 @@ message DeviceInfoResponse {
 
   string friendly_name = 13;
 
-  uint32 voice_assistant_version = 14;
+  uint32 legacy_voice_assistant_version = 14;
+  uint32 voice_assistant_feature_flags = 17;
 
   string suggested_area = 16;
 }
@@ -1448,12 +1449,18 @@ message BluetoothDeviceClearCacheResponse {
 }
 
 // ==================== VOICE ASSISTANT ====================
+enum VoiceAssistantSubscribeFlag {
+  VOICE_ASSISTANT_SUBSCRIBE_NONE = 0;
+  VOICE_ASSISTANT_SUBSCRIBE_API_AUDIO = 1;
+}
+
 message SubscribeVoiceAssistantRequest {
   option (id) = 89;
   option (source) = SOURCE_CLIENT;
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
   bool subscribe = 1;
+  uint32 flags = 2;
 }
 
 message VoiceAssistantAudioSettings {
@@ -1521,6 +1528,7 @@ message VoiceAssistantAudio {
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
   bytes data = 1;
+  bool end = 2;
 }
 
 // ==================== ALARM CONTROL PANEL ====================
