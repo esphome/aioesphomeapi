@@ -1292,7 +1292,7 @@ class APIClient:
         if handle_audio is not None:
             flags |= VoiceAssistantSubscriptionFlag.API_AUDIO
 
-            def _on_voice_assistant_audio(msg: VoiceAssistantRequest) -> None:
+            def _on_voice_assistant_audio(msg: VoiceAssistantAudio) -> None:
                 audio = VoiceAssistantAudioData.from_pb(msg)
                 if audio.end:
                     self._create_background_task(handle_stop())
