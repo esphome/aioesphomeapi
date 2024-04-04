@@ -1284,7 +1284,7 @@ class APIClient:
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
-            elif handle_audio is None:
+            else:
                 self._create_background_task(handle_stop())
 
         remove_callbacks = []
