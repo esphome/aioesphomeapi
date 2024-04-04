@@ -2375,13 +2375,26 @@ async def test_subscribe_voice_assistant_api_audio(
     await asyncio.sleep(0)
     assert data_received == 10
 
+    response: message.Message = VoiceAssistantAudio(
+        end=True,
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    assert stops == [True]
+
+    send.reset_mock()
+    client.send_voice_assistant_audio(bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+    send.assert_called_once_with(
+        VoiceAssistantAudio(data=bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+    )
+
     response: message.Message = VoiceAssistantRequest(
         conversation_id="theone",
         start=False,
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
-    assert stops == [True]
+    assert stops == [True, True]
     send.reset_mock()
     unsub()
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=False))
