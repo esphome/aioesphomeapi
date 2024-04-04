@@ -105,6 +105,7 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
+    VoiceAssistantFeature,
     build_unique_id,
     converter_field,
 )
@@ -430,6 +431,24 @@ def test_bluetooth_backcompat_for_device_info(
     )
     assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 8)) is flags
     assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 9)) == 42
+
+
+# Add va compat test
+@pytest.mark.parametrize(
+    ("version", "flags"),
+    [
+        (1, VoiceAssistantFeature.VOICE_ASSISTANT),
+        (2, VoiceAssistantFeature.VOICE_ASSISTANT | VoiceAssistantFeature.SPEAKER),
+    ],
+)
+def test_voice_assistant_backcompat_for_device_info(
+    version: int, flags: VoiceAssistantFeature
+) -> None:
+    info = DeviceInfo(
+        legacy_voice_assistant_version=version, voice_assistant_feature_flags=42
+    )
+    assert info.voice_assistant_feature_flags_compat(APIVersion(1, 9)) is flags
+    assert info.voice_assistant_feature_flags_compat(APIVersion(1, 10)) == 42
 
 
 @pytest.mark.parametrize(
