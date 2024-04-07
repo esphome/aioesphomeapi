@@ -64,6 +64,7 @@ from aioesphomeapi.api_pb2 import (
     SwitchCommandRequest,
     TextCommandRequest,
     TimeCommandRequest,
+    VoiceAssistantAudio,
     VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
@@ -2107,7 +2108,9 @@ async def test_subscribe_voice_assistant(
     async def handle_stop() -> None:
         stops.append(True)
 
-    unsub = client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = client.subscribe_voice_assistant(
+        handle_start=handle_start, handle_stop=handle_stop
+    )
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
@@ -2183,7 +2186,9 @@ async def test_subscribe_voice_assistant_failure(
     async def handle_stop() -> None:
         stops.append(True)
 
-    unsub = client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = client.subscribe_voice_assistant(
+        handle_start=handle_start, handle_stop=handle_stop
+    )
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
@@ -2260,7 +2265,9 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     async def handle_stop() -> None:
         stops.append(True)
 
-    unsub = client.subscribe_voice_assistant(handle_start, handle_stop)
+    unsub = client.subscribe_voice_assistant(
+        handle_start=handle_start, handle_stop=handle_stop
+    )
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=True))
     send.reset_mock()
     audio_settings = VoiceAssistantAudioSettings(
@@ -2292,6 +2299,111 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
             None,
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_subscribe_voice_assistant_api_audio(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_voice_assistant."""
+    client, connection, transport, protocol = api_client
+    send = patch_send(client)
+    starts = []
+    stops = []
+    data_received = 0
+
+    async def handle_start(
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
+    ) -> int | None:
+        starts.append((conversation_id, flags, audio_settings, wake_word_phrase))
+        return 0
+
+    async def handle_stop() -> None:
+        stops.append(True)
+
+    async def handle_audio(data: bytes) -> None:
+        nonlocal data_received
+        data_received += len(data)
+
+    unsub = client.subscribe_voice_assistant(
+        handle_start=handle_start, handle_stop=handle_stop, handle_audio=handle_audio
+    )
+    send.assert_called_once_with(
+        SubscribeVoiceAssistantRequest(subscribe=True, flags=4)
+    )
+    send.reset_mock()
+    audio_settings = VoiceAssistantAudioSettings(
+        noise_suppression_level=42,
+        auto_gain=42,
+        volume_multiplier=42,
+    )
+    response: message.Message = VoiceAssistantRequest(
+        conversation_id="theone",
+        start=True,
+        flags=42,
+        audio_settings=audio_settings,
+        wake_word_phrase="okay nabu",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert starts == [
+        (
+            "theone",
+            42,
+            VoiceAssistantAudioSettingsModel(
+                noise_suppression_level=42,
+                auto_gain=42,
+                volume_multiplier=42,
+            ),
+            "okay nabu",
+        )
+    ]
+    assert stops == []
+    send.assert_called_once_with(VoiceAssistantResponse(port=0))
+    send.reset_mock()
+
+    response: message.Message = VoiceAssistantAudio(
+        data=bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    assert data_received == 10
+
+    response: message.Message = VoiceAssistantAudio(
+        end=True,
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    assert stops == [True]
+
+    send.reset_mock()
+    client.send_voice_assistant_audio(bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+    send.assert_called_once_with(
+        VoiceAssistantAudio(data=bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+    )
+
+    response: message.Message = VoiceAssistantRequest(
+        conversation_id="theone",
+        start=False,
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    assert stops == [True, True]
+    send.reset_mock()
+    unsub()
+    send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=False))
+    send.reset_mock()
+    await client.disconnect(force=True)
+    # Ensure abort callback is a no-op after disconnect
+    # and does not raise
+    unsub()
+    assert len(send.mock_calls) == 0
 
 
 @pytest.mark.asyncio

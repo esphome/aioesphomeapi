@@ -67,6 +67,7 @@ from .api_pb2 import (  # type: ignore
     TextCommandRequest,
     TimeCommandRequest,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    VoiceAssistantAudio,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
@@ -121,11 +122,13 @@ from .model import (
     MediaPlayerCommand,
     UserService,
     UserServiceArgType,
+    VoiceAssistantAudioData,
 )
 from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
 from .model import (
     VoiceAssistantCommand,
     VoiceAssistantEventType,
+    VoiceAssistantSubscriptionFlag,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -1226,11 +1229,19 @@ class APIClient:
 
     def subscribe_voice_assistant(
         self,
+        *,
         handle_start: Callable[
             [str, int, VoiceAssistantAudioSettingsModel, str | None],
             Coroutine[Any, Any, int | None],
         ],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
+        handle_audio: (
+            Callable[
+                [bytes],
+                Coroutine[Any, Any, None],
+            ]
+            | None
+        ) = None,
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
 
@@ -1276,17 +1287,40 @@ class APIClient:
             else:
                 self._create_background_task(handle_stop())
 
-        connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
+        remove_callbacks = []
+        flags = 0
+        if handle_audio is not None:
+            flags |= VoiceAssistantSubscriptionFlag.API_AUDIO
 
-        remove_callback = connection.add_message_callback(
-            _on_voice_assistant_request, (VoiceAssistantRequest,)
+            def _on_voice_assistant_audio(msg: VoiceAssistantAudio) -> None:
+                audio = VoiceAssistantAudioData.from_pb(msg)
+                if audio.end:
+                    self._create_background_task(handle_stop())
+                else:
+                    self._create_background_task(handle_audio(audio.data))
+
+            remove_callbacks.append(
+                connection.add_message_callback(
+                    _on_voice_assistant_audio, (VoiceAssistantAudio,)
+                )
+            )
+
+        connection.send_message(
+            SubscribeVoiceAssistantRequest(subscribe=True, flags=flags)
+        )
+
+        remove_callbacks.append(
+            connection.add_message_callback(
+                _on_voice_assistant_request, (VoiceAssistantRequest,)
+            )
         )
 
         def unsub() -> None:
             nonlocal start_task
 
             if self._connection is not None:
-                remove_callback()
+                for remove_callback in remove_callbacks:
+                    remove_callback()
                 self._connection.send_message(
                     SubscribeVoiceAssistantRequest(subscribe=False)
                 )
@@ -1314,6 +1348,10 @@ class APIClient:
                     for name, value in data.items()
                 ]
             )
+        self._get_connection().send_message(req)
+
+    def send_voice_assistant_audio(self, data: bytes) -> None:
+        req = VoiceAssistantAudio(data=data)
         self._get_connection().send_message(req)
 
     def alarm_control_panel_command(
