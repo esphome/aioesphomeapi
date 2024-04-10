@@ -1164,17 +1164,13 @@ class APIClient:
         position: float | None = None,
         stop: bool = False,
     ) -> None:
-        connection = self._get_connection()
         req = ValveCommandRequest(key=key)
-        apiv = self.api_version
-        if TYPE_CHECKING:
-            assert apiv is not None
         if position is not None:
             req.has_position = True
             req.position = position
         if stop:
             req.stop = stop
-        connection.send_message(req)
+        self._get_connection().send_message(req)
 
     def media_player_command(
         self,

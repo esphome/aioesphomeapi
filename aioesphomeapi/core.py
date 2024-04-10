@@ -372,6 +372,6 @@ MESSAGE_TYPE_TO_PROTO = {
     105: TimeCommandRequest,
     106: VoiceAssistantAudio,
     109: ListEntitiesValveResponse,
-    110: ValveCommandRequest,
-    111: ValveStateResponse,
+    110: ValveStateResponse,
+    111: ValveCommandRequest,
 }

@@ -756,10 +756,10 @@ class LockEntityState(EntityState):
 # ==================== VALVE ====================
 @_frozen_dataclass_decorator
 class ValveInfo(EntityInfo):
+    device_class: str = ""
     assumed_state: bool = False
     supports_stop: bool = False
     supports_position: bool = False
-    device_class: str = ""
 
 
 class ValveOperation(APIIntEnum):
@@ -776,9 +776,6 @@ class ValveState(EntityState):
     current_operation: ValveOperation | None = converter_field(
         default=ValveOperation.IDLE, converter=ValveOperation.convert
     )
-
-    def is_closed(self) -> bool:
-        return self.position == 0.0
 
 
 # ==================== MEDIA PLAYER ====================
