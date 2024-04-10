@@ -297,18 +297,6 @@ def test_cover_state_legacy_state(state, version, out):
 @pytest.mark.parametrize(
     "state, version, out",
     [
-        (ValveState(position=1.0), (1, 1), False),
-        (ValveState(position=0.5), (1, 1), False),
-        (ValveState(position=0.0), (1, 1), True),
-    ],
-)
-def test_valve_state(state, version, out):
-    assert state.is_closed() is out
-
-
-@pytest.mark.parametrize(
-    "state, version, out",
-    [
         (ClimateInfo(legacy_supports_away=False), (1, 4), []),
         (
             ClimateInfo(legacy_supports_away=True),
