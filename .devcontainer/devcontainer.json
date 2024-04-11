@@ -19,8 +19,6 @@
             "settings": {
                 "python.languageServer": "Pylance",
                 "python.pythonPath": "/usr/bin/python3",
-                "python.linting.pylintEnabled": true,
-                "python.linting.enabled": true,
                 "python.formatting.provider": "black",
                 "editor.formatOnPaste": false,
                 "editor.formatOnSave": true,
