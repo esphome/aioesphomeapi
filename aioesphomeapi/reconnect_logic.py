@@ -413,16 +413,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 self._cli.log_name,
                 record_update.new,
             )
-            # We can't stop the zeroconf listener here because we are in the middle of
-            # a zeroconf callback which is iterating the listeners.
-            #
-            # So we schedule a stop for the next event loop iteration as well as the
-            # connect attempt.
             #
             # If we scheduled the connect attempt immediately, the listener could fire
             # again before the connect attempt and we cancel and reschedule the connect
             # attempt again.
             #
-            self.loop.call_soon(self._connect_from_zeroconf)
+            self._connect_from_zeroconf()
             self._accept_zeroconf_records = False
             return

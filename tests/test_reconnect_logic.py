@@ -441,8 +441,6 @@ async def test_reconnect_zeroconf(
             "Triggering connect because of received mDNS record" in caplog.text
         ) is should_trigger_zeroconf
         assert rl._accept_zeroconf_records is not should_trigger_zeroconf
-        assert rl._zc_listening is True  # should change after one iteration of the loop
-        await asyncio.sleep(0)
         assert rl._zc_listening is not should_trigger_zeroconf
 
         # The reconnect is scheduled to run in the next loop iteration
