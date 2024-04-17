@@ -64,6 +64,7 @@ from aioesphomeapi.api_pb2 import (
     SwitchCommandRequest,
     TextCommandRequest,
     TimeCommandRequest,
+    ValveCommandRequest,
     VoiceAssistantAudio,
     VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
@@ -690,6 +691,49 @@ async def test_lock_command(
 
     auth_client.lock_command(**cmd)
     send.assert_called_once_with(LockCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1), dict(key=1)),
+        (dict(key=1, position=1.0),),
+        (dict(key=1, position=0.0),),
+        (dict(key=1, stop=True),),
+    ],
+)
+async def test_valve_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.valve_command(**cmd)
+    send.assert_called_once_with(ValveCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1), dict(key=1)),
+        (dict(key=1, position=0.5), dict(key=1, has_position=True, position=0.5)),
+        (dict(key=1, position=0.0), dict(key=1, has_position=True, position=0.0)),
+        (dict(key=1, stop=True), dict(key=1, stop=True)),
+        (
+            dict(key=1, position=1.0),
+            dict(key=1, has_position=True, position=1.0),
+        ),
+    ],
+)
+async def test_valve_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 1))
+
+    auth_client.valve_command(**cmd)
+    send.assert_called_once_with(ValveCommandRequest(**req))
 
 
 @pytest.mark.asyncio
@@ -2443,6 +2487,7 @@ async def test_calls_after_connection_closed(
         client.cover_command,
         client.fan_command,
         client.light_command,
+        client.valve_command,
         client.media_player_command,
         client.siren_command,
     ):

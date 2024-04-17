@@ -67,6 +67,7 @@ from .api_pb2 import (  # type: ignore
     TextCommandRequest,
     TimeCommandRequest,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    ValveCommandRequest,
     VoiceAssistantAudio,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
@@ -1155,6 +1156,20 @@ class APIClient:
         req = LockCommandRequest(key=key, command=command)
         if code is not None:
             req.code = code
+        self._get_connection().send_message(req)
+
+    def valve_command(
+        self,
+        key: int,
+        position: float | None = None,
+        stop: bool = False,
+    ) -> None:
+        req = ValveCommandRequest(key=key)
+        if position is not None:
+            req.has_position = True
+            req.position = position
+        if stop:
+            req.stop = stop
         self._get_connection().send_message(req)
 
     def media_player_command(
