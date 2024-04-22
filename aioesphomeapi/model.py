@@ -265,6 +265,7 @@ class CoverState(EntityState):
 # ==================== EVENT ==================
 @_frozen_dataclass_decorator
 class EventInfo(EntityInfo):
+    device_class: str = ""
     event_types: list[str] = converter_field(default_factory=list, converter=list)
 
 
