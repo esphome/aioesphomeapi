@@ -38,6 +38,7 @@ from .api_pb2 import (  # type: ignore
     ClimateCommandRequest,
     CoverCommandRequest,
     DateCommandRequest,
+    DateTimeCommandRequest,
     DeviceInfoRequest,
     DeviceInfoResponse,
     ExecuteServiceArgument,
@@ -1116,6 +1117,18 @@ class APIClient:
     def time_command(self, key: int, hour: int, minute: int, second: int) -> None:
         self._get_connection().send_message(
             TimeCommandRequest(key=key, hour=hour, minute=minute, second=second)
+        )
+
+    def datetime_command(
+        self,
+        key: int,
+        epoch_seconds: int,
+    ) -> None:
+        self._get_connection().send_message(
+            DateTimeCommandRequest(
+                key=key,
+                epoch_seconds=epoch_seconds,
+            )
         )
 
     def select_command(self, key: int, state: str) -> None:

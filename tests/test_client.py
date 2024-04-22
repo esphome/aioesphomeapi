@@ -42,6 +42,7 @@ from aioesphomeapi.api_pb2 import (
     ClimateCommandRequest,
     CoverCommandRequest,
     DateCommandRequest,
+    DateTimeCommandRequest,
     DeviceInfoResponse,
     DisconnectResponse,
     ExecuteServiceArgument,
@@ -666,6 +667,30 @@ async def test_time_command(
 
     auth_client.time_command(**cmd)
     send.assert_called_once_with(TimeCommandRequest(**req))
+
+
+# Test date_time command
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, epoch_seconds=1735648230),
+            dict(key=1, epoch_seconds=1735648230),
+        ),
+        (
+            dict(key=1, epoch_seconds=1735689600),
+            dict(key=1, epoch_seconds=1735689600),
+        ),
+    ],
+)
+async def test_datetime_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.datetime_command(**cmd)
+    send.assert_called_once_with(DateTimeCommandRequest(**req))
 
 
 @pytest.mark.asyncio

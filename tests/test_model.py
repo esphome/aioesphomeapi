@@ -14,6 +14,7 @@ from aioesphomeapi.api_pb2 import (
     ClimateStateResponse,
     CoverStateResponse,
     DateStateResponse,
+    DateTimeStateResponse,
     DeviceInfoResponse,
     FanStateResponse,
     HomeassistantServiceMap,
@@ -25,6 +26,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesClimateResponse,
     ListEntitiesCoverResponse,
     ListEntitiesDateResponse,
+    ListEntitiesDateTimeResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
@@ -77,6 +79,8 @@ from aioesphomeapi.model import (
     CoverState,
     DateInfo,
     DateState,
+    DateTimeInfo,
+    DateTimeState,
     DeviceInfo,
     FanInfo,
     FanState,
@@ -274,6 +278,8 @@ def test_api_version_ord():
         (TextState, TextStateResponse),
         (TimeInfo, ListEntitiesTimeResponse),
         (TimeState, TimeStateResponse),
+        (DateTimeInfo, ListEntitiesDateTimeResponse),
+        (DateTimeState, DateTimeStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):

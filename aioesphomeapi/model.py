@@ -690,6 +690,18 @@ class TimeState(EntityState):
     second: int = 0
 
 
+# ==================== DATETIME DATETIME ====================
+@_frozen_dataclass_decorator
+class DateTimeInfo(EntityInfo):
+    pass
+
+
+@_frozen_dataclass_decorator
+class DateTimeState(EntityState):
+    missing_state: bool = False
+    epoch_seconds: int = 0
+
+
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
@@ -885,6 +897,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "climate": ClimateInfo,
     "number": NumberInfo,
     "date": DateInfo,
+    "datetime": DateTimeInfo,
     "select": SelectInfo,
     "siren": SirenInfo,
     "button": ButtonInfo,
@@ -1242,6 +1255,7 @@ _TYPE_TO_NAME = {
     LightInfo: "light",
     NumberInfo: "number",
     DateInfo: "date",
+    DateTimeInfo: "datetime",
     SelectInfo: "select",
     SensorInfo: "sensor",
     SirenInfo: "siren",
