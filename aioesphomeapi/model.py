@@ -262,6 +262,18 @@ class CoverState(EntityState):
         return self.position == 0.0
 
 
+# ==================== EVENT ==================
+@_frozen_dataclass_decorator
+class EventInfo(EntityInfo):
+    device_class: str = ""
+    event_types: list[str] = converter_field(default_factory=list, converter=list)
+
+
+@_frozen_dataclass_decorator
+class Event(EntityState):
+    event_type: str = ""
+
+
 # ==================== FAN ====================
 @_frozen_dataclass_decorator
 class FanInfo(EntityInfo):
@@ -907,6 +919,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "text": TextInfo,
     "time": TimeInfo,
     "valve": ValveInfo,
+    "event": EventInfo,
 }
 
 
@@ -1269,6 +1282,7 @@ _TYPE_TO_NAME = {
     TextInfo: "text_info",
     TimeInfo: "time",
     ValveInfo: "valve",
+    EventInfo: "event",
 }
 
 
