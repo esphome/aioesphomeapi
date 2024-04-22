@@ -16,6 +16,7 @@ from aioesphomeapi.api_pb2 import (
     DateStateResponse,
     DateTimeStateResponse,
     DeviceInfoResponse,
+    EventResponse,
     FanStateResponse,
     HomeassistantServiceMap,
     HomeassistantServiceResponse,
@@ -27,6 +28,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesCoverResponse,
     ListEntitiesDateResponse,
     ListEntitiesDateTimeResponse,
+    ListEntitiesEventResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
@@ -82,6 +84,8 @@ from aioesphomeapi.model import (
     DateTimeInfo,
     DateTimeState,
     DeviceInfo,
+    EventInfo,
+    Event,
     FanInfo,
     FanState,
     HomeassistantServiceCall,
@@ -280,6 +284,8 @@ def test_api_version_ord():
         (TimeState, TimeStateResponse),
         (DateTimeInfo, ListEntitiesDateTimeResponse),
         (DateTimeState, DateTimeStateResponse),
+        (EventInfo, ListEntitiesEventResponse),
+        (Event, EventResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
