@@ -97,7 +97,8 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
     return cast(
-        _V, field(metadata=metadata, **kwargs)  # pylint: disable=invalid-field-call
+        _V,
+        field(metadata=metadata, **kwargs),  # pylint: disable=invalid-field-call
     )
 
 
@@ -808,6 +809,7 @@ class MediaPlayerState(APIIntEnum):
     IDLE = 1
     PLAYING = 2
     PAUSED = 3
+    ANNOUNCING = 4
 
 
 class MediaPlayerCommand(APIIntEnum):

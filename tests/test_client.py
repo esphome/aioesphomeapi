@@ -794,6 +794,16 @@ async def test_select_command(
             dict(key=1, media_url="http://example.com"),
             dict(key=1, has_media_url=True, media_url="http://example.com"),
         ),
+        (
+            dict(key=1, media_url="http://example.com", announcement=True),
+            dict(
+                key=1,
+                has_media_url=True,
+                media_url="http://example.com",
+                has_announcement=True,
+                announcement=True,
+            ),
+        ),
     ],
 )
 async def test_media_player_command(
