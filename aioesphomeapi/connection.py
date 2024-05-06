@@ -180,6 +180,19 @@ def handle_complex_message(
 _handle_complex_message = handle_complex_message
 
 
+@lru_cache(maxsize=1024)
+def _message_from_data(msg_type_proto: _int, data: _bytes) -> message.Message | None:
+    """Create a message from data."""
+    if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
+        return None
+    msg: message.Message = klass()
+    # MergeFromString instead of ParseFromString since
+    # ParseFromString will clear the message first and
+    # the msg is already empty.
+    msg.MergeFromString(data)
+    return msg
+
+
 class APIConnection:
     """This class represents _one_ connection to a remote native API device.
 
@@ -876,22 +889,10 @@ class APIConnection:
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
         debug_enabled = self._debug_enabled
-        if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s: Skipping unknown message type %s",
-                    self.log_name,
-                    msg_type_proto,
-                )
-            return
-
         try:
-            msg: message.Message = klass()
-            # MergeFromString instead of ParseFromString since
-            # ParseFromString will clear the message first and
-            # the msg is already empty.
-            msg.MergeFromString(data)
+            msg = _message_from_data(msg_type_proto, data)
         except Exception as e:
+            klass = MESSAGE_TYPE_TO_PROTO[msg_type_proto]
             _LOGGER.error(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
                 self.log_name,
@@ -906,6 +907,15 @@ class APIConnection:
                 )
             )
             raise
+
+        if msg is None:
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s: Skipping unknown message type %s",
+                    self.log_name,
+                    msg_type_proto,
+                )
+            return
 
         msg_type = type(msg)
 
