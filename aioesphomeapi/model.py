@@ -809,7 +809,6 @@ class MediaPlayerState(APIIntEnum):
     IDLE = 1
     PLAYING = 2
     PAUSED = 3
-    ANNOUNCING = 4
 
 
 class MediaPlayerCommand(APIIntEnum):
