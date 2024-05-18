@@ -804,10 +804,13 @@ class ValveState(EntityState):
 
 # ==================== MEDIA PLAYER ====================
 class MediaPlayerState(APIIntEnum):
-    NONE = 0
-    IDLE = 1
-    PLAYING = 2
-    PAUSED = 3
+    OFF = 0
+    ON = 1
+    NONE = 2
+    IDLE = 3
+    PLAYING = 4
+    PAUSED = 5
+    ANNOUNCING = 6
 
 
 class MediaPlayerCommand(APIIntEnum):
@@ -816,11 +819,20 @@ class MediaPlayerCommand(APIIntEnum):
     STOP = 2
     MUTE = 3
     UNMUTE = 4
+    TOGGLE = 5
+    VOLUME_UP = 6
+    VOLUME_DOWN = 7
+    NEXT_TRACK = 8
+    PREVIOUS_TRACK = 9
+    TURN_ON = 10
+    TURN_OFF = 11
 
 
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
+    supports_next_previous_track: bool = False
+    supports_turn_off_on: bool = False
 
 
 @_frozen_dataclass_decorator
