@@ -827,6 +827,12 @@ class MediaPlayerCommand(APIIntEnum):
     TURN_ON = 10
     TURN_OFF = 11
 
+    CLEAR_PLAYLIST = 12
+    SHUFFLE = 13
+    UNSHUFFLE = 14
+    REPEAT_OFF = 15
+    REPEAT_ONE = 16
+    REPEAT_ALL = 17
 
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
@@ -844,6 +850,8 @@ class MediaPlayerEntityState(EntityState):
         default=0.0, converter=fix_float_single_double_conversion
     )
     muted: bool = False
+    repeat: str = "off"
+    shuffle: bool = False
 
 
 # ==================== ALARM CONTROL PANEL ====================

@@ -1192,7 +1192,8 @@ class APIClient:
         command: MediaPlayerCommand | None = None,
         volume: float | None = None,
         media_url: str | None = None,
-        announcement: bool | None = None,
+        announcement: str | None = None,
+        media_enqueue_url: str | None = None,
     ) -> None:
         req = MediaPlayerCommandRequest(key=key)
         if command is not None:
@@ -1207,6 +1208,9 @@ class APIClient:
         if announcement is not None:
             req.announcement = announcement
             req.has_announcement = True
+        if media_enqueue_url is not None:
+            req.media_enqueue_url = media_enqueue_url
+            req.has_media_enqueue_url = True
         self._get_connection().send_message(req)
 
     def text_command(self, key: int, state: str) -> None:
