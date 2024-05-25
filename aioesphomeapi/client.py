@@ -1192,7 +1192,7 @@ class APIClient:
         command: MediaPlayerCommand | None = None,
         volume: float | None = None,
         media_url: str | None = None,
-        announcement: str | None = None,
+        announcement: bool | None = None,
         media_enqueue_url: str | None = None,
     ) -> None:
         req = MediaPlayerCommandRequest(key=key)
