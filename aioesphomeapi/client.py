@@ -74,6 +74,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantTimerEventResponse,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
@@ -125,6 +126,7 @@ from .model import (
     UserService,
     UserServiceArgType,
     VoiceAssistantAudioData,
+    VoiceAssistantTimerEventType,
 )
 from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
 from .model import (
@@ -1384,6 +1386,25 @@ class APIClient:
 
     def send_voice_assistant_audio(self, data: bytes) -> None:
         req = VoiceAssistantAudio(data=data)
+        self._get_connection().send_message(req)
+
+    def send_voice_assistant_timer_event(
+        self,
+        event_type: VoiceAssistantTimerEventType,
+        timer_id: str,
+        name: str | None,
+        total_seconds: int,
+        seconds_left: int,
+        is_active: bool,
+    ) -> None:
+        req = VoiceAssistantTimerEventResponse(
+            event_type=event_type,
+            timer_id=timer_id,
+            name=name,
+            total_seconds=total_seconds,
+            seconds_left=seconds_left,
+            is_active=is_active,
+        )
         self._get_connection().send_message(req)
 
     def alarm_control_panel_command(
