@@ -72,6 +72,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantTimerEventResponse,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
@@ -113,6 +114,9 @@ from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
 )
 from aioesphomeapi.model import VoiceAssistantEventType as VoiceAssistantEventModelType
+from aioesphomeapi.model import (
+    VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+)
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import (
@@ -2483,6 +2487,31 @@ async def test_subscribe_voice_assistant_api_audio(
     # and does not raise
     unsub()
     assert len(send.mock_calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_send_voice_assistant_timer_event(auth_client: APIClient) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.send_voice_assistant_timer_event(
+        VoiceAssistantTimerEventModelType.VOICE_ASSISTANT_TIMER_STARTED,
+        timer_id="test",
+        name="test",
+        total_seconds=99,
+        seconds_left=45,
+        is_active=True,
+    )
+
+    send.assert_called_once_with(
+        VoiceAssistantTimerEventResponse(
+            event_type=VoiceAssistantTimerEventModelType.VOICE_ASSISTANT_TIMER_STARTED,
+            timer_id="test",
+            name="test",
+            total_seconds=99,
+            seconds_left=45,
+            is_active=True,
+        )
+    )
 
 
 @pytest.mark.asyncio
