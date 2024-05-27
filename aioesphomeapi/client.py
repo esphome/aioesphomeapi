@@ -126,13 +126,13 @@ from .model import (
     UserService,
     UserServiceArgType,
     VoiceAssistantAudioData,
-    VoiceAssistantTimerEventType,
 )
 from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
 from .model import (
     VoiceAssistantCommand,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
+    VoiceAssistantTimerEventType,
     message_types_to_names,
 )
 from .model_conversions import (
