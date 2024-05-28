@@ -119,6 +119,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantTimerEventResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -384,4 +385,5 @@ MESSAGE_TYPE_TO_PROTO = {
     112: ListEntitiesDateTimeResponse,
     113: DateTimeStateResponse,
     114: DateTimeCommandRequest,
+    115: VoiceAssistantTimerEventResponse,
 }

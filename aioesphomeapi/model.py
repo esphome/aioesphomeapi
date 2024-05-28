@@ -124,6 +124,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     VOICE_ASSISTANT = 1 << 0
     SPEAKER = 1 << 1
     API_AUDIO = 1 << 2
+    TIMERS = 1 << 3
 
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
@@ -1278,6 +1279,13 @@ class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_STT_VAD_END = 12
     VOICE_ASSISTANT_TTS_STREAM_START = 98
     VOICE_ASSISTANT_TTS_STREAM_END = 99
+
+
+class VoiceAssistantTimerEventType(APIIntEnum):
+    VOICE_ASSISTANT_TIMER_STARTED = 0
+    VOICE_ASSISTANT_TIMER_UPDATED = 1
+    VOICE_ASSISTANT_TIMER_CANCELLED = 2
+    VOICE_ASSISTANT_TIMER_FINISHED = 3
 
 
 _TYPE_TO_NAME = {
