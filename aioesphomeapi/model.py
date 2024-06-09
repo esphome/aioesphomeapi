@@ -834,12 +834,15 @@ class MediaPlayerCommand(APIIntEnum):
     REPEAT_OFF = 15
     REPEAT_ONE = 16
     REPEAT_ALL = 17
+    JOIN = 18
+    UNJOIN = 19
 
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
     supports_next_previous_track: bool = False
     supports_turn_off_on: bool = False
+    supports_grouping: bool = False
 
 
 @_frozen_dataclass_decorator
@@ -854,6 +857,9 @@ class MediaPlayerEntityState(EntityState):
     repeat: str = "off"
     shuffle: bool = False
 
+    artist: str = ""
+    album: str = ""
+    title: str = ""
 
 # ==================== ALARM CONTROL PANEL ====================
 class AlarmControlPanelState(APIIntEnum):

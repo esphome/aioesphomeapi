@@ -1149,6 +1149,8 @@ enum MediaPlayerCommand {
   MEDIA_PLAYER_COMMAND_REPEAT_OFF = 15;
   MEDIA_PLAYER_COMMAND_REPEAT_ONE = 16;
   MEDIA_PLAYER_COMMAND_REPEAT_ALL = 17;
+  MEDIA_PLAYER_COMMAND_JOIN = 18;
+  MEDIA_PLAYER_COMMAND_UNJOIN = 19;
 }
 message ListEntitiesMediaPlayerResponse {
   option (id) = 63;
@@ -1167,6 +1169,7 @@ message ListEntitiesMediaPlayerResponse {
   bool supports_pause = 8;
   bool supports_next_previous_track = 9;
   bool supports_turn_off_on = 10;
+  bool supports_grouping = 11;
 }
 message MediaPlayerStateResponse {
   option (id) = 64;
@@ -1179,6 +1182,9 @@ message MediaPlayerStateResponse {
   bool muted = 4;
   string repeat = 5;
   bool shuffle = 6;
+  string artist = 7;
+  string album = 8;
+  string title = 9;
 }
 message MediaPlayerCommandRequest {
   option (id) = 65;
@@ -1202,6 +1208,12 @@ message MediaPlayerCommandRequest {
 
   bool has_enqueue = 10;
   string enqueue = 11;
+
+  bool has_mrm = 12;
+  string mrm = 13;
+  
+  bool has_group_members = 14;
+  string group_members = 15;
 }
 
 // ==================== BLUETOOTH ====================
