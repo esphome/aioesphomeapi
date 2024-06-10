@@ -68,6 +68,7 @@ from .api_pb2 import (  # type: ignore
     TextCommandRequest,
     TimeCommandRequest,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    UpdateCommandRequest,
     ValveCommandRequest,
     VoiceAssistantAudio,
     VoiceAssistantEventData,
@@ -1213,6 +1214,11 @@ class APIClient:
 
     def text_command(self, key: int, state: str) -> None:
         self._get_connection().send_message(TextCommandRequest(key=key, state=state))
+
+    def update_command(self, key: int, install: bool) -> None:
+        self._get_connection().send_message(
+            UpdateCommandRequest(key=key, install=install)
+        )
 
     def execute_service(
         self, service: UserService, data: ExecuteServiceDataType
