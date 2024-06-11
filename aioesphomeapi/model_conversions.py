@@ -34,6 +34,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesTextResponse,
     ListEntitiesTextSensorResponse,
     ListEntitiesTimeResponse,
+    ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
@@ -45,6 +46,7 @@ from .api_pb2 import (  # type: ignore
     TextSensorStateResponse,
     TextStateResponse,
     TimeStateResponse,
+    UpdateStateResponse,
     ValveStateResponse,
 )
 from .model import (
@@ -90,6 +92,8 @@ from .model import (
     TextState,
     TimeInfo,
     TimeState,
+    UpdateInfo,
+    UpdateState,
     ValveInfo,
     ValveState,
 )
@@ -114,6 +118,7 @@ SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
     TextSensorStateResponse: TextSensorState,
     TextStateResponse: TextState,
     TimeStateResponse: TimeState,
+    UpdateStateResponse: UpdateState,
     ValveStateResponse: ValveState,
 }
 
@@ -140,5 +145,6 @@ LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
     ListEntitiesTextResponse: TextInfo,
     ListEntitiesTextSensorResponse: TextSensorInfo,
     ListEntitiesTimeResponse: TimeInfo,
+    ListEntitiesUpdateResponse: UpdateInfo,
     ListEntitiesValveResponse: ValveInfo,
 }

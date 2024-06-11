@@ -41,6 +41,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
     ListEntitiesTimeResponse,
+    ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
@@ -52,6 +53,7 @@ from aioesphomeapi.api_pb2 import (
     TextSensorStateResponse,
     TextStateResponse,
     TimeStateResponse,
+    UpdateStateResponse,
     ValveStateResponse,
 )
 from aioesphomeapi.model import (
@@ -112,6 +114,8 @@ from aioesphomeapi.model import (
     TextState,
     TimeInfo,
     TimeState,
+    UpdateInfo,
+    UpdateState,
     UserService,
     UserServiceArg,
     UserServiceArgType,
@@ -286,6 +290,8 @@ def test_api_version_ord():
         (DateTimeState, DateTimeStateResponse),
         (EventInfo, ListEntitiesEventResponse),
         (Event, EventResponse),
+        (UpdateInfo, ListEntitiesUpdateResponse),
+        (UpdateState, UpdateStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
