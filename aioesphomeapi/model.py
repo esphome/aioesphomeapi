@@ -909,6 +909,8 @@ class UpdateInfo(EntityInfo):
 class UpdateState(EntityState):
     missing_state: bool = False
     in_progress: bool = False
+    has_progress: bool = False
+    progress: float = 0.0
     current_version: str = ""
     latest_version: str = ""
     title: str = ""
