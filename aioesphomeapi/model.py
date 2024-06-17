@@ -860,6 +860,8 @@ class MediaPlayerEntityState(EntityState):
     artist: str = ""
     album: str = ""
     title: str = ""
+    duration: int = 0
+    position: int = 0
 
 # ==================== ALARM CONTROL PANEL ====================
 class AlarmControlPanelState(APIIntEnum):
