@@ -262,7 +262,7 @@ async def test_start_connection_cannot_increase_recv_buffer(
             raise OSError("Socket error")
 
     mock_socket: socket.socket = create_autospec(
-        socket.socket, spec_set=True, instance=True, name="bad_buffer_socket"
+        socket.socket, spec_set=True, instance=True
     )
     mock_socket.type = socket.SOCK_STREAM
     mock_socket.fileno.return_value = 1
@@ -311,7 +311,7 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
                 raise OSError("Socket error")
 
     mock_socket: socket.socket = create_autospec(
-        socket.socket, spec_set=True, instance=True, name="bad_buffer_socket"
+        socket.socket, spec_set=True, instance=True
     )
     mock_socket.type = socket.SOCK_STREAM
     mock_socket.fileno.return_value = 1

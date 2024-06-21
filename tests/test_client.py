@@ -65,6 +65,7 @@ from aioesphomeapi.api_pb2 import (
     SwitchCommandRequest,
     TextCommandRequest,
     TimeCommandRequest,
+    UpdateCommandRequest,
     ValveCommandRequest,
     VoiceAssistantAudio,
     VoiceAssistantAudioSettings,
@@ -1029,6 +1030,23 @@ async def test_text_command(
 
     auth_client.text_command(**cmd)
     send.assert_called_once_with(TextCommandRequest(**req))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (dict(key=1, install=True), dict(key=1, install=True)),
+        (dict(key=1, install=False), dict(key=1, install=False)),
+    ],
+)
+async def test_update_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.update_command(**cmd)
+    send.assert_called_once_with(UpdateCommandRequest(**req))
 
 
 @pytest.mark.asyncio
@@ -2578,3 +2596,6 @@ async def test_calls_after_connection_closed(
 
     with pytest.raises(APIConnectionError):
         await client.text_command(1, "1")
+
+    with pytest.raises(APIConnectionError):
+        await client.update_command(1, True)

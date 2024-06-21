@@ -97,7 +97,8 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
     return cast(
-        _V, field(metadata=metadata, **kwargs)  # pylint: disable=invalid-field-call
+        _V,
+        field(metadata=metadata, **kwargs),  # pylint: disable=invalid-field-call
     )
 
 
@@ -924,6 +925,27 @@ class TextState(EntityState):
     missing_state: bool = False
 
 
+# ==================== UPDATE ====================
+
+
+@_frozen_dataclass_decorator
+class UpdateInfo(EntityInfo):
+    device_class: str = ""
+
+
+@_frozen_dataclass_decorator
+class UpdateState(EntityState):
+    missing_state: bool = False
+    in_progress: bool = False
+    has_progress: bool = False
+    progress: float = 0.0
+    current_version: str = ""
+    latest_version: str = ""
+    title: str = ""
+    release_summary: str = ""
+    release_url: str = ""
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
@@ -949,6 +971,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "time": TimeInfo,
     "valve": ValveInfo,
     "event": EventInfo,
+    "update": UpdateInfo,
 }
 
 
@@ -1319,6 +1342,7 @@ _TYPE_TO_NAME = {
     TimeInfo: "time",
     ValveInfo: "valve",
     EventInfo: "event",
+    UpdateInfo: "update",
 }
 
 
