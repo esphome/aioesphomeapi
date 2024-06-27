@@ -1197,7 +1197,6 @@ class APIClient:
         media_url: str | None = None,
         announcement: bool | None = None,
         enqueue: str | None = None,
-        mrm: str | None = None,
         group_members: str | None = None,
     ) -> None:
         req = MediaPlayerCommandRequest(key=key)
@@ -1216,9 +1215,6 @@ class APIClient:
         if enqueue is not None:
             req.enqueue = enqueue
             req.has_enqueue = True
-        if mrm is not None:
-            req.mrm = mrm
-            req.has_mrm = True
         if group_members is not None:
             req.group_members = group_members
             req.has_group_members = True
