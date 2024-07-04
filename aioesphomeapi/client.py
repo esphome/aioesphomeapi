@@ -76,6 +76,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterCommandRequest,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
@@ -134,6 +135,7 @@ from .model import (
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
+    WaterHeaterMode,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -1423,3 +1425,27 @@ class APIClient:
         if code is not None:
             req.code = code
         self._get_connection().send_message(req)
+
+    def water_heater_command(
+        self,
+        key: int,
+        mode: WaterHeaterMode | None = None,
+        target_temperature: float | None = None,
+        target_temperature_low: float | None = None,
+        target_temperature_high: float | None = None,
+    ) -> None:
+        connection = self._get_connection()
+        req = WaterHeaterCommandRequest(key=key)
+        if mode is not None:
+            req.has_mode = True
+            req.mode = mode
+        if target_temperature is not None:
+            req.has_target_temperature = True
+            req.target_temperature = target_temperature
+        if target_temperature_low is not None:
+            req.has_target_temperature_low = True
+            req.target_temperature_low = target_temperature_low
+        if target_temperature_high is not None:
+            req.has_target_temperature_high = True
+            req.target_temperature_high = target_temperature_high
+        connection.send_message(req)

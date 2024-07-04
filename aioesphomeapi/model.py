@@ -1291,6 +1291,57 @@ class VoiceAssistantTimerEventType(APIIntEnum):
     VOICE_ASSISTANT_TIMER_FINISHED = 3
 
 
+# ==================== WATER HEATER ====================
+class WaterHeaterMode(APIIntEnum):
+    OFF = 0
+    ECO = 1
+    ELECTRIC = 2
+    PERFORMANCE = 3
+    HIGH_DEMAND = 4
+    HEAT_PUMP = 5
+    GAS = 6
+
+
+@_frozen_dataclass_decorator
+class WaterHeaterInfo(EntityInfo):
+    supports_current_temperature: bool = False
+    supports_two_point_target_temperature: bool = False
+    supported_modes: list[WaterHeaterMode] = converter_field(
+        default_factory=list, converter=WaterHeaterMode.convert_list
+    )
+    visual_min_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_max_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_target_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    visual_current_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+
+@_frozen_dataclass_decorator
+class WaterHeaterState(EntityState):
+    mode: WaterHeaterMode | None = converter_field(
+        default=WaterHeaterMode.OFF, converter=WaterHeaterMode.convert
+    )
+    current_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_low: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_high: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+
 _TYPE_TO_NAME = {
     BinarySensorInfo: "binary_sensor",
     ButtonInfo: "button",
@@ -1315,6 +1366,7 @@ _TYPE_TO_NAME = {
     ValveInfo: "valve",
     EventInfo: "event",
     UpdateInfo: "update",
+    WaterHeaterInfo: "water_heater",
 }
 
 
