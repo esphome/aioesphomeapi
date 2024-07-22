@@ -728,9 +728,9 @@ async def test_lock_command(
     "cmd, req",
     [
         (dict(key=1), dict(key=1)),
-        (dict(key=1, position=1.0),),
-        (dict(key=1, position=0.0),),
-        (dict(key=1, stop=True),),
+        (dict(key=1, position=1.0), dict(key=1, position=1.0, has_position=True)),
+        (dict(key=1, position=0.0), dict(key=1, position=0.0, has_position=True)),
+        (dict(key=1, stop=True), dict(key=1, stop=True)),
     ],
 )
 async def test_valve_command(
