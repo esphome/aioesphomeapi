@@ -756,7 +756,7 @@ async def test_valve_command(
         ),
     ],
 )
-async def test_valve_command(
+async def test_valve_command_version_1_1(
     auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
 ) -> None:
     send = patch_send(auth_client)
