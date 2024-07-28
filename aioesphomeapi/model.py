@@ -838,6 +838,7 @@ class MediaPlayerCommand(APIIntEnum):
     JOIN = 18
     UNJOIN = 19
 
+
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
@@ -863,6 +864,7 @@ class MediaPlayerEntityState(EntityState):
     title: str = ""
     duration: int = 0
     position: int = 0
+
 
 # ==================== ALARM CONTROL PANEL ====================
 class AlarmControlPanelState(APIIntEnum):
