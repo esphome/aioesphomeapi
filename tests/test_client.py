@@ -800,7 +800,7 @@ async def test_select_command(
             dict(
                 key=1,
                 has_media_url=True,
-                media_url="http://example.com" 
+                media_url="http://example.com",
                 has_enqueue=True,
                 enqueue="replace"
             ),
