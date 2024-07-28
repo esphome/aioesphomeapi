@@ -797,7 +797,13 @@ async def test_select_command(
         ),
         (
             dict(key=1, media_url="http://example.com"),
-            dict(key=1, has_media_url=True, media_url="http://example.com"),
+            dict(
+                key=1,
+                has_media_url=True,
+                media_url="http://example.com" 
+                has_enqueue=True,
+                enqueue="replace"
+            ),
         ),
         (
             dict(key=1, media_url="http://example.com", announcement=True),
@@ -808,14 +814,9 @@ async def test_select_command(
                 has_announcement=True,
                 announcement=True,
             ),
-            dict(
-                key=1,
-                has_media_url=True,
-                media_url="http://example.com",
-                has_enqueue=True,
-                enqueue="replace",
-            ),
+        ),
         (
+            dict(key=1, command=MediaPlayerCommand.JOIN),
             dict(
                  key=1,
                  has_command=True, 
@@ -823,7 +824,6 @@ async def test_select_command(
                  has_group_members=True,
                  group_members="media_player.media_player_2,",
                  ),
-        ),
         ),
     ],
 )
