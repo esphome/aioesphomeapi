@@ -820,7 +820,7 @@ async def test_select_command(
                  key=1,
                  has_command=True, 
                  command=MediaPlayerCommand.JOIN,
-                 has_group_members=True
+                 has_group_members=True,
                  group_members="media_player.media_player_2,",
                  ),
         ),
