@@ -796,7 +796,7 @@ async def test_select_command(
             dict(key=1, has_volume=True, volume=1.0),
         ),
         (
-            dict(key=1, media_url="http://example.com"),
+            dict(key=1, media_url="http://example.com",enqueue="replace"),
             dict(
                 key=1,
                 has_media_url=True,
@@ -806,23 +806,31 @@ async def test_select_command(
             ),
         ),
         (
+            dict(key=1, media_url="http://example.com"),
+            dict(
+                key=1,
+                has_media_url=True,
+                media_url="http://example.com"
+            ),
+        ),
+        (
             dict(key=1, media_url="http://example.com", announcement=True),
             dict(
                 key=1,
                 has_media_url=True,
                 media_url="http://example.com",
                 has_announcement=True,
-                announcement=True,
+                announcement=True
             ),
         ),
         (
-            dict(key=1, command=MediaPlayerCommand.JOIN),
+            dict(key=1, command=MediaPlayerCommand.JOIN, group_members="media_player.media_player_2,"),
             dict(
                  key=1,
                  has_command=True, 
                  command=MediaPlayerCommand.JOIN,
                  has_group_members=True,
-                 group_members="media_player.media_player_2,",
+                 group_members="media_player.media_player_2,"
                  ),
         ),
     ],
