@@ -821,7 +821,7 @@ async def test_select_command(
                  has_command=True, 
                  command=MediaPlayerCommand.JOIN,
                  has_group_members=True
-                 group_members="media_player.media_player_2,"
+                 group_members="media_player.media_player_2,",
                  ),
         ),
         ),
