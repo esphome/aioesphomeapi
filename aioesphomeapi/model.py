@@ -806,13 +806,13 @@ class ValveState(EntityState):
 
 # ==================== MEDIA PLAYER ====================
 class MediaPlayerState(APIIntEnum):
-    OFF = 0
-    ON = 1
-    NONE = 2
-    IDLE = 3
-    PLAYING = 4
-    PAUSED = 5
-    ANNOUNCING = 6
+    NONE = 0
+    IDLE = 1
+    PLAYING = 2
+    PAUSED = 3
+    ANNOUNCING = 4
+    OFF = 5
+    ON = 6
 
 
 class MediaPlayerCommand(APIIntEnum):
