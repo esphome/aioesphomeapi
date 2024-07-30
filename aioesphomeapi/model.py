@@ -850,7 +850,7 @@ class MediaPlayerInfo(EntityInfo):
 @_frozen_dataclass_decorator
 class MediaPlayerEntityState(EntityState):
     state: MediaPlayerState | None = converter_field(
-        default=MediaPlayerState.OFF, converter=MediaPlayerState.convert
+        default=MediaPlayerState.NONE, converter=MediaPlayerState.convert
     )
     volume: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
