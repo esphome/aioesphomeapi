@@ -124,18 +124,17 @@ from .model import (
     LockCommand,
     LogLevel,
     MediaPlayerCommand,
+    UpdateCommand,
     UserService,
     UserServiceArgType,
     VoiceAssistantAudioData,
-)
-from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
-from .model import (
     VoiceAssistantCommand,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
     message_types_to_names,
 )
+from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
@@ -1215,9 +1214,9 @@ class APIClient:
     def text_command(self, key: int, state: str) -> None:
         self._get_connection().send_message(TextCommandRequest(key=key, state=state))
 
-    def update_command(self, key: int, install: bool) -> None:
+    def update_command(self, key: int, command: UpdateCommand) -> None:
         self._get_connection().send_message(
-            UpdateCommandRequest(key=key, install=install)
+            UpdateCommandRequest(key=key, command=command)
         )
 
     def execute_service(

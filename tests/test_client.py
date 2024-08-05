@@ -89,9 +89,6 @@ from aioesphomeapi.model import (
     BinarySensorInfo,
     BinarySensorState,
     BluetoothDeviceRequestType,
-)
-from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
-from aioesphomeapi.model import (
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
     CameraState,
@@ -107,10 +104,12 @@ from aioesphomeapi.model import (
     LightColorCapability,
     LockCommand,
     MediaPlayerCommand,
+    UpdateCommand,
     UserService,
     UserServiceArg,
     UserServiceArgType,
 )
+from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
 from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
 )
@@ -1036,8 +1035,14 @@ async def test_text_command(
 @pytest.mark.parametrize(
     "cmd, req",
     [
-        (dict(key=1, install=True), dict(key=1, install=True)),
-        (dict(key=1, install=False), dict(key=1, install=False)),
+        (
+            dict(key=1, command=UpdateCommand.INSTALL),
+            dict(key=1, command=UpdateCommand.INSTALL),
+        ),
+        (
+            dict(key=1, command=UpdateCommand.CHECK),
+            dict(key=1, command=UpdateCommand.CHECK),
+        ),
     ],
 )
 async def test_update_command(
