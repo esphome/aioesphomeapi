@@ -128,13 +128,13 @@ from .model import (
     UserService,
     UserServiceArgType,
     VoiceAssistantAudioData,
+    VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
     message_types_to_names,
 )
-from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
