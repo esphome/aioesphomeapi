@@ -84,6 +84,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesTimeResponse,
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
+    ListEntitiesWaterHeaterResponse,
     LockCommandRequest,
     LockStateResponse,
     MediaPlayerCommandRequest,
@@ -123,6 +124,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterCommandRequest,
+    WaterHeaterStateResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -392,4 +395,7 @@ MESSAGE_TYPE_TO_PROTO = {
     116: ListEntitiesUpdateResponse,
     117: UpdateStateResponse,
     118: UpdateCommandRequest,
+    119: ListEntitiesWaterHeaterResponse,
+    120: WaterHeaterStateResponse,
+    121: WaterHeaterCommandRequest,
 }

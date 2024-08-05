@@ -63,6 +63,8 @@ service APIConnection {
   rpc subscribe_voice_assistant(SubscribeVoiceAssistantRequest) returns (void) {}
 
   rpc alarm_control_panel_command (AlarmControlPanelCommandRequest) returns (void) {}
+
+  rpc water_heater_command (WaterHeaterCommandRequest) returns (void) {}
 }
 
 
@@ -1898,4 +1900,65 @@ message UpdateCommandRequest {
 
   fixed32 key = 1;
   bool install = 2;
+}
+
+// ==================== WATER HEATER ====================
+enum WaterHeaterMode {
+  WATER_HEATER_MODE_OFF = 0;
+  WATER_HEATER_MODE_ECO = 1;
+  WATER_HEATER_MODE_ELECTRIC = 2;
+  WATER_HEATER_MODE_PERFORMANCE = 3;
+  WATER_HEATER_MODE_HIGH_DEMAND = 4;
+  WATER_HEATER_MODE_HEAT_PUMP = 5;
+  WATER_HEATER_MODE_GAS = 6;
+}
+message ListEntitiesWaterHeaterResponse {
+  option (id) = 119;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_WATER_HEATER";
+
+  string object_id = 1;
+  fixed32 key = 2;
+  string name = 3;
+  string unique_id = 4;
+
+  bool supports_current_temperature = 5;
+  bool supports_two_point_target_temperature = 6;
+  repeated WaterHeaterMode supported_modes = 7;
+  float visual_min_temperature = 8;
+  float visual_max_temperature = 9;
+  float visual_target_temperature_step = 10;
+  bool disabled_by_default = 11;
+  string icon = 12;
+  EntityCategory entity_category = 13;
+  float visual_current_temperature_step = 14;
+}
+message WaterHeaterStateResponse {
+  option (id) = 120;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_WATER_HEATER";
+  option (no_delay) = true;
+
+  fixed32 key = 1;
+  WaterHeaterMode mode = 2;
+  float current_temperature = 3;
+  float target_temperature = 4;
+  float target_temperature_low = 5;
+  float target_temperature_high = 6;
+}
+message WaterHeaterCommandRequest {
+  option (id) = 121;
+  option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_WATER_HEATER";
+  option (no_delay) = true;
+
+  fixed32 key = 1;
+  bool has_mode = 2;
+  WaterHeaterMode mode = 3;
+  bool has_target_temperature = 4;
+  float target_temperature = 5;
+  bool has_target_temperature_low = 6;
+  float target_temperature_low = 7;
+  bool has_target_temperature_high = 8;
+  float target_temperature_high = 9;
 }

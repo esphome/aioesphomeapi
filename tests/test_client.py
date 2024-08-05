@@ -74,6 +74,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterCommandRequest,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
@@ -118,6 +119,7 @@ from aioesphomeapi.model import VoiceAssistantEventType as VoiceAssistantEventMo
 from aioesphomeapi.model import (
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
 )
+from aioesphomeapi.model import WaterHeaterMode
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import (
@@ -2599,3 +2601,34 @@ async def test_calls_after_connection_closed(
 
     with pytest.raises(APIConnectionError):
         await client.update_command(1, True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, mode=WaterHeaterMode.HEAT_PUMP),
+            dict(key=1, has_mode=True, mode=WaterHeaterMode.HEAT_PUMP),
+        ),
+        (
+            dict(key=1, target_temperature=21.0),
+            dict(key=1, has_target_temperature=True, target_temperature=21.0),
+        ),
+        (
+            dict(key=1, target_temperature_low=21.0),
+            dict(key=1, has_target_temperature_low=True, target_temperature_low=21.0),
+        ),
+        (
+            dict(key=1, target_temperature_high=21.0),
+            dict(key=1, has_target_temperature_high=True, target_temperature_high=21.0),
+        ),
+    ],
+)
+async def test_water_heater_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.water_heater_command(**cmd)
+    send.assert_called_once_with(WaterHeaterCommandRequest(**req))
