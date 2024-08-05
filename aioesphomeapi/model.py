@@ -899,6 +899,7 @@ class TextState(EntityState):
 
 # ==================== UPDATE ====================
 
+
 class UpdateCommand(APIIntEnum):
     NONE = 0
     INSTALL = 1
