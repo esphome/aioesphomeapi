@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+
+# After we drop support for Python 3.10, we can use the built-in TimeoutError
+# instead of the one from asyncio since they are the same in Python 3.11+
+from asyncio import CancelledError, TimeoutError as asyncio_TimeoutError
+from dataclasses import astuple, dataclass
 import enum
+from functools import lru_cache, partial
 import logging
 import socket
 import sys
 import time
-
-# After we drop support for Python 3.10, we can use the built-in TimeoutError
-# instead of the one from asyncio since they are the same in Python 3.11+
-from asyncio import CancelledError
-from asyncio import TimeoutError as asyncio_TimeoutError
-from dataclasses import astuple, dataclass
-from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable
 
 import aiohappyeyeballs
@@ -226,9 +225,7 @@ class APIConnection:
         self._params = params
         self.on_stop: Callable[[bool], None] | None = on_stop
         self._socket: socket.socket | None = None
-        self._frame_helper: None | (APINoiseFrameHelper | APIPlaintextFrameHelper) = (
-            None
-        )
+        self._frame_helper: None | APINoiseFrameHelper | APIPlaintextFrameHelper = None
         self.api_version: APIVersion | None = None
 
         self.connection_state = CONNECTION_STATE_INITIALIZED

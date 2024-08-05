@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import socket
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
+import logging
+import socket
 from typing import TYPE_CHECKING, cast
 
 from zeroconf import IPVersion

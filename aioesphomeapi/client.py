@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Coroutine
 from functools import partial
+import logging
 from typing import TYPE_CHECKING, Any, Callable, Union
 
 from google.protobuf import message
@@ -950,16 +950,15 @@ class APIClient:
                 req.tilt = tilt
             if stop:
                 req.stop = stop
-        else:
-            if stop:
-                req.legacy_command = LegacyCoverCommand.STOP
-                req.has_legacy_command = True
-            elif position == 1.0:
-                req.legacy_command = LegacyCoverCommand.OPEN
-                req.has_legacy_command = True
-            elif position == 0.0:
-                req.legacy_command = LegacyCoverCommand.CLOSE
-                req.has_legacy_command = True
+        elif stop:
+            req.legacy_command = LegacyCoverCommand.STOP
+            req.has_legacy_command = True
+        elif position == 1.0:
+            req.legacy_command = LegacyCoverCommand.OPEN
+            req.has_legacy_command = True
+        elif position == 0.0:
+            req.legacy_command = LegacyCoverCommand.CLOSE
+            req.has_legacy_command = True
         connection.send_message(req)
 
     def fan_command(
