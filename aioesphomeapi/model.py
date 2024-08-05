@@ -900,6 +900,12 @@ class TextState(EntityState):
 # ==================== UPDATE ====================
 
 
+class UpdateCommand(APIIntEnum):
+    NONE = 0
+    INSTALL = 1
+    CHECK = 2
+
+
 @_frozen_dataclass_decorator
 class UpdateInfo(EntityInfo):
     device_class: str = ""

@@ -124,6 +124,7 @@ from .model import (
     LockCommand,
     LogLevel,
     MediaPlayerCommand,
+    UpdateCommand,
     UserService,
     UserServiceArgType,
     VoiceAssistantAudioData,
@@ -1212,9 +1213,9 @@ class APIClient:
     def text_command(self, key: int, state: str) -> None:
         self._get_connection().send_message(TextCommandRequest(key=key, state=state))
 
-    def update_command(self, key: int, install: bool) -> None:
+    def update_command(self, key: int, command: UpdateCommand) -> None:
         self._get_connection().send_message(
-            UpdateCommandRequest(key=key, install=install)
+            UpdateCommandRequest(key=key, command=command)
         )
 
     def execute_service(
