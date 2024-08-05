@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import Coroutine
+import logging
 from typing import Any, Callable
 
 from zeroconf.asyncio import AsyncZeroconf

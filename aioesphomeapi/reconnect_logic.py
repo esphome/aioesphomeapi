@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import time
 from collections.abc import Awaitable
 from enum import Enum
+import logging
+import time
 from typing import Callable
 
 import zeroconf
-from zeroconf.const import _TYPE_A as TYPE_A
-from zeroconf.const import _TYPE_PTR as TYPE_PTR
+from zeroconf.const import _TYPE_A as TYPE_A, _TYPE_PTR as TYPE_PTR
 
 from .client import APIClient
 from .core import (
