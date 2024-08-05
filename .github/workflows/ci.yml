@@ -67,7 +67,6 @@ jobs:
         run: |
           echo "::add-matcher::.github/workflows/matchers/flake8.json"
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
-          echo "::add-matcher::.github/workflows/matchers/isort.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
@@ -79,9 +78,6 @@ jobs:
         if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: black --check --diff --color aioesphomeapi tests
         name: Check formatting with black
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
-      - run: isort --check --diff aioesphomeapi tests
-        name: Check import order with isort
         if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy
