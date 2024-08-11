@@ -130,7 +130,7 @@ def on_bluetooth_handle_message(
 
 def on_bluetooth_message_types(
     address: int,
-    msg_types: tuple[type[message.Message]],
+    msg_types: tuple[type[message.Message], ...],
     msg: (
         BluetoothGATTErrorResponse
         | BluetoothGATTNotifyResponse

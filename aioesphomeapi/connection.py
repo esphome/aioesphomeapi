@@ -218,12 +218,12 @@ class APIConnection:
     def __init__(
         self,
         params: ConnectionParams,
-        on_stop: Callable[[bool], None],
+        on_stop: Callable[[bool], None] | None,
         debug_enabled: bool,
         log_name: str | None,
     ) -> None:
         self._params = params
-        self.on_stop: Callable[[bool], None] | None = on_stop
+        self.on_stop = on_stop
         self._socket: socket.socket | None = None
         self._frame_helper: None | APINoiseFrameHelper | APIPlaintextFrameHelper = None
         self.api_version: APIVersion | None = None
