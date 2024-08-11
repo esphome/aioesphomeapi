@@ -83,9 +83,5 @@ else:
         name: str | None = None,
         loop: AbstractEventLoop | None = None,
     ) -> Task[_T]:
-        """Create a task from a coroutine and schedule it to run immediately."""
-        return Task(
-            coro,
-            loop=loop or get_running_loop(),
-            name=name,
-        )
+        """Create a task from a coroutine."""
+        return Task(coro, loop=loop or get_running_loop(), name=name)
