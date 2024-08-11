@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from functools import partial
 import itertools
 import logging
 import socket
-from functools import partial
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -90,9 +90,7 @@ from aioesphomeapi.model import (
     BinarySensorInfo,
     BinarySensorState,
     BluetoothDeviceRequestType,
-)
-from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
-from aioesphomeapi.model import (
+    BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
     CameraState,
@@ -108,18 +106,15 @@ from aioesphomeapi.model import (
     LightColorCapability,
     LockCommand,
     MediaPlayerCommand,
+    UpdateCommand,
     UserService,
     UserServiceArg,
     UserServiceArgType,
-)
-from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
-)
-from aioesphomeapi.model import VoiceAssistantEventType as VoiceAssistantEventModelType
-from aioesphomeapi.model import (
+    VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    WaterHeaterMode,
 )
-from aioesphomeapi.model import WaterHeaterMode
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import (
@@ -730,9 +725,9 @@ async def test_lock_command(
     "cmd, req",
     [
         (dict(key=1), dict(key=1)),
-        (dict(key=1, position=1.0),),
-        (dict(key=1, position=0.0),),
-        (dict(key=1, stop=True),),
+        (dict(key=1, position=1.0), dict(key=1, position=1.0, has_position=True)),
+        (dict(key=1, position=0.0), dict(key=1, position=0.0, has_position=True)),
+        (dict(key=1, stop=True), dict(key=1, stop=True)),
     ],
 )
 async def test_valve_command(
@@ -758,7 +753,7 @@ async def test_valve_command(
         ),
     ],
 )
-async def test_valve_command(
+async def test_valve_command_version_1_1(
     auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
 ) -> None:
     send = patch_send(auth_client)
@@ -1038,8 +1033,14 @@ async def test_text_command(
 @pytest.mark.parametrize(
     "cmd, req",
     [
-        (dict(key=1, install=True), dict(key=1, install=True)),
-        (dict(key=1, install=False), dict(key=1, install=False)),
+        (
+            dict(key=1, command=UpdateCommand.INSTALL),
+            dict(key=1, command=UpdateCommand.INSTALL),
+        ),
+        (
+            dict(key=1, command=UpdateCommand.CHECK),
+            dict(key=1, command=UpdateCommand.CHECK),
+        ),
     ],
 )
 async def test_update_command(

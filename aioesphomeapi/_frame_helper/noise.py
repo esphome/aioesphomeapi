@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import binascii
-import logging
 from functools import partial
+import logging
 from struct import Struct
 from typing import TYPE_CHECKING, Any, Callable
 

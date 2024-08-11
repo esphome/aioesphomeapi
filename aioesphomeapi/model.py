@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import enum
-import sys
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
+import enum
 from functools import cache, lru_cache, partial
+import sys
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
@@ -898,6 +898,12 @@ class TextState(EntityState):
 
 
 # ==================== UPDATE ====================
+
+
+class UpdateCommand(APIIntEnum):
+    NONE = 0
+    INSTALL = 1
+    CHECK = 2
 
 
 @_frozen_dataclass_decorator

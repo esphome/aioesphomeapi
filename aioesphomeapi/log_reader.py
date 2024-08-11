@@ -3,9 +3,9 @@ from __future__ import annotations
 # Helper script and aioesphomeapi to view logs from an esphome device
 import argparse
 import asyncio
+from datetime import datetime
 import logging
 import sys
-from datetime import datetime
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient

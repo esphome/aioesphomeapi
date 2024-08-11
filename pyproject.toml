@@ -1,8 +1,3 @@
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-extend_skip = ["api_pb2.py", "api_options_pb2.py"]
-
 [tool.black]
 exclude = 'api_pb2.py|api_options_pb2.py'
 target-version = ['py39']
@@ -31,9 +26,39 @@ disable = [
 ]
 
 [tool.ruff]
-ignore = [
-  "E721", # We want type() check for protobuf messages
+required-version = ">=0.5.0"
+exclude = [
+  "aioesphomeapi/api_pb2.py",
+  "aioesphomeapi/api_options_pb2.py",
 ]
+
+[tool.ruff.lint]
+select = [
+  "E", # pycodestyle
+  "F", # pyflakes/autoflake
+  "I", # isort
+  "PL", # pylint
+  "UP", # pyupgrade
+]
+
+ignore = [
+  "E501", # line too long
+  "E721", # We want type() check for protobuf messages
+  "PLR0911", # Too many return statements ({returns} > {max_returns})
+  "PLR0912", # Too many branches ({branches} > {max_branches})
+  "PLR0913", # Too many arguments to function call ({c_args} > {max_args})
+  "PLR0915", # Too many statements ({statements} > {max_statements})
+  "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+  "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = [
+  "aioesphomeapi",
+]
+combine-as-imports = true
+split-on-trailing-comma = false
 
 [build-system]
 requires = ['setuptools>=65.4.1', 'wheel', 'Cython>=3.0.2']
