@@ -328,7 +328,7 @@ class APIClient:
 
     async def start_connection(
         self,
-        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
     ) -> None:
         """Start connecting to the device."""
         if self._connection is not None:
