@@ -18,7 +18,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
-from .util import address_is_local, host_is_name_part
+from .util import address_is_local, create_eager_task, host_is_name_part
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -259,7 +259,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 ReconnectLogicState.DISCONNECTED
             )
 
-        self._connect_task = asyncio.create_task(
+        self._connect_task = create_eager_task(
             self._connect_once_or_reschedule(),
             name=f"{self._cli.log_name}: aioesphomeapi connect",
         )
@@ -318,7 +318,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def stop_callback(self) -> None:
         """Stop the connect logic."""
-        self._stop_task = asyncio.create_task(
+        self._stop_task = create_eager_task(
             self.stop(),
             name=f"{self._cli.log_name}: aioesphomeapi reconnect_logic stop_callback",
         )
