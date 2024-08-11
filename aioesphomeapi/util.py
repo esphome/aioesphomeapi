@@ -72,7 +72,12 @@ if sys.version_info >= (3, 12, 0):
         loop: AbstractEventLoop | None = None,
     ) -> Task[_T]:
         """Create a task from a coroutine and schedule it to run immediately."""
-        return Task(coro, loop=loop or get_running_loop(), name=name, eager_start=True)
+        return Task(
+            coro,
+            loop=loop or get_running_loop(),
+            name=name,
+            eager_start=True,  # type: ignore[call-arg]
+        )
 
 else:
 
