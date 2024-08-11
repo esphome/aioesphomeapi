@@ -72,16 +72,16 @@ jobs:
 
       - run: flake8 aioesphomeapi
         name: Lint with flake8
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
       - run: pylint aioesphomeapi
         name: Lint with pylint
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
       - run: black --check --diff --color aioesphomeapi tests
         name: Check formatting with black
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
       - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
@@ -98,4 +98,4 @@ jobs:
             exit 1
           fi
         name: Check protobuf files match
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
