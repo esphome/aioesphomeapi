@@ -4,10 +4,9 @@ from asyncio import AbstractEventLoop, Task, get_running_loop
 from collections.abc import Coroutine
 import math
 import sys
-from typing import Any, TypeVar, TypeVarTuple
+from typing import Any, TypeVar
 
 _T = TypeVar("_T")
-_Ts = TypeVarTuple("_Ts")
 
 
 def fix_float_single_double_conversion(value: float) -> float:
