@@ -139,7 +139,7 @@ from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
 )
-from .util import build_log_name
+from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -1311,7 +1311,7 @@ class APIClient:
                 wake_word_phrase: str | None = command.wake_word_phrase
                 if wake_word_phrase == "":
                     wake_word_phrase = None
-                start_task = asyncio.create_task(
+                start_task = create_eager_task(
                     handle_start(
                         command.conversation_id,
                         command.flags,
@@ -1370,7 +1370,7 @@ class APIClient:
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""
-        task = asyncio.create_task(coro)
+        task = create_eager_task(coro)
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 
