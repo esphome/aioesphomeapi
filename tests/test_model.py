@@ -43,6 +43,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesTimeResponse,
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
+    ListEntitiesWaterHeaterResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
     NumberStateResponse,
@@ -55,6 +56,7 @@ from aioesphomeapi.api_pb2 import (
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    WaterHeaterStateResponse,
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
@@ -122,6 +124,8 @@ from aioesphomeapi.model import (
     ValveInfo,
     ValveState,
     VoiceAssistantFeature,
+    WaterHeaterInfo,
+    WaterHeaterState,
     build_unique_id,
     converter_field,
 )
@@ -292,6 +296,8 @@ def test_api_version_ord():
         (Event, EventResponse),
         (UpdateInfo, ListEntitiesUpdateResponse),
         (UpdateState, UpdateStateResponse),
+        (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
+        (WaterHeaterState, WaterHeaterStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -409,6 +415,7 @@ def test_user_service_conversion():
         AlarmControlPanelInfo,
         TextInfo,
         TimeInfo,
+        WaterHeaterInfo,
     ],
 )
 def test_build_unique_id(model):

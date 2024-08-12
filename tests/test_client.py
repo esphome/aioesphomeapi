@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from functools import partial
 import itertools
 import logging
 import socket
-from functools import partial
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -74,6 +74,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterCommandRequest,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
@@ -89,6 +90,7 @@ from aioesphomeapi.model import (
     BinarySensorInfo,
     BinarySensorState,
     BluetoothDeviceRequestType,
+    BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
     CameraState,
@@ -108,14 +110,10 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
-)
-from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
-from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
-)
-from aioesphomeapi.model import VoiceAssistantEventType as VoiceAssistantEventModelType
-from aioesphomeapi.model import (
+    VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    WaterHeaterMode,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -2604,3 +2602,34 @@ async def test_calls_after_connection_closed(
 
     with pytest.raises(APIConnectionError):
         await client.update_command(1, True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, mode=WaterHeaterMode.HEAT_PUMP),
+            dict(key=1, has_mode=True, mode=WaterHeaterMode.HEAT_PUMP),
+        ),
+        (
+            dict(key=1, target_temperature=21.0),
+            dict(key=1, has_target_temperature=True, target_temperature=21.0),
+        ),
+        (
+            dict(key=1, target_temperature_low=21.0),
+            dict(key=1, has_target_temperature_low=True, target_temperature_low=21.0),
+        ),
+        (
+            dict(key=1, target_temperature_high=21.0),
+            dict(key=1, has_target_temperature_high=True, target_temperature_high=21.0),
+        ),
+    ],
+)
+async def test_water_heater_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.water_heater_command(**cmd)
+    send.assert_called_once_with(WaterHeaterCommandRequest(**req))
