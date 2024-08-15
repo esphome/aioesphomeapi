@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import time
 from collections.abc import Awaitable
 from enum import Enum
+import logging
+import time
 from typing import Callable
 
 import zeroconf
-from zeroconf.const import _TYPE_A as TYPE_A
-from zeroconf.const import _TYPE_PTR as TYPE_PTR
+from zeroconf.const import _TYPE_A as TYPE_A, _TYPE_PTR as TYPE_PTR
 
 from .client import APIClient
 from .core import (
@@ -19,7 +18,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
-from .util import address_is_local, host_is_name_part
+from .util import address_is_local, create_eager_task, host_is_name_part
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -260,7 +259,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 ReconnectLogicState.DISCONNECTED
             )
 
-        self._connect_task = asyncio.create_task(
+        self._connect_task = create_eager_task(
             self._connect_once_or_reschedule(),
             name=f"{self._cli.log_name}: aioesphomeapi connect",
         )
@@ -319,7 +318,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def stop_callback(self) -> None:
         """Stop the connect logic."""
-        self._stop_task = asyncio.create_task(
+        self._stop_task = create_eager_task(
             self.stop(),
             name=f"{self._cli.log_name}: aioesphomeapi reconnect_logic stop_callback",
         )

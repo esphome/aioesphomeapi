@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Coroutine
 from functools import partial
+import logging
 from typing import TYPE_CHECKING, Any, Callable, Union
 
 from google.protobuf import message
@@ -124,12 +124,11 @@ from .model import (
     LockCommand,
     LogLevel,
     MediaPlayerCommand,
+    UpdateCommand,
     UserService,
     UserServiceArgType,
     VoiceAssistantAudioData,
-)
-from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
-from .model import (
+    VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
@@ -140,7 +139,7 @@ from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
 )
-from .util import build_log_name
+from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -329,7 +328,7 @@ class APIClient:
 
     async def start_connection(
         self,
-        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
     ) -> None:
         """Start connecting to the device."""
         if self._connection is not None:
@@ -951,16 +950,15 @@ class APIClient:
                 req.tilt = tilt
             if stop:
                 req.stop = stop
-        else:
-            if stop:
-                req.legacy_command = LegacyCoverCommand.STOP
-                req.has_legacy_command = True
-            elif position == 1.0:
-                req.legacy_command = LegacyCoverCommand.OPEN
-                req.has_legacy_command = True
-            elif position == 0.0:
-                req.legacy_command = LegacyCoverCommand.CLOSE
-                req.has_legacy_command = True
+        elif stop:
+            req.legacy_command = LegacyCoverCommand.STOP
+            req.has_legacy_command = True
+        elif position == 1.0:
+            req.legacy_command = LegacyCoverCommand.OPEN
+            req.has_legacy_command = True
+        elif position == 0.0:
+            req.legacy_command = LegacyCoverCommand.CLOSE
+            req.has_legacy_command = True
         connection.send_message(req)
 
     def fan_command(
@@ -1223,9 +1221,9 @@ class APIClient:
     def text_command(self, key: int, state: str) -> None:
         self._get_connection().send_message(TextCommandRequest(key=key, state=state))
 
-    def update_command(self, key: int, install: bool) -> None:
+    def update_command(self, key: int, command: UpdateCommand) -> None:
         self._get_connection().send_message(
-            UpdateCommandRequest(key=key, install=install)
+            UpdateCommandRequest(key=key, command=command)
         )
 
     def execute_service(
@@ -1321,7 +1319,7 @@ class APIClient:
                 wake_word_phrase: str | None = command.wake_word_phrase
                 if wake_word_phrase == "":
                     wake_word_phrase = None
-                start_task = asyncio.create_task(
+                start_task = create_eager_task(
                     handle_start(
                         command.conversation_id,
                         command.flags,
@@ -1380,7 +1378,7 @@ class APIClient:
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""
-        task = asyncio.create_task(coro)
+        task = create_eager_task(coro)
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 

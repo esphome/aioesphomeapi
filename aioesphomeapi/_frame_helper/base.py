@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from abc import abstractmethod
 import asyncio
 import logging
-from abc import abstractmethod
 from typing import TYPE_CHECKING, Callable, cast
 
 from ..core import SocketClosedAPIError

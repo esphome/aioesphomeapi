@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from functools import partial
 from ipaddress import ip_address
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -429,8 +429,14 @@ async def test_reconnect_zeroconf(
         assert not rl._is_stopped
 
     caplog.clear()
+
+    async def delayed_connect(*args, **kwargs):
+        await asyncio.sleep(0)
+
     with (
-        patch.object(cli, "start_connection") as mock_start_connection,
+        patch.object(
+            cli, "start_connection", side_effect=delayed_connect
+        ) as mock_start_connection,
         patch.object(cli, "finish_connection"),
     ):
         assert rl._zc_listening is True
@@ -445,8 +451,11 @@ async def test_reconnect_zeroconf(
 
         # The reconnect is scheduled to run in the next loop iteration
         await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
         assert mock_start_connection.call_count == int(should_trigger_zeroconf)
         assert log_text in caplog.text
+        await asyncio.sleep(0)
 
     assert rl._connection_state is expected_state_after_trigger
     await rl.stop()
@@ -733,11 +742,15 @@ async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection)
     assert cli._connection.is_connected is True
     await asyncio.sleep(0)
 
-    with patch.object(
-        loop,
-        "create_connection",
-        side_effect=partial(_create_mock_transport_protocol, transport, connected),
-    ) as mock_create_connection:
+    with (
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ) as mock_create_connection,
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
         protocol.eof_received()
         # Wait for the task to run
         await asyncio.sleep(0)
