@@ -90,8 +90,11 @@ def on_bluetooth_gatt_notify_data_response(
 
 def on_subscribe_home_assistant_state_response(
     on_state_sub: Callable[[str, str | None], None],
+    on_state_request: Callable[[str, str | None], None] | None,
     msg: SubscribeHomeAssistantStateResponse,
 ) -> None:
+    if on_state_request and msg.once:
+        on_state_request(msg.entity_id, msg.attribute)
     on_state_sub(msg.entity_id, msg.attribute)
 
 
