@@ -840,8 +840,6 @@ class MediaPlayerSupportedFormat(APIModelBase):
         ret = []
         for x in value:
             if isinstance(x, dict):
-                if "type_" in x and "type" not in x:
-                    x = {**x, "type": x["type_"]}
                 ret.append(MediaPlayerSupportedFormat.from_dict(x))
             else:
                 ret.append(MediaPlayerSupportedFormat.from_pb(x))
