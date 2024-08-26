@@ -95,7 +95,8 @@ def on_subscribe_home_assistant_state_response(
 ) -> None:
     if on_state_request and msg.once:
         on_state_request(msg.entity_id, msg.attribute)
-    on_state_sub(msg.entity_id, msg.attribute)
+    else:
+        on_state_sub(msg.entity_id, msg.attribute)
 
 
 def on_bluetooth_device_connection_response(
