@@ -1489,6 +1489,19 @@ message VoiceAssistantAudioSettings {
   float volume_multiplier = 3;
 }
 
+enum VoiceAssistantPipelineStage {
+  VOICE_ASSISTANT_PIPELINE_STAGE_WAKE_WORD = 0;
+  VOICE_ASSISTANT_PIPELINE_STAGE_STT = 1;
+  VOICE_ASSISTANT_PIPELINE_STAGE_INTENT = 2;
+  VOICE_ASSISTANT_PIPELINE_STAGE_TTS = 3;
+}
+
+message VoiceAssistantPipelineRunConfig {
+  VoiceAssistantPipelineStage start_stage = 1;
+  VoiceAssistantPipelineStage end_stage = 2;
+  string tts_input = 3;
+}
+
 message VoiceAssistantRequest {
   option (id) = 90;
   option (source) = SOURCE_SERVER;
@@ -1499,6 +1512,7 @@ message VoiceAssistantRequest {
   uint32 flags = 3;
   VoiceAssistantAudioSettings audio_settings = 4;
   string wake_word_phrase = 5;
+  VoiceAssistantPipelineRunConfig run_config = 6;
 }
 
 message VoiceAssistantResponse {
@@ -1569,6 +1583,37 @@ message VoiceAssistantTimerEventResponse {
   uint32 total_seconds = 4;
   uint32 seconds_left = 5;
   bool is_active = 6;
+}
+
+message VoiceAssistantTriggerPipeline {
+  option (id) = 120;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_VOICE_ASSISTANT";
+
+  VoiceAssistantPipelineRunConfig run_config = 1;
+}
+
+message VoiceAssistantSetConfiguration {
+  option (id) = 121;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_VOICE_ASSISTANT";
+
+  repeated string active_wake_words = 1;
+}
+
+message VoiceAssistantAvailableWakeWord {
+  string wake_word = 1;
+  bool is_active = 2;
+  repeated string trained_languages = 3;
+}
+
+message VoiceAssistantConfiguration {
+  option (id) = 122;
+  option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_VOICE_ASSISTANT";
+
+  repeated VoiceAssistantAvailableWakeWord available_wake_words = 1;
+  uint32 max_active_wake_words = 2;
 }
 
 // ==================== ALARM CONTROL PANEL ====================
