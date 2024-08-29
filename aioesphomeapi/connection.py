@@ -716,6 +716,9 @@ class APIConnection:
                     "%s: Sending %s: %s",
                     self.log_name,
                     type(msg).__name__,
+                    # calling __str__ on the message may crash on
+                    # Windows systems due to a bug in the protobuf library
+                    # so we call MessageToDict instead
                     MessageToDict(msg),
                 )
 
@@ -915,6 +918,9 @@ class APIConnection:
                 "%s: Got message of type %s: %s",
                 self.log_name,
                 msg_type.__name__,
+                # calling __str__ on the message may crash on
+                # Windows systems due to a bug in the protobuf library
+                # so we call MessageToDict instead
                 MessageToDict(msg),
             )
 
