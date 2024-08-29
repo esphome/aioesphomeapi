@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import aiohappyeyeballs
 from async_interrupt import interrupt
 from google.protobuf import message
+from google.protobuf.json_format import MessageToDict
 
 import aioesphomeapi.host_resolver as hr
 
@@ -712,7 +713,13 @@ class APIConnection:
         if debug_enabled := self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(
-                    "%s: Sending %s: %s", self.log_name, type(msg).__name__, msg
+                    "%s: Sending %s: %s",
+                    self.log_name,
+                    type(msg).__name__,
+                    # calling __str__ on the message may crash on
+                    # Windows systems due to a bug in the protobuf library
+                    # so we call MessageToDict instead
+                    MessageToDict(msg),
                 )
 
         if TYPE_CHECKING:
@@ -911,7 +918,10 @@ class APIConnection:
                 "%s: Got message of type %s: %s",
                 self.log_name,
                 msg_type.__name__,
-                msg,
+                # calling __str__ on the message may crash on
+                # Windows systems due to a bug in the protobuf library
+                # so we call MessageToDict instead
+                MessageToDict(msg),
             )
 
         if self._pong_timer is not None:
