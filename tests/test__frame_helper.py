@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -153,52 +154,59 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
             ) from err
 
 
+_PLAINTEXT_TESTS = [
+    (PREAMBLE + varuint_to_bytes(0) + varuint_to_bytes(1), b"", 1),
+    (
+        PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(1) + (b"\x42" * 192),
+        (b"\x42" * 192),
+        1,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(100) + (b"\x42" * 192),
+        (b"\x42" * 192),
+        100,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(4) + varuint_to_bytes(100) + (b"\x42" * 4),
+        (b"\x42" * 4),
+        100,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(8192) + varuint_to_bytes(8192) + (b"\x42" * 8192),
+        (b"\x42" * 8192),
+        8192,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(256) + varuint_to_bytes(256) + (b"\x42" * 256),
+        (b"\x42" * 256),
+        256,
+    ),
+]
+if sys.platform != "win32":
+    # pytest sets name of the test as an env var as win32 has a max char
+    # limit that will cause the test to fail
+    _PLAINTEXT_TESTS.extend(
+        [
+            (
+                PREAMBLE + varuint_to_bytes(1) + varuint_to_bytes(32768) + b"\x42",
+                b"\x42",
+                32768,
+            ),
+            (
+                PREAMBLE
+                + varuint_to_bytes(32768)
+                + varuint_to_bytes(32768)
+                + (b"\x42" * 32768),
+                (b"\x42" * 32768),
+                32768,
+            ),
+        ]
+    )
+
+
 @pytest.mark.parametrize(
     "in_bytes, pkt_data, pkt_type",
-    [
-        (PREAMBLE + varuint_to_bytes(0) + varuint_to_bytes(1), b"", 1),
-        (
-            PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(1) + (b"\x42" * 192),
-            (b"\x42" * 192),
-            1,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(100) + (b"\x42" * 192),
-            (b"\x42" * 192),
-            100,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(4) + varuint_to_bytes(100) + (b"\x42" * 4),
-            (b"\x42" * 4),
-            100,
-        ),
-        (
-            PREAMBLE
-            + varuint_to_bytes(8192)
-            + varuint_to_bytes(8192)
-            + (b"\x42" * 8192),
-            (b"\x42" * 8192),
-            8192,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(256) + varuint_to_bytes(256) + (b"\x42" * 256),
-            (b"\x42" * 256),
-            256,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(1) + varuint_to_bytes(32768) + b"\x42",
-            b"\x42",
-            32768,
-        ),
-        (
-            PREAMBLE
-            + varuint_to_bytes(32768)
-            + varuint_to_bytes(32768)
-            + (b"\x42" * 32768),
-            (b"\x42" * 32768),
-            32768,
-        ),
-    ],
+    _PLAINTEXT_TESTS,
 )
 @pytest.mark.asyncio
 async def test_plaintext_frame_helper(
