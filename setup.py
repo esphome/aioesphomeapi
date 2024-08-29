@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """aioesphomeapi setup script."""
-import os
+
 from distutils.command.build_ext import build_ext
+import os
 
 from setuptools import find_packages, setup
 
