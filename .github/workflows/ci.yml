@@ -97,8 +97,8 @@ jobs:
       - run: pylint aioesphomeapi
         name: Lint with pylint
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - run: black --check --diff --color aioesphomeapi tests
-        name: Check formatting with black
+      - run: ruff check aioesphomeapi tests
+        name: Check formatting with ruff
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy

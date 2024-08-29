@@ -18,14 +18,6 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.1.1
-    hooks:
-    - id: black
-      args:
-        - --safe
-        - --quiet
-      files: ^((aioesphomeapi|tests)/.+)?[^/]+\.py$
   - repo: https://github.com/cdce8p/python-typing-update
     rev: v0.6.0
     hooks:
