@@ -1512,7 +1512,6 @@ message VoiceAssistantRequest {
   uint32 flags = 3;
   VoiceAssistantAudioSettings audio_settings = 4;
   string wake_word_phrase = 5;
-  VoiceAssistantPipelineRunConfig run_config = 6;
 }
 
 message VoiceAssistantResponse {
@@ -1585,35 +1584,12 @@ message VoiceAssistantTimerEventResponse {
   bool is_active = 6;
 }
 
-message VoiceAssistantTriggerPipeline {
+message VoiceAssistantAnnounce {
   option (id) = 120;
-  option (source) = SOURCE_SERVER;
-  option (ifdef) = "USE_VOICE_ASSISTANT";
-
-  VoiceAssistantPipelineRunConfig run_config = 1;
-}
-
-message VoiceAssistantSetConfiguration {
-  option (id) = 121;
-  option (source) = SOURCE_SERVER;
-  option (ifdef) = "USE_VOICE_ASSISTANT";
-
-  repeated string active_wake_words = 1;
-}
-
-message VoiceAssistantAvailableWakeWord {
-  string wake_word = 1;
-  bool is_active = 2;
-  repeated string trained_languages = 3;
-}
-
-message VoiceAssistantConfiguration {
-  option (id) = 122;
   option (source) = SOURCE_CLIENT;
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
-  repeated VoiceAssistantAvailableWakeWord available_wake_words = 1;
-  uint32 max_active_wake_words = 2;
+  string media_id = 1;
 }
 
 // ==================== ALARM CONTROL PANEL ====================

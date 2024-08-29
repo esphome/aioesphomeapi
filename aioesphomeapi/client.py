@@ -76,6 +76,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
+    VoiceAssistantAnnounce,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
@@ -1414,6 +1415,12 @@ class APIClient:
             total_seconds=total_seconds,
             seconds_left=seconds_left,
             is_active=is_active,
+        )
+        self._get_connection().send_message(req)
+
+    def send_voice_assistant_announce(self, media_id: str) -> None:
+        req = VoiceAssistantAnnounce(
+            media_id=media_id,
         )
         self._get_connection().send_message(req)
 
