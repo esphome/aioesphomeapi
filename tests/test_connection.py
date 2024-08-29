@@ -322,7 +322,10 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
     mock_socket.fileno.return_value = 1
     mock_socket.getpeername.return_value = ("10.0.0.512", 323)
     mock_socket.setsockopt = _setsockopt
-    mock_socket.sendmsg.side_effect = OSError("Socket error")
+    with suppress(AttributeError):
+        mock_socket.sendmsg.side_effect = OSError("Socket error")
+    mock_socket.send.side_effect = OSError("Socket error")
+    mock_socket.sendto.side_effect = OSError("Socket error")
     aiohappyeyeballs_start_connection.return_value = mock_socket
 
     with patch.object(
