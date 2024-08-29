@@ -711,9 +711,7 @@ class APIConnection:
 
         if debug_enabled := self._debug_enabled:
             for msg in msgs:
-                _LOGGER.debug(
-                    "%s: Sending %s: %s", self.log_name, type(msg).__name__, msg
-                )
+                _LOGGER.debug("%s: Sending %s", self.log_name, type(msg).__name__)
 
         if TYPE_CHECKING:
             assert self._frame_helper is not None
