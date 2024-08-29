@@ -45,6 +45,10 @@ jobs:
             os: macos-latest
           - python-version: "3.11"
             os: macos-latest
+          - extension: "use_cython"
+            os: windows-latest
+          - extension: "use_cython"
+            os: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
