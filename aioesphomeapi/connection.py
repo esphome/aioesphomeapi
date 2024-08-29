@@ -372,6 +372,13 @@ class APIConnection:
         self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+        except AttributeError:
+            _LOGGER.debug(
+                "%s: TCP_QUICKACK not supported",
+                self.log_name,
+            )
         self._increase_recv_buffer_size()
         self.connected_address = sock.getpeername()[0]
 
