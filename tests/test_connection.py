@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import socket
 from datetime import timedelta
 from functools import partial
+import logging
+import socket
 from typing import Callable, cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
@@ -59,7 +59,7 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 async def test_connect(
     plaintext_connect_task_no_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
-    ]
+    ],
 ) -> None:
     """Test that a plaintext connection works."""
     conn, transport, protocol, connect_task = plaintext_connect_task_no_login
@@ -541,7 +541,9 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (pytest.raises(raised_exception),):
+    with (
+        pytest.raises(raised_exception),
+    ):
         await asyncio.sleep(0)
         await connect_task
 

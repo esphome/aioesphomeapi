@@ -5,12 +5,15 @@ from datetime import timedelta
 from functools import partial
 from unittest.mock import MagicMock, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
-from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore
-from aioesphomeapi.api_pb2 import DisconnectRequest, DisconnectResponse
+from aioesphomeapi.api_pb2 import (
+    DisconnectRequest,
+    DisconnectResponse,
+    SubscribeLogsResponse,  # type: ignore
+)
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import APIConnectionError

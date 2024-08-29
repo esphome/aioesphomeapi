@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import socket
 from dataclasses import replace
 from functools import partial
+import socket
 from typing import Callable
 from unittest.mock import MagicMock, create_autospec, patch
 
@@ -181,7 +181,12 @@ async def plaintext_connect_task_no_login_with_expected_name(
             connect(conn_with_expected_name, login=False)
         )
         await connected.wait()
-        yield conn_with_expected_name, transport, conn_with_expected_name._frame_helper, connect_task
+        yield (
+            conn_with_expected_name,
+            transport,
+            conn_with_expected_name._frame_helper,
+            connect_task,
+        )
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_with_login")
@@ -201,7 +206,12 @@ async def plaintext_connect_task_with_login(
     ):
         connect_task = asyncio.create_task(connect(conn_with_password, login=True))
         await connected.wait()
-        yield conn_with_password, transport, conn_with_password._frame_helper, connect_task
+        yield (
+            conn_with_password,
+            transport,
+            conn_with_password._frame_helper,
+            connect_task,
+        )
 
 
 @pytest_asyncio.fixture(name="api_client")
