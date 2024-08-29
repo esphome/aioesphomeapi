@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import socket
+from contextlib import suppress
 from datetime import timedelta
 from functools import partial
+import logging
+import socket
 from typing import Callable, cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
@@ -59,7 +60,7 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 async def test_connect(
     plaintext_connect_task_no_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
-    ]
+    ],
 ) -> None:
     """Test that a plaintext connection works."""
     conn, transport, protocol, connect_task = plaintext_connect_task_no_login
@@ -268,7 +269,11 @@ async def test_start_connection_cannot_increase_recv_buffer(
     mock_socket.fileno.return_value = 1
     mock_socket.getpeername.return_value = ("10.0.0.512", 323)
     mock_socket.setsockopt = _setsockopt
-    mock_socket.sendmsg.side_effect = OSError("Socket error")
+    with suppress(AttributeError):
+        mock_socket.sendmsg.side_effect = OSError("Socket error")
+    mock_socket.send.side_effect = OSError("Socket error")
+    mock_socket.sendto.side_effect = OSError("Socket error")
+
     aiohappyeyeballs_start_connection.return_value = mock_socket
 
     with patch.object(
