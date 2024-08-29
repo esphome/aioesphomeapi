@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
+import pytest
 
 from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND
 from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
+    _varuint_to_bytes as varuint_to_bytes,
 )
-from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -199,6 +200,9 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
             32768,
         ),
     ],
+)
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Fails on Windows due to pytest internals"
 )
 @pytest.mark.asyncio
 async def test_plaintext_frame_helper(
