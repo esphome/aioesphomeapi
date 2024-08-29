@@ -906,10 +906,7 @@ class APIConnection:
 
         if debug_enabled:
             _LOGGER.debug(
-                "%s: Got message of type %s: %s",
-                self.log_name,
-                msg_type.__name__,
-                msg,
+                "%s: Got message of type %s", self.log_name, msg_type.__name__
             )
 
         if self._pong_timer is not None:
