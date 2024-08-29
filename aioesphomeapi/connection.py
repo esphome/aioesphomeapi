@@ -712,7 +712,7 @@ class APIConnection:
         if debug_enabled := self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(
-                    "%s: Sending %s: %s", self.log_name, type(msg).__name__, msg
+                    "%s: Sending %s: %r", self.log_name, type(msg).__name__, msg
                 )
 
         if TYPE_CHECKING:
@@ -908,7 +908,7 @@ class APIConnection:
 
         if debug_enabled:
             _LOGGER.debug(
-                "%s: Got message of type %s: %s",
+                "%s: Got message of type %s: %r",
                 self.log_name,
                 msg_type.__name__,
                 msg,
