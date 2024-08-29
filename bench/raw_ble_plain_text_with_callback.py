@@ -1,5 +1,5 @@
-import timeit
 from functools import partial
+import timeit
 
 from aioesphomeapi import APIConnection
 from aioesphomeapi.api_pb2 import (
