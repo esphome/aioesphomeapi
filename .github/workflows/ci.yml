@@ -55,6 +55,7 @@ jobs:
 
       - name: Get pip cache dir
         id: pip-cache
+        shell: bash
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
@@ -68,6 +69,7 @@ jobs:
         if: ${{ matrix.extension == 'skip_cython' }}
         env:
           SKIP_CYTHON: 1
+        shell: bash
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
@@ -75,10 +77,12 @@ jobs:
         if: ${{ matrix.extension == 'use_cython' }}
         env:
           REQUIRE_CYTHON: 1
+        shell: bash
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
       - name: Register problem matchers
+        shell: bash
         run: |
           echo "::add-matcher::.github/workflows/matchers/flake8.json"
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
@@ -87,16 +91,16 @@ jobs:
 
       - run: flake8 aioesphomeapi
         name: Lint with flake8
-        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: pylint aioesphomeapi
         name: Lint with pylint
-        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: black --check --diff --color aioesphomeapi tests
         name: Check formatting with black
-        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy
-        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
@@ -113,4 +117,4 @@ jobs:
             exit 1
           fi
         name: Check protobuf files match
-        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
