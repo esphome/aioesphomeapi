@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,
@@ -65,14 +65,10 @@ from aioesphomeapi.model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
-)
-from aioesphomeapi.model import (
     BluetoothGATTCharacteristic as BluetoothGATTCharacteristicModel,
-)
-from aioesphomeapi.model import BluetoothGATTDescriptor as BluetoothGATTDescriptorModel
-from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
-from aioesphomeapi.model import BluetoothGATTServices as BluetoothGATTServicesModel
-from aioesphomeapi.model import (
+    BluetoothGATTDescriptor as BluetoothGATTDescriptorModel,
+    BluetoothGATTService as BluetoothGATTServiceModel,
+    BluetoothGATTServices as BluetoothGATTServicesModel,
     BluetoothProxyFeature,
     ButtonInfo,
     CameraInfo,
