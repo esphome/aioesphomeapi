@@ -7,20 +7,26 @@ from subprocess import check_call
 root_dir = Path(__file__).absolute().parent.parent
 os.chdir(root_dir)
 
-check_call([
-    "protoc", "--python_out=aioesphomeapi", "-I", "aioesphomeapi",
-    "aioesphomeapi/api.proto", "aioesphomeapi/api_options.proto"
-])
+check_call(
+    [
+        "protoc",
+        "--python_out=aioesphomeapi",
+        "-I",
+        "aioesphomeapi",
+        "aioesphomeapi/api.proto",
+        "aioesphomeapi/api_options.proto",
+    ]
+)
 
 # https://github.com/protocolbuffers/protobuf/issues/1491
-api_file = root_dir / 'aioesphomeapi' / 'api_pb2.py'
+api_file = root_dir / "aioesphomeapi" / "api_pb2.py"
 content = api_file.read_text().replace(
     "import api_options_pb2 as api__options__pb2",
-    "from . import api_options_pb2 as api__options__pb2"
+    "from . import api_options_pb2 as api__options__pb2",
 )
 api_file.write_text(content)
 
-for fname in ['api_pb2.py', 'api_options_pb2.py']:
-    file = root_dir / 'aioesphomeapi' / fname
-    content = '# type: ignore\n' + file.read_text()
+for fname in ["api_pb2.py", "api_options_pb2.py"]:
+    file = root_dir / "aioesphomeapi" / fname
+    content = "# type: ignore\n" + file.read_text()
     file.write_text(content)

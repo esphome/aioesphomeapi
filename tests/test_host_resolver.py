@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import socket
 from ipaddress import IPv6Address, ip_address
+import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
-import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.core import APIConnectionError, ResolveAPIError
+import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.zeroconf import ZeroconfManager
 
 

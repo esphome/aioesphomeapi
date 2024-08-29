@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import time
+from collections.abc import Awaitable
 from datetime import datetime, timezone
 from functools import partial
-from typing import Awaitable, Callable
+import time
+from typing import Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from google.protobuf import message
