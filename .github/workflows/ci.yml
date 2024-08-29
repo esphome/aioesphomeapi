@@ -76,7 +76,7 @@ jobs:
       - run: pylint aioesphomeapi
         name: Lint with pylint
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
-      - run: ruff aioesphomeapi tests
+      - run: ruff check aioesphomeapi tests
         name: Check formatting with ruff
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' }}
       - run: mypy aioesphomeapi
