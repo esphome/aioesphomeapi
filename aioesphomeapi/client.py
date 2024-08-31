@@ -910,11 +910,17 @@ class APIClient:
         return stop_notify, remove_callback
 
     def subscribe_home_assistant_states(
-        self, on_state_sub: Callable[[str, str | None], None]
+        self,
+        on_state_sub: Callable[[str, str | None], None],
+        on_state_request: Callable[[str, str | None], None] | None = None,
     ) -> None:
         self._get_connection().send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
-            partial(on_subscribe_home_assistant_state_response, on_state_sub),
+            partial(
+                on_subscribe_home_assistant_state_response,
+                on_state_sub,
+                on_state_request,
+            ),
             (SubscribeHomeAssistantStateResponse,),
         )
 

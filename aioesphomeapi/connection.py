@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import aiohappyeyeballs
 from async_interrupt import interrupt
 from google.protobuf import message
+from google.protobuf.json_format import MessageToDict
 
 import aioesphomeapi.host_resolver as hr
 
@@ -100,6 +101,7 @@ TCP_CONNECT_TIMEOUT = 60.0
 
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
+_WIN32 = sys.platform == "win32"
 
 _int = int
 _bytes = bytes
@@ -372,6 +374,13 @@ class APIConnection:
         self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+        except AttributeError:
+            _LOGGER.debug(
+                "%s: TCP_QUICKACK not supported",
+                self.log_name,
+            )
         self._increase_recv_buffer_size()
         self.connected_address = sock.getpeername()[0]
 
@@ -712,7 +721,13 @@ class APIConnection:
         if debug_enabled := self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(
-                    "%s: Sending %s: %s", self.log_name, type(msg).__name__, msg
+                    "%s: Sending %s: %s",
+                    self.log_name,
+                    type(msg).__name__,
+                    # calling __str__ on the message may crash on
+                    # Windows systems due to a bug in the protobuf library
+                    # so we call MessageToDict instead
+                    MessageToDict(msg) if _WIN32 else msg,
                 )
 
         if TYPE_CHECKING:
@@ -911,7 +926,10 @@ class APIConnection:
                 "%s: Got message of type %s: %s",
                 self.log_name,
                 msg_type.__name__,
-                msg,
+                # calling __str__ on the message may crash on
+                # Windows systems due to a bug in the protobuf library
+                # so we call MessageToDict instead
+                MessageToDict(msg) if _WIN32 else msg,
             )
 
         if self._pong_timer is not None:

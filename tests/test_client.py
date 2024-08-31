@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from functools import partial
 import itertools
 import logging
 import socket
-from functools import partial
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -89,6 +89,7 @@ from aioesphomeapi.model import (
     BinarySensorInfo,
     BinarySensorState,
     BluetoothDeviceRequestType,
+    BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
     CameraState,
@@ -108,13 +109,8 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
-)
-from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
-from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
-)
-from aioesphomeapi.model import VoiceAssistantEventType as VoiceAssistantEventModelType
-from aioesphomeapi.model import (
+    VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
@@ -1888,13 +1884,21 @@ async def test_subscribe_home_assistant_states(
     """Test subscribe_home_assistant_states."""
     client, connection, transport, protocol = api_client
     states = []
+    requests = []
 
     def on_subscribe_home_assistant_states(
         entity_id: str, attribute: str | None
     ) -> None:
         states.append((entity_id, attribute))
 
-    client.subscribe_home_assistant_states(on_subscribe_home_assistant_states)
+    def on_request_home_assistant_state(entity_id: str, attribute: str | None) -> None:
+        requests.append((entity_id, attribute))
+
+    client.subscribe_home_assistant_states(
+        on_subscribe_home_assistant_states,
+        on_request_home_assistant_state,
+    )
+
     await asyncio.sleep(0)
 
     response: message.Message = SubscribeHomeAssistantStateResponse(
@@ -1902,7 +1906,23 @@ async def test_subscribe_home_assistant_states(
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
 
-    assert states == [("sensor.red", "any")]
+    response: message.Message = SubscribeHomeAssistantStateResponse(
+        entity_id="sensor.green"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    response: message.Message = SubscribeHomeAssistantStateResponse(
+        entity_id="sensor.blue", attribute="any", once=True
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    response: message.Message = SubscribeHomeAssistantStateResponse(
+        entity_id="sensor.white", once=True
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert states == [("sensor.red", "any"), ("sensor.green", "")]
+    assert requests == [("sensor.blue", "any"), ("sensor.white", "")]
 
 
 @pytest.mark.asyncio

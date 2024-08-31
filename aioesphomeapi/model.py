@@ -839,12 +839,42 @@ class MediaPlayerCommand(APIIntEnum):
     UNJOIN = 19
 
 
+class MediaPlayerFormatPurpose(APIIntEnum):
+    DEFAULT = 0
+    ANNOUNCEMENT = 1
+
+
+@_frozen_dataclass_decorator
+class MediaPlayerSupportedFormat(APIModelBase):
+    format: str
+    sample_rate: int
+    num_channels: int
+    purpose: MediaPlayerFormatPurpose | None = converter_field(
+        default=MediaPlayerFormatPurpose.DEFAULT,
+        converter=MediaPlayerFormatPurpose.convert,
+    )
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[MediaPlayerSupportedFormat]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(MediaPlayerSupportedFormat.from_dict(x))
+            else:
+                ret.append(MediaPlayerSupportedFormat.from_pb(x))
+        return ret
+
+
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
     supports_next_previous_track: bool = False
     supports_turn_off_on: bool = False
     supports_grouping: bool = False
+
+    supported_formats: list[MediaPlayerSupportedFormat] = converter_field(
+        default_factory=list, converter=MediaPlayerSupportedFormat.convert_list
+    )
 
 
 @_frozen_dataclass_decorator

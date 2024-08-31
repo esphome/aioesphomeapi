@@ -12,6 +12,7 @@ cdef float KEEP_ALIVE_TIMEOUT_RATIO
 cdef object HANDSHAKE_TIMEOUT
 
 cdef bint TYPE_CHECKING
+cdef bint _WIN32
 
 cdef object WRITE_EXCEPTIONS
 

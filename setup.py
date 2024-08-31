@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """aioesphomeapi setup script."""
-import os
+
 from distutils.command.build_ext import build_ext
+import os
 
 from setuptools import find_packages, setup
 
@@ -11,7 +12,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "25.1.1"
+VERSION = "25.3.1"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
