@@ -393,3 +393,5 @@ MESSAGE_TYPE_TO_PROTO = {
     117: UpdateStateResponse,
     118: UpdateCommandRequest,
 }
+
+MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

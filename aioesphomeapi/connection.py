@@ -63,6 +63,9 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
+MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
+
+
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
 MIN_BUFFER_SIZE = 131072  # Minimum buffer size to use
 
@@ -888,22 +891,27 @@ class APIConnection:
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
         debug_enabled = self._debug_enabled
-        if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s: Skipping unknown message type %s",
-                    self.log_name,
-                    msg_type_proto,
-                )
-            return
-
         try:
+            # MESSAGE_NUMBER_TO_PROTO is 0-indexed
+            # but the message type is 1-indexed
+            klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
             msg: message.Message = klass()
             # MergeFromString instead of ParseFromString since
             # ParseFromString will clear the message first and
             # the msg is already empty.
             msg.MergeFromString(data)
         except Exception as e:
+            # IndexError will be very rare so we check for it
+            # after the broad exception catch to avoid having
+            # to check the exception type twice for the common case
+            if isinstance(e, IndexError):
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s: Skipping unknown message type %s",
+                        self.log_name,
+                        msg_type_proto,
+                    )
+                return
             _LOGGER.error(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
                 self.log_name,

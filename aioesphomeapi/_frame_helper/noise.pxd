@@ -49,7 +49,9 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     @cython.locals(
         msg=bytes,
         type_high="unsigned char",
-        type_low="unsigned char"
+        type_low="unsigned char",
+        msg_type="unsigned int",
+        payload=bytes
     )
     cdef void _handle_frame(self, bytes frame)
 

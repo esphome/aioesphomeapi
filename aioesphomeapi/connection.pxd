@@ -73,6 +73,8 @@ cpdef void handle_complex_message(
 cdef object _handle_timeout
 cdef object _handle_complex_message
 
+cdef tuple MESSAGE_NUMBER_TO_PROTO
+
 
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
@@ -119,7 +121,7 @@ cdef class APIConnection:
     cdef void send_messages(self, tuple messages)
 
     @cython.locals(handlers=set, handlers_copy=set)
-    cpdef void process_packet(self, object msg_type_proto, object data)
+    cpdef void process_packet(self, unsigned int msg_type_proto, object data)
 
     cdef void _async_cancel_pong_timer(self)
 
