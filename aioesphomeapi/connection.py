@@ -63,7 +63,8 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
-MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
+# There is no message 0
+MESSAGE_NUMBER_TO_PROTO = tuple([None, *MESSAGE_TYPE_TO_PROTO.values()])
 
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
@@ -892,7 +893,7 @@ class APIConnection:
         """Process an incoming packet."""
         debug_enabled = self._debug_enabled
         try:
-            klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto + 1]
+            klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto]
         except IndexError:
             if debug_enabled:
                 _LOGGER.debug(
