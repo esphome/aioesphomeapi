@@ -70,14 +70,14 @@ from .api_pb2 import (  # type: ignore
     UnsubscribeBluetoothLEAdvertisementsRequest,
     UpdateCommandRequest,
     ValveCommandRequest,
+    VoiceAssistantAnnounceFinished,
+    VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
-    VoiceAssistantAnnounceRequest,
-    VoiceAssistantAnnounceFinished,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
