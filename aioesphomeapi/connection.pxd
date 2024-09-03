@@ -73,8 +73,10 @@ cpdef void handle_complex_message(
 cdef object _handle_timeout
 cdef object _handle_complex_message
 
+
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
+
     cdef public list addresses
     cdef public object port
     cdef public object password
@@ -83,6 +85,7 @@ cdef class ConnectionParams:
     cdef public object zeroconf_manager
     cdef public object noise_psk
     cdef public object expected_name
+
 
 cdef class APIConnection:
 
@@ -137,7 +140,11 @@ cdef class APIConnection:
     cpdef void report_fatal_error(self, Exception err)
 
     @cython.locals(handlers=set)
-    cdef void _add_message_callback_without_remove(self, object on_message, tuple msg_types)
+    cdef void _add_message_callback_without_remove(
+        self,
+        object on_message,
+        tuple msg_types
+    )
 
     cpdef add_message_callback(self, object on_message, tuple msg_types)
 
