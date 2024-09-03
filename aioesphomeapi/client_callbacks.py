@@ -90,9 +90,13 @@ def on_bluetooth_gatt_notify_data_response(
 
 def on_subscribe_home_assistant_state_response(
     on_state_sub: Callable[[str, str | None], None],
+    on_state_request: Callable[[str, str | None], None] | None,
     msg: SubscribeHomeAssistantStateResponse,
 ) -> None:
-    on_state_sub(msg.entity_id, msg.attribute)
+    if on_state_request and msg.once:
+        on_state_request(msg.entity_id, msg.attribute)
+    else:
+        on_state_sub(msg.entity_id, msg.attribute)
 
 
 def on_bluetooth_device_connection_response(
@@ -114,11 +118,13 @@ def on_bluetooth_device_connection_response(
 def on_bluetooth_handle_message(
     address: int,
     handle: int,
-    msg: BluetoothGATTErrorResponse
-    | BluetoothGATTNotifyResponse
-    | BluetoothGATTReadResponse
-    | BluetoothGATTWriteResponse
-    | BluetoothDeviceConnectionResponse,
+    msg: (
+        BluetoothGATTErrorResponse
+        | BluetoothGATTNotifyResponse
+        | BluetoothGATTReadResponse
+        | BluetoothGATTWriteResponse
+        | BluetoothDeviceConnectionResponse
+    ),
 ) -> bool:
     """Filter a Bluetooth message for an address and handle."""
     if type(msg) is BluetoothDeviceConnectionResponse:
@@ -128,15 +134,17 @@ def on_bluetooth_handle_message(
 
 def on_bluetooth_message_types(
     address: int,
-    msg_types: tuple[type[message.Message]],
-    msg: BluetoothGATTErrorResponse
-    | BluetoothGATTNotifyResponse
-    | BluetoothGATTReadResponse
-    | BluetoothGATTWriteResponse
-    | BluetoothDeviceConnectionResponse
-    | BluetoothGATTGetServicesResponse
-    | BluetoothGATTGetServicesDoneResponse
-    | BluetoothGATTErrorResponse,
+    msg_types: tuple[type[message.Message], ...],
+    msg: (
+        BluetoothGATTErrorResponse
+        | BluetoothGATTNotifyResponse
+        | BluetoothGATTReadResponse
+        | BluetoothGATTWriteResponse
+        | BluetoothDeviceConnectionResponse
+        | BluetoothGATTGetServicesResponse
+        | BluetoothGATTGetServicesDoneResponse
+        | BluetoothGATTErrorResponse
+    ),
 ) -> bool:
     """Filter Bluetooth messages of a specific type and address."""
     return type(msg) in msg_types and bool(msg.address == address)

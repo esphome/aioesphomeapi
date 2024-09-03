@@ -5,12 +5,15 @@ from datetime import timedelta
 from functools import partial
 from unittest.mock import MagicMock, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
-from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore
-from aioesphomeapi.api_pb2 import DisconnectRequest, DisconnectResponse
+from aioesphomeapi.api_pb2 import (
+    DisconnectRequest,
+    DisconnectResponse,
+    SubscribeLogsResponse,  # type: ignore
+)
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import APIConnectionError
@@ -31,7 +34,6 @@ from .common import (
 
 @pytest.mark.asyncio
 async def test_log_runner(
-    event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     aiohappyeyeballs_start_connection,
 ):
@@ -47,7 +49,7 @@ async def test_log_runner(
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=None,
@@ -69,13 +71,16 @@ async def test_log_runner(
     subscribed = asyncio.Event()
     original_subscribe_logs = cli.subscribe_logs
 
-    async def _wait_subscribe_cli(*args, **kwargs):
-        await original_subscribe_logs(*args, **kwargs)
+    def _wait_subscribe_cli(*args, **kwargs):
+        original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
+    with (
+        patch.object(
+            loop, "create_connection", side_effect=_create_mock_transport_protocol
+        ),
+        patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
+    ):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -97,7 +102,6 @@ async def test_log_runner(
 
 @pytest.mark.asyncio
 async def test_log_runner_reconnects_on_disconnect(
-    event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
@@ -114,7 +118,7 @@ async def test_log_runner_reconnects_on_disconnect(
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=None,
@@ -136,13 +140,16 @@ async def test_log_runner_reconnects_on_disconnect(
     subscribed = asyncio.Event()
     original_subscribe_logs = cli.subscribe_logs
 
-    async def _wait_subscribe_cli(*args, **kwargs):
-        await original_subscribe_logs(*args, **kwargs)
+    def _wait_subscribe_cli(*args, **kwargs):
+        original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    with patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(cli, "subscribe_logs", _wait_subscribe_cli):
+    with (
+        patch.object(
+            loop, "create_connection", side_effect=_create_mock_transport_protocol
+        ),
+        patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
+    ):
         stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
         await connected.wait()
         protocol = cli._connection._frame_helper
@@ -175,7 +182,6 @@ async def test_log_runner_reconnects_on_disconnect(
 
 @pytest.mark.asyncio
 async def test_log_runner_reconnects_on_subscribe_failure(
-    event_loop: asyncio.AbstractEventLoop,
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
@@ -192,7 +198,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
     async_zeroconf = get_mock_async_zeroconf()
 
     cli = PatchableAPIClient(
-        address=Estr("1.2.3.4"),
+        address=Estr("127.0.0.1"),
         port=6052,
         password=None,
         noise_psk=None,
@@ -213,13 +219,14 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     subscribed = asyncio.Event()
 
-    async def _wait_and_fail_subscribe_cli(*args, **kwargs):
+    def _wait_and_fail_subscribe_cli(*args, **kwargs):
         subscribed.set()
         raise APIConnectionError("subscribed force to fail")
 
-    with patch.object(
-        cli, "disconnect", partial(cli.disconnect, force=True)
-    ), patch.object(cli, "subscribe_logs", _wait_and_fail_subscribe_cli):
+    with (
+        patch.object(cli, "disconnect", partial(cli.disconnect, force=True)),
+        patch.object(cli, "subscribe_logs", _wait_and_fail_subscribe_cli),
+    ):
         with patch.object(
             loop, "create_connection", side_effect=_create_mock_transport_protocol
         ):
@@ -233,9 +240,12 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     assert cli._connection is None
 
-    with patch.object(
-        loop, "create_connection", side_effect=_create_mock_transport_protocol
-    ), patch.object(cli, "subscribe_logs"):
+    with (
+        patch.object(
+            loop, "create_connection", side_effect=_create_mock_transport_protocol
+        ),
+        patch.object(cli, "subscribe_logs"),
+    ):
         connected.clear()
         await asyncio.sleep(0)
         async_fire_time_changed(
@@ -245,6 +255,11 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     stop_task = asyncio.create_task(stop())
     await asyncio.sleep(0)
+
+    send_plaintext_connect_response(protocol, False)
+    send_plaintext_hello(protocol)
+
     disconnect_response = DisconnectResponse()
     mock_data_received(protocol, generate_plaintext_packet(disconnect_response))
+
     await stop_task

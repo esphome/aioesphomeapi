@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Coroutine
 from functools import partial
+import logging
 from typing import TYPE_CHECKING, Any, Callable, Union
 
 from google.protobuf import message
@@ -37,6 +37,8 @@ from .api_pb2 import (  # type: ignore
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    DateCommandRequest,
+    DateTimeCommandRequest,
     DeviceInfoRequest,
     DeviceInfoResponse,
     ExecuteServiceArgument,
@@ -64,11 +66,16 @@ from .api_pb2 import (  # type: ignore
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     TextCommandRequest,
+    TimeCommandRequest,
     UnsubscribeBluetoothLEAdvertisementsRequest,
+    UpdateCommandRequest,
+    ValveCommandRequest,
+    VoiceAssistantAudio,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantTimerEventResponse,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
@@ -117,20 +124,22 @@ from .model import (
     LockCommand,
     LogLevel,
     MediaPlayerCommand,
+    UpdateCommand,
     UserService,
     UserServiceArgType,
-)
-from .model import VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel
-from .model import (
+    VoiceAssistantAudioData,
+    VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
     VoiceAssistantEventType,
+    VoiceAssistantSubscriptionFlag,
+    VoiceAssistantTimerEventType,
     message_types_to_names,
 )
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
 )
-from .util import build_log_name
+from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -319,7 +328,7 @@ class APIClient:
 
     async def start_connection(
         self,
-        on_stop: Callable[[bool], Awaitable[None]] | None = None,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
     ) -> None:
         """Start connecting to the device."""
         if self._connection is not None:
@@ -410,7 +419,7 @@ class APIClient:
                 entities.append(cls.from_pb(msg))
         return entities, services
 
-    async def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
+    def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         """Subscribe to state updates."""
         self._get_connection().send_message_callback_response(
             SubscribeStatesRequest(),
@@ -418,7 +427,7 @@ class APIClient:
             SUBSCRIBE_STATES_MSG_TYPES,
         )
 
-    async def subscribe_logs(
+    def subscribe_logs(
         self,
         on_log: Callable[[SubscribeLogsResponse], None],
         log_level: LogLevel | None = None,
@@ -433,7 +442,7 @@ class APIClient:
             req, on_log, (SubscribeLogsResponse,)
         )
 
-    async def subscribe_service_calls(
+    def subscribe_service_calls(
         self, on_service_call: Callable[[HomeassistantServiceCall], None]
     ) -> None:
         self._get_connection().send_message_callback_response(
@@ -479,7 +488,7 @@ class APIClient:
             unsub_callback()
             self._connection.send_message(UnsubscribeBluetoothLEAdvertisementsRequest())
 
-    async def subscribe_bluetooth_le_advertisements(
+    def subscribe_bluetooth_le_advertisements(
         self, on_bluetooth_le_advertisement: Callable[[BluetoothLEAdvertisement], None]
     ) -> Callable[[], None]:
         unsub_callback = self._get_connection().send_message_callback_response(
@@ -492,7 +501,7 @@ class APIClient:
         )
         return partial(self._unsub_bluetooth_advertisements, unsub_callback)
 
-    async def subscribe_bluetooth_le_raw_advertisements(
+    def subscribe_bluetooth_le_raw_advertisements(
         self, on_advertisements: Callable[[BluetoothLERawAdvertisementsResponse], None]
     ) -> Callable[[], None]:
         unsub_callback = self._get_connection().send_message_callback_response(
@@ -504,7 +513,7 @@ class APIClient:
         )
         return partial(self._unsub_bluetooth_advertisements, unsub_callback)
 
-    async def subscribe_bluetooth_connections_free(
+    def subscribe_bluetooth_connections_free(
         self, on_bluetooth_connections_free_update: Callable[[int, int], None]
     ) -> Callable[[], None]:
         return self._get_connection().send_message_callback_response(
@@ -776,8 +785,9 @@ class APIClient:
 
     async def _bluetooth_gatt_read(
         self,
-        req_type: type[BluetoothGATTReadDescriptorRequest]
-        | type[BluetoothGATTReadRequest],
+        req_type: (
+            type[BluetoothGATTReadDescriptorRequest] | type[BluetoothGATTReadRequest]
+        ),
         address: int,
         handle: int,
         timeout: float,
@@ -899,16 +909,22 @@ class APIClient:
 
         return stop_notify, remove_callback
 
-    async def subscribe_home_assistant_states(
-        self, on_state_sub: Callable[[str, str | None], None]
+    def subscribe_home_assistant_states(
+        self,
+        on_state_sub: Callable[[str, str | None], None],
+        on_state_request: Callable[[str, str | None], None] | None = None,
     ) -> None:
         self._get_connection().send_message_callback_response(
             SubscribeHomeAssistantStatesRequest(),
-            partial(on_subscribe_home_assistant_state_response, on_state_sub),
+            partial(
+                on_subscribe_home_assistant_state_response,
+                on_state_sub,
+                on_state_request,
+            ),
             (SubscribeHomeAssistantStateResponse,),
         )
 
-    async def send_home_assistant_state(
+    def send_home_assistant_state(
         self, entity_id: str, attribute: str | None, state: str
     ) -> None:
         self._get_connection().send_message(
@@ -919,13 +935,14 @@ class APIClient:
             )
         )
 
-    async def cover_command(
+    def cover_command(
         self,
         key: int,
         position: float | None = None,
         tilt: float | None = None,
         stop: bool = False,
     ) -> None:
+        connection = self._get_connection()
         req = CoverCommandRequest(key=key)
         apiv = self.api_version
         if TYPE_CHECKING:
@@ -939,19 +956,18 @@ class APIClient:
                 req.tilt = tilt
             if stop:
                 req.stop = stop
-        else:
-            if stop:
-                req.legacy_command = LegacyCoverCommand.STOP
-                req.has_legacy_command = True
-            elif position == 1.0:
-                req.legacy_command = LegacyCoverCommand.OPEN
-                req.has_legacy_command = True
-            elif position == 0.0:
-                req.legacy_command = LegacyCoverCommand.CLOSE
-                req.has_legacy_command = True
-        self._get_connection().send_message(req)
+        elif stop:
+            req.legacy_command = LegacyCoverCommand.STOP
+            req.has_legacy_command = True
+        elif position == 1.0:
+            req.legacy_command = LegacyCoverCommand.OPEN
+            req.has_legacy_command = True
+        elif position == 0.0:
+            req.legacy_command = LegacyCoverCommand.CLOSE
+            req.has_legacy_command = True
+        connection.send_message(req)
 
-    async def fan_command(
+    def fan_command(
         self,
         key: int,
         state: bool | None = None,
@@ -982,7 +998,7 @@ class APIClient:
             req.preset_mode = preset_mode
         self._get_connection().send_message(req)
 
-    async def light_command(  # pylint: disable=too-many-branches
+    def light_command(  # pylint: disable=too-many-branches
         self,
         key: int,
         state: bool | None = None,
@@ -1039,10 +1055,10 @@ class APIClient:
             req.effect = effect
         self._get_connection().send_message(req)
 
-    async def switch_command(self, key: int, state: bool) -> None:
+    def switch_command(self, key: int, state: bool) -> None:
         self._get_connection().send_message(SwitchCommandRequest(key=key, state=state))
 
-    async def climate_command(  # pylint: disable=too-many-branches
+    def climate_command(  # pylint: disable=too-many-branches
         self,
         key: int,
         mode: ClimateMode | None = None,
@@ -1056,6 +1072,7 @@ class APIClient:
         custom_preset: str | None = None,
         target_humidity: float | None = None,
     ) -> None:
+        connection = self._get_connection()
         req = ClimateCommandRequest(key=key)
         if mode is not None:
             req.has_mode = True
@@ -1094,15 +1111,37 @@ class APIClient:
         if target_humidity is not None:
             req.has_target_humidity = True
             req.target_humidity = target_humidity
-        self._get_connection().send_message(req)
+        connection.send_message(req)
 
-    async def number_command(self, key: int, state: float) -> None:
+    def number_command(self, key: int, state: float) -> None:
         self._get_connection().send_message(NumberCommandRequest(key=key, state=state))
 
-    async def select_command(self, key: int, state: str) -> None:
+    def date_command(self, key: int, year: int, month: int, day: int) -> None:
+        self._get_connection().send_message(
+            DateCommandRequest(key=key, year=year, month=month, day=day)
+        )
+
+    def time_command(self, key: int, hour: int, minute: int, second: int) -> None:
+        self._get_connection().send_message(
+            TimeCommandRequest(key=key, hour=hour, minute=minute, second=second)
+        )
+
+    def datetime_command(
+        self,
+        key: int,
+        epoch_seconds: int,
+    ) -> None:
+        self._get_connection().send_message(
+            DateTimeCommandRequest(
+                key=key,
+                epoch_seconds=epoch_seconds,
+            )
+        )
+
+    def select_command(self, key: int, state: str) -> None:
         self._get_connection().send_message(SelectCommandRequest(key=key, state=state))
 
-    async def siren_command(
+    def siren_command(
         self,
         key: int,
         state: bool | None = None,
@@ -1125,10 +1164,10 @@ class APIClient:
             req.has_duration = True
         self._get_connection().send_message(req)
 
-    async def button_command(self, key: int) -> None:
+    def button_command(self, key: int) -> None:
         self._get_connection().send_message(ButtonCommandRequest(key=key))
 
-    async def lock_command(
+    def lock_command(
         self,
         key: int,
         command: LockCommand,
@@ -1139,13 +1178,28 @@ class APIClient:
             req.code = code
         self._get_connection().send_message(req)
 
-    async def media_player_command(
+    def valve_command(
+        self,
+        key: int,
+        position: float | None = None,
+        stop: bool = False,
+    ) -> None:
+        req = ValveCommandRequest(key=key)
+        if position is not None:
+            req.has_position = True
+            req.position = position
+        if stop:
+            req.stop = stop
+        self._get_connection().send_message(req)
+
+    def media_player_command(
         self,
         key: int,
         *,
         command: MediaPlayerCommand | None = None,
         volume: float | None = None,
         media_url: str | None = None,
+        announcement: bool | None = None,
     ) -> None:
         req = MediaPlayerCommandRequest(key=key)
         if command is not None:
@@ -1157,14 +1211,23 @@ class APIClient:
         if media_url is not None:
             req.media_url = media_url
             req.has_media_url = True
+        if announcement is not None:
+            req.announcement = announcement
+            req.has_announcement = True
         self._get_connection().send_message(req)
 
-    async def text_command(self, key: int, state: str) -> None:
+    def text_command(self, key: int, state: str) -> None:
         self._get_connection().send_message(TextCommandRequest(key=key, state=state))
 
-    async def execute_service(
+    def update_command(self, key: int, command: UpdateCommand) -> None:
+        self._get_connection().send_message(
+            UpdateCommandRequest(key=key, command=command)
+        )
+
+    def execute_service(
         self, service: UserService, data: ExecuteServiceDataType
     ) -> None:
+        connection = self._get_connection()
         req = ExecuteServiceRequest(key=service.key)
         args = []
         apiv = self.api_version
@@ -1189,20 +1252,18 @@ class APIClient:
         # pylint: disable=no-member
         req.args.extend(args)
 
-        self._get_connection().send_message(req)
+        connection.send_message(req)
 
-    async def _request_image(
-        self, *, single: bool = False, stream: bool = False
-    ) -> None:
+    def _request_image(self, *, single: bool = False, stream: bool = False) -> None:
         self._get_connection().send_message(
             CameraImageRequest(single=single, stream=stream)
         )
 
-    async def request_single_image(self) -> None:
-        await self._request_image(single=True)
+    def request_single_image(self) -> None:
+        self._request_image(single=True)
 
-    async def request_image_stream(self) -> None:
-        await self._request_image(stream=True)
+    def request_image_stream(self) -> None:
+        self._request_image(stream=True)
 
     @property
     def api_version(self) -> APIVersion | None:
@@ -1210,13 +1271,21 @@ class APIClient:
             return None
         return self._connection.api_version
 
-    async def subscribe_voice_assistant(
+    def subscribe_voice_assistant(
         self,
+        *,
         handle_start: Callable[
-            [str, int, VoiceAssistantAudioSettingsModel],
+            [str, int, VoiceAssistantAudioSettingsModel, str | None],
             Coroutine[Any, Any, int | None],
         ],
         handle_stop: Callable[[], Coroutine[Any, Any, None]],
+        handle_audio: (
+            Callable[
+                [bytes],
+                Coroutine[Any, Any, None],
+            ]
+            | None
+        ) = None,
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
 
@@ -1245,9 +1314,15 @@ class APIClient:
 
             command = VoiceAssistantCommand.from_pb(msg)
             if command.start:
-                start_task = asyncio.create_task(
+                wake_word_phrase: str | None = command.wake_word_phrase
+                if wake_word_phrase == "":
+                    wake_word_phrase = None
+                start_task = create_eager_task(
                     handle_start(
-                        command.conversation_id, command.flags, command.audio_settings
+                        command.conversation_id,
+                        command.flags,
+                        command.audio_settings,
+                        wake_word_phrase,
                     )
                 )
                 start_task.add_done_callback(_started)
@@ -1256,17 +1331,40 @@ class APIClient:
             else:
                 self._create_background_task(handle_stop())
 
-        connection.send_message(SubscribeVoiceAssistantRequest(subscribe=True))
+        remove_callbacks = []
+        flags = 0
+        if handle_audio is not None:
+            flags |= VoiceAssistantSubscriptionFlag.API_AUDIO
 
-        remove_callback = connection.add_message_callback(
-            _on_voice_assistant_request, (VoiceAssistantRequest,)
+            def _on_voice_assistant_audio(msg: VoiceAssistantAudio) -> None:
+                audio = VoiceAssistantAudioData.from_pb(msg)
+                if audio.end:
+                    self._create_background_task(handle_stop())
+                else:
+                    self._create_background_task(handle_audio(audio.data))
+
+            remove_callbacks.append(
+                connection.add_message_callback(
+                    _on_voice_assistant_audio, (VoiceAssistantAudio,)
+                )
+            )
+
+        connection.send_message(
+            SubscribeVoiceAssistantRequest(subscribe=True, flags=flags)
+        )
+
+        remove_callbacks.append(
+            connection.add_message_callback(
+                _on_voice_assistant_request, (VoiceAssistantRequest,)
+            )
         )
 
         def unsub() -> None:
             nonlocal start_task
 
             if self._connection is not None:
-                remove_callback()
+                for remove_callback in remove_callbacks:
+                    remove_callback()
                 self._connection.send_message(
                     SubscribeVoiceAssistantRequest(subscribe=False)
                 )
@@ -1278,7 +1376,7 @@ class APIClient:
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""
-        task = asyncio.create_task(coro)
+        task = create_eager_task(coro)
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 
@@ -1296,7 +1394,30 @@ class APIClient:
             )
         self._get_connection().send_message(req)
 
-    async def alarm_control_panel_command(
+    def send_voice_assistant_audio(self, data: bytes) -> None:
+        req = VoiceAssistantAudio(data=data)
+        self._get_connection().send_message(req)
+
+    def send_voice_assistant_timer_event(
+        self,
+        event_type: VoiceAssistantTimerEventType,
+        timer_id: str,
+        name: str | None,
+        total_seconds: int,
+        seconds_left: int,
+        is_active: bool,
+    ) -> None:
+        req = VoiceAssistantTimerEventResponse(
+            event_type=event_type,
+            timer_id=timer_id,
+            name=name,
+            total_seconds=total_seconds,
+            seconds_left=seconds_left,
+            is_active=is_active,
+        )
+        self._get_connection().send_message(req)
+
+    def alarm_control_panel_command(
         self,
         key: int,
         command: AlarmControlPanelCommand,

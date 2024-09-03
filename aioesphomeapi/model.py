@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import enum
-import sys
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
+import enum
 from functools import cache, lru_cache, partial
+import sys
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 from uuid import UUID
 
@@ -97,7 +97,8 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
     return cast(
-        _V, field(metadata=metadata, **kwargs)  # pylint: disable=invalid-field-call
+        _V,
+        field(metadata=metadata, **kwargs),  # pylint: disable=invalid-field-call
     )
 
 
@@ -120,6 +121,17 @@ class BluetoothProxySubscriptionFlag(enum.IntFlag):
     RAW_ADVERTISEMENTS = 1 << 0
 
 
+class VoiceAssistantFeature(enum.IntFlag):
+    VOICE_ASSISTANT = 1 << 0
+    SPEAKER = 1 << 1
+    API_AUDIO = 1 << 2
+    TIMERS = 1 << 3
+
+
+class VoiceAssistantSubscriptionFlag(enum.IntFlag):
+    API_AUDIO = 1 << 2
+
+
 @_frozen_dataclass_decorator
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
@@ -134,7 +146,8 @@ class DeviceInfo(APIModelBase):
     project_name: str = ""
     project_version: str = ""
     webserver_port: int = 0
-    voice_assistant_version: int = 0
+    legacy_voice_assistant_version: int = 0
+    voice_assistant_feature_flags: int = 0
     legacy_bluetooth_proxy_version: int = 0
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
@@ -154,6 +167,16 @@ class DeviceInfo(APIModelBase):
                 flags |= BluetoothProxyFeature.CACHE_CLEARING
             return flags
         return self.bluetooth_proxy_feature_flags
+
+    def voice_assistant_feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 10):
+            flags: int = 0
+            if self.legacy_voice_assistant_version >= 1:
+                flags |= VoiceAssistantFeature.VOICE_ASSISTANT
+            if self.legacy_voice_assistant_version == 2:
+                flags |= VoiceAssistantFeature.SPEAKER
+            return flags
+        return self.voice_assistant_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -239,6 +262,18 @@ class CoverState(EntityState):
         if api_version < APIVersion(1, 1):
             return self.legacy_state == LegacyCoverState.CLOSED
         return self.position == 0.0
+
+
+# ==================== EVENT ==================
+@_frozen_dataclass_decorator
+class EventInfo(EntityInfo):
+    device_class: str = ""
+    event_types: list[str] = converter_field(default_factory=list, converter=list)
+
+
+@_frozen_dataclass_decorator
+class Event(EntityState):
+    event_type: str = ""
 
 
 # ==================== FAN ====================
@@ -441,7 +476,7 @@ class SwitchState(EntityState):
 # ==================== TEXT SENSOR ====================
 @_frozen_dataclass_decorator
 class TextSensorInfo(EntityInfo):
-    pass
+    device_class: str = ""
 
 
 @_frozen_dataclass_decorator
@@ -637,6 +672,50 @@ class NumberState(EntityState):
     missing_state: bool = False
 
 
+# ==================== DATETIME DATE ====================
+
+
+@_frozen_dataclass_decorator
+class DateInfo(EntityInfo):
+    pass
+
+
+@_frozen_dataclass_decorator
+class DateState(EntityState):
+    missing_state: bool = False
+    year: int = 0
+    month: int = 0
+    day: int = 0
+
+
+# ==================== DATETIME TIME ====================
+
+
+@_frozen_dataclass_decorator
+class TimeInfo(EntityInfo):
+    pass
+
+
+@_frozen_dataclass_decorator
+class TimeState(EntityState):
+    missing_state: bool = False
+    hour: int = 0
+    minute: int = 0
+    second: int = 0
+
+
+# ==================== DATETIME DATETIME ====================
+@_frozen_dataclass_decorator
+class DateTimeInfo(EntityInfo):
+    pass
+
+
+@_frozen_dataclass_decorator
+class DateTimeState(EntityState):
+    missing_state: bool = False
+    epoch_seconds: int = 0
+
+
 # ==================== SELECT ====================
 @_frozen_dataclass_decorator
 class SelectInfo(EntityInfo):
@@ -700,6 +779,31 @@ class LockEntityState(EntityState):
     )
 
 
+# ==================== VALVE ====================
+@_frozen_dataclass_decorator
+class ValveInfo(EntityInfo):
+    device_class: str = ""
+    assumed_state: bool = False
+    supports_stop: bool = False
+    supports_position: bool = False
+
+
+class ValveOperation(APIIntEnum):
+    IDLE = 0
+    IS_OPENING = 1
+    IS_CLOSING = 2
+
+
+@_frozen_dataclass_decorator
+class ValveState(EntityState):
+    position: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    current_operation: ValveOperation | None = converter_field(
+        default=ValveOperation.IDLE, converter=ValveOperation.convert
+    )
+
+
 # ==================== MEDIA PLAYER ====================
 class MediaPlayerState(APIIntEnum):
     NONE = 0
@@ -716,9 +820,39 @@ class MediaPlayerCommand(APIIntEnum):
     UNMUTE = 4
 
 
+class MediaPlayerFormatPurpose(APIIntEnum):
+    DEFAULT = 0
+    ANNOUNCEMENT = 1
+
+
+@_frozen_dataclass_decorator
+class MediaPlayerSupportedFormat(APIModelBase):
+    format: str
+    sample_rate: int
+    num_channels: int
+    purpose: MediaPlayerFormatPurpose | None = converter_field(
+        default=MediaPlayerFormatPurpose.DEFAULT,
+        converter=MediaPlayerFormatPurpose.convert,
+    )
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[MediaPlayerSupportedFormat]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(MediaPlayerSupportedFormat.from_dict(x))
+            else:
+                ret.append(MediaPlayerSupportedFormat.from_pb(x))
+        return ret
+
+
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
+
+    supported_formats: list[MediaPlayerSupportedFormat] = converter_field(
+        default_factory=list, converter=MediaPlayerSupportedFormat.convert_list
+    )
 
 
 @_frozen_dataclass_decorator
@@ -793,6 +927,33 @@ class TextState(EntityState):
     missing_state: bool = False
 
 
+# ==================== UPDATE ====================
+
+
+class UpdateCommand(APIIntEnum):
+    NONE = 0
+    INSTALL = 1
+    CHECK = 2
+
+
+@_frozen_dataclass_decorator
+class UpdateInfo(EntityInfo):
+    device_class: str = ""
+
+
+@_frozen_dataclass_decorator
+class UpdateState(EntityState):
+    missing_state: bool = False
+    in_progress: bool = False
+    has_progress: bool = False
+    progress: float = 0.0
+    current_version: str = ""
+    latest_version: str = ""
+    title: str = ""
+    release_summary: str = ""
+    release_url: str = ""
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
@@ -806,6 +967,8 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "camera": CameraInfo,
     "climate": ClimateInfo,
     "number": NumberInfo,
+    "date": DateInfo,
+    "datetime": DateTimeInfo,
     "select": SelectInfo,
     "siren": SirenInfo,
     "button": ButtonInfo,
@@ -813,6 +976,10 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "media_player": MediaPlayerInfo,
     "alarm_control_panel": AlarmControlPanelInfo,
     "text": TextInfo,
+    "time": TimeInfo,
+    "valve": ValveInfo,
+    "event": EventInfo,
+    "update": UpdateInfo,
 }
 
 
@@ -1115,6 +1282,13 @@ class VoiceAssistantCommand(APIModelBase):
         default=VoiceAssistantAudioSettings(),
         converter=VoiceAssistantAudioSettings.from_pb,
     )
+    wake_word_phrase: str = ""
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantAudioData(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+    end: bool = False
 
 
 class LogLevel(APIIntEnum):
@@ -1146,6 +1320,13 @@ class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_TTS_STREAM_END = 99
 
 
+class VoiceAssistantTimerEventType(APIIntEnum):
+    VOICE_ASSISTANT_TIMER_STARTED = 0
+    VOICE_ASSISTANT_TIMER_UPDATED = 1
+    VOICE_ASSISTANT_TIMER_CANCELLED = 2
+    VOICE_ASSISTANT_TIMER_FINISHED = 3
+
+
 _TYPE_TO_NAME = {
     BinarySensorInfo: "binary_sensor",
     ButtonInfo: "button",
@@ -1153,6 +1334,8 @@ _TYPE_TO_NAME = {
     FanInfo: "fan",
     LightInfo: "light",
     NumberInfo: "number",
+    DateInfo: "date",
+    DateTimeInfo: "datetime",
     SelectInfo: "select",
     SensorInfo: "sensor",
     SirenInfo: "siren",
@@ -1164,6 +1347,10 @@ _TYPE_TO_NAME = {
     MediaPlayerInfo: "media_player",
     AlarmControlPanelInfo: "alarm_control_panel",
     TextInfo: "text_info",
+    TimeInfo: "time",
+    ValveInfo: "valve",
+    EventInfo: "event",
+    UpdateInfo: "update",
 }
 
 

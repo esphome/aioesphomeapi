@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import Coroutine
+import logging
 from typing import Any, Callable
 
 from zeroconf.asyncio import AsyncZeroconf
@@ -33,7 +33,7 @@ async def async_run(
         """Handle a connection."""
         nonlocal dumped_config
         try:
-            await cli.subscribe_logs(
+            cli.subscribe_logs(
                 on_log,
                 log_level=log_level,
                 dump_config=not dumped_config,

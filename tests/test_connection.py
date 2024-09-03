@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import socket
+from contextlib import suppress
 from datetime import timedelta
 from functools import partial
+import logging
+import socket
 from typing import Callable, cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
@@ -24,12 +25,16 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
 from aioesphomeapi.core import (
+    APIConnectionCancelledError,
     APIConnectionError,
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
+    ReadFailedAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
+    SocketAPIError,
+    SocketClosedAPIError,
     TimeoutAPIError,
 )
 
@@ -55,7 +60,7 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 async def test_connect(
     plaintext_connect_task_no_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
-    ]
+    ],
 ) -> None:
     """Test that a plaintext connection works."""
     conn, transport, protocol, connect_task = plaintext_connect_task_no_login
@@ -135,8 +140,9 @@ async def test_disconnect_when_not_fully_connected(
     await asyncio.sleep(0)
     transport.reset_mock()
 
-    with patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0), patch(
-        "aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0
+    with (
+        patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0),
+        patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0),
     ):
         await conn.disconnect()
 
@@ -257,13 +263,17 @@ async def test_start_connection_cannot_increase_recv_buffer(
             raise OSError("Socket error")
 
     mock_socket: socket.socket = create_autospec(
-        socket.socket, spec_set=True, instance=True, name="bad_buffer_socket"
+        socket.socket, spec_set=True, instance=True
     )
     mock_socket.type = socket.SOCK_STREAM
     mock_socket.fileno.return_value = 1
     mock_socket.getpeername.return_value = ("10.0.0.512", 323)
     mock_socket.setsockopt = _setsockopt
-    mock_socket.sendmsg.side_effect = OSError("Socket error")
+    with suppress(AttributeError):
+        mock_socket.sendmsg.side_effect = OSError("Socket error")
+    mock_socket.send.side_effect = OSError("Socket error")
+    mock_socket.sendto.side_effect = OSError("Socket error")
+
     aiohappyeyeballs_start_connection.return_value = mock_socket
 
     with patch.object(
@@ -306,13 +316,16 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
                 raise OSError("Socket error")
 
     mock_socket: socket.socket = create_autospec(
-        socket.socket, spec_set=True, instance=True, name="bad_buffer_socket"
+        socket.socket, spec_set=True, instance=True
     )
     mock_socket.type = socket.SOCK_STREAM
     mock_socket.fileno.return_value = 1
     mock_socket.getpeername.return_value = ("10.0.0.512", 323)
     mock_socket.setsockopt = _setsockopt
-    mock_socket.sendmsg.side_effect = OSError("Socket error")
+    with suppress(AttributeError):
+        mock_socket.sendmsg.side_effect = OSError("Socket error")
+    mock_socket.send.side_effect = OSError("Socket error")
+    mock_socket.sendto.side_effect = OSError("Socket error")
     aiohappyeyeballs_start_connection.return_value = mock_socket
 
     with patch.object(
@@ -344,10 +357,13 @@ async def test_start_connection_times_out(
     async def _mock_socket_connect(*args, **kwargs):
         await asyncio.sleep(500)
 
-    with patch(
-        "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
-        side_effect=_mock_socket_connect,
-    ), patch("aioesphomeapi.connection.TCP_CONNECT_TIMEOUT", 0.0):
+    with (
+        patch(
+            "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
+            side_effect=_mock_socket_connect,
+        ),
+        patch("aioesphomeapi.connection.TCP_CONNECT_TIMEOUT", 0.0),
+    ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await asyncio.sleep(0)
 
@@ -438,7 +454,9 @@ async def test_finish_connection_times_out(
     async_fire_time_changed(utcnow() + timedelta(seconds=200))
     await asyncio.sleep(0)
 
-    with pytest.raises(APIConnectionError, match="Hello timed out"):
+    with pytest.raises(
+        APIConnectionError, match="Timeout waiting for HelloResponse after 30.0s"
+    ):
         await connect_task
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
@@ -454,6 +472,8 @@ async def test_finish_connection_times_out(
     ("exception_map"),
     [
         (OSError("Socket error"), HandshakeAPIError),
+        (APIConnectionError, APIConnectionError),
+        (SocketClosedAPIError, SocketClosedAPIError),
         (asyncio.TimeoutError, TimeoutAPIError),
         (asyncio.CancelledError, APIConnectionError),
     ],
@@ -497,38 +517,6 @@ async def test_plaintext_connection_fails_handshake(
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
     transport = MagicMock()
 
-    with patch(
-        "aioesphomeapi.connection.APIPlaintextFrameHelper",
-        APIPlaintextFrameHelperHandshakeException,
-    ), patch.object(
-        loop,
-        "create_connection",
-        side_effect=partial(
-            _create_failing_mock_transport_protocol, transport, connected
-        ),
-    ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
-        await connected.wait()
-
-    protocol = conn._frame_helper
-    assert conn._socket is not None
-    assert conn._frame_helper is not None
-
-    mock_data_received(
-        protocol,
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
-    )
-    mock_data_received(protocol, b"5stackatomproxy")
-    mock_data_received(protocol, b"\x00\x00$")
-    mock_data_received(protocol, b"\x00\x00\x04")
-    mock_data_received(
-        protocol,
-        b'\x00e\n\x12\x10m5stackatomproxy\x1a\x11E8:9F:6D:0A:68:E0"\x0c2023.1.0-d',
-    )
-    mock_data_received(
-        protocol, b"ev*\x15Jan  7 2023, 13:19:532\x0cm5stack-atomX\x03b\tEspressif"
-    )
-
     call_order = []
 
     def _socket_close_call():
@@ -537,12 +525,32 @@ async def test_plaintext_connection_fails_handshake(
     def _frame_helper_close_call():
         call_order.append("frame_helper_close")
 
-    with patch.object(
-        conn._socket, "close", side_effect=_socket_close_call
-    ), patch.object(
-        conn._frame_helper, "close", side_effect=_frame_helper_close_call
-    ), pytest.raises(
-        raised_exception
+    async def _do_finish_connect(self, *args, **kwargs):
+        try:
+            await conn._connect_init_frame_helper()
+        finally:
+            conn._socket.close = _socket_close_call
+            conn._frame_helper.close = _frame_helper_close_call
+
+    with (
+        patch(
+            "aioesphomeapi.connection.APIPlaintextFrameHelper",
+            APIPlaintextFrameHelperHandshakeException,
+        ),
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=partial(
+                _create_failing_mock_transport_protocol, transport, connected
+            ),
+        ),
+        patch.object(conn, "_do_finish_connect", _do_finish_connect),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    with (
+        pytest.raises(raised_exception),
     ):
         await asyncio.sleep(0)
         await connect_task
@@ -551,10 +559,6 @@ async def test_plaintext_connection_fails_handshake(
     # so asyncio releases the socket
     assert call_order == ["frame_helper_close", "socket_close"]
     assert not conn.is_connected
-    assert len(messages) == 2
-    assert isinstance(messages[0], HelloResponse)
-    assert isinstance(messages[1], DeviceInfoResponse)
-    assert messages[1].name == "m5stackatomproxy"
     remove()
     conn.force_disconnect()
     await asyncio.sleep(0)
@@ -650,23 +654,132 @@ async def test_force_disconnect_fails(
     await asyncio.sleep(0)
 
 
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), ReadFailedAPIError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_connection_lost_while_connecting(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+    exception_map: tuple[Exception, Exception],
+) -> None:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    exception, raised_exception = exception_map
+    protocol.connection_lost(exception)
+
+    with pytest.raises(raised_exception, match="original message"):
+        await connect_task
+
+    assert not conn.is_connected
+
+
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), SocketAPIError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_connection_error_during_hello(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+    exception_map: tuple[Exception, Exception],
+) -> None:
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    exception, raised_exception = exception_map
+
+    with (
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        patch.object(conn, "_connect_hello_login", side_effect=exception),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    with pytest.raises(raised_exception, match="original message"):
+        await connect_task
+
+    assert not conn.is_connected
+
+
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), APIConnectionCancelledError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_connection_cancelled_during_hello(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+    exception_map: tuple[Exception, Exception],
+) -> None:
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    exception, raised_exception = exception_map
+
+    async def _mock_frame_helper_error(*args, **kwargs):
+        conn._frame_helper.connection_lost(exception)
+        raise asyncio.CancelledError
+
+    with (
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        patch.object(conn, "_connect_hello_login", _mock_frame_helper_error),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+    with pytest.raises(raised_exception, match="original message"):
+        await connect_task
+
+    assert not conn.is_connected
+
+
 @pytest.mark.asyncio
 async def test_connect_resolver_times_out(
-    conn: APIConnection, event_loop, aiohappyeyeballs_start_connection
+    conn: APIConnection, aiohappyeyeballs_start_connection
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
     connected = asyncio.Event()
+    event_loop = asyncio.get_running_loop()
 
-    with patch(
-        "aioesphomeapi.host_resolver.async_resolve_host",
-        side_effect=asyncio.TimeoutError,
-    ), patch.object(
-        event_loop,
-        "create_connection",
-        side_effect=partial(_create_mock_transport_protocol, transport, connected),
-    ), pytest.raises(
-        ResolveAPIError,
-        match="Timeout while resolving IP address for fake.address",
+    with (
+        patch(
+            "aioesphomeapi.host_resolver.async_resolve_host",
+            side_effect=asyncio.TimeoutError,
+        ),
+        patch.object(
+            event_loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        pytest.raises(
+            ResolveAPIError,
+            match="Timeout while resolving IP address for fake.address",
+        ),
     ):
         await connect(conn, login=False)
 
@@ -674,7 +787,6 @@ async def test_connect_resolver_times_out(
 @pytest.mark.asyncio
 async def test_disconnect_fails_to_send_response(
     connection_params: ConnectionParams,
-    event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     aiohappyeyeballs_start_connection,
 ) -> None:
@@ -724,11 +836,10 @@ async def test_disconnect_fails_to_send_response(
 @pytest.mark.asyncio
 async def test_disconnect_success_case(
     connection_params: ConnectionParams,
-    event_loop: asyncio.AbstractEventLoop,
     resolve_host,
     aiohappyeyeballs_start_connection,
 ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
     client = APIClient(
@@ -806,7 +917,7 @@ async def test_ping_disconnects_after_no_responses(
         start_time
         + timedelta(seconds=KEEP_ALIVE_INTERVAL * (max_pings_to_disconnect_after + 1))
     )
-    assert transport.write.call_count == max_pings_to_disconnect_after
+    assert transport.write.call_count == max_pings_to_disconnect_after + 1
 
     assert conn.is_connected is False
 

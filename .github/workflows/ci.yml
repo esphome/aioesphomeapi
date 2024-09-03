@@ -25,11 +25,35 @@ jobs:
           - "3.10"
           - "3.11"
           - "3.12"
+          - "3.13"
         os:
           - ubuntu-latest
+          - windows-latest
+          - macos-latest
         extension:
           - "skip_cython"
           - "use_cython"
+        exclude:
+          - python-version: "3.9"
+            os: windows-latest
+          - python-version: "3.10"
+            os: windows-latest
+          - python-version: "3.11"
+            os: windows-latest
+          - python-version: "3.13"
+            os: windows-latest
+          - python-version: "3.9"
+            os: macos-latest
+          - python-version: "3.10"
+            os: macos-latest
+          - python-version: "3.11"
+            os: macos-latest
+          - python-version: "3.13"
+            os: macos-lates
+          - extension: "use_cython"
+            os: windows-latest
+          - extension: "use_cython"
+            os: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -37,13 +61,15 @@ jobs:
         id: python
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
 
       - name: Get pip cache dir
         id: pip-cache
+        shell: bash
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
@@ -53,6 +79,7 @@ jobs:
         if: ${{ matrix.extension == 'skip_cython' }}
         env:
           SKIP_CYTHON: 1
+        shell: bash
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
@@ -60,32 +87,30 @@ jobs:
         if: ${{ matrix.extension == 'use_cython' }}
         env:
           REQUIRE_CYTHON: 1
+        shell: bash
         run: |
           pip3 install -r requirements.txt -r requirements_test.txt
           pip3 install -e .
       - name: Register problem matchers
+        shell: bash
         run: |
           echo "::add-matcher::.github/workflows/matchers/flake8.json"
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
-          echo "::add-matcher::.github/workflows/matchers/isort.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
       - run: flake8 aioesphomeapi
         name: Lint with flake8
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: pylint aioesphomeapi
         name: Lint with pylint
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
-      - run: black --check --diff --color aioesphomeapi tests
-        name: Check formatting with black
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
-      - run: isort --check --diff aioesphomeapi tests
-        name: Check import order with isort
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
+      - run: ruff check aioesphomeapi tests
+        name: Check formatting with ruff
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
@@ -93,6 +118,7 @@ jobs:
       - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
+            -u "$(id -u):$(id -g)" \
             ghcr.io/esphome/aioesphomeapi-proto-builder:latest
           if ! git diff --quiet; then
             echo "You have altered the generated proto files but they do not match what is expected."
@@ -101,4 +127,4 @@ jobs:
             exit 1
           fi
         name: Check protobuf files match
-        if: ${{ matrix.python-version == '3.11' && matrix.extension == 'skip_cython' }}
+        if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}

@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
+import pytest
 
 from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND
 from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
+    _varuint_to_bytes as varuint_to_bytes,
 )
-from aioesphomeapi._frame_helper.plain_text import _varuint_to_bytes as varuint_to_bytes
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -22,6 +23,7 @@ from aioesphomeapi.core import (
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
+    ReadFailedAPIError,
     SocketClosedAPIError,
 )
 
@@ -152,52 +154,59 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
             ) from err
 
 
+_PLAINTEXT_TESTS = [
+    (PREAMBLE + varuint_to_bytes(0) + varuint_to_bytes(1), b"", 1),
+    (
+        PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(1) + (b"\x42" * 192),
+        (b"\x42" * 192),
+        1,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(100) + (b"\x42" * 192),
+        (b"\x42" * 192),
+        100,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(4) + varuint_to_bytes(100) + (b"\x42" * 4),
+        (b"\x42" * 4),
+        100,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(8192) + varuint_to_bytes(8192) + (b"\x42" * 8192),
+        (b"\x42" * 8192),
+        8192,
+    ),
+    (
+        PREAMBLE + varuint_to_bytes(256) + varuint_to_bytes(256) + (b"\x42" * 256),
+        (b"\x42" * 256),
+        256,
+    ),
+]
+if sys.platform != "win32":
+    # pytest sets name of the test as an env var as win32 has a max char
+    # limit that will cause the test to fail
+    _PLAINTEXT_TESTS.extend(
+        [
+            (
+                PREAMBLE + varuint_to_bytes(1) + varuint_to_bytes(32768) + b"\x42",
+                b"\x42",
+                32768,
+            ),
+            (
+                PREAMBLE
+                + varuint_to_bytes(32768)
+                + varuint_to_bytes(32768)
+                + (b"\x42" * 32768),
+                (b"\x42" * 32768),
+                32768,
+            ),
+        ]
+    )
+
+
 @pytest.mark.parametrize(
     "in_bytes, pkt_data, pkt_type",
-    [
-        (PREAMBLE + varuint_to_bytes(0) + varuint_to_bytes(1), b"", 1),
-        (
-            PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(1) + (b"\x42" * 192),
-            (b"\x42" * 192),
-            1,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(192) + varuint_to_bytes(100) + (b"\x42" * 192),
-            (b"\x42" * 192),
-            100,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(4) + varuint_to_bytes(100) + (b"\x42" * 4),
-            (b"\x42" * 4),
-            100,
-        ),
-        (
-            PREAMBLE
-            + varuint_to_bytes(8192)
-            + varuint_to_bytes(8192)
-            + (b"\x42" * 8192),
-            (b"\x42" * 8192),
-            8192,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(256) + varuint_to_bytes(256) + (b"\x42" * 256),
-            (b"\x42" * 256),
-            256,
-        ),
-        (
-            PREAMBLE + varuint_to_bytes(1) + varuint_to_bytes(32768) + b"\x42",
-            b"\x42",
-            32768,
-        ),
-        (
-            PREAMBLE
-            + varuint_to_bytes(32768)
-            + varuint_to_bytes(32768)
-            + (b"\x42" * 32768),
-            (b"\x42" * 32768),
-            32768,
-        ),
-    ],
+    _PLAINTEXT_TESTS,
 )
 @pytest.mark.asyncio
 async def test_plaintext_frame_helper(
@@ -725,18 +734,28 @@ async def test_eof_received_closes_connection(
         await connect_task
 
 
+@pytest.mark.parametrize(
+    ("exception_map"),
+    [
+        (OSError("original message"), ReadFailedAPIError),
+        (APIConnectionError("original message"), APIConnectionError),
+        (SocketClosedAPIError("original message"), SocketClosedAPIError),
+    ],
+)
 @pytest.mark.asyncio
 async def test_connection_lost_closes_connection_and_logs(
     caplog: pytest.LogCaptureFixture,
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
+    exception_map: tuple[Exception, Exception],
 ) -> None:
+    exception, raised_exception = exception_map
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
-    protocol.connection_lost(OSError("original message"))
+    protocol.connection_lost(exception)
     assert conn.is_connected is False
     assert "original message" in caplog.text
-    with pytest.raises(APIConnectionError, match="original message"):
+    with pytest.raises(raised_exception, match="original message"):
         await connect_task
 
 

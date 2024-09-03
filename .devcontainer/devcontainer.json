@@ -1,6 +1,9 @@
 {
     "name": "ESPHome API Client Dev",
     "image": "ghcr.io/esphome/aioesphomeapi-proto-builder:latest",
+    "features": {
+      "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -16,8 +19,6 @@
             "settings": {
                 "python.languageServer": "Pylance",
                 "python.pythonPath": "/usr/bin/python3",
-                "python.linting.pylintEnabled": true,
-                "python.linting.enabled": true,
                 "python.formatting.provider": "black",
                 "editor.formatOnPaste": false,
                 "editor.formatOnSave": true,

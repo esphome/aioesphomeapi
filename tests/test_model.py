@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import pytest
 from google.protobuf import message
+import pytest
 
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,
@@ -13,7 +13,10 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTGetServicesResponse,
     ClimateStateResponse,
     CoverStateResponse,
+    DateStateResponse,
+    DateTimeStateResponse,
     DeviceInfoResponse,
+    EventResponse,
     FanStateResponse,
     HomeassistantServiceMap,
     HomeassistantServiceResponse,
@@ -23,6 +26,9 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesButtonResponse,
     ListEntitiesClimateResponse,
     ListEntitiesCoverResponse,
+    ListEntitiesDateResponse,
+    ListEntitiesDateTimeResponse,
+    ListEntitiesEventResponse,
     ListEntitiesFanResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
@@ -34,6 +40,9 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesServicesResponse,
     ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse,
+    ListEntitiesTimeResponse,
+    ListEntitiesUpdateResponse,
+    ListEntitiesValveResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
     NumberStateResponse,
@@ -43,6 +52,9 @@ from aioesphomeapi.api_pb2 import (
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
+    TimeStateResponse,
+    UpdateStateResponse,
+    ValveStateResponse,
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
@@ -53,14 +65,10 @@ from aioesphomeapi.model import (
     APIVersion,
     BinarySensorInfo,
     BinarySensorState,
-)
-from aioesphomeapi.model import (
     BluetoothGATTCharacteristic as BluetoothGATTCharacteristicModel,
-)
-from aioesphomeapi.model import BluetoothGATTDescriptor as BluetoothGATTDescriptorModel
-from aioesphomeapi.model import BluetoothGATTService as BluetoothGATTServiceModel
-from aioesphomeapi.model import BluetoothGATTServices as BluetoothGATTServicesModel
-from aioesphomeapi.model import (
+    BluetoothGATTDescriptor as BluetoothGATTDescriptorModel,
+    BluetoothGATTService as BluetoothGATTServiceModel,
+    BluetoothGATTServices as BluetoothGATTServicesModel,
     BluetoothProxyFeature,
     ButtonInfo,
     CameraInfo,
@@ -69,7 +77,13 @@ from aioesphomeapi.model import (
     ClimateState,
     CoverInfo,
     CoverState,
+    DateInfo,
+    DateState,
+    DateTimeInfo,
+    DateTimeState,
     DeviceInfo,
+    Event,
+    EventInfo,
     FanInfo,
     FanState,
     HomeassistantServiceCall,
@@ -94,9 +108,16 @@ from aioesphomeapi.model import (
     TextSensorInfo,
     TextSensorState,
     TextState,
+    TimeInfo,
+    TimeState,
+    UpdateInfo,
+    UpdateState,
     UserService,
     UserServiceArg,
     UserServiceArgType,
+    ValveInfo,
+    ValveState,
+    VoiceAssistantFeature,
     build_unique_id,
     converter_field,
 )
@@ -242,6 +263,8 @@ def test_api_version_ord():
         (ClimateState, ClimateStateResponse),
         (NumberInfo, ListEntitiesNumberResponse),
         (NumberState, NumberStateResponse),
+        (DateInfo, ListEntitiesDateResponse),
+        (DateState, DateStateResponse),
         (SelectInfo, ListEntitiesSelectResponse),
         (SelectState, SelectStateResponse),
         (HomeassistantServiceCall, HomeassistantServiceResponse),
@@ -250,11 +273,21 @@ def test_api_version_ord():
         (ButtonInfo, ListEntitiesButtonResponse),
         (LockInfo, ListEntitiesLockResponse),
         (LockEntityState, LockStateResponse),
+        (ValveInfo, ListEntitiesValveResponse),
+        (ValveState, ValveStateResponse),
         (MediaPlayerInfo, ListEntitiesMediaPlayerResponse),
         (MediaPlayerEntityState, MediaPlayerStateResponse),
         (AlarmControlPanelInfo, ListEntitiesAlarmControlPanelResponse),
         (AlarmControlPanelEntityState, AlarmControlPanelStateResponse),
         (TextState, TextStateResponse),
+        (TimeInfo, ListEntitiesTimeResponse),
+        (TimeState, TimeStateResponse),
+        (DateTimeInfo, ListEntitiesDateTimeResponse),
+        (DateTimeState, DateTimeStateResponse),
+        (EventInfo, ListEntitiesEventResponse),
+        (Event, EventResponse),
+        (UpdateInfo, ListEntitiesUpdateResponse),
+        (UpdateState, UpdateStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -358,6 +391,7 @@ def test_user_service_conversion():
         FanInfo,
         LightInfo,
         NumberInfo,
+        DateInfo,
         SelectInfo,
         SensorInfo,
         SirenInfo,
@@ -366,9 +400,11 @@ def test_user_service_conversion():
         CameraInfo,
         ClimateInfo,
         LockInfo,
+        ValveInfo,
         MediaPlayerInfo,
         AlarmControlPanelInfo,
         TextInfo,
+        TimeInfo,
     ],
 )
 def test_build_unique_id(model):
@@ -416,6 +452,24 @@ def test_bluetooth_backcompat_for_device_info(
     )
     assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 8)) is flags
     assert info.bluetooth_proxy_feature_flags_compat(APIVersion(1, 9)) == 42
+
+
+# Add va compat test
+@pytest.mark.parametrize(
+    ("version", "flags"),
+    [
+        (1, VoiceAssistantFeature.VOICE_ASSISTANT),
+        (2, VoiceAssistantFeature.VOICE_ASSISTANT | VoiceAssistantFeature.SPEAKER),
+    ],
+)
+def test_voice_assistant_backcompat_for_device_info(
+    version: int, flags: VoiceAssistantFeature
+) -> None:
+    info = DeviceInfo(
+        legacy_voice_assistant_version=version, voice_assistant_feature_flags=42
+    )
+    assert info.voice_assistant_feature_flags_compat(APIVersion(1, 9)) is flags
+    assert info.voice_assistant_feature_flags_compat(APIVersion(1, 10)) == 42
 
 
 @pytest.mark.parametrize(

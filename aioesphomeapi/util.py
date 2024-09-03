@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from asyncio import AbstractEventLoop, Task, get_running_loop
+from collections.abc import Coroutine
 import math
+import sys
+from typing import Any, TypeVar
+
+_T = TypeVar("_T")
 
 
 def fix_float_single_double_conversion(value: float) -> float:
@@ -55,3 +61,31 @@ def build_log_name(
     ):
         return f"{name} @ {preferred_address}"
     return preferred_address
+
+
+if sys.version_info >= (3, 12, 0):
+
+    def create_eager_task(
+        coro: Coroutine[Any, Any, _T],
+        *,
+        name: str | None = None,
+        loop: AbstractEventLoop | None = None,
+    ) -> Task[_T]:
+        """Create a task from a coroutine and schedule it to run immediately."""
+        return Task(
+            coro,
+            loop=loop or get_running_loop(),
+            name=name,
+            eager_start=True,  # type: ignore[call-arg]
+        )
+
+else:
+
+    def create_eager_task(
+        coro: Coroutine[Any, Any, _T],
+        *,
+        name: str | None = None,
+        loop: AbstractEventLoop | None = None,
+    ) -> Task[_T]:
+        """Create a task from a coroutine."""
+        return Task(coro, loop=loop or get_running_loop(), name=name)

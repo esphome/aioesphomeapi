@@ -12,6 +12,7 @@ cdef float KEEP_ALIVE_TIMEOUT_RATIO
 cdef object HANDSHAKE_TIMEOUT
 
 cdef bint TYPE_CHECKING
+cdef bint _WIN32
 
 cdef object WRITE_EXCEPTIONS
 
@@ -72,8 +73,10 @@ cpdef void handle_complex_message(
 cdef object _handle_timeout
 cdef object _handle_complex_message
 
+
 @cython.dataclasses.dataclass
 cdef class ConnectionParams:
+
     cdef public list addresses
     cdef public object port
     cdef public object password
@@ -82,6 +85,7 @@ cdef class ConnectionParams:
     cdef public object zeroconf_manager
     cdef public object noise_psk
     cdef public object expected_name
+
 
 cdef class APIConnection:
 
@@ -98,8 +102,8 @@ cdef class APIConnection:
     cdef object _pong_timer
     cdef float _keep_alive_interval
     cdef float _keep_alive_timeout
-    cdef object _start_connect_task
-    cdef object _finish_connect_task
+    cdef object _start_connect_future
+    cdef object _finish_connect_future
     cdef public Exception _fatal_exception
     cdef bint _expected_disconnect
     cdef object _loop
@@ -136,7 +140,11 @@ cdef class APIConnection:
     cpdef void report_fatal_error(self, Exception err)
 
     @cython.locals(handlers=set)
-    cdef void _add_message_callback_without_remove(self, object on_message, tuple msg_types)
+    cdef void _add_message_callback_without_remove(
+        self,
+        object on_message,
+        tuple msg_types
+    )
 
     cpdef add_message_callback(self, object on_message, tuple msg_types)
 
@@ -154,3 +162,7 @@ cdef class APIConnection:
     cdef void _register_internal_message_handlers(self)
 
     cdef void _increase_recv_buffer_size(self)
+
+    cdef void _set_start_connect_future(self)
+
+    cdef void _set_finish_connect_future(self)
