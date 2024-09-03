@@ -63,6 +63,9 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
+MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
+
+
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
 MIN_BUFFER_SIZE = 131072  # Minimum buffer size to use
 
@@ -888,7 +891,9 @@ class APIConnection:
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
         debug_enabled = self._debug_enabled
-        if (klass := MESSAGE_TYPE_TO_PROTO.get(msg_type_proto)) is None:
+        try:
+            klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto + 1]
+        except IndexError:
             if debug_enabled:
                 _LOGGER.debug(
                     "%s: Skipping unknown message type %s",
