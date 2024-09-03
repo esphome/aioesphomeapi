@@ -359,7 +359,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         # N bytes: message data
         type_high = msg[0]
         type_low = msg[1]
-        self._connection.process_packet((type_high << 8) | type_low, msg[4:])
+        msg_type = (type_high << 8) | type_low
+        payload = msg[4:]
+        self._connection.process_packet(msg_type, payload)
 
     def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
