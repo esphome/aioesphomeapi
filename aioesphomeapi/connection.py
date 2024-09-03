@@ -894,6 +894,11 @@ class APIConnection:
         debug_enabled = self._debug_enabled
         try:
             klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto]
+            msg: message.Message = klass()
+            # MergeFromString instead of ParseFromString since
+            # ParseFromString will clear the message first and
+            # the msg is already empty.
+            msg.MergeFromString(data)
         except IndexError:
             if debug_enabled:
                 _LOGGER.debug(
@@ -902,13 +907,6 @@ class APIConnection:
                     msg_type_proto,
                 )
             return
-
-        try:
-            msg: message.Message = klass()
-            # MergeFromString instead of ParseFromString since
-            # ParseFromString will clear the message first and
-            # the msg is already empty.
-            msg.MergeFromString(data)
         except Exception as e:
             _LOGGER.error(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
