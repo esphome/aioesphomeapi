@@ -115,6 +115,8 @@ jobs:
         name: Run tests with pytest
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
