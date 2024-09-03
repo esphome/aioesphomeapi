@@ -900,15 +900,15 @@ class APIConnection:
             # ParseFromString will clear the message first and
             # the msg is already empty.
             msg.MergeFromString(data)
-        except IndexError:
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s: Skipping unknown message type %s",
-                    self.log_name,
-                    msg_type_proto,
-                )
-            return
         except Exception as e:
+            if isinstance(e, IndexError):
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s: Skipping unknown message type %s",
+                        self.log_name,
+                        msg_type_proto,
+                    )
+                return
             _LOGGER.error(
                 "%s: Invalid protobuf message: type=%s data=%s: %s",
                 self.log_name,
