@@ -15,7 +15,7 @@ from noise.backends.default.ciphers import (  # type: ignore[import-untyped]
     CryptographyCipher,
 )
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
-from noise.state import CipherState
+from noise.state import CipherState  # type: ignore[import-untyped]
 
 from ..core import (
     APIConnectionError,
