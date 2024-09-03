@@ -12,6 +12,7 @@ from cryptography.exceptions import InvalidTag
 from noise.backends.default import DefaultNoiseBackend  # type: ignore[import-untyped]
 from noise.backends.default.ciphers import (  # type: ignore[import-untyped]
     ChaCha20Cipher,
+    CryptographyCipher,
 )
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 from noise.state import CipherState
@@ -74,18 +75,18 @@ int_ = int
 class EncryptCipher:
     """Wrapper around the ChaCha20Poly1305 cipher for encryption."""
 
-    __slots__ = ("_key", "_nonce", "_encrypt")
+    __slots__ = ("_nonce", "_encrypt")
 
     def __init__(self, cipher_state: CipherState) -> None:
         """Initialize the cipher wrapper."""
-        cipher: ChaCha20Poly1305Reusable = cipher_state.cipher
-        self._key: bytes = cipher_state.k
+        crypto_cipher: CryptographyCipher = cipher_state.cipher
+        cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
         self._nonce: int = cipher_state.n
         self._encrypt = cipher.encrypt
 
     def encrypt(self, data: _bytes) -> bytes:
         """Encrypt a frame."""
-        ciphertext = self._encrypt(self._key, self._nonce, data, None)
+        ciphertext = self._encrypt(PACK_NONCE(self._nonce), data, None)
         self._nonce += 1
         return ciphertext
 
@@ -93,18 +94,18 @@ class EncryptCipher:
 class DecryptCipher:
     """Wrapper around the ChaCha20Poly1305 cipher for decryption."""
 
-    __slots__ = ("_key", "_nonce", "_decrypt")
+    __slots__ = ("_nonce", "_decrypt")
 
     def __init__(self, cipher_state: CipherState) -> None:
         """Initialize the cipher wrapper."""
-        cipher: ChaCha20Poly1305Reusable = cipher_state.cipher
-        self._key: bytes = cipher_state.k
+        crypto_cipher: CryptographyCipher = cipher_state.cipher
+        cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
         self._nonce: int = cipher_state.n
         self._decrypt = cipher.decrypt
 
     def decrypt(self, data: _bytes) -> bytes:
         """Decrypt a frame."""
-        plaintext = self._decrypt(self._key, self._nonce, data, None)
+        plaintext = self._decrypt(PACK_NONCE(self._nonce), data, None)
         self._nonce += 1
         return plaintext
 

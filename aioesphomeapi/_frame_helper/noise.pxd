@@ -16,7 +16,6 @@ cdef bytes NOISE_HELLO
 
 cdef class EncryptCipher:
 
-    cdef object _key
     cdef object _nonce
     cdef object _encrypt
 
@@ -24,7 +23,6 @@ cdef class EncryptCipher:
 
 cdef class DecryptCipher:
 
-    cdef object _key
     cdef object _nonce
     cdef object _decrypt
 
