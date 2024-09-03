@@ -901,6 +901,9 @@ class APIConnection:
             # the msg is already empty.
             msg.MergeFromString(data)
         except Exception as e:
+            # IndexError will be very rare so we check for it
+            # after the broad exception catch to avoid having
+            # to check the exception type twice for the common case
             if isinstance(e, IndexError):
                 if debug_enabled:
                     _LOGGER.debug(
