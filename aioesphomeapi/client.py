@@ -76,7 +76,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
-    VoiceAssistantAnnounce,
+    VoiceAssistantAnnounceRequest,
+    VoiceAssistantAnnounceFinished,
 )
 from .client_callbacks import (
     on_bluetooth_connections_free_response,
@@ -128,6 +129,7 @@ from .model import (
     UpdateCommand,
     UserService,
     UserServiceArgType,
+    VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioData,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
@@ -1287,6 +1289,13 @@ class APIClient:
             ]
             | None
         ) = None,
+        handle_announce_finished: (
+            Callable[
+                [VoiceAssistantAnnounceFinishedModel],
+                Coroutine[Any, Any, None],
+            ]
+            | None
+        ) = None,
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
 
@@ -1360,6 +1369,24 @@ class APIClient:
             )
         )
 
+        if handle_announce_finished is not None:
+
+            def _on_voice_assistant_announce_finished(
+                msg: VoiceAssistantAnnounceFinished,
+            ) -> None:
+                self._create_background_task(
+                    handle_announce_finished(
+                        VoiceAssistantAnnounceFinishedModel.from_pb(msg)
+                    )
+                )
+
+            remove_callbacks.append(
+                connection.add_message_callback(
+                    _on_voice_assistant_announce_finished,
+                    (VoiceAssistantAnnounceFinished,),
+                )
+            )
+
         def unsub() -> None:
             nonlocal start_task
 
@@ -1418,9 +1445,10 @@ class APIClient:
         )
         self._get_connection().send_message(req)
 
-    def send_voice_assistant_announce(self, media_id: str) -> None:
-        req = VoiceAssistantAnnounce(
+    def send_voice_assistant_announce(self, media_id: str, text: str = "") -> None:
+        req = VoiceAssistantAnnounceRequest(
             media_id=media_id,
+            text=text,
         )
         self._get_connection().send_message(req)
 

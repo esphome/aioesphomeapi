@@ -1292,6 +1292,11 @@ class VoiceAssistantAudioData(APIModelBase):
     end: bool = False
 
 
+@_frozen_dataclass_decorator
+class VoiceAssistantAnnounceFinished(APIModelBase):
+    media_id: str
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1

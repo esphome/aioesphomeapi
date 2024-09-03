@@ -123,7 +123,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
-    VoiceAssistantAnnounce,
+    VoiceAssistantAnnounceRequest,
+    VoiceAssistantAnnounceFinished,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -393,7 +394,8 @@ MESSAGE_TYPE_TO_PROTO = {
     116: ListEntitiesUpdateResponse,
     117: UpdateStateResponse,
     118: UpdateCommandRequest,
-    120: VoiceAssistantAnnounce,
+    120: VoiceAssistantAnnounceRequest,
+    121: VoiceAssistantAnnounceFinished,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
