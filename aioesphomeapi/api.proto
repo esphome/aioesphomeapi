@@ -1489,19 +1489,6 @@ message VoiceAssistantAudioSettings {
   float volume_multiplier = 3;
 }
 
-enum VoiceAssistantPipelineStage {
-  VOICE_ASSISTANT_PIPELINE_STAGE_WAKE_WORD = 0;
-  VOICE_ASSISTANT_PIPELINE_STAGE_STT = 1;
-  VOICE_ASSISTANT_PIPELINE_STAGE_INTENT = 2;
-  VOICE_ASSISTANT_PIPELINE_STAGE_TTS = 3;
-}
-
-message VoiceAssistantPipelineRunConfig {
-  VoiceAssistantPipelineStage start_stage = 1;
-  VoiceAssistantPipelineStage end_stage = 2;
-  string tts_input = 3;
-}
-
 message VoiceAssistantRequest {
   option (id) = 90;
   option (source) = SOURCE_SERVER;
