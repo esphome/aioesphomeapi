@@ -394,8 +394,8 @@ MESSAGE_TYPE_TO_PROTO = {
     116: ListEntitiesUpdateResponse,
     117: UpdateStateResponse,
     118: UpdateCommandRequest,
-    120: VoiceAssistantAnnounceRequest,
-    121: VoiceAssistantAnnounceFinished,
+    119: VoiceAssistantAnnounceRequest,
+    120: VoiceAssistantAnnounceFinished,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
