@@ -118,6 +118,7 @@ class APIFrameHelper:
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
         if original_pos == 0 and self._buffer_len == new_pos:
+            assert self._buffer == self._buffer[original_pos:new_pos]
             return self._buffer
         return self._buffer[original_pos:new_pos]
 
