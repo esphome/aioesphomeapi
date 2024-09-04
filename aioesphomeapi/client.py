@@ -217,6 +217,7 @@ class APIClient:
         "_background_tasks",
         "_loop",
         "log_name",
+        "_voice_assistant_announce_finished",
     )
 
     def __init__(
@@ -268,6 +269,9 @@ class APIClient:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
         self._set_log_name()
+        self._voice_assistant_announce_finished: asyncio.Future[
+            VoiceAssistantAnnounceFinished
+        ] = asyncio.Future()
 
     def set_debug(self, enabled: bool) -> None:
         """Enable debug logging."""
@@ -1289,13 +1293,6 @@ class APIClient:
             ]
             | None
         ) = None,
-        handle_announce_finished: (
-            Callable[
-                [VoiceAssistantAnnounceFinishedModel],
-                Coroutine[Any, Any, None],
-            ]
-            | None
-        ) = None,
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
 
@@ -1369,23 +1366,12 @@ class APIClient:
             )
         )
 
-        if handle_announce_finished is not None:
-
-            def _on_voice_assistant_announce_finished(
-                msg: VoiceAssistantAnnounceFinished,
-            ) -> None:
-                self._create_background_task(
-                    handle_announce_finished(
-                        VoiceAssistantAnnounceFinishedModel.from_pb(msg)
-                    )
-                )
-
-            remove_callbacks.append(
-                connection.add_message_callback(
-                    _on_voice_assistant_announce_finished,
-                    (VoiceAssistantAnnounceFinished,),
-                )
+        remove_callbacks.append(
+            connection.add_message_callback(
+                self._voice_assistant_announce_finished.set_result,
+                (VoiceAssistantAnnounceFinished,),
             )
+        )
 
         def unsub() -> None:
             nonlocal start_task
@@ -1445,12 +1431,15 @@ class APIClient:
         )
         self._get_connection().send_message(req)
 
-    def send_voice_assistant_announce(self, media_id: str, text: str = "") -> None:
+    async def wait_voice_assistant_announce(
+        self, media_id: str, text: str = ""
+    ) -> VoiceAssistantAnnounceFinished:
         req = VoiceAssistantAnnounceRequest(
             media_id=media_id,
             text=text,
         )
         self._get_connection().send_message(req)
+        return await self._voice_assistant_announce_finished
 
     def alarm_control_panel_command(
         self,
