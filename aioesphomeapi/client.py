@@ -217,7 +217,6 @@ class APIClient:
         "_background_tasks",
         "_loop",
         "log_name",
-        "_voice_assistant_announce_finished",
     )
 
     def __init__(
@@ -269,9 +268,6 @@ class APIClient:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_event_loop()
         self._set_log_name()
-        self._voice_assistant_announce_finished: asyncio.Future[
-            VoiceAssistantAnnounceFinished
-        ] = asyncio.Future()
 
     def set_debug(self, enabled: bool) -> None:
         """Enable debug logging."""
@@ -1366,13 +1362,6 @@ class APIClient:
             )
         )
 
-        remove_callbacks.append(
-            connection.add_message_callback(
-                self._voice_assistant_announce_finished.set_result,
-                (VoiceAssistantAnnounceFinished,),
-            )
-        )
-
         def unsub() -> None:
             nonlocal start_task
 
@@ -1431,15 +1420,18 @@ class APIClient:
         )
         self._get_connection().send_message(req)
 
-    async def wait_voice_assistant_announce(
-        self, media_id: str, text: str = ""
-    ) -> VoiceAssistantAnnounceFinished:
-        req = VoiceAssistantAnnounceRequest(
-            media_id=media_id,
-            text=text,
+    async def send_voice_assistant_announcement_await_response(
+        self,
+        media_id: str,
+        timeout: float,
+        text: str = "",
+    ) -> VoiceAssistantAnnounceFinishedModel:
+        resp = await self._get_connection().send_message_await_response(
+            VoiceAssistantAnnounceRequest(media_id=media_id, text=text),
+            VoiceAssistantAnnounceFinished,
+            timeout,
         )
-        self._get_connection().send_message(req)
-        return await self._voice_assistant_announce_finished
+        return VoiceAssistantAnnounceFinishedModel.from_pb(resp)
 
     def alarm_control_panel_command(
         self,
