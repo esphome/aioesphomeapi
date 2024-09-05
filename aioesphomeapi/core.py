@@ -118,13 +118,13 @@ from .api_pb2 import (  # type: ignore
     UpdateStateResponse,
     ValveCommandRequest,
     ValveStateResponse,
+    VoiceAssistantAnnounceFinished,
+    VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantTimerEventResponse,
-    VoiceAssistantAnnounceRequest,
-    VoiceAssistantAnnounceFinished,
 )
 
 TWO_CHAR = re.compile(r".{2}")
