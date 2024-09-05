@@ -838,7 +838,6 @@ class APIConnection:
                 f"Timeout waiting for {response_names} after {timeout}s"
             ) from err
         finally:
-            import pdb; pdb.set_trace()
             if not timeout_expired:
                 timeout_handle.cancel()
             self._remove_message_callback(on_message, msg_types)
