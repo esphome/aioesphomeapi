@@ -2628,8 +2628,7 @@ async def test_subscribe_voice_assistant_announcement_finished(
     response: message.Message = VoiceAssistantAnnounceFinished(success=True)
     mock_data_received(protocol, generate_plaintext_packet(response))
 
-    async with asyncio.timeout(1):
-        await done.wait()
+    await asyncio.wait_for(done.wait(), 1)
 
     await client.disconnect(force=True)
     # Ensure abort callback is a no-op after disconnect
