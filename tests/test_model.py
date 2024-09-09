@@ -45,6 +45,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesValveResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
+    MediaPlayerSupportedFormat,
     NumberStateResponse,
     SelectStateResponse,
     SensorStateResponse,
@@ -651,3 +652,32 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
     assert BluetoothGATTDescriptorModel.from_dict(
         {"uuid": [1, 3], "handle": 3},
     ) == BluetoothGATTDescriptorModel(uuid=[1, 3], handle=3)
+
+
+def test_media_player_supported_format_convert_list() -> None:
+    """Test list conversion for MediaPlayerSupportedFormat."""
+    assert MediaPlayerInfo.from_dict(
+        {
+            "supports_pause": False,
+            "supported_formats": [
+                {
+                    "format": "flac",
+                    "sample_rate": 48000,
+                    "num_channels": 2,
+                    "purpose": 1,
+                    "sample_bytes": 2,
+                }
+            ],
+        }
+    ) == MediaPlayerInfo(
+        supports_pause=False,
+        supported_formats=[
+            MediaPlayerSupportedFormat(
+                format="flac",
+                sample_rate=48000,
+                num_channels=2,
+                purpose=1,
+                sample_bytes=2,
+            )
+        ],
+    )
