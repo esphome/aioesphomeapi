@@ -44,7 +44,6 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
     LockStateResponse,
-    MediaPlayerFormatPurpose,
     MediaPlayerStateResponse,
     MediaPlayerSupportedFormat,
     NumberStateResponse,
