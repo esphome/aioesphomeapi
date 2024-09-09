@@ -1373,13 +1373,14 @@ class APIClient:
             )
         )
 
-        def _on_voice_assistant_announcement_finished(
-            msg: VoiceAssistantAnnounceFinished,
-        ) -> None:
-            finished = VoiceAssistantAnnounceFinishedModel.from_pb(msg)
-            self._create_background_task(handle_announcement_finished(finished))
-
         if handle_announcement_finished is not None:
+
+            def _on_voice_assistant_announcement_finished(
+                msg: VoiceAssistantAnnounceFinished,
+            ) -> None:
+                finished = VoiceAssistantAnnounceFinishedModel.from_pb(msg)
+                self._create_background_task(handle_announcement_finished(finished))
+
             remove_callbacks.append(
                 connection.add_message_callback(
                     _on_voice_assistant_announcement_finished,
