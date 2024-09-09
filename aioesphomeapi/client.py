@@ -1289,6 +1289,13 @@ class APIClient:
             ]
             | None
         ) = None,
+        handle_announcement_finished: (
+            Callable[
+                [VoiceAssistantAnnounceFinishedModel],
+                Coroutine[Any, Any, None],
+            ]
+            | None
+        ) = None,
     ) -> Callable[[], None]:
         """Subscribes to voice assistant messages from the device.
 
@@ -1296,6 +1303,10 @@ class APIClient:
                       This callback is asynchronous and returns the port number the server is started on.
 
         handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
+
+        handle_audio: called when a chunk of audio is sent from the device.
+
+        handle_announcement_finished: called when a VoiceAssistantAnnounceFinished message is sent from the device.
 
         Returns a callback to unsubscribe.
         """
@@ -1361,6 +1372,21 @@ class APIClient:
                 _on_voice_assistant_request, (VoiceAssistantRequest,)
             )
         )
+
+        if handle_announcement_finished is not None:
+
+            def _on_voice_assistant_announcement_finished(
+                msg: VoiceAssistantAnnounceFinished,
+            ) -> None:
+                finished = VoiceAssistantAnnounceFinishedModel.from_pb(msg)
+                self._create_background_task(handle_announcement_finished(finished))
+
+            remove_callbacks.append(
+                connection.add_message_callback(
+                    _on_voice_assistant_announcement_finished,
+                    (VoiceAssistantAnnounceFinished,),
+                )
+            )
 
         def unsub() -> None:
             nonlocal start_task

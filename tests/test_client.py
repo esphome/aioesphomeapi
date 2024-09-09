@@ -2589,6 +2589,55 @@ async def test_send_voice_assistant_announcement_await_response(
 
 
 @pytest.mark.asyncio
+async def test_subscribe_voice_assistant_announcement_finished(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_voice_assistant with handle_announcement_finished."""
+    client, connection, transport, protocol = api_client
+    send = patch_send(client)
+    done = asyncio.Event()
+
+    async def handle_start(
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
+    ) -> int | None:
+        return 0
+
+    async def handle_stop() -> None:
+        pass
+
+    async def handle_announcement_finished(
+        finished: VoiceAssistantAnnounceFinishedModel,
+    ) -> None:
+        assert finished.success
+        done.set()
+
+    unsub = client.subscribe_voice_assistant(
+        handle_start=handle_start,
+        handle_stop=handle_stop,
+        handle_announcement_finished=handle_announcement_finished,
+    )
+    send.assert_called_once_with(
+        SubscribeVoiceAssistantRequest(subscribe=True, flags=0)
+    )
+    send.reset_mock()
+    response: message.Message = VoiceAssistantAnnounceFinished(success=True)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    await asyncio.wait_for(done.wait(), 1)
+
+    await client.disconnect(force=True)
+    # Ensure abort callback is a no-op after disconnect
+    # and does not raise
+    unsub()
+    assert len(send.mock_calls) == 0
+
+
+@pytest.mark.asyncio
 async def test_api_version_after_connection_closed(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
