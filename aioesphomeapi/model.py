@@ -835,6 +835,7 @@ class MediaPlayerSupportedFormat(APIModelBase):
         default=MediaPlayerFormatPurpose.DEFAULT,
         converter=MediaPlayerFormatPurpose.convert,
     )
+    sample_bytes: int = 0
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[MediaPlayerSupportedFormat]:
