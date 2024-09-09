@@ -108,9 +108,9 @@ async def _async_resolve_host_zeroconf(
     )
     addrs: list[AddrInfo] = []
     for ip in info.ip_addresses_by_version(IPVersion.V6Only):
-        addrs.extend(_async_ip_address_to_addrs(ip, port))  # type: ignore
+        addrs.extend(_async_ip_address_to_addrs(ip, port))
     for ip in info.ip_addresses_by_version(IPVersion.V4Only):
-        addrs.extend(_async_ip_address_to_addrs(ip, port))  # type: ignore
+        addrs.extend(_async_ip_address_to_addrs(ip, port))
     return addrs
 
 
