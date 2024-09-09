@@ -126,6 +126,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     SPEAKER = 1 << 1
     API_AUDIO = 1 << 2
     TIMERS = 1 << 3
+    ANNOUNCE = 1 << 4
 
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
@@ -1289,6 +1290,11 @@ class VoiceAssistantCommand(APIModelBase):
 class VoiceAssistantAudioData(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
     end: bool = False
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantAnnounceFinished(APIModelBase):
+    success: bool = False
 
 
 class LogLevel(APIIntEnum):

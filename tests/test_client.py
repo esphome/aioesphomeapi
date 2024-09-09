@@ -67,6 +67,8 @@ from aioesphomeapi.api_pb2 import (
     TimeCommandRequest,
     UpdateCommandRequest,
     ValveCommandRequest,
+    VoiceAssistantAnnounceFinished,
+    VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
     VoiceAssistantAudioSettings,
     VoiceAssistantEventData,
@@ -109,6 +111,7 @@ from aioesphomeapi.model import (
     UserService,
     UserServiceArg,
     UserServiceArgType,
+    VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
@@ -2555,6 +2558,34 @@ async def test_send_voice_assistant_timer_event(auth_client: APIClient) -> None:
             is_active=True,
         )
     )
+
+
+@pytest.mark.asyncio
+async def test_send_voice_assistant_announcement_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    client, connection, _transport, protocol = api_client
+    original_send_message = connection.send_message
+
+    def send_message(msg):
+        assert msg == VoiceAssistantAnnounceRequest(
+            media_id="test-media-id", text="test-text"
+        )
+        original_send_message(msg)
+
+    with patch.object(connection, "send_message", new=send_message):
+        announcement_task = asyncio.create_task(
+            client.send_voice_assistant_announcement_await_response(
+                media_id="test-media-id", timeout=60.0, text="test-text"
+            )
+        )
+        await asyncio.sleep(0)
+        response: message.Message = VoiceAssistantAnnounceFinished(success=True)
+        mock_data_received(protocol, generate_plaintext_packet(response))
+        finished = await announcement_task
+        assert isinstance(finished, VoiceAssistantAnnounceFinishedModel)
 
 
 @pytest.mark.asyncio

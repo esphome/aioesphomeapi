@@ -70,6 +70,8 @@ from .api_pb2 import (  # type: ignore
     UnsubscribeBluetoothLEAdvertisementsRequest,
     UpdateCommandRequest,
     ValveCommandRequest,
+    VoiceAssistantAnnounceFinished,
+    VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
@@ -127,6 +129,7 @@ from .model import (
     UpdateCommand,
     UserService,
     UserServiceArgType,
+    VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioData,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
@@ -1416,6 +1419,19 @@ class APIClient:
             is_active=is_active,
         )
         self._get_connection().send_message(req)
+
+    async def send_voice_assistant_announcement_await_response(
+        self,
+        media_id: str,
+        timeout: float,
+        text: str = "",
+    ) -> VoiceAssistantAnnounceFinishedModel:
+        resp = await self._get_connection().send_message_await_response(
+            VoiceAssistantAnnounceRequest(media_id=media_id, text=text),
+            VoiceAssistantAnnounceFinished,
+            timeout,
+        )
+        return VoiceAssistantAnnounceFinishedModel.from_pb(resp)
 
     def alarm_control_panel_command(
         self,
