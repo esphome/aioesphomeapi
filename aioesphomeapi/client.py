@@ -77,9 +77,9 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
-    VoiceAssistantSetConfiguration,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
 )
 from .client_callbacks import (
