@@ -1317,7 +1317,7 @@ class VoiceAssistantWakeWord(APIModelBase):
 
 
 @_frozen_dataclass_decorator
-class VoiceAssistantConfiguration(APIModelBase):
+class VoiceAssistantConfigurationResponse(APIModelBase):
     available_wake_words: list[VoiceAssistantWakeWord] = converter_field(
         default_factory=list, converter=VoiceAssistantWakeWord.convert_list
     )
@@ -1326,7 +1326,7 @@ class VoiceAssistantConfiguration(APIModelBase):
 
 
 @_frozen_dataclass_decorator
-class VoiceAssistantGetConfiguration(APIModelBase):
+class VoiceAssistantConfigurationRequest(APIModelBase):
     pass
 
 

@@ -121,9 +121,9 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantAnnounceFinished,
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
-    VoiceAssistantGetConfiguration,
+    VoiceAssistantConfigurationRequest,
+    VoiceAssistantConfigurationResponse,
     VoiceAssistantEventResponse,
-    VoiceAssistantConfiguration,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
@@ -399,8 +399,8 @@ MESSAGE_TYPE_TO_PROTO = {
     118: UpdateCommandRequest,
     119: VoiceAssistantAnnounceRequest,
     120: VoiceAssistantAnnounceFinished,
-    121: VoiceAssistantConfiguration,
-    122: VoiceAssistantGetConfiguration,
+    121: VoiceAssistantConfigurationResponse,
+    122: VoiceAssistantConfigurationResponse,
     123: VoiceAssistantSetConfiguration,
 }
 

@@ -73,10 +73,10 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantAnnounceFinished,
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
-    VoiceAssistantConfiguration,
+    VoiceAssistantConfigurationRequest,
+    VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
-    VoiceAssistantGetConfiguration,
     VoiceAssistantSetConfiguration,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
@@ -136,7 +136,7 @@ from .model import (
     VoiceAssistantAudioData,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
-    VoiceAssistantConfiguration as VoiceAssistantConfigurationModel,
+    VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
@@ -1465,13 +1465,13 @@ class APIClient:
 
     async def get_voice_assistant_configuration(
         self, timeout: float
-    ) -> VoiceAssistantConfigurationModel:
+    ) -> VoiceAssistantConfigurationResponseModel:
         resp = await self._get_connection().send_message_await_response(
-            VoiceAssistantGetConfiguration(),
-            VoiceAssistantConfiguration,
+            VoiceAssistantConfigurationRequest(),
+            VoiceAssistantConfigurationResponse,
             timeout,
         )
-        return VoiceAssistantConfigurationModel.from_pb(resp)
+        return VoiceAssistantConfigurationResponseModel.from_pb(resp)
 
     async def set_voice_assistant_configuration(
         self, active_wake_words: list[str]
