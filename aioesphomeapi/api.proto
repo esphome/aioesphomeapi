@@ -1590,9 +1590,9 @@ message VoiceAssistantAnnounceFinished {
 }
 
 message VoiceAssistantWakeWord {
-  string wake_word = 1;
-  repeated string trained_languages = 2;
-  uint32 version = 3;
+  uint32 id = 1;
+  string wake_word = 2;
+  repeated string trained_languages = 3;
 }
 
 message VoiceAssistantConfigurationRequest {

@@ -2663,7 +2663,7 @@ async def test_get_voice_assistant_configuration(
         response: message.Message = VoiceAssistantConfigurationResponse(
             available_wake_words=[
                 VoiceAssistantWakeWord(
-                    wake_word="okay nabu", trained_languages=["en"], version=1
+                    id=1, wake_word="okay nabu", trained_languages=["en"],
                 )
             ],
             active_wake_words=["okay nabu"],
