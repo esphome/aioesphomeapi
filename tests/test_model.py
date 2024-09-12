@@ -696,7 +696,7 @@ def test_voice_assistant_wake_word_convert_list() -> None:
                     "trained_languages": ["en"],
                 }
             ],
-            "active_wake_words": ["okay nabu"],
+            "active_wake_words": [1],
             "max_active_wake_words": 1,
         }
     ) == VoiceAssistantConfigurationResponse(
@@ -707,6 +707,6 @@ def test_voice_assistant_wake_word_convert_list() -> None:
                 trained_languages=["en"],
             )
         ],
-        active_wake_words=["okay nabu"],
+        active_wake_words=[1],
         max_active_wake_words=1,
     )

@@ -1607,7 +1607,7 @@ message VoiceAssistantConfigurationResponse {
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
   repeated VoiceAssistantWakeWord available_wake_words = 1;
-  repeated string active_wake_words = 2;
+  repeated uint32 active_wake_words = 2;
   uint32 max_active_wake_words = 3;
 }
 
@@ -1616,7 +1616,7 @@ message VoiceAssistantSetConfiguration {
   option (source) = SOURCE_CLIENT;
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
-  repeated string active_wake_words = 1;
+  repeated uint32 active_wake_words = 1;
 }
 
 // ==================== ALARM CONTROL PANEL ====================

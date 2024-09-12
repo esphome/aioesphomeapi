@@ -2663,10 +2663,12 @@ async def test_get_voice_assistant_configuration(
         response: message.Message = VoiceAssistantConfigurationResponse(
             available_wake_words=[
                 VoiceAssistantWakeWord(
-                    id=1, wake_word="okay nabu", trained_languages=["en"],
+                    id=1,
+                    wake_word="okay nabu",
+                    trained_languages=["en"],
                 )
             ],
-            active_wake_words=["okay nabu"],
+            active_wake_words=[1],
             max_active_wake_words=1,
         )
         mock_data_received(protocol, generate_plaintext_packet(response))
@@ -2684,11 +2686,11 @@ async def test_set_voice_assistant_configuration(
     original_send_message = connection.send_message
 
     def send_message(msg):
-        assert msg == VoiceAssistantSetConfiguration(active_wake_words=["hey jarvis"])
+        assert msg == VoiceAssistantSetConfiguration(active_wake_words=[1])
         original_send_message(msg)
 
     with patch.object(connection, "send_message", new=send_message):
-        await client.set_voice_assistant_configuration(["hey jarvis"])
+        await client.set_voice_assistant_configuration([1])
 
 
 @pytest.mark.asyncio

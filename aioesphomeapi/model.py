@@ -1320,7 +1320,7 @@ class VoiceAssistantConfigurationResponse(APIModelBase):
     available_wake_words: list[VoiceAssistantWakeWord] = converter_field(
         default_factory=list, converter=VoiceAssistantWakeWord.convert_list
     )
-    active_wake_words: list[str] = converter_field(default_factory=list, converter=list)
+    active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
     max_active_wake_words: int = 0
 
 
@@ -1331,7 +1331,7 @@ class VoiceAssistantConfigurationRequest(APIModelBase):
 
 @_frozen_dataclass_decorator
 class VoiceAssistantSetConfiguration(APIModelBase):
-    active_wake_words: list[str] = converter_field(default_factory=list, converter=list)
+    active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
 
 
 class LogLevel(APIIntEnum):
