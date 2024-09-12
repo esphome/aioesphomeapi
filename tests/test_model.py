@@ -118,7 +118,9 @@ from aioesphomeapi.model import (
     UserServiceArgType,
     ValveInfo,
     ValveState,
+    VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
+    VoiceAssistantWakeWord,
     build_unique_id,
     converter_field,
 )
@@ -680,4 +682,31 @@ def test_media_player_supported_format_convert_list() -> None:
                 sample_bytes=2,
             )
         ],
+    )
+
+
+def test_voice_assistant_wake_word_convert_list() -> None:
+    """Test list conversion for VoiceAssistantWakeWord."""
+    assert VoiceAssistantConfigurationResponse.from_dict(
+        {
+            "available_wake_words": [
+                {
+                    "wake_word": "okay nabu",
+                    "trained_languages": ["en"],
+                    "version": 1,
+                }
+            ],
+            "active_wake_words": ["okay nabu"],
+            "max_active_wake_words": 1,
+        }
+    ) == VoiceAssistantConfigurationResponse(
+        available_wake_words=[
+            VoiceAssistantWakeWord(
+                wake_word="okay nabu",
+                trained_languages=["en"],
+                version=1,
+            )
+        ],
+        active_wake_words=["okay nabu"],
+        max_active_wake_words=1,
     )

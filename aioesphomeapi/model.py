@@ -1300,7 +1300,6 @@ class VoiceAssistantAnnounceFinished(APIModelBase):
 
 @_frozen_dataclass_decorator
 class VoiceAssistantWakeWord(APIModelBase):
-    id: str
     wake_word: str
     trained_languages: list[str]
     version: int

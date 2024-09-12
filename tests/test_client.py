@@ -71,11 +71,15 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
     VoiceAssistantAudioSettings,
+    VoiceAssistantConfigurationRequest,
+    VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    VoiceAssistantWakeWord,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
@@ -113,6 +117,7 @@ from aioesphomeapi.model import (
     UserServiceArgType,
     VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
+    VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
 )
@@ -2635,6 +2640,55 @@ async def test_subscribe_voice_assistant_announcement_finished(
     # and does not raise
     unsub()
     assert len(send.mock_calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_voice_assistant_configuration(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    client, connection, _transport, protocol = api_client
+    original_send_message = connection.send_message
+
+    def send_message(msg):
+        assert msg == VoiceAssistantConfigurationRequest()
+        original_send_message(msg)
+
+    with patch.object(connection, "send_message", new=send_message):
+        config_task = asyncio.create_task(
+            client.get_voice_assistant_configuration(timeout=1.0)
+        )
+        await asyncio.sleep(0)
+        response: message.Message = VoiceAssistantConfigurationResponse(
+            available_wake_words=[
+                VoiceAssistantWakeWord(
+                    wake_word="okay nabu", trained_languages=["en"], version=1
+                )
+            ],
+            active_wake_words=["okay nabu"],
+            max_active_wake_words=1,
+        )
+        mock_data_received(protocol, generate_plaintext_packet(response))
+        config = await config_task
+        assert isinstance(config, VoiceAssistantConfigurationResponseModel)
+
+
+@pytest.mark.asyncio
+async def test_set_voice_assistant_configuration(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    client, connection, _transport, protocol = api_client
+    original_send_message = connection.send_message
+
+    def send_message(msg):
+        assert msg == VoiceAssistantSetConfiguration(active_wake_words=["hey jarvis"])
+        original_send_message(msg)
+
+    with patch.object(connection, "send_message", new=send_message):
+        await client.set_voice_assistant_configuration(["hey jarvis"])
 
 
 @pytest.mark.asyncio

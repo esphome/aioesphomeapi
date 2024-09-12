@@ -399,7 +399,7 @@ MESSAGE_TYPE_TO_PROTO = {
     118: UpdateCommandRequest,
     119: VoiceAssistantAnnounceRequest,
     120: VoiceAssistantAnnounceFinished,
-    121: VoiceAssistantConfigurationResponse,
+    121: VoiceAssistantConfigurationRequest,
     122: VoiceAssistantConfigurationResponse,
     123: VoiceAssistantSetConfiguration,
 }
