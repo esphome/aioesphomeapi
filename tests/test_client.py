@@ -2224,6 +2224,7 @@ async def test_subscribe_voice_assistant(
     send = patch_send(client)
     starts = []
     stops = []
+    aborts = []
 
     async def handle_start(
         conversation_id: str,
@@ -2234,8 +2235,11 @@ async def test_subscribe_voice_assistant(
         starts.append((conversation_id, flags, audio_settings, wake_word_phrase))
         return 42
 
-    async def handle_stop() -> None:
-        stops.append(True)
+    async def handle_stop(abort: bool) -> None:
+        if abort:
+            aborts.append(True)
+        else:
+            stops.append(True)
 
     unsub = client.subscribe_voice_assistant(
         handle_start=handle_start, handle_stop=handle_stop
@@ -2269,7 +2273,8 @@ async def test_subscribe_voice_assistant(
             "okay nabu",
         )
     ]
-    assert stops == []
+    assert not stops
+    assert not aborts
     send.assert_called_once_with(VoiceAssistantResponse(port=42))
     send.reset_mock()
     response: message.Message = VoiceAssistantRequest(
@@ -2278,7 +2283,8 @@ async def test_subscribe_voice_assistant(
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
-    assert stops == [True]
+    assert not stops
+    assert aborts == [True]
     send.reset_mock()
     unsub()
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=False))
@@ -2301,6 +2307,7 @@ async def test_subscribe_voice_assistant_failure(
     send = patch_send(client)
     starts = []
     stops = []
+    aborts = []
 
     async def handle_start(
         conversation_id: str,
@@ -2312,8 +2319,11 @@ async def test_subscribe_voice_assistant_failure(
         # Return None to indicate failure
         return None
 
-    async def handle_stop() -> None:
-        stops.append(True)
+    async def handle_stop(abort: bool) -> None:
+        if abort:
+            aborts.append(True)
+        else:
+            stops.append(True)
 
     unsub = client.subscribe_voice_assistant(
         handle_start=handle_start, handle_stop=handle_stop
@@ -2346,7 +2356,8 @@ async def test_subscribe_voice_assistant_failure(
             None,
         )
     ]
-    assert stops == []
+    assert not stops
+    assert not aborts
     send.assert_called_once_with(VoiceAssistantResponse(error=True))
     send.reset_mock()
     response: message.Message = VoiceAssistantRequest(
@@ -2355,7 +2366,8 @@ async def test_subscribe_voice_assistant_failure(
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
-    assert stops == [True]
+    assert not stops
+    assert aborts == [True]
     send.reset_mock()
     unsub()
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=False))
@@ -2378,6 +2390,7 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     send = patch_send(client)
     starts = []
     stops = []
+    aborts = []
 
     async def handle_start(
         conversation_id: str,
@@ -2391,8 +2404,11 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
         starts.append("never")
         return None
 
-    async def handle_stop() -> None:
-        stops.append(True)
+    async def handle_stop(abort: bool) -> None:
+        if abort:
+            aborts.append(True)
+        else:
+            stops.append(True)
 
     unsub = client.subscribe_voice_assistant(
         handle_start=handle_start, handle_stop=handle_stop
@@ -2416,6 +2432,7 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     unsub()
     await asyncio.sleep(0)
     assert not stops
+    assert not aborts
     assert starts == [
         (
             "theone",
@@ -2441,6 +2458,7 @@ async def test_subscribe_voice_assistant_api_audio(
     send = patch_send(client)
     starts = []
     stops = []
+    aborts = []
     data_received = 0
 
     async def handle_start(
@@ -2452,8 +2470,11 @@ async def test_subscribe_voice_assistant_api_audio(
         starts.append((conversation_id, flags, audio_settings, wake_word_phrase))
         return 0
 
-    async def handle_stop() -> None:
-        stops.append(True)
+    async def handle_stop(abort: bool) -> None:
+        if abort:
+            aborts.append(True)
+        else:
+            stops.append(True)
 
     async def handle_audio(data: bytes) -> None:
         nonlocal data_received
@@ -2493,7 +2514,8 @@ async def test_subscribe_voice_assistant_api_audio(
             "okay nabu",
         )
     ]
-    assert stops == []
+    assert not stops
+    assert not aborts
     send.assert_called_once_with(VoiceAssistantResponse(port=0))
     send.reset_mock()
 
@@ -2523,7 +2545,8 @@ async def test_subscribe_voice_assistant_api_audio(
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
-    assert stops == [True, True]
+    assert stops == [True]
+    assert aborts == [True]
     send.reset_mock()
     unsub()
     send.assert_called_once_with(SubscribeVoiceAssistantRequest(subscribe=False))

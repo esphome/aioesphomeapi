@@ -1281,7 +1281,7 @@ class APIClient:
             [str, int, VoiceAssistantAudioSettingsModel, str | None],
             Coroutine[Any, Any, int | None],
         ],
-        handle_stop: Callable[[], Coroutine[Any, Any, None]],
+        handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
         handle_audio: (
             Callable[
                 [bytes],
@@ -1302,7 +1302,7 @@ class APIClient:
         handle_start: called when the devices requests a server to send audio data to.
                       This callback is asynchronous and returns the port number the server is started on.
 
-        handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
+        handle_stop: called when the device has stopped sending audio data and the pipeline should be closed or aborted.
 
         handle_audio: called when a chunk of audio is sent from the device.
 
@@ -1343,7 +1343,7 @@ class APIClient:
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
             else:
-                self._create_background_task(handle_stop())
+                self._create_background_task(handle_stop(True))
 
         remove_callbacks = []
         flags = 0
@@ -1353,7 +1353,7 @@ class APIClient:
             def _on_voice_assistant_audio(msg: VoiceAssistantAudio) -> None:
                 audio = VoiceAssistantAudioData.from_pb(msg)
                 if audio.end:
-                    self._create_background_task(handle_stop())
+                    self._create_background_task(handle_stop(False))
                 else:
                     self._create_background_task(handle_audio(audio.data))
 
