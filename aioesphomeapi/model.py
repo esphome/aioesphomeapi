@@ -1298,6 +1298,42 @@ class VoiceAssistantAnnounceFinished(APIModelBase):
     success: bool = False
 
 
+@_frozen_dataclass_decorator
+class VoiceAssistantWakeWord(APIModelBase):
+    id: int
+    wake_word: str
+    trained_languages: list[str]
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantWakeWord]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(VoiceAssistantWakeWord.from_dict(x))
+            else:
+                ret.append(VoiceAssistantWakeWord.from_pb(x))
+        return ret
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantConfigurationResponse(APIModelBase):
+    available_wake_words: list[VoiceAssistantWakeWord] = converter_field(
+        default_factory=list, converter=VoiceAssistantWakeWord.convert_list
+    )
+    active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
+    max_active_wake_words: int = 0
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantConfigurationRequest(APIModelBase):
+    pass
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantSetConfiguration(APIModelBase):
+    active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1

@@ -73,10 +73,13 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantAnnounceFinished,
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
+    VoiceAssistantConfigurationRequest,
+    VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
 )
 from .client_callbacks import (
@@ -133,6 +136,7 @@ from .model import (
     VoiceAssistantAudioData,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
+    VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
@@ -1458,6 +1462,22 @@ class APIClient:
             timeout,
         )
         return VoiceAssistantAnnounceFinishedModel.from_pb(resp)
+
+    async def get_voice_assistant_configuration(
+        self, timeout: float
+    ) -> VoiceAssistantConfigurationResponseModel:
+        resp = await self._get_connection().send_message_await_response(
+            VoiceAssistantConfigurationRequest(),
+            VoiceAssistantConfigurationResponse,
+            timeout,
+        )
+        return VoiceAssistantConfigurationResponseModel.from_pb(resp)
+
+    async def set_voice_assistant_configuration(
+        self, active_wake_words: list[int]
+    ) -> None:
+        req = VoiceAssistantSetConfiguration(active_wake_words=active_wake_words)
+        self._get_connection().send_message(req)
 
     def alarm_control_panel_command(
         self,
