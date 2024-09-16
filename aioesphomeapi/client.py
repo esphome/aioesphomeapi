@@ -1474,7 +1474,7 @@ class APIClient:
         return VoiceAssistantConfigurationResponseModel.from_pb(resp)
 
     async def set_voice_assistant_configuration(
-        self, active_wake_words: list[int]
+        self, active_wake_words: list[str]
     ) -> None:
         req = VoiceAssistantSetConfiguration(active_wake_words=active_wake_words)
         self._get_connection().send_message(req)
