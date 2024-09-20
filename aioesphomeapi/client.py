@@ -70,11 +70,16 @@ from .api_pb2 import (  # type: ignore
     UnsubscribeBluetoothLEAdvertisementsRequest,
     UpdateCommandRequest,
     ValveCommandRequest,
+    VoiceAssistantAnnounceFinished,
+    VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
+    VoiceAssistantConfigurationRequest,
+    VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
 )
 from .client_callbacks import (
@@ -127,9 +132,11 @@ from .model import (
     UpdateCommand,
     UserService,
     UserServiceArgType,
+    VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioData,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantCommand,
+    VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
@@ -1286,10 +1293,17 @@ class APIClient:
             [str, int, VoiceAssistantAudioSettingsModel, str | None],
             Coroutine[Any, Any, int | None],
         ],
-        handle_stop: Callable[[], Coroutine[Any, Any, None]],
+        handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
         handle_audio: (
             Callable[
                 [bytes],
+                Coroutine[Any, Any, None],
+            ]
+            | None
+        ) = None,
+        handle_announcement_finished: (
+            Callable[
+                [VoiceAssistantAnnounceFinishedModel],
                 Coroutine[Any, Any, None],
             ]
             | None
@@ -1300,7 +1314,11 @@ class APIClient:
         handle_start: called when the devices requests a server to send audio data to.
                       This callback is asynchronous and returns the port number the server is started on.
 
-        handle_stop: called when the device has stopped sending audio data and the pipeline should be closed.
+        handle_stop: called when the device has stopped sending audio data and the pipeline should be closed or aborted.
+
+        handle_audio: called when a chunk of audio is sent from the device.
+
+        handle_announcement_finished: called when a VoiceAssistantAnnounceFinished message is sent from the device.
 
         Returns a callback to unsubscribe.
         """
@@ -1337,7 +1355,7 @@ class APIClient:
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
             else:
-                self._create_background_task(handle_stop())
+                self._create_background_task(handle_stop(True))
 
         remove_callbacks = []
         flags = 0
@@ -1347,7 +1365,7 @@ class APIClient:
             def _on_voice_assistant_audio(msg: VoiceAssistantAudio) -> None:
                 audio = VoiceAssistantAudioData.from_pb(msg)
                 if audio.end:
-                    self._create_background_task(handle_stop())
+                    self._create_background_task(handle_stop(False))
                 else:
                     self._create_background_task(handle_audio(audio.data))
 
@@ -1366,6 +1384,21 @@ class APIClient:
                 _on_voice_assistant_request, (VoiceAssistantRequest,)
             )
         )
+
+        if handle_announcement_finished is not None:
+
+            def _on_voice_assistant_announcement_finished(
+                msg: VoiceAssistantAnnounceFinished,
+            ) -> None:
+                finished = VoiceAssistantAnnounceFinishedModel.from_pb(msg)
+                self._create_background_task(handle_announcement_finished(finished))
+
+            remove_callbacks.append(
+                connection.add_message_callback(
+                    _on_voice_assistant_announcement_finished,
+                    (VoiceAssistantAnnounceFinished,),
+                )
+            )
 
         def unsub() -> None:
             nonlocal start_task
@@ -1423,6 +1456,35 @@ class APIClient:
             seconds_left=seconds_left,
             is_active=is_active,
         )
+        self._get_connection().send_message(req)
+
+    async def send_voice_assistant_announcement_await_response(
+        self,
+        media_id: str,
+        timeout: float,
+        text: str = "",
+    ) -> VoiceAssistantAnnounceFinishedModel:
+        resp = await self._get_connection().send_message_await_response(
+            VoiceAssistantAnnounceRequest(media_id=media_id, text=text),
+            VoiceAssistantAnnounceFinished,
+            timeout,
+        )
+        return VoiceAssistantAnnounceFinishedModel.from_pb(resp)
+
+    async def get_voice_assistant_configuration(
+        self, timeout: float
+    ) -> VoiceAssistantConfigurationResponseModel:
+        resp = await self._get_connection().send_message_await_response(
+            VoiceAssistantConfigurationRequest(),
+            VoiceAssistantConfigurationResponse,
+            timeout,
+        )
+        return VoiceAssistantConfigurationResponseModel.from_pb(resp)
+
+    async def set_voice_assistant_configuration(
+        self, active_wake_words: list[str]
+    ) -> None:
+        req = VoiceAssistantSetConfiguration(active_wake_words=active_wake_words)
         self._get_connection().send_message(req)
 
     def alarm_control_panel_command(

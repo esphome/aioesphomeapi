@@ -118,10 +118,15 @@ from .api_pb2 import (  # type: ignore
     UpdateStateResponse,
     ValveCommandRequest,
     ValveStateResponse,
+    VoiceAssistantAnnounceFinished,
+    VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
+    VoiceAssistantConfigurationRequest,
+    VoiceAssistantConfigurationResponse,
     VoiceAssistantEventResponse,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
+    VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
 )
 
@@ -392,4 +397,11 @@ MESSAGE_TYPE_TO_PROTO = {
     116: ListEntitiesUpdateResponse,
     117: UpdateStateResponse,
     118: UpdateCommandRequest,
+    119: VoiceAssistantAnnounceRequest,
+    120: VoiceAssistantAnnounceFinished,
+    121: VoiceAssistantConfigurationRequest,
+    122: VoiceAssistantConfigurationResponse,
+    123: VoiceAssistantSetConfiguration,
 }
+
+MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

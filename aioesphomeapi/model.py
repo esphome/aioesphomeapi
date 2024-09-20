@@ -126,6 +126,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     SPEAKER = 1 << 1
     API_AUDIO = 1 << 2
     TIMERS = 1 << 3
+    ANNOUNCE = 1 << 4
 
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
@@ -853,6 +854,7 @@ class MediaPlayerSupportedFormat(APIModelBase):
         default=MediaPlayerFormatPurpose.DEFAULT,
         converter=MediaPlayerFormatPurpose.convert,
     )
+    sample_bytes: int = 0
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[MediaPlayerSupportedFormat]:
@@ -1319,6 +1321,47 @@ class VoiceAssistantCommand(APIModelBase):
 class VoiceAssistantAudioData(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
     end: bool = False
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantAnnounceFinished(APIModelBase):
+    success: bool = False
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantWakeWord(APIModelBase):
+    id: str
+    wake_word: str
+    trained_languages: list[str]
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantWakeWord]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(VoiceAssistantWakeWord.from_dict(x))
+            else:
+                ret.append(VoiceAssistantWakeWord.from_pb(x))
+        return ret
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantConfigurationResponse(APIModelBase):
+    available_wake_words: list[VoiceAssistantWakeWord] = converter_field(
+        default_factory=list, converter=VoiceAssistantWakeWord.convert_list
+    )
+    active_wake_words: list[str] = converter_field(default_factory=list, converter=list)
+    max_active_wake_words: int = 0
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantConfigurationRequest(APIModelBase):
+    pass
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantSetConfiguration(APIModelBase):
+    active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
 
 
 class LogLevel(APIIntEnum):

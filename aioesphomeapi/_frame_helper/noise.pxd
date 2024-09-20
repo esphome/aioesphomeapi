@@ -12,6 +12,21 @@ cdef unsigned int NOISE_STATE_READY
 cdef unsigned int NOISE_STATE_CLOSED
 
 cdef bytes NOISE_HELLO
+cdef object PACK_NONCE
+
+cdef class EncryptCipher:
+
+    cdef object _nonce
+    cdef object _encrypt
+
+    cdef bytes encrypt(self, object frame)
+
+cdef class DecryptCipher:
+
+    cdef object _nonce
+    cdef object _decrypt
+
+    cdef bytes decrypt(self, object frame)
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
@@ -20,8 +35,8 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef unsigned int _state
     cdef object _server_name
     cdef object _proto
-    cdef object _decrypt
-    cdef object _encrypt
+    cdef EncryptCipher _encrypt_cipher
+    cdef DecryptCipher _decrypt_cipher
 
     @cython.locals(
         header=bytes,
@@ -34,7 +49,9 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     @cython.locals(
         msg=bytes,
         type_high="unsigned char",
-        type_low="unsigned char"
+        type_low="unsigned char",
+        msg_type="unsigned int",
+        payload=bytes
     )
     cdef void _handle_frame(self, bytes frame)
 
@@ -59,6 +76,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     @cython.locals(
         type_="unsigned int",
         data=bytes,
+        data_header=bytes,
         packet=tuple,
         data_len=cython.uint,
         frame=bytes,
