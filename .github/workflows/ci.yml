@@ -130,3 +130,25 @@ jobs:
           fi
         name: Check protobuf files match
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
+
+  benchmarks:
+    name: Run benchmarks
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip' # caching pip dependencies
+      - name: Set up Python environment (cython)
+        env:
+            REQUIRE_CYTHON: 1
+        shell: bash
+        run: |
+            pip3 install -r requirements.txt -r requirements_test.txt
+            pip3 install -e .
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v3
+        with:
+          token: ${{ secrets.CODSPEED_TOKEN }}
+          run: pytest tests/ --codspeed
