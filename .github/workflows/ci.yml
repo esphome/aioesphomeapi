@@ -143,8 +143,8 @@ jobs:
         if: ${{ matrix.extension == 'use_cython' }}
         env:
             REQUIRE_CYTHON: 1
-          shell: bash
-          run: |
+        shell: bash
+        run: |
             pip3 install -r requirements.txt -r requirements_test.txt
             pip3 install -e .
       - name: Run benchmarks
