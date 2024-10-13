@@ -140,7 +140,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Set up Python environment (cython)
-        if: ${{ matrix.extension == 'use_cython' }}
         env:
             REQUIRE_CYTHON: 1
         shell: bash
