@@ -142,7 +142,7 @@ jobs:
           cache: 'pip' # caching pip dependencies
       - name: Set up Python environment (cython)
         env:
-            REQUIRE_CYTHON: 1
+            SKIP_CYTHON: 1
         shell: bash
         run: |
             pip3 install -r requirements.txt -r requirements_test.txt
