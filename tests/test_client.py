@@ -1440,7 +1440,12 @@ async def test_bluetooth_gatt_write_without_response(
     )
     await asyncio.sleep(0)
     await write_task
-    assert transport.mock_calls[0][1][0] == b'\x00\x0cK\x08\xd2\t\x10\xd2\t"\x041234'
+    assert transport.mock_calls[0][1][0] == [
+        b"\x00",
+        b"\x0c",
+        b"K",
+        b'\x08\xd2\t\x10\xd2\t"\x041234',
+    ]
 
     with pytest.raises(TimeoutAPIError, match="BluetoothGATTWriteResponse"):
         await client.bluetooth_gatt_write(1234, 1234, b"1234", True, timeout=0)
@@ -1485,7 +1490,12 @@ async def test_bluetooth_gatt_write_descriptor_without_response(
     )
     await asyncio.sleep(0)
     await write_task
-    assert transport.mock_calls[0][1][0] == b"\x00\x0cM\x08\xd2\t\x10\xd2\t\x1a\x041234"
+    assert transport.mock_calls[0][1][0] == [
+        b"\x00",
+        b"\x0c",
+        b"M",
+        b"\x08\xd2\t\x10\xd2\t\x1a\x041234",
+    ]
 
     with pytest.raises(TimeoutAPIError, match="BluetoothGATTWriteResponse"):
         await client.bluetooth_gatt_write_descriptor(1234, 1234, b"1234", timeout=0)
