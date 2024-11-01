@@ -175,7 +175,7 @@ class APIFrameHelper:
         if self._transport:
             self._transport.close()
             self._transport = None
-            self._writer = None
+            self._writelines = None
 
     def pause_writing(self) -> None:
         """Stub."""

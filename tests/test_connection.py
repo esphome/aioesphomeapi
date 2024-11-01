@@ -506,7 +506,7 @@ async def test_plaintext_connection_fails_handshake(
     ) -> tuple[asyncio.Transport, APIPlaintextFrameHelperHandshakeException]:
         protocol: APIPlaintextFrameHelperHandshakeException = create_func()
         protocol._transport = cast(asyncio.Transport, transport)
-        protocol._writer = transport.write
+        protocol._writelines = transport.write
         protocol.ready_future.set_exception(exception)
         connected.set()
         return transport, protocol
@@ -549,7 +549,9 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (pytest.raises(raised_exception),):
+    with (
+        pytest.raises(raised_exception),
+    ):
         await asyncio.sleep(0)
         await connect_task
 
@@ -646,7 +648,7 @@ async def test_force_disconnect_fails(
     await connect_task
     assert conn.is_connected
 
-    with patch.object(protocol, "_writer", side_effect=OSError):
+    with patch.object(protocol, "_writelines", side_effect=OSError):
         conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
     await asyncio.sleep(0)
@@ -822,7 +824,7 @@ async def test_disconnect_fails_to_send_response(
     await connect_task
     assert client._connection.is_connected
 
-    with patch.object(protocol, "_writer", side_effect=OSError):
+    with patch.object(protocol, "_writelines", side_effect=OSError):
         disconnect_request = DisconnectRequest()
         mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
 
