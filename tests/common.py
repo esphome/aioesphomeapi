@@ -68,12 +68,12 @@ class Estr(str):
 def generate_split_plaintext_packet(msg: message.Message) -> list[bytes]:
     type_ = PROTO_TO_MESSAGE_TYPE[msg.__class__]
     bytes_ = msg.SerializeToString()
-    return (
-        b"\0"
-        + _cached_varuint_to_bytes(len(bytes_))
-        + _cached_varuint_to_bytes(type_)
-        + bytes_
-    )
+    return [
+        b"\0",
+        _cached_varuint_to_bytes(len(bytes_)),
+        _cached_varuint_to_bytes(type_),
+        bytes_,
+    ]
 
 
 def generate_plaintext_packet(msg: message.Message) -> bytes:
