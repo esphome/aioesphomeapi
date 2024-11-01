@@ -115,7 +115,7 @@ async def test_timeout_sending_message(
     with patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0):
         await conn.disconnect()
 
-    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05", b""])
+    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05"])
 
     assert "disconnect request failed" in caplog.text
     assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
@@ -152,7 +152,7 @@ async def test_disconnect_when_not_fully_connected(
     ):
         await connect_task
 
-    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05", b""])
+    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05"])
 
     assert "disconnect request failed" in caplog.text
     assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
@@ -895,7 +895,7 @@ async def test_ping_disconnects_after_no_responses(
 
     await connect_task
 
-    ping_request_bytes = [b"\x00", b"\x00", b"\x07", b""]
+    ping_request_bytes = [b"\x00", b"\x00", b"\x07"]
 
     assert conn.is_connected
     transport.reset_mock()
@@ -934,7 +934,7 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
     send_plaintext_connect_response(protocol, False)
 
     await connect_task
-    ping_request_bytes = [b"\x00", b"\x00", b"\x07", b""]
+    ping_request_bytes = [b"\x00", b"\x00", b"\x07"]
 
     assert conn.is_connected
     transport.reset_mock()
@@ -978,7 +978,7 @@ async def test_respond_to_ping_request(
     transport.reset_mock()
     send_ping_request(protocol)
     # We should respond to ping requests
-    ping_response_bytes = [b"\x00", b"\x00", b"\x08", b""]
+    ping_response_bytes = [b"\x00", b"\x00", b"\x08"]
     assert transport.writelines.call_count == 1
     assert transport.writelines.mock_calls == [call(ping_response_bytes)]
 
