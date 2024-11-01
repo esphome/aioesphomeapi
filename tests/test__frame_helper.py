@@ -148,7 +148,7 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         frame_len = len(frame)
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         try:
-            self._writelines(header + frame)
+            self._writelines([header, frame])
         except (RuntimeError, ConnectionResetError, OSError) as err:
             raise SocketClosedAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
@@ -439,7 +439,7 @@ async def test_noise_frame_helper_handshake_failure():
     writes = []
 
     def _writelines(data: Iterable[bytes]):
-        writes.extend(data)
+        writes.append(b"".join(data))
 
     connection, _ = _make_mock_connection()
 
@@ -488,7 +488,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     writes = []
 
     def _writelines(data: Iterable[bytes]):
-        writes.extend(data)
+        writes.append(b"".join(data))
 
     connection, packets = _make_mock_connection()
 
@@ -550,7 +550,7 @@ async def test_noise_frame_helper_bad_encryption(
     writes = []
 
     def _writelines(data: Iterable[bytes]):
-        writes.extend(data)
+        writes.append(b"".join(data))
 
     connection, packets = _make_mock_connection()
 
