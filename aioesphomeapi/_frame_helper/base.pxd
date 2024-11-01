@@ -11,7 +11,7 @@ cdef class APIFrameHelper:
     cdef object _loop
     cdef APIConnection _connection
     cdef object _transport
-    cdef public object _writer
+    cdef public object _writelines
     cdef public object ready_future
     cdef bytes _buffer
     cdef unsigned int _buffer_len

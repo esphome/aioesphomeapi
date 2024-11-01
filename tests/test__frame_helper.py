@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import Iterable
 import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -132,7 +133,7 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         """Swallow args."""
         super().__init__(*args, **kwargs)
         transport = MagicMock()
-        transport.write = writer or MagicMock()
+        transport.writelines = writer or MagicMock()
         self.__transport = transport
         self.connection_made(transport)
 
@@ -147,7 +148,7 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         frame_len = len(frame)
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         try:
-            self._writer(header + frame)
+            self._writelines([header, frame])
         except (RuntimeError, ConnectionResetError, OSError) as err:
             raise SocketClosedAPIError(
                 f"{self._log_name}: Error while writing data: {err}"
@@ -437,8 +438,8 @@ async def test_noise_frame_helper_handshake_failure():
     psk_bytes = base64.b64decode(noise_psk)
     writes = []
 
-    def _writer(data: bytes):
-        writes.append(data)
+    def _writelines(data: Iterable[bytes]):
+        writes.append(b"".join(data))
 
     connection, _ = _make_mock_connection()
 
@@ -448,7 +449,7 @@ async def test_noise_frame_helper_handshake_failure():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
-        writer=_writer,
+        writer=_writelines,
     )
 
     proto = _mock_responder_proto(psk_bytes)
@@ -486,8 +487,8 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     psk_bytes = base64.b64decode(noise_psk)
     writes = []
 
-    def _writer(data: bytes):
-        writes.append(data)
+    def _writelines(data: Iterable[bytes]):
+        writes.append(b"".join(data))
 
     connection, packets = _make_mock_connection()
 
@@ -497,7 +498,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
-        writer=_writer,
+        writer=_writelines,
     )
 
     proto = _mock_responder_proto(psk_bytes)
@@ -548,8 +549,8 @@ async def test_noise_frame_helper_bad_encryption(
     psk_bytes = base64.b64decode(noise_psk)
     writes = []
 
-    def _writer(data: bytes):
-        writes.append(data)
+    def _writelines(data: Iterable[bytes]):
+        writes.append(b"".join(data))
 
     connection, packets = _make_mock_connection()
 
@@ -559,7 +560,7 @@ async def test_noise_frame_helper_bad_encryption(
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
-        writer=_writer,
+        writer=_writelines,
     )
 
     proto = _mock_responder_proto(psk_bytes)

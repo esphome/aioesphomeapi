@@ -126,6 +126,7 @@ from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 from .common import (
     Estr,
     generate_plaintext_packet,
+    generate_split_plaintext_packet,
     get_mock_zeroconf,
     mock_data_received,
 )
@@ -1439,7 +1440,12 @@ async def test_bluetooth_gatt_write_without_response(
     )
     await asyncio.sleep(0)
     await write_task
-    assert transport.mock_calls[0][1][0] == b'\x00\x0cK\x08\xd2\t\x10\xd2\t"\x041234'
+    assert transport.mock_calls[0][1][0] == [
+        b"\x00",
+        b"\x0c",
+        b"K",
+        b'\x08\xd2\t\x10\xd2\t"\x041234',
+    ]
 
     with pytest.raises(TimeoutAPIError, match="BluetoothGATTWriteResponse"):
         await client.bluetooth_gatt_write(1234, 1234, b"1234", True, timeout=0)
@@ -1484,7 +1490,12 @@ async def test_bluetooth_gatt_write_descriptor_without_response(
     )
     await asyncio.sleep(0)
     await write_task
-    assert transport.mock_calls[0][1][0] == b"\x00\x0cM\x08\xd2\t\x10\xd2\t\x1a\x041234"
+    assert transport.mock_calls[0][1][0] == [
+        b"\x00",
+        b"\x0c",
+        b"M",
+        b"\x08\xd2\t\x10\xd2\t\x1a\x041234",
+    ]
 
     with pytest.raises(TimeoutAPIError, match="BluetoothGATTWriteResponse"):
         await client.bluetooth_gatt_write_descriptor(1234, 1234, b"1234", timeout=0)
@@ -2042,8 +2053,8 @@ async def test_bluetooth_device_connect(
 
     cancel = await connect_task
     assert states == [(True, 23, 0)]
-    transport.write.assert_called_once_with(
-        generate_plaintext_packet(
+    transport.writelines.assert_called_once_with(
+        generate_split_plaintext_packet(
             BluetoothDeviceRequest(
                 address=1234,
                 request_type=method,
@@ -2133,13 +2144,13 @@ async def test_bluetooth_device_connect_times_out_disconnect_ok(
     )
     await asyncio.sleep(0)
     # The connect request should be written
-    assert len(transport.write.mock_calls) == 1
+    assert len(transport.writelines.mock_calls) == 1
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     # Now that we timed out, the disconnect
     # request should be written
-    assert len(transport.write.mock_calls) == 2
+    assert len(transport.writelines.mock_calls) == 2
     response: message.Message = BluetoothDeviceConnectionResponse(
         address=1234, connected=False, mtu=23, error=8
     )
@@ -2177,7 +2188,7 @@ async def test_bluetooth_device_connect_cancelled(
     )
     await asyncio.sleep(0)
     # The connect request should be written
-    assert len(transport.write.mock_calls) == 1
+    assert len(transport.writelines.mock_calls) == 1
     connect_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await connect_task

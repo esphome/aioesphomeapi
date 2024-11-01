@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import asyncio
+from collections.abc import Iterable
 import logging
 from typing import TYPE_CHECKING, Callable, cast
 
@@ -31,7 +32,7 @@ class APIFrameHelper:
         "_loop",
         "_connection",
         "_transport",
-        "_writer",
+        "_writelines",
         "ready_future",
         "_buffer",
         "_buffer_len",
@@ -51,7 +52,9 @@ class APIFrameHelper:
         self._loop = loop
         self._connection = connection
         self._transport: asyncio.Transport | None = None
-        self._writer: None | (Callable[[bytes | bytearray | memoryview], None]) = None
+        self._writelines: (
+            None | (Callable[[Iterable[bytes | bytearray | memoryview[int]]], None])
+        ) = None
         self.ready_future = self._loop.create_future()
         self._buffer: bytes | None = None
         self._buffer_len = 0
@@ -146,7 +149,7 @@ class APIFrameHelper:
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""
         self._transport = cast(asyncio.Transport, transport)
-        self._writer = self._transport.write
+        self._writelines = self._transport.writelines
 
     def _handle_error_and_close(self, exc: Exception) -> None:
         self._handle_error(exc)
@@ -172,7 +175,7 @@ class APIFrameHelper:
         if self._transport:
             self._transport.close()
             self._transport = None
-            self._writer = None
+            self._writelines = None
 
     def pause_writing(self) -> None:
         """Stub."""
@@ -180,12 +183,14 @@ class APIFrameHelper:
     def resume_writing(self) -> None:
         """Stub."""
 
-    def _write_bytes(self, data: _bytes, debug_enabled: bool) -> None:
+    def _write_bytes(self, data: Iterable[_bytes], debug_enabled: bool) -> None:
         """Write bytes to the socket."""
         if debug_enabled:
-            _LOGGER.debug("%s: Sending frame: [%s]", self._log_name, data.hex())
+            _LOGGER.debug(
+                "%s: Sending frame: [%s]", self._log_name, b"".join(data).hex()
+            )
 
         if TYPE_CHECKING:
-            assert self._writer is not None, "Writer is not set"
+            assert self._writelines is not None, "Writer is not set"
 
-        self._writer(data)
+        self._writelines(data)

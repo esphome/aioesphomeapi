@@ -115,7 +115,7 @@ async def test_timeout_sending_message(
     with patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0):
         await conn.disconnect()
 
-    transport.write.assert_called_with(b"\x00\x00\x05")
+    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05"])
 
     assert "disconnect request failed" in caplog.text
     assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
@@ -152,7 +152,7 @@ async def test_disconnect_when_not_fully_connected(
     ):
         await connect_task
 
-    transport.write.assert_called_with(b"\x00\x00\x05")
+    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05"])
 
     assert "disconnect request failed" in caplog.text
     assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
@@ -506,7 +506,7 @@ async def test_plaintext_connection_fails_handshake(
     ) -> tuple[asyncio.Transport, APIPlaintextFrameHelperHandshakeException]:
         protocol: APIPlaintextFrameHelperHandshakeException = create_func()
         protocol._transport = cast(asyncio.Transport, transport)
-        protocol._writer = transport.write
+        protocol._writelines = transport.writelines
         protocol.ready_future.set_exception(exception)
         connected.set()
         return transport, protocol
@@ -549,7 +549,9 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (pytest.raises(raised_exception),):
+    with (
+        pytest.raises(raised_exception),
+    ):
         await asyncio.sleep(0)
         await connect_task
 
@@ -646,7 +648,7 @@ async def test_force_disconnect_fails(
     await connect_task
     assert conn.is_connected
 
-    with patch.object(protocol, "_writer", side_effect=OSError):
+    with patch.object(protocol, "_writelines", side_effect=OSError):
         conn.force_disconnect()
     assert "Failed to send (forced) disconnect request" in caplog.text
     await asyncio.sleep(0)
@@ -822,7 +824,7 @@ async def test_disconnect_fails_to_send_response(
     await connect_task
     assert client._connection.is_connected
 
-    with patch.object(protocol, "_writer", side_effect=OSError):
+    with patch.object(protocol, "_writelines", side_effect=OSError):
         disconnect_request = DisconnectRequest()
         mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
 
@@ -893,7 +895,7 @@ async def test_ping_disconnects_after_no_responses(
 
     await connect_task
 
-    ping_request_bytes = b"\x00\x00\x07"
+    ping_request_bytes = [b"\x00", b"\x00", b"\x07"]
 
     assert conn.is_connected
     transport.reset_mock()
@@ -904,9 +906,9 @@ async def test_ping_disconnects_after_no_responses(
         async_fire_time_changed(
             start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL * count)
         )
-        assert transport.write.call_count == count
+        assert transport.writelines.call_count == count
         expected_calls.append(call(ping_request_bytes))
-        assert transport.write.mock_calls == expected_calls
+        assert transport.writelines.mock_calls == expected_calls
 
     assert conn.is_connected is True
 
@@ -915,7 +917,7 @@ async def test_ping_disconnects_after_no_responses(
         start_time
         + timedelta(seconds=KEEP_ALIVE_INTERVAL * (max_pings_to_disconnect_after + 1))
     )
-    assert transport.write.call_count == max_pings_to_disconnect_after + 1
+    assert transport.writelines.call_count == max_pings_to_disconnect_after + 1
 
     assert conn.is_connected is False
 
@@ -932,7 +934,7 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
     send_plaintext_connect_response(protocol, False)
 
     await connect_task
-    ping_request_bytes = b"\x00\x00\x07"
+    ping_request_bytes = [b"\x00", b"\x00", b"\x07"]
 
     assert conn.is_connected
     transport.reset_mock()
@@ -945,8 +947,8 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
         send_ping_response(protocol)
 
     # We should only send 1 ping request if we are getting responses
-    assert transport.write.call_count == 1
-    assert transport.write.mock_calls == [call(ping_request_bytes)]
+    assert transport.writelines.call_count == 1
+    assert transport.writelines.mock_calls == [call(ping_request_bytes)]
 
     # We should disconnect if we are getting ping responses
     assert conn.is_connected is True
@@ -976,9 +978,9 @@ async def test_respond_to_ping_request(
     transport.reset_mock()
     send_ping_request(protocol)
     # We should respond to ping requests
-    ping_response_bytes = b"\x00\x00\x08"
-    assert transport.write.call_count == 1
-    assert transport.write.mock_calls == [call(ping_response_bytes)]
+    ping_response_bytes = [b"\x00", b"\x00", b"\x08"]
+    assert transport.writelines.call_count == 1
+    assert transport.writelines.mock_calls == [call(ping_response_bytes)]
 
 
 @pytest.mark.asyncio
