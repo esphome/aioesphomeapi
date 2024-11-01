@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import Iterable
 import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -437,8 +438,8 @@ async def test_noise_frame_helper_handshake_failure():
     psk_bytes = base64.b64decode(noise_psk)
     writes = []
 
-    def _writelines(data: bytes):
-        writes.append(data)
+    def _writelines(data: Iterable[bytes]):
+        writes.extend(data)
 
     connection, _ = _make_mock_connection()
 
@@ -486,8 +487,8 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     psk_bytes = base64.b64decode(noise_psk)
     writes = []
 
-    def _writelines(data: bytes):
-        writes.append(data)
+    def _writelines(data: Iterable[bytes]):
+        writes.extend(data)
 
     connection, packets = _make_mock_connection()
 
@@ -548,8 +549,8 @@ async def test_noise_frame_helper_bad_encryption(
     psk_bytes = base64.b64decode(noise_psk)
     writes = []
 
-    def _writelines(data: bytes):
-        writes.append(data)
+    def _writelines(data: Iterable[bytes]):
+        writes.extend(data)
 
     connection, packets = _make_mock_connection()
 
