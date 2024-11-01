@@ -59,7 +59,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             out.append(varuint_to_bytes(type_))
             out.append(data)
 
-        self._write_bytes(b"".join(out), debug_enabled)
+        self._write_bytes(out, debug_enabled)
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)

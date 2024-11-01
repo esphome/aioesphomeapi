@@ -218,7 +218,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         frame_len = len(handshake_frame) + 1
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         self._write_bytes(
-            b"".join((NOISE_HELLO, header, b"\x00", handshake_frame)),
+            [NOISE_HELLO, header, b"\x00", handshake_frame],
             _LOGGER.isEnabledFor(logging.DEBUG),
         )
 
@@ -346,7 +346,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             out.append(header)
             out.append(frame)
 
-        self._write_bytes(b"".join(out), debug_enabled)
+        self._write_bytes(out, debug_enabled)
 
     def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""
