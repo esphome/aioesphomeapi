@@ -126,6 +126,7 @@ from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 from .common import (
     Estr,
     generate_plaintext_packet,
+    generate_split_plaintext_packet,
     get_mock_zeroconf,
     mock_data_received,
 )
@@ -2043,7 +2044,7 @@ async def test_bluetooth_device_connect(
     cancel = await connect_task
     assert states == [(True, 23, 0)]
     transport.writelines.assert_called_once_with(
-        generate_plaintext_packet(
+        generate_split_plaintext_packet(
             BluetoothDeviceRequest(
                 address=1234,
                 request_type=method,
