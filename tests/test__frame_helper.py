@@ -132,7 +132,7 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         """Swallow args."""
         super().__init__(*args, **kwargs)
         transport = MagicMock()
-        transport.write = writer or MagicMock()
+        transport.writelines = writer or MagicMock()
         self.__transport = transport
         self.connection_made(transport)
 

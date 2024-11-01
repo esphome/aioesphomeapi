@@ -2042,7 +2042,7 @@ async def test_bluetooth_device_connect(
 
     cancel = await connect_task
     assert states == [(True, 23, 0)]
-    transport.write.assert_called_once_with(
+    transport.writelines.assert_called_once_with(
         generate_plaintext_packet(
             BluetoothDeviceRequest(
                 address=1234,
@@ -2133,13 +2133,13 @@ async def test_bluetooth_device_connect_times_out_disconnect_ok(
     )
     await asyncio.sleep(0)
     # The connect request should be written
-    assert len(transport.write.mock_calls) == 1
+    assert len(transport.writelines.mock_calls) == 1
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     # Now that we timed out, the disconnect
     # request should be written
-    assert len(transport.write.mock_calls) == 2
+    assert len(transport.writelines.mock_calls) == 2
     response: message.Message = BluetoothDeviceConnectionResponse(
         address=1234, connected=False, mtu=23, error=8
     )
@@ -2177,7 +2177,7 @@ async def test_bluetooth_device_connect_cancelled(
     )
     await asyncio.sleep(0)
     # The connect request should be written
-    assert len(transport.write.mock_calls) == 1
+    assert len(transport.writelines.mock_calls) == 1
     connect_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await connect_task
