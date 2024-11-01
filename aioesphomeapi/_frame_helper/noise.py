@@ -218,7 +218,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         frame_len = len(handshake_frame) + 1
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         self._write_bytes(
-            [NOISE_HELLO, header, b"\x00", handshake_frame],
+            (NOISE_HELLO, header, b"\x00", handshake_frame),
             _LOGGER.isEnabledFor(logging.DEBUG),
         )
 
