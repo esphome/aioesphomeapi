@@ -52,9 +52,9 @@ class APIFrameHelper:
         self._loop = loop
         self._connection = connection
         self._transport: asyncio.Transport | None = None
-        self._writelines: None | (Callable[[bytes | bytearray | memoryview], None]) = (
-            None
-        )
+        self._writelines: (
+            None | (Callable[[Iterable[bytes | bytearray | memoryview[int]]], None])
+        ) = None
         self.ready_future = self._loop.create_future()
         self._buffer: bytes | None = None
         self._buffer_len = 0
