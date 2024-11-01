@@ -57,7 +57,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             out.append(b"\0")
             out.append(varuint_to_bytes(len(data)))
             out.append(varuint_to_bytes(type_))
-            out.append(data)
+            if data:
+                out.append(data)
 
         self._write_bytes(out, debug_enabled)
 
