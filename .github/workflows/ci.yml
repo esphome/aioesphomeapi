@@ -114,7 +114,7 @@ jobs:
       - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - run: |
