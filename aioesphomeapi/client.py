@@ -611,7 +611,7 @@ class APIClient:
             unhandled_exception = True
             raise
         finally:
-            if unhandled_exception or not connect_ok and not timeout_expired:
+            if unhandled_exception or (not connect_ok and not timeout_expired):
                 unsub()
             if not timeout_expired:
                 timeout_handle.cancel()
