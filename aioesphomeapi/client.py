@@ -580,6 +580,7 @@ class APIClient:
         )
         timeout_expired = False
         connect_ok = False
+        unhandled_exception = False
         try:
             await connect_future
             connect_ok = True
@@ -606,11 +607,18 @@ class APIClient:
                 f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
                 f" after {disconnect_timeout}s"
             ) from err
+        except BaseException:
+            unhandled_exception = True
+            raise
         finally:
-            if not connect_ok and not timeout_expired:
+            if unhandled_exception or (not connect_ok and not timeout_expired):
                 unsub()
             if not timeout_expired:
                 timeout_handle.cancel()
+            if unhandled_exception:
+                # Make sure to disconnect if we had an unhandled exception
+                # as otherwise the connection will be left open.
+                self._bluetooth_disconnect_no_wait(address)
 
         return unsub
 
@@ -715,6 +723,14 @@ class APIClient:
             f"Peripheral {human_readable_address} changed connection status while waiting for "
             f"{response_names}: {to_human_readable_gatt_error(response.error)} "
             f"({response.error})"
+        )
+
+    def _bluetooth_disconnect_no_wait(self, address: int) -> None:
+        """Disconnect from a Bluetooth device without waiting for a response."""
+        self._get_connection().send_message(
+            BluetoothDeviceRequest(
+                address=address, request_type=BluetoothDeviceRequestType.DISCONNECT
+            )
         )
 
     async def _bluetooth_device_request(

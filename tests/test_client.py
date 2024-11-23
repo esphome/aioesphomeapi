@@ -2194,6 +2194,13 @@ async def test_bluetooth_device_connect_cancelled(
         await connect_task
     assert states == []
 
+    # Ensure the disconnect request is written
+    assert len(transport.writelines.mock_calls) == 2
+    req = BluetoothDeviceRequest(
+        address=1234, request_type=BluetoothDeviceRequestType.DISCONNECT
+    ).SerializeToString()
+    assert transport.writelines.mock_calls[-1] == call([b"\x00", b"\x05", b"D", req])
+
     handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
     # Make sure we do not leak message handlers
     assert handlers_after == handlers_before
