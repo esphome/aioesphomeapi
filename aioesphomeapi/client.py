@@ -1223,6 +1223,8 @@ class APIClient:
         volume: float | None = None,
         media_url: str | None = None,
         announcement: bool | None = None,
+        enqueue: str | None = None,
+        group_members: str | None = None,
     ) -> None:
         req = MediaPlayerCommandRequest(key=key)
         if command is not None:
@@ -1237,6 +1239,12 @@ class APIClient:
         if announcement is not None:
             req.announcement = announcement
             req.has_announcement = True
+        if enqueue is not None:
+            req.enqueue = enqueue
+            req.has_enqueue = True
+        if group_members is not None:
+            req.group_members = group_members
+            req.has_group_members = True
         self._get_connection().send_message(req)
 
     def text_command(self, key: int, state: str) -> None:
