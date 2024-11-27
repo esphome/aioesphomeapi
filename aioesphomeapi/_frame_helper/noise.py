@@ -38,7 +38,7 @@ _bytes = bytes
 class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
     """ChaCha20 cipher that can be reused."""
 
-    format_nonce = PACK_NONCE
+    format_nonce = staticmethod(PACK_NONCE)
 
     @property
     def klass(self) -> type[ChaCha20Poly1305Reusable]:
