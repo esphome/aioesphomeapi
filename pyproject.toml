@@ -23,7 +23,8 @@ disable = [
   "bad-mcs-classmethod-argument",
   "duplicate-code",
   "too-many-lines",
-  "too-many-positional-arguments"
+  "too-many-positional-arguments",
+  "no-name-in-module"
 ]
 
 [tool.ruff]
