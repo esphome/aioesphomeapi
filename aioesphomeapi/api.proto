@@ -300,6 +300,7 @@ message ListEntitiesCoverResponse {
   string icon = 10;
   EntityCategory entity_category = 11;
   bool supports_stop = 12;
+  bool supports_toggle = 13;
 }
 
 enum LegacyCoverState {

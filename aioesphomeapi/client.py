@@ -961,6 +961,7 @@ class APIClient:
     def cover_command(
         self,
         key: int,
+        toggle: bool = False,
         position: float | None = None,
         tilt: float | None = None,
         stop: bool = False,
@@ -971,6 +972,8 @@ class APIClient:
         if TYPE_CHECKING:
             assert apiv is not None
         if apiv >= APIVersion(1, 1):
+            if toggle:
+                req.toggle = toggle
             if position is not None:
                 req.has_position = True
                 req.position = position
