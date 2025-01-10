@@ -6,5 +6,5 @@ mypy==1.14.1
 types-protobuf==5.29.1.20241207
 pytest>=6.2.4,<9
 pytest-asyncio==0.25.1
-pytest-codspeed==3.1.0
+pytest-codspeed==3.1.2
 pytest-cov>=4.1.0
