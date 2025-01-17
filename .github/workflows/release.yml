@@ -13,29 +13,35 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04]
+        os:
+          [
+            ubuntu-24.04-arm,
+            ubuntu-latest,
+            macos-13,
+            macos-latest,
+          ]
+        musl: ["", "musllinux"]
+        exclude:
+          - os: macos-13
+            musl: "musllinux"
+          - os: macos-latest
+            musl: "musllinux"
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         env:
-          CIBW_SKIP: cp36-* cp37-* cp38-* cp39-* cp310-* pp* *musllinux*
+          CIBW_SKIP: cp36-* cp37-* cp38-* cp39-* cp310-* pp* ${{ matrix.musl == 'musl' && '*manylinux*' || '*musllinux*' }}
           CIBW_BEFORE_ALL_LINUX: apt-get install -y gcc || yum install -y gcc || apk add gcc
+          CIBW_ARCHS_LINUX: ${{ matrix.os == 'ubuntu-24.04-arm' && 'aarch64' || 'auto' }}
           CIBW_BUILD_VERBOSITY: 3
-          CIBW_ARCHS_LINUX: auto aarch64
           REQUIRE_CYTHON: 1
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ matrix.os }}-${{ matrix.musl }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
