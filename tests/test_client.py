@@ -1858,15 +1858,19 @@ async def test_subscribe_bluetooth_connections_free(
     client, connection, transport, protocol = api_client
     connections = []
 
-    def on_bluetooth_connections_free(free: int, limit: int) -> None:
-        connections.append((free, limit))
+    def on_bluetooth_connections_free(
+        free: int, limit: int, allocated: list[int]
+    ) -> None:
+        connections.append((free, limit, allocated))
 
     unsub = client.subscribe_bluetooth_connections_free(on_bluetooth_connections_free)
     await asyncio.sleep(0)
-    response: message.Message = BluetoothConnectionsFreeResponse(free=2, limit=3)
+    response: message.Message = BluetoothConnectionsFreeResponse(
+        free=2, limit=3, allocated=[1234, 5678]
+    )
     mock_data_received(protocol, generate_plaintext_packet(response))
 
-    assert connections == [(2, 3)]
+    assert connections == [(2, 3, [1234, 5678])]
     unsub()
 
 

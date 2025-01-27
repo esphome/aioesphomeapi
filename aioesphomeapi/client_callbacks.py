@@ -71,10 +71,10 @@ def on_bluetooth_le_advertising_response(
 
 
 def on_bluetooth_connections_free_response(
-    on_bluetooth_connections_free_update: Callable[[int, int], None],
+    on_bluetooth_connections_free_update: Callable[[int, int, list[int]], None],
     msg: BluetoothConnectionsFreeResponse,
 ) -> None:
-    on_bluetooth_connections_free_update(msg.free, msg.limit)
+    on_bluetooth_connections_free_update(msg.free, msg.limit, list(msg.allocated))
 
 
 def on_bluetooth_gatt_notify_data_response(
