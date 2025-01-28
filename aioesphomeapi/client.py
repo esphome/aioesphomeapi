@@ -521,7 +521,8 @@ class APIClient:
         return partial(self._unsub_bluetooth_advertisements, unsub_callback)
 
     def subscribe_bluetooth_connections_free(
-        self, on_bluetooth_connections_free_update: Callable[[int, int], None]
+        self,
+        on_bluetooth_connections_free_update: Callable[[int, int, list[int]], None],
     ) -> Callable[[], None]:
         return self._get_connection().send_message_callback_response(
             SubscribeBluetoothConnectionsFreeRequest(),
