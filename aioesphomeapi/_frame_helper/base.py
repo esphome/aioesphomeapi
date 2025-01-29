@@ -111,7 +111,7 @@ class APIFrameHelper:
         # is blocked and we cannot pull the data out of the buffer fast enough.
         self._buffer = self._buffer[end_of_frame_pos:]
 
-    def _read(self, length: _int) -> bytes | None:
+    def _read(self, length: _int) -> memoryview | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
         original_pos = self._pos
         new_pos = original_pos + length
@@ -124,7 +124,8 @@ class APIFrameHelper:
             # This is the best case scenario, we can just use the buffer directly
             # and don't have to copy the data.
             return self._buffer
-        return self._buffer[original_pos:new_pos]
+        view = memoryview(self._buffer)
+        return view[original_pos:new_pos]
 
     def _read_varuint(self) -> _int:
         """Read a varuint from the buffer or -1 if the buffer runs out of bytes."""

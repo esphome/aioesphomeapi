@@ -53,17 +53,17 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         msg_type="unsigned int",
         payload=bytes
     )
-    cdef void _handle_frame(self, bytes frame)
+    cdef void _handle_frame(self, memoryview frame)
 
     @cython.locals(
         chosen_proto=char,
         server_name_i=int
     )
-    cdef void _handle_hello(self, bytes server_hello)
+    cdef void _handle_hello(self, memoryview server_hello)
 
-    cdef void _handle_handshake(self, bytes msg)
+    cdef void _handle_handshake(self, memoryview msg)
 
-    cdef void _handle_closed(self, bytes frame)
+    cdef void _handle_closed(self, memoryview frame)
 
     @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
     cdef void _send_hello_handshake(self)
@@ -84,4 +84,4 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     )
     cpdef void write_packets(self, list packets, bint debug_enabled)
 
-    cdef _error_on_incorrect_preamble(self, bytes msg)
+    cdef _error_on_incorrect_preamble(self, memoryview msg)

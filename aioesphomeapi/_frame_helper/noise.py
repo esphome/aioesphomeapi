@@ -222,7 +222,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             _LOGGER.isEnabledFor(logging.DEBUG),
         )
 
-    def _handle_hello(self, server_hello: bytes) -> None:
+    def _handle_hello(self, server_hello: memoryview) -> None:
         """Perform the handshake with the server."""
         if not server_hello:
             self._handle_error_and_close(
@@ -245,10 +245,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Check name matches expected name (for noise sessions, this is done
         # during hello phase before a connection is set up)
         # Server name is encoded as a string followed by a zero byte after the chosen proto byte
-        server_name_i = server_hello.find(b"\0", 1)
+        server_name_i = bytes(server_hello).find(b"\0", 1)
         if server_name_i != -1:
             # server name found, this extension was added in 2022.2
-            server_name = server_hello[1:server_name_i].decode()
+            server_name = bytes(server_hello[1:server_name_i]).decode()
             self._server_name = server_name
 
             if self._expected_name is not None and self._expected_name != server_name:
@@ -293,9 +293,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         proto.start_handshake()
         self._proto = proto
 
-    def _error_on_incorrect_preamble(self, msg: bytes) -> None:
+    def _error_on_incorrect_preamble(self, msg: memoryview) -> None:
         """Handle an incorrect preamble."""
-        explanation = msg[1:].decode()
+        explanation = bytes(msg[1:]).decode()
         if explanation != "Handshake MAC failure":
             exc = HandshakeAPIError(
                 f"{self._log_name}: Handshake failure: {explanation}"
@@ -306,11 +306,11 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
         self._handle_error_and_close(exc)
 
-    def _handle_handshake(self, msg: bytes) -> None:
+    def _handle_handshake(self, msg: memoryview) -> None:
         if msg[0] != 0:
             self._error_on_incorrect_preamble(msg)
             return
-        self._proto.read_message(msg[1:])
+        self._proto.read_message(bytes(msg[1:]))
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
         self._decrypt_cipher = DecryptCipher(noise_protocol.cipher_state_decrypt)  # pylint: disable=no-member
@@ -348,7 +348,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         self._write_bytes(out, debug_enabled)
 
-    def _handle_frame(self, frame: bytes) -> None:
+    def _handle_frame(self, frame: memoryview) -> None:
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt_cipher is not None, "Handshake should be complete"
@@ -363,6 +363,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         payload = msg[4:]
         self._connection.process_packet(msg_type, payload)
 
-    def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
+    def _handle_closed(self, frame: memoryview) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))
