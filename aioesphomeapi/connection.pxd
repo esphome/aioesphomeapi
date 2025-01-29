@@ -121,7 +121,7 @@ cdef class APIConnection:
     cdef void send_messages(self, tuple messages)
 
     @cython.locals(handlers=set, handlers_copy=set)
-    cpdef void process_packet(self, unsigned int msg_type_proto, memoryview data)
+    cpdef void process_packet(self, unsigned int msg_type_proto, object data)
 
     cdef void _async_cancel_pong_timer(self)
 
