@@ -120,10 +120,6 @@ class APIFrameHelper:
         self._pos = new_pos
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
-        if original_pos == 0 and new_pos == self._buffer_len:
-            # This is the best case scenario, we can just use the buffer directly
-            # and don't have to copy the data.
-            return self._buffer
         view = memoryview(self._buffer)
         return view[original_pos:new_pos]
 
