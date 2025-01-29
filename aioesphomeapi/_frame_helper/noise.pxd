@@ -39,7 +39,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef DecryptCipher _decrypt_cipher
 
     @cython.locals(
-        header=bytes,
+        header=memoryview,
         preamble="unsigned char",
         msg_size_high="unsigned char",
         msg_size_low="unsigned char",
