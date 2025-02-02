@@ -151,4 +151,4 @@ jobs:
         uses: CodSpeedHQ/action@v3
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: pytest tests/ --codspeed
+          run: pytest tests/benchmarks --codspeed
