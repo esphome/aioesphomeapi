@@ -1,6 +1,5 @@
 """Benchmarks."""
 
-import asyncio
 from functools import partial
 
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
@@ -101,16 +100,3 @@ def test_raw_ble_plain_text(benchmark: BenchmarkFixture) -> None:
     process_incoming_msg = partial(helper.data_received, data)
 
     benchmark(process_incoming_msg)
-
-
-def test_sending_request(
-    benchmark: BenchmarkFixture,
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    client, connection, transport, protocol = api_client
-
-    @benchmark
-    def send_request():
-        client.light_command(1, True)
