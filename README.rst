@@ -122,7 +122,7 @@ For development is recommended to use a Python virtual environment (``venv``).
     $ source bin/activate
     # Install aioesphomeapi and development depenencies
     $ pip3 install -e .
-    $ pip3 install -r requirements_test.txt
+    $ pip3 install -r requirements/test.txt
 
     # Run linters & test
     $ script/lint
