@@ -72,7 +72,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements.txt', 'requirements_test.txt') }}
+          key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements/base.txt', 'requirements/test.txt') }}
           restore-keys: |
             pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-
       - name: Set up Python environment (no cython)
@@ -81,7 +81,7 @@ jobs:
           SKIP_CYTHON: 1
         shell: bash
         run: |
-          pip3 install -r requirements.txt -r requirements_test.txt
+          pip3 install -r requirements/base.txt -r requirements/test.txt
           pip3 install -e .
       - name: Set up Python environment (cython)
         if: ${{ matrix.extension == 'use_cython' }}
@@ -89,7 +89,7 @@ jobs:
           REQUIRE_CYTHON: 1
         shell: bash
         run: |
-          pip3 install -r requirements.txt -r requirements_test.txt
+          pip3 install -r requirements/base.txt -r requirements/test.txt
           pip3 install -e .
       - name: Register problem matchers
         shell: bash
@@ -145,7 +145,7 @@ jobs:
             REQUIRE_CYTHON: 1
         shell: bash
         run: |
-            pip3 install -r requirements.txt -r requirements_test.txt
+            pip3 install -r requirements/base.txt -r requirements/test.txt
             pip3 install -e .
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v3
