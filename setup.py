@@ -38,7 +38,7 @@ MODULES_TO_CYTHONIZE = [
     "aioesphomeapi/_frame_helper/base.py",
 ]
 
-with open(os.path.join(here, "requirements.txt")) as requirements_txt:
+with open(os.path.join(here, "requirements/base.txt")) as requirements_txt:
     REQUIRES = requirements_txt.read().splitlines()
 
 pkgs = find_packages(exclude=["tests", "tests.*"])
