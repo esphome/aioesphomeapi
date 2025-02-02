@@ -10,6 +10,9 @@ aioesphomeapi
 .. image:: https://codecov.io/gh/esphome/aioesphomeapi/branch/main/graph/badge.svg
    :target: https://app.codecov.io/gh/esphome/aioesphomeapi/tree/main
 
+.. image:: https://img.shields.io/endpoint?url=https://codspeed.io/badge.json
+   :target: https://codspeed.io/esphome/aioesphomeapi
+
 ``aioesphomeapi`` allows you to interact with devices flashed with `ESPHome <https://esphome.io/>`_.
 
 Installation
