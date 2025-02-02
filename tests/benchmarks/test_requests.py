@@ -9,7 +9,7 @@ from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
 
 
-def test_sending_request(
+def test_sending_light_command_request_with_bool(
     benchmark: BenchmarkFixture,
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -22,3 +22,18 @@ def test_sending_request(
     @benchmark
     def send_request():
         client.light_command(1, True)
+
+
+def test_sending_empty_light_command_request(
+    benchmark: BenchmarkFixture,
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    client, connection, transport, protocol = api_client
+
+    connection._frame_helper._writelines = lambda lines: None
+
+    @benchmark
+    def send_request():
+        client.light_command(1)
