@@ -17,6 +17,8 @@ def test_sending_request(
 ) -> None:
     client, connection, transport, protocol = api_client
 
+    connection._frame_helper._writelines = lambda lines: None
+
     @benchmark
     def send_request():
         client.light_command(1, True)
