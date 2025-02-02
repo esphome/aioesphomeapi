@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - Dockerfile
-      - requirements_test.txt
+      - requirements/test.txt
       - .github/workflows/docker.yml
 
 permissions:
