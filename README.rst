@@ -10,9 +10,8 @@ aioesphomeapi
 .. image:: https://codecov.io/gh/esphome/aioesphomeapi/branch/main/graph/badge.svg
    :target: https://app.codecov.io/gh/esphome/aioesphomeapi/tree/main
 
-.. image:: https://codecov.io/gh/esphome/aioesphomeapi/graph/badge.svg?flag=pytest
-   :target: https://app.codecov.io/gh/esphome/aioesphomeapi?flags[]=pytest
-   :alt: Codecov coverage for the pytest-driven measurements
+.. image:: https://img.shields.io/endpoint?url=https://codspeed.io/badge.json
+   :target: https://codspeed.io/esphome/aioesphomeapi
 
 ``aioesphomeapi`` allows you to interact with devices flashed with `ESPHome <https://esphome.io/>`_.
 
