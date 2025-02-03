@@ -352,7 +352,18 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt_cipher is not None, "Handshake should be complete"
-        msg = self._decrypt_cipher.decrypt(frame)
+        try:
+            msg = self._decrypt_cipher.decrypt(frame)
+        except InvalidTag:
+            # This shouldn't happen since we already checked the tag during handshake
+            # but it could happen if the server sends a bad frame see
+            # issue https://github.com/esphome/aioesphomeapi/issues/1044
+            self._handle_error_and_close(
+                InvalidEncryptionKeyAPIError(
+                    f"{self._log_name}: Encryption error", self._server_name
+                )
+            )
+            return
         # Message layout is
         # 2 bytes: message type
         # 2 bytes: message length
