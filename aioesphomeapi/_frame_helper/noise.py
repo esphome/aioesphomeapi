@@ -162,12 +162,6 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"encryption on the client ({self._client_info})."
             )
             exc.__cause__ = original_exc
-        elif isinstance(exc, InvalidTag):
-            original_exc = exc
-            exc = InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Invalid encryption key", self._server_name
-            )
-            exc.__cause__ = original_exc
         super()._handle_error(exc)
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
