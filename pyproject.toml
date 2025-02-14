@@ -1,32 +1,3 @@
-[tool.black]
-exclude = 'api_pb2.py|api_options_pb2.py'
-target-version = ['py39']
-
-[tool.pylint.MASTER]
-reports = 'no'
-ignore = [
-    "api_pb2.py",
-    "api_options_pb2.py"
-]
-disable = [
-  "missing-docstring",
-  "too-few-public-methods",
-  "too-many-instance-attributes",
-  "wildcard-import",
-  "invalid-name",
-  "too-many-arguments",
-  "line-too-long",
-  "protected-access",
-  "unused-wildcard-import",
-  "import-outside-toplevel",
-  "raise-missing-from",
-  "bad-mcs-classmethod-argument",
-  "duplicate-code",
-  "too-many-lines",
-  "too-many-positional-arguments",
-  "no-name-in-module"
-]
-
 [tool.ruff]
 required-version = ">=0.5.0"
 exclude = [
