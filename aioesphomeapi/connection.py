@@ -588,7 +588,10 @@ class APIConnection:
 
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
-        await self._connect_socket_connect(await self._connect_resolve_host())
+        await self._connect_socket_connect(
+            hr.async_addrinfos_from_ips(self._params.addresses)
+            or await self._connect_resolve_host()
+        )
 
     async def start_connection(self) -> None:
         """Start the connection process.

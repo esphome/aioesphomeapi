@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import logging
@@ -108,9 +109,9 @@ async def _async_resolve_host_zeroconf(
     )
     addrs: list[AddrInfo] = []
     for ip in info.ip_addresses_by_version(IPVersion.V6Only):
-        addrs.extend(_async_ip_address_to_addrs(ip, port))
+        addrs.append(_async_ip_address_to_addrinfo(ip, port))
     for ip in info.ip_addresses_by_version(IPVersion.V4Only):
-        addrs.extend(_async_ip_address_to_addrs(ip, port))
+        addrs.append(_async_ip_address_to_addrinfo(ip, port))
     return addrs
 
 
@@ -146,11 +147,16 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
     return addrs
 
 
-def _async_ip_address_to_addrs(
-    ip: IPv4Address | IPv6Address, port: int
-) -> list[AddrInfo]:
+def async_addrinfos_from_ips(ips: list[str], port: int) -> list[AddrInfo] | None:
+    """Convert a list of IPs to AddrInfos."""
+    with suppress(ValueError):
+        return [_async_ip_address_to_addrinfo(ip_address(ip), port) for ip in ips]
+    # At least one of the IPs is not an IP address
+    return None
+
+
+def _async_ip_address_to_addrinfo(ip: IPv4Address | IPv6Address, port: int) -> AddrInfo:
     """Convert an ipaddress to AddrInfo."""
-    addrs: list[AddrInfo] = []
     is_ipv6 = ip.version == 6
     sockaddr: IPv6Sockaddr | IPv4Sockaddr
     if is_ipv6:
@@ -168,15 +174,12 @@ def _async_ip_address_to_addrs(
             port=port,
         )
 
-    addrs.append(
-        AddrInfo(
-            family=socket.AF_INET6 if is_ipv6 else socket.AF_INET,
-            type=socket.SOCK_STREAM,
-            proto=socket.IPPROTO_TCP,
-            sockaddr=sockaddr,
-        )
+    return AddrInfo(
+        family=socket.AF_INET6 if is_ipv6 else socket.AF_INET,
+        type=socket.SOCK_STREAM,
+        proto=socket.IPPROTO_TCP,
+        sockaddr=sockaddr,
     )
-    return addrs
 
 
 async def async_resolve_host(
@@ -204,7 +207,7 @@ async def async_resolve_host(
 
         if not host_is_local_name:
             try:
-                host_addrs.extend(_async_ip_address_to_addrs(ip_address(host), port))
+                host_addrs.append(_async_ip_address_to_addrinfo(ip_address(host), port))
             except ValueError:
                 # Not an IP address
                 pass
