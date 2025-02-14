@@ -76,7 +76,7 @@ int_ = int
 class EncryptCipher:
     """Wrapper around the ChaCha20Poly1305 cipher for encryption."""
 
-    __slots__ = ("_nonce", "_encrypt")
+    __slots__ = ("_encrypt", "_nonce")
 
     def __init__(self, cipher_state: CipherState) -> None:
         """Initialize the cipher wrapper."""
@@ -95,7 +95,7 @@ class EncryptCipher:
 class DecryptCipher:
     """Wrapper around the ChaCha20Poly1305 cipher for decryption."""
 
-    __slots__ = ("_nonce", "_decrypt")
+    __slots__ = ("_decrypt", "_nonce")
 
     def __init__(self, cipher_state: CipherState) -> None:
         """Initialize the cipher wrapper."""
@@ -115,13 +115,13 @@ class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
 
     __slots__ = (
-        "_noise_psk",
-        "_expected_name",
-        "_state",
-        "_server_name",
-        "_proto",
-        "_encrypt_cipher",
         "_decrypt_cipher",
+        "_encrypt_cipher",
+        "_expected_name",
+        "_noise_psk",
+        "_proto",
+        "_server_name",
+        "_state",
     )
 
     def __init__(
