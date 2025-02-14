@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }} (${{ matrix.musl}}) [${{ matrix.qemu}}] - ${{ matrix.pyver }}
+    name: Build wheels on ${{ matrix.os }} (${{ matrix.musl == 'musllinux' && 'musllinux' || 'manylinux' }}}) [${{ matrix.qemu}}] - ${{ matrix.pyver }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
