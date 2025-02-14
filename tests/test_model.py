@@ -168,7 +168,7 @@ def test_api_int_enum_convert_list(input, output):
 @dataclass(frozen=True)
 class DummyAPIModel(APIModelBase):
     val1: int = 0
-    val2: DummyIntEnum | None = converter_field(
+    val2: DummyIntEnum | None = converter_field(  # noqa: RUF009
         default=DummyIntEnum.DEFAULT, converter=DummyIntEnum.convert
     )
 

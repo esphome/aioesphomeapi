@@ -48,7 +48,7 @@ def build_log_name(
     """Return a log name for a connection."""
     preferred_address = connected_address
     for address in addresses:
-        if not name and address_is_local(address) or host_is_name_part(address):
+        if (not name and address_is_local(address)) or host_is_name_part(address):
             name = address.partition(".")[0]
         elif not preferred_address:
             preferred_address = address

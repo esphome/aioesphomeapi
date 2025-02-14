@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # Helper script and aioesphomeapi to discover api devices
 import asyncio
+import contextlib
 import logging
 import sys
 
@@ -29,10 +30,7 @@ def async_service_update(
 ) -> None:
     """Service state changed."""
     short_name = name.partition(".")[0]
-    if state_change is ServiceStateChange.Removed:
-        state = "OFFLINE"
-    else:
-        state = "ONLINE"
+    state = "OFFLINE" if state_change is ServiceStateChange.Removed else "ONLINE"
     info = AsyncServiceInfo(service_type, name)
     info.load_from_cache(zeroconf)
     properties = info.properties
@@ -69,10 +67,8 @@ async def main() -> None:
 
 def cli_entry_point() -> None:
     """Run the CLI."""
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(main())
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":

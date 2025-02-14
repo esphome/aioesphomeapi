@@ -41,6 +41,10 @@ select = [
   "I", # isort
   "PL", # pylint
   "UP", # pyupgrade
+  "RUF", # ruff
+  "TRY", # try rules
+  "SIM", # flake8-SIM
+  "PERF", # performance
 ]
 
 ignore = [
@@ -52,6 +56,7 @@ ignore = [
   "PLR0915", # Too many statements ({statements} > {max_statements})
   "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
   "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
+  "TRY003", # Too many to fix - Avoid specifying long messages outside the exception class
 ]
 
 [tool.ruff.lint.isort]

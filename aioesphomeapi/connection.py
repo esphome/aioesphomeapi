@@ -194,30 +194,30 @@ class APIConnection:
     """
 
     __slots__ = (
-        "_params",
-        "on_stop",
-        "_socket",
+        "_debug_enabled",
+        "_expected_disconnect",
+        "_fatal_exception",
+        "_finish_connect_future",
         "_frame_helper",
-        "api_version",
-        "connection_state",
-        "_message_handlers",
-        "log_name",
-        "_read_exception_futures",
-        "_ping_timer",
-        "_pong_timer",
+        "_handshake_complete",
         "_keep_alive_interval",
         "_keep_alive_timeout",
-        "_start_connect_future",
-        "_finish_connect_future",
-        "_fatal_exception",
-        "_expected_disconnect",
         "_loop",
+        "_message_handlers",
+        "_params",
+        "_ping_timer",
+        "_pong_timer",
+        "_read_exception_futures",
         "_send_pending_ping",
-        "is_connected",
-        "_handshake_complete",
-        "_debug_enabled",
-        "received_name",
+        "_socket",
+        "_start_connect_future",
+        "api_version",
         "connected_address",
+        "connection_state",
+        "is_connected",
+        "log_name",
+        "on_stop",
+        "received_name",
     )
 
     def __init__(
@@ -407,8 +407,7 @@ class APIConnection:
                 self._socket.setsockopt(
                     socket.SOL_SOCKET, socket.SO_RCVBUF, new_buffer_size
                 )
-                return
-            except OSError as err:
+            except OSError as err:  # noqa: PERF203
                 if new_buffer_size <= MIN_BUFFER_SIZE:
                     _LOGGER.warning(
                         "%s: Unable to increase the socket receive buffer size to %s; "
@@ -420,6 +419,8 @@ class APIConnection:
                     )
                     return
                 new_buffer_size //= 2
+            else:
+                return
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
@@ -1028,8 +1029,8 @@ class APIConnection:
                     DisconnectResponse,
                     timeout=DISCONNECT_RESPONSE_TIMEOUT,
                 )
-            except APIConnectionError as err:
-                _LOGGER.error("%s: disconnect request failed: %s", self.log_name, err)
+            except APIConnectionError:
+                _LOGGER.exception("%s: disconnect request failed", self.log_name)
 
         self._cleanup()
 
@@ -1041,11 +1042,10 @@ class APIConnection:
             # but don't wait for it to finish
             try:
                 self.send_messages((DISCONNECT_REQUEST_MESSAGE,))
-            except APIConnectionError as err:
-                _LOGGER.error(
-                    "%s: Failed to send (forced) disconnect request: %s",
+            except APIConnectionError:
+                _LOGGER.exception(
+                    "%s: Failed to send (forced) disconnect request",
                     self.log_name,
-                    err,
                 )
 
         self._cleanup()

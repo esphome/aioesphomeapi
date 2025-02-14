@@ -29,16 +29,16 @@ class APIFrameHelper:
     """Helper class to handle the API frame protocol."""
 
     __slots__ = (
-        "_loop",
+        "_buffer",
+        "_buffer_len",
+        "_client_info",
         "_connection",
+        "_log_name",
+        "_loop",
+        "_pos",
         "_transport",
         "_writelines",
         "ready_future",
-        "_buffer",
-        "_buffer_len",
-        "_pos",
-        "_client_info",
-        "_log_name",
     )
 
     def __init__(
@@ -72,14 +72,11 @@ class APIFrameHelper:
 
     def _add_to_buffer(self, data: bytes | bytearray | memoryview) -> None:
         """Add data to the buffer."""
-        # This should not be isinstance(data, bytes) because we want to
+        # Protractor sends a bytearray, so we need to convert it to bytes
+        # https://github.com/esphome/issues/issues/5117
+        # type(data) should not be isinstance(data, bytes) because we want to
         # to explicitly check for bytes and not for subclasses of bytes
-        if type(data) is not bytes:  # pylint: disable=unidiomatic-typecheck
-            # Protractor sends a bytearray, so we need to convert it to bytes
-            # https://github.com/esphome/issues/issues/5117
-            bytes_data = bytes(data)
-        else:
-            bytes_data = data
+        bytes_data = bytes(data) if type(data) is not bytes else data
         if self._buffer_len == 0:
             # This is the best case scenario, we don't have to copy the data
             # and can just use the buffer directly. This is the most common

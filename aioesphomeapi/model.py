@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
@@ -50,10 +51,8 @@ class APIIntEnum(enum.IntEnum):
     def convert_list(cls: type[_T], value: list[int]) -> list[_T]:
         ret = []
         for x in value:
-            try:
+            with contextlib.suppress(ValueError):
                 ret.append(cls(x))
-            except ValueError:
-                pass
         return ret
 
 

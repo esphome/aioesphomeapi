@@ -224,9 +224,8 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
         cli._connection,
         "send_messages_await_response_complex",
         side_effect=Exception("foo"),
-    ):
-        with pytest.raises(UnhandledAPIConnectionError, match="foo"):
-            await cli.finish_connection(False)
+    ), pytest.raises(UnhandledAPIConnectionError, match="foo"):
+        await cli.finish_connection(False)
 
 
 @pytest.mark.asyncio

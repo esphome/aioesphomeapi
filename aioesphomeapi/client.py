@@ -214,12 +214,12 @@ class APIClient:
     """
 
     __slots__ = (
-        "_debug_enabled",
-        "_params",
-        "_connection",
-        "cached_name",
         "_background_tasks",
+        "_connection",
+        "_debug_enabled",
         "_loop",
+        "_params",
+        "cached_name",
         "log_name",
     )
 

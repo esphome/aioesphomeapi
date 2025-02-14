@@ -98,10 +98,7 @@ def async_fire_time_changed(
     approach, as this is only for testing.
     """
     loop = asyncio.get_running_loop()
-    if datetime_ is None:
-        utc_datetime = datetime.now(UTC)
-    else:
-        utc_datetime = as_utc(datetime_)
+    utc_datetime = datetime.now(UTC) if datetime_ is None else as_utc(datetime_)
 
     timestamp = utc_datetime.timestamp()
     for task in list(loop._scheduled):

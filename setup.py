@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """aioesphomeapi setup script."""
 
+import contextlib
 from distutils.command.build_ext import build_ext
 import os
 
@@ -71,10 +72,8 @@ setup_kwargs = {
 
 class OptionalBuildExt(build_ext):
     def build_extensions(self):
-        try:
+        with contextlib.suppress(Exception):
             super().build_extensions()
-        except Exception:
-            pass
 
 
 def cythonize_if_available(setup_kwargs):

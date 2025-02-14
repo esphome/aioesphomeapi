@@ -3,6 +3,7 @@ from __future__ import annotations
 # Helper script and aioesphomeapi to view logs from an esphome device
 import argparse
 import asyncio
+import contextlib
 from datetime import datetime
 import logging
 import sys
@@ -53,10 +54,8 @@ async def main(argv: list[str]) -> None:
 
 def cli_entry_point() -> None:
     """Run the CLI."""
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(main(sys.argv))
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":
