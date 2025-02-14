@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }} (${{ matrix.musl}}) [${{ matrix.qemu}}] - ${{ matrix.pyver }}
+    name: Wheels for ${{ matrix.os }} (${{ matrix.musl == 'musllinux' && 'musllinux' || 'manylinux' }}}) ${{ matrix.qemu}} ${{ matrix.pyver }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -49,6 +49,28 @@ jobs:
           - os: ubuntu-latest
             qemu: armv7l
             musl: "musllinux"
+            pyver: cp313
+          # qemu is slow, make a single
+          # runner per Python version
+          - os: ubuntu-latest
+            qemu: armv7l
+            musl: ""
+            pyver: cp39
+          - os: ubuntu-latest
+            qemu: armv7l
+            musl: ""
+            pyver: cp310
+          - os: ubuntu-latest
+            qemu: armv7l
+            musl: ""
+            pyver: cp311
+          - os: ubuntu-latest
+            qemu: armv7l
+            musl: ""
+            pyver: cp312
+          - os: ubuntu-latest
+            qemu: armv7l
+            musl: ""
             pyver: cp313
     steps:
       - uses: actions/checkout@v4
