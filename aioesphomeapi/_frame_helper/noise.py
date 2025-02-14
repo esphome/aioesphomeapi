@@ -20,6 +20,7 @@ from noise.state import CipherState  # type: ignore[import-untyped]
 from ..core import (
     APIConnectionError,
     BadNameAPIError,
+    EncryptionErrorAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
@@ -160,12 +161,6 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: The connection dropped immediately after encrypted hello; "
                 "Try enabling encryption on the device or turning off "
                 f"encryption on the client ({self._client_info})."
-            )
-            exc.__cause__ = original_exc
-        elif isinstance(exc, InvalidTag):
-            original_exc = exc
-            exc = InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Invalid encryption key", self._server_name
             )
             exc.__cause__ = original_exc
         super()._handle_error(exc)
@@ -352,7 +347,18 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt_cipher is not None, "Handshake should be complete"
-        msg = self._decrypt_cipher.decrypt(frame)
+        try:
+            msg = self._decrypt_cipher.decrypt(frame)
+        except InvalidTag:
+            # This shouldn't happen since we already checked the tag during handshake
+            # but it could happen if the server sends a bad frame see
+            # issue https://github.com/esphome/aioesphomeapi/issues/1044
+            self._handle_error_and_close(
+                EncryptionErrorAPIError(
+                    f"{self._log_name}: Encryption error", self._server_name
+                )
+            )
+            return
         # Message layout is
         # 2 bytes: message type
         # 2 bytes: message length

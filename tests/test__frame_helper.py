@@ -598,7 +598,7 @@ async def test_noise_frame_helper_bad_encryption(
 
     assert packets == []
     assert connection.is_connected is False
-    assert "Invalid encryption key" in caplog.text
+    assert "Encryption error" in caplog.text
     helper.close()
 
 

@@ -13,6 +13,7 @@ cdef unsigned int NOISE_STATE_CLOSED
 
 cdef bytes NOISE_HELLO
 cdef object PACK_NONCE
+cdef object InvalidTag
 
 cdef class EncryptCipher:
 
