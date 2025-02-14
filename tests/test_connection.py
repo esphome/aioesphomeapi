@@ -228,7 +228,10 @@ async def test_plaintext_connection(
 
 @pytest.mark.asyncio
 async def test_start_connection_socket_error(
-    conn: APIConnection, resolve_host, aiohappyeyeballs_start_connection
+    conn: APIConnection,
+    resolve_host,
+    convert_ips_addr_info,
+    aiohappyeyeballs_start_connection,
 ):
     """Test handling of socket error during start connection."""
     loop = asyncio.get_event_loop()
@@ -247,6 +250,7 @@ async def test_start_connection_socket_error(
 async def test_start_connection_cannot_increase_recv_buffer(
     conn: APIConnection,
     resolve_host,
+    convert_ips_addr_info,
     aiohappyeyeballs_start_connection: MagicMock,
     caplog: pytest.LogCaptureFixture,
 ):
@@ -299,6 +303,7 @@ async def test_start_connection_cannot_increase_recv_buffer(
 async def test_start_connection_can_only_increase_buffer_size_to_262144(
     conn: APIConnection,
     resolve_host,
+    convert_ips_addr_info,
     aiohappyeyeballs_start_connection: MagicMock,
     caplog: pytest.LogCaptureFixture,
 ):
@@ -349,7 +354,10 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
 
 @pytest.mark.asyncio
 async def test_start_connection_times_out(
-    conn: APIConnection, resolve_host, aiohappyeyeballs_start_connection
+    conn: APIConnection,
+    resolve_host,
+    convert_ips_addr_info,
+    aiohappyeyeballs_start_connection,
 ):
     """Test handling of start connection timing out."""
     asyncio.get_event_loop()
@@ -378,7 +386,9 @@ async def test_start_connection_times_out(
 
 
 @pytest.mark.asyncio
-async def test_start_connection_os_error(conn: APIConnection, resolve_host):
+async def test_start_connection_os_error(
+    conn: APIConnection, resolve_host, convert_ips_addr_info
+):
     """Test handling of start connection has an OSError."""
     asyncio.get_event_loop()
 
@@ -396,7 +406,9 @@ async def test_start_connection_os_error(conn: APIConnection, resolve_host):
 
 
 @pytest.mark.asyncio
-async def test_start_connection_is_cancelled(conn: APIConnection, resolve_host):
+async def test_start_connection_is_cancelled(
+    conn: APIConnection, resolve_host, convert_ips_addr_info
+):
     """Test handling of start connection is cancelled."""
     asyncio.get_event_loop()
 
@@ -415,7 +427,10 @@ async def test_start_connection_is_cancelled(conn: APIConnection, resolve_host):
 
 @pytest.mark.asyncio
 async def test_finish_connection_is_cancelled(
-    conn: APIConnection, resolve_host, aiohappyeyeballs_start_connection
+    conn: APIConnection,
+    resolve_host,
+    convert_ips_addr_info,
+    aiohappyeyeballs_start_connection,
 ):
     """Test handling of finishing connection being cancelled."""
     loop = asyncio.get_event_loop()
@@ -482,6 +497,7 @@ async def test_finish_connection_times_out(
 async def test_plaintext_connection_fails_handshake(
     conn: APIConnection,
     resolve_host: AsyncMock,
+    convert_ips_addr_info: AsyncMock,
     aiohappyeyeballs_start_connection: MagicMock,
     exception_map: tuple[Exception, Exception],
 ) -> None:
@@ -771,6 +787,10 @@ async def test_connect_resolver_times_out(
             "aioesphomeapi.host_resolver.async_resolve_host",
             side_effect=asyncio.TimeoutError,
         ),
+        patch(
+            "aioesphomeapi.host_resolver.async_addrinfos_from_ips",
+            return_value=None,
+        ),
         patch.object(
             event_loop,
             "create_connection",
@@ -788,6 +808,7 @@ async def test_connect_resolver_times_out(
 async def test_disconnect_fails_to_send_response(
     connection_params: ConnectionParams,
     resolve_host,
+    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_event_loop()
@@ -837,6 +858,7 @@ async def test_disconnect_fails_to_send_response(
 async def test_disconnect_success_case(
     connection_params: ConnectionParams,
     resolve_host,
+    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> None:
     loop = asyncio.get_running_loop()
