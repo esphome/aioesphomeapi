@@ -236,20 +236,24 @@ class InvalidEncryptionKeyAPIError(HandshakeAPIError):
         self.received_name = received_name
 
 
+class EncryptionErrorAPIError(InvalidEncryptionKeyAPIError):
+    """Raised when an encryption error occurs after handshake."""
+
+
 class PingFailedAPIError(APIConnectionError):
-    pass
+    """Raised when a ping fails."""
 
 
 class TimeoutAPIError(APIConnectionError):
-    pass
+    """Raised when a timeout occurs."""
 
 
 class ReadFailedAPIError(APIConnectionError):
-    pass
+    """Raised when a read fails."""
 
 
 class UnhandledAPIConnectionError(APIConnectionError):
-    pass
+    """Raised when an unhandled error occurs."""
 
 
 class BluetoothConnectionDroppedError(APIConnectionError):

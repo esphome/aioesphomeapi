@@ -20,6 +20,7 @@ from noise.state import CipherState  # type: ignore[import-untyped]
 from ..core import (
     APIConnectionError,
     BadNameAPIError,
+    EncryptionErrorAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
@@ -353,7 +354,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             # but it could happen if the server sends a bad frame see
             # issue https://github.com/esphome/aioesphomeapi/issues/1044
             self._handle_error_and_close(
-                InvalidEncryptionKeyAPIError(
+                EncryptionErrorAPIError(
                     f"{self._log_name}: Encryption error", self._server_name
                 )
             )
