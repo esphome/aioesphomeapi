@@ -102,11 +102,11 @@ jobs:
       - run: flake8 aioesphomeapi
         name: Lint with flake8
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - run: pylint aioesphomeapi
-        name: Lint with pylint
+      - run: ruff format --check aioesphomeapi tests
+        name: Check ruff formatting
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: ruff check aioesphomeapi tests
-        name: Check formatting with ruff
+        name: Check with ruff
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: mypy aioesphomeapi
         name: Check typing with mypy
