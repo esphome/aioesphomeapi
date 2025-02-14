@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Generator
 from dataclasses import replace
 from functools import partial
 import socket
 from typing import Callable
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 import pytest_asyncio
@@ -27,6 +28,15 @@ from .common import (
 
 KEEP_ALIVE_INTERVAL = 15.0
 
+_MOCK_RESOLVE_RESULT = [
+    AddrInfo(
+        family=socket.AF_INET,
+        type=socket.SOCK_STREAM,
+        proto=socket.IPPROTO_TCP,
+        sockaddr=IPv4Sockaddr("10.0.0.512", 6052),
+    )
+]
+
 
 class PatchableAPIConnection(APIConnection):
     pass
@@ -38,16 +48,16 @@ def async_zeroconf():
 
 
 @pytest.fixture
-def resolve_host():
+def resolve_host() -> Generator[AsyncMock, None, None]:
     with patch("aioesphomeapi.host_resolver.async_resolve_host") as func:
-        func.return_value = [
-            AddrInfo(
-                family=socket.AF_INET,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-                sockaddr=IPv4Sockaddr("10.0.0.512", 6052),
-            )
-        ]
+        func.return_value = _MOCK_RESOLVE_RESULT
+        yield func
+
+
+@pytest.fixture
+def convert_ips_addr_info() -> Generator[AsyncMock, None, None]:
+    with patch("aioesphomeapi.host_resolver.async_addrinfos_from_ips") as func:
+        func.return_value = _MOCK_RESOLVE_RESULT
         yield func
 
 
@@ -146,6 +156,7 @@ def _create_mock_transport_protocol(
 async def plaintext_connect_task_no_login(
     conn: APIConnection,
     resolve_host,
+    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     loop = asyncio.get_event_loop()
@@ -166,6 +177,7 @@ async def plaintext_connect_task_no_login(
 async def plaintext_connect_task_no_login_with_expected_name(
     conn_with_expected_name: APIConnection,
     resolve_host,
+    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     event_loop = asyncio.get_running_loop()
@@ -193,6 +205,7 @@ async def plaintext_connect_task_no_login_with_expected_name(
 async def plaintext_connect_task_with_login(
     conn_with_password: APIConnection,
     resolve_host,
+    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
@@ -216,7 +229,7 @@ async def plaintext_connect_task_with_login(
 
 @pytest_asyncio.fixture(name="api_client")
 async def api_client(
-    resolve_host, aiohappyeyeballs_start_connection
+    resolve_host, convert_ips_addr_info, aiohappyeyeballs_start_connection
 ) -> tuple[APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     event_loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
