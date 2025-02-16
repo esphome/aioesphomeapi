@@ -219,6 +219,19 @@ async def async_resolve_host(
     port: int,
     zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
+    """Resolve hosts in parallel.
+
+    We will try to resolve the host in the following order:
+    - If the host is an IP address, we will return that and skip
+      trying to resolve it at all.
+
+    - If the host is a local name, we will try to resolve it via mDNS
+    - Otherwise, we will use getaddrinfo to resolve it as well
+
+    Once we know which hosts to resolve and which methods, all
+    resolution runs in parallel and we will return the first
+    result we get for each host.
+    """
     exceptions: list[Exception] = []
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
     host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
