@@ -107,16 +107,16 @@ async def _async_resolve_host_zeroconf(
         server,
         timeout,
     )
-    addrs: list[AddrInfo] = []
-    addrs.extend(
-        _async_ip_address_to_addrinfo(ip, port)
-        for ip in info.ip_addresses_by_version(IPVersion.V6Only)
-    )
-    addrs.extend(
-        _async_ip_address_to_addrinfo(ip, port)
-        for ip in info.ip_addresses_by_version(IPVersion.V4Only)
-    )
-    return addrs
+    return [
+        *(
+            _async_ip_address_to_addrinfo(ip, port)
+            for ip in info.ip_addresses_by_version(IPVersion.V6Only)
+        ),
+        *(
+            _async_ip_address_to_addrinfo(ip, port)
+            for ip in info.ip_addresses_by_version(IPVersion.V4Only)
+        ),
+    ]
 
 
 async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo]:
@@ -201,9 +201,8 @@ async def async_resolve_host(
 
     for host in hosts:
         host_addrs: list[AddrInfo] = []
-        is_local_name = host_is_local_name(host)
 
-        if is_local_name:
+        if host_is_local_name(host):
             name = host.partition(".")[0]
             try:
                 host_addrs.extend(
