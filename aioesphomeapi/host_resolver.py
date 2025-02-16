@@ -254,9 +254,6 @@ async def async_resolve_host(
             itertools.chain.from_iterable(host_tasks.values()),
             return_when=asyncio.FIRST_COMPLETED,
         )
-        import pprint
-
-        pprint.pprint(["done", done])
         finished_hosts: set[str] = set()
         for task in done:
             host = resolve_task_to_host[task]
