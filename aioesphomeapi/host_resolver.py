@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
@@ -220,8 +221,8 @@ async def async_resolve_host(
 ) -> list[AddrInfo]:
     exceptions: list[Exception] = []
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
-    host_tasks: dict[str, list[asyncio.Task[list[AddrInfo]]]] = {}
-    resolve_results: dict[str, list[AddrInfo]] = {}
+    host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
+    resolve_results: defaultdict[str, list[AddrInfo]] = defaultdict(list)
 
     for host in hosts:
         try:
@@ -233,8 +234,6 @@ async def async_resolve_host(
         else:
             continue
 
-        resolve_results[host] = []
-        tasks: list[asyncio.Task[list[AddrInfo]]] = []
         if host_is_local_name(host) and (short_host := host.partition(".")[0]):
             task = create_eager_task(
                 _async_resolve_short_host_zeroconf(
@@ -242,25 +241,21 @@ async def async_resolve_host(
                 )
             )
             resolve_task_to_host[task] = host
-            tasks.append(task)
+            host_tasks[host].add(task)
 
         task = create_eager_task(_async_resolve_host_getaddrinfo(host, port))
         resolve_task_to_host[task] = host
-        tasks.append(task)
-        host_tasks[host] = tasks
+        host_tasks[host].add(task)
 
-    while host_tasks:
+    while resolve_task_to_host:
         done, _ = await asyncio.wait(
-            itertools.chain.from_iterable(host_tasks.values()),
+            resolve_task_to_host,
             return_when=asyncio.FIRST_COMPLETED,
         )
         finished_hosts: set[str] = set()
         for task in done:
-            host = resolve_task_to_host[task]
-            remaining_tasks = host_tasks[host]
-            remaining_tasks.remove(task)
-            if not remaining_tasks:
-                del host_tasks[host]
+            host = resolve_task_to_host.pop(task)
+            host_tasks[host].discard(task)
             if task.cancelled():
                 continue
             elif exc := task.exception():
@@ -269,18 +264,17 @@ async def async_resolve_host(
                 resolve_results[host].extend(result)
                 finished_hosts.add(host)
 
+        # We got a result for a host, cancel
+        # any other tasks trying to resolve
+        # it as we are done with that host
         for host in finished_hosts:
             for task in host_tasks.pop(host, ()):
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
 
-    addrs = list(itertools.chain.from_iterable(resolve_results.values()))
-    if not addrs:
-        if exceptions:
-            raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
-        raise ResolveAPIError(
-            f"Could not resolve host {hosts} - got no results from OS"
-        )
-
-    return addrs
+    if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
+        return addrs
+    if exceptions:
+        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
+    raise ResolveAPIError(f"Could not resolve host {hosts} - got no results from OS")
