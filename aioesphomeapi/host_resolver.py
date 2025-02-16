@@ -110,7 +110,7 @@ async def _async_resolve_short_host_zeroconf(
     return service_info_to_addr_info(service_info, port)
 
 
-def service_info_to_addr_info(info: AsyncServiceInfo, port: int) -> None:
+def service_info_to_addr_info(info: AsyncServiceInfo, port: int) -> list[AddrInfo]:
     return [
         _async_ip_address_to_addrinfo(ip, port)
         for version in (IPVersion.V6Only, IPVersion.V4Only)
@@ -176,7 +176,7 @@ def async_addrinfos_from_zeroconf_cache(
             # If any host is not in the cache, return None
             # so we can take teh slow path
             return None
-        addrs.append(service_info_to_addr_info(service_info, port))
+        addrs.extend(service_info_to_addr_info(service_info, port))
     return addrs
 
 
