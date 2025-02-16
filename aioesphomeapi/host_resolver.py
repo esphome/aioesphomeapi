@@ -251,11 +251,19 @@ async def async_resolve_host(
 
     while host_tasks:
         done, _ = await asyncio.wait(
-            resolve_task_to_host, return_when=asyncio.FIRST_COMPLETED
+            itertools.chain.from_iterable(host_tasks.values()),
+            return_when=asyncio.FIRST_COMPLETED,
         )
+        import pprint
+
+        pprint.pprint(["done", done])
         finished_hosts: set[str] = set()
         for task in done:
             host = resolve_task_to_host[task]
+            remaining_tasks = host_tasks[host]
+            remaining_tasks.remove(task)
+            if not remaining_tasks:
+                del host_tasks[host]
             if task.cancelled():
                 continue
             elif exc := task.exception():
@@ -263,8 +271,9 @@ async def async_resolve_host(
             elif result := task.result():
                 resolve_results[host].extend(result)
                 finished_hosts.add(host)
+
         for host in finished_hosts:
-            for task in host_tasks.pop(host):
+            for task in host_tasks.pop(host, ()):
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
@@ -272,7 +281,7 @@ async def async_resolve_host(
     addrs = list(itertools.chain.from_iterable(resolve_results.values()))
     if not addrs:
         if exceptions:
-            raise ResolveAPIError(" ,".join(exceptions))
+            raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
         raise ResolveAPIError(
             f"Could not resolve host {hosts} - got no results from OS"
         )
