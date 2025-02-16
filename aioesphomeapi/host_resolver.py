@@ -108,14 +108,9 @@ async def _async_resolve_host_zeroconf(
         timeout,
     )
     return [
-        *(
             _async_ip_address_to_addrinfo(ip, port)
-            for ip in info.ip_addresses_by_version(IPVersion.V6Only)
-        ),
-        *(
-            _async_ip_address_to_addrinfo(ip, port)
-            for ip in info.ip_addresses_by_version(IPVersion.V4Only)
-        ),
+            for version in (IPVersion.V6Only, IPVersion.V4Only)
+            for ip in info.ip_addresses_by_version(version)
     ]
 
 
