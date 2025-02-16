@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import replace
 from functools import partial
+import reprlib
 import socket
 from typing import Callable
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
@@ -257,3 +259,48 @@ async def api_client(
         await connect_task
         transport.reset_mock()
         yield client, conn, transport, protocol
+
+
+def get_scheduled_timer_handles(
+    loop: asyncio.AbstractEventLoop,
+) -> list[asyncio.TimerHandle]:
+    """Return a list of scheduled TimerHandles."""
+    handles: list[asyncio.TimerHandle] = loop._scheduled  # type: ignore[attr-defined]
+    return handles
+
+
+@contextmanager
+def long_repr_strings() -> Generator[None, None, None]:
+    """Increase reprlib maxstring and maxother to 300."""
+    arepr = reprlib.aRepr
+    original_maxstring = arepr.maxstring
+    original_maxother = arepr.maxother
+    arepr.maxstring = 300
+    arepr.maxother = 300
+    try:
+        yield
+    finally:
+        arepr.maxstring = original_maxstring
+        arepr.maxother = original_maxother
+
+
+@pytest.fixture(autouse=True)
+def verify_no_lingering_tasks(
+    event_loop: asyncio.AbstractEventLoop,
+) -> Generator[None, None, None]:
+    """Verify that all tasks are cleaned up."""
+    tasks_before = asyncio.all_tasks(event_loop)
+    yield
+
+    tasks = asyncio.all_tasks(event_loop) - tasks_before
+    for task in tasks:
+        pytest.fail(f"Task still running: {task!r}")
+        task.cancel()
+    if tasks:
+        event_loop.run_until_complete(asyncio.wait(tasks))
+
+    for handle in get_scheduled_timer_handles(event_loop):
+        if not handle.cancelled():
+            with long_repr_strings():
+                pytest.fail(f"Lingering timer after test {handle!r}")
+                handle.cancel()
