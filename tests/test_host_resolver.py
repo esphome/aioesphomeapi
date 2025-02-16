@@ -13,6 +13,11 @@ import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.zeroconf import ZeroconfManager
 
 
+@pytest.fixture(autouse=True)
+def enable_verify_no_lingering_tasks(verify_no_lingering_tasks: None) -> None:
+    """Enable verify_no_lingering_tasks."""
+
+
 @pytest.fixture
 def addr_infos():
     return [
