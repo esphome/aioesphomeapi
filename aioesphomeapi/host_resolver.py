@@ -186,6 +186,11 @@ def _async_ip_address_to_addrinfo(ip: IPv4Address | IPv6Address, port: int) -> A
     )
 
 
+def host_is_local_name(host: str) -> bool:
+    """Check if the host is a local name."""
+    return host_is_name_part(host) or address_is_local(host)
+
+
 async def async_resolve_host(
     hosts: list[str],
     port: int,
@@ -196,9 +201,9 @@ async def async_resolve_host(
 
     for host in hosts:
         host_addrs: list[AddrInfo] = []
-        host_is_local_name = host_is_name_part(host) or address_is_local(host)
+        is_local_name = host_is_local_name(host)
 
-        if host_is_local_name:
+        if is_local_name:
             name = host.partition(".")[0]
             try:
                 host_addrs.extend(
@@ -209,7 +214,7 @@ async def async_resolve_host(
             except ResolveAPIError as err:
                 zc_error = err
 
-        if not host_is_local_name:
+        else:
             with suppress(ValueError):
                 host_addrs.append(_async_ip_address_to_addrinfo(ip_address(host), port))
 
