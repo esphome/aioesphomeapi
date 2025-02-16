@@ -589,8 +589,12 @@ class APIConnection:
 
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
+        addrs = self._params.addresses
+        port = self._params.port
+        zc_manager = self._params.zeroconf_manager
         await self._connect_socket_connect(
-            hr.async_addrinfos_from_ips(self._params.addresses, self._params.port)
+            hr.async_addrinfos_from_ips(addrs, port)
+            or hr.async_addrinfos_from_zeroconf_cache(zc_manager, addrs, port)
             or await self._connect_resolve_host()
         )
 

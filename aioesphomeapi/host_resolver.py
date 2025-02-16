@@ -52,9 +52,7 @@ class AddrInfo:
 
 async def _async_zeroconf_get_service_info(
     zeroconf_manager: ZeroconfManager,
-    service_type: str,
-    service_name: str,
-    server: str,
+    short_host: str,
     timeout: float,
 ) -> AsyncServiceInfo:
     # Use or create zeroconf instance, ensure it's an AsyncZeroconf
@@ -66,12 +64,12 @@ async def _async_zeroconf_get_service_info(
             f"Cannot start mDNS sockets: {exc}, is this a docker container without "
             "host network mode?"
         ) from exc
+    info = _make_service_info_for_short_host(short_host)
     try:
-        info = AsyncServiceInfo(service_type, service_name, server=server)
         await info.async_request(zc, int(timeout * 1000))
     except Exception as exc:
         raise ResolveAPIError(
-            f"Error resolving mDNS {service_name} via mDNS: {exc}"
+            f"Error resolving mDNS {short_host} via mDNS: {exc}"
         ) from exc
     finally:
         if not had_instance:
@@ -89,24 +87,30 @@ def _scope_id_to_int(value: str | None) -> int:
         return 0
 
 
-async def _async_resolve_host_zeroconf(
-    host: str,
+def _make_service_info_for_short_host(host: str) -> AsyncServiceInfo:
+    """Make service info for an ESPHome host."""
+    service_name = f"{host}.{SERVICE_TYPE}"
+    server = f"{host}.local."
+    return AsyncServiceInfo(SERVICE_TYPE, service_name, server=server)
+
+
+async def _async_resolve_short_host_zeroconf(
+    short_host: str,
     port: int,
     *,
     timeout: float = 3.0,
     zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
-    service_name = f"{host}.{SERVICE_TYPE}"
-    server = f"{host}.local."
-
-    _LOGGER.debug("Resolving host %s via mDNS", service_name)
-    info = await _async_zeroconf_get_service_info(
+    _LOGGER.debug("Resolving host %s via mDNS", short_host)
+    service_info = await _async_zeroconf_get_service_info(
         zeroconf_manager or ZeroconfManager(),
-        SERVICE_TYPE,
-        service_name,
-        server,
+        short_host,
         timeout,
     )
+    return service_info_to_addr_info(service_info, port)
+
+
+def service_info_to_addr_info(info: AsyncServiceInfo, port: int) -> None:
     return [
         _async_ip_address_to_addrinfo(ip, port)
         for version in (IPVersion.V6Only, IPVersion.V4Only)
@@ -154,6 +158,28 @@ def async_addrinfos_from_ips(ips: list[str], port: int) -> list[AddrInfo] | None
     return None
 
 
+def async_addrinfos_from_zeroconf_cache(
+    zeroconf_manager: ZeroconfManager | None, hosts: list[str], port: int
+) -> list[AddrInfo] | None:
+    """Convert a list of IPs to AddrInfos."""
+    if not zeroconf_manager or not zeroconf_manager.has_instance:
+        return None
+    aiozc = zeroconf_manager.get_async_zeroconf()
+    addrs: list[AddrInfo] = []
+    for host in hosts:
+        if (
+            not host_is_local_name(host)
+            or not (short_host := host.partition(".")[0])
+            or not (service_info := _make_service_info_for_short_host(short_host))
+            or not service_info.load_from_cache(aiozc.zeroconf)
+        ):
+            # If any host is not in the cache, return None
+            # so we can take teh slow path
+            return None
+        addrs.append(service_info_to_addr_info(service_info, port))
+    return addrs
+
+
 def _async_ip_address_to_addrinfo(ip: IPv4Address | IPv6Address, port: int) -> AddrInfo:
     """Convert an ipaddress to AddrInfo."""
     is_ipv6 = ip.version == 6
@@ -197,12 +223,11 @@ async def async_resolve_host(
     for host in hosts:
         host_addrs: list[AddrInfo] = []
 
-        if host_is_local_name(host):
-            name = host.partition(".")[0]
+        if host_is_local_name(host) and (short_host := host.partition(".")[0]):
             try:
                 host_addrs.extend(
-                    await _async_resolve_host_zeroconf(
-                        name, port, zeroconf_manager=zeroconf_manager
+                    await _async_resolve_short_host_zeroconf(
+                        short_host, port, zeroconf_manager=zeroconf_manager
                     )
                 )
             except ResolveAPIError as err:
