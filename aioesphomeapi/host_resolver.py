@@ -4,6 +4,7 @@ import asyncio
 from contextlib import suppress
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
+import itertools
 import logging
 import socket
 from typing import TYPE_CHECKING, cast
@@ -11,8 +12,8 @@ from typing import TYPE_CHECKING, cast
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo
 
-from .core import APIConnectionError, ResolveAPIError
-from .util import address_is_local, host_is_name_part
+from .core import ResolveAPIError
+from .util import address_is_local, create_eager_task, host_is_name_part
 from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,7 +126,7 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
             host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP
         )
     except OSError as err:
-        raise APIConnectionError(f"Error resolving IP address: {err}")
+        raise ResolveAPIError(f"Error resolving IP address: {err}")
 
     addrs: list[AddrInfo] = []
     for family, type_, proto, _, raw in res:
@@ -217,35 +218,61 @@ async def async_resolve_host(
     port: int,
     zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
-    addrs: list[AddrInfo] = []
-    zc_error: Exception | None = None
+    exceptions: list[Exception] = []
+    resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
+    host_tasks: dict[str, list[asyncio.Task[list[AddrInfo]]]] = {}
+    resolve_results: dict[str, list[AddrInfo]] = {}
 
     for host in hosts:
-        host_addrs: list[AddrInfo] = []
-
-        if host_is_local_name(host) and (short_host := host.partition(".")[0]):
-            try:
-                host_addrs.extend(
-                    await _async_resolve_short_host_zeroconf(
-                        short_host, port, zeroconf_manager=zeroconf_manager
-                    )
-                )
-            except ResolveAPIError as err:
-                zc_error = err
-
+        try:
+            resolve_results[host] = [
+                _async_ip_address_to_addrinfo(ip_address(host), port)
+            ]
+        except ValueError:
+            pass
         else:
-            with suppress(ValueError):
-                host_addrs.append(_async_ip_address_to_addrinfo(ip_address(host), port))
+            continue
 
-        if not host_addrs:
-            host_addrs.extend(await _async_resolve_host_getaddrinfo(host, port))
+        resolve_results[host] = []
+        tasks: list[asyncio.Task[list[AddrInfo]]] = []
+        if host_is_local_name(host) and (short_host := host.partition(".")[0]):
+            task = create_eager_task(
+                _async_resolve_short_host_zeroconf(
+                    short_host, port, zeroconf_manager=zeroconf_manager
+                )
+            )
+            resolve_task_to_host[task] = host
+            tasks.append(task)
 
-        addrs.extend(host_addrs)
+        task = create_eager_task(_async_resolve_host_getaddrinfo(host, port))
+        resolve_task_to_host[task] = host
+        tasks.append(task)
+        host_tasks[host] = tasks
 
+    while host_tasks:
+        done, _ = await asyncio.wait(
+            resolve_task_to_host, return_when=asyncio.FIRST_COMPLETED
+        )
+        finished_hosts: set[str] = set()
+        for task in done:
+            host = resolve_task_to_host[task]
+            if task.cancelled():
+                continue
+            elif exc := task.exception():
+                exceptions.append(exc)
+            elif result := task.result():
+                resolve_results[host].extend(result)
+                finished_hosts.add(host)
+        for host in finished_hosts:
+            for task in host_tasks.pop(host):
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+
+    addrs = list(itertools.chain.from_iterable(resolve_results.values()))
     if not addrs:
-        if zc_error:
-            # Only show ZC error if getaddrinfo also didn't work
-            raise zc_error
+        if exceptions:
+            raise ResolveAPIError(" ,".join(exceptions))
         raise ResolveAPIError(
             f"Could not resolve host {hosts} - got no results from OS"
         )
