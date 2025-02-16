@@ -232,7 +232,7 @@ async def async_resolve_host(
     resolution runs in parallel and we will return the first
     result we get for each host.
     """
-    exceptions: list[Exception] = []
+    exceptions: list[BaseException] = []
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
     host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
     resolve_results: defaultdict[str, list[AddrInfo]] = defaultdict(list)
