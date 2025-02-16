@@ -148,12 +148,12 @@ async def test_resolve_host_getaddrinfo_oserror():
 @pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
-async def test_resolve_host_mdns(resolve_addr, resolve_zc, addr_infos):
+async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
     resolve_zc.return_value = addr_infos
     ret = await hr.async_resolve_host(["example.local"], 6052)
 
     resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
-    resolve_addr.assert_not_called()
+    resolve_addr.assert_called_once_with("example.local", 6052)
     assert ret == addr_infos
 
 

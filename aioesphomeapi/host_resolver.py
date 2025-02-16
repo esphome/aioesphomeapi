@@ -256,9 +256,7 @@ async def async_resolve_host(
         for task in done:
             host = resolve_task_to_host.pop(task)
             host_tasks[host].discard(task)
-            if task.cancelled():
-                continue
-            elif exc := task.exception():
+            if exc := task.exception():
                 exceptions.append(exc)
             elif result := task.result():
                 resolve_results[host].extend(result)
@@ -269,6 +267,7 @@ async def async_resolve_host(
         # it as we are done with that host
         for host in finished_hosts:
             for task in host_tasks.pop(host, ()):
+                resolve_task_to_host.pop(task, None)
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
