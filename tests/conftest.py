@@ -57,13 +57,6 @@ def resolve_host() -> Generator[AsyncMock, None, None]:
 
 
 @pytest.fixture
-def convert_ips_addr_info() -> Generator[AsyncMock, None, None]:
-    with patch("aioesphomeapi.host_resolver.async_addrinfos_from_ips") as func:
-        func.return_value = _MOCK_RESOLVE_RESULT
-        yield func
-
-
-@pytest.fixture
 def patchable_api_client() -> APIClient:
     class PatchableAPIClient(APIClient):
         pass
@@ -158,7 +151,6 @@ def _create_mock_transport_protocol(
 async def plaintext_connect_task_no_login(
     conn: APIConnection,
     resolve_host,
-    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     loop = asyncio.get_event_loop()
@@ -179,7 +171,6 @@ async def plaintext_connect_task_no_login(
 async def plaintext_connect_task_no_login_with_expected_name(
     conn_with_expected_name: APIConnection,
     resolve_host,
-    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     event_loop = asyncio.get_running_loop()
@@ -207,7 +198,6 @@ async def plaintext_connect_task_no_login_with_expected_name(
 async def plaintext_connect_task_with_login(
     conn_with_password: APIConnection,
     resolve_host,
-    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
@@ -231,7 +221,7 @@ async def plaintext_connect_task_with_login(
 
 @pytest_asyncio.fixture(name="api_client")
 async def api_client(
-    resolve_host, convert_ips_addr_info, aiohappyeyeballs_start_connection
+    resolve_host, aiohappyeyeballs_start_connection
 ) -> tuple[APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     event_loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None

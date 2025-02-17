@@ -9,12 +9,13 @@ from ipaddress import IPv4Address, IPv6Address, ip_address
 import itertools
 import logging
 import socket
+import sys
 from typing import TYPE_CHECKING, Any, cast
 
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
-from .core import ResolveAPIError
+from .core import ResolveAPIError, ResolveTimeoutAPIError
 from .util import address_is_local, create_eager_task, host_is_name_part
 from .zeroconf import ZeroconfManager
 
@@ -22,6 +23,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 SERVICE_TYPE = "_esphomelib._tcp.local."
+RESOLVE_TIMEOUT = 30.0
+
+
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import timeout as asyncio_timeout
+else:
+    from asyncio import timeout as asyncio_timeout
 
 
 @dataclass(frozen=True)
@@ -137,36 +145,6 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
     return addrs
 
 
-def async_addrinfos_from_ips(ips: list[str], port: int) -> list[AddrInfo] | None:
-    """Convert a list of IPs to AddrInfos."""
-    with suppress(ValueError):
-        return [_async_ip_address_to_addrinfo(ip_address(ip), port) for ip in ips]
-    # At least one of the IPs is not an IP address
-    return None
-
-
-def async_addrinfos_from_zeroconf_cache(
-    zeroconf_manager: ZeroconfManager | None, hosts: list[str], port: int
-) -> list[AddrInfo] | None:
-    """Convert a list of IPs to AddrInfos."""
-    if not zeroconf_manager or not zeroconf_manager.has_instance:
-        return None
-    aiozc = zeroconf_manager.get_async_zeroconf()
-    addrs: list[AddrInfo] = []
-    for host in hosts:
-        if (
-            not host_is_local_name(host)
-            or not (short_host := host.partition(".")[0])
-            or not (service_info := _make_service_info_for_short_host(short_host))
-            or not service_info.load_from_cache(aiozc.zeroconf)
-        ):
-            # If any host is not in the cache, return None
-            # so we can take the slow path
-            return None
-        addrs.extend(service_info_to_addr_info(service_info, port))
-    return addrs
-
-
 def _async_ip_address_to_addrinfo(ip: IPv4Address | IPv6Address, port: int) -> AddrInfo:
     """Convert an ipaddress to AddrInfo."""
     is_ipv6 = ip.version == 6
@@ -203,6 +181,7 @@ async def async_resolve_host(
     hosts: list[str],
     port: int,
     zeroconf_manager: ZeroconfManager | None = None,
+    timeout: float = RESOLVE_TIMEOUT,
 ) -> list[AddrInfo]:
     """Resolve hosts in parallel.
 
@@ -218,54 +197,86 @@ async def async_resolve_host(
     result we get for each host.
     """
     manager: ZeroconfManager | None = None
-    had_instance: bool = False
-    needs_zeroconf: bool = False
+    had_zeroconf_instance: bool = False
     resolve_results: defaultdict[str, list[AddrInfo]] = defaultdict(list)
+    aiozc: AsyncZeroconf | None = None
+    tried_to_create_zeroconf: bool = False
+    exceptions: list[BaseException] = []
 
+    # First try to handle the cases where we do not need to
+    # do any network calls at all.
+    # - If the host is an IP address, we can just return that
+    # - If we have a zeroconf manager and the host is in the cache
+    #   we can return that as well
     for host in hosts:
         try:
-            resolve_results[host] = [
+            resolve_results[host].extend(
                 _async_ip_address_to_addrinfo(ip_address(host), port)
-            ]
+            )
         except ValueError:
             pass
         else:
             continue
-        needs_zeroconf |= host_is_local_name(host)
 
-    if len(resolve_results) == len(hosts):
-        return list(itertools.chain.from_iterable(resolve_results.values()))
+        if not host_is_local_name(host):
+            continue
 
-    try:
-        manager = zeroconf_manager or ZeroconfManager() if needs_zeroconf else None
-        return await _async_resolve_host(hosts, port, resolve_results, manager)
-    finally:
-        if manager and not had_instance:
-            await asyncio.shield(create_eager_task(manager.async_close()))
+        if not tried_to_create_zeroconf:
+            tried_to_create_zeroconf = True
+            manager = zeroconf_manager or ZeroconfManager()
+            had_zeroconf_instance = manager.has_instance
+            try:
+                aiozc = manager.get_async_zeroconf()
+            except Exception as original_exc:
+                new_exc = ResolveAPIError(
+                    f"Cannot start mDNS sockets: {original_exc}, is this a docker container "
+                    "without host network mode?"
+                )
+                new_exc.__cause__ = original_exc
+                exceptions.append(new_exc)
+
+        if aiozc:
+            short_host = host.partition(".")[0]
+            service_info = _make_service_info_for_short_host(short_host)
+            if service_info.load_from_cache(aiozc.zeroconf):
+                resolve_results[host].extend(
+                    service_info_to_addr_info(service_info, port)
+                )
+
+    if len(resolve_results) != len(hosts):
+        # If we have not resolved all hosts yet, we need to do some network calls
+        try:
+            try:
+                async with asyncio_timeout(timeout):
+                    await _async_resolve_host(
+                        hosts, port, resolve_results, exceptions, aiozc
+                    )
+            except asyncio.TimeoutError as err:
+                raise ResolveTimeoutAPIError(
+                    f"Timeout while resolving IP address for {hosts}"
+                ) from err
+        finally:
+            if manager and not had_zeroconf_instance:
+                await asyncio.shield(create_eager_task(manager.async_close()))
+
+    if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
+        return addrs
+
+    if exceptions:
+        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
+    raise ResolveAPIError(f"Could not resolve host {hosts} - got no results from OS")
 
 
 async def _async_resolve_host(
     hosts: list[str],
     port: int,
     resolve_results: defaultdict[str, list[AddrInfo]],
-    manager: ZeroconfManager | None = None,
-) -> list[AddrInfo]:
+    exceptions: list[BaseException],
+    aiozc: AsyncZeroconf | None,
+) -> None:
     """Resolve hosts in parallel."""
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
     host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
-    exceptions: list[BaseException] = []
-    aiozc: AsyncZeroconf | None = None
-
-    if manager:
-        try:
-            aiozc = manager.get_async_zeroconf()
-        except Exception as original_exc:
-            new_exc = ResolveAPIError(
-                f"Cannot start mDNS sockets: {original_exc}, is this a docker container "
-                "without host network mode?"
-            )
-            new_exc.__cause__ = original_exc
-            exceptions.append(new_exc)
 
     for host in hosts:
         coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
@@ -311,10 +322,3 @@ async def _async_resolve_host(
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
-
-    if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
-        return addrs
-
-    if exceptions:
-        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
-    raise ResolveAPIError(f"Could not resolve host {hosts} - got no results from OS")
