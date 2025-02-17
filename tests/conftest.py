@@ -48,14 +48,14 @@ def async_zeroconf():
 
 
 @pytest.fixture
-def resolve_host() -> Generator[AsyncMock, None, None]:
+def resolve_host() -> Generator[AsyncMock]:
     with patch("aioesphomeapi.host_resolver.async_resolve_host") as func:
         func.return_value = _MOCK_RESOLVE_RESULT
         yield func
 
 
 @pytest.fixture
-def convert_ips_addr_info() -> Generator[AsyncMock, None, None]:
+def convert_ips_addr_info() -> Generator[AsyncMock]:
     with patch("aioesphomeapi.host_resolver.async_addrinfos_from_ips") as func:
         func.return_value = _MOCK_RESOLVE_RESULT
         yield func
