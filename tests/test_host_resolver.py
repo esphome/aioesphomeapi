@@ -47,6 +47,27 @@ def addr_infos() -> list[AddrInfo]:
     ]
 
 
+@pytest.fixture
+def mock_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
+    """Return a list of getaddrinfo results."""
+    return [
+        (
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_TCP,
+            "canon1",
+            (str(TEST_IPv4), 6052),
+        ),
+        (
+            socket.AF_INET6,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_TCP,
+            "canon2",
+            (str(TEST_IPv6), 6052, 0, 0),
+        ),
+    ]
+
+
 @pytest.mark.asyncio
 async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     info = MagicMock(auto_spec=AsyncServiceInfo)
@@ -167,8 +188,10 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
 
 
 @pytest.mark.asyncio
-async def test_resolve_host_mdns_and_dns_slow(addr_infos: list[AddrInfo]) -> None:
-    """Test making network requests for mDNS and DNS resolution."""
+async def test_resolve_host_mdns_and_dns_slow_mdns_wins(
+    addr_infos: list[AddrInfo],
+) -> None:
+    """Test making network requests for mDNS and DNS resolution with mDNS winning."""
     loop = asyncio.get_running_loop()
     info = MagicMock(auto_spec=AsyncServiceInfo)
     info.load_from_cache = Mock(return_value=False)
@@ -186,6 +209,38 @@ async def test_resolve_host_mdns_and_dns_slow(addr_infos: list[AddrInfo]) -> Non
     def slow_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
         asyncio.sleep(0.1)
         return []
+
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    assert ret == addr_infos
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_mdns_and_dns_slow_dns_wins(
+    addr_infos: list[AddrInfo],
+    mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
+) -> None:
+    """Test making network requests for mDNS and DNS resolution with DNS winning."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=False)
+    info.ip_addresses_by_version.side_effect = [
+        [TEST_IPv4],
+        [TEST_IPv6],
+    ]
+
+    async def slow_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0.1)
+        return False
+
+    info.async_request = slow_async_request
+
+    def slow_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        asyncio.sleep(0.1)
+        return mock_getaddrinfo
 
     with patch(
         "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
