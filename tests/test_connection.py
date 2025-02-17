@@ -56,11 +56,6 @@ from .conftest import KEEP_ALIVE_INTERVAL, _create_mock_transport_protocol
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
 
-@pytest.fixture(autouse=True)
-def enable_verify_no_lingering_tasks(verify_no_lingering_tasks: None) -> None:
-    """Enable verify_no_lingering_tasks."""
-
-
 @pytest.mark.asyncio
 async def test_connect(
     plaintext_connect_task_no_login: tuple[

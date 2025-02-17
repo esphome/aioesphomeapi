@@ -18,12 +18,6 @@ from aioesphomeapi.core import (
 import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.host_resolver import RESOLVE_TIMEOUT, AddrInfo
 
-
-@pytest.fixture(autouse=True)
-def enable_verify_no_lingering_tasks(verify_no_lingering_tasks: None) -> None:
-    """Enable verify_no_lingering_tasks."""
-
-
 TEST_IPv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334")
 TEST_IPv4 = IPv4Address("10.0.0.42")
 
