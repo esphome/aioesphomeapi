@@ -220,7 +220,7 @@ async def async_resolve_host(
     aiozc: AsyncZeroconf | None = None
     manager: ZeroconfManager | None = None
     had_instance: bool = False
-    if any(host_is_local_name(host) and host.partition(".")[0] for host in hosts):
+    if any(host_is_local_name(host) for host in hosts):
         manager = zeroconf_manager or ZeroconfManager()
         had_instance = manager.has_instance
         try:
@@ -257,10 +257,12 @@ async def _async_resolve_host(
             continue
 
         coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
-        if host_is_local_name(host) and (short_host := host.partition(".")[0]):
+        if host_is_local_name(host):
             if TYPE_CHECKING:
                 assert aiozc is not None
-            coros.append(_async_resolve_short_host_zeroconf(aiozc, short_host, port))
+            coros.append(
+                _async_resolve_short_host_zeroconf(aiozc, host.partition(".")[0], port)
+            )
 
         coros.append(_async_resolve_host_getaddrinfo(host, port))
 
