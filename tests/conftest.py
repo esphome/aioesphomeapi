@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import replace
 from functools import partial
+import reprlib
 import socket
 from typing import Callable
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
@@ -50,13 +52,6 @@ def async_zeroconf():
 @pytest.fixture
 def resolve_host() -> Generator[AsyncMock]:
     with patch("aioesphomeapi.host_resolver.async_resolve_host") as func:
-        func.return_value = _MOCK_RESOLVE_RESULT
-        yield func
-
-
-@pytest.fixture
-def convert_ips_addr_info() -> Generator[AsyncMock]:
-    with patch("aioesphomeapi.host_resolver.async_addrinfos_from_ips") as func:
         func.return_value = _MOCK_RESOLVE_RESULT
         yield func
 
@@ -156,7 +151,6 @@ def _create_mock_transport_protocol(
 async def plaintext_connect_task_no_login(
     conn: APIConnection,
     resolve_host,
-    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     loop = asyncio.get_event_loop()
@@ -171,13 +165,13 @@ async def plaintext_connect_task_no_login(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
         yield conn, transport, conn._frame_helper, connect_task
+        conn.force_disconnect()
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_expected_name")
 async def plaintext_connect_task_no_login_with_expected_name(
     conn_with_expected_name: APIConnection,
     resolve_host,
-    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     event_loop = asyncio.get_running_loop()
@@ -199,13 +193,13 @@ async def plaintext_connect_task_no_login_with_expected_name(
             conn_with_expected_name._frame_helper,
             connect_task,
         )
+        conn_with_expected_name.force_disconnect()
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_with_login")
 async def plaintext_connect_task_with_login(
     conn_with_password: APIConnection,
     resolve_host,
-    convert_ips_addr_info,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     transport = MagicMock()
@@ -225,11 +219,12 @@ async def plaintext_connect_task_with_login(
             conn_with_password._frame_helper,
             connect_task,
         )
+        conn_with_password.force_disconnect()
 
 
 @pytest_asyncio.fixture(name="api_client")
 async def api_client(
-    resolve_host, convert_ips_addr_info, aiohappyeyeballs_start_connection
+    resolve_host, aiohappyeyeballs_start_connection
 ) -> tuple[APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     event_loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
@@ -257,3 +252,49 @@ async def api_client(
         await connect_task
         transport.reset_mock()
         yield client, conn, transport, protocol
+        conn.force_disconnect()
+
+
+def get_scheduled_timer_handles(
+    loop: asyncio.AbstractEventLoop,
+) -> list[asyncio.TimerHandle]:
+    """Return a list of scheduled TimerHandles."""
+    handles: list[asyncio.TimerHandle] = loop._scheduled  # type: ignore[attr-defined]
+    return handles
+
+
+@contextmanager
+def long_repr_strings() -> Generator[None]:
+    """Increase reprlib maxstring and maxother to 300."""
+    arepr = reprlib.aRepr
+    original_maxstring = arepr.maxstring
+    original_maxother = arepr.maxother
+    arepr.maxstring = 300
+    arepr.maxother = 300
+    try:
+        yield
+    finally:
+        arepr.maxstring = original_maxstring
+        arepr.maxother = original_maxother
+
+
+@pytest.fixture(autouse=True)
+def verify_no_lingering_tasks(
+    event_loop: asyncio.AbstractEventLoop,
+) -> Generator[None]:
+    """Verify that all tasks are cleaned up."""
+    tasks_before = asyncio.all_tasks(event_loop)
+    yield
+
+    tasks = asyncio.all_tasks(event_loop) - tasks_before
+    for task in tasks:
+        pytest.fail(f"Task still running: {task!r}")
+        task.cancel()
+    if tasks:
+        event_loop.run_until_complete(asyncio.wait(tasks))
+
+    for handle in get_scheduled_timer_handles(event_loop):
+        if not handle.cancelled():
+            with long_repr_strings():
+                pytest.fail(f"Lingering timer after test {handle!r}")
+                handle.cancel()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 
 from aioesphomeapi.model import BluetoothGATTError
@@ -193,7 +194,11 @@ class InvalidAuthAPIError(APIConnectionError):
 
 
 class ResolveAPIError(APIConnectionError):
-    pass
+    """Raised when a resolve error occurs."""
+
+
+class ResolveTimeoutAPIError(ResolveAPIError, asyncio.TimeoutError):
+    """Raised when a resolve timeout occurs."""
 
 
 class ProtocolAPIError(APIConnectionError):

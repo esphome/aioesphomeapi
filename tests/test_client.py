@@ -287,7 +287,7 @@ async def test_request_while_handshaking() -> None:
     class PatchableApiClient(APIClient):
         pass
 
-    cli = PatchableApiClient("host", 1234, None)
+    cli = PatchableApiClient("1.2.3.4", 1234, None)
     with (
         patch(
             "aioesphomeapi.connection.aiohappyeyeballs.start_connection",

@@ -46,20 +46,14 @@ from .core import (
     PingFailedAPIError,
     ProtocolAPIError,
     ReadFailedAPIError,
-    ResolveAPIError,
     SocketAPIError,
     SocketClosedAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
 )
 from .model import APIVersion, message_types_to_names
+from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout
-else:
-    from asyncio import timeout as asyncio_timeout
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,7 +89,6 @@ DISCONNECT_CONNECT_TIMEOUT = 5.0
 
 DISCONNECT_RESPONSE_TIMEOUT = 10.0
 HANDSHAKE_TIMEOUT = 30.0
-RESOLVE_TIMEOUT = 30.0
 CONNECT_REQUEST_TIMEOUT = 30.0
 
 # The connect timeout should be the maximum time we expect the esp to take
@@ -312,20 +305,6 @@ class APIConnection:
     def set_debug(self, enable: bool) -> None:
         """Enable or disable debug logging."""
         self._debug_enabled = enable
-
-    async def _connect_resolve_host(self) -> list[hr.AddrInfo]:
-        """Step 1 in connect process: resolve the address."""
-        try:
-            async with asyncio_timeout(RESOLVE_TIMEOUT):
-                return await hr.async_resolve_host(
-                    self._params.addresses,
-                    self._params.port,
-                    self._params.zeroconf_manager,
-                )
-        except asyncio_TimeoutError as err:
-            raise ResolveAPIError(
-                f"Timeout while resolving IP address for {self.log_name}"
-            ) from err
 
     async def _connect_socket_connect(self, addrs: list[hr.AddrInfo]) -> None:
         """Step 2 in connect process: connect the socket."""
@@ -589,10 +568,12 @@ class APIConnection:
 
     async def _do_connect(self) -> None:
         """Do the actual connect process."""
-        await self._connect_socket_connect(
-            hr.async_addrinfos_from_ips(self._params.addresses, self._params.port)
-            or await self._connect_resolve_host()
+        addrs_info = await hr.async_resolve_host(
+            self._params.addresses,
+            self._params.port,
+            self._params.zeroconf_manager,
         )
+        await self._connect_socket_connect(addrs_info)
 
     async def start_connection(self) -> None:
         """Start the connection process.
