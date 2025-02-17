@@ -9,14 +9,18 @@ from ipaddress import IPv4Address, IPv6Address, ip_address
 import itertools
 import logging
 import socket
-import sys
 from typing import TYPE_CHECKING, Any, cast
 
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from .core import ResolveAPIError, ResolveTimeoutAPIError
-from .util import address_is_local, create_eager_task, host_is_name_part
+from .util import (
+    address_is_local,
+    asyncio_timeout,
+    create_eager_task,
+    host_is_name_part,
+)
 from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,12 +28,6 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_TYPE = "_esphomelib._tcp.local."
 RESOLVE_TIMEOUT = 30.0
-
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout
-else:
-    from asyncio import timeout as asyncio_timeout
 
 
 @dataclass(frozen=True)

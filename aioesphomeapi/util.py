@@ -9,6 +9,12 @@ from typing import Any, TypeVar
 _T = TypeVar("_T")
 
 
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import timeout as asyncio_timeout
+else:
+    from asyncio import timeout as asyncio_timeout  # noqa: F401
+
+
 def fix_float_single_double_conversion(value: float) -> float:
     """Fix precision for single-precision floats and return what was probably
     meant as a float.

@@ -52,13 +52,8 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .model import APIVersion, message_types_to_names
+from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout
-else:
-    from asyncio import timeout as asyncio_timeout
-
 
 _LOGGER = logging.getLogger(__name__)
 
