@@ -263,8 +263,8 @@ async def async_resolve_host(
             if task.done():
                 if exc := task.exception():
                     exceptions.append(exc)
-                elif result := task.result():
-                    resolve_results[host].extend(result)
+                else:
+                    resolve_results[host].extend(task.result())
             else:
                 resolve_task_to_host[task] = host
                 host_tasks[host].add(task)
