@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from collections.abc import Coroutine
 from contextlib import suppress
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import itertools
 import logging
 import socket
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceInfo
@@ -247,19 +248,18 @@ async def async_resolve_host(
         else:
             continue
 
-        tasks: asyncio.Task[list[AddrInfo]] = []
+        coros: Coroutine[Any, Any, list[AddrInfo]] = []
         if host_is_local_name(host) and (short_host := host.partition(".")[0]):
-            tasks.append(
-                create_eager_task(
-                    _async_resolve_short_host_zeroconf(
-                        short_host, port, zeroconf_manager=zeroconf_manager
-                    )
+            coros.append(
+                _async_resolve_short_host_zeroconf(
+                    short_host, port, zeroconf_manager=zeroconf_manager
                 )
             )
 
-        tasks.append(create_eager_task(_async_resolve_host_getaddrinfo(host, port)))
+        coros.append(_async_resolve_host_getaddrinfo(host, port))
 
-        for task in tasks:
+        for coro in coros:
+            task = create_eager_task(coro)
             if task.done() and not task.exception():
                 resolve_results[host].extend(task.result())
             else:
