@@ -201,7 +201,7 @@ async def test_resolve_host_mdns_and_dns_slow_mdns_wins(
     ]
 
     async def slow_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
         return True
 
     info.async_request = slow_async_request
@@ -239,7 +239,7 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
     info.async_request = slow_async_request
 
     def slow_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        asyncio.sleep(0.1)
+        asyncio.sleep(0)
         return mock_getaddrinfo
 
     with patch(
