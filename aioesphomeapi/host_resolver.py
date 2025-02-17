@@ -121,7 +121,7 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
             host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP
         )
     except OSError as err:
-        raise ResolveAPIError(f"Error resolving IP address: {err}")
+        raise ResolveAPIError(f"Error resolving {host} to IP address: {err}")
 
     addrs: list[AddrInfo] = []
     for family, type_, proto, _, raw in res:
@@ -233,8 +233,9 @@ async def async_resolve_host(
                 aiozc = manager.get_async_zeroconf()
             except Exception as original_exc:
                 new_exc = ResolveAPIError(
-                    f"Cannot start mDNS sockets: {original_exc}, is this a docker container "
-                    "without host network mode?"
+                    f"Cannot start mDNS sockets while resolving {host}: "
+                    f"{original_exc}, is this a docker container "
+                    "without host network mode? "
                 )
                 new_exc.__cause__ = original_exc
                 exceptions.append(new_exc)
