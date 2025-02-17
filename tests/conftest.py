@@ -278,7 +278,7 @@ def long_repr_strings() -> Generator[None]:
         arepr.maxother = original_maxother
 
 
-@pytest.fixture(autouse=False)  # In the future make this true
+@pytest.fixture(autouse=True)
 def verify_no_lingering_tasks(
     event_loop: asyncio.AbstractEventLoop,
 ) -> Generator[None]:
