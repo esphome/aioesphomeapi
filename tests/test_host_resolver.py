@@ -10,6 +10,7 @@ from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from aioesphomeapi.core import APIConnectionError, ResolveAPIError
 import aioesphomeapi.host_resolver as hr
+from aioesphomeapi.host_resolver import RESOLVE_TIMEOUT
 
 
 @pytest.fixture(autouse=True)
@@ -155,7 +156,7 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
     resolve_zc.return_value = addr_infos
     ret = await hr.async_resolve_host(["example.local"], 6052)
 
-    resolve_zc.assert_called_once_with(ANY, "example", 6052)
+    resolve_zc.assert_called_once_with(ANY, "example", 6052, timeout=RESOLVE_TIMEOUT)
     resolve_addr.assert_called_once_with("example.local", 6052)
     assert ret == addr_infos
 
@@ -168,7 +169,7 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
     resolve_addr.return_value = addr_infos
     ret = await hr.async_resolve_host(["example.local"], 6052)
 
-    resolve_zc.assert_called_once_with(ANY, "example", 6052)
+    resolve_zc.assert_called_once_with(ANY, "example", 6052, timeout=RESOLVE_TIMEOUT)
     resolve_addr.assert_called_once_with("example.local", 6052)
     assert ret == addr_infos
 
