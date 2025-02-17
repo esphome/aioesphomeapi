@@ -75,7 +75,7 @@ async def _async_zeroconf_get_service_info(
         ) from exc
     finally:
         if not had_instance:
-            await zeroconf_manager.async_close()
+            await asyncio.shield(create_eager_task(zeroconf_manager.async_close()))
     return info
 
 
