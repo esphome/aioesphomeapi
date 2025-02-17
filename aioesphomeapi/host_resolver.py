@@ -260,8 +260,11 @@ async def async_resolve_host(
 
         for coro in coros:
             task = create_eager_task(coro)
-            if task.done() and not task.exception():
-                resolve_results[host].extend(task.result())
+            if task.done():
+                if exc := task.exception():
+                    exceptions.append(exc)
+                elif result := task.result():
+                    resolve_results[host].extend(result)
             else:
                 resolve_task_to_host[task] = host
                 host_tasks[host].add(task)
