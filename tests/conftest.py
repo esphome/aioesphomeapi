@@ -165,6 +165,7 @@ async def plaintext_connect_task_no_login(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
         yield conn, transport, conn._frame_helper, connect_task
+        conn.force_disconnect()
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_expected_name")
@@ -192,6 +193,7 @@ async def plaintext_connect_task_no_login_with_expected_name(
             conn_with_expected_name._frame_helper,
             connect_task,
         )
+        conn_with_expected_name.force_disconnect()
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_with_login")
@@ -217,6 +219,7 @@ async def plaintext_connect_task_with_login(
             conn_with_password._frame_helper,
             connect_task,
         )
+        conn_with_password.force_disconnect()
 
 
 @pytest_asyncio.fixture(name="api_client")
@@ -249,6 +252,7 @@ async def api_client(
         await connect_task
         transport.reset_mock()
         yield client, conn, transport, protocol
+        conn.force_disconnect()
 
 
 def get_scheduled_timer_handles(
