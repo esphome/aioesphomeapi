@@ -319,6 +319,38 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
 
 
 @pytest.mark.asyncio
+async def test_resolve_host_mdns_and_mdns_exception_dns_wins(
+    addr_infos: list[AddrInfo],
+    mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
+) -> None:
+    """Test making network requests for mDNS and DNS resolution with DNS winning."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=False)
+    info.ip_addresses_by_version.return_value = []
+
+    async def exception_async_request(
+        self, zc: Zeroconf, *args: Any, **kwargs: Any
+    ) -> bool:
+        raise OSError(None, "mDNS exception")
+
+    info.async_request = exception_async_request
+
+    async def fast_getaddrinfo(
+        *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        await asyncio.sleep(0)
+        return mock_getaddrinfo
+
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch.object(loop, "getaddrinfo", fast_getaddrinfo):
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    assert ret == addr_infos
+
+
+@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_fast_dns_wins(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
