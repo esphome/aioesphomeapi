@@ -9,13 +9,10 @@ from typing import TYPE_CHECKING, Any
 
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
-from noise.backends.default import DefaultNoiseBackend  # type: ignore[import-untyped]
-from noise.backends.default.ciphers import (  # type: ignore[import-untyped]
-    ChaCha20Cipher,
-    CryptographyCipher,
-)
-from noise.connection import NoiseConnection  # type: ignore[import-untyped]
-from noise.state import CipherState  # type: ignore[import-untyped]
+from noise.backends.default import DefaultNoiseBackend
+from noise.backends.default.ciphers import ChaCha20Cipher, CryptographyCipher
+from noise.connection import NoiseConnection
+from noise.state import CipherState
 
 from ..core import (
     APIConnectionError,
@@ -43,7 +40,7 @@ class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
 
     @property
     def klass(self) -> type[ChaCha20Poly1305Reusable]:
-        return ChaCha20Poly1305Reusable
+        return ChaCha20Poly1305Reusable  # type: ignore[no-any-return, unused-ignore]
 
 
 class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
@@ -89,7 +86,7 @@ class EncryptCipher:
         """Encrypt a frame."""
         ciphertext = self._encrypt(PACK_NONCE(self._nonce), data, None)
         self._nonce += 1
-        return ciphertext
+        return ciphertext  # type: ignore[no-any-return, unused-ignore]
 
 
 class DecryptCipher:
@@ -108,7 +105,7 @@ class DecryptCipher:
         """Decrypt a frame."""
         plaintext = self._decrypt(PACK_NONCE(self._nonce), data, None)
         self._nonce += 1
-        return plaintext
+        return plaintext  # type: ignore[no-any-return, unused-ignore]
 
 
 class APINoiseFrameHelper(APIFrameHelper):
