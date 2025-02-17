@@ -897,13 +897,11 @@ class APIConnection:
                         msg_type_proto,
                     )
                 return
-            _LOGGER.error(
-                "%s: Invalid protobuf message: type=%s data=%s: %s",
+            _LOGGER.exception(
+                "%s: Invalid protobuf message: type=%s data=%s",
                 self.log_name,
                 klass.__name__,
                 data,
-                e,
-                exc_info=True,
             )
             self.report_fatal_error(
                 ProtocolAPIError(

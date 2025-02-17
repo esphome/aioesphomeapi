@@ -64,6 +64,8 @@ def get_mock_async_zeroconf() -> AsyncZeroconf:
 class Estr(str):
     """A subclassed string."""
 
+    __slots__ = ()
+
 
 def generate_split_plaintext_packet(msg: message.Message) -> list[bytes]:
     type_ = PROTO_TO_MESSAGE_TYPE[msg.__class__]

@@ -95,7 +95,6 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
     except Exception:
         if os.environ.get("REQUIRE_CYTHON"):
             raise
-        pass
 
 
 cythonize_if_available(setup_kwargs)
