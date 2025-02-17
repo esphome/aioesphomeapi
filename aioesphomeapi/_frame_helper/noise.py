@@ -5,17 +5,14 @@ import binascii
 from functools import partial
 import logging
 from struct import Struct
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
-from noise.backends.default import DefaultNoiseBackend  # type: ignore[import-untyped]
-from noise.backends.default.ciphers import (  # type: ignore[import-untyped]
-    ChaCha20Cipher,
-    CryptographyCipher,
-)
-from noise.connection import NoiseConnection  # type: ignore[import-untyped]
-from noise.state import CipherState  # type: ignore[import-untyped]
+from noise.backends.default import DefaultNoiseBackend
+from noise.backends.default.ciphers import ChaCha20Cipher, CryptographyCipher
+from noise.connection import NoiseConnection
+from noise.state import CipherState
 
 from ..core import (
     APIConnectionError,
@@ -43,7 +40,7 @@ class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
 
     @property
     def klass(self) -> type[ChaCha20Poly1305Reusable]:
-        return ChaCha20Poly1305Reusable
+        return ChaCha20Poly1305Reusable  # type: ignore[no-any-return]
 
 
 class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
@@ -83,7 +80,7 @@ class EncryptCipher:
         crypto_cipher: CryptographyCipher = cipher_state.cipher
         cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
         self._nonce: int = cipher_state.n
-        self._encrypt = cipher.encrypt
+        self._encrypt: Callable[[bytes, bytes, bytes | None], bytes] = cipher.encrypt
 
     def encrypt(self, data: _bytes) -> bytes:
         """Encrypt a frame."""
@@ -108,7 +105,7 @@ class DecryptCipher:
         """Decrypt a frame."""
         plaintext = self._decrypt(PACK_NONCE(self._nonce), data, None)
         self._nonce += 1
-        return plaintext
+        return plaintext  # type: ignore[no-any-return]
 
 
 class APINoiseFrameHelper(APIFrameHelper):

@@ -378,7 +378,7 @@ class APIConnection:
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         try:
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)  # type: ignore[attr-defined]
         except AttributeError:
             _LOGGER.debug(
                 "%s: TCP_QUICKACK not supported",
