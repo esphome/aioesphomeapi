@@ -218,7 +218,8 @@ async def async_resolve_host(
     result we get for each host.
     """
     aiozc: AsyncZeroconf | None = None
-    had_instance = False
+    manager: ZeroconfManager | None = None
+    had_instance: bool = False
     if any(host_is_local_name(host) and host.partition(".")[0] for host in hosts):
         manager = zeroconf_manager or ZeroconfManager()
         had_instance = manager.has_instance
@@ -233,8 +234,8 @@ async def async_resolve_host(
     try:
         return await _async_resolve_host(hosts, port, aiozc)
     finally:
-        if aiozc and not had_instance:
-            await asyncio.shield(create_eager_task(zeroconf_manager.async_close()))
+        if manager and not had_instance:
+            await asyncio.shield(create_eager_task(manager.async_close()))
 
 
 async def _async_resolve_host(
