@@ -7,14 +7,22 @@ exclude = [
 
 [tool.ruff.lint]
 select = [
+  "ASYNC", # async rules
   "E", # pycodestyle
   "F", # pyflakes/autoflake
+  "FLY", # flynt
+  "FURB", # refurb
+  "G", # flake8-logging-format
   "I", # isort
+  "PERF", # Perflint
+  "PIE", # flake8-pie
   "PL", # pylint
   "UP", # pyupgrade
   "RUF", # ruff
-  "TRY", # try rules
   "SIM", # flake8-SIM
+  "SLOT", # flake8-slots
+  "TID", # Tidy imports
+  "TRY", # try rules
   "PERF", # performance
 ]
 
@@ -28,6 +36,7 @@ ignore = [
   "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
   "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
   "TRY003", # Too many to fix - Avoid specifying long messages outside the exception class
+  "TID252", # Prefer absolute imports over relative imports from parent modules
 ]
 
 [tool.ruff.lint.isort]
