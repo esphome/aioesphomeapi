@@ -4,6 +4,7 @@
 import contextlib
 from distutils.command.build_ext import build_ext
 import os
+from typing import Any
 
 from setuptools import find_packages, setup
 
@@ -71,12 +72,12 @@ setup_kwargs = {
 
 
 class OptionalBuildExt(build_ext):
-    def build_extensions(self):
+    def build_extensions(self) -> None:
         with contextlib.suppress(Exception):
             super().build_extensions()
 
 
-def cythonize_if_available(setup_kwargs):
+def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
     if os.environ.get("SKIP_CYTHON", False):
         return
     try:
