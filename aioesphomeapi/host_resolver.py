@@ -209,6 +209,8 @@ async def async_resolve_host(
     # - If we have a zeroconf manager and the host is in the cache
     #   we can return that as well
     for host in hosts:
+        # If its an IP address, we can convert it to an AddrInfo
+        # and we are done with this host
         try:
             resolve_results[host].append(
                 _async_ip_address_to_addrinfo(ip_address(host), port)
@@ -221,6 +223,7 @@ async def async_resolve_host(
         if not host_is_local_name(host):
             continue
 
+        # If its a local name, we can try to fetch it from the zeroconf cache
         if not tried_to_create_zeroconf:
             tried_to_create_zeroconf = True
             manager = zeroconf_manager or ZeroconfManager()
