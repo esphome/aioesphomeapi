@@ -37,5 +37,5 @@ repos:
     rev: v1.14.1
     hooks:
       - id: mypy
-        additional_dependencies: ["noise"]
+        additional_dependencies: ["aiohappyeyeballs>=2.3.0", "noiseprotocol>=0.3.1,<1.0", "cryptography>=43.0.0", "zeroconf>=0.143.0,<1.0"]
         files: ^((aioesphomeapi)/.+)?[^/]+\.(py)$
