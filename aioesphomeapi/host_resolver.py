@@ -210,7 +210,7 @@ async def async_resolve_host(
     #   we can return that as well
     for host in hosts:
         try:
-            resolve_results[host].extend(
+            resolve_results[host].append(
                 _async_ip_address_to_addrinfo(ip_address(host), port)
             )
         except ValueError:
