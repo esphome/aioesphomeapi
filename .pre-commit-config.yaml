@@ -33,3 +33,9 @@ repos:
     hooks:
     - id: cython-lint
     - id: double-quote-cython-strings
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        additional_dependencies: []
+        files: ^((aioesphomeapi)/.+)?[^/]+\.(py)$
