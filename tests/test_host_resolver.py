@@ -206,8 +206,74 @@ async def test_resolve_host_mdns_and_dns_slow_mdns_wins(
 
     info.async_request = slow_async_request
 
-    def slow_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        asyncio.sleep(0.1)
+    async def slow_getaddrinfo(
+        *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        await asyncio.sleep(0.1)
+        return []
+
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    assert ret == addr_infos
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_mdns_and_dns_exception_mdns_wins(
+    addr_infos: list[AddrInfo],
+) -> None:
+    """Test making network requests DNS exception and mDNS winning."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=False)
+    info.ip_addresses_by_version.side_effect = [
+        [TEST_IPv4],
+        [TEST_IPv6],
+    ]
+
+    async def fast_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0)
+        return True
+
+    info.async_request = fast_async_request
+
+    async def slow_getaddrinfo(
+        *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        raise OSError(None, "DNS exception")
+
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    assert ret == addr_infos
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_mdns_and_dns_fast_mdns_wins(
+    addr_infos: list[AddrInfo],
+) -> None:
+    """Test making network requests for mDNS and DNS resolution with mDNS winning."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=False)
+    info.ip_addresses_by_version.side_effect = [
+        [TEST_IPv4],
+        [TEST_IPv6],
+    ]
+
+    async def fast_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
+        return True
+
+    info.async_request = fast_async_request
+
+    async def slow_getaddrinfo(
+        *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        await asyncio.sleep(0.1)
         return []
 
     with patch(
@@ -238,13 +304,45 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
 
     info.async_request = slow_async_request
 
-    def slow_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        asyncio.sleep(0)
+    async def slow_getaddrinfo(
+        *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        await asyncio.sleep(0)
         return mock_getaddrinfo
 
     with patch(
         "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
     ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    assert ret == addr_infos
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_mdns_and_dns_fast_dns_wins(
+    addr_infos: list[AddrInfo],
+    mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
+) -> None:
+    """Test making network requests for mDNS and DNS resolution with DNS winning."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=False)
+    info.ip_addresses_by_version.return_value = []
+
+    async def slow_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0.1)
+        return False
+
+    info.async_request = slow_async_request
+
+    async def fast_getaddrinfo(
+        *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        return mock_getaddrinfo
+
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch.object(loop, "getaddrinfo", fast_getaddrinfo):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
