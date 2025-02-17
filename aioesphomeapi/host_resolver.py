@@ -281,9 +281,8 @@ async def _async_resolve_host(
     for host in hosts:
         coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
         if aiozc and host_is_local_name(host):
-            coros.append(
-                _async_resolve_short_host_zeroconf(aiozc, host.partition(".")[0], port)
-            )
+            short_host = host.partition(".")[0]
+            coros.append(_async_resolve_short_host_zeroconf(aiozc, short_host, port))
 
         coros.append(_async_resolve_host_getaddrinfo(host, port))
 
