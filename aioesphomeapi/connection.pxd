@@ -38,7 +38,6 @@ cdef object partial
 
 cdef object hr
 
-cdef object RESOLVE_TIMEOUT
 cdef object CONNECT_AND_SETUP_TIMEOUT, CONNECT_REQUEST_TIMEOUT
 
 cdef object APIConnectionError
