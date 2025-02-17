@@ -332,6 +332,8 @@ async def _async_resolve_host(
                     with suppress(asyncio.CancelledError):
                         await task
     finally:
+        # We likely get here if we get cancelled
+        # because of a timeout
         for task in resolve_task_to_host:
             task.cancel()
 
