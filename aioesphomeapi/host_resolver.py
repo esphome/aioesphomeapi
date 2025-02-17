@@ -217,35 +217,11 @@ async def async_resolve_host(
     resolution runs in parallel and we will return the first
     result we get for each host.
     """
-    aiozc: AsyncZeroconf | None = None
     manager: ZeroconfManager | None = None
     had_instance: bool = False
-    if any(host_is_local_name(host) for host in hosts):
-        manager = zeroconf_manager or ZeroconfManager()
-        had_instance = manager.has_instance
-        try:
-            aiozc = manager.get_async_zeroconf()
-        except Exception as exc:
-            raise ResolveAPIError(
-                f"Cannot start mDNS sockets: {exc}, is this a docker container without "
-                "host network mode?"
-            ) from exc
-
-    try:
-        return await _async_resolve_host(hosts, port, aiozc)
-    finally:
-        if manager and not had_instance:
-            await asyncio.shield(create_eager_task(manager.async_close()))
-
-
-async def _async_resolve_host(
-    hosts: list[str], port: int, aiozc: AsyncZeroconf | None = None
-) -> list[AddrInfo]:
-    """Resolve hosts in parallel."""
-    exceptions: list[BaseException] = []
-    resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
-    host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
+    needs_zeroconf: bool = False
     resolve_results: defaultdict[str, list[AddrInfo]] = defaultdict(list)
+
     for host in hosts:
         try:
             resolve_results[host] = [
@@ -255,11 +231,44 @@ async def _async_resolve_host(
             pass
         else:
             continue
+        needs_zeroconf |= host_is_local_name(host)
 
+    if len(resolve_results) == len(hosts):
+        return list(itertools.chain.from_iterable(resolve_results.values()))
+
+    try:
+        manager = zeroconf_manager or ZeroconfManager() if needs_zeroconf else None
+        return await _async_resolve_host(hosts, port, resolve_results, manager)
+    finally:
+        if manager and not had_instance:
+            await asyncio.shield(create_eager_task(manager.async_close()))
+
+
+async def _async_resolve_host(
+    hosts: list[str],
+    port: int,
+    resolve_results: defaultdict[str, list[AddrInfo]],
+    manager: ZeroconfManager | None = None,
+) -> list[AddrInfo]:
+    """Resolve hosts in parallel."""
+    resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
+    host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
+    exceptions: list[BaseException] = []
+
+    if manager:
+        try:
+            aiozc = manager.get_async_zeroconf()
+        except Exception as exc:
+            ex = ResolveAPIError(
+                f"Cannot start mDNS sockets: {exc}, is this a docker container without "
+                "host network mode?"
+            )
+            ex.__cause__ = exc
+            exceptions.append(ex)
+
+    for host in hosts:
         coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
-        if host_is_local_name(host):
-            if TYPE_CHECKING:
-                assert aiozc is not None
+        if aiozc and host_is_local_name(host):
             coros.append(
                 _async_resolve_short_host_zeroconf(aiozc, host.partition(".")[0], port)
             )
