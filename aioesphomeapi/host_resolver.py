@@ -279,7 +279,18 @@ async def _async_resolve_host(
     aiozc: AsyncZeroconf | None,
     timeout: float,
 ) -> None:
-    """Resolve hosts in parallel."""
+    """Resolve hosts in parallel.
+
+    As soon as we get a result for a host, we will cancel
+    all other tasks trying to resolve that host.
+
+    This function will resolve hosts in parallel using
+    both mDNS and getaddrinfo.
+
+    This function is also designed to be cancellable, so
+    if we get cancelled, we will cancel all tasks, and
+    clean up after ourselves.
+    """
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
     host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
 
