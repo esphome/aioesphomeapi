@@ -182,6 +182,8 @@ async def test_resolve_host_mdns_no_results(resolve_addr, addr_infos):
     resolve_addr.return_value = addr_infos
     with pytest.raises(ResolveAPIError):
         await hr.async_resolve_host(["example.local"], 6052)
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
 
 
 @pytest.mark.asyncio
