@@ -10,7 +10,11 @@ import pytest
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
-from aioesphomeapi.core import APIConnectionError, ResolveAPIError
+from aioesphomeapi.core import (
+    APIConnectionError,
+    ResolveAPIError,
+    ResolveTimeoutAPIError,
+)
 import aioesphomeapi.host_resolver as hr
 from aioesphomeapi.host_resolver import RESOLVE_TIMEOUT, AddrInfo
 
@@ -458,6 +462,40 @@ async def test_resolve_host_mdns_and_mdns_both_fail(
         pytest.raises(ResolveAPIError, match="DNS exception"),
     ):
         await hr.async_resolve_host(["example.local"], 6052)
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_mdns_and_dns_slow_all_timeout(
+    addr_infos: list[AddrInfo],
+    mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
+) -> None:
+    """Test making network requests for mDNS and DNS resolution with DNS winning."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=False)
+    info.ip_addresses_by_version.side_effect = [
+        [TEST_IPv4],
+        [TEST_IPv6],
+    ]
+
+    async def slow_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(2)
+        return False
+
+    info.async_request = slow_async_request
+
+    async def slow_getaddrinfo(
+        *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        await asyncio.sleep(2)
+        return mock_getaddrinfo
+
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", slow_getaddrinfo),
+        pytest.raises(ResolveTimeoutAPIError, match="x"),
+    ):
+        await hr.async_resolve_host(["example.local"], 6052, timeout=0.01)
 
 
 @pytest.mark.asyncio

@@ -283,50 +283,60 @@ async def _async_resolve_host(
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
     host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
 
-    for host in hosts:
-        coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
-        if aiozc and host_is_local_name(host):
-            short_host = host.partition(".")[0]
-            coros.append(
-                _async_resolve_short_host_zeroconf(
-                    aiozc, short_host, port, timeout=timeout
+    try:
+        for host in hosts:
+            coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
+            if aiozc and host_is_local_name(host):
+                short_host = host.partition(".")[0]
+                coros.append(
+                    _async_resolve_short_host_zeroconf(
+                        aiozc, short_host, port, timeout=timeout
+                    )
                 )
+
+            coros.append(_async_resolve_host_getaddrinfo(host, port))
+
+            for coro in coros:
+                task = create_eager_task(coro)
+                if task.done():
+                    if exc := task.exception():
+                        exceptions.append(exc)
+                    else:
+                        resolve_results[host].extend(task.result())
+                else:
+                    resolve_task_to_host[task] = host
+                    host_tasks[host].add(task)
+
+        while resolve_task_to_host:
+            done, _ = await asyncio.wait(
+                resolve_task_to_host,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-
-        coros.append(_async_resolve_host_getaddrinfo(host, port))
-
-        for coro in coros:
-            task = create_eager_task(coro)
-            if task.done():
+            finished_hosts: set[str] = set()
+            for task in done:
+                host = resolve_task_to_host.pop(task)
+                host_tasks[host].discard(task)
                 if exc := task.exception():
                     exceptions.append(exc)
-                else:
-                    resolve_results[host].extend(task.result())
-            else:
-                resolve_task_to_host[task] = host
-                host_tasks[host].add(task)
+                elif result := task.result():
+                    resolve_results[host].extend(result)
+                    finished_hosts.add(host)
 
-    while resolve_task_to_host:
-        done, _ = await asyncio.wait(
-            resolve_task_to_host,
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        finished_hosts: set[str] = set()
-        for task in done:
-            host = resolve_task_to_host.pop(task)
-            host_tasks[host].discard(task)
-            if exc := task.exception():
-                exceptions.append(exc)
-            elif result := task.result():
-                resolve_results[host].extend(result)
-                finished_hosts.add(host)
+            # We got a result for a host, cancel
+            # any other tasks trying to resolve
+            # it as we are done with that host
+            for host in finished_hosts:
+                for task in host_tasks.pop(host, ()):
+                    resolve_task_to_host.pop(task, None)
+                    task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await task
+    finally:
+        for task in resolve_task_to_host:
+            task.cancel()
 
-        # We got a result for a host, cancel
-        # any other tasks trying to resolve
-        # it as we are done with that host
-        for host in finished_hosts:
-            for task in host_tasks.pop(host, ()):
-                resolve_task_to_host.pop(task, None)
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
+        # Await all remaining tasks only after cancelling
+        # them in case we get cancelled ourselves
+        for task in resolve_task_to_host:
+            with suppress(asyncio.CancelledError):
+                await task
