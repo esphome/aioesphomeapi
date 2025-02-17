@@ -258,6 +258,8 @@ async def _async_resolve_host(
 
         coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
         if host_is_local_name(host) and (short_host := host.partition(".")[0]):
+            if TYPE_CHECKING:
+                assert aiozc is not None
             coros.append(_async_resolve_short_host_zeroconf(aiozc, short_host, port))
 
         coros.append(_async_resolve_host_getaddrinfo(host, port))
