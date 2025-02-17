@@ -247,18 +247,24 @@ async def async_resolve_host(
         else:
             continue
 
+        tasks: asyncio.Task[list[AddrInfo]] = []
         if host_is_local_name(host) and (short_host := host.partition(".")[0]):
-            task = create_eager_task(
-                _async_resolve_short_host_zeroconf(
-                    short_host, port, zeroconf_manager=zeroconf_manager
+            tasks.append(
+                create_eager_task(
+                    _async_resolve_short_host_zeroconf(
+                        short_host, port, zeroconf_manager=zeroconf_manager
+                    )
                 )
             )
-            resolve_task_to_host[task] = host
-            host_tasks[host].add(task)
 
-        task = create_eager_task(_async_resolve_host_getaddrinfo(host, port))
-        resolve_task_to_host[task] = host
-        host_tasks[host].add(task)
+        tasks.append(create_eager_task(_async_resolve_host_getaddrinfo(host, port)))
+
+        for task in tasks:
+            if task.done() and not task.exception():
+                resolve_results[host].extend(task.result())
+            else:
+                resolve_task_to_host[task] = host
+                host_tasks[host].add(task)
 
     while resolve_task_to_host:
         done, _ = await asyncio.wait(
