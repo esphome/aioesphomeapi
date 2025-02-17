@@ -217,16 +217,9 @@ async def async_resolve_host(
     resolution runs in parallel and we will return the first
     result we get for each host.
     """
-    exceptions: list[BaseException] = []
-    resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
-    host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
-    resolve_results: defaultdict[str, list[AddrInfo]] = defaultdict(list)
     aiozc: AsyncZeroconf | None = None
     had_instance = False
-    if any(
-        host_is_local_name(host) and (short_host := host.partition(".")[0])
-        for host in hosts
-    ):
+    if any(host_is_local_name(host) and host.partition(".")[0] for host in hosts):
         manager = zeroconf_manager or ZeroconfManager()
         had_instance = manager.has_instance
         try:
@@ -238,67 +231,75 @@ async def async_resolve_host(
             ) from exc
 
     try:
-        for host in hosts:
-            try:
-                resolve_results[host] = [
-                    _async_ip_address_to_addrinfo(ip_address(host), port)
-                ]
-            except ValueError:
-                pass
-            else:
-                continue
-
-            coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
-            if host_is_local_name(host) and (short_host := host.partition(".")[0]):
-                coros.append(
-                    _async_resolve_short_host_zeroconf(aiozc, short_host, port)
-                )
-
-            coros.append(_async_resolve_host_getaddrinfo(host, port))
-
-            for coro in coros:
-                task = create_eager_task(coro)
-                if task.done():
-                    if exc := task.exception():
-                        exceptions.append(exc)
-                    else:
-                        resolve_results[host].extend(task.result())
-                else:
-                    resolve_task_to_host[task] = host
-                    host_tasks[host].add(task)
-
-        while resolve_task_to_host:
-            done, _ = await asyncio.wait(
-                resolve_task_to_host,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            finished_hosts: set[str] = set()
-            for task in done:
-                host = resolve_task_to_host.pop(task)
-                host_tasks[host].discard(task)
-                if exc := task.exception():
-                    exceptions.append(exc)
-                elif result := task.result():
-                    resolve_results[host].extend(result)
-                    finished_hosts.add(host)
-
-            # We got a result for a host, cancel
-            # any other tasks trying to resolve
-            # it as we are done with that host
-            for host in finished_hosts:
-                for task in host_tasks.pop(host, ()):
-                    resolve_task_to_host.pop(task, None)
-                    task.cancel()
-                    with suppress(asyncio.CancelledError):
-                        await task
-
-        if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
-            return addrs
-        if exceptions:
-            raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
-        raise ResolveAPIError(
-            f"Could not resolve host {hosts} - got no results from OS"
-        )
+        return await _async_resolve_host(hosts, port, aiozc)
     finally:
         if aiozc and not had_instance:
             await asyncio.shield(create_eager_task(zeroconf_manager.async_close()))
+
+
+async def _async_resolve_host(
+    hosts: list[str], port: int, aiozc: AsyncZeroconf | None = None
+) -> list[AddrInfo]:
+    """Resolve hosts in parallel."""
+    exceptions: list[BaseException] = []
+    resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
+    host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
+    resolve_results: defaultdict[str, list[AddrInfo]] = defaultdict(list)
+    for host in hosts:
+        try:
+            resolve_results[host] = [
+                _async_ip_address_to_addrinfo(ip_address(host), port)
+            ]
+        except ValueError:
+            pass
+        else:
+            continue
+
+        coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
+        if host_is_local_name(host) and (short_host := host.partition(".")[0]):
+            coros.append(_async_resolve_short_host_zeroconf(aiozc, short_host, port))
+
+        coros.append(_async_resolve_host_getaddrinfo(host, port))
+
+        for coro in coros:
+            task = create_eager_task(coro)
+            if task.done():
+                if exc := task.exception():
+                    exceptions.append(exc)
+                else:
+                    resolve_results[host].extend(task.result())
+            else:
+                resolve_task_to_host[task] = host
+                host_tasks[host].add(task)
+
+    while resolve_task_to_host:
+        done, _ = await asyncio.wait(
+            resolve_task_to_host,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        finished_hosts: set[str] = set()
+        for task in done:
+            host = resolve_task_to_host.pop(task)
+            host_tasks[host].discard(task)
+            if exc := task.exception():
+                exceptions.append(exc)
+            elif result := task.result():
+                resolve_results[host].extend(result)
+                finished_hosts.add(host)
+
+        # We got a result for a host, cancel
+        # any other tasks trying to resolve
+        # it as we are done with that host
+        for host in finished_hosts:
+            for task in host_tasks.pop(host, ()):
+                resolve_task_to_host.pop(task, None)
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+
+    if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
+        return addrs
+
+    if exceptions:
+        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
+    raise ResolveAPIError(f"Could not resolve host {hosts} - got no results from OS")
