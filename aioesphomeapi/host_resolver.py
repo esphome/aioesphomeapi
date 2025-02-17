@@ -248,7 +248,7 @@ async def async_resolve_host(
         else:
             continue
 
-        coros: Coroutine[Any, Any, list[AddrInfo]] = []
+        coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
         if host_is_local_name(host) and (short_host := host.partition(".")[0]):
             coros.append(
                 _async_resolve_short_host_zeroconf(
