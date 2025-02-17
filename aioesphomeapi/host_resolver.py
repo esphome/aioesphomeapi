@@ -12,7 +12,7 @@ import socket
 from typing import TYPE_CHECKING, Any, cast
 
 from zeroconf import IPVersion
-from zeroconf.asyncio import AsyncServiceInfo
+from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from .core import ResolveAPIError
 from .util import address_is_local, create_eager_task, host_is_name_part
@@ -54,29 +54,17 @@ class AddrInfo:
 
 
 async def _async_zeroconf_get_service_info(
-    zeroconf_manager: ZeroconfManager,
+    aiozc: AsyncZeroconf,
     short_host: str,
     timeout: float,
 ) -> AsyncServiceInfo:
-    # Use or create zeroconf instance, ensure it's an AsyncZeroconf
-    had_instance = zeroconf_manager.has_instance
-    try:
-        zc = zeroconf_manager.get_async_zeroconf().zeroconf
-    except Exception as exc:
-        raise ResolveAPIError(
-            f"Cannot start mDNS sockets: {exc}, is this a docker container without "
-            "host network mode?"
-        ) from exc
     info = _make_service_info_for_short_host(short_host)
     try:
-        await info.async_request(zc, int(timeout * 1000))
+        await info.async_request(aiozc.zeroconf, int(timeout * 1000))
     except Exception as exc:
         raise ResolveAPIError(
             f"Error resolving mDNS {short_host} via mDNS: {exc}"
         ) from exc
-    finally:
-        if not had_instance:
-            await asyncio.shield(create_eager_task(zeroconf_manager.async_close()))
     return info
 
 
@@ -98,18 +86,14 @@ def _make_service_info_for_short_host(host: str) -> AsyncServiceInfo:
 
 
 async def _async_resolve_short_host_zeroconf(
+    aiozc: AsyncZeroconf,
     short_host: str,
     port: int,
     *,
     timeout: float = 3.0,
-    zeroconf_manager: ZeroconfManager | None = None,
 ) -> list[AddrInfo]:
     _LOGGER.debug("Resolving host %s via mDNS", short_host)
-    service_info = await _async_zeroconf_get_service_info(
-        zeroconf_manager or ZeroconfManager(),
-        short_host,
-        timeout,
-    )
+    service_info = await _async_zeroconf_get_service_info(aiozc, short_host, timeout)
     return service_info_to_addr_info(service_info, port)
 
 
@@ -237,65 +221,84 @@ async def async_resolve_host(
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
     host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
     resolve_results: defaultdict[str, list[AddrInfo]] = defaultdict(list)
-
-    for host in hosts:
+    aiozc: AsyncZeroconf | None = None
+    had_instance = False
+    if any(
+        host_is_local_name(host) and (short_host := host.partition(".")[0])
+        for host in hosts
+    ):
+        manager = zeroconf_manager or ZeroconfManager()
+        had_instance = manager.has_instance
         try:
-            resolve_results[host] = [
-                _async_ip_address_to_addrinfo(ip_address(host), port)
-            ]
-        except ValueError:
-            pass
-        else:
-            continue
+            aiozc = manager.get_async_zeroconf()
+        except Exception as exc:
+            raise ResolveAPIError(
+                f"Cannot start mDNS sockets: {exc}, is this a docker container without "
+                "host network mode?"
+            ) from exc
 
-        coros: Coroutine[Any, Any, list[AddrInfo]] = []
-        if host_is_local_name(host) and (short_host := host.partition(".")[0]):
-            coros.append(
-                _async_resolve_short_host_zeroconf(
-                    short_host, port, zeroconf_manager=zeroconf_manager
+    try:
+        for host in hosts:
+            try:
+                resolve_results[host] = [
+                    _async_ip_address_to_addrinfo(ip_address(host), port)
+                ]
+            except ValueError:
+                pass
+            else:
+                continue
+
+            coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
+            if host_is_local_name(host) and (short_host := host.partition(".")[0]):
+                coros.append(
+                    _async_resolve_short_host_zeroconf(aiozc, short_host, port)
                 )
+
+            coros.append(_async_resolve_host_getaddrinfo(host, port))
+
+            for coro in coros:
+                task = create_eager_task(coro)
+                if task.done():
+                    if exc := task.exception():
+                        exceptions.append(exc)
+                    else:
+                        resolve_results[host].extend(task.result())
+                else:
+                    resolve_task_to_host[task] = host
+                    host_tasks[host].add(task)
+
+        while resolve_task_to_host:
+            done, _ = await asyncio.wait(
+                resolve_task_to_host,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-
-        coros.append(_async_resolve_host_getaddrinfo(host, port))
-
-        for coro in coros:
-            task = create_eager_task(coro)
-            if task.done():
+            finished_hosts: set[str] = set()
+            for task in done:
+                host = resolve_task_to_host.pop(task)
+                host_tasks[host].discard(task)
                 if exc := task.exception():
                     exceptions.append(exc)
-                else:
-                    resolve_results[host].extend(task.result())
-            else:
-                resolve_task_to_host[task] = host
-                host_tasks[host].add(task)
+                elif result := task.result():
+                    resolve_results[host].extend(result)
+                    finished_hosts.add(host)
 
-    while resolve_task_to_host:
-        done, _ = await asyncio.wait(
-            resolve_task_to_host,
-            return_when=asyncio.FIRST_COMPLETED,
+            # We got a result for a host, cancel
+            # any other tasks trying to resolve
+            # it as we are done with that host
+            for host in finished_hosts:
+                for task in host_tasks.pop(host, ()):
+                    resolve_task_to_host.pop(task, None)
+                    task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await task
+
+        if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
+            return addrs
+        if exceptions:
+            raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
+        raise ResolveAPIError(
+            f"Could not resolve host {hosts} - got no results from OS"
         )
-        finished_hosts: set[str] = set()
-        for task in done:
-            host = resolve_task_to_host.pop(task)
-            host_tasks[host].discard(task)
-            if exc := task.exception():
-                exceptions.append(exc)
-            elif result := task.result():
-                resolve_results[host].extend(result)
-                finished_hosts.add(host)
-
-        # We got a result for a host, cancel
-        # any other tasks trying to resolve
-        # it as we are done with that host
-        for host in finished_hosts:
-            for task in host_tasks.pop(host, ()):
-                resolve_task_to_host.pop(task, None)
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
-
-    if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
-        return addrs
-    if exceptions:
-        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
-    raise ResolveAPIError(f"Could not resolve host {hosts} - got no results from OS")
+    finally:
+        if aiozc and not had_instance:
+            await asyncio.shield(create_eager_task(zeroconf_manager.async_close()))
