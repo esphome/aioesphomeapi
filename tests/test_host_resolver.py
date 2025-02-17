@@ -212,9 +212,10 @@ async def test_resolve_host_mdns_and_dns_slow_mdns_wins(
         await asyncio.sleep(0.1)
         return []
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", slow_getaddrinfo),
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
@@ -244,9 +245,10 @@ async def test_resolve_host_mdns_and_dns_exception_mdns_wins(
     ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
         raise OSError(None, "DNS exception")
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", slow_getaddrinfo),
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
@@ -276,9 +278,10 @@ async def test_resolve_host_mdns_and_dns_fast_mdns_wins(
         await asyncio.sleep(0.1)
         return []
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", slow_getaddrinfo),
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
@@ -310,9 +313,10 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
         await asyncio.sleep(0)
         return mock_getaddrinfo
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", slow_getaddrinfo),
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
@@ -342,9 +346,10 @@ async def test_resolve_host_mdns_and_mdns_exception_dns_wins(
         await asyncio.sleep(0)
         return mock_getaddrinfo
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", fast_getaddrinfo):
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", fast_getaddrinfo),
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
@@ -368,9 +373,10 @@ async def test_resolve_host_mdns_and_mdns_no_results_dns_wins(
         await asyncio.sleep(0)
         return mock_getaddrinfo
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", fast_getaddrinfo):
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", fast_getaddrinfo),
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
@@ -398,9 +404,10 @@ async def test_resolve_host_mdns_and_dns_fast_dns_wins(
     ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
         return mock_getaddrinfo
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", fast_getaddrinfo):
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", fast_getaddrinfo),
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert ret == addr_infos
@@ -417,9 +424,10 @@ async def test_resolve_host_mdns_cache(addr_infos: list[AddrInfo]) -> None:
         [TEST_IPv6],
     ]
     info.async_request = AsyncMock(return_value=False)
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo") as mock_getaddrinfo:
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo") as mock_getaddrinfo,
+    ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
     assert not mock_getaddrinfo.called
@@ -444,10 +452,10 @@ async def test_resolve_host_mdns_and_mdns_both_fail(
     ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
         raise OSError(None, "DNS exception")
 
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch.object(loop, "getaddrinfo", fast_fail_getaddrinfo), pytest.raises(
-        ResolveAPIError, match="DNS exception"
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", fast_fail_getaddrinfo),
+        pytest.raises(ResolveAPIError, match="DNS exception"),
     ):
         await hr.async_resolve_host(["example.local"], 6052)
 

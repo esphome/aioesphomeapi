@@ -260,7 +260,7 @@ def get_scheduled_timer_handles(
 
 
 @contextmanager
-def long_repr_strings() -> Generator[None, None, None]:
+def long_repr_strings() -> Generator[None]:
     """Increase reprlib maxstring and maxother to 300."""
     arepr = reprlib.aRepr
     original_maxstring = arepr.maxstring
@@ -277,7 +277,7 @@ def long_repr_strings() -> Generator[None, None, None]:
 @pytest.fixture(autouse=False)  # In the future make this true
 def verify_no_lingering_tasks(
     event_loop: asyncio.AbstractEventLoop,
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     """Verify that all tasks are cleaned up."""
     tasks_before = asyncio.all_tasks(event_loop)
     yield
