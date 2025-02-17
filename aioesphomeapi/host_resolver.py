@@ -114,9 +114,10 @@ def service_info_to_addr_info(info: AsyncServiceInfo, port: int) -> list[AddrInf
 
 
 async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo]:
+    loop = asyncio.get_running_loop()
     try:
         # Limit to TCP IP protocol and SOCK_STREAM
-        res = await asyncio.get_event_loop().getaddrinfo(
+        res = await loop.getaddrinfo(
             host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP
         )
     except OSError as err:

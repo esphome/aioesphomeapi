@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-from ipaddress import IPv6Address, ip_address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 import socket
+from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
+from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from aioesphomeapi.core import APIConnectionError, ResolveAPIError
 import aioesphomeapi.host_resolver as hr
-from aioesphomeapi.host_resolver import RESOLVE_TIMEOUT
+from aioesphomeapi.host_resolver import RESOLVE_TIMEOUT, AddrInfo
 
 
 @pytest.fixture(autouse=True)
@@ -18,21 +20,25 @@ def enable_verify_no_lingering_tasks(verify_no_lingering_tasks: None) -> None:
     """Enable verify_no_lingering_tasks."""
 
 
+TEST_IPv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334")
+TEST_IPv4 = IPv4Address("10.0.0.42")
+
+
 @pytest.fixture
-def addr_infos():
+def addr_infos() -> list[AddrInfo]:
     return [
         hr.AddrInfo(
             family=socket.AF_INET,
             type=socket.SOCK_STREAM,
             proto=socket.IPPROTO_TCP,
-            sockaddr=hr.IPv4Sockaddr(address="10.0.0.42", port=6052),
+            sockaddr=hr.IPv4Sockaddr(address=str(TEST_IPv4), port=6052),
         ),
         hr.AddrInfo(
             family=socket.AF_INET6,
             type=socket.SOCK_STREAM,
             proto=socket.IPPROTO_TCP,
             sockaddr=hr.IPv6Sockaddr(
-                address="2001:db8:85a3::8a2e:370:7334",
+                address=str(TEST_IPv6),
                 port=6052,
                 flowinfo=0,
                 scope_id=0,
@@ -44,10 +50,9 @@ def addr_infos():
 @pytest.mark.asyncio
 async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     info = MagicMock(auto_spec=AsyncServiceInfo)
-    ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
     info.ip_addresses_by_version.side_effect = [
-        [ip_address(b"\n\x00\x00*")],
-        [ipv6],
+        [TEST_IPv4],
+        [TEST_IPv6],
     ]
     info.async_request = AsyncMock(return_value=True)
     with (
@@ -158,6 +163,34 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
 
     resolve_zc.assert_called_once_with(ANY, "example", 6052, timeout=RESOLVE_TIMEOUT)
     resolve_addr.assert_called_once_with("example.local", 6052)
+    assert ret == addr_infos
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_mdns_and_dns_slow(addr_infos: list[AddrInfo]) -> None:
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.ip_addresses_by_version.side_effect = [
+        [TEST_IPv4],
+        [TEST_IPv6],
+    ]
+    info.async_request = AsyncMock(return_value=True)
+
+    async def slow_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0.1)
+        return True
+
+    def slow_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        asyncio.sleep(0.1)
+        return []
+
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request", slow_async_request
+    ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
     assert ret == addr_infos
 
 
