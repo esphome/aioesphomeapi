@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from ipaddress import IPv6Address, ip_address
 import socket
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
@@ -57,7 +57,6 @@ async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
         ret = await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf", 6052)
 
     info.async_request.assert_called_once()
-    async_zeroconf.async_close.assert_called_once_with()
     assert ret == addr_infos
 
 
@@ -172,7 +171,7 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
     resolve_addr.return_value = addr_infos
     ret = await hr.async_resolve_host(["example.local"], 6052)
 
-    resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
+    resolve_zc.assert_called_once_with(ANY, "example", 6052)
     resolve_addr.assert_called_once_with("example.local", 6052)
     assert ret == addr_infos
 
