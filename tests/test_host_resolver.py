@@ -105,7 +105,7 @@ async def test_resolve_host_zeroconf_fails(async_zeroconf: AsyncZeroconf):
 async def test_resolve_host_zeroconf_fails_end_to_end(async_zeroconf: AsyncZeroconf):
     with (
         patch(
-            "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request",
+            "aioesphomeapi.host_resolver.ZeroconfManager.get_async_zeroconf",
             side_effect=Exception("no buffers"),
         ),
         pytest.raises(ResolveAPIError, match="no buffers"),
