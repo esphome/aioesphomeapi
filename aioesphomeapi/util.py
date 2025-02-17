@@ -12,7 +12,7 @@ _T = TypeVar("_T")
 if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout
 else:
-    from asyncio import timeout as asyncio_timeout  # noqa: F401
+    from asyncio import timeout as asyncio_timeout
 
 
 def fix_float_single_double_conversion(value: float) -> float:
@@ -95,3 +95,13 @@ else:
     ) -> Task[_T]:
         """Create a task from a coroutine."""
         return Task(coro, loop=loop or get_running_loop(), name=name)
+
+
+__all__ = (
+    "address_is_local",
+    "asyncio_timeout",
+    "build_log_name",
+    "create_eager_task",
+    "fix_float_single_double_conversion",
+    "host_is_name_part",
+)
