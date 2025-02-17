@@ -212,12 +212,12 @@ async def async_resolve_host(
         # If its an IP address, we can convert it to an AddrInfo
         # and we are done with this host
         try:
-            resolve_results[host].append(
-                _async_ip_address_to_addrinfo(ip_address(host), port)
-            )
+            ip_addr_info = _async_ip_address_to_addrinfo(ip_address(host), port)
         except ValueError:
             pass
         else:
+            if ip_addr_info:
+                resolve_results[host].append(ip_addr_info)
             continue
 
         if not host_is_local_name(host):
@@ -241,10 +241,10 @@ async def async_resolve_host(
         if aiozc:
             short_host = host.partition(".")[0]
             service_info = _make_service_info_for_short_host(short_host)
-            if service_info.load_from_cache(aiozc.zeroconf):
-                resolve_results[host].extend(
-                    service_info_to_addr_info(service_info, port)
-                )
+            if service_info.load_from_cache(aiozc.zeroconf) and (
+                addr_infos := service_info_to_addr_info(service_info, port)
+            ):
+                resolve_results[host].extend(addr_infos)
 
     if len(resolve_results) != len(hosts):
         # If we have not resolved all hosts yet, we need to do some network calls
