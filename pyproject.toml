@@ -33,7 +33,7 @@ ignore = [
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
 known-first-party = [
-  "aioesphomeapi",
+  "aioesphomeapi", "tests"
 ]
 combine-as-imports = true
 split-on-trailing-comma = false
