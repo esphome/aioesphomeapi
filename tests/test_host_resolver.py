@@ -249,8 +249,9 @@ async def test_resolve_host_zeroconf_service_info_oserror(
 
 
 @pytest.mark.asyncio
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_create_zeroconf_oserror(
-    async_zeroconf: AsyncZeroconf, addr_infos
+    resolve_addr, async_zeroconf: AsyncZeroconf, addr_infos
 ):
     info = MagicMock(auto_spec=AsyncServiceInfo)
     info.ip_addresses_by_version.return_value = [
