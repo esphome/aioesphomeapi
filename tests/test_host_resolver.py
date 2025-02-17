@@ -168,18 +168,20 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
 
 @pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_slow(addr_infos: list[AddrInfo]) -> None:
+    """Test making network requests for mDNS and DNS resolution."""
     loop = asyncio.get_running_loop()
     info = MagicMock(auto_spec=AsyncServiceInfo)
-    info.load_from_cache = Mock(return_value=True)
+    info.load_from_cache = Mock(return_value=False)
     info.ip_addresses_by_version.side_effect = [
         [TEST_IPv4],
         [TEST_IPv6],
     ]
-    info.async_request = AsyncMock(return_value=True)
 
     async def slow_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
         await asyncio.sleep(0.1)
         return True
+
+    info.async_request = slow_async_request
 
     def slow_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
         asyncio.sleep(0.1)
@@ -187,11 +189,30 @@ async def test_resolve_host_mdns_and_dns_slow(addr_infos: list[AddrInfo]) -> Non
 
     with patch(
         "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
-    ), patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request", slow_async_request
     ), patch.object(loop, "getaddrinfo", slow_getaddrinfo):
         ret = await hr.async_resolve_host(["example.local"], 6052)
 
+    assert ret == addr_infos
+
+
+@pytest.mark.asyncio
+async def test_resolve_host_mdns_cache(addr_infos: list[AddrInfo]) -> None:
+    """Test not requests for DNS are made when we can use the mDNS cache."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=True)
+    info.ip_addresses_by_version.side_effect = [
+        [TEST_IPv4],
+        [TEST_IPv6],
+    ]
+    info.async_request = AsyncMock(return_value=False)
+    with patch(
+        "aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info
+    ), patch.object(loop, "getaddrinfo") as mock_getaddrinfo:
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    assert not mock_getaddrinfo.called
+    assert not info.async_request.called
     assert ret == addr_infos
 
 
