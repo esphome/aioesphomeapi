@@ -177,7 +177,7 @@ def async_addrinfos_from_zeroconf_cache(
             or not service_info.load_from_cache(aiozc.zeroconf)
         ):
             # If any host is not in the cache, return None
-            # so we can take teh slow path
+            # so we can take the slow path
             return None
         addrs.extend(service_info_to_addr_info(service_info, port))
     return addrs
