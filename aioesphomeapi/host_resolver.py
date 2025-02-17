@@ -247,9 +247,9 @@ async def async_resolve_host(
             ):
                 resolve_results[host].extend(addr_infos)
 
-    if len(resolve_results) != len(hosts):
-        # If we have not resolved all hosts yet, we need to do some network calls
-        try:
+    try:
+        if len(resolve_results) != len(hosts):
+            # If we have not resolved all hosts yet, we need to do some network calls
             try:
                 async with asyncio_timeout(timeout):
                     await _async_resolve_host(
@@ -259,9 +259,9 @@ async def async_resolve_host(
                 raise ResolveTimeoutAPIError(
                     f"Timeout while resolving IP address for {hosts}"
                 ) from err
-        finally:
-            if manager and not had_zeroconf_instance:
-                await asyncio.shield(create_eager_task(manager.async_close()))
+    finally:
+        if manager and not had_zeroconf_instance:
+            await asyncio.shield(create_eager_task(manager.async_close()))
 
     if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
         return addrs

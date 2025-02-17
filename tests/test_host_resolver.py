@@ -4,7 +4,7 @@ import asyncio
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import socket
 from typing import Any
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from zeroconf import Zeroconf
@@ -170,6 +170,7 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
 async def test_resolve_host_mdns_and_dns_slow(addr_infos: list[AddrInfo]) -> None:
     loop = asyncio.get_running_loop()
     info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=True)
     info.ip_addresses_by_version.side_effect = [
         [TEST_IPv4],
         [TEST_IPv6],
