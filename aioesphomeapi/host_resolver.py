@@ -254,6 +254,7 @@ async def _async_resolve_host(
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
     host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]] = defaultdict(set)
     exceptions: list[BaseException] = []
+    aiozc: AsyncZeroconf | None = None
 
     if manager:
         try:
