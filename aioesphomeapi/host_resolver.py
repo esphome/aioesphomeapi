@@ -259,13 +259,13 @@ async def _async_resolve_host(
     if manager:
         try:
             aiozc = manager.get_async_zeroconf()
-        except Exception as exc:
-            ex = ResolveAPIError(
-                f"Cannot start mDNS sockets: {exc}, is this a docker container without "
-                "host network mode?"
+        except Exception as original_exc:
+            new_exc = ResolveAPIError(
+                f"Cannot start mDNS sockets: {original_exc}, is this a docker container "
+                "without host network mode?"
             )
-            ex.__cause__ = exc
-            exceptions.append(ex)
+            new_exc.__cause__ = original_exc
+            exceptions.append(new_exc)
 
     for host in hosts:
         coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
