@@ -10,7 +10,6 @@ from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from aioesphomeapi.core import APIConnectionError, ResolveAPIError
 import aioesphomeapi.host_resolver as hr
-from aioesphomeapi.zeroconf import ZeroconfManager
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +61,6 @@ async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
 
 @pytest.mark.asyncio
 async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
-    zeroconf_manager = ZeroconfManager()
     info = MagicMock(auto_spec=AsyncServiceInfo)
     ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
     info.ip_addresses_by_version.side_effect = [
@@ -71,12 +69,11 @@ async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
     ]
     info.async_request = AsyncMock(return_value=True)
     with patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info):
-        ret = await hr._async_resolve_short_host_zeroconf(
-            zeroconf_manager.get_async_zeroconf(), "asdf", 6052
-        )
+        ret = await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf", 6052)
 
     info.async_request.assert_called_once()
     assert ret == addr_infos
+    await asyncio.sleep(0.1)
 
 
 @pytest.mark.asyncio
@@ -158,7 +155,7 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
     resolve_zc.return_value = addr_infos
     ret = await hr.async_resolve_host(["example.local"], 6052)
 
-    resolve_zc.assert_called_once_with("example", 6052, zeroconf_manager=None)
+    resolve_zc.assert_called_once_with(ANY, "example", 6052)
     resolve_addr.assert_called_once_with("example.local", 6052)
     assert ret == addr_infos
 
@@ -268,7 +265,7 @@ async def test_resolve_host_create_zeroconf_oserror(
         ),
         pytest.raises(ResolveAPIError, match="out of buffers"),
     ):
-        await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf", 6052)
+        await hr.async_resolve_host(["asdf.local"], 6052)
 
 
 def test_scope_id_to_int():
