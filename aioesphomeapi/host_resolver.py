@@ -252,7 +252,7 @@ async def async_resolve_host(
             try:
                 async with asyncio_timeout(timeout):
                     await _async_resolve_host(
-                        hosts, port, resolve_results, exceptions, aiozc
+                        hosts, port, resolve_results, exceptions, aiozc, timeout
                     )
             except asyncio.TimeoutError as err:
                 raise ResolveTimeoutAPIError(
@@ -276,6 +276,7 @@ async def _async_resolve_host(
     resolve_results: defaultdict[str, list[AddrInfo]],
     exceptions: list[BaseException],
     aiozc: AsyncZeroconf | None,
+    timeout: float,
 ) -> None:
     """Resolve hosts in parallel."""
     resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str] = {}
@@ -285,7 +286,11 @@ async def _async_resolve_host(
         coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
         if aiozc and host_is_local_name(host):
             short_host = host.partition(".")[0]
-            coros.append(_async_resolve_short_host_zeroconf(aiozc, short_host, port))
+            coros.append(
+                _async_resolve_short_host_zeroconf(
+                    aiozc, short_host, port, timeout=timeout
+                )
+            )
 
         coros.append(_async_resolve_host_getaddrinfo(host, port))
 
