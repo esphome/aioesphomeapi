@@ -1,5 +1,5 @@
 pylint==3.3.4
-ruff==0.9.6
+ruff==0.9.7
 flake8==7.1.2
 isort==6.0.0
 mypy==1.15.0
