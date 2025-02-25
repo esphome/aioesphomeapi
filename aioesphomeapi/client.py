@@ -444,7 +444,7 @@ class APIClient:
 
         Returns a callable that can be called to stop
         the callbacks. Calling the callable only
-        stops the callbacks, the device will still
+        stops the callbacks. The device will still
         send logs until the logging level is set to
         LogLevel.LOG_LEVEL_NONE.
 
