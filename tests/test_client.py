@@ -163,9 +163,17 @@ def patch_response_complex(client: APIClient, messages):
 def patch_response_callback(client: APIClient):
     on_message = None
 
+    def cancelled_on_message(_):
+        """A callback that does nothing."""
+
+    def cancel_callable():
+        nonlocal on_message
+        on_message = cancelled_on_message
+
     def patched(req, callback, msg_types):
         nonlocal on_message
         on_message = callback
+        return cancel_callable
 
     client._connection.send_message_callback_response = patched
 
