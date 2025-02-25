@@ -442,7 +442,11 @@ class APIClient:
     ) -> Callable[[], None]:
         """Subscribe to logs.
 
-        Returns a callable that can be called to unsubscribe.
+        Returns a callable that can be called to stop
+        the callbacks. Calling the callable only
+        stops the callbacks, the device will still
+        send logs until the logging level is set to
+        LogLevel.LOG_LEVEL_NONE.
 
         To stop the device sending logs completely, call
         with log_level=LogLevel.LOG_LEVEL_NONE, and call the returned
