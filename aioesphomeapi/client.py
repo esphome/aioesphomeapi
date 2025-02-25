@@ -439,13 +439,21 @@ class APIClient:
         on_log: Callable[[SubscribeLogsResponse], None],
         log_level: LogLevel | None = None,
         dump_config: bool | None = None,
-    ) -> None:
+    ) -> Callable[[], None]:
+        """Subscribe to logs.
+
+        Returns a callable that can be called to unsubscribe.
+
+        To stop the device sending logs completely, call
+        with log_level=LogLevel.LOG_LEVEL_NONE, and call the returned
+        callable to unsubscribe.
+        """
         req = SubscribeLogsRequest()
         if log_level is not None:
             req.level = log_level
         if dump_config is not None:
             req.dump_config = dump_config
-        self._get_connection().send_message_callback_response(
+        return self._get_connection().send_message_callback_response(
             req, on_log, (SubscribeLogsResponse,)
         )
 
