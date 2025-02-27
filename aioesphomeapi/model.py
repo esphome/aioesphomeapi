@@ -151,6 +151,7 @@ class DeviceInfo(APIModelBase):
     legacy_bluetooth_proxy_version: int = 0
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
+    bluetooth_mac_address: str = ""
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 9):

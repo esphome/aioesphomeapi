@@ -1287,12 +1287,16 @@ async def test_device_info(
         name="realname",
         friendly_name="My Device",
         has_deep_sleep=True,
+        mac_address="AA:BB:CC:DD:EE:FB",
+        bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     device_info = await device_info_task
     assert device_info.name == "realname"
     assert device_info.friendly_name == "My Device"
     assert device_info.has_deep_sleep
+    assert device_info.mac_address == "AA:BB:CC:DD:EE:FB"
+    assert device_info.bluetooth_mac_address == "AA:BB:CC:DD:EE:FF"
     assert client.log_name == "realname @ 10.0.0.512"
     disconnect_task = asyncio.create_task(client.disconnect())
     await asyncio.sleep(0)
