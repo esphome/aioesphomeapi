@@ -11,12 +11,13 @@ from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZerocon
 
 FORMAT = "{: <7}|{: <32}|{: <15}|{: <12}|{: <16}|{: <10}|{: <32}"
 COLUMN_NAMES = ("Status", "Name", "Address", "MAC", "Version", "Platform", "Board")
+UNKNOWN = "unknown"
 
 
-def decode_bytes_or_none(data: str | bytes | None) -> str | None:
-    """Decode bytes or return None."""
+def decode_bytes_or_unknown(data: str | bytes | None) -> str:
+    """Decode bytes or return unknown."""
     if data is None:
-        return None
+        return UNKNOWN
     if isinstance(data, bytes):
         return data.decode()
     return data
@@ -34,10 +35,10 @@ def async_service_update(
     info = AsyncServiceInfo(service_type, name)
     info.load_from_cache(zeroconf)
     properties = info.properties
-    mac = decode_bytes_or_none(properties.get(b"mac"))
-    version = decode_bytes_or_none(properties.get(b"version"))
-    platform = decode_bytes_or_none(properties.get(b"platform"))
-    board = decode_bytes_or_none(properties.get(b"board"))
+    mac = decode_bytes_or_unknown(properties.get(b"mac"))
+    version = decode_bytes_or_unknown(properties.get(b"version"))
+    platform = decode_bytes_or_unknown(properties.get(b"platform"))
+    board = decode_bytes_or_unknown(properties.get(b"board"))
     address = ""
     if addresses := info.ip_addresses_by_version(IPVersion.V4Only):
         address = str(addresses[0])

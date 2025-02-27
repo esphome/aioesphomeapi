@@ -163,9 +163,17 @@ def patch_response_complex(client: APIClient, messages):
 def patch_response_callback(client: APIClient):
     on_message = None
 
+    def cancelled_on_message(_):
+        """A callback that does nothing."""
+
+    def cancel_callable():
+        nonlocal on_message
+        on_message = cancelled_on_message
+
     def patched(req, callback, msg_types):
         nonlocal on_message
         on_message = callback
+        return cancel_callable
 
     client._connection.send_message_callback_response = patched
 
@@ -1930,10 +1938,16 @@ async def test_subscribe_home_assistant_states(
 async def test_subscribe_logs(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_logs = MagicMock()
-    auth_client.subscribe_logs(on_logs)
+    cancel = auth_client.subscribe_logs(on_logs)
     log_msg = SubscribeLogsResponse(level=1, message=b"asdf")
     await send(log_msg)
     on_logs.assert_called_with(log_msg)
+    on_logs.reset_mock()
+    cancel()
+    log_msg = SubscribeLogsResponse(level=1, message=b"asdf")
+    await send(log_msg)
+    on_logs.assert_not_called()
+    on_logs.reset_mock()
 
 
 @pytest.mark.asyncio
