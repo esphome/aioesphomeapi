@@ -839,6 +839,7 @@ class MediaPlayerCommand(APIIntEnum):
     JOIN = 19
     UNJOIN = 20
 
+
 class MediaPlayerFormatPurpose(APIIntEnum):
     DEFAULT = 0
     ANNOUNCEMENT = 1
