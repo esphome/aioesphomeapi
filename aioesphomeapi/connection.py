@@ -358,7 +358,7 @@ class APIConnection:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         try:
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)  # type: ignore[attr-defined, unused-ignore]
-        except AttributeError:
+        except (AttributeError, OSError):  # On FreeBSD this may throw OSError
             _LOGGER.debug(
                 "%s: TCP_QUICKACK not supported",
                 self.log_name,
