@@ -62,7 +62,6 @@ class APIFrameHelper:
         self._pos = 0
         self._client_info = client_info
         self._log_name = log_name
-        self._view: memoryview | None = None
 
     def set_log_name(self, log_name: str) -> None:
         """Set the log name."""
@@ -84,7 +83,6 @@ class APIFrameHelper:
             # and can just use the buffer directly. This is the most common
             # case as well.
             self._buffer = bytes_data
-            self._view = memoryview(self._buffer)
         else:
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
@@ -92,7 +90,6 @@ class APIFrameHelper:
             # and can't just use the buffer directly. This is also very
             # uncommon since we usually read the entire frame at once.
             self._buffer += bytes_data
-            self._view = memoryview(self._buffer)
         self._buffer_len += len(bytes_data)
 
     def _remove_from_buffer(self) -> None:
@@ -111,7 +108,6 @@ class APIFrameHelper:
         # when we read multiple frames at once because the event loop
         # is blocked and we cannot pull the data out of the buffer fast enough.
         self._buffer = self._buffer[end_of_frame_pos:]
-        self._view = memoryview(self._buffer)
 
     def _read(self, length: _int) -> memoryview | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
@@ -121,17 +117,17 @@ class APIFrameHelper:
             return None
         self._pos = new_pos
         if TYPE_CHECKING:
-            assert self._view is not None, "View should be set"
-        return self._view[original_pos:new_pos]
+            assert self._buffer is not None, "Buffer should be set"
+        return memoryview(self._buffer)[original_pos:new_pos]
 
     def _read_varuint(self) -> _int:
         """Read a varuint from the buffer or -1 if the buffer runs out of bytes."""
         if TYPE_CHECKING:
-            assert self._view is not None, "View should be set"
+            assert self._buffer is not None, "Buffer should be set"
         result = 0
         bitpos = 0
         while self._buffer_len > self._pos:
-            val = self._view[self._pos]
+            val = self._buffer[self._pos]
             self._pos += 1
             result |= (val & 0x7F) << bitpos
             if (val & 0x80) == 0:
