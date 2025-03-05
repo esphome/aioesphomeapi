@@ -8,6 +8,30 @@ from typing import Any
 
 from setuptools import find_packages, setup
 
+try:
+    from setuptools import Extension
+except ImportError:
+    from distutils.core import Extension
+
+TO_CYTHONIZE = [
+    "aioesphomeapi/client_callbacks.py",
+    "aioesphomeapi/connection.py",
+    "aioesphomeapi/_frame_helper/plain_text.py",
+    "aioesphomeapi/_frame_helper/noise.py",
+    "aioesphomeapi/_frame_helper/base.py",
+]
+
+EXTENSIONS = [
+    Extension(
+        ext.removesuffix(".py").replace("/", "."),
+        [ext],
+        language="c",
+        extra_compile_args=["-O3", "-g0"],
+    )
+    for ext in TO_CYTHONIZE
+]
+
+
 here = os.path.abspath(os.path.dirname(__file__))
 
 with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
@@ -31,14 +55,6 @@ GITHUB_PATH = f"{PROJECT_GITHUB_USERNAME}/{PROJECT_GITHUB_REPOSITORY}"
 GITHUB_URL = f"https://github.com/{GITHUB_PATH}"
 
 DOWNLOAD_URL = f"{GITHUB_URL}/archive/{VERSION}.zip"
-
-MODULES_TO_CYTHONIZE = [
-    "aioesphomeapi/client_callbacks.py",
-    "aioesphomeapi/connection.py",
-    "aioesphomeapi/_frame_helper/plain_text.py",
-    "aioesphomeapi/_frame_helper/noise.py",
-    "aioesphomeapi/_frame_helper/base.py",
-]
 
 with open(os.path.join(here, "requirements/base.txt")) as requirements_txt:
     REQUIRES = requirements_txt.read().splitlines()
@@ -86,7 +102,7 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
         setup_kwargs.update(
             dict(
                 ext_modules=cythonize(
-                    MODULES_TO_CYTHONIZE,
+                    EXTENSIONS,
                     compiler_directives={"language_level": "3"},  # Python 3
                 ),
                 cmdclass=dict(build_ext=OptionalBuildExt),
