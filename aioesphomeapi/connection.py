@@ -873,7 +873,7 @@ class APIConnection:
         if self._fatal_exception is None:
             self._fatal_exception = err
 
-    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
+    def process_packet(self, msg_type_proto: _int, data: _bytes | memoryview) -> None:
         """Process an incoming packet."""
         debug_enabled = self._debug_enabled
         try:

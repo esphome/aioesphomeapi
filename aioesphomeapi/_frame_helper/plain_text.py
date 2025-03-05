@@ -75,7 +75,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             if (msg_type := self._read_varuint()) == -1:
                 return
 
-            packet_data: bytes | None
+            packet_data: memoryview | bytes | None
             if length == 0:
                 packet_data = EMPTY_PACKET
             else:
