@@ -54,17 +54,17 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         msg_type="unsigned int",
         payload=bytes
     )
-    cdef void _handle_frame(self, bytes frame)
+    cdef void _handle_frame(self, memoryview frame)
 
     @cython.locals(
         chosen_proto=char,
         server_name_i=int
     )
-    cdef void _handle_hello(self, bytes server_hello)
+    cdef void _handle_hello(self, memoryview server_hello_memoryview)
 
-    cdef void _handle_handshake(self, bytes msg)
+    cdef void _handle_handshake(self, memoryview msg)
 
-    cdef void _handle_closed(self, bytes frame)
+    cdef void _handle_closed(self, memoryview frame)
 
     @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
     cdef void _send_hello_handshake(self)
