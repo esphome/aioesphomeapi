@@ -1484,9 +1484,16 @@ class APIClient:
         media_id: str,
         timeout: float,
         text: str = "",
+        preannounce_media_id: str = "",
+        start_conversation: bool = False,
     ) -> VoiceAssistantAnnounceFinishedModel:
         resp = await self._get_connection().send_message_await_response(
-            VoiceAssistantAnnounceRequest(media_id=media_id, text=text),
+            VoiceAssistantAnnounceRequest(
+                media_id=media_id,
+                text=text,
+                preannounce_media_id=preannounce_media_id,
+                start_conversation=start_conversation,
+            ),
             VoiceAssistantAnnounceFinished,
             timeout,
         )
