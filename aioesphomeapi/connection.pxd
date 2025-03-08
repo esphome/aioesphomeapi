@@ -75,6 +75,7 @@ cdef object _handle_timeout
 cdef object _handle_complex_message
 
 cdef tuple MESSAGE_NUMBER_TO_PROTO
+cdef tuple MESSAGE_NUMBER_TO_MAKER
 
 
 @cython.dataclasses.dataclass

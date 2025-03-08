@@ -60,6 +60,7 @@ MERGE_FROM_STRING = message.Message.MergeFromString
 _LOGGER = logging.getLogger(__name__)
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
+MESSAGE_NUMBER_TO_MAKER = tuple(msg.MergeFromString for msg in MESSAGE_NUMBER_TO_PROTO)
 
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
@@ -883,7 +884,7 @@ class APIConnection:
             # but the message type is 1-indexed
             klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
             msg: message.Message = klass()
-            klass.MergeFromString(msg, data)
+            MESSAGE_NUMBER_TO_MAKER[msg_type_proto - 1](msg, data)
         except Exception as e:
             # IndexError will be very rare so we check for it
             # after the broad exception catch to avoid having
