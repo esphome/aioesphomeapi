@@ -881,8 +881,7 @@ class APIConnection:
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
             # but the message type is 1-indexed
-            klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
-            klass, merge = klass_merge
+            klass, merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
             msg = klass()
             merge(msg, data)
         except Exception as e:
