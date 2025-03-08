@@ -55,8 +55,6 @@ from .model import APIVersion, message_types_to_names
 from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
 
-MERGE_FROM_STRING = message.Message.MergeFromString
-
 _LOGGER = logging.getLogger(__name__)
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
