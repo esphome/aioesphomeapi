@@ -57,7 +57,9 @@ from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
-MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
+MESSAGE_NUMBER_TO_PROTO: tuple[
+    tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
+] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
 
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
@@ -358,7 +360,7 @@ class APIConnection:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         try:
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)  # type: ignore[attr-defined, unused-ignore]
-        except AttributeError:
+        except (AttributeError, OSError):  # On FreeBSD this may throw OSError
             _LOGGER.debug(
                 "%s: TCP_QUICKACK not supported",
                 self.log_name,
@@ -879,12 +881,10 @@ class APIConnection:
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
             # but the message type is 1-indexed
-            klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
-            msg: message.Message = klass()
-            # MergeFromString instead of ParseFromString since
-            # ParseFromString will clear the message first and
-            # the msg is already empty.
-            msg.MergeFromString(data)
+            klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
+            klass, merge = klass_merge
+            msg = klass()
+            merge(msg, data)
         except Exception as e:
             # IndexError will be very rare so we check for it
             # after the broad exception catch to avoid having
