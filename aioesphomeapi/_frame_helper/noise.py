@@ -214,9 +214,9 @@ class APINoiseFrameHelper(APIFrameHelper):
             _LOGGER.isEnabledFor(logging.DEBUG),
         )
 
-    def _handle_hello(self, server_hello_memoryview: memoryview) -> None:
+    def _handle_hello(self, msg: memoryview | bytes) -> None:
         """Perform the handshake with the server."""
-        server_hello = bytes(server_hello_memoryview)
+        server_hello = bytes(msg)
         if not server_hello:
             self._handle_error_and_close(
                 HandshakeAPIError(f"{self._log_name}: ServerHello is empty")
@@ -299,7 +299,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
         self._handle_error_and_close(exc)
 
-    def _handle_handshake(self, msg: memoryview) -> None:
+    def _handle_handshake(self, msg: memoryview | bytes) -> None:
         if msg[0] != 0:
             self._error_on_incorrect_preamble(bytes(msg))
             return
@@ -341,7 +341,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
         self._write_bytes(out, debug_enabled)
 
-    def _handle_frame(self, frame: memoryview) -> None:
+    def _handle_frame(self, frame: memoryview | bytes) -> None:
         """Handle an incoming frame."""
         if TYPE_CHECKING:
             assert self._decrypt_cipher is not None, "Handshake should be complete"
@@ -367,6 +367,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         payload = msg[4:]
         self._connection.process_packet(msg_type, payload)
 
-    def _handle_closed(self, frame: memoryview) -> None:  # pylint: disable=unused-argument
+    def _handle_closed(self, frame: memoryview | bytes) -> None:  # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))

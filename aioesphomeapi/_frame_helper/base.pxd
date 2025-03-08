@@ -18,7 +18,7 @@ cdef class APIFrameHelper:
     cdef unsigned int _pos
     cdef object _client_info
     cdef str _log_name
-    cdef memoryview _view
+    cdef const unsigned char [:] _view
 
     cpdef set_log_name(self, str log_name)
 
