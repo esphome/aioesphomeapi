@@ -883,7 +883,7 @@ class APIConnection:
             # but the message type is 1-indexed
             klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
             msg: message.Message = klass()
-            MERGE_FROM_STRING(msg, data)
+            klass.MergeFromString(msg, data)
         except Exception as e:
             # IndexError will be very rare so we check for it
             # after the broad exception catch to avoid having
