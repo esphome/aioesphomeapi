@@ -84,7 +84,6 @@ class APIFrameHelper:
             # and can just use the buffer directly. This is the most common
             # case as well.
             self._buffer = bytes_data
-            self._view = self._buffer
         else:
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
@@ -92,7 +91,7 @@ class APIFrameHelper:
             # and can't just use the buffer directly. This is also very
             # uncommon since we usually read the entire frame at once.
             self._buffer += bytes_data
-            self._view = self._buffer
+        self._view = memoryview(self._buffer)
         self._buffer_len += len(bytes_data)
 
     def _remove_from_buffer(self) -> None:
