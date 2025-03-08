@@ -57,8 +57,9 @@ from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
-MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
-MESSAGE_NUMBER_TO_MAKER = tuple(msg.MergeFromString for msg in MESSAGE_NUMBER_TO_PROTO)
+MESSAGE_NUMBER_TO_PROTO: tuple[
+    tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
+] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
 
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
@@ -880,9 +881,9 @@ class APIConnection:
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
             # but the message type is 1-indexed
-            klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
-            msg: message.Message = klass()
-            MESSAGE_NUMBER_TO_MAKER[msg_type_proto - 1](msg, data)
+            klass, merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
+            msg = klass()
+            merge(msg, data)
         except Exception as e:
             # IndexError will be very rare so we check for it
             # after the broad exception catch to avoid having
