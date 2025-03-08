@@ -18,12 +18,12 @@ cdef class APIFrameHelper:
     cdef unsigned int _pos
     cdef object _client_info
     cdef str _log_name
-    cdef const unsigned char [:] _view
+    cdef memoryview _view
 
     cpdef set_log_name(self, str log_name)
 
     @cython.locals(original_pos="unsigned int", new_pos="unsigned int")
-    cdef const unsigned char [:] _read(self, int length)
+    cdef memoryview _read(self, int length)
 
     @cython.locals(
         result="unsigned int",
