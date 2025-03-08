@@ -55,6 +55,8 @@ from .model import APIVersion, message_types_to_names
 from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
 
+MERGE_FROM_STRING = message.Message.MergeFromString
+
 _LOGGER = logging.getLogger(__name__)
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
@@ -881,10 +883,7 @@ class APIConnection:
             # but the message type is 1-indexed
             klass = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
             msg: message.Message = klass()
-            # MergeFromString instead of ParseFromString since
-            # ParseFromString will clear the message first and
-            # the msg is already empty.
-            msg.MergeFromString(data)
+            MERGE_FROM_STRING(msg, data)
         except Exception as e:
             # IndexError will be very rare so we check for it
             # after the broad exception catch to avoid having

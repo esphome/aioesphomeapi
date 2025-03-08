@@ -6,6 +6,8 @@ from ._frame_helper.base cimport APIFrameHelper
 cdef dict MESSAGE_TYPE_TO_PROTO
 cdef dict PROTO_TO_MESSAGE_TYPE
 
+cdef object MERGE_FROM_STRING
+
 cdef set OPEN_STATES
 
 cdef float KEEP_ALIVE_TIMEOUT_RATIO
