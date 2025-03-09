@@ -142,7 +142,8 @@ A cli tool is also available to discover devices:
 
 .. code:: bash
 
-   aioesphomeapi-discover
+   aioesphomeapi-discover --help
+
 
 License
 -------
