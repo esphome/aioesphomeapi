@@ -95,7 +95,7 @@ Subscribe to state changes of an ESPHome device.
            print(state)
 
        # Subscribe to the state changes
-       await cli.subscribe_states(change_callback)
+       cli.subscribe_states(change_callback)
 
    loop = asyncio.get_event_loop()
    try:
