@@ -21,7 +21,11 @@ cdef class APIFrameHelper:
 
     cpdef set_log_name(self, str log_name)
 
-    @cython.locals(original_pos="unsigned int", new_pos="unsigned int")
+    @cython.locals(
+        original_pos="unsigned int",
+        new_pos="unsigned int",
+        view="const char *"
+    )
     cdef bytes _read(self, int length)
 
     @cython.locals(

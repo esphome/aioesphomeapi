@@ -117,7 +117,8 @@ class APIFrameHelper:
         self._pos = new_pos
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
-        return self._buffer[original_pos:new_pos]
+        view = self._buffer
+        return view[original_pos:new_pos]
 
     def _read_varuint(self) -> _int:
         """Read a varuint from the buffer or -1 if the buffer runs out of bytes."""
