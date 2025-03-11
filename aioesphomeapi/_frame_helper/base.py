@@ -118,6 +118,8 @@ class APIFrameHelper:
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
         cstr = self._buffer
+        # Important: we must keep the bounds check (self._buffer_len < new_pos)
+        # above to verify we never try to read past the end of the buffer
         return cstr[original_pos:new_pos]
 
     def _read_varuint(self) -> _int:
