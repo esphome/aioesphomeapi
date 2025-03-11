@@ -109,7 +109,7 @@ class APIFrameHelper:
         cstr = self._buffer
         # Important: we must use the explicit length for the slice
         # since Cython will stop at any '\0' character if we don't
-        self._buffer = cstr[end_of_frame_pos : len(self._buffer)]
+        self._buffer = cstr[end_of_frame_pos : self._buffer_len + end_of_frame_pos]
 
     def _read(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
