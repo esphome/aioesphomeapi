@@ -110,10 +110,10 @@ class APIFrameHelper:
 
     def _read(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
-        original_pos = self._pos
-        new_pos = original_pos + length
+        new_pos = self._pos + length
         if self._buffer_len < new_pos:
             return None
+        original_pos = self._pos
         self._pos = new_pos
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
