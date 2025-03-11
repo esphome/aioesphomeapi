@@ -83,10 +83,10 @@ def test_raw_ble_plain_text(benchmark: BenchmarkFixture) -> None:
 
     class MockConnection(APIConnection):
         def __init__(self, *args, **kwargs):
-            pass
+            """Initialize the connection."""
 
         def process_packet(self, type_: int, data: bytes):
-            pass
+            """Process a packet."""
 
         def report_fatal_error(self, exc: Exception):
             raise exc
@@ -129,10 +129,10 @@ def test_raw_ble_plain_text_different_advs(benchmark: BenchmarkFixture) -> None:
 
     class MockConnection(APIConnection):
         def __init__(self, *args, **kwargs):
-            pass
+            """Initialize the connection."""
 
         def process_packet(self, type_: int, data: bytes):
-            pass
+            """Process a packet."""
 
         def report_fatal_error(self, exc: Exception):
             raise exc
