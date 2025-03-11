@@ -83,10 +83,56 @@ def test_raw_ble_plain_text(benchmark: BenchmarkFixture) -> None:
 
     class MockConnection(APIConnection):
         def __init__(self, *args, **kwargs):
-            pass
+            """Initialize the connection."""
 
         def process_packet(self, type_: int, data: bytes):
-            pass
+            """Process a packet."""
+
+        def report_fatal_error(self, exc: Exception):
+            raise exc
+
+    connection = MockConnection()
+
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+
+    process_incoming_msg = partial(helper.data_received, data)
+
+    benchmark(process_incoming_msg)
+
+
+def test_raw_ble_plain_text_different_advs(benchmark: BenchmarkFixture) -> None:
+    """Benchmark raw BLE plaintext with different advertisements."""
+    data = (
+        b"\x01\x01\x07\x98\xaa7\xd7\xc5s\xe2\xdd\xc2\x96aG\xb1\xac:\xd3\xde"
+        b"\x18\xefz\x00\xca@\xa9\xc8\xeb-\xe6`}\xa1\x00=\xae\x0e\xee\xc4Iy\xd6\x95"
+        b"c\xed\x12S\xed\x14 \xa4\x9c&VcE\x0c=\xa8?\xaa\xe851\xdc=\xd6\xeeg\xffb"
+        b"\x9a\xf5\xc9\xf6\x0b\r\xb9~\x11\xe3p$\xd9\xa9k\xcd\x1f\x03\x87f\xb8\x0c!\xac"
+        b"\xb8:\xf5\x15jC@&\xf1\x13\xca\x89\x96r\xf9\xbd\xf1\xfe\xa0-\xfa\x87\x0cP"
+        b"\xa7J+\xbaD,/\xf6\xc3\xf7\\\x1d\xcb#\xda@\xe0\n\xa7\xe0\xf0a\x16\xfb"
+        b'\xb5\xfc\\\xbd1\xfb\xd25\x04\x94\x1e/"E\x90,J\xfd\x0f\xbc\xe5>\x96\xba'
+        b"\x1bc\xa8\x1eQ\xbd|\xd9\xef\xc1\xffr\x04\x15i7\xea\x8clm`\xaa\x034"
+        b"\x0b\xe5\xfe\x06\xfc\xb9\x9fc\xddE\xc93\xc0\x13\xe3\xe3$\xb1\xf2\x93"
+        b"\xdb\x1dJ\xbf\x08edi.|\x93\x18\x7f\x83\x7fx\xbe\x01I\x1b\x8c\xe9\xf2\x06"
+        b"\x8e\x08\xbe\xb0R&^7[\x1f4\x8f\xe0\xa1jf\xefL\x1b\x1el\xbb\x1c\x99"
+        b"\x0f\x94r\xc2=\x10"
+    )
+
+    type_ = 93
+    data = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(data))
+        + _cached_varuint_to_bytes(type_)
+        + data
+    )
+
+    class MockConnection(APIConnection):
+        def __init__(self, *args, **kwargs):
+            """Initialize the connection."""
+
+        def process_packet(self, type_: int, data: bytes):
+            """Process a packet."""
 
         def report_fatal_error(self, exc: Exception):
             raise exc
