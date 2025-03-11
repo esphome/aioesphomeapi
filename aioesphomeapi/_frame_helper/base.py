@@ -107,6 +107,8 @@ class APIFrameHelper:
         # when we read multiple frames at once because the event loop
         # is blocked and we cannot pull the data out of the buffer fast enough.
         cstr = self._buffer
+        # Important: we must use the explicit length for the slice
+        # since Cython will stop at any '\0' character if we don't
         self._buffer = cstr[end_of_frame_pos : self._buffer_len]
 
     def _read(self, length: _int) -> bytes | None:
