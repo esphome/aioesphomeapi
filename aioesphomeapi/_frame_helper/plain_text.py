@@ -64,9 +64,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
-        while (
-            self._buffer_len >= 3
-        ):  # Message header is at least 3 bytes, empty length allowed
+        # Message header is at least 3 bytes, empty length allowed
+        while self._buffer_len >= 3:
             self._pos = 0
             # Read preamble, which should always 0x00
             if (preamble := self._read_varuint()) != 0x00:
