@@ -106,7 +106,8 @@ class APIFrameHelper:
         # and can't just use the buffer directly. This should only happen
         # when we read multiple frames at once because the event loop
         # is blocked and we cannot pull the data out of the buffer fast enough.
-        self._buffer = self._buffer[end_of_frame_pos:]
+        cstr = self._buffer
+        self._buffer = cstr[end_of_frame_pos:]
 
     def _read(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
