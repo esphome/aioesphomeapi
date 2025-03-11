@@ -169,7 +169,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
-        while self._buffer_len > 3:  # Message must at least be larger than the header
+        while self._buffer_len >= 3:  # Message must at least be larger than the header
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
             self._pos = 3
