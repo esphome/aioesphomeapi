@@ -24,7 +24,7 @@ cdef class APIFrameHelper:
     @cython.locals(
         original_pos="unsigned int",
         new_pos="unsigned int",
-        view="const char *"
+        cstr="const char *"
     )
     cdef bytes _read(self, int length)
 
