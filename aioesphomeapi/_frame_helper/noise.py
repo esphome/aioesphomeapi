@@ -371,6 +371,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Message layout is
         # 2 bytes: message type   (0:type_high,   1:type_low)
         # 2 bytes: message length (2:length_high, 3:length_low)
+        # - We ignore the message length field because we do not
+        #   trust the remote end to send the correct length
         # N bytes: message data   (4:...)
         msg_type = (msg_cstr[0] << 8) | msg_cstr[1]
         # Important: we must explicitly use msg_length here since msg_cstr
