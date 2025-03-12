@@ -19,16 +19,14 @@ from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
-from aioesphomeapi.zeroconf import ZeroconfManager
 
 from .common import (
     connect,
     connect_client,
     get_mock_async_zeroconf,
+    get_mock_connection_params,
     send_plaintext_hello,
 )
-
-KEEP_ALIVE_INTERVAL = 15.0
 
 _MOCK_RESOLVE_RESULT = [
     AddrInfo(
@@ -67,19 +65,6 @@ def patchable_api_client() -> APIClient:
         password=None,
     )
     return cli
-
-
-def get_mock_connection_params() -> ConnectionParams:
-    return ConnectionParams(
-        addresses=["fake.address"],
-        port=6052,
-        password=None,
-        client_info="Tests client",
-        keepalive=KEEP_ALIVE_INTERVAL,
-        zeroconf_manager=ZeroconfManager(),
-        noise_psk=None,
-        expected_name=None,
-    )
 
 
 @pytest.fixture
