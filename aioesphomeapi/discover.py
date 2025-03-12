@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+
 # Helper script and aioesphomeapi to discover api devices
 import asyncio
 import contextlib
@@ -46,12 +48,18 @@ def async_service_update(
     print(FORMAT.format(state, short_name, address, mac, version, platform, board))
 
 
-async def main() -> None:
+async def main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser("aioesphomeapi-discover")
+    parser.add_argument("-v", "--verbose", action="store_true")
+    args = parser.parse_args(argv[1:])
     logging.basicConfig(
         format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
-        level=logging.INFO,
+        level=logging.DEBUG if args.verbose else logging.INFO,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    if args.verbose:
+        logging.getLogger("zeroconf").setLevel(logging.DEBUG)
+
     aiozc = AsyncZeroconf()
     browser = AsyncServiceBrowser(
         aiozc.zeroconf, "_esphomelib._tcp.local.", handlers=[async_service_update]
@@ -69,7 +77,7 @@ async def main() -> None:
 def cli_entry_point() -> None:
     """Run the CLI."""
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(main())
+        asyncio.run(main(sys.argv))
 
 
 if __name__ == "__main__":

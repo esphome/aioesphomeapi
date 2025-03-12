@@ -39,6 +39,8 @@ from aioesphomeapi.core import (
 )
 
 from .common import (
+    KEEP_ALIVE_INTERVAL,
+    _create_mock_transport_protocol,
     async_fire_time_changed,
     connect,
     connect_client,
@@ -51,7 +53,6 @@ from .common import (
     send_plaintext_hello,
     utcnow,
 )
-from .conftest import KEEP_ALIVE_INTERVAL, _create_mock_transport_protocol
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 

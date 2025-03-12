@@ -5,14 +5,12 @@ import base64
 from collections.abc import Iterable
 import sys
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 import pytest
 
 from aioesphomeapi import APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND
 from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
     _varuint_to_bytes as varuint_to_bytes,
@@ -28,132 +26,19 @@ from aioesphomeapi.core import (
     SocketClosedAPIError,
 )
 
-from .common import get_mock_protocol, mock_data_received
-from .conftest import get_mock_connection_params
-
-PREAMBLE = b"\x00"
-
-NOISE_HELLO = b"\x01\x00\x00"
-
-
-def _extract_encrypted_payload_from_handshake(handshake_pkt: bytes) -> bytes:
-    noise_hello = handshake_pkt[0:3]
-    pkt_header = handshake_pkt[3:6]
-    assert noise_hello == NOISE_HELLO
-    assert pkt_header[0] == 1  # type
-    pkg_length_high = pkt_header[1]
-    pkg_length_low = pkt_header[2]
-    pkg_length = (pkg_length_high << 8) + pkg_length_low
-    assert pkg_length == 49
-    noise_prefix = handshake_pkt[6:7]
-    assert noise_prefix == b"\x00"
-    return handshake_pkt[7:]
-
-
-def _make_noise_hello_pkt(hello_pkt: bytes) -> bytes:
-    """Make a noise hello packet."""
-    preamble = 1
-    hello_pkg_length = len(hello_pkt)
-    hello_pkg_length_high = (hello_pkg_length >> 8) & 0xFF
-    hello_pkg_length_low = hello_pkg_length & 0xFF
-    hello_header = bytes((preamble, hello_pkg_length_high, hello_pkg_length_low))
-    return hello_header + hello_pkt
-
-
-def _make_noise_handshake_pkt(proto: NoiseConnection) -> bytes:
-    handshake = proto.write_message(b"")
-    handshake_pkt = b"\x00" + handshake
-    preamble = 1
-    handshake_pkg_length = len(handshake_pkt)
-    handshake_pkg_length_high = (handshake_pkg_length >> 8) & 0xFF
-    handshake_pkg_length_low = handshake_pkg_length & 0xFF
-    handshake_header = bytes(
-        (preamble, handshake_pkg_length_high, handshake_pkg_length_low)
-    )
-
-    return handshake_header + handshake_pkt
-
-
-def _make_encrypted_packet(
-    proto: NoiseConnection, msg_type: int, payload: bytes
-) -> bytes:
-    msg_type = 42
-    msg_type_high = (msg_type >> 8) & 0xFF
-    msg_type_low = msg_type & 0xFF
-    msg_length = len(payload)
-    msg_length_high = (msg_length >> 8) & 0xFF
-    msg_length_low = msg_length & 0xFF
-    msg_header = bytes((msg_type_high, msg_type_low, msg_length_high, msg_length_low))
-    encrypted_payload = proto.encrypt(msg_header + payload)
-    return _make_encrypted_packet_from_encrypted_payload(encrypted_payload)
-
-
-def _make_encrypted_packet_from_encrypted_payload(encrypted_payload: bytes) -> bytes:
-    preamble = 1
-    encrypted_pkg_length = len(encrypted_payload)
-    encrypted_pkg_length_high = (encrypted_pkg_length >> 8) & 0xFF
-    encrypted_pkg_length_low = encrypted_pkg_length & 0xFF
-    encrypted_header = bytes(
-        (preamble, encrypted_pkg_length_high, encrypted_pkg_length_low)
-    )
-    return encrypted_header + encrypted_payload
-
-
-def _mock_responder_proto(psk_bytes: bytes) -> NoiseConnection:
-    proto = NoiseConnection.from_name(
-        b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
-    )
-    proto.set_as_responder()
-    proto.set_psks(psk_bytes)
-    proto.set_prologue(b"NoiseAPIInit\x00\x00")
-    proto.start_handshake()
-    return proto
-
-
-def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
-    """Make a mock connection."""
-    packets: list[tuple[int, bytes]] = []
-
-    class MockConnection(APIConnection):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            """Swallow args."""
-            super().__init__(
-                get_mock_connection_params(), AsyncMock(), True, None, *args, **kwargs
-            )
-
-        def process_packet(self, type_: int, data: bytes):
-            packets.append((type_, data))
-
-    connection = MockConnection()
-    return connection, packets
-
-
-class MockAPINoiseFrameHelper(APINoiseFrameHelper):
-    def __init__(self, *args: Any, writer: Any | None = None, **kwargs: Any) -> None:
-        """Swallow args."""
-        super().__init__(*args, **kwargs)
-        transport = MagicMock()
-        transport.writelines = writer or MagicMock()
-        self.__transport = transport
-        self.connection_made(transport)
-
-    def connection_made(self, transport: Any) -> None:
-        return super().connection_made(self.__transport)
-
-    def mock_write_frame(self, frame: bytes) -> None:
-        """Write a packet to the socket.
-
-        The entire packet must be written in a single call to write.
-        """
-        frame_len = len(frame)
-        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
-        try:
-            self._writelines([header, frame])
-        except (RuntimeError, ConnectionResetError, OSError) as err:
-            raise SocketClosedAPIError(
-                f"{self._log_name}: Error while writing data: {err}"
-            ) from err
-
+from .common import (
+    PREAMBLE,
+    MockAPINoiseFrameHelper,
+    _extract_encrypted_payload_from_handshake,
+    _make_encrypted_packet,
+    _make_encrypted_packet_from_encrypted_payload,
+    _make_mock_connection,
+    _make_noise_handshake_pkt,
+    _make_noise_hello_pkt,
+    _mock_responder_proto,
+    get_mock_protocol,
+    mock_data_received,
+)
 
 _PLAINTEXT_TESTS = [
     (PREAMBLE + varuint_to_bytes(0) + varuint_to_bytes(1), b"", 1),
@@ -538,6 +423,73 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     helper.close()
 
     mock_data_received(helper, encrypted_packet)
+
+
+@pytest.mark.asyncio
+async def test_noise_valid_encryption_invalid_payload(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test the noise with a packet that decrypts but is missing part of the payload."""
+    noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+    psk_bytes = base64.b64decode(noise_psk)
+    writes = []
+
+    def _writelines(data: Iterable[bytes]):
+        writes.append(b"".join(data))
+
+    connection, packets = _make_mock_connection()
+
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk=noise_psk,
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        writer=_writelines,
+    )
+
+    proto = _mock_responder_proto(psk_bytes)
+
+    await asyncio.sleep(0)  # let the task run to read the hello packet
+
+    assert len(writes) == 1
+    handshake_pkt = writes.pop()
+
+    encrypted_payload = _extract_encrypted_payload_from_handshake(handshake_pkt)
+    decrypted = proto.read_message(encrypted_payload)
+    assert decrypted == b""
+
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    handshake_with_header = _make_noise_handshake_pkt(proto)
+    mock_data_received(helper, handshake_with_header)
+
+    assert not writes
+
+    await helper.ready_future
+    helper.write_packets([(1, b"to device")], True)
+    encrypted_packet = writes.pop()
+    header = encrypted_packet[0:1]
+    assert header == b"\x01"
+    pkg_length_high = encrypted_packet[1]
+    pkg_length_low = encrypted_packet[2]
+    pkg_length = (pkg_length_high << 8) + pkg_length_low
+    assert len(encrypted_packet) == 3 + pkg_length
+
+    msg_type = 42
+    msg_type_high = (msg_type >> 8) & 0xFF
+    msg_type_low = msg_type & 0xFF
+    # Trim the pre-encrypted payload to be missing the message length and payload
+    encrypted_payload = proto.encrypt(bytes((msg_type_high, msg_type_low)))
+    encrypted_packet = _make_encrypted_packet_from_encrypted_payload(encrypted_payload)
+
+    mock_data_received(helper, encrypted_packet)
+
+    assert packets == []
+    assert connection.is_connected is False
+    assert "Decrypted message too short" in caplog.text
+    helper.close()
 
 
 @pytest.mark.asyncio

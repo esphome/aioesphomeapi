@@ -21,7 +21,11 @@ cdef class APIFrameHelper:
 
     cpdef set_log_name(self, str log_name)
 
-    @cython.locals(original_pos="unsigned int", new_pos="unsigned int")
+    @cython.locals(
+        original_pos="unsigned int",
+        new_pos="unsigned int",
+        cstr="const unsigned char *"
+    )
     cdef bytes _read(self, int length)
 
     @cython.locals(
@@ -35,7 +39,7 @@ cdef class APIFrameHelper:
     @cython.locals(bytes_data=bytes)
     cdef void _add_to_buffer(self, object data)
 
-    @cython.locals(end_of_frame_pos="unsigned int")
+    @cython.locals(end_of_frame_pos="unsigned int", cstr="const unsigned char *")
     cdef void _remove_from_buffer(self)
 
     cpdef void write_packets(self, list packets, bint debug_enabled)

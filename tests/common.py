@@ -5,15 +5,17 @@ from collections.abc import Awaitable
 from datetime import datetime, timezone
 from functools import partial
 import time
-from typing import Callable
+from typing import Any, Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from google.protobuf import message
+from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
-from aioesphomeapi import APIClient
+from aioesphomeapi import APIClient, APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
     ConnectResponse,
@@ -21,8 +23,9 @@ from aioesphomeapi.api_pb2 import (
     PingRequest,
     PingResponse,
 )
-from aioesphomeapi.connection import APIConnection
-from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
+from aioesphomeapi.client import ConnectionParams
+from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, SocketClosedAPIError
+from aioesphomeapi.zeroconf import ZeroconfManager
 
 UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
@@ -32,6 +35,25 @@ utcnow: partial[datetime] = partial(datetime.now, UTC)
 utcnow.__doc__ = "Get now in UTC time."
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
+
+PREAMBLE = b"\x00"
+
+NOISE_HELLO = b"\x01\x00\x00"
+KEEP_ALIVE_INTERVAL = 15.0
+
+
+def get_mock_connection_params() -> ConnectionParams:
+    return ConnectionParams(
+        addresses=["fake.address"],
+        port=6052,
+        password=None,
+        client_info="Tests client",
+        keepalive=KEEP_ALIVE_INTERVAL,
+        zeroconf_manager=ZeroconfManager(),
+        noise_psk=None,
+        expected_name=None,
+    )
 
 
 def mock_data_received(
@@ -172,3 +194,134 @@ def get_mock_protocol(conn: APIConnection):
     transport = MagicMock()
     protocol.connection_made(transport)
     return protocol
+
+
+def _create_mock_transport_protocol(
+    transport: asyncio.Transport,
+    connected: asyncio.Event,
+    create_func: Callable[[], APIPlaintextFrameHelper],
+    **kwargs,
+) -> tuple[asyncio.Transport, APIPlaintextFrameHelper]:
+    protocol: APIPlaintextFrameHelper = create_func()
+    protocol.connection_made(transport)
+    connected.set()
+    return transport, protocol
+
+
+def _extract_encrypted_payload_from_handshake(handshake_pkt: bytes) -> bytes:
+    noise_hello = handshake_pkt[0:3]
+    pkt_header = handshake_pkt[3:6]
+    assert noise_hello == NOISE_HELLO
+    assert pkt_header[0] == 1  # type
+    pkg_length_high = pkt_header[1]
+    pkg_length_low = pkt_header[2]
+    pkg_length = (pkg_length_high << 8) + pkg_length_low
+    assert pkg_length == 49
+    noise_prefix = handshake_pkt[6:7]
+    assert noise_prefix == b"\x00"
+    return handshake_pkt[7:]
+
+
+def _make_noise_hello_pkt(hello_pkt: bytes) -> bytes:
+    """Make a noise hello packet."""
+    preamble = 1
+    hello_pkg_length = len(hello_pkt)
+    hello_pkg_length_high = (hello_pkg_length >> 8) & 0xFF
+    hello_pkg_length_low = hello_pkg_length & 0xFF
+    hello_header = bytes((preamble, hello_pkg_length_high, hello_pkg_length_low))
+    return hello_header + hello_pkt
+
+
+def _make_noise_handshake_pkt(proto: NoiseConnection) -> bytes:
+    handshake = proto.write_message(b"")
+    handshake_pkt = b"\x00" + handshake
+    preamble = 1
+    handshake_pkg_length = len(handshake_pkt)
+    handshake_pkg_length_high = (handshake_pkg_length >> 8) & 0xFF
+    handshake_pkg_length_low = handshake_pkg_length & 0xFF
+    handshake_header = bytes(
+        (preamble, handshake_pkg_length_high, handshake_pkg_length_low)
+    )
+
+    return handshake_header + handshake_pkt
+
+
+def _make_encrypted_packet(
+    proto: NoiseConnection, msg_type: int, payload: bytes
+) -> bytes:
+    msg_type = 42
+    msg_type_high = (msg_type >> 8) & 0xFF
+    msg_type_low = msg_type & 0xFF
+    msg_length = len(payload)
+    msg_length_high = (msg_length >> 8) & 0xFF
+    msg_length_low = msg_length & 0xFF
+    msg_header = bytes((msg_type_high, msg_type_low, msg_length_high, msg_length_low))
+    encrypted_payload = proto.encrypt(msg_header + payload)
+    return _make_encrypted_packet_from_encrypted_payload(encrypted_payload)
+
+
+def _make_encrypted_packet_from_encrypted_payload(encrypted_payload: bytes) -> bytes:
+    preamble = 1
+    encrypted_pkg_length = len(encrypted_payload)
+    encrypted_pkg_length_high = (encrypted_pkg_length >> 8) & 0xFF
+    encrypted_pkg_length_low = encrypted_pkg_length & 0xFF
+    encrypted_header = bytes(
+        (preamble, encrypted_pkg_length_high, encrypted_pkg_length_low)
+    )
+    return encrypted_header + encrypted_payload
+
+
+def _mock_responder_proto(psk_bytes: bytes) -> NoiseConnection:
+    proto = NoiseConnection.from_name(
+        b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+    )
+    proto.set_as_responder()
+    proto.set_psks(psk_bytes)
+    proto.set_prologue(b"NoiseAPIInit\x00\x00")
+    proto.start_handshake()
+    return proto
+
+
+def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
+    """Make a mock connection."""
+    packets: list[tuple[int, bytes]] = []
+
+    class MockConnection(APIConnection):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Swallow args."""
+            super().__init__(
+                get_mock_connection_params(), AsyncMock(), True, None, *args, **kwargs
+            )
+
+        def process_packet(self, type_: int, data: bytes):
+            packets.append((type_, data))
+
+    connection = MockConnection()
+    return connection, packets
+
+
+class MockAPINoiseFrameHelper(APINoiseFrameHelper):
+    def __init__(self, *args: Any, writer: Any | None = None, **kwargs: Any) -> None:
+        """Swallow args."""
+        super().__init__(*args, **kwargs)
+        transport = MagicMock()
+        transport.writelines = writer or MagicMock()
+        self.__transport = transport
+        self.connection_made(transport)
+
+    def connection_made(self, transport: Any) -> None:
+        return super().connection_made(self.__transport)
+
+    def mock_write_frame(self, frame: bytes) -> None:
+        """Write a packet to the socket.
+
+        The entire packet must be written in a single call to write.
+        """
+        frame_len = len(frame)
+        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+        try:
+            self._writelines([header, frame])
+        except (RuntimeError, ConnectionResetError, OSError) as err:
+            raise SocketClosedAPIError(
+                f"{self._log_name}: Error while writing data: {err}"
+            ) from err
