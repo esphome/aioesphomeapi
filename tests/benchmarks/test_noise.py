@@ -80,10 +80,10 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     encrypted_packets = [
         _make_encrypted_packet(proto, 42, b"x" * payload_size) for _ in range(1000)
     ]
+    encrypted_packets.reverse()
 
     @benchmark
     def process_encrypted_packets():
-        for pkt in encrypted_packets:
-            helper.data_received(pkt)
+        helper.data_received(encrypted_packets.pop())
 
     helper.close()
