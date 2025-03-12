@@ -115,55 +115,59 @@ cdef class APIConnection:
     cdef public str received_name
     cdef public str connected_address
 
-    cpdef void send_message(self, object msg)
+    cpdef void send_message(self, object msg) except *
 
-    cdef void send_messages(self, tuple messages)
+    cdef void send_messages(self, tuple messages) except *
 
     @cython.locals(handlers=set, handlers_copy=set, klass_merge=tuple)
     cpdef void process_packet(self, unsigned int msg_type_proto, object data)
 
-    cdef void _async_cancel_pong_timer(self)
+    cdef void _async_cancel_pong_timer(self) except *
 
-    cdef void _async_schedule_keep_alive(self, object now)
+    cdef void _async_schedule_keep_alive(self, object now) except *
 
-    cdef void _cleanup(self)
+    cdef void _cleanup(self) except *
 
     cpdef set_log_name(self, str name)
 
     cdef _make_connect_request(self)
 
-    cdef void _process_hello_resp(self, object resp)
+    cdef void _process_hello_resp(self, object resp) except *
 
-    cdef void _process_login_response(self, object hello_response)
+    cdef void _process_login_response(self, object hello_response) except *
 
-    cdef void _set_connection_state(self, object state)
+    cdef void _set_connection_state(self, object state) except *
 
-    cpdef void report_fatal_error(self, Exception err)
+    cpdef void report_fatal_error(self, Exception err) except *
 
     @cython.locals(handlers=set)
     cdef void _add_message_callback_without_remove(
         self,
         object on_message,
         tuple msg_types
-    )
+    ) except *
 
     cpdef add_message_callback(self, object on_message, tuple msg_types)
 
     @cython.locals(handlers=set)
-    cpdef void _remove_message_callback(self, object on_message, tuple msg_types)
+    cpdef void _remove_message_callback(
+        self,
+        object on_message,
+        tuple msg_types
+    ) except *
 
-    cpdef void _handle_disconnect_request_internal(self, object msg)
+    cpdef void _handle_disconnect_request_internal(self, object msg) except *
 
-    cpdef void _handle_ping_request_internal(self, object msg)
+    cpdef void _handle_ping_request_internal(self, object msg) except *
 
-    cpdef void _handle_get_time_request_internal(self, object msg)
+    cpdef void _handle_get_time_request_internal(self, object msg) except *
 
-    cdef void _set_fatal_exception_if_unset(self, Exception err)
+    cdef void _set_fatal_exception_if_unset(self, Exception err) except *
 
-    cdef void _register_internal_message_handlers(self)
+    cdef void _register_internal_message_handlers(self) except *
 
-    cdef void _increase_recv_buffer_size(self)
+    cdef void _increase_recv_buffer_size(self) except *
 
-    cdef void _set_start_connect_future(self)
+    cdef void _set_start_connect_future(self) except *
 
-    cdef void _set_finish_connect_future(self)
+    cdef void _set_finish_connect_future(self) except *

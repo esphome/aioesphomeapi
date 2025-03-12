@@ -42,6 +42,6 @@ cdef class APIFrameHelper:
     @cython.locals(end_of_frame_pos="unsigned int", cstr="const unsigned char *")
     cdef void _remove_from_buffer(self)
 
-    cpdef void write_packets(self, list packets, bint debug_enabled)
+    cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
-    cdef void _write_bytes(self, object data, bint debug_enabled)
+    cdef void _write_bytes(self, object data, bint debug_enabled) except *
