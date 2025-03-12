@@ -174,7 +174,8 @@ class APINoiseFrameHelper(APIFrameHelper):
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
             self._pos = 3
-            preamble = self._buffer[0]
+            header = self._buffer
+            preamble = header[0]
             if preamble != 0x01:
                 self._handle_error_and_close(
                     ProtocolAPIError(
@@ -182,9 +183,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                     )
                 )
                 return
-            msg_size_high = self._buffer[1]
-            msg_size_low = self._buffer[2]
-            if (frame := self._read((msg_size_high << 8) | msg_size_low)) is None:
+            if (frame := self._read((header[1] << 8) | header[2])) is None:
                 # The complete frame is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next
@@ -357,14 +356,29 @@ class APINoiseFrameHelper(APIFrameHelper):
                 )
             )
             return
+        msg_length = len(msg)
+        msg_cstr = msg
+        if msg_length < 4:
+            # Important: we must bound check msg_length to ensure we
+            # do not read past the end of the message in the payload
+            # slicing below
+            self._handle_error_and_close(
+                ProtocolAPIError(
+                    f"{self._log_name}: Decrypted message too short: {msg_length} bytes"
+                )
+            )
+            return
         # Message layout is
-        # 2 bytes: message type
-        # 2 bytes: message length
-        # N bytes: message data
-        type_high = msg[0]
-        type_low = msg[1]
-        msg_type = (type_high << 8) | type_low
-        payload = msg[4:]
+        # 2 bytes: message type   (0:type_high,   1:type_low)
+        # 2 bytes: message length (2:length_high, 3:length_low)
+        # - We ignore the message length field because we do not
+        #   trust the remote end to send the correct length
+        # N bytes: message data   (4:...)
+        msg_type = (msg_cstr[0] << 8) | msg_cstr[1]
+        # Important: we must explicitly use msg_length here since msg_cstr
+        # is a cstring and Cython will stop at the first null byte if we
+        # do not use msg_length
+        payload = msg_cstr[4:msg_length]
         self._connection.process_packet(msg_type, payload)
 
     def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
