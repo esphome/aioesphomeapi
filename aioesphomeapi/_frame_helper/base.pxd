@@ -37,10 +37,10 @@ cdef class APIFrameHelper:
     cdef int _read_varuint(self)
 
     @cython.locals(bytes_data=bytes)
-    cdef void _add_to_buffer(self, object data)
+    cdef void _add_to_buffer(self, object data) except *
 
     @cython.locals(end_of_frame_pos="unsigned int", cstr="const unsigned char *")
-    cdef void _remove_from_buffer(self)
+    cdef void _remove_from_buffer(self) except *
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
