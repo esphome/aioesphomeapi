@@ -126,6 +126,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     API_AUDIO = 1 << 2
     TIMERS = 1 << 3
     ANNOUNCE = 1 << 4
+    START_CONVERSATION = 1 << 5
 
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
