@@ -5,7 +5,6 @@ from .base cimport APIFrameHelper
 
 
 cdef object varuint_to_bytes
-cdef bytes EMPTY_PACKET
 cdef bint TYPE_CHECKING
 
 cpdef _varuint_to_bytes(cython.int value)
