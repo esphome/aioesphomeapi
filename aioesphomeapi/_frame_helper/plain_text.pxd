@@ -12,9 +12,9 @@ cpdef _varuint_to_bytes(cython.int value)
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
-    cpdef void data_received(self, object data)
+    cpdef void data_received(self, object data) except *
 
-    cdef void _error_on_incorrect_preamble(self, int preamble)
+    cdef void _error_on_incorrect_preamble(self, int preamble) except *
 
     @cython.locals(
         type_="unsigned int",
@@ -22,4 +22,4 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         packet=tuple,
         type_=object
     )
-    cpdef void write_packets(self, list packets, bint debug_enabled)
+    cpdef void write_packets(self, list packets, bint debug_enabled) except *

@@ -44,7 +44,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         preamble="unsigned char",
         header="const unsigned char *"
     )
-    cpdef void data_received(self, object data)
+    cpdef void data_received(self, object data) except *
 
     @cython.locals(
         msg=bytes,
@@ -53,22 +53,22 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         msg_length=Py_ssize_t,
         msg_cstr="const unsigned char *",
     )
-    cdef void _handle_frame(self, bytes frame)
+    cdef void _handle_frame(self, bytes frame) except *
 
     @cython.locals(
         chosen_proto=char,
         server_name_i=int
     )
-    cdef void _handle_hello(self, bytes server_hello)
+    cdef void _handle_hello(self, bytes server_hello) except *
 
-    cdef void _handle_handshake(self, bytes msg)
+    cdef void _handle_handshake(self, bytes msg) except *
 
-    cdef void _handle_closed(self, bytes frame)
+    cdef void _handle_closed(self, bytes frame) except *
 
     @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
-    cdef void _send_hello_handshake(self)
+    cdef void _send_hello_handshake(self) except *
 
-    cdef void _setup_proto(self)
+    cdef void _setup_proto(self) except *
 
     @cython.locals(psk_bytes=bytes)
     cdef _decode_noise_psk(self)
@@ -82,6 +82,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         frame=bytes,
         frame_len=cython.uint,
     )
-    cpdef void write_packets(self, list packets, bint debug_enabled)
+    cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
     cdef _error_on_incorrect_preamble(self, bytes msg)
