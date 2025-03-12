@@ -426,7 +426,9 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
 
 
 @pytest.mark.asyncio
-async def test_noise_valid_encryption_invalid_payload():
+async def test_noise_valid_encryption_invalid_payload(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test the noise with a packet that decrypts but is missing part of the payload."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
@@ -479,13 +481,14 @@ async def test_noise_valid_encryption_invalid_payload():
     msg_type_high = (msg_type >> 8) & 0xFF
     msg_type_low = msg_type & 0xFF
     # Trim the pre-encrypted payload to be missing the message length and payload
-    encrypted_payload = proto.encrypt(bytes(msg_type_high, msg_type_low))
+    encrypted_payload = proto.encrypt(bytes((msg_type_high, msg_type_low)))
     encrypted_packet = _make_encrypted_packet_from_encrypted_payload(encrypted_payload)
 
     mock_data_received(helper, encrypted_packet)
 
     assert packets == []
     assert connection.is_connected is False
+    assert "Decrypted message too short" in caplog.text
     helper.close()
 
 
