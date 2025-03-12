@@ -155,10 +155,18 @@ class APIFrameHelper:
         self._writelines = self._transport.writelines
 
     def _handle_error_and_close(self, exc: Exception) -> None:
+        """Handle an error and close the connection.
+
+        May not be overridden by subclasses.
+        """
         self._handle_error(exc)
         self.close()
 
     def _handle_error(self, exc: Exception) -> None:
+        """Handle an error.
+
+        May be overridden by subclasses.
+        """
         self._set_ready_future_exception(exc)
         self._connection.report_fatal_error(exc)
 
