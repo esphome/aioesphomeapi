@@ -106,18 +106,24 @@ class APIFrameHelper:
         # and can't just use the buffer directly. This should only happen
         # when we read multiple frames at once because the event loop
         # is blocked and we cannot pull the data out of the buffer fast enough.
-        self._buffer = self._buffer[end_of_frame_pos:]
+        cstr = self._buffer
+        # Important: we must use the explicit length for the slice
+        # since Cython will stop at any '\0' character if we don't
+        self._buffer = cstr[end_of_frame_pos : self._buffer_len + end_of_frame_pos]
 
     def _read(self, length: _int) -> bytes | None:
         """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
-        original_pos = self._pos
-        new_pos = original_pos + length
+        new_pos = self._pos + length
         if self._buffer_len < new_pos:
             return None
+        original_pos = self._pos
         self._pos = new_pos
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
-        return self._buffer[original_pos:new_pos]
+        cstr = self._buffer
+        # Important: we must keep the bounds check (self._buffer_len < new_pos)
+        # above to verify we never try to read past the end of the buffer
+        return cstr[original_pos:new_pos]
 
     def _read_varuint(self) -> _int:
         """Read a varuint from the buffer or -1 if the buffer runs out of bytes."""
