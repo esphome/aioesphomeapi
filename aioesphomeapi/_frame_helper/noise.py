@@ -361,6 +361,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         msg_length = len(msg)
         msg_cstr = msg
         if msg_length < 4:
+            # Important: we must bound check msg_length to ensure we
+            # do not read past the end of the message in the payload
+            # slicing below
             self._handle_error_and_close(
                 ProtocolAPIError(
                     f"{self._log_name}: Decrypted message too short: {msg_length} bytes"
@@ -374,6 +377,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         type_high = msg_cstr[0]
         type_low = msg_cstr[1]
         msg_type = (type_high << 8) | type_low
+        # Important: we must explicitly use msg_length here since msg_cstr
+        # is a cstring and Cython will stop at the first null byte if we
+        # do not use msg_length
         payload = msg_cstr[4:msg_length]
         self._connection.process_packet(msg_type, payload)
 
