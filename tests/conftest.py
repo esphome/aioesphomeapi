@@ -9,7 +9,6 @@ from dataclasses import replace
 from functools import partial
 import reprlib
 import socket
-from typing import Callable
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
@@ -21,6 +20,7 @@ from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 
 from .common import (
+    _create_mock_transport_protocol,
     connect,
     connect_client,
     get_mock_async_zeroconf,
@@ -118,18 +118,6 @@ def aiohappyeyeballs_start_connection(event_loop: asyncio.AbstractEventLoop):
         mock_socket.getpeername.return_value = ("10.0.0.512", 323)
         func.return_value = mock_socket
         yield func
-
-
-def _create_mock_transport_protocol(
-    transport: asyncio.Transport,
-    connected: asyncio.Event,
-    create_func: Callable[[], APIPlaintextFrameHelper],
-    **kwargs,
-) -> tuple[asyncio.Transport, APIPlaintextFrameHelper]:
-    protocol: APIPlaintextFrameHelper = create_func()
-    protocol.connection_made(transport)
-    connected.set()
-    return transport, protocol
 
 
 @pytest_asyncio.fixture(name="plaintext_connect_task_no_login")

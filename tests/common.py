@@ -196,6 +196,18 @@ def get_mock_protocol(conn: APIConnection):
     return protocol
 
 
+def _create_mock_transport_protocol(
+    transport: asyncio.Transport,
+    connected: asyncio.Event,
+    create_func: Callable[[], APIPlaintextFrameHelper],
+    **kwargs,
+) -> tuple[asyncio.Transport, APIPlaintextFrameHelper]:
+    protocol: APIPlaintextFrameHelper = create_func()
+    protocol.connection_made(transport)
+    connected.set()
+    return transport, protocol
+
+
 def _extract_encrypted_payload_from_handshake(handshake_pkt: bytes) -> bytes:
     noise_hello = handshake_pkt[0:3]
     pkt_header = handshake_pkt[3:6]
