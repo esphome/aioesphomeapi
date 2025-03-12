@@ -44,6 +44,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         preamble="unsigned char",
         msg_size_high="unsigned char",
         msg_size_low="unsigned char",
+        header="const unsigned char *"
     )
     cpdef void data_received(self, object data)
 
@@ -52,7 +53,9 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         type_high="unsigned char",
         type_low="unsigned char",
         msg_type="unsigned int",
-        payload=bytes
+        payload=bytes,
+        msg_length=Py_ssize_t,
+        msg_cstr="const unsigned char *",
     )
     cdef void _handle_frame(self, bytes frame)
 
