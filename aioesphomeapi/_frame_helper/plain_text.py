@@ -8,8 +8,6 @@ from .base import APIFrameHelper
 
 _int = int
 
-EMPTY_PACKET = b""
-
 
 def _varuint_to_bytes(value: _int) -> bytes:
     """Convert a varuint to bytes."""
@@ -77,7 +75,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
             if length == 0:
                 self._remove_from_buffer()
-                self._connection.process_packet(msg_type, EMPTY_PACKET)
+                self._connection.process_packet(msg_type, b"")
                 continue
 
             # The packet data is not yet available, wait for more data
