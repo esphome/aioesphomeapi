@@ -169,20 +169,21 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
-        while self._buffer_len:
-            self._pos = 0
-            if (header := self._read(3)) is None:
-                return
-            preamble = header[0]
+        # Message header is 3 bytes
+        while self._buffer_len >= 3:
+            if TYPE_CHECKING:
+                assert self._buffer is not None, "Buffer should be set"
+            self._pos = 3
+            preamble = self._buffer[0]
             if preamble != 0x01:
                 self._handle_error_and_close(
                     ProtocolAPIError(
-                        f"{self._log_name}: Marker byte invalid: {header[0]}"
+                        f"{self._log_name}: Marker byte invalid: {preamble}"
                     )
                 )
                 return
-            msg_size_high = header[1]
-            msg_size_low = header[2]
+            msg_size_high = self._buffer[1]
+            msg_size_low = self._buffer[2]
             if (frame := self._read((msg_size_high << 8) | msg_size_low)) is None:
                 # The complete frame is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
