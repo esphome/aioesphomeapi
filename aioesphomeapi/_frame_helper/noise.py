@@ -183,9 +183,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                     )
                 )
                 return
-            msg_size_high = header[1]
-            msg_size_low = header[2]
-            if (frame := self._read((msg_size_high << 8) | msg_size_low)) is None:
+            if (frame := self._read((header[1] << 8) | header[2])) is None:
                 # The complete frame is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next
@@ -374,9 +372,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # 2 bytes: message type
         # 2 bytes: message length
         # N bytes: message data
-        type_high = msg_cstr[0]
-        type_low = msg_cstr[1]
-        msg_type = (type_high << 8) | type_low
+        msg_type = (msg_cstr[1] << 8) | msg_cstr[0]
         # Important: we must explicitly use msg_length here since msg_cstr
         # is a cstring and Cython will stop at the first null byte if we
         # do not use msg_length
