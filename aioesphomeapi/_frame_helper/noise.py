@@ -369,10 +369,10 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
             return
         # Message layout is
-        # 2 bytes: message type
-        # 2 bytes: message length
-        # N bytes: message data
-        msg_type = (msg_cstr[1] << 8) | msg_cstr[0]
+        # 2 bytes: message type   (0:type_high,   1:type_low)
+        # 2 bytes: message length (2:length_high, 3:length_low)
+        # N bytes: message data   (4:...)
+        msg_type = (msg_cstr[0] << 8) | msg_cstr[1]
         # Important: we must explicitly use msg_length here since msg_cstr
         # is a cstring and Cython will stop at the first null byte if we
         # do not use msg_length
