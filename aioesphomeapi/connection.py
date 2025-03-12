@@ -910,13 +910,11 @@ class APIConnection:
             )
             raise
 
-        msg_type = type(msg)
-
         if debug_enabled:
             _LOGGER.debug(
                 "%s: Got message of type %s: %s",
                 self.log_name,
-                msg_type.__name__,
+                type(msg).__name__,
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead
@@ -933,10 +931,19 @@ class APIConnection:
             # since we know the connection is still alive
             self._send_pending_ping = False
 
-        if (handlers := self._message_handlers.get(msg_type)) is not None:
+        if (handlers := self._message_handlers.get(type(msg))) is None:
+            return
+
+        if len(handlers) > 1:
             handlers_copy = handlers.copy()
             for handler in handlers_copy:
                 handler(msg)
+            return
+
+        # Most common cast, only one handler
+        # no need to copy the set
+        for handler in handlers:
+            handler(msg)
 
     def _register_internal_message_handlers(self) -> None:
         """Register internal message handlers."""
