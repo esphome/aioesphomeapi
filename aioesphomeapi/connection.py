@@ -941,9 +941,13 @@ class APIConnection:
             return
 
         # Most common cast, only one handler
-        # no need to copy the set
+        # no need to copy the set. We still
+        # use a loop here even though there is
+        # only one handler because Cython will
+        # poorly optimize next(iter(handlers))
         for handler in handlers:
             handler(msg)
+            break
 
     def _register_internal_message_handlers(self) -> None:
         """Register internal message handlers."""
