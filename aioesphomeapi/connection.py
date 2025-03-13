@@ -935,6 +935,12 @@ class APIConnection:
             return
 
         if len(handlers) > 1:
+            # Handlers are allowed to remove themselves
+            # so we need to copy the set to avoid a
+            # runtime error if the set is modified during
+            # iteration. This can only if there is more
+            # than one handler registered for the message
+            # type.
             handlers_copy = handlers.copy()
             for handler in handlers_copy:
                 handler(msg)
