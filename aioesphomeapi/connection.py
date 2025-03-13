@@ -877,6 +877,9 @@ class APIConnection:
 
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
+        # This method is HOT and extremely performance critical
+        # since its called for every incoming packet. Take
+        # extra care when modifying this method.
         debug_enabled = self._debug_enabled
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
@@ -910,13 +913,11 @@ class APIConnection:
             )
             raise
 
-        msg_type = type(msg)
-
         if debug_enabled:
             _LOGGER.debug(
                 "%s: Got message of type %s: %s",
                 self.log_name,
-                msg_type.__name__,
+                type(msg).__name__,
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead
@@ -933,10 +934,29 @@ class APIConnection:
             # since we know the connection is still alive
             self._send_pending_ping = False
 
-        if (handlers := self._message_handlers.get(msg_type)) is not None:
+        if (handlers := self._message_handlers.get(type(msg))) is None:
+            return
+
+        if len(handlers) > 1:
+            # Handlers are allowed to remove themselves
+            # so we need to copy the set to avoid a
+            # runtime error if the set is modified during
+            # iteration. This can only if there is more
+            # than one handler registered for the message
+            # type.
             handlers_copy = handlers.copy()
             for handler in handlers_copy:
                 handler(msg)
+            return
+
+        # Most common case, only one handler:
+        # no need to copy the set. We still
+        # use a loop here even though there is
+        # only one handler because Cython will
+        # poorly optimize next(iter(handlers))
+        for handler in handlers:
+            handler(msg)
+            break
 
     def _register_internal_message_handlers(self) -> None:
         """Register internal message handlers."""
