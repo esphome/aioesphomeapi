@@ -940,7 +940,7 @@ class APIConnection:
                 handler(msg)
             return
 
-        # Most common cast, only one handler
+        # Most common case, only one handler
         # no need to copy the set. We still
         # use a loop here even though there is
         # only one handler because Cython will
