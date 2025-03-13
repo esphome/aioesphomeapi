@@ -877,6 +877,9 @@ class APIConnection:
 
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
+        # This method is HOT and extremely performance critical
+        # since its called for every incoming packet. Take
+        # extra care when modifying this method.
         debug_enabled = self._debug_enabled
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
