@@ -937,26 +937,25 @@ class APIConnection:
         if (handlers := self._message_handlers.get(type(msg))) is None:
             return
 
-        if len(handlers) > 1:
-            # Handlers are allowed to remove themselves
-            # so we need to copy the set to avoid a
-            # runtime error if the set is modified during
-            # iteration. This can only if there is more
-            # than one handler registered for the message
-            # type.
-            handlers_copy = handlers.copy()
-            for handler in handlers_copy:
+        if len(handlers) == 1:
+            # Most common case, only one handler
+            # no need to copy the set. We still
+            # use a loop here even though there is
+            # only one handler because Cython will
+            # poorly optimize next(iter(handlers))
+            for handler in handlers:
                 handler(msg)
-            return
+                return  # Only one handler so we can return
 
-        # Most common case, only one handler
-        # no need to copy the set. We still
-        # use a loop here even though there is
-        # only one handler because Cython will
-        # poorly optimize next(iter(handlers))
-        for handler in handlers:
+        # Handlers are allowed to remove themselves
+        # so we need to copy the set to avoid a
+        # runtime error if the set is modified during
+        # iteration. This can only if there is more
+        # than one handler registered for the message
+        # type.
+        handlers_copy = handlers.copy()
+        for handler in handlers_copy:
             handler(msg)
-            break
 
     def _register_internal_message_handlers(self) -> None:
         """Register internal message handlers."""
