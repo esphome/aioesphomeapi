@@ -27,6 +27,8 @@ from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
 
+ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
+
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
 
@@ -406,8 +408,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             new_record = record_update.new
             if not (
                 (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)  # type: ignore[attr-defined]
-                or (new_record.type == TYPE_A and new_record.name == self._a_name)
-                or (new_record.type == TYPE_AAAA and new_record.name == self._a_name)
+                or (
+                    new_record.type in ADDRESS_RECORD_TYPES
+                    and new_record.name == self._a_name
+                )
             ):
                 continue
 
