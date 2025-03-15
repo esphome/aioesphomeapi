@@ -297,7 +297,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if await self._try_connect():
                 return
             tries = min(self._tries, 10)  # prevent OverflowError
-            wait_time = int(round(min(1.8**tries, 60.0)))
+            wait_time = round(min(1.8**tries, 60.0))
             if tries == 1:
                 _LOGGER.info(
                     "Trying to connect to %s in the background", self._cli.log_name
