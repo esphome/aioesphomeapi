@@ -94,7 +94,7 @@ class OptionalBuildExt(build_ext):
 
 
 def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
-    if os.environ.get("SKIP_CYTHON", False):
+    if os.environ.get("SKIP_CYTHON"):
         return
     try:
         from Cython.Build import cythonize
