@@ -8,7 +8,11 @@ import time
 from typing import Callable
 
 import zeroconf
-from zeroconf.const import _TYPE_A as TYPE_A, _TYPE_PTR as TYPE_PTR
+from zeroconf.const import (
+    _TYPE_A as TYPE_A,
+    _TYPE_AAAA as TYPE_AAAA,
+    _TYPE_PTR as TYPE_PTR,
+)
 
 from .client import APIClient
 from .core import (
@@ -22,6 +26,8 @@ from .util import address_is_local, create_eager_task, host_is_name_part
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
+
+ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
@@ -398,11 +404,14 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             return
 
         for record_update in records:
-            # We only consider PTR records and match using the alias name
+            # We only consider A, AAAA, and PTR records and match using the alias name
             new_record = record_update.new
             if not (
                 (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)  # type: ignore[attr-defined]
-                or (new_record.type == TYPE_A and new_record.name == self._a_name)
+                or (
+                    new_record.type in ADDRESS_RECORD_TYPES
+                    and new_record.name == self._a_name
+                )
             ):
                 continue
 
