@@ -16,7 +16,7 @@ from zeroconf import (
     current_time_millis,
 )
 from zeroconf.asyncio import AsyncZeroconf
-from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_PTR
+from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR
 
 from aioesphomeapi import APIConnectionError, RequiresEncryptionAPIError
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
@@ -373,6 +373,18 @@ DNS_POINTER = DNSPointer(
                 _CLASS_IN,
                 1000,
                 ip_address("127.0.0.1").packed,
+            ),
+            True,
+            ReconnectLogicState.READY,
+            "received mDNS record",
+        ),
+        (
+            DNSAddress(
+                "mydevice.local.",
+                _TYPE_AAAA,
+                _CLASS_IN,
+                1000,
+                ip_address("::1").packed,
             ),
             True,
             ReconnectLogicState.READY,

@@ -45,3 +45,5 @@ cdef class APIFrameHelper:
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
     cdef void _write_bytes(self, object data, bint debug_enabled) except *
+
+    cdef void _handle_error_and_close(self, Exception exc) except *

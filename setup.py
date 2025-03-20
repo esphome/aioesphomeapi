@@ -38,7 +38,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "29.6.0"
+VERSION = "29.7.1"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -94,7 +94,7 @@ class OptionalBuildExt(build_ext):
 
 
 def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
-    if os.environ.get("SKIP_CYTHON", False):
+    if os.environ.get("SKIP_CYTHON"):
         return
     try:
         from Cython.Build import cythonize
