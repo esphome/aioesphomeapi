@@ -49,8 +49,8 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             type_: int = packet[0]
             data: bytes = packet[1]
             out.append(b"\0")
-            out.append(_varuint_to_bytes(len(data)))
-            out.append(_varuint_to_bytes(type_))
+            out.append(varuint_to_bytes(len(data)))
+            out.append(varuint_to_bytes(type_))
             if data:
                 out.append(data)
 
