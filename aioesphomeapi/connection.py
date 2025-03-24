@@ -704,9 +704,9 @@ class APIConnection:
                 f"Connection isn't established yet ({self.connection_state})"
             )
 
-        packets: list[tuple[int, bytes]] = [
+        packets: tuple[tuple[int, bytes], ...] = tuple(
             (PROTO_TO_MESSAGE_TYPE[type(msg)], msg.SerializeToString()) for msg in msgs
-        ]
+        )
 
         if debug_enabled := self._debug_enabled:
             for msg in msgs:

@@ -82,6 +82,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         frame=bytes,
         frame_len=cython.uint,
     )
-    cpdef void write_packets(self, list packets, bint debug_enabled) except *
+    cpdef void write_packets(self, tuple packets, bint debug_enabled) except *
 
     cdef _error_on_incorrect_preamble(self, bytes msg)

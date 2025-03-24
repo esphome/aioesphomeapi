@@ -7,7 +7,7 @@ from .base cimport APIFrameHelper
 cdef object varuint_to_bytes
 cdef bint TYPE_CHECKING
 
-cpdef _varuint_to_bytes(cython.int value)
+cdef _varuint_to_bytes(cython.int value)
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
@@ -21,4 +21,4 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         packet=tuple,
         type_=object
     )
-    cpdef void write_packets(self, list packets, bint debug_enabled) except *
+    cpdef void write_packets(self, tuple packets, bint debug_enabled) except *

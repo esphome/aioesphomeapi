@@ -23,6 +23,7 @@ SOCKET_ERRORS = (
 
 _int = int
 _bytes = bytes
+_bytearray = bytearray
 
 
 class APIFrameHelper:
@@ -142,7 +143,7 @@ class APIFrameHelper:
 
     @abstractmethod
     def write_packets(
-        self, packets: list[tuple[int, bytes]], debug_enabled: bool
+        self, packets: tuple[tuple[int, bytes], ...], debug_enabled: bool
     ) -> None:
         """Write a packets to the socket.
 
@@ -194,7 +195,9 @@ class APIFrameHelper:
     def resume_writing(self) -> None:
         """Stub."""
 
-    def _write_bytes(self, data: Iterable[_bytes], debug_enabled: bool) -> None:
+    def _write_bytes(
+        self, data: Iterable[_bytes | _bytearray], debug_enabled: bool
+    ) -> None:
         """Write bytes to the socket."""
         if debug_enabled:
             _LOGGER.debug(

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from functools import lru_cache
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
@@ -9,7 +8,7 @@ from .base import APIFrameHelper
 _int = int
 
 
-def _varuint_to_bytes(value: _int) -> bytes:
+def _varuint_to_bytes(value: _int) -> bytes | bytearray:
     """Convert a varuint to bytes."""
     if value <= 0x7F:
         return bytes((value,))
@@ -18,16 +17,9 @@ def _varuint_to_bytes(value: _int) -> bytes:
     while value:
         temp = value & 0x7F
         value >>= 7
-        if value:
-            result.append(temp | 0x80)
-        else:
-            result.append(temp)
+        result.append(temp | 0x80 if value else temp)
 
-    return bytes(result)
-
-
-_cached_varuint_to_bytes = lru_cache(maxsize=1024)(_varuint_to_bytes)
-varuint_to_bytes = _cached_varuint_to_bytes
+    return result
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
@@ -39,7 +31,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         self.ready_future.set_result(None)
 
     def write_packets(
-        self, packets: list[tuple[int, bytes]], debug_enabled: bool
+        self, packets: tuple[tuple[int, bytes], ...], debug_enabled: bool
     ) -> None:
         """Write a packets to the socket.
 
@@ -47,13 +39,13 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
         The entire packet must be written in a single call.
         """
-        out: list[bytes] = []
+        out: list[bytes | bytearray] = []
         for packet in packets:
             type_: int = packet[0]
             data: bytes = packet[1]
             out.append(b"\0")
-            out.append(varuint_to_bytes(len(data)))
-            out.append(varuint_to_bytes(type_))
+            out.append(_varuint_to_bytes(len(data)))
+            out.append(_varuint_to_bytes(type_))
             if data:
                 out.append(data)
 

@@ -310,7 +310,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self.ready_future.set_result(None)
 
     def write_packets(
-        self, packets: list[tuple[int, bytes]], debug_enabled: bool
+        self, packets: tuple[tuple[int, bytes], ...], debug_enabled: bool
     ) -> None:
         """Write a packets to the socket.
 
