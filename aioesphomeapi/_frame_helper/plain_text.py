@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import lru_cache
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
@@ -20,6 +21,10 @@ def _varuint_to_bytes(value: _int) -> bytes | bytearray:
         result.append(temp | 0x80 if value else temp)
 
     return result
+
+
+_cached_varuint_to_bytes = lru_cache(maxsize=1024)(_varuint_to_bytes)
+varuint_to_bytes = _cached_varuint_to_bytes
 
 
 class APIPlaintextFrameHelper(APIFrameHelper):
