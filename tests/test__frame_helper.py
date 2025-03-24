@@ -406,7 +406,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     assert not writes
 
     await helper.ready_future
-    helper.write_packets([(1, b"to device")], True)
+    helper.write_packets(((1, b"to device"),), True)
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
     assert header == b"\x01"
@@ -468,7 +468,7 @@ async def test_noise_valid_encryption_invalid_payload(
     assert not writes
 
     await helper.ready_future
-    helper.write_packets([(1, b"to device")], True)
+    helper.write_packets(((1, b"to device"),), True)
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
     assert header == b"\x01"
@@ -535,7 +535,7 @@ async def test_noise_frame_helper_bad_encryption(
     assert not writes
 
     await helper.ready_future
-    helper.write_packets([(1, b"to device")], True)
+    helper.write_packets(((1, b"to device"),), True)
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
     assert header == b"\x01"

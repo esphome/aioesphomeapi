@@ -61,7 +61,7 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     assert not writes
 
     await helper.ready_future
-    helper.write_packets([(1, b"to device")], True)
+    helper.write_packets(((1, b"to device"),), True)
     encrypted_packet = writes.pop()
     header = encrypted_packet[0:1]
     assert header == b"\x01"
@@ -70,7 +70,7 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     pkg_length = (pkg_length_high << 8) + pkg_length_low
     assert len(encrypted_packet) == 3 + pkg_length
 
-    helper.write_packets([(1, b"to device")], True)
+    helper.write_packets(((1, b"to device"),), True)
 
     def _empty_writelines(data: Iterable[bytes]):
         """Empty writelines."""
