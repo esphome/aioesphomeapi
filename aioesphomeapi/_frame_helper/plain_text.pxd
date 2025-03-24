@@ -7,7 +7,7 @@ from .base cimport APIFrameHelper
 cdef object varuint_to_bytes
 cdef bint TYPE_CHECKING
 
-cdef _varuint_to_bytes(cython.int value)
+cpdef _varuint_to_bytes(cython.int value)
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
