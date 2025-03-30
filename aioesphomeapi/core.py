@@ -245,6 +245,10 @@ class EncryptionErrorAPIError(InvalidEncryptionKeyAPIError):
     """Raised when an encryption error occurs after handshake."""
 
 
+class EncryptionHelloAPIError(HandshakeAPIError):
+    """Raised when an encryption error occurs during hello."""
+
+
 class PingFailedAPIError(APIConnectionError):
     """Raised when a ping fails."""
 

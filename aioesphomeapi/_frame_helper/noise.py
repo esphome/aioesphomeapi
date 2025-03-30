@@ -18,6 +18,7 @@ from ..core import (
     APIConnectionError,
     BadNameAPIError,
     EncryptionErrorAPIError,
+    EncryptionHelloAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
@@ -154,7 +155,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Handle an error, and provide a good message when during hello."""
         if self._state == NOISE_STATE_HELLO and isinstance(exc, ConnectionResetError):
             original_exc: Exception = exc
-            exc = HandshakeAPIError(
+            exc = EncryptionHelloAPIError(
                 f"{self._log_name}: The connection dropped immediately after encrypted hello; "
                 "Try enabling encryption on the device or turning off "
                 f"encryption on the client ({self._client_info})."
