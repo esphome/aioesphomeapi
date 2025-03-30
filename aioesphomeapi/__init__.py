@@ -18,6 +18,7 @@ from .core import (
     ProtocolAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
+    EncryptionHelloAPIError,
     SocketAPIError,
 )
 from .model import *
