@@ -19,6 +19,7 @@ from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
     BadNameAPIError,
+    EncryptionHelloAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
@@ -669,7 +670,7 @@ async def test_init_noise_attempted_when_esp_uses_plaintext(
         protocol.connection_lost(ConnectionResetError())
 
         with pytest.raises(
-            APIConnectionError, match="The connection dropped immediately"
+            EncryptionHelloAPIError, match="The connection dropped immediately"
         ):
             await task
 
