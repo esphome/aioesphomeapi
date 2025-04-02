@@ -117,11 +117,11 @@ class APIFrameHelper:
         new_pos = self._pos + length
         if self._buffer_len < new_pos:
             return None
-        assert len(self._buffer) >= new_pos
         original_pos = self._pos
         self._pos = new_pos
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
+        assert len(self._buffer) >= new_pos
         cstr = self._buffer
         # Important: we must keep the bounds check (self._buffer_len < new_pos)
         # above to verify we never try to read past the end of the buffer
