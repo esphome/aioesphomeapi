@@ -529,10 +529,10 @@ async def test_noise_valid_encryption_invalid_payload(
 
 
 @pytest.mark.asyncio
-async def test_noise_valid_encryption_payload_empty(
+async def test_noise_valid_encryption_payload_short(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test the noise with a packet that decrypts has an empty payload."""
+    """Test the noise with a packet that has a short encrypted payload."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
     writes = []
