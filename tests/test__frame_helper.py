@@ -126,6 +126,41 @@ async def test_plaintext_frame_helper(
 
 
 @pytest.mark.parametrize(
+    "in_bytes, pkt_data, pkt_type",
+    _PLAINTEXT_TESTS,
+)
+@pytest.mark.asyncio
+async def test_plaintext_frame_helper_multiple_payloads_single_packet(
+    in_bytes: bytes, pkt_data: bytes, pkt_type: int
+) -> None:
+    for _ in range(3):
+        connection, packets = _make_mock_connection()
+        helper = APIPlaintextFrameHelper(
+            connection=connection, client_info="my client", log_name="test"
+        )
+
+        mock_data_received(helper, in_bytes)
+
+        pkt = packets.pop()
+        type_, data = pkt
+
+        assert type_ == pkt_type
+        assert data == pkt_data
+
+        # Make sure we correctly handle multiple payloads in a single packet
+        mock_data_received(helper, in_bytes * 5)
+
+        for i in range(5):
+            pkt = packets.pop()
+            type_, data = pkt
+
+            assert type_ == pkt_type
+            assert data == pkt_data
+
+        helper.close()
+
+
+@pytest.mark.parametrize(
     "byte_type",
     (bytes, bytearray, memoryview),
 )
@@ -490,6 +525,84 @@ async def test_noise_valid_encryption_invalid_payload(
     assert packets == []
     assert connection.is_connected is False
     assert "Decrypted message too short" in caplog.text
+    helper.close()
+
+
+@pytest.mark.asyncio
+async def test_noise_valid_encryption_payload_short(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test the noise with a packet that has a short encrypted payload."""
+    noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+    psk_bytes = base64.b64decode(noise_psk)
+    writes = []
+
+    def _writelines(data: Iterable[bytes]):
+        writes.append(b"".join(data))
+
+    connection, packets = _make_mock_connection()
+
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk=noise_psk,
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        writer=_writelines,
+    )
+
+    proto = _mock_responder_proto(psk_bytes)
+
+    await asyncio.sleep(0)  # let the task run to read the hello packet
+
+    assert len(writes) == 1
+    handshake_pkt = writes.pop()
+
+    encrypted_payload = _extract_encrypted_payload_from_handshake(handshake_pkt)
+    decrypted = proto.read_message(encrypted_payload)
+    assert decrypted == b""
+
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    handshake_with_header = _make_noise_handshake_pkt(proto)
+    mock_data_received(helper, handshake_with_header)
+
+    assert not writes
+
+    await helper.ready_future
+    helper.write_packets([(1, b"to device")], True)
+    encrypted_packet = writes.pop()
+    header = encrypted_packet[0:1]
+    assert header == b"\x01"
+    pkg_length_high = encrypted_packet[1]
+    pkg_length_low = encrypted_packet[2]
+    pkg_length = (pkg_length_high << 8) + pkg_length_low
+    assert len(encrypted_packet) == 3 + pkg_length
+
+    msg_type = 42
+    msg_type_high = (msg_type >> 8) & 0xFF
+    msg_type_low = msg_type & 0xFF
+    # Trim the pre-encrypted payload to be missing the payload
+    encrypted_payload = proto.encrypt(
+        bytes((msg_type_high, msg_type_low, pkg_length_high, pkg_length_low))
+    )
+
+    preamble = 1
+    encrypted_pkg_length = len(encrypted_payload)
+    encrypted_pkg_length -= 1
+    encrypted_pkg_length_high = (encrypted_pkg_length >> 8) & 0xFF
+    encrypted_pkg_length_low = encrypted_pkg_length & 0xFF
+    encrypted_header = bytes(
+        (preamble, encrypted_pkg_length_high, encrypted_pkg_length_low)
+    )
+    encrypted_packet = encrypted_header + encrypted_payload
+
+    mock_data_received(helper, encrypted_packet)
+
+    assert packets == []
+    assert connection.is_connected is False
+    assert "Encryption error" in caplog.text
     helper.close()
 
 
