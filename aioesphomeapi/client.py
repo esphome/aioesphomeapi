@@ -1422,8 +1422,6 @@ class APIClient:
             )
 
         def unsub() -> None:
-            nonlocal start_task
-
             if self._connection is not None:
                 for remove_callback in remove_callbacks:
                     remove_callback()
