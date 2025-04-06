@@ -249,6 +249,10 @@ class EncryptionHelloAPIError(HandshakeAPIError):
     """Raised when an encryption error occurs during hello."""
 
 
+class EncryptionPlaintextAPIError(HandshakeAPIError):
+    """Raised when the ESP is using plaintext during noise handshake."""
+
+
 class PingFailedAPIError(APIConnectionError):
     """Raised when a ping fails."""
 
