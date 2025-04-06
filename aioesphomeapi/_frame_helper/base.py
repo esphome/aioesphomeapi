@@ -131,8 +131,9 @@ class APIFrameHelper:
             assert self._buffer is not None, "Buffer should be set"
         result = 0
         bitpos = 0
+        cstr = self._buffer
         while self._buffer_len > self._pos:
-            val = self._buffer[self._pos]
+            val = cstr[self._pos]
             self._pos += 1
             result |= (val & 0x7F) << bitpos
             if (val & 0x80) == 0:
