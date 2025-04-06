@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aioesphomeapi import APIConnection
+from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.plain_text import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
@@ -710,9 +710,36 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
         assert protocol is not None
         assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
 
-        mock_data_received(protocol, b"\x00\x00\x00")
+        mock_data_received(protocol, b"\x02\x00\x00")
 
         with pytest.raises(ProtocolAPIError, match="Marker byte invalid"):
+            await task
+
+
+@pytest.mark.asyncio
+async def test_init_noise_with_plaintext_byte_marker(noise_conn: APIConnection) -> None:
+    loop = asyncio.get_event_loop()
+    transport = MagicMock()
+    protocol: APINoiseFrameHelper | None = None
+
+    async def _create_connection(create, sock, *args, **kwargs):
+        nonlocal protocol
+        protocol = create()
+        protocol.connection_made(transport)
+        return transport, protocol
+
+    with patch.object(loop, "create_connection", side_effect=_create_connection):
+        task = asyncio.create_task(noise_conn._connect_init_frame_helper())
+        await asyncio.sleep(0)
+
+        assert protocol is not None
+        assert isinstance(noise_conn._frame_helper, APINoiseFrameHelper)
+
+        mock_data_received(protocol, b"\x00\x00\x00")
+
+        with pytest.raises(
+            EncryptionPlaintextAPIError, match="The device is using plaintext protocol"
+        ):
             await task
 
 

@@ -19,6 +19,7 @@ from ..core import (
     BadNameAPIError,
     EncryptionErrorAPIError,
     EncryptionHelloAPIError,
+    EncryptionPlaintextAPIError,
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
@@ -158,7 +159,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             exc = EncryptionHelloAPIError(
                 f"{self._log_name}: The connection dropped immediately after encrypted hello; "
                 "Try enabling encryption on the device or turning off "
-                f"encryption on the client ({self._client_info})."
+                f"encryption on the client ({self._client_info})"
             )
             exc.__cause__ = original_exc
         super()._handle_error(exc)
@@ -178,11 +179,20 @@ class APINoiseFrameHelper(APIFrameHelper):
             header = self._buffer
             preamble = header[0]
             if preamble != 0x01:
-                self._handle_error_and_close(
-                    ProtocolAPIError(
-                        f"{self._log_name}: Marker byte invalid: {preamble}"
+                if preamble == 0x00:
+                    self._handle_error_and_close(
+                        EncryptionPlaintextAPIError(
+                            f"{self._log_name}: The device is using plaintext protocol; "
+                            "Try enabling encryption on the device or turning off "
+                            f"encryption on the client ({self._client_info})"
+                        )
                     )
-                )
+                else:
+                    self._handle_error_and_close(
+                        ProtocolAPIError(
+                            f"{self._log_name}: Marker byte invalid: {preamble}"
+                        )
+                    )
                 return
             if (frame := self._read((header[1] << 8) | header[2])) is None:
                 # The complete frame is not yet available, wait for more data

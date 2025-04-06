@@ -10,6 +10,7 @@ from .core import (
     ESPHOME_GATT_ERRORS,
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
+    EncryptionPlaintextAPIError,
     BadNameAPIError,
     BluetoothConnectionDroppedError,
     HandshakeAPIError,
