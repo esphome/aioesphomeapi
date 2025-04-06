@@ -5,6 +5,7 @@ from ..connection cimport APIConnection
 
 
 cdef bint TYPE_CHECKING
+cdef const unsigned char *empty_buffer = ""
 
 cdef class APIFrameHelper:
 
@@ -14,6 +15,7 @@ cdef class APIFrameHelper:
     cdef public object _writelines
     cdef public object ready_future
     cdef bytes _buffer
+    cdef const unsigned char * _cbuffer_view
     cdef unsigned int _buffer_len
     cdef unsigned int _pos
     cdef object _client_info
@@ -24,7 +26,6 @@ cdef class APIFrameHelper:
     @cython.locals(
         original_pos="unsigned int",
         new_pos="unsigned int",
-        cstr="const unsigned char *"
     )
     cdef bytes _read(self, int length)
 

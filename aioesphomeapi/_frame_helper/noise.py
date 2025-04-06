@@ -173,10 +173,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._add_to_buffer(data)
         # Message header is 3 bytes
         while self._buffer_len >= 3:
-            if TYPE_CHECKING:
-                assert self._buffer is not None, "Buffer should be set"
             self._pos = 3
-            header = self._buffer
+            header = self._cbuffer_view
             preamble = header[0]
             if preamble != 0x01:
                 if preamble == 0x00:
