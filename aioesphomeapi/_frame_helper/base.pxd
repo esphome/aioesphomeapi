@@ -31,6 +31,7 @@ cdef class APIFrameHelper:
     @cython.locals(
         result="unsigned int",
         bitpos="unsigned int",
+        cstr="const unsigned char *",
         val="unsigned char",
         current_pos="unsigned int"
     )
