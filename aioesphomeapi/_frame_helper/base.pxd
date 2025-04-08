@@ -28,15 +28,6 @@ cdef class APIFrameHelper:
     )
     cdef bytes _read(self, int length)
 
-    @cython.locals(
-        result="unsigned int",
-        bitpos="unsigned int",
-        cstr="const unsigned char *",
-        val="unsigned char",
-        current_pos="unsigned int"
-    )
-    cdef int _read_varuint(self)
-
     @cython.locals(bytes_data=bytes)
     cdef void _add_to_buffer(self, object data) except *
 

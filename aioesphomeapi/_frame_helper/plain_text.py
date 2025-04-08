@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
@@ -58,6 +59,22 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 out.append(data)
 
         self._write_bytes(out, debug_enabled)
+
+    def _read_varuint(self) -> _int:
+        """Read a varuint from the buffer or -1 if the buffer runs out of bytes."""
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
+        result = 0
+        bitpos = 0
+        cstr = self._buffer
+        while self._buffer_len > self._pos:
+            val = cstr[self._pos]
+            self._pos += 1
+            result |= (val & 0x7F) << bitpos
+            if (val & 0x80) == 0:
+                return result
+            bitpos += 7
+        return -1
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
