@@ -1,5 +1,6 @@
 
 import cython
+from cython cimport memoryview
 
 from ..connection cimport APIConnection
 
