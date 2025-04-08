@@ -49,7 +49,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     @cython.locals(
         msg=bytes,
         msg_type="unsigned int",
-        payload=bytes,
         msg_length=Py_ssize_t,
         msg_cstr="const unsigned char *",
     )
