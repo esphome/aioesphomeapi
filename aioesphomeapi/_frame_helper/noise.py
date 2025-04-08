@@ -389,7 +389,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Important: we must explicitly use msg_length here since msg_cstr
         # is a cstring and Cython will stop at the first null byte if we
         # do not use msg_length
-        payload = msg_cstr[4:msg_length]
+        payload = memoryview(msg)[4:msg_length]
         self._connection.process_packet(msg_type, payload)
 
     def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument

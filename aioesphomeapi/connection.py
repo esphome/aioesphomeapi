@@ -101,8 +101,9 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 
 _WIN32 = sys.platform == "win32"
 
-_int = int
 _bytes = bytes
+_int = int
+_memoryview = memoryview
 _float = float
 
 
@@ -875,7 +876,7 @@ class APIConnection:
         if self._fatal_exception is None:
             self._fatal_exception = err
 
-    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
+    def process_packet(self, msg_type_proto: _int, data: _memoryview | _bytes) -> None:
         """Process an incoming packet."""
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take

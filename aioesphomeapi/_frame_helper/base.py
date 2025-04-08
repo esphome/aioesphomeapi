@@ -125,6 +125,17 @@ class APIFrameHelper:
         # above to verify we never try to read past the end of the buffer
         return cstr[original_pos:new_pos]
 
+    def _read_memory_view(self, length: _int) -> memoryview | None:
+        """Read exactly length bytes from the buffer or None if all the bytes are not yet available."""
+        new_pos = self._pos + length
+        if self._buffer_len < new_pos:
+            return None
+        original_pos = self._pos
+        self._pos = new_pos
+        if TYPE_CHECKING:
+            assert self._buffer is not None, "Buffer should be set"
+        return memoryview(self._buffer)[original_pos:new_pos]
+
     @abstractmethod
     def write_packets(
         self, packets: list[tuple[int, bytes]], debug_enabled: bool

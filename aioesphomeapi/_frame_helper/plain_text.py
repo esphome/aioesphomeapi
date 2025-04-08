@@ -100,7 +100,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # been called yet the buffer will not be cleared and the next
             # call to data_received will continue processing the packet
             # at the start of the frame.
-            if (packet_data := self._read(length)) is None:
+            if (packet_data := self._read_memory_view(length)) is None:
                 return
             self._remove_from_buffer()
             self._connection.process_packet(msg_type, packet_data)

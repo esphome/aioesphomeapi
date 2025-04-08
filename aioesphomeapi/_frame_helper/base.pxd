@@ -28,6 +28,12 @@ cdef class APIFrameHelper:
     )
     cdef bytes _read(self, int length)
 
+    @cython.locals(
+        original_pos="unsigned int",
+        new_pos="unsigned int",
+    )
+    cdef memoryview _read_memory_view(self, int length)
+
     @cython.locals(bytes_data=bytes)
     cdef void _add_to_buffer(self, object data) except *
 
