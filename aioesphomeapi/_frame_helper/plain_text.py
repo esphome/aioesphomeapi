@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
 
 _int = int
+_bytes = bytes
 
 
 def _varuint_to_bytes(value: _int) -> bytes:
@@ -59,18 +61,34 @@ class APIPlaintextFrameHelper(APIFrameHelper):
 
         self._write_bytes(out, debug_enabled)
 
+    def _read_varuint(self, cbuffer: _bytes) -> _int:
+        """Read a varuint from the buffer or -1 if the buffer runs out of bytes."""
+        result = 0
+        bitpos = 0
+        while self._buffer_len > self._pos:
+            val = cbuffer[self._pos]
+            self._pos += 1
+            result |= (val & 0x7F) << bitpos
+            if (val & 0x80) == 0:
+                return result
+            bitpos += 7
+        return -1
+
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
         # Message header is at least 3 bytes, empty length allowed
         while self._buffer_len >= 3:
+            if TYPE_CHECKING:
+                assert self._buffer is not None, "Buffer should be set"
             self._pos = 0
+            cbuffer = self._buffer
             # Read preamble, which should always 0x00
-            if (preamble := self._read_varuint()) != 0x00:
+            if (preamble := self._read_varuint(cbuffer)) != 0x00:
                 self._error_on_incorrect_preamble(preamble)
                 return
-            if (length := self._read_varuint()) == -1:
+            if (length := self._read_varuint(cbuffer)) == -1:
                 return
-            if (msg_type := self._read_varuint()) == -1:
+            if (msg_type := self._read_varuint(cbuffer)) == -1:
                 return
 
             if length == 0:
@@ -83,7 +101,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # been called yet the buffer will not be cleared and the next
             # call to data_received will continue processing the packet
             # at the start of the frame.
-            if (packet_data := self._read(length)) is None:
+            if (packet_data := self._read(length, cbuffer)) is None:
                 return
             self._remove_from_buffer()
             self._connection.process_packet(msg_type, packet_data)

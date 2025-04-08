@@ -176,8 +176,8 @@ class APINoiseFrameHelper(APIFrameHelper):
             if TYPE_CHECKING:
                 assert self._buffer is not None, "Buffer should be set"
             self._pos = 3
-            header = self._buffer
-            preamble = header[0]
+            cbuffer = self._buffer
+            preamble = cbuffer[0]
             if preamble != 0x01:
                 if preamble == 0x00:
                     self._handle_error_and_close(
@@ -194,7 +194,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                         )
                     )
                 return
-            if (frame := self._read((header[1] << 8) | header[2])) is None:
+            if (frame := self._read((cbuffer[1] << 8) | cbuffer[2], cbuffer)) is None:
                 # The complete frame is not yet available, wait for more data
                 # to arrive before continuing, since callback_packet has not
                 # been called yet the buffer will not be cleared and the next

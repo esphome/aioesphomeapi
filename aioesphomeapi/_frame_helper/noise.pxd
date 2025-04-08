@@ -42,7 +42,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     @cython.locals(
         header=bytes,
         preamble="unsigned char",
-        header="const unsigned char *"
+        cbuffer="const unsigned char *"
     )
     cpdef void data_received(self, object data) except *
 
@@ -65,7 +65,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef void _handle_closed(self, bytes frame) except *
 
-    @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
+    @cython.locals(handshake_frame=bytearray, frame_len=Py_ssize_t)
     cdef void _send_hello_handshake(self) except *
 
     cdef void _setup_proto(self) except *
@@ -78,9 +78,9 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         data=bytes,
         data_header=bytes,
         packet=tuple,
-        data_len=cython.uint,
+        data_len=Py_ssize_t,
         frame=bytes,
-        frame_len=cython.uint,
+        frame_len=Py_ssize_t,
     )
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 

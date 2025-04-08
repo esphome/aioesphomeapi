@@ -14,33 +14,20 @@ cdef class APIFrameHelper:
     cdef public object _writelines
     cdef public object ready_future
     cdef bytes _buffer
-    cdef unsigned int _buffer_len
-    cdef unsigned int _pos
+    cdef Py_ssize_t _buffer_len
+    cdef Py_ssize_t _pos
     cdef object _client_info
     cdef str _log_name
 
     cpdef set_log_name(self, str log_name)
 
-    @cython.locals(
-        original_pos="unsigned int",
-        new_pos="unsigned int",
-        cstr="const unsigned char *"
-    )
-    cdef bytes _read(self, int length)
-
-    @cython.locals(
-        result="unsigned int",
-        bitpos="unsigned int",
-        cstr="const unsigned char *",
-        val="unsigned char",
-        current_pos="unsigned int"
-    )
-    cdef int _read_varuint(self)
+    @cython.locals(original_pos=Py_ssize_t, new_pos=Py_ssize_t)
+    cdef bytes _read(self, int length, const unsigned char * cbuffer)
 
     @cython.locals(bytes_data=bytes)
     cdef void _add_to_buffer(self, object data) except *
 
-    @cython.locals(end_of_frame_pos="unsigned int", cstr="const unsigned char *")
+    @cython.locals(end_of_frame_pos=Py_ssize_t, cstr="const unsigned char *")
     cdef void _remove_from_buffer(self) except *
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *

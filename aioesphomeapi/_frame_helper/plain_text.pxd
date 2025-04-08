@@ -11,6 +11,7 @@ cpdef _varuint_to_bytes(cython.int value)
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
+    @cython.locals(cbuffer="const unsigned char *")
     cpdef void data_received(self, object data) except *
 
     cdef void _error_on_incorrect_preamble(self, int preamble) except *
@@ -22,3 +23,11 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         type_=object
     )
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
+
+    @cython.locals(
+        result="unsigned int",
+        bitpos=Py_ssize_t,
+        val="unsigned char",
+        current_pos=Py_ssize_t
+    )
+    cdef int _read_varuint(self, const unsigned char * cbuffer)
