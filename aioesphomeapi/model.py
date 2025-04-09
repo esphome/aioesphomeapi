@@ -133,6 +133,22 @@ class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
 
+class SubDeviceInfo(APIModelBase):
+    id: str = ""
+    name: str = ""
+    suggested_area: str = ""
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[SubDeviceInfo]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(SubDeviceInfo.from_dict(x))
+            else:
+                ret.append(SubDeviceInfo.from_pb(x))
+        return ret
+
+
 @_frozen_dataclass_decorator
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
@@ -153,6 +169,7 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
+    sub_devices: list[SubDeviceInfo] = converter_field(default_factory=list, converter=SubDeviceInfo.convert_list)
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 9):
@@ -198,6 +215,8 @@ class EntityInfo(APIModelBase):
     entity_category: EntityCategory | None = converter_field(
         default=EntityCategory.NONE, converter=EntityCategory.convert
     )
+    # # Is it ok to ad for the generic device info before all are added?
+    # device_id: str = ""
 
 
 @_frozen_dataclass_decorator
@@ -210,6 +229,7 @@ class EntityState(APIModelBase):
 class BinarySensorInfo(EntityInfo):
     device_class: str = ""
     is_status_binary_sensor: bool = False
+    device_id: str = ""
 
 
 @_frozen_dataclass_decorator
@@ -226,6 +246,7 @@ class CoverInfo(EntityInfo):
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
+    device_id: str = ""
 
 
 class LegacyCoverState(APIIntEnum):
