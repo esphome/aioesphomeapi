@@ -169,7 +169,9 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
-    sub_devices: list[SubDeviceInfo] = converter_field(default_factory=list, converter=SubDeviceInfo.convert_list)
+    sub_devices: list[SubDeviceInfo] = converter_field(
+        default_factory=list, converter=SubDeviceInfo.convert_list
+    )
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 9):
