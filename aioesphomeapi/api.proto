@@ -182,6 +182,12 @@ message DeviceInfoRequest {
   // Empty
 }
 
+message SubDeviceInfo {
+  string id = 1;
+  string name = 2;
+  string suggested_area = 3;
+}
+
 message DeviceInfoResponse {
   option (id) = 10;
   option (source) = SOURCE_SERVER;
@@ -224,9 +230,11 @@ message DeviceInfoResponse {
   uint32 voice_assistant_feature_flags = 17;
 
   string suggested_area = 16;
-  
+
   // The Bluetooth mac address of the device. For example "AC:BC:32:89:0E:AA"
-  string bluetooth_mac_address = 18;  
+  string bluetooth_mac_address = 18;
+
+  repeated SubDeviceInfo sub_devices = 19;
 }
 
 message ListEntitiesRequest {
@@ -270,6 +278,7 @@ message ListEntitiesBinarySensorResponse {
   bool disabled_by_default = 7;
   string icon = 8;
   EntityCategory entity_category = 9;
+  string device_id = 10;
 }
 message BinarySensorStateResponse {
   option (id) = 21;
@@ -303,6 +312,7 @@ message ListEntitiesCoverResponse {
   string icon = 10;
   EntityCategory entity_category = 11;
   bool supports_stop = 12;
+  string device_id = 13;
 }
 
 enum LegacyCoverState {
@@ -374,6 +384,7 @@ message ListEntitiesFanResponse {
   string icon = 10;
   EntityCategory entity_category = 11;
   repeated string supported_preset_modes = 12;
+  // string device_id = 13;
 }
 enum FanSpeed {
   FAN_SPEED_LOW = 0;
@@ -442,6 +453,7 @@ message ListEntitiesLightResponse {
   bool disabled_by_default = 13;
   string icon = 14;
   EntityCategory entity_category = 15;
+  // string device_id = 16;
 }
 message LightStateResponse {
   option (id) = 24;
@@ -531,6 +543,7 @@ message ListEntitiesSensorResponse {
   SensorLastResetType last_reset_type = 11;
   bool disabled_by_default = 12;
   EntityCategory entity_category = 13;
+  // string device_id = 14;
 }
 message SensorStateResponse {
   option (id) = 25;
@@ -561,6 +574,7 @@ message ListEntitiesSwitchResponse {
   bool disabled_by_default = 7;
   EntityCategory entity_category = 8;
   string device_class = 9;
+  // string device_id = 10;
 }
 message SwitchStateResponse {
   option (id) = 26;
@@ -596,6 +610,7 @@ message ListEntitiesTextSensorResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
+  // string device_id = 9;
 }
 message TextSensorStateResponse {
   option (id) = 27;
@@ -759,6 +774,7 @@ message ListEntitiesCameraResponse {
   bool disabled_by_default = 5;
   string icon = 6;
   EntityCategory entity_category = 7;
+  // string device_id = 8;
 }
 
 message CameraImageResponse {
@@ -860,6 +876,7 @@ message ListEntitiesClimateResponse {
   bool supports_target_humidity = 23;
   float visual_min_humidity = 24;
   float visual_max_humidity = 25;
+  // string device_id = 26;
 }
 message ClimateStateResponse {
   option (id) = 47;
@@ -941,6 +958,7 @@ message ListEntitiesNumberResponse {
   string unit_of_measurement = 11;
   NumberMode mode = 12;
   string device_class = 13;
+  // string device_id = 14;
 }
 message NumberStateResponse {
   option (id) = 50;
@@ -979,6 +997,7 @@ message ListEntitiesSelectResponse {
   repeated string options = 6;
   bool disabled_by_default = 7;
   EntityCategory entity_category = 8;
+  // string device_id = 9;
 }
 message SelectStateResponse {
   option (id) = 53;
@@ -1078,6 +1097,7 @@ message ListEntitiesLockResponse {
   bool supports_open = 9;
   bool requires_code = 10;
   string code_format = 11;
+  // string device_id = 12;
 }
 message LockStateResponse {
   option (id) = 59;
@@ -1113,6 +1133,7 @@ message ListEntitiesButtonResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
+  // string device_id = 9;
 }
 message ButtonCommandRequest {
   option (id) = 62;
@@ -1167,6 +1188,8 @@ message ListEntitiesMediaPlayerResponse {
   bool supports_pause = 8;
 
   repeated MediaPlayerSupportedFormat supported_formats = 9;
+
+  // string device_id = 10;
 }
 message MediaPlayerStateResponse {
   option (id) = 64;
@@ -1664,6 +1687,7 @@ message ListEntitiesAlarmControlPanelResponse {
   uint32 supported_features = 8;
   bool requires_code = 9;
   bool requires_code_to_arm = 10;
+  // string device_id = 11;
 }
 
 message AlarmControlPanelStateResponse {
@@ -1707,6 +1731,7 @@ message ListEntitiesTextResponse {
   uint32 max_length = 9;
   string pattern = 10;
   TextMode mode = 11;
+  // string device_id = 12;
 }
 message TextStateResponse {
   option (id) = 98;
@@ -1745,6 +1770,7 @@ message ListEntitiesDateResponse {
   string icon = 5;
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
+  // string device_id = 8;
 }
 message DateStateResponse {
   option (id) = 101;
@@ -1786,6 +1812,7 @@ message ListEntitiesTimeResponse {
   string icon = 5;
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
+  // string device_id = 8;
 }
 message TimeStateResponse {
   option (id) = 104;
@@ -1830,6 +1857,7 @@ message ListEntitiesEventResponse {
   string device_class = 8;
 
   repeated string event_types = 9;
+  // string device_id = 10;
 }
 message EventResponse {
   option (id) = 108;
@@ -1859,6 +1887,7 @@ message ListEntitiesValveResponse {
   bool assumed_state = 9;
   bool supports_position = 10;
   bool supports_stop = 11;
+  // string device_id = 12;
 }
 
 enum ValveOperation {
@@ -1903,6 +1932,7 @@ message ListEntitiesDateTimeResponse {
   string icon = 5;
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
+  // string device_id = 8;
 }
 message DateTimeStateResponse {
   option (id) = 113;
@@ -1941,6 +1971,7 @@ message ListEntitiesUpdateResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
+  // string device_id = 9;
 }
 message UpdateStateResponse {
   option (id) = 117;
