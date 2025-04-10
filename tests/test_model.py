@@ -675,23 +675,26 @@ def test_sub_device_info_convert_list() -> None:
             ),
         ],
     )
-    assert DeviceInfo.from_dict(
-        {
-            "name": "Base device",
-            "sub_devices": [
-                SubDeviceInfo(
-                    id="dev1",
-                    name="Sub dev 1",
-                    area="Sub area 1",
-                ),
-                {
-                    "id": "dev2",
-                    "name": "Sub dev 2",
-                    "area": "Sub area 2",
-                },
-            ],
-        }
-    ) == device_info
+    assert (
+        DeviceInfo.from_dict(
+            {
+                "name": "Base device",
+                "sub_devices": [
+                    SubDeviceInfo(
+                        id="dev1",
+                        name="Sub dev 1",
+                        area="Sub area 1",
+                    ),
+                    {
+                        "id": "dev2",
+                        "name": "Sub dev 2",
+                        "area": "Sub area 2",
+                    },
+                ],
+            }
+        )
+        == device_info
+    )
 
 
 def test_media_player_supported_format_convert_list() -> None:
