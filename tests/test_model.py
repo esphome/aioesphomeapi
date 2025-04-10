@@ -50,6 +50,7 @@ from aioesphomeapi.api_pb2 import (
     SelectStateResponse,
     SensorStateResponse,
     ServiceArgType,
+    SubDeviceInfo,
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
@@ -103,6 +104,7 @@ from aioesphomeapi.model import (
     SensorInfo,
     SensorState,
     SirenInfo,
+    SubDeviceInfo as SubDeviceInfoModel,
     SwitchInfo,
     SwitchState,
     TextInfo,
@@ -654,6 +656,42 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
     assert BluetoothGATTDescriptorModel.from_dict(
         {"uuid": [1, 3], "handle": 3},
     ) == BluetoothGATTDescriptorModel(uuid=[1, 3], handle=3)
+
+
+def test_sub_device_info_convert_list() -> None:
+    """Test list conversion for SubDeviceInfo."""
+    device_info = DeviceInfo(
+        name="Base device",
+        sub_devices=[
+            SubDeviceInfoModel(
+                id="dev1",
+                name="Sub dev 1",
+                area="Sub area 1",
+            ),
+            SubDeviceInfoModel(
+                id="dev2",
+                name="Sub dev 2",
+                area="Sub area 2",
+            ),
+        ],
+    )
+    assert DeviceInfo.from_dict(
+        {
+            "name": "Base device",
+            "sub_devices": [
+                SubDeviceInfo(
+                    id="dev1",
+                    name="Sub dev 1",
+                    area="Sub area 1",
+                ),
+                {
+                    "id": "dev2",
+                    "name": "Sub dev 2",
+                    "area": "Sub area 2",
+                },
+            ],
+        }
+    ) == device_info
 
 
 def test_media_player_supported_format_convert_list() -> None:
