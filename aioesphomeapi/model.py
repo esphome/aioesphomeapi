@@ -133,6 +133,7 @@ class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
 
+@_frozen_dataclass_decorator
 class SubDeviceInfo(APIModelBase):
     id: str = ""
     name: str = ""

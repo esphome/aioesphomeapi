@@ -666,12 +666,12 @@ def test_sub_device_info_convert_list() -> None:
             SubDeviceInfoModel(
                 id="dev1",
                 name="Sub dev 1",
-                area="Sub area 1",
+                suggested_area="Sub area 1",
             ),
             SubDeviceInfoModel(
                 id="dev2",
                 name="Sub dev 2",
-                area="Sub area 2",
+                suggested_area="Sub area 2",
             ),
         ],
     )
@@ -683,12 +683,12 @@ def test_sub_device_info_convert_list() -> None:
                     SubDeviceInfo(
                         id="dev1",
                         name="Sub dev 1",
-                        area="Sub area 1",
+                        suggested_area="Sub area 1",
                     ),
                     {
                         "id": "dev2",
                         "name": "Sub dev 2",
-                        "area": "Sub area 2",
+                        "suggested_area": "Sub area 2",
                     },
                 ],
             }
