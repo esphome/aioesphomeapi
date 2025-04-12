@@ -256,6 +256,8 @@ class APIClient:
             the device has dual stack IPv4 and IPv6 addresses and you do not know
             which one to connect to.
         :param expected_mac: Optional MAC address to check against the device.
+            The format should be lower case without : or - separators.
+            Example: 00:aa:22:33:44:55 -> 00aa22334455
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
