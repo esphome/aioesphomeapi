@@ -234,6 +234,8 @@ class BadNameAPIError(APIConnectionError):
 
 
 class BadMACAddressAPIError(APIConnectionError):
+    """Raised when a MAC address received from the remote but does not much the expected MAC address."""
+
     def __init__(self, msg: str, received_name: str, received_mac: str) -> None:
         super().__init__(
             f"{msg}: received_name={received_name}, received_mac={received_mac}"
@@ -243,6 +245,8 @@ class BadMACAddressAPIError(APIConnectionError):
 
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
+    """Raised when the encryption key is invalid."""
+
     def __init__(
         self,
         msg: str | None = None,
