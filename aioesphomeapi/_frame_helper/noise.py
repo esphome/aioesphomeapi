@@ -16,6 +16,7 @@ from noise.state import CipherState
 
 from ..core import (
     APIConnectionError,
+    BadMACAddressAPIError,
     BadNameAPIError,
     EncryptionErrorAPIError,
     EncryptionHelloAPIError,
@@ -116,9 +117,11 @@ class APINoiseFrameHelper(APIFrameHelper):
     __slots__ = (
         "_decrypt_cipher",
         "_encrypt_cipher",
+        "_expected_mac",
         "_expected_name",
         "_noise_psk",
         "_proto",
+        "_server_mac",
         "_server_name",
         "_state",
     )
@@ -128,15 +131,18 @@ class APINoiseFrameHelper(APIFrameHelper):
         connection: APIConnection,
         noise_psk: str,
         expected_name: str | None,
+        expected_mac: str | None,
         client_info: str,
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(connection, client_info, log_name)
         self._noise_psk = noise_psk
+        self._expected_mac = expected_mac
         self._expected_name = expected_name
         self._state = NOISE_STATE_HELLO
         self._server_name: str | None = None
+        self._server_mac: str | None = None
         self._encrypt_cipher: EncryptCipher | None = None
         self._decrypt_cipher: DecryptCipher | None = None
         self._setup_proto()
@@ -263,12 +269,28 @@ class APINoiseFrameHelper(APIFrameHelper):
                 )
                 return
 
+            mac_address_i = server_hello.find(b"\0", server_name_i + 1)
+            if mac_address_i != -1:
+                # mac address found, this extension was added in 2025.4
+                mac_address = server_hello[server_name_i + 1 : mac_address_i].decode()
+                self._server_mac = mac_address
+                if self._expected_mac is not None and self._expected_mac != mac_address:
+                    self._handle_error_and_close(
+                        BadMACAddressAPIError(
+                            f"{self._log_name}: Server sent a different mac '{mac_address}'",
+                            server_name,
+                            mac_address,
+                        )
+                    )
+                    return
+
         self._state = NOISE_STATE_HANDSHAKE
 
     def _decode_noise_psk(self) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
         psk = self._noise_psk
         server_name = self._server_name
+        server_mac = self._server_mac
         try:
             psk_bytes = binascii.a2b_base64(psk)
         except ValueError:
@@ -276,12 +298,14 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Malformed PSK `{psk}`, expected "
                 "base64-encoded value",
                 server_name,
+                server_mac,
             )
         if len(psk_bytes) != 32:
             raise InvalidEncryptionKeyAPIError(
                 f"{self._log_name}:Malformed PSK `{psk}`, expected"
                 f" 32-bytes of base64 data",
                 server_name,
+                server_mac,
             )
         return psk_bytes
 
@@ -305,7 +329,9 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
         else:
             exc = InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Invalid encryption key", self._server_name
+                f"{self._log_name}: Invalid encryption key",
+                self._server_name,
+                self._server_mac,
             )
         self._handle_error_and_close(exc)
 

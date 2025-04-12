@@ -21,6 +21,7 @@ from .core import (
     ResolveAPIError,
     EncryptionHelloAPIError,
     SocketAPIError,
+    BadMACAddressAPIError,
 )
 from .model import *
 from .reconnect_logic import ReconnectLogic

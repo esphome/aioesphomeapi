@@ -36,6 +36,7 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
         connection=connection,
         noise_psk=noise_psk,
         expected_name="servicetest",
+        expected_mac=None,
         client_info="my client",
         log_name="test",
         writer=_writelines,

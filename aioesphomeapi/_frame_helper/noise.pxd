@@ -33,8 +33,10 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef object _noise_psk
     cdef str _expected_name
+    cdef str _expected_mac
     cdef unsigned int _state
-    cdef object _server_name
+    cdef str _server_mac
+    cdef str _server_name
     cdef object _proto
     cdef EncryptCipher _encrypt_cipher
     cdef DecryptCipher _decrypt_cipher
@@ -57,7 +59,10 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     @cython.locals(
         chosen_proto=char,
-        server_name_i=int
+        server_name_i=int,
+        mac_address_i=int,
+        mac_address=str,
+        server_name=str,
     )
     cdef void _handle_hello(self, bytes server_hello) except *
 

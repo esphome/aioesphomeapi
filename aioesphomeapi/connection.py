@@ -120,6 +120,7 @@ class ConnectionParams:
     zeroconf_manager: ZeroconfManager
     noise_psk: str | None
     expected_name: str | None
+    expected_mac: str | None
 
 
 class ConnectionState(enum.Enum):
@@ -423,6 +424,7 @@ class APIConnection:
                 lambda: APINoiseFrameHelper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
+                    expected_mac=self._params.expected_mac,
                     connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,

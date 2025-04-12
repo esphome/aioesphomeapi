@@ -235,6 +235,7 @@ class APIClient:
         noise_psk: str | None = None,
         expected_name: str | None = None,
         addresses: list[str] | None = None,
+        expected_mac: str | None = None,
     ) -> None:
         """Create a client, this object is shared across sessions.
 
@@ -254,6 +255,9 @@ class APIClient:
             precedence over the address parameter. This is most commonly used when
             the device has dual stack IPv4 and IPv6 addresses and you do not know
             which one to connect to.
+        :param expected_mac: Optional MAC address to check against the device.
+            The format should be lower case without : or - separators.
+            Example: 00:aa:22:33:44:55 -> 00aa22334455
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
@@ -266,6 +270,7 @@ class APIClient:
             # treat empty '' psk string as missing (like password)
             noise_psk=_stringify_or_none(noise_psk) or None,
             expected_name=_stringify_or_none(expected_name) or None,
+            expected_mac=_stringify_or_none(expected_mac) or None,
         )
         self._connection: APIConnection | None = None
         self.cached_name: str | None = None
