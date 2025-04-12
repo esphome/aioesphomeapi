@@ -11,8 +11,15 @@ import logging
 import socket
 from typing import TYPE_CHECKING, Any, cast
 
-from zeroconf import IPVersion
-from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+from zeroconf import (  # type: ignore[attr-defined]
+    BadTypeInNameException,
+    DNSPointer,
+    IPVersion,
+    ServiceStateChange,
+    Zeroconf,
+    current_time_millis,
+)
+from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
 from .core import ResolveAPIError, ResolveTimeoutAPIError
 from .util import (
@@ -28,6 +35,9 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_TYPE = "_esphomelib._tcp.local."
 RESOLVE_TIMEOUT = 30.0
+CLASS_IN = 1
+TYPE_PTR = 12
+_TIMEOUT_MS = 3000
 
 
 @dataclass(frozen=True)
@@ -352,3 +362,197 @@ async def _async_resolve_host(
         for task in resolve_task_to_host:
             with suppress(asyncio.CancelledError):
                 await task
+
+
+def find_running_browser(azc: AsyncZeroconf) -> AsyncServiceBrowser | None:
+    """Find the running browser for the given zeroconf instance."""
+    for browser in azc.zeroconf.listeners:
+        if not isinstance(browser, AsyncServiceBrowser):
+            continue
+        if SERVICE_TYPE not in browser.types:
+            continue
+        return browser
+
+    return None
+
+
+class ZeroconfRecordWatcher:
+    """Watch for a specific zeroconf record."""
+
+    def __init__(
+        self, aiozc: AsyncZeroconf, address: IPv4Address | IPv6Address
+    ) -> None:
+        """Initialize the ZeroconfRecordWatcher."""
+        self._aiozc = aiozc
+        self._wanted_address = address
+        self._resolve_later: dict[str, asyncio.TimerHandle] = {}
+        self._stared_browser: bool = False
+        self._loop = asyncio.get_running_loop()
+        self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._running: bool = False
+        self._info_future: asyncio.Future[AsyncServiceInfo] = self._loop.create_future()
+
+    async def async_get_info(self) -> AsyncServiceInfo:
+        """Get the service info."""
+        await self._async_start()
+        try:
+            async with asyncio_timeout(RESOLVE_TIMEOUT):
+                return await self._info_future
+        except asyncio.TimeoutError:
+            raise ResolveTimeoutAPIError(
+                f"Timeout while resolving IP address for {self._wanted_address}"
+            )
+        finally:
+            await self._async_stop()
+
+    async def _async_start(self) -> None:
+        """Start the zeroconf browser."""
+        self._running = True
+        if not (browser := find_running_browser(self._aiozc)):
+            browser = AsyncServiceBrowser(
+                self._aiozc.zeroconf,
+                SERVICE_TYPE,
+                handlers=[self._handle_service],
+            )
+            self._stared_browser = True
+            self._browser = browser
+            return
+
+        self._browser = browser
+        browser.service_state_changed.register_handler(self._handle_service)
+        await self._async_update_from_cache(self._aiozc.zeroconf)
+
+    async def _async_update_from_cache(self, zc: Zeroconf) -> None:
+        """Load the records from the cache."""
+        tasks: list[asyncio.Task[None]] = []
+        now = current_time_millis()
+        for record in self._async_get_ptr_records(zc):
+            try:
+                info = AsyncServiceInfo(SERVICE_TYPE, record.alias)
+            except BadTypeInNameException as ex:
+                _LOGGER.debug(
+                    "Ignoring record with bad type in name: %s: %s", record.alias, ex
+                )
+                continue
+            if info.load_from_cache(zc, now):
+                self._async_handle_loaded_service_info(info)
+            else:
+                tasks.append(create_eager_task(self._async_handle_service(info)))
+
+        if tasks:
+            await asyncio.gather(*tasks)
+
+    def _async_get_ptr_records(self, zc: Zeroconf) -> list[DNSPointer]:
+        return cast(
+            list[DNSPointer],
+            zc.cache.async_all_by_details(SERVICE_TYPE, TYPE_PTR, CLASS_IN),
+        )
+
+    def _handle_service(
+        self,
+        zeroconf: Zeroconf,
+        service_type: str,
+        name: str,
+        state_change: ServiceStateChange,
+    ) -> None:
+        if service_type != SERVICE_TYPE:
+            return
+
+        if state_change == ServiceStateChange.Removed:
+            if cancel := self._resolve_later.pop(name, None):
+                cancel.cancel()
+            return
+
+        if name in self._resolve_later:
+            # We already have a timer to resolve this service, so ignore this
+            # callback.
+            return
+
+        try:
+            info = AsyncServiceInfo(service_type, name)
+        except BadTypeInNameException as ex:
+            _LOGGER.debug("Ignoring record with bad type in name: %s: %s", name, ex)
+            return
+
+        self._resolve_later[name] = self._loop.call_at(
+            self._loop.time() + 0.5, self._async_resolve_later, name, info
+        )
+
+    def _async_resolve_later(self, name: str, info: AsyncServiceInfo) -> None:
+        """Resolve a host later."""
+        # As soon as we get a callback, we can remove the _resolve_later
+        # so the next time we get a callback, we can resolve the service
+        # again if needed which ensures the TTL is respected.
+        self._resolve_later.pop(name, None)
+
+        if not self._running:
+            return
+
+        if info.load_from_cache(self._aiozc.zeroconf):
+            self._async_handle_loaded_service_info(info)
+        else:
+            task = create_eager_task(self._async_handle_service(info))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+
+    async def _async_stop(self) -> None:
+        self._running = False
+        self._browser.service_state_changed.unregister_handler(self._handle_service)
+        if self._stared_browser:
+            await self._browser.async_cancel()
+        for task in self._background_tasks:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        while self._resolve_later:
+            _, cancel = self._resolve_later.popitem()
+            cancel.cancel()
+
+    async def _async_handle_service(self, info: AsyncServiceInfo) -> None:
+        """Add a device that became visible via zeroconf."""
+        # AsyncServiceInfo already tries 3x
+        if await info.async_request(self._aiozc.zeroconf, _TIMEOUT_MS):
+            self._async_handle_loaded_service_info(info)
+
+    def _async_handle_loaded_service_info(self, info: AsyncServiceInfo) -> None:
+        """Handle a service info that was discovered via zeroconf."""
+        has_wanted_address = False
+        for address in info.ip_addresses_by_version(IPVersion.All):
+            if address == self._wanted_address:
+                has_wanted_address = True
+                break
+
+        if not has_wanted_address:
+            # This service info does not have the wanted address
+            # so we can ignore it.
+            return
+
+        if self._info_future.done():
+            self._info_future.set_result(info)
+
+
+async def async_txt_record_for_address(
+    address: str | IPv4Address | IPv6Address,
+    zeroconf_manager: ZeroconfManager | None = None,
+) -> dict[str, str | None] | None:
+    """Get the TXT record for a host."""
+    ip = ip_address(address)
+    manager: ZeroconfManager | None = None
+    aiozc: AsyncZeroconf | None = None
+    manager = zeroconf_manager or ZeroconfManager()
+    had_zeroconf_instance = manager.has_instance
+    try:
+        aiozc = manager.get_async_zeroconf()
+    except Exception as original_exc:
+        raise ResolveAPIError(
+            f"Cannot start mDNS sockets while resolving {address}: "
+            f"{original_exc}, is this a docker container "
+            "without host network mode? "
+        )
+    try:
+        return (
+            await ZeroconfRecordWatcher(aiozc, ip).async_get_info()
+        ).decoded_properties
+    finally:
+        if not had_zeroconf_instance:
+            await asyncio.shield(create_eager_task(manager.async_close()))
