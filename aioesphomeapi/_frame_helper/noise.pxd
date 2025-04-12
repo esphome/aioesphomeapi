@@ -59,7 +59,8 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     @cython.locals(
         chosen_proto=char,
-        server_name_i=int
+        server_name_i=int,
+        mac_address_i=int,
     )
     cdef void _handle_hello(self, bytes server_hello) except *
 
