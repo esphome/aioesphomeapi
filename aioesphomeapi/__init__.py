@@ -24,3 +24,8 @@ from .core import (
 )
 from .model import *
 from .reconnect_logic import ReconnectLogic
+from .host_resolver import (
+    ESPHomeDeviceInfo,
+    async_info_for_name,
+    async_info_for_address,
+)

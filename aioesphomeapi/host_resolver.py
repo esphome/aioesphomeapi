@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from collections.abc import Coroutine
-from contextlib import suppress
+from collections.abc import AsyncIterator, Coroutine
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import itertools
@@ -34,6 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 SERVICE_TYPE = "_esphomelib._tcp.local."
+SERVICE_TYPE_TRAILER = f".{SERVICE_TYPE}"
 RESOLVE_TIMEOUT = 30.0
 CLASS_IN = 1
 TYPE_PTR = 12
@@ -376,8 +377,8 @@ def find_running_browser(azc: AsyncZeroconf) -> AsyncServiceBrowser | None:
     return None
 
 
-class ZeroconfRecordWatcher:
-    """Watch for a specific zeroconf record."""
+class ZeroconfAddressRecordWatcher:
+    """Watch for a specific zeroconf address record."""
 
     def __init__(
         self, aiozc: AsyncZeroconf, address: IPv4Address | IPv6Address
@@ -426,7 +427,10 @@ class ZeroconfRecordWatcher:
         """Load the records from the cache."""
         tasks: list[asyncio.Task[None]] = []
         now = current_time_millis()
-        for record in self._async_get_ptr_records(zc):
+        for record in cast(
+            list[DNSPointer],
+            zc.cache.async_all_by_details(SERVICE_TYPE, TYPE_PTR, CLASS_IN),
+        ):
             try:
                 info = AsyncServiceInfo(SERVICE_TYPE, record.alias)
             except BadTypeInNameException as ex:
@@ -441,12 +445,6 @@ class ZeroconfRecordWatcher:
 
         if tasks:
             await asyncio.gather(*tasks)
-
-    def _async_get_ptr_records(self, zc: Zeroconf) -> list[DNSPointer]:
-        return cast(
-            list[DNSPointer],
-            zc.cache.async_all_by_details(SERVICE_TYPE, TYPE_PTR, CLASS_IN),
-        )
 
     def _handle_service(
         self,
@@ -516,27 +514,17 @@ class ZeroconfRecordWatcher:
 
     def _async_handle_loaded_service_info(self, info: AsyncServiceInfo) -> None:
         """Handle a service info that was discovered via zeroconf."""
-        has_wanted_address = False
         for address in info.ip_addresses_by_version(IPVersion.All):
             if address == self._wanted_address:
-                has_wanted_address = True
-                break
-
-        if not has_wanted_address:
-            # This service info does not have the wanted address
-            # so we can ignore it.
-            return
-
-        if self._info_future.done():
-            self._info_future.set_result(info)
+                if not self._info_future.done():
+                    self._info_future.set_result(info)
+                return
 
 
-async def async_txt_record_for_address(
-    address: str | IPv4Address | IPv6Address,
-    zeroconf_manager: ZeroconfManager | None = None,
-) -> dict[str, str | None] | None:
-    """Get the TXT record for a host."""
-    ip = ip_address(address)
+@asynccontextmanager
+async def _aiozc_from_manager(
+    zeroconf_manager: ZeroconfManager | None, name: object
+) -> AsyncIterator[AsyncZeroconf]:
     manager: ZeroconfManager | None = None
     aiozc: AsyncZeroconf | None = None
     manager = zeroconf_manager or ZeroconfManager()
@@ -545,14 +533,80 @@ async def async_txt_record_for_address(
         aiozc = manager.get_async_zeroconf()
     except Exception as original_exc:
         raise ResolveAPIError(
-            f"Cannot start mDNS sockets while resolving {address}: "
+            f"Cannot start mDNS sockets while resolving {name}: "
             f"{original_exc}, is this a docker container "
             "without host network mode? "
         )
     try:
-        return (
-            await ZeroconfRecordWatcher(aiozc, ip).async_get_info()
-        ).decoded_properties
+        yield aiozc
     finally:
         if not had_zeroconf_instance:
             await asyncio.shield(create_eager_task(manager.async_close()))
+
+
+@dataclass(frozen=True)
+class ESPHomeDeviceInfo:
+    """ESPHome Record."""
+
+    name: str
+    network: str | None  # eg. "ethernet"
+    board: str | None  # eg. "esp32dev"
+    version: str | None  # eg. "2023.10.0"
+    platform: str | None  # eg. "ESP32"
+    mac: str | None  # eg. "AA:BB:CC:DD:EE:FF"
+    project_name: str | None
+    project_version: str | None
+    friendly_name: str | None
+    api_encryption: str | None
+    package_import_url: str | None
+    addresses: list[IPv4Address | IPv6Address]
+
+
+def _service_info_to_esphome_device_info(
+    info: AsyncServiceInfo,
+) -> ESPHomeDeviceInfo:
+    """Convert a service info to ESPHomeDeviceInfo."""
+    decoded_properties = info.decoded_properties
+    return ESPHomeDeviceInfo(
+        name=info.name.removesuffix(SERVICE_TYPE_TRAILER),
+        network=decoded_properties.get("network"),
+        board=decoded_properties.get("board"),
+        version=decoded_properties.get("version"),
+        platform=decoded_properties.get("platform"),
+        mac=decoded_properties.get("mac"),
+        project_name=decoded_properties.get("project_name"),
+        project_version=decoded_properties.get("project_version"),
+        friendly_name=decoded_properties.get("friendly_name"),
+        api_encryption=decoded_properties.get("api_encryption"),
+        package_import_url=decoded_properties.get("package_import_url"),
+        addresses=info.ip_addresses_by_version(IPVersion.All),  # type: ignore[arg-type]
+    )
+
+
+async def async_info_for_address(
+    address: str | IPv4Address | IPv6Address,
+    zeroconf_manager: ZeroconfManager | None = None,
+) -> ESPHomeDeviceInfo:
+    """Get name and the TXT record for a host."""
+    ip = ip_address(address)
+    async with _aiozc_from_manager(zeroconf_manager, address) as aiozc:
+        return _service_info_to_esphome_device_info(
+            await ZeroconfAddressRecordWatcher(aiozc, ip).async_get_info()
+        )
+
+
+async def async_info_for_name(
+    name: str,
+    zeroconf_manager: ZeroconfManager | None = None,
+) -> ESPHomeDeviceInfo:
+    """Get name and the TXT record for a host."""
+    name = name.partition(".")[0]
+    async with _aiozc_from_manager(zeroconf_manager, name) as aiozc:
+        info = AsyncServiceInfo(SERVICE_TYPE, f"{name}.{SERVICE_TYPE}")
+        if not info.load_from_cache(aiozc.zeroconf) and not await info.async_request(
+            aiozc.zeroconf, _TIMEOUT_MS
+        ):
+            raise ResolveTimeoutAPIError(
+                f"Timeout while resolving IP address for {name}"
+            )
+        return _service_info_to_esphome_device_info(info)
