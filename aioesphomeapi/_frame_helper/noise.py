@@ -272,8 +272,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             mac_address_i = server_hello.find(b"\0", server_name_i + 1)
             if mac_address_i != -1:
                 # mac address found, this extension was added in 2025.4
-                mac_bytes = server_hello[server_name_i + 1 : mac_address_i]
-                mac_address = ":".join(f"{b:02x}" for b in mac_bytes)
+                mac_address = server_hello[server_name_i + 1 : mac_address_i].decode()
                 self._server_mac = mac_address
                 if self._expected_mac is not None and self._expected_mac != mac_address:
                     self._handle_error_and_close(
