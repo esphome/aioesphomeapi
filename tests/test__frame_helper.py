@@ -18,6 +18,7 @@ from aioesphomeapi._frame_helper.plain_text import (
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
+    BadMACAddressAPIError,
     BadNameAPIError,
     EncryptionHelloAPIError,
     HandshakeAPIError,
@@ -336,8 +337,43 @@ async def test_noise_incorrect_name():
     for pkt in incoming_packets:
         mock_data_received(helper, bytes.fromhex(pkt))
 
-    with pytest.raises(BadNameAPIError):
+    with pytest.raises(BadNameAPIError) as exc_info:
         await helper.ready_future
+    assert exc_info.value.received_name == "servicetest"
+
+
+@pytest.mark.asyncio
+async def test_noise_incorrect_mac():
+    """Test we raise on bad name."""
+    outgoing_packets = [
+        "010000",  # hello packet
+        "010031001ed7f7bb0b74085418258ed5928931bc36ade7cf06937fcff089044d4ab142643f1b2c9935bb77696f23d930836737a4",
+    ]
+    incoming_packets = [
+        "01001f01706f6f6c686f757365383170726f78790032343463616230363439396300",
+        "0100160148616e647368616b65204d4143206661696c757265",
+    ]
+    connection, _ = _make_mock_connection()
+
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="poolhouse81proxy",
+        client_info="my client",
+        log_name="test",
+        expected_mac="aabbccddeeff",
+    )
+
+    for pkt in outgoing_packets:
+        helper.mock_write_frame(bytes.fromhex(pkt))
+
+    for pkt in incoming_packets:
+        mock_data_received(helper, bytes.fromhex(pkt))
+
+    with pytest.raises(BadMACAddressAPIError) as exc_info:
+        await helper.ready_future
+    assert exc_info.value.received_name == "poolhouse81proxy"
+    assert exc_info.value.received_mac == "244cab06499c"
 
 
 VARUINT_TESTCASES = [
