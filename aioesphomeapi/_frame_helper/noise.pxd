@@ -33,6 +33,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef object _noise_psk
     cdef str _expected_name
+    cdef str _expected_mac
     cdef unsigned int _state
     cdef str _server_mac
     cdef str _server_name
