@@ -16,6 +16,7 @@ from noise.state import CipherState
 
 from ..core import (
     APIConnectionError,
+    BadMACAddressAPIError,
     BadNameAPIError,
     EncryptionErrorAPIError,
     EncryptionHelloAPIError,
@@ -116,6 +117,7 @@ class APINoiseFrameHelper(APIFrameHelper):
     __slots__ = (
         "_decrypt_cipher",
         "_encrypt_cipher",
+        "_expected_mac",
         "_expected_name",
         "_noise_psk",
         "_proto",
@@ -128,12 +130,14 @@ class APINoiseFrameHelper(APIFrameHelper):
         connection: APIConnection,
         noise_psk: str,
         expected_name: str | None,
+        expected_mac: str | None,
         client_info: str,
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(connection, client_info, log_name)
         self._noise_psk = noise_psk
+        self._expected_mac = expected_mac
         self._expected_name = expected_name
         self._state = NOISE_STATE_HELLO
         self._server_name: str | None = None
@@ -262,6 +266,21 @@ class APINoiseFrameHelper(APIFrameHelper):
                     )
                 )
                 return
+
+            mac_address_i = server_hello.find(b"\0", server_name_i + 1)
+            if mac_address_i != -1:
+                # mac address found, this extension was added in 2025.4
+                mac_bytes = server_hello[server_name_i + 1 : mac_address_i]
+                mac_address = ":".join(f"{b:02x}" for b in mac_bytes)
+                if self._expected_mac is not None and self._expected_mac != mac_address:
+                    self._handle_error_and_close(
+                        BadMACAddressAPIError(
+                            f"{self._log_name}: Server sent a different mac '{mac_address}'",
+                            server_name,
+                            mac_address,
+                        )
+                    )
+                    return
 
         self._state = NOISE_STATE_HANDSHAKE
 
