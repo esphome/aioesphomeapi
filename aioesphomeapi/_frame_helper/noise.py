@@ -121,6 +121,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_expected_name",
         "_noise_psk",
         "_proto",
+        "_server_mac",
         "_server_name",
         "_state",
     )
@@ -141,6 +142,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._expected_name = expected_name
         self._state = NOISE_STATE_HELLO
         self._server_name: str | None = None
+        self._server_mac: str | None = None
         self._encrypt_cipher: EncryptCipher | None = None
         self._decrypt_cipher: DecryptCipher | None = None
         self._setup_proto()
@@ -272,6 +274,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 # mac address found, this extension was added in 2025.4
                 mac_bytes = server_hello[server_name_i + 1 : mac_address_i]
                 mac_address = ":".join(f"{b:02x}" for b in mac_bytes)
+                self._server_mac = mac_address
                 if self._expected_mac is not None and self._expected_mac != mac_address:
                     self._handle_error_and_close(
                         BadMACAddressAPIError(
@@ -324,7 +327,9 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
         else:
             exc = InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Invalid encryption key", self._server_name
+                f"{self._log_name}: Invalid encryption key",
+                self._server_name,
+                self._server_mac,
             )
         self._handle_error_and_close(exc)
 

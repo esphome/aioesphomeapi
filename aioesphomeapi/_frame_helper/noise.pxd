@@ -34,7 +34,8 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef object _noise_psk
     cdef str _expected_name
     cdef unsigned int _state
-    cdef object _server_name
+    cdef str _server_mac
+    cdef str _server_name
     cdef object _proto
     cdef EncryptCipher _encrypt_cipher
     cdef DecryptCipher _decrypt_cipher

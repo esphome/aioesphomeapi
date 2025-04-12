@@ -236,7 +236,7 @@ class BadNameAPIError(APIConnectionError):
 class BadMACAddressAPIError(APIConnectionError):
     def __init__(self, msg: str, received_name: str, received_mac: str) -> None:
         super().__init__(
-            f"{msg}: received_name={received_name} received_mac={received_mac}"
+            f"{msg}: received_name={received_name}, received_mac={received_mac}"
         )
         self.received_name = received_name
         self.received_mac = received_mac
@@ -244,10 +244,16 @@ class BadMACAddressAPIError(APIConnectionError):
 
 class InvalidEncryptionKeyAPIError(HandshakeAPIError):
     def __init__(
-        self, msg: str | None = None, received_name: str | None = None
+        self,
+        msg: str | None = None,
+        received_name: str | None = None,
+        received_mac: str | None = None,
     ) -> None:
-        super().__init__(f"{msg}: received_name={received_name}")
+        super().__init__(
+            f"{msg}: received_name={received_name}, received_mac={received_mac}"
+        )
         self.received_name = received_name
+        self.received_mac = received_mac
 
 
 class EncryptionErrorAPIError(InvalidEncryptionKeyAPIError):
