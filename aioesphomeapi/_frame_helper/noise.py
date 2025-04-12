@@ -290,6 +290,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Decode the given noise psk from base64 format to raw bytes."""
         psk = self._noise_psk
         server_name = self._server_name
+        server_mac = self._server_mac
         try:
             psk_bytes = binascii.a2b_base64(psk)
         except ValueError:
@@ -297,12 +298,14 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Malformed PSK `{psk}`, expected "
                 "base64-encoded value",
                 server_name,
+                server_mac,
             )
         if len(psk_bytes) != 32:
             raise InvalidEncryptionKeyAPIError(
                 f"{self._log_name}:Malformed PSK `{psk}`, expected"
                 f" 32-bytes of base64 data",
                 server_name,
+                server_mac,
             )
         return psk_bytes
 
