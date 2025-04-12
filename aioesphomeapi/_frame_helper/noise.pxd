@@ -61,6 +61,8 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         chosen_proto=char,
         server_name_i=int,
         mac_address_i=int,
+        mac_address=str,
+        server_name=str,
     )
     cdef void _handle_hello(self, bytes server_hello) except *
 
