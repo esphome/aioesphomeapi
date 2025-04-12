@@ -229,6 +229,7 @@ async def test_noise_protector_event_loop(byte_type: Any) -> None:
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
+        expected_mac=None,
     )
 
     for pkt in outgoing_packets:
@@ -260,6 +261,7 @@ async def test_noise_frame_helper_incorrect_key():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
+        expected_mac=None,
     )
 
     for pkt in outgoing_packets:
@@ -291,6 +293,7 @@ async def test_noise_frame_helper_incorrect_key_fragments():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
+        expected_mac=None,
     )
 
     for pkt in outgoing_packets:
@@ -324,6 +327,7 @@ async def test_noise_incorrect_name():
         expected_name="wrongname",
         client_info="my client",
         log_name="test",
+        expected_mac=None,
     )
 
     for pkt in outgoing_packets:
@@ -371,6 +375,7 @@ async def test_noise_frame_helper_handshake_failure():
         client_info="my client",
         log_name="test",
         writer=_writelines,
+        expected_mac=None,
     )
 
     proto = _mock_responder_proto(psk_bytes)
@@ -420,6 +425,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
         client_info="my client",
         log_name="test",
         writer=_writelines,
+        expected_mac=None,
     )
 
     proto = _mock_responder_proto(psk_bytes)
@@ -482,6 +488,7 @@ async def test_noise_valid_encryption_invalid_payload(
         client_info="my client",
         log_name="test",
         writer=_writelines,
+        expected_mac=None,
     )
 
     proto = _mock_responder_proto(psk_bytes)
@@ -549,6 +556,7 @@ async def test_noise_valid_encryption_payload_short(
         client_info="my client",
         log_name="test",
         writer=_writelines,
+        expected_mac=None,
     )
 
     proto = _mock_responder_proto(psk_bytes)
@@ -627,6 +635,7 @@ async def test_noise_frame_helper_bad_encryption(
         client_info="my client",
         log_name="test",
         writer=_writelines,
+        expected_mac=None,
     )
 
     proto = _mock_responder_proto(psk_bytes)
@@ -753,6 +762,7 @@ async def test_noise_frame_helper_empty_hello():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
+        expected_mac=None,
     )
 
     hello_pkt_with_header = _make_noise_hello_pkt(b"")
@@ -773,6 +783,7 @@ async def test_noise_frame_helper_wrong_protocol():
         expected_name="servicetest",
         client_info="my client",
         log_name="test",
+        expected_mac=None,
     )
 
     # wrong protocol 5 instead of 1
@@ -871,4 +882,5 @@ async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
             expected_name="wrongname",
             client_info="my client",
             log_name="test",
+            expected_mac=None,
         )
