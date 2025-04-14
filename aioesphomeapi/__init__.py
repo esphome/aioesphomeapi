@@ -10,6 +10,7 @@ from .core import (
     ESPHOME_GATT_ERRORS,
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionError,
+    EncryptionPlaintextAPIError,
     BadNameAPIError,
     BluetoothConnectionDroppedError,
     HandshakeAPIError,
@@ -18,7 +19,9 @@ from .core import (
     ProtocolAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
+    EncryptionHelloAPIError,
     SocketAPIError,
+    BadMACAddressAPIError,
 )
 from .model import *
 from .reconnect_logic import ReconnectLogic

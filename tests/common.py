@@ -53,6 +53,7 @@ def get_mock_connection_params() -> ConnectionParams:
         zeroconf_manager=ZeroconfManager(),
         noise_psk=None,
         expected_name=None,
+        expected_mac=None,
     )
 
 

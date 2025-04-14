@@ -16,6 +16,15 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
     cdef void _error_on_incorrect_preamble(self, int preamble) except *
 
     @cython.locals(
+        result="unsigned int",
+        bitpos="unsigned int",
+        cstr="const unsigned char *",
+        val="unsigned char",
+        current_pos="unsigned int"
+    )
+    cdef int _read_varuint(self)
+
+    @cython.locals(
         type_="unsigned int",
         data=bytes,
         packet=tuple,
