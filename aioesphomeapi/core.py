@@ -233,16 +233,43 @@ class BadNameAPIError(APIConnectionError):
         self.received_name = received_name
 
 
-class InvalidEncryptionKeyAPIError(HandshakeAPIError):
-    def __init__(
-        self, msg: str | None = None, received_name: str | None = None
-    ) -> None:
-        super().__init__(f"{msg}: received_name={received_name}")
+class BadMACAddressAPIError(APIConnectionError):
+    """Raised when a MAC address received from the remote but does not much the expected MAC address."""
+
+    def __init__(self, msg: str, received_name: str, received_mac: str) -> None:
+        super().__init__(
+            f"{msg}: received_name={received_name}, received_mac={received_mac}"
+        )
         self.received_name = received_name
+        self.received_mac = received_mac
+
+
+class InvalidEncryptionKeyAPIError(HandshakeAPIError):
+    """Raised when the encryption key is invalid."""
+
+    def __init__(
+        self,
+        msg: str | None = None,
+        received_name: str | None = None,
+        received_mac: str | None = None,
+    ) -> None:
+        super().__init__(
+            f"{msg}: received_name={received_name}, received_mac={received_mac}"
+        )
+        self.received_name = received_name
+        self.received_mac = received_mac
 
 
 class EncryptionErrorAPIError(InvalidEncryptionKeyAPIError):
     """Raised when an encryption error occurs after handshake."""
+
+
+class EncryptionHelloAPIError(HandshakeAPIError):
+    """Raised when an encryption error occurs during hello."""
+
+
+class EncryptionPlaintextAPIError(HandshakeAPIError):
+    """Raised when the ESP is using plaintext during noise handshake."""
 
 
 class PingFailedAPIError(APIConnectionError):

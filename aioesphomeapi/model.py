@@ -830,15 +830,8 @@ class MediaPlayerCommand(APIIntEnum):
     REPEAT_ONE = 9
     REPEAT_OFF = 10
     CLEAR_PLAYLIST = 11
-    NEXT_TRACK = 12
-    PREVIOUS_TRACK = 13
-    TURN_ON = 14
-    TURN_OFF = 15
-    SHUFFLE = 16
-    UNSHUFFLE = 17
-    REPEAT_ALL = 18
-    JOIN = 19
-    UNJOIN = 20
+    TURN_ON = 12
+    TURN_OFF = 13
 
 
 class MediaPlayerFormatPurpose(APIIntEnum):
@@ -871,9 +864,7 @@ class MediaPlayerSupportedFormat(APIModelBase):
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
-    supports_next_previous_track: bool = False
     supports_turn_off_on: bool = False
-    supports_grouping: bool = False
 
     supported_formats: list[MediaPlayerSupportedFormat] = converter_field(
         default_factory=list, converter=MediaPlayerSupportedFormat.convert_list
@@ -889,15 +880,6 @@ class MediaPlayerEntityState(EntityState):
         default=0.0, converter=fix_float_single_double_conversion
     )
     muted: bool = False
-    repeat: str = ""
-    shuffle: bool = False
-
-    artist: str = ""
-    album: str = ""
-    title: str = ""
-    duration: int = 0
-    position: int = 0
-    thumbnail_url: str = ""
 
 
 # ==================== ALARM CONTROL PANEL ====================

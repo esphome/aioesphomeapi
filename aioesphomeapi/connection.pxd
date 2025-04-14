@@ -86,6 +86,7 @@ cdef class ConnectionParams:
     cdef public object zeroconf_manager
     cdef public object noise_psk
     cdef public object expected_name
+    cdef public object expected_mac
 
 
 cdef class APIConnection:

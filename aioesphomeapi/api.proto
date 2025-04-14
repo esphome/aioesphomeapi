@@ -1147,15 +1147,8 @@ enum MediaPlayerCommand {
   MEDIA_PLAYER_COMMAND_REPEAT_ONE = 9;
   MEDIA_PLAYER_COMMAND_REPEAT_OFF = 10;
   MEDIA_PLAYER_COMMAND_CLEAR_PLAYLIST = 11;
-  MEDIA_PLAYER_COMMAND_NEXT_TRACK = 12;
-  MEDIA_PLAYER_COMMAND_PREVIOUS_TRACK = 13;
-  MEDIA_PLAYER_COMMAND_TURN_ON = 14;
-  MEDIA_PLAYER_COMMAND_TURN_OFF = 15;
-  MEDIA_PLAYER_COMMAND_SHUFFLE = 16;
-  MEDIA_PLAYER_COMMAND_UNSHUFFLE = 17;
-  MEDIA_PLAYER_COMMAND_REPEAT_ALL = 18;
-  MEDIA_PLAYER_COMMAND_JOIN = 19;
-  MEDIA_PLAYER_COMMAND_UNJOIN = 20;
+  MEDIA_PLAYER_COMMAND_TURN_ON = 12;
+  MEDIA_PLAYER_COMMAND_TURN_OFF = 13;
 }
 enum MediaPlayerFormatPurpose {
   MEDIA_PLAYER_FORMAT_PURPOSE_DEFAULT = 0;
@@ -1188,8 +1181,6 @@ message ListEntitiesMediaPlayerResponse {
 
   repeated MediaPlayerSupportedFormat supported_formats = 9;
   bool supports_turn_off_on = 10;
-  bool supports_grouping = 11;
-  bool supports_next_previous_track = 12;
 }
 message MediaPlayerStateResponse {
   option (id) = 64;
@@ -1200,14 +1191,6 @@ message MediaPlayerStateResponse {
   MediaPlayerState state = 2;
   float volume = 3;
   bool muted = 4;
-  string repeat = 5;
-  bool shuffle = 6;
-  string artist = 7;
-  string album = 8;
-  string title = 9;
-  int32 duration = 10;
-  int32 position = 11;
-  string thumbnail_url = 12;
 }
 message MediaPlayerCommandRequest {
   option (id) = 65;
@@ -1228,12 +1211,6 @@ message MediaPlayerCommandRequest {
 
   bool has_announcement = 8;
   bool announcement = 9;
-
-  bool has_enqueue = 10;
-  string enqueue = 11;
-  
-  bool has_group_members = 12;
-  string group_members = 13;
 }
 
 // ==================== BLUETOOTH ====================
