@@ -2,7 +2,7 @@ import cython
 
 from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
-
+from .noise_helpers cimport EncryptCipher, DecryptCipher
 
 cdef bint TYPE_CHECKING
 
@@ -12,22 +12,8 @@ cdef unsigned int NOISE_STATE_READY
 cdef unsigned int NOISE_STATE_CLOSED
 
 cdef bytes NOISE_HELLO
-cdef object PACK_NONCE
 cdef object InvalidTag
-
-cdef class EncryptCipher:
-
-    cdef object _nonce
-    cdef object _encrypt
-
-    cdef bytes encrypt(self, object frame)
-
-cdef class DecryptCipher:
-
-    cdef object _nonce
-    cdef object _decrypt
-
-    cdef bytes decrypt(self, object frame)
+cdef object ESPHOME_NOISE_BACKEND
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 

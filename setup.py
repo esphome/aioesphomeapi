@@ -16,9 +16,10 @@ except ImportError:
 TO_CYTHONIZE = [
     "aioesphomeapi/client_callbacks.py",
     "aioesphomeapi/connection.py",
-    "aioesphomeapi/_frame_helper/plain_text.py",
-    "aioesphomeapi/_frame_helper/noise.py",
     "aioesphomeapi/_frame_helper/base.py",
+    "aioesphomeapi/_frame_helper/noise.py",
+    "aioesphomeapi/_frame_helper/noise_helpers.py",
+    "aioesphomeapi/_frame_helper/plain_text.py",
 ]
 
 EXTENSIONS = [
