@@ -11,7 +11,7 @@ import pytest
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.plain_text import (
+from aioesphomeapi._frame_helper.packets import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
     _varuint_to_bytes as varuint_to_bytes,
 )
