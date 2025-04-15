@@ -2,7 +2,7 @@ from .noise_encryption cimport EncryptCipher
 
 cdef object varuint_to_bytes
 
-cdef _varuint_to_bytes(int value)
+cpdef _varuint_to_bytes(int value)
 
 
 @cython.locals(
