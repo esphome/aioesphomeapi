@@ -21,6 +21,7 @@ from ..core import (
 )
 from .base import _LOGGER, APIFrameHelper
 from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
+from .packets import make_noise_packets
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
@@ -288,27 +289,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         """
         if TYPE_CHECKING:
             assert self._encrypt_cipher is not None, "Handshake should be complete"
-
-        out: list[bytes] = []
-        for packet in packets:
-            type_: int = packet[0]
-            data: bytes = packet[1]
-            data_len = len(data)
-            data_header = bytes(
-                (
-                    (type_ >> 8) & 0xFF,
-                    type_ & 0xFF,
-                    (data_len >> 8) & 0xFF,
-                    data_len & 0xFF,
-                )
-            )
-            frame = self._encrypt_cipher.encrypt(data_header + data)
-            frame_len = len(frame)
-            header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
-            out.append(header)
-            out.append(frame)
-
-        self._write_bytes(out, debug_enabled)
+        self._write_bytes(
+            make_noise_packets(packets, self._encrypt_cipher), debug_enabled
+        )
 
     def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""
