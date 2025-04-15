@@ -20,13 +20,11 @@ from ..core import (
     ProtocolAPIError,
 )
 from .base import _LOGGER, APIFrameHelper
-from .noise_encryption import DecryptCipher, EncryptCipher, ESPHomeNoiseBackend
+from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
 
-
-ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
 
 # This is effectively an enum but we don't want to use an enum
 # because we have a simple dispatch in the data_received method

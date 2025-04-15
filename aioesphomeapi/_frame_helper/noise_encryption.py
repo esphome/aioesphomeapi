@@ -30,6 +30,9 @@ class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
         self.ciphers["ChaChaPoly"] = ChaCha20CipherReuseable
 
 
+ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
+
+
 class EncryptCipher:
     """Wrapper around the ChaCha20Poly1305 cipher for encryption."""
 
