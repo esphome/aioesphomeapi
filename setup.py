@@ -18,7 +18,7 @@ TO_CYTHONIZE = [
     "aioesphomeapi/connection.py",
     "aioesphomeapi/_frame_helper/base.py",
     "aioesphomeapi/_frame_helper/noise.py",
-    "aioesphomeapi/_frame_helper/noise_helpers.py",
+    "aioesphomeapi/_frame_helper/noise_encryption.py",
     "aioesphomeapi/_frame_helper/plain_text.py",
 ]
 

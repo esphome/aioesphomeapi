@@ -2,7 +2,7 @@ import cython
 
 from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
-from .noise_helpers cimport EncryptCipher, DecryptCipher
+from .noise_encryption cimport EncryptCipher, DecryptCipher
 
 cdef bint TYPE_CHECKING
 

@@ -20,7 +20,7 @@ from ..core import (
     ProtocolAPIError,
 )
 from .base import _LOGGER, APIFrameHelper
-from .noise_helpers import DecryptCipher, EncryptCipher, ESPHomeNoiseBackend
+from .noise_encryption import DecryptCipher, EncryptCipher, ESPHomeNoiseBackend
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
