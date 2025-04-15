@@ -13,7 +13,6 @@ cdef unsigned int NOISE_STATE_CLOSED
 
 cdef bytes NOISE_HELLO
 cdef object InvalidTag
-cdef object ESPHOME_NOISE_BACKEND
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
