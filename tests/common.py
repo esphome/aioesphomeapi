@@ -15,7 +15,7 @@ from zeroconf.asyncio import AsyncZeroconf
 
 from aioesphomeapi import APIClient, APIConnection
 from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND
+from aioesphomeapi._frame_helper.noise_encryption import ESPHOME_NOISE_BACKEND
 from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
     ConnectResponse,
