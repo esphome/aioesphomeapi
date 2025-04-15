@@ -3,6 +3,7 @@ import cython
 from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
 from .noise_encryption cimport EncryptCipher, DecryptCipher
+from .packets cimport make_noise_packets
 
 cdef bint TYPE_CHECKING
 
@@ -64,15 +65,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     @cython.locals(psk_bytes=bytes)
     cdef _decode_noise_psk(self)
 
-    @cython.locals(
-        type_="unsigned int",
-        data=bytes,
-        data_header=bytes,
-        packet=tuple,
-        data_len=cython.uint,
-        frame=bytes,
-        frame_len=cython.uint,
-    )
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
     cdef _error_on_incorrect_preamble(self, bytes msg)

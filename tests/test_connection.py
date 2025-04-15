@@ -14,7 +14,7 @@ import pytest
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
+from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
     DisconnectRequest,
