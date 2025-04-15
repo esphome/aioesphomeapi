@@ -1,3 +1,5 @@
+import cython
+
 from .noise_encryption cimport EncryptCipher
 
 cdef object varuint_to_bytes
