@@ -130,7 +130,7 @@ from .common import (
     get_mock_zeroconf,
     mock_data_received,
 )
-from .conftest import PatchableAPIConnection
+from .conftest import PatchableAPIClient, PatchableAPIConnection
 
 
 def patch_response_complex(client: APIClient, messages):
@@ -190,10 +190,7 @@ async def test_expected_name(auth_client: APIClient) -> None:
 async def test_connect_backwards_compat() -> None:
     """Verify connect is a thin wrapper around start_connection and finish_connection."""
 
-    class PatchableApiClient(APIClient):
-        pass
-
-    cli = PatchableApiClient("host", 1234, None)
+    cli = PatchableAPIClient("host", 1234, None)
     with (
         patch.object(cli, "start_connection") as mock_start_connection,
         patch.object(cli, "finish_connection") as mock_finish_connection,
@@ -275,10 +272,7 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
 async def test_request_while_handshaking() -> None:
     """Test trying a request while handshaking raises."""
 
-    class PatchableApiClient(APIClient):
-        pass
-
-    cli = PatchableApiClient("127.0.0.1", 1234, None)
+    cli = PatchableAPIClient("127.0.0.1", 1234, None)
     with (
         patch(
             "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
@@ -1028,12 +1022,21 @@ async def test_update_command(
     send.assert_called_once_with(UpdateCommandRequest(**req))
 
 
+async def test_set_cached_name_if_unset_subclassed_string():
+    """Test set_cached_name_if_unset with a subclassed string."""
+    cli = PatchableAPIClient(
+        address="127.0.0.1",
+        port=6052,
+        password=None,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="mydevice",
+    )
+    cli.set_cached_name_if_unset(Estr("mydevice"))
+    assert cli.log_name == "mydevice @ 127.0.0.1"
+
+
 async def test_noise_psk_handles_subclassed_string():
     """Test that the noise_psk gets converted to a string."""
-
-    class PatchableAPIClient(APIClient):
-        pass
-
     cli = PatchableAPIClient(
         address=Estr("127.0.0.1"),
         port=6052,

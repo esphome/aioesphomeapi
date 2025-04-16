@@ -297,16 +297,15 @@ class APIClientBase:
         if self._connection is not None:
             self._connection.set_log_name(self.log_name)
 
-    def _set_name_from_device(self, name: str) -> None:
+    def _set_name_from_device(self, name: str_) -> None:
         """Set the name from a DeviceInfo message."""
-        self.cached_name = name
+        self.cached_name = str(name)  # May be Estr from esphome
         self._set_log_name()
 
-    def set_cached_name_if_unset(self, name: str) -> None:
+    def set_cached_name_if_unset(self, name: str_) -> None:
         """Set the cached name of the device if not set."""
         if not self.cached_name:
-            self.cached_name = name
-            self._set_log_name()
+            self._set_name_from_device(name)
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""
