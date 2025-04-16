@@ -713,7 +713,7 @@ class APIConnection:
             for msg in msgs
             if (msg_type := PROTO_TO_MESSAGE_TYPE[type(msg)])
         ]
-        if debug_enabled := self._debug_enabled:
+        if self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(
                     "%s: Sending %s: %s",
@@ -729,7 +729,7 @@ class APIConnection:
             assert self._frame_helper is not None
 
         try:
-            self._frame_helper.write_packets(packets, debug_enabled)
+            self._frame_helper.write_packets(packets, self._debug_enabled)
         except WRITE_EXCEPTIONS as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
@@ -745,10 +745,9 @@ class APIConnection:
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Add a message callback without returning a remove callable."""
-        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            if (handlers := message_handlers.get(msg_type)) is None:
-                message_handlers[msg_type] = {on_message}
+            if (handlers := self._message_handlers.get(msg_type)) is None:
+                self._message_handlers[msg_type] = {on_message}
             else:
                 handlers.add(on_message)
 
@@ -763,9 +762,8 @@ class APIConnection:
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Remove a message callback."""
-        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            handlers = message_handlers[msg_type]
+            handlers = self._message_handlers[msg_type]
             handlers.discard(on_message)
 
     def send_message_callback_response(
@@ -885,7 +883,6 @@ class APIConnection:
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
-        debug_enabled = self._debug_enabled
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
             # but the message type is 1-indexed
@@ -898,7 +895,7 @@ class APIConnection:
             # after the broad exception catch to avoid having
             # to check the exception type twice for the common case
             if isinstance(e, IndexError):
-                if debug_enabled:
+                if self._debug_enabled:
                     _LOGGER.debug(
                         "%s: Skipping unknown message type %s",
                         self.log_name,
@@ -918,7 +915,7 @@ class APIConnection:
             )
             raise
 
-        if debug_enabled:
+        if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Got message of type %s: %s",
                 self.log_name,
