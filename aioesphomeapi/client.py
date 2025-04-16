@@ -94,7 +94,11 @@ from .client_base import (
     on_state_msg,
     on_subscribe_home_assistant_state_response,
 )
-from .connection import APIConnection, handle_timeout
+from .connection import (
+    APIConnection,
+    ConnectionParams,  # noqa: F401
+    handle_timeout,
+)
 from .core import (
     APIConnectionError,
     BluetoothConnectionDroppedError,
