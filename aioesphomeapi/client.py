@@ -1163,12 +1163,6 @@ class APIClient(APIClientBase):
     def request_image_stream(self) -> None:
         self._request_image(stream=True)
 
-    @property
-    def api_version(self) -> APIVersion | None:
-        if self._connection is None:
-            return None
-        return self._connection.api_version
-
     def subscribe_voice_assistant(
         self,
         *,

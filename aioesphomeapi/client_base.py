@@ -26,6 +26,7 @@ from .api_pb2 import (  # type: ignore
 from .connection import APIConnection, ConnectionParams
 from .core import APIConnectionError
 from .model import (
+    APIVersion,
     BluetoothLEAdvertisement,
     CameraState,
     EntityState,
@@ -267,6 +268,12 @@ class APIClientBase:
     @property
     def address(self) -> str:
         return self._params.addresses[0]
+
+    @property
+    def api_version(self) -> APIVersion | None:
+        if self._connection is None:
+            return None
+        return self._connection.api_version
 
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
