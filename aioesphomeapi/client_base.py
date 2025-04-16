@@ -175,7 +175,10 @@ def on_bluetooth_message_types(
     return type(msg) in msg_types and bool(msg.address == address)
 
 
-def _stringify_or_none(value: str | None) -> str | None:
+str_ = str
+
+
+def _stringify_or_none(value: str_ | None) -> str | None:
     """Convert a string like object to a str or None.
 
     The noise_psk is sometimes passed into
@@ -200,17 +203,17 @@ class APIClientBase:
 
     def __init__(
         self,
-        address: str,
+        address: str_,  # allow subclass str
         port: int,
-        password: str | None,
+        password: str_ | None,
         *,
-        client_info: str = "aioesphomeapi",
+        client_info: str_ = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
         zeroconf_instance: ZeroconfInstanceType | None = None,
-        noise_psk: str | None = None,
-        expected_name: str | None = None,
-        addresses: list[str] | None = None,
-        expected_mac: str | None = None,
+        noise_psk: str_ | None = None,
+        expected_name: str_ | None = None,
+        addresses: list[str_] | None = None,
+        expected_mac: str_ | None = None,
     ) -> None:
         """Create a client, this object is shared across sessions.
 
