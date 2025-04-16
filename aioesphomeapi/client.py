@@ -1290,12 +1290,6 @@ class APIClient(APIClientBase):
 
         return unsub
 
-    def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
-        """Create a background task and add it to the background tasks set."""
-        task = create_eager_task(coro)
-        self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
-
     def send_voice_assistant_event(
         self, event_type: VoiceAssistantEventType, data: dict[str, str] | None
     ) -> None:

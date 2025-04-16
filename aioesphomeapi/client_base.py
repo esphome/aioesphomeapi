@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import Future
+from collections.abc import Coroutine
 import logging
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -33,7 +34,7 @@ from .model import (
     HomeassistantServiceCall,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
-from .util import build_log_name
+from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -298,6 +299,12 @@ class APIClientBase:
         if not self.cached_name:
             self.cached_name = name
             self._set_log_name()
+
+    def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
+        """Create a background task and add it to the background tasks set."""
+        task = create_eager_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
     def _get_connection(self) -> APIConnection:
         if self._connection is None:
