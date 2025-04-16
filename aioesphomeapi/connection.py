@@ -889,8 +889,19 @@ class APIConnection:
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
-        if (handlers := self._message_handlers.get(msg_type_proto)) is None:
+        handlers = self._message_handlers.get(msg_type_proto)
+        if handlers is None and not self._debug_enabled:
             return
+
+        if self._pong_timer is not None:
+            # Any valid message from the remote cancels the pong timer
+            # as we know the connection is still alive
+            self._async_cancel_pong_timer()
+
+        if self._send_pending_ping:
+            # Any valid message from the remove cancels the pending ping
+            # since we know the connection is still alive
+            self._send_pending_ping = False
 
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
@@ -934,16 +945,11 @@ class APIConnection:
                 # so we call MessageToDict instead
                 MessageToDict(msg) if _WIN32 else msg,
             )
+            if handlers is None:
+                return
 
-        if self._pong_timer is not None:
-            # Any valid message from the remote cancels the pong timer
-            # as we know the connection is still alive
-            self._async_cancel_pong_timer()
-
-        if self._send_pending_ping:
-            # Any valid message from the remove cancels the pending ping
-            # since we know the connection is still alive
-            self._send_pending_ping = False
+        if TYPE_CHECKING:
+            assert handlers is not None
 
         if len(handlers) > 1:
             # Handlers are allowed to remove themselves

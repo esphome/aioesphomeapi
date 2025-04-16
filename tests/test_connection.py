@@ -974,6 +974,7 @@ async def test_unknown_protobuf_message_type_logged(
 ) -> None:
     """Test unknown protobuf messages are logged but do not cause the connection to collapse."""
     client, connection, transport, protocol = api_client
+    connection._message_handlers[16385] = lambda msg: None
     response: message.Message = DeviceInfoResponse(
         name="realname",
         friendly_name="My Device",
@@ -1005,6 +1006,7 @@ async def test_bad_protobuf_message_drops_connection(
 ) -> None:
     """Test ad bad protobuf messages is logged and causes the connection to collapse."""
     client, connection, transport, protocol = api_client
+    connection.add_message_callback(lambda msg: None, (TextSensorStateResponse,))
     msg: message.Message = TextSensorStateResponse(
         key=1, state="invalid", missing_state=False
     )
