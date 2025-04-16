@@ -71,6 +71,10 @@ PING_REQUEST_MESSAGES = (PingRequest(),)
 PING_RESPONSE_MESSAGES = (PingResponse(),)
 NO_PASSWORD_CONNECT_REQUEST = ConnectRequest()
 
+PROTO_TO_MESSAGE_ID: dict[type[message.Message], int] = {
+    v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()
+}
+
 PROTO_TO_MESSAGE_TYPE: dict[
     type[message.Message], tuple[int, Callable[[message.Message], bytes]]
 ] = {v: (k, v.SerializeToString) for k, v in MESSAGE_TYPE_TO_PROTO.items()}
@@ -234,7 +238,7 @@ class APIConnection:
         self.connection_state = CONNECTION_STATE_INITIALIZED
 
         # Message handlers currently subscribed to incoming messages
-        self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
+        self._message_handlers: dict[int, set[Callable[[message.Message], None]]] = {}
         # The friendly name to show for this connection in the logs
         self.log_name = log_name or ",".join(params.addresses)
 
@@ -745,10 +749,10 @@ class APIConnection:
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Add a message callback without returning a remove callable."""
-        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            if (handlers := message_handlers.get(msg_type)) is None:
-                message_handlers[msg_type] = {on_message}
+            id_ = PROTO_TO_MESSAGE_ID[msg_type]
+            if (handlers := self._message_handlers.get(id_)) is None:
+                self._message_handlers[id_] = {on_message}
             else:
                 handlers.add(on_message)
 
@@ -763,9 +767,9 @@ class APIConnection:
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Remove a message callback."""
-        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            handlers = message_handlers[msg_type]
+            id_ = PROTO_TO_MESSAGE_ID[msg_type]
+            handlers = self._message_handlers[id_]
             handlers.discard(on_message)
 
     def send_message_callback_response(
@@ -885,7 +889,9 @@ class APIConnection:
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
-        debug_enabled = self._debug_enabled
+        if (handlers := self._message_handlers.get(msg_type_proto)) is None:
+            return
+
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
             # but the message type is 1-indexed
@@ -898,7 +904,7 @@ class APIConnection:
             # after the broad exception catch to avoid having
             # to check the exception type twice for the common case
             if isinstance(e, IndexError):
-                if debug_enabled:
+                if self._debug_enabled:
                     _LOGGER.debug(
                         "%s: Skipping unknown message type %s",
                         self.log_name,
@@ -918,7 +924,7 @@ class APIConnection:
             )
             raise
 
-        if debug_enabled:
+        if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Got message of type %s: %s",
                 self.log_name,
@@ -938,9 +944,6 @@ class APIConnection:
             # Any valid message from the remove cancels the pending ping
             # since we know the connection is still alive
             self._send_pending_ping = False
-
-        if (handlers := self._message_handlers.get(type(msg))) is None:
-            return
 
         if len(handlers) > 1:
             # Handlers are allowed to remove themselves
