@@ -21,7 +21,7 @@ cdef object BluetoothLEAdvertisement
 
 cdef object BluetoothDeviceConnectionResponse
 
-cdef str _stringify_or_none(str value)
+cdef str _stringify_or_none(object value)
 
 cdef class APIClientBase:
 
