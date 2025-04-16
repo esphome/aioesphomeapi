@@ -1,6 +1,6 @@
 import cython
 
-from .connection cimport APIConnection, ConnectionParams
+# from .connection cimport APIConnection, ConnectionParams
 
 cdef object create_eager_task
 cdef object APIConnectionError
