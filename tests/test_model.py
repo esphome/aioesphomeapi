@@ -571,7 +571,6 @@ def test_supported_color_modes_compat(
     assert info.supported_color_modes_compat(APIVersion(1, 9)) == [42]
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_services_from_dict() -> None:
     """Test bluetooth_gatt_get_services success case."""
     services: message.Message = BluetoothGATTGetServicesResponse(

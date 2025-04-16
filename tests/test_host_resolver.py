@@ -66,7 +66,6 @@ def mock_getaddrinfo() -> list[tuple[int, int, int, str, tuple[str, int]]]:
     ]
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     info = MagicMock(auto_spec=AsyncServiceInfo)
     info.ip_addresses_by_version.side_effect = [
@@ -84,7 +83,6 @@ async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
     info = MagicMock(auto_spec=AsyncServiceInfo)
     ipv6 = IPv6Address("2001:db8:85a3::8a2e:370:7334%0")
@@ -101,7 +99,6 @@ async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
     await asyncio.sleep(0.1)
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_zeroconf_empty(async_zeroconf: AsyncZeroconf):
     with patch(
         "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request"
@@ -113,7 +110,6 @@ async def test_resolve_host_zeroconf_empty(async_zeroconf: AsyncZeroconf):
     assert ret == []
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_zeroconf_fails(async_zeroconf: AsyncZeroconf):
     with (
         patch(
@@ -125,7 +121,6 @@ async def test_resolve_host_zeroconf_fails(async_zeroconf: AsyncZeroconf):
         await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf.local", 6052)
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo", return_value=[])
 async def test_resolve_host_zeroconf_fails_end_to_end(async_zeroconf: AsyncZeroconf):
     with (
@@ -138,7 +133,6 @@ async def test_resolve_host_zeroconf_fails_end_to_end(async_zeroconf: AsyncZeroc
         await hr.async_resolve_host(["asdf.local"], 6052)
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_getaddrinfo(addr_infos):
     event_loop = asyncio.get_running_loop()
     with patch.object(event_loop, "getaddrinfo") as mock:
@@ -164,7 +158,6 @@ async def test_resolve_host_getaddrinfo(addr_infos):
         assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_getaddrinfo_oserror():
     event_loop = asyncio.get_running_loop()
     with patch.object(event_loop, "getaddrinfo") as mock:
@@ -173,7 +166,6 @@ async def test_resolve_host_getaddrinfo_oserror():
             await hr._async_resolve_host_getaddrinfo("example.com", 6052)
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
@@ -185,7 +177,6 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_slow_mdns_wins(
     addr_infos: list[AddrInfo],
 ) -> None:
@@ -219,7 +210,6 @@ async def test_resolve_host_mdns_and_dns_slow_mdns_wins(
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_exception_mdns_wins(
     addr_infos: list[AddrInfo],
 ) -> None:
@@ -252,7 +242,6 @@ async def test_resolve_host_mdns_and_dns_exception_mdns_wins(
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_fast_mdns_wins(
     addr_infos: list[AddrInfo],
 ) -> None:
@@ -285,7 +274,6 @@ async def test_resolve_host_mdns_and_dns_fast_mdns_wins(
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_slow_dns_wins(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
@@ -320,7 +308,6 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_mdns_exception_dns_wins(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
@@ -353,7 +340,6 @@ async def test_resolve_host_mdns_and_mdns_exception_dns_wins(
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_mdns_no_results_dns_wins(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
@@ -380,7 +366,6 @@ async def test_resolve_host_mdns_and_mdns_no_results_dns_wins(
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_fast_dns_wins(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
@@ -411,7 +396,6 @@ async def test_resolve_host_mdns_and_dns_fast_dns_wins(
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_cache(addr_infos: list[AddrInfo]) -> None:
     """Test not requests for DNS are made when we can use the mDNS cache."""
     loop = asyncio.get_running_loop()
@@ -433,7 +417,6 @@ async def test_resolve_host_mdns_cache(addr_infos: list[AddrInfo]) -> None:
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_mdns_both_fail(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
@@ -458,7 +441,6 @@ async def test_resolve_host_mdns_and_mdns_both_fail(
         await hr.async_resolve_host(["example.local"], 6052)
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_mdns_and_dns_slow_all_timeout(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
@@ -492,7 +474,6 @@ async def test_resolve_host_mdns_and_dns_slow_all_timeout(
         await hr.async_resolve_host(["example.local"], 6052, timeout=0.01)
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
@@ -505,7 +486,6 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver.AsyncServiceInfo.async_request", return_value=False)
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_mdns_no_results(resolve_addr, addr_infos):
@@ -514,7 +494,6 @@ async def test_resolve_host_mdns_no_results(resolve_addr, addr_infos):
         await hr.async_resolve_host(["example.local"], 6052)
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_addrinfo(resolve_addr, resolve_zc, addr_infos):
@@ -526,7 +505,6 @@ async def test_resolve_host_addrinfo(resolve_addr, resolve_zc, addr_infos):
     assert ret == addr_infos
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_addrinfo_empty(resolve_addr, resolve_zc, addr_infos):
@@ -538,7 +516,6 @@ async def test_resolve_host_addrinfo_empty(resolve_addr, resolve_zc, addr_infos)
     resolve_addr.assert_called_once_with("example.com", 6052)
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_with_address(resolve_addr, resolve_zc):
@@ -558,7 +535,6 @@ async def test_resolve_host_with_address(resolve_addr, resolve_zc):
     ]
 
 
-@pytest.mark.asyncio
 async def test_resolve_host_zeroconf_service_info_oserror(
     async_zeroconf: AsyncZeroconf, addr_infos
 ):
@@ -579,7 +555,6 @@ async def test_resolve_host_zeroconf_service_info_oserror(
         await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf", 6052)
 
 
-@pytest.mark.asyncio
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_create_zeroconf_oserror(
     resolve_addr, async_zeroconf: AsyncZeroconf, addr_infos
