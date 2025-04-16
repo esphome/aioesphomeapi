@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 import pytest
 import pytest_asyncio
 
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
