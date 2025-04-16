@@ -179,14 +179,7 @@ def _stringify_or_none(value: str | None) -> str | None:
 
 
 class APIClientBase:
-    """The ESPHome API client.
-
-    This class is the main entrypoint for interacting with the API.
-
-    It is recommended to use this class in combination with the
-    ReconnectLogic class to automatically reconnect to the device
-    if the connection is lost.
-    """
+    """Base client for ESPHome API clients."""
 
     __slots__ = (
         "_background_tasks",
