@@ -32,7 +32,6 @@ from .common import (
 )
 
 
-@pytest.mark.asyncio
 async def test_log_runner(
     conn: APIConnection,
     aiohappyeyeballs_start_connection,
@@ -100,7 +99,6 @@ async def test_log_runner(
     await stop_task
 
 
-@pytest.mark.asyncio
 async def test_log_runner_reconnects_on_disconnect(
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
@@ -180,7 +178,6 @@ async def test_log_runner_reconnects_on_disconnect(
     await stop()
 
 
-@pytest.mark.asyncio
 async def test_log_runner_reconnects_on_subscribe_failure(
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,

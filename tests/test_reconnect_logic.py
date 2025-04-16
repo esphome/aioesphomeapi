@@ -48,7 +48,6 @@ async def quick_connect_fail(*args, **kwargs):
     raise APIConnectionError
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_name_from_host():
     """Test that the name is set correctly from the host."""
     cli = APIClient(
@@ -72,7 +71,6 @@ async def test_reconnect_logic_name_from_host():
     assert cli.log_name == "mydevice.local"
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_name_from_host_and_set():
     """Test that the name is set correctly from the host."""
     cli = APIClient(
@@ -98,7 +96,6 @@ async def test_reconnect_logic_name_from_host_and_set():
     assert cli.log_name == "mydevice.local"
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_name_from_address():
     """Test that the name is set correctly from the address."""
     cli = APIClient(
@@ -122,7 +119,6 @@ async def test_reconnect_logic_name_from_address():
     assert cli.log_name == "127.0.0.1"
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_name_from_name():
     """Test that the name is set correctly from the address."""
     cli = APIClient(
@@ -147,7 +143,6 @@ async def test_reconnect_logic_name_from_name():
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_name_from_cli_address():
     """Test that the name is set correctly from the address."""
     cli = APIClient(
@@ -172,7 +167,6 @@ async def test_reconnect_logic_name_from_cli_address():
     assert rl.name == "mydevice"
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_state(patchable_api_client: APIClient):
     """Test that reconnect logic state changes."""
     on_disconnect_called = []
@@ -244,7 +238,6 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_reconnect_retry(
     patchable_api_client: APIClient, caplog: pytest.LogCaptureFixture
 ):
@@ -392,7 +385,6 @@ DNS_POINTER = DNSPointer(
         ),
     ),
 )
-@pytest.mark.asyncio
 async def test_reconnect_zeroconf(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
@@ -475,7 +467,6 @@ async def test_reconnect_zeroconf(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_reconnect_zeroconf_not_while_handshaking(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
@@ -535,7 +526,6 @@ async def test_reconnect_zeroconf_not_while_handshaking(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_connect_task_not_cancelled_while_handshaking(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
@@ -595,7 +585,6 @@ async def test_connect_task_not_cancelled_while_handshaking(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_connect_aborts_if_stopped(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
@@ -635,7 +624,6 @@ async def test_connect_aborts_if_stopped(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_stop_callback(patchable_api_client: APIClient):
     """Test that the stop_callback stops the ReconnectLogic."""
     cli = patchable_api_client
@@ -659,7 +647,6 @@ async def test_reconnect_logic_stop_callback(patchable_api_client: APIClient):
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_reconnect_logic_stop_callback_waits_for_handshake(
     patchable_api_client: APIClient,
 ):
@@ -699,7 +686,6 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection):
     """Test the disconnect callback fires with expected_disconnect=False."""
     loop = asyncio.get_running_loop()
@@ -776,7 +762,6 @@ async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection)
     await logic.stop()
 
 
-@pytest.mark.asyncio
 async def test_backoff_on_encryption_error(
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,

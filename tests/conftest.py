@@ -59,7 +59,7 @@ def resolve_host() -> Generator[AsyncMock]:
 
 
 @pytest.fixture
-def patchable_api_client() -> APIClient:
+async def patchable_api_client() -> APIClient:
     cli = PatchableAPIClient(
         address="127.0.0.1",
         port=6052,
@@ -69,7 +69,7 @@ def patchable_api_client() -> APIClient:
 
 
 @pytest.fixture
-def auth_client():
+async def auth_client():
     client = PatchableAPIClient(
         address="fake.address",
         port=6052,
@@ -96,24 +96,18 @@ def mock_on_stop(expected_disconnect: bool) -> None:
 
 
 @pytest.fixture
-def conn(
-    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
-) -> APIConnection:
+async def conn(connection_params: ConnectionParams) -> APIConnection:
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture
-def conn_with_password(
-    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
-) -> APIConnection:
+async def conn_with_password(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(connection_params, password="password")
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture
-def noise_conn(
-    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
-) -> APIConnection:
+async def noise_conn(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(
         connection_params, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     )
@@ -121,15 +115,13 @@ def noise_conn(
 
 
 @pytest.fixture
-def conn_with_expected_name(
-    event_loop: asyncio.AbstractEventLoop, connection_params: ConnectionParams
-) -> APIConnection:
+async def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(connection_params, expected_name="test")
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
 @pytest.fixture()
-def aiohappyeyeballs_start_connection(event_loop: asyncio.AbstractEventLoop):
+async def aiohappyeyeballs_start_connection():
     with patch("aioesphomeapi.connection.aiohappyeyeballs.start_connection") as func:
         mock_socket = create_autospec(socket.socket, spec_set=True, instance=True)
         mock_socket.type = socket.SOCK_STREAM

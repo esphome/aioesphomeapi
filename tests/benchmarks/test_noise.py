@@ -19,7 +19,6 @@ from ..common import (
 )
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("payload_size", [0, 1024, 16 * 1024])
 async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) -> None:
     """Benchmark raw noise protocol."""
