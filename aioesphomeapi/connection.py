@@ -890,8 +890,6 @@ class APIConnection:
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
         handlers = self._message_handlers.get(msg_type_proto)
-        if handlers is None and not self._debug_enabled:
-            return
 
         if self._pong_timer is not None:
             # Any valid message from the remote cancels the pong timer
@@ -902,6 +900,9 @@ class APIConnection:
             # Any valid message from the remove cancels the pending ping
             # since we know the connection is still alive
             self._send_pending_ping = False
+
+        if handlers is None and not self._debug_enabled:
+            return
 
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
