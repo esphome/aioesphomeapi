@@ -75,8 +75,14 @@ def auth_client():
         port=6052,
         password=None,
     )
-    with patch.object(client, "_connection") as conn:
-        conn.is_connected = True
+    mock_connection = PatchableAPIConnection(
+        params=client._params,
+        on_stop=client._on_stop,
+        debug_enabled=False,
+        log_name=client.log_name,
+    )
+    mock_connection.is_connected = True
+    with patch.object(client, "_connection", mock_connection):
         yield client
 
 
