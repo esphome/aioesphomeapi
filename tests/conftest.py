@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 import pytest
 import pytest_asyncio
 
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
@@ -39,7 +39,11 @@ _MOCK_RESOLVE_RESULT = [
 
 
 class PatchableAPIConnection(APIConnection):
-    pass
+    """Patchable APIConnection for testing."""
+
+
+class PatchableAPIClient(APIClient):
+    """Patchable APIClient for testing."""
 
 
 @pytest.fixture
@@ -56,15 +60,30 @@ def resolve_host() -> Generator[AsyncMock]:
 
 @pytest.fixture
 def patchable_api_client() -> APIClient:
-    class PatchableAPIClient(APIClient):
-        pass
-
     cli = PatchableAPIClient(
         address="127.0.0.1",
         port=6052,
         password=None,
     )
     return cli
+
+
+@pytest.fixture
+def auth_client():
+    client = PatchableAPIClient(
+        address="fake.address",
+        port=6052,
+        password=None,
+    )
+    mock_connection = PatchableAPIConnection(
+        params=client._params,
+        on_stop=client._on_stop,
+        debug_enabled=False,
+        log_name=client.log_name,
+    )
+    mock_connection.is_connected = True
+    with patch.object(client, "_connection", mock_connection):
+        yield client
 
 
 @pytest.fixture

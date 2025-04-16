@@ -5,7 +5,7 @@ import asyncio
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
 from aioesphomeapi import APIConnection
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
 
 

@@ -82,7 +82,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
 )
-from .client_callbacks import (
+from .client_base import (
+    APIClientBase,
     on_bluetooth_connections_free_response,
     on_bluetooth_device_connection_response,
     on_bluetooth_gatt_notify_data_response,
@@ -93,7 +94,7 @@ from .client_callbacks import (
     on_state_msg,
     on_subscribe_home_assistant_state_response,
 )
-from .connection import APIConnection, ConnectionParams, handle_timeout
+from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa: F401
 from .core import (
     APIConnectionError,
     BluetoothConnectionDroppedError,
@@ -146,24 +147,12 @@ from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
 )
-from .util import build_log_name, create_eager_task
-from .zeroconf import ZeroconfInstanceType, ZeroconfManager
+from .util import create_eager_task
 
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
-
-# We send a ping every 20 seconds, and the timeout ratio is 4.5x the
-# ping interval. This means that if we don't receive a ping for 90.0
-# seconds, we'll consider the connection dead and reconnect.
-#
-# This was chosen because the 20s is around the expected time for a
-# device to reboot and reconnect to wifi, and 90 seconds is the absolute
-# maximum time a device can take to respond when its behind + the WiFi
-# connection is poor.
-KEEP_ALIVE_FREQUENCY = 20.0
-
 
 SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
 
@@ -192,18 +181,8 @@ ExecuteServiceDataType = dict[
 ]
 
 
-def _stringify_or_none(value: str | None) -> str | None:
-    """Convert a string like object to a str or None.
-
-    The noise_psk is sometimes passed into
-    the client as an Estr, but we want to pass it
-    to the API as a string or None.
-    """
-    return None if value is None else str(value)
-
-
 # pylint: disable=too-many-public-methods
-class APIClient:
+class APIClient(APIClientBase):
     """The ESPHome API client.
 
     This class is the main entrypoint for interacting with the API.
@@ -212,112 +191,6 @@ class APIClient:
     ReconnectLogic class to automatically reconnect to the device
     if the connection is lost.
     """
-
-    __slots__ = (
-        "_background_tasks",
-        "_connection",
-        "_debug_enabled",
-        "_loop",
-        "_params",
-        "cached_name",
-        "log_name",
-    )
-
-    def __init__(
-        self,
-        address: str,
-        port: int,
-        password: str | None,
-        *,
-        client_info: str = "aioesphomeapi",
-        keepalive: float = KEEP_ALIVE_FREQUENCY,
-        zeroconf_instance: ZeroconfInstanceType | None = None,
-        noise_psk: str | None = None,
-        expected_name: str | None = None,
-        addresses: list[str] | None = None,
-        expected_mac: str | None = None,
-    ) -> None:
-        """Create a client, this object is shared across sessions.
-
-        :param address: The address to connect to; for example an IP address
-          or .local name for mDNS lookup.
-        :param port: The port to connect to
-        :param password: Optional password to send to the device for authentication
-        :param client_info: User Agent string to send.
-        :param keepalive: The keepalive time in seconds (ping interval) for detecting stale connections.
-            Every keepalive seconds a ping is sent, if no pong is received the connection is closed.
-        :param zeroconf_instance: Pass a zeroconf instance to use if an mDNS lookup is necessary.
-        :param noise_psk: Encryption preshared key for noise transport encrypted sessions.
-        :param expected_name: Require the devices name to match the given expected name.
-            Can be used to prevent accidentally connecting to a different device if
-            IP passed as address but DHCP reassigned IP.
-        :param addresses: Optional list of IP addresses to connect to which takes
-            precedence over the address parameter. This is most commonly used when
-            the device has dual stack IPv4 and IPv6 addresses and you do not know
-            which one to connect to.
-        :param expected_mac: Optional MAC address to check against the device.
-            The format should be lower case without : or - separators.
-            Example: 00:aa:22:33:44:55 -> 00aa22334455
-        """
-        self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
-        self._params = ConnectionParams(
-            addresses=addresses if addresses else [str(address)],
-            port=port,
-            password=password,
-            client_info=client_info,
-            keepalive=keepalive,
-            zeroconf_manager=ZeroconfManager(zeroconf_instance),
-            # treat empty '' psk string as missing (like password)
-            noise_psk=_stringify_or_none(noise_psk) or None,
-            expected_name=_stringify_or_none(expected_name) or None,
-            expected_mac=_stringify_or_none(expected_mac) or None,
-        )
-        self._connection: APIConnection | None = None
-        self.cached_name: str | None = None
-        self._background_tasks: set[asyncio.Task[Any]] = set()
-        self._loop = asyncio.get_event_loop()
-        self._set_log_name()
-
-    def set_debug(self, enabled: bool) -> None:
-        """Enable debug logging."""
-        self._debug_enabled = enabled
-        if self._connection:
-            self._connection.set_debug(enabled)
-
-    @property
-    def zeroconf_manager(self) -> ZeroconfManager:
-        return self._params.zeroconf_manager
-
-    @property
-    def expected_name(self) -> str | None:
-        return self._params.expected_name
-
-    @expected_name.setter
-    def expected_name(self, value: str | None) -> None:
-        self._params.expected_name = value
-
-    @property
-    def address(self) -> str:
-        return self._params.addresses[0]
-
-    def _set_log_name(self) -> None:
-        """Set the log name of the device."""
-        connected_address: str | None = None
-        if self._connection and self._connection.connected_address:
-            connected_address = self._connection.connected_address
-        self.log_name = build_log_name(
-            self.cached_name,
-            self._params.addresses,
-            connected_address,
-        )
-        if self._connection:
-            self._connection.set_log_name(self.log_name)
-
-    def set_cached_name_if_unset(self, name: str) -> None:
-        """Set the cached name of the device if not set."""
-        if not self.cached_name:
-            self.cached_name = name
-            self._set_log_name()
 
     async def connect(
         self,
@@ -385,17 +258,6 @@ class APIClient:
         else:
             await self._connection.disconnect()
 
-    def _get_connection(self) -> APIConnection:
-        connection = self._connection
-        if not connection:
-            raise APIConnectionError(f"Not connected to {self.log_name}!")
-        if not connection.is_connected:
-            raise APIConnectionError(
-                f"Authenticated connection not ready yet for {self.log_name}; "
-                f"current state is {connection.connection_state}!"
-            )
-        return connection
-
     async def device_info(self) -> DeviceInfo:
         resp = await self._get_connection().send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse
@@ -403,11 +265,6 @@ class APIClient:
         info = DeviceInfo.from_pb(resp)
         self._set_name_from_device(info.name)
         return info
-
-    def _set_name_from_device(self, name: str) -> None:
-        """Set the name from a DeviceInfo message."""
-        self.cached_name = name
-        self._set_log_name()
 
     async def list_entities_services(
         self,
@@ -1306,12 +1163,6 @@ class APIClient:
     def request_image_stream(self) -> None:
         self._request_image(stream=True)
 
-    @property
-    def api_version(self) -> APIVersion | None:
-        if self._connection is None:
-            return None
-        return self._connection.api_version
-
     def subscribe_voice_assistant(
         self,
         *,
@@ -1438,12 +1289,6 @@ class APIClient:
                 start_task.cancel("Unsubscribing from voice assistant")
 
         return unsub
-
-    def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
-        """Create a background task and add it to the background tasks set."""
-        task = create_eager_task(coro)
-        self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
 
     def send_voice_assistant_event(
         self, event_type: VoiceAssistantEventType, data: dict[str, str] | None

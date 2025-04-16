@@ -5,8 +5,8 @@ from functools import partial
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
 from aioesphomeapi import APIConnection
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
