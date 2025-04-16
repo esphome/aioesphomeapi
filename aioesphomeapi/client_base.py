@@ -23,7 +23,7 @@ from .api_pb2 import (  # type: ignore
     HomeassistantServiceResponse,
     SubscribeHomeAssistantStateResponse,
 )
-from .connection import APIConnection, ConnectionParams
+from .connection import ConnectionParams
 from .core import APIConnectionError
 from .model import (
     APIVersion,
@@ -35,6 +35,9 @@ from .model import (
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
 from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
+
+if TYPE_CHECKING:
+    from .connection import APIConnection
 
 _LOGGER = logging.getLogger(__name__)
 
