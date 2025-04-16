@@ -1,6 +1,9 @@
 import cython
 
-# from .connection cimport APIConnection, ConnectionParams
+from ._frame_helper.noise cimport APINoiseFrameHelper
+from ._frame_helper.plain_text cimport APIPlaintextFrameHelper
+from .connection cimport APIConnection, ConnectionParams
+
 
 cdef object create_eager_task
 cdef object APIConnectionError

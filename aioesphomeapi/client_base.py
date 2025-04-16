@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from google.protobuf import message
 
+from ._frame_helper.noise import APINoiseFrameHelper  # noqa: F401
+from ._frame_helper.plain_text import APIPlaintextFrameHelper  # noqa: F401
 from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
