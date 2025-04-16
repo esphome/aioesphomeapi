@@ -25,11 +25,11 @@ cdef str _stringify_or_none(str value)
 
 cdef class APIClientBase:
 
-    cdef set _background_tasks
-    cdef APIConnection _connection
-    cdef bint _debug_enabled
-    cdef object _loop
-    cdef ConnectionParams _params
+    cdef public set _background_tasks
+    cdef public APIConnection _connection
+    cdef public bint _debug_enabled
+    cdef public object _loop
+    cdef public ConnectionParams _params
     cdef public str cached_name
     cdef public str log_name
 
