@@ -161,7 +161,7 @@ async def test_disconnect_when_not_fully_connected(
 
 @pytest.mark.asyncio
 async def test_requires_encryption_propagates(conn: APIConnection):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol = get_mock_protocol(conn)
     with patch.object(loop, "create_connection") as create_connection:
         create_connection.return_value = (MagicMock(), protocol)
@@ -234,7 +234,7 @@ async def test_start_connection_socket_error(
     aiohappyeyeballs_start_connection,
 ):
     """Test handling of socket error during start connection."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     with patch.object(loop, "create_connection", side_effect=OSError("Socket error")):
         connect_task = asyncio.create_task(connect(conn, login=False))
@@ -254,7 +254,7 @@ async def test_start_connection_cannot_increase_recv_buffer(
     caplog: pytest.LogCaptureFixture,
 ):
     """Test failing to increase the recv buffer."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
     tried_sizes = []
@@ -307,7 +307,7 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
     caplog: pytest.LogCaptureFixture,
 ):
     """Test the receive buffer can only be increased to 262144."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
     tried_sizes = []
@@ -359,7 +359,7 @@ async def test_start_connection_times_out(
     aiohappyeyeballs_start_connection,
 ):
     """Test handling of start connection timing out."""
-    asyncio.get_event_loop()
+    asyncio.get_running_loop()
 
     async def _mock_socket_connect(*args, **kwargs):
         await asyncio.sleep(500)
@@ -387,7 +387,7 @@ async def test_start_connection_times_out(
 @pytest.mark.asyncio
 async def test_start_connection_os_error(conn: APIConnection, resolve_host):
     """Test handling of start connection has an OSError."""
-    asyncio.get_event_loop()
+    asyncio.get_running_loop()
 
     with patch(
         "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
@@ -405,7 +405,7 @@ async def test_start_connection_os_error(conn: APIConnection, resolve_host):
 @pytest.mark.asyncio
 async def test_start_connection_is_cancelled(conn: APIConnection, resolve_host):
     """Test handling of start connection is cancelled."""
-    asyncio.get_event_loop()
+    asyncio.get_running_loop()
 
     with patch(
         "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
@@ -427,7 +427,7 @@ async def test_finish_connection_is_cancelled(
     aiohappyeyeballs_start_connection,
 ):
     """Test handling of finishing connection being cancelled."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     with patch.object(loop, "create_connection", side_effect=asyncio.CancelledError):
         connect_task = asyncio.create_task(connect(conn, login=False))
@@ -498,7 +498,7 @@ async def test_plaintext_connection_fails_handshake(
 
     If we don't do this, asyncio will get confused and not release the socket.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     exception, raised_exception = exception_map
     messages = []
     transport = MagicMock()
@@ -704,7 +704,7 @@ async def test_connection_error_during_hello(
     aiohappyeyeballs_start_connection,
     exception_map: tuple[Exception, Exception],
 ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
     exception, raised_exception = exception_map
@@ -741,7 +741,7 @@ async def test_connection_cancelled_during_hello(
     aiohappyeyeballs_start_connection,
     exception_map: tuple[Exception, Exception],
 ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
     exception, raised_exception = exception_map
@@ -801,7 +801,7 @@ async def test_disconnect_fails_to_send_response(
     resolve_host,
     aiohappyeyeballs_start_connection,
 ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
     client = APIClient(

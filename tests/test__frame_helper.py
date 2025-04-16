@@ -752,7 +752,7 @@ async def test_noise_frame_helper_bad_encryption(
 async def test_init_plaintext_with_wrong_preamble(
     conn: APIConnection, aiohappyeyeballs_start_connection
 ):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol = get_mock_protocol(conn)
     with patch.object(loop, "create_connection") as create_connection:
         create_connection.return_value = (MagicMock(), protocol)
@@ -773,7 +773,7 @@ async def test_init_plaintext_with_wrong_preamble(
 
 @pytest.mark.asyncio
 async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     protocol: APINoiseFrameHelper | None = None
 
@@ -798,7 +798,7 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
 
 @pytest.mark.asyncio
 async def test_init_noise_with_plaintext_byte_marker(noise_conn: APIConnection) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     protocol: APINoiseFrameHelper | None = None
 
@@ -872,7 +872,7 @@ async def test_noise_frame_helper_wrong_protocol():
 async def test_init_noise_attempted_when_esp_uses_plaintext(
     noise_conn: APIConnection,
 ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     protocol: APINoiseFrameHelper | None = None
 

@@ -253,7 +253,7 @@ class APIClientBase:
         self._connection: APIConnection | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self._set_log_name()
 
     def set_debug(self, enabled: bool) -> None:

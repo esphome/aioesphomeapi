@@ -38,7 +38,7 @@ async def test_log_runner(
     aiohappyeyeballs_start_connection,
 ):
     """Test the log runner logic."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
@@ -107,7 +107,7 @@ async def test_log_runner_reconnects_on_disconnect(
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on disconnect."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
@@ -187,7 +187,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on subscribe failure."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()

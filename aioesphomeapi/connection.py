@@ -252,7 +252,7 @@ class APIConnection:
         self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
         self._send_pending_ping = False
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self.is_connected = False
         self._handshake_complete = False
         self._debug_enabled = debug_enabled

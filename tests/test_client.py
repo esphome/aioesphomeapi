@@ -231,7 +231,7 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
 async def test_connection_released_if_connecting_is_cancelled() -> None:
     """Verify connection is unset if connecting is cancelled."""
     cli = APIClient("127.0.0.1", 1234, None)
-    asyncio.get_event_loop()
+    asyncio.get_running_loop()
 
     async def _start_connection_with_delay(*args, **kwargs):
         await asyncio.sleep(1)

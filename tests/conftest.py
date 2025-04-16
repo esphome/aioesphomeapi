@@ -145,7 +145,7 @@ async def plaintext_connect_task_no_login(
     resolve_host,
     aiohappyeyeballs_start_connection,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
 
