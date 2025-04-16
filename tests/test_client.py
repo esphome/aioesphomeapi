@@ -133,18 +133,6 @@ from .common import (
 from .conftest import PatchableAPIConnection
 
 
-@pytest.fixture
-def auth_client():
-    client = APIClient(
-        address="fake.address",
-        port=6052,
-        password=None,
-    )
-    with patch.object(client, "_connection") as conn:
-        conn.is_connected = True
-        yield client
-
-
 def patch_response_complex(client: APIClient, messages):
     async def patched(req, app, stop, msg_types, timeout):
         resp = []
@@ -192,7 +180,6 @@ def patch_api_version(client: APIClient, version: APIVersion):
     client._connection.api_version = version
 
 
-@pytest.mark.asyncio
 async def test_expected_name(auth_client: APIClient) -> None:
     """Ensure expected name can be set externally."""
     assert auth_client.expected_name is None
@@ -200,7 +187,6 @@ async def test_expected_name(auth_client: APIClient) -> None:
     assert auth_client.expected_name == "awesome"
 
 
-@pytest.mark.asyncio
 async def test_connect_backwards_compat() -> None:
     """Verify connect is a thin wrapper around start_connection and finish_connection."""
 
@@ -218,7 +204,6 @@ async def test_connect_backwards_compat() -> None:
     assert mock_finish_connection.mock_calls == [call(False)]
 
 
-@pytest.mark.asyncio
 async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
     aiohappyeyeballs_start_connection,
 ) -> None:
@@ -239,11 +224,10 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
         await cli.finish_connection(False)
 
 
-@pytest.mark.asyncio
 async def test_connection_released_if_connecting_is_cancelled() -> None:
     """Verify connection is unset if connecting is cancelled."""
     cli = APIClient("127.0.0.1", 1234, None)
-    asyncio.get_event_loop()
+    asyncio.get_running_loop()
 
     async def _start_connection_with_delay(*args, **kwargs):
         await asyncio.sleep(1)
@@ -288,7 +272,6 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
     assert cli._connection is None
 
 
-@pytest.mark.asyncio
 async def test_request_while_handshaking() -> None:
     """Test trying a request while handshaking raises."""
 
@@ -315,14 +298,12 @@ async def test_request_while_handshaking() -> None:
     await asyncio.sleep(0)
 
 
-@pytest.mark.asyncio
 async def test_connect_while_already_connected(auth_client: APIClient) -> None:
     """Test connecting while already connected raises."""
     with pytest.raises(APIConnectionError):
         await auth_client.start_connection()
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "input, output",
     [
@@ -344,7 +325,6 @@ async def test_list_entities(
     assert resp == output
 
 
-@pytest.mark.asyncio
 async def test_subscribe_states(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_state = MagicMock()
@@ -355,7 +335,6 @@ async def test_subscribe_states(auth_client: APIClient) -> None:
     on_state.assert_called_once_with(BinarySensorState())
 
 
-@pytest.mark.asyncio
 async def test_subscribe_states_camera(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_state = MagicMock()
@@ -367,7 +346,6 @@ async def test_subscribe_states_camera(auth_client: APIClient) -> None:
     on_state.assert_called_once_with(CameraState(key=1, data=b"asdfqwer"))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -402,7 +380,6 @@ async def test_cover_command_legacy(
     send.assert_called_once_with(CoverCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -426,7 +403,6 @@ async def test_cover_command(
     send.assert_called_once_with(CoverCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -463,7 +439,6 @@ async def test_fan_command(
     send.assert_called_once_with(FanCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -527,7 +502,6 @@ async def test_light_command(
     send.assert_called_once_with(LightCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -544,7 +518,6 @@ async def test_switch_command(
     send.assert_called_once_with(SwitchCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -568,7 +541,6 @@ async def test_climate_command_legacy(
     send.assert_called_once_with(ClimateCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -624,7 +596,6 @@ async def test_climate_command(
     send.assert_called_once_with(ClimateCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -641,7 +612,6 @@ async def test_number_command(
     send.assert_called_once_with(NumberCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -665,7 +635,8 @@ async def test_date_command(
 
 
 # Test time command
-@pytest.mark.asyncio
+
+
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -689,7 +660,8 @@ async def test_time_command(
 
 
 # Test date_time command
-@pytest.mark.asyncio
+
+
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -712,7 +684,6 @@ async def test_datetime_command(
     send.assert_called_once_with(DateTimeCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -737,7 +708,6 @@ async def test_lock_command(
     send.assert_called_once_with(LockCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -756,7 +726,6 @@ async def test_valve_command(
     send.assert_called_once_with(ValveCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -780,7 +749,6 @@ async def test_valve_command_version_1_1(
     send.assert_called_once_with(ValveCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -797,7 +765,6 @@ async def test_select_command(
     send.assert_called_once_with(SelectCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -834,7 +801,6 @@ async def test_media_player_command(
     send.assert_called_once_with(MediaPlayerCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -850,7 +816,6 @@ async def test_button_command(
     send.assert_called_once_with(ButtonCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -884,7 +849,6 @@ async def test_siren_command(
     send.assert_called_once_with(SirenCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 async def test_execute_service(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 3))
@@ -986,7 +950,6 @@ async def test_execute_service(auth_client: APIClient) -> None:
     send.reset_mock()
 
 
-@pytest.mark.asyncio
 async def test_request_single_image(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
@@ -994,7 +957,6 @@ async def test_request_single_image(auth_client: APIClient) -> None:
     send.assert_called_once_with(CameraImageRequest(single=True, stream=False))
 
 
-@pytest.mark.asyncio
 async def test_request_image_stream(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
@@ -1002,7 +964,6 @@ async def test_request_image_stream(auth_client: APIClient) -> None:
     send.assert_called_once_with(CameraImageRequest(single=False, stream=True))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -1029,7 +990,6 @@ async def test_alarm_panel_command(
     send.assert_called_once_with(AlarmControlPanelCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -1046,7 +1006,6 @@ async def test_text_command(
     send.assert_called_once_with(TextCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -1069,7 +1028,6 @@ async def test_update_command(
     send.assert_called_once_with(UpdateCommandRequest(**req))
 
 
-@pytest.mark.asyncio
 async def test_noise_psk_handles_subclassed_string():
     """Test that the noise_psk gets converted to a string."""
 
@@ -1109,7 +1067,6 @@ async def test_noise_psk_handles_subclassed_string():
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-@pytest.mark.asyncio
 async def test_no_noise_psk():
     """Test not using a noise_psk."""
     cli = APIClient(
@@ -1125,7 +1082,6 @@ async def test_no_noise_psk():
     assert type(cli._params.expected_name) is str
 
 
-@pytest.mark.asyncio
 async def test_empty_noise_psk_or_expected_name():
     """Test an empty noise_psk is treated as None."""
     cli = APIClient(
@@ -1140,7 +1096,6 @@ async def test_empty_noise_psk_or_expected_name():
     assert cli._params.expected_name is None
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1157,7 +1112,6 @@ async def test_bluetooth_disconnect(
     await disconnect_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_pair(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1176,7 +1130,6 @@ async def test_bluetooth_pair(
     await pair_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_pair_connection_drops(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1198,7 +1151,6 @@ async def test_bluetooth_pair_connection_drops(
         await pair_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_unpair_connection_drops(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1220,7 +1172,6 @@ async def test_bluetooth_unpair_connection_drops(
         await pair_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_clear_cache_connection_drops(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1242,7 +1193,6 @@ async def test_bluetooth_clear_cache_connection_drops(
         await pair_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_unpair(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1257,7 +1207,6 @@ async def test_bluetooth_unpair(
     await unpair_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_clear_cache(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1272,7 +1221,6 @@ async def test_bluetooth_clear_cache(
     await clear_task
 
 
-@pytest.mark.asyncio
 async def test_device_info(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1307,7 +1255,6 @@ async def test_device_info(
         await client.device_info()
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_read(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1330,7 +1277,6 @@ async def test_bluetooth_gatt_read(
     assert await read_task == b"1234"
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_read_connection_drops(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1352,7 +1298,6 @@ async def test_bluetooth_gatt_read_connection_drops(
         await read_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_read_error(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1370,7 +1315,6 @@ async def test_bluetooth_gatt_read_error(
         await read_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_read_descriptor(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1393,7 +1337,6 @@ async def test_bluetooth_gatt_read_descriptor(
     assert await read_task == b"1234"
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_write(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1416,7 +1359,6 @@ async def test_bluetooth_gatt_write(
     await write_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_write_connection_drops(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1440,7 +1382,6 @@ async def test_bluetooth_gatt_write_connection_drops(
         await write_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_write_without_response(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1465,7 +1406,6 @@ async def test_bluetooth_gatt_write_without_response(
         await client.bluetooth_gatt_write(1234, 1234, b"1234", True, timeout=0)
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_write_descriptor(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1488,7 +1428,6 @@ async def test_bluetooth_gatt_write_descriptor(
     await write_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_write_descriptor_without_response(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1515,7 +1454,6 @@ async def test_bluetooth_gatt_write_descriptor_without_response(
         await client.bluetooth_gatt_write_descriptor(1234, 1234, b"1234", timeout=0)
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_get_services_connection_drops(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1538,7 +1476,6 @@ async def test_bluetooth_gatt_get_services_connection_drops(
         await services_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_get_services(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1575,7 +1512,6 @@ async def test_bluetooth_gatt_get_services(
     )
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_get_services_errors(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1599,7 +1535,6 @@ async def test_bluetooth_gatt_get_services_errors(
         await services_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_start_notify_connection_drops(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1623,7 +1558,6 @@ async def test_bluetooth_gatt_start_notify_connection_drops(
         await notify_task
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_start_notify(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1677,7 +1611,6 @@ async def test_bluetooth_gatt_start_notify(
     await cancel_cb()
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_gatt_start_notify_fails(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1708,7 +1641,6 @@ async def test_bluetooth_gatt_start_notify_fails(
     )
 
 
-@pytest.mark.asyncio
 async def test_subscribe_bluetooth_le_advertisements(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1822,7 +1754,6 @@ async def test_subscribe_bluetooth_le_advertisements(
     unsub()
 
 
-@pytest.mark.asyncio
 async def test_subscribe_bluetooth_le_raw_advertisements(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1862,7 +1793,6 @@ async def test_subscribe_bluetooth_le_raw_advertisements(
     unsub()
 
 
-@pytest.mark.asyncio
 async def test_subscribe_bluetooth_connections_free(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1888,7 +1818,6 @@ async def test_subscribe_bluetooth_connections_free(
     unsub()
 
 
-@pytest.mark.asyncio
 async def test_subscribe_home_assistant_states(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1938,7 +1867,6 @@ async def test_subscribe_home_assistant_states(
     assert requests == [("sensor.blue", "any"), ("sensor.white", "")]
 
 
-@pytest.mark.asyncio
 async def test_subscribe_logs(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_logs = MagicMock()
@@ -1954,7 +1882,6 @@ async def test_subscribe_logs(auth_client: APIClient) -> None:
     on_logs.reset_mock()
 
 
-@pytest.mark.asyncio
 async def test_send_home_assistant_state(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
     auth_client.send_home_assistant_state("binary_sensor.bla", None, "on")
@@ -1965,7 +1892,6 @@ async def test_send_home_assistant_state(auth_client: APIClient) -> None:
     )
 
 
-@pytest.mark.asyncio
 async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_service_call = MagicMock()
@@ -1975,7 +1901,6 @@ async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
 
 
-@pytest.mark.asyncio
 async def test_set_debug(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2009,7 +1934,6 @@ async def test_set_debug(
     assert "My Device" not in caplog.text
 
 
-@pytest.mark.asyncio
 async def test_force_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2026,7 +1950,6 @@ async def test_force_disconnect(
     assert connection.is_connected is False
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("has_cache", "feature_flags", "method"),
     [
@@ -2113,7 +2036,6 @@ async def test_bluetooth_device_connect(
     cancel()
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_device_connect_and_disconnect_times_out(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2142,7 +2064,6 @@ async def test_bluetooth_device_connect_and_disconnect_times_out(
     assert states == []
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_device_connect_times_out_disconnect_ok(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2184,7 +2105,6 @@ async def test_bluetooth_device_connect_times_out_disconnect_ok(
     assert states == []
 
 
-@pytest.mark.asyncio
 async def test_bluetooth_device_connect_cancelled(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2230,7 +2150,6 @@ async def test_bluetooth_device_connect_cancelled(
     assert handlers_after == handlers_before
 
 
-@pytest.mark.asyncio
 async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
@@ -2260,7 +2179,6 @@ async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
     )
 
 
-@pytest.mark.asyncio
 async def test_subscribe_voice_assistant(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2343,7 +2261,6 @@ async def test_subscribe_voice_assistant(
     assert len(send.mock_calls) == 0
 
 
-@pytest.mark.asyncio
 async def test_subscribe_voice_assistant_failure(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2426,7 +2343,6 @@ async def test_subscribe_voice_assistant_failure(
     assert len(send.mock_calls) == 0
 
 
-@pytest.mark.asyncio
 async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2494,7 +2410,6 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     ]
 
 
-@pytest.mark.asyncio
 async def test_subscribe_voice_assistant_api_audio(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2605,7 +2520,6 @@ async def test_subscribe_voice_assistant_api_audio(
     assert len(send.mock_calls) == 0
 
 
-@pytest.mark.asyncio
 async def test_send_voice_assistant_timer_event(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
@@ -2630,7 +2544,6 @@ async def test_send_voice_assistant_timer_event(auth_client: APIClient) -> None:
     )
 
 
-@pytest.mark.asyncio
 async def test_send_voice_assistant_announcement_await_response(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2658,7 +2571,6 @@ async def test_send_voice_assistant_announcement_await_response(
         assert isinstance(finished, VoiceAssistantAnnounceFinishedModel)
 
 
-@pytest.mark.asyncio
 async def test_subscribe_voice_assistant_announcement_finished(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2707,7 +2619,6 @@ async def test_subscribe_voice_assistant_announcement_finished(
     assert len(send.mock_calls) == 0
 
 
-@pytest.mark.asyncio
 async def test_get_voice_assistant_configuration(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2741,7 +2652,6 @@ async def test_get_voice_assistant_configuration(
         assert isinstance(config, VoiceAssistantConfigurationResponseModel)
 
 
-@pytest.mark.asyncio
 async def test_set_voice_assistant_configuration(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2758,7 +2668,6 @@ async def test_set_voice_assistant_configuration(
         await client.set_voice_assistant_configuration(["1234"])
 
 
-@pytest.mark.asyncio
 async def test_api_version_after_connection_closed(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2771,7 +2680,6 @@ async def test_api_version_after_connection_closed(
     assert client.api_version is None
 
 
-@pytest.mark.asyncio
 async def test_calls_after_connection_closed(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper

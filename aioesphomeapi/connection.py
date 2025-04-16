@@ -71,7 +71,9 @@ PING_REQUEST_MESSAGES = (PingRequest(),)
 PING_RESPONSE_MESSAGES = (PingResponse(),)
 NO_PASSWORD_CONNECT_REQUEST = ConnectRequest()
 
-PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+PROTO_TO_MESSAGE_TYPE: dict[
+    type[message.Message], tuple[int, Callable[[message.Message], bytes]]
+] = {v: (k, v.SerializeToString) for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 #
@@ -250,7 +252,7 @@ class APIConnection:
         self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
         self._send_pending_ping = False
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self.is_connected = False
         self._handshake_complete = False
         self._debug_enabled = debug_enabled
@@ -707,9 +709,10 @@ class APIConnection:
             )
 
         packets: list[tuple[int, bytes]] = [
-            (PROTO_TO_MESSAGE_TYPE[type(msg)], msg.SerializeToString()) for msg in msgs
+            (msg_type[0], msg_type[1](msg))
+            for msg in msgs
+            if (msg_type := PROTO_TO_MESSAGE_TYPE[type(msg)])
         ]
-
         if debug_enabled := self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(

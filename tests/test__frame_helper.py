@@ -10,11 +10,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
-from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.plain_text import (
+from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
+from aioesphomeapi._frame_helper.packets import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
     _varuint_to_bytes as varuint_to_bytes,
 )
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -96,7 +97,6 @@ if sys.platform != "win32":
     "in_bytes, pkt_data, pkt_type",
     _PLAINTEXT_TESTS,
 )
-@pytest.mark.asyncio
 async def test_plaintext_frame_helper(
     in_bytes: bytes, pkt_data: bytes, pkt_type: int
 ) -> None:
@@ -130,7 +130,6 @@ async def test_plaintext_frame_helper(
     "in_bytes, pkt_data, pkt_type",
     _PLAINTEXT_TESTS,
 )
-@pytest.mark.asyncio
 async def test_plaintext_frame_helper_multiple_payloads_single_packet(
     in_bytes: bytes, pkt_data: bytes, pkt_type: int
 ) -> None:
@@ -165,7 +164,7 @@ async def test_plaintext_frame_helper_multiple_payloads_single_packet(
     "byte_type",
     (bytes, bytearray, memoryview),
 )
-def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
+async def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
     """Test the plaintext frame helper with the protractor event loop.
 
     With the protractor event loop, data_received is called with a bytearray
@@ -201,7 +200,6 @@ def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
         assert data == b"\x42" * 4
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "byte_type",
     (bytes, bytearray, memoryview),
@@ -243,7 +241,6 @@ async def test_noise_protector_event_loop(byte_type: Any) -> None:
         await helper.ready_future
 
 
-@pytest.mark.asyncio
 async def test_noise_frame_helper_incorrect_key():
     """Test that the noise frame helper raises InvalidEncryptionKeyAPIError on bad key."""
     outgoing_packets = [
@@ -275,7 +272,6 @@ async def test_noise_frame_helper_incorrect_key():
         await helper.ready_future
 
 
-@pytest.mark.asyncio
 async def test_noise_frame_helper_incorrect_key_fragments():
     """Test that the noise frame helper raises InvalidEncryptionKeyAPIError on bad key with fragmented packets."""
     outgoing_packets = [
@@ -309,7 +305,6 @@ async def test_noise_frame_helper_incorrect_key_fragments():
         await helper.ready_future
 
 
-@pytest.mark.asyncio
 async def test_noise_incorrect_name():
     """Test we raise on bad name."""
     outgoing_packets = [
@@ -342,7 +337,6 @@ async def test_noise_incorrect_name():
     assert exc_info.value.received_name == "servicetest"
 
 
-@pytest.mark.asyncio
 async def test_noise_incorrect_mac():
     """Test we raise on bad name."""
     outgoing_packets = [
@@ -376,7 +370,6 @@ async def test_noise_incorrect_mac():
     assert exc_info.value.received_mac == "244cab06499c"
 
 
-@pytest.mark.asyncio
 async def test_noise_mac_in_exception():
     """Test the mac is in the exception when the key is wrong if available."""
     outgoing_packets = [
@@ -426,7 +419,6 @@ def test_varuint_to_bytes(val, encoded):
     assert cached_varuint_to_bytes(val) == encoded
 
 
-@pytest.mark.asyncio
 async def test_noise_frame_helper_handshake_failure():
     """Test the noise frame helper handshake failure."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
@@ -476,7 +468,6 @@ async def test_noise_frame_helper_handshake_failure():
         await helper.ready_future
 
 
-@pytest.mark.asyncio
 async def test_noise_frame_helper_handshake_success_with_single_packet():
     """Test the noise frame helper handshake success with a single packet."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
@@ -537,7 +528,6 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     mock_data_received(helper, encrypted_packet)
 
 
-@pytest.mark.asyncio
 async def test_noise_valid_encryption_invalid_payload(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -605,7 +595,6 @@ async def test_noise_valid_encryption_invalid_payload(
     helper.close()
 
 
-@pytest.mark.asyncio
 async def test_noise_valid_encryption_payload_short(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -684,7 +673,6 @@ async def test_noise_valid_encryption_payload_short(
     helper.close()
 
 
-@pytest.mark.asyncio
 async def test_noise_frame_helper_bad_encryption(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -747,11 +735,10 @@ async def test_noise_frame_helper_bad_encryption(
     helper.close()
 
 
-@pytest.mark.asyncio
 async def test_init_plaintext_with_wrong_preamble(
     conn: APIConnection, aiohappyeyeballs_start_connection
 ):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol = get_mock_protocol(conn)
     with patch.object(loop, "create_connection") as create_connection:
         create_connection.return_value = (MagicMock(), protocol)
@@ -770,9 +757,8 @@ async def test_init_plaintext_with_wrong_preamble(
         await task
 
 
-@pytest.mark.asyncio
 async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     protocol: APINoiseFrameHelper | None = None
 
@@ -795,9 +781,8 @@ async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> N
             await task
 
 
-@pytest.mark.asyncio
 async def test_init_noise_with_plaintext_byte_marker(noise_conn: APIConnection) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     protocol: APINoiseFrameHelper | None = None
 
@@ -822,7 +807,6 @@ async def test_init_noise_with_plaintext_byte_marker(noise_conn: APIConnection) 
             await task
 
 
-@pytest.mark.asyncio
 async def test_noise_frame_helper_empty_hello():
     """Test empty hello with noise."""
     connection, _ = _make_mock_connection()
@@ -843,7 +827,6 @@ async def test_noise_frame_helper_empty_hello():
         await helper.ready_future
 
 
-@pytest.mark.asyncio
 async def test_noise_frame_helper_wrong_protocol():
     """Test noise with the wrong protocol."""
     connection, _ = _make_mock_connection()
@@ -867,11 +850,10 @@ async def test_noise_frame_helper_wrong_protocol():
         await helper.ready_future
 
 
-@pytest.mark.asyncio
 async def test_init_noise_attempted_when_esp_uses_plaintext(
     noise_conn: APIConnection,
 ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     transport = MagicMock()
     protocol: APINoiseFrameHelper | None = None
 
@@ -896,7 +878,6 @@ async def test_init_noise_attempted_when_esp_uses_plaintext(
             await task
 
 
-@pytest.mark.asyncio
 async def test_eof_received_closes_connection(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
@@ -917,7 +898,6 @@ async def test_eof_received_closes_connection(
         (SocketClosedAPIError("original message"), SocketClosedAPIError),
     ],
 )
-@pytest.mark.asyncio
 async def test_connection_lost_closes_connection_and_logs(
     caplog: pytest.LogCaptureFixture,
     plaintext_connect_task_with_login: tuple[
@@ -934,7 +914,6 @@ async def test_connection_lost_closes_connection_and_logs(
         await connect_task
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("bad_psk", "error"),
     (

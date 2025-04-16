@@ -48,7 +48,7 @@ class APIFrameHelper:
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self._loop = loop
         self._connection = connection
         self._transport: asyncio.Transport | None = None

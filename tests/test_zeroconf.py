@@ -10,7 +10,6 @@ from aioesphomeapi.zeroconf import ZeroconfManager
 from .common import get_mock_async_zeroconf
 
 
-@pytest.mark.asyncio
 async def test_does_not_closed_passed_in_async_instance(async_zeroconf: AsyncZeroconf):
     """Test that the passed in instance is not closed."""
     manager = ZeroconfManager()
@@ -19,7 +18,6 @@ async def test_does_not_closed_passed_in_async_instance(async_zeroconf: AsyncZer
     assert async_zeroconf.async_close.call_count == 0
 
 
-@pytest.mark.asyncio
 async def test_does_not_closed_passed_in_sync_instance(async_zeroconf: AsyncZeroconf):
     """Test that the passed in instance is not closed."""
     manager = ZeroconfManager()
@@ -28,7 +26,6 @@ async def test_does_not_closed_passed_in_sync_instance(async_zeroconf: AsyncZero
     assert async_zeroconf.async_close.call_count == 0
 
 
-@pytest.mark.asyncio
 async def test_closes_created_instance(async_zeroconf: AsyncZeroconf):
     """Test that the created instance is closed."""
     with patch("aioesphomeapi.zeroconf.AsyncZeroconf", return_value=async_zeroconf):
@@ -38,7 +35,6 @@ async def test_closes_created_instance(async_zeroconf: AsyncZeroconf):
     assert async_zeroconf.async_close.call_count == 1
 
 
-@pytest.mark.asyncio
 async def test_runtime_error_multiple_instances(async_zeroconf: AsyncZeroconf):
     """Test runtime error is raised on multiple instances."""
     manager = ZeroconfManager(async_zeroconf)

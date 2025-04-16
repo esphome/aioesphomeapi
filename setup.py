@@ -14,11 +14,13 @@ except ImportError:
     from distutils.core import Extension
 
 TO_CYTHONIZE = [
-    "aioesphomeapi/client_callbacks.py",
+    "aioesphomeapi/client_base.py",
     "aioesphomeapi/connection.py",
-    "aioesphomeapi/_frame_helper/plain_text.py",
-    "aioesphomeapi/_frame_helper/noise.py",
     "aioesphomeapi/_frame_helper/base.py",
+    "aioesphomeapi/_frame_helper/noise.py",
+    "aioesphomeapi/_frame_helper/noise_encryption.py",
+    "aioesphomeapi/_frame_helper/packets.py",
+    "aioesphomeapi/_frame_helper/plain_text.py",
 ]
 
 EXTENSIONS = [
@@ -38,7 +40,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "29.10.1"
+VERSION = "30.0.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
