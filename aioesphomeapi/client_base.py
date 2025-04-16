@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import Future
 from collections.abc import Coroutine
 import logging
 from typing import TYPE_CHECKING, Any, Callable
@@ -120,7 +119,7 @@ def on_subscribe_home_assistant_state_response(
 
 
 def on_bluetooth_device_connection_response(
-    connect_future: Future[None],
+    connect_future: asyncio.Future[None],
     address: int,
     on_bluetooth_connection_state: Callable[[bool, int, int], None],
     msg: BluetoothDeviceConnectionResponse,
