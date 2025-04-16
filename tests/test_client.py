@@ -133,18 +133,6 @@ from .common import (
 from .conftest import PatchableAPIConnection
 
 
-@pytest.fixture
-def auth_client():
-    client = APIClient(
-        address="fake.address",
-        port=6052,
-        password=None,
-    )
-    with patch.object(client, "_connection") as conn:
-        conn.is_connected = True
-        yield client
-
-
 def patch_response_complex(client: APIClient, messages):
     async def patched(req, app, stop, msg_types, timeout):
         resp = []

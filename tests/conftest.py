@@ -68,6 +68,18 @@ def patchable_api_client() -> APIClient:
 
 
 @pytest.fixture
+def auth_client():
+    client = APIClient(
+        address="fake.address",
+        port=6052,
+        password=None,
+    )
+    with patch.object(client, "_connection", PatchableAPIConnection) as conn:
+        conn.is_connected = True
+        yield client
+
+
+@pytest.fixture
 def connection_params(event_loop: asyncio.AbstractEventLoop) -> ConnectionParams:
     return get_mock_connection_params()
 
