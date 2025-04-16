@@ -57,7 +57,7 @@ def on_state_msg(
 ) -> None:
     """Handle a state message."""
     msg_type = type(msg)
-    if cls := SUBSCRIBE_STATES_RESPONSE_TYPES.get(msg_type):
+    if (cls := SUBSCRIBE_STATES_RESPONSE_TYPES.get(msg_type)) is not None:
         on_state(cls.from_pb(msg))
     elif msg_type is CameraImageResponse:
         if TYPE_CHECKING:

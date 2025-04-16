@@ -2,6 +2,9 @@ import cython
 
 from .connection cimport APIConnection, ConnectionParams
 
+cdef object create_eager_task
+cdef object APIConnectionError
+
 cdef dict SUBSCRIBE_STATES_RESPONSE_TYPES
 
 cdef bint TYPE_CHECKING
