@@ -299,7 +299,7 @@ class APIClientBase:
 
     def _set_name_from_device(self, name: str_) -> None:
         """Set the name from a DeviceInfo message."""
-        self.cached_name = str(name)  # Make be Estr from esphome
+        self.cached_name = str(name)  # May be Estr from esphome
         self._set_log_name()
 
     def set_cached_name_if_unset(self, name: str_) -> None:
