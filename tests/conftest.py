@@ -39,7 +39,11 @@ _MOCK_RESOLVE_RESULT = [
 
 
 class PatchableAPIConnection(APIConnection):
-    pass
+    """Patchable APIConnection for testing."""
+
+
+class PatchableAPIClient(APIClient):
+    """Patchable APIClient for testing."""
 
 
 @pytest.fixture
@@ -56,9 +60,6 @@ def resolve_host() -> Generator[AsyncMock]:
 
 @pytest.fixture
 def patchable_api_client() -> APIClient:
-    class PatchableAPIClient(APIClient):
-        pass
-
     cli = PatchableAPIClient(
         address="127.0.0.1",
         port=6052,
@@ -69,7 +70,7 @@ def patchable_api_client() -> APIClient:
 
 @pytest.fixture
 def auth_client():
-    client = APIClient(
+    client = PatchableAPIClient(
         address="fake.address",
         port=6052,
         password=None,
