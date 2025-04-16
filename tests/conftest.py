@@ -74,7 +74,7 @@ def auth_client():
         port=6052,
         password=None,
     )
-    with patch.object(client, "_connection", PatchableAPIConnection) as conn:
+    with patch.object(client, "_connection") as conn:
         conn.is_connected = True
         yield client
 
