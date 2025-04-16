@@ -717,7 +717,7 @@ class APIConnection:
             for msg in msgs
             if (msg_type := PROTO_TO_MESSAGE_TYPE[type(msg)])
         ]
-        if debug_enabled := self._debug_enabled:
+        if self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(
                     "%s: Sending %s: %s",
@@ -733,7 +733,7 @@ class APIConnection:
             assert self._frame_helper is not None
 
         try:
-            self._frame_helper.write_packets(packets, debug_enabled)
+            self._frame_helper.write_packets(packets, self._debug_enabled)
         except WRITE_EXCEPTIONS as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
