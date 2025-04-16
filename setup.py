@@ -14,7 +14,7 @@ except ImportError:
     from distutils.core import Extension
 
 TO_CYTHONIZE = [
-    "aioesphomeapi/client_callbacks.py",
+    "aioesphomeapi/client_base.py",
     "aioesphomeapi/connection.py",
     "aioesphomeapi/_frame_helper/base.py",
     "aioesphomeapi/_frame_helper/noise.py",
