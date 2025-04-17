@@ -2,7 +2,8 @@ import cython
 
 from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
-
+from .noise_encryption cimport EncryptCipher, DecryptCipher
+from .packets cimport make_noise_packets
 
 cdef bint TYPE_CHECKING
 
@@ -12,22 +13,8 @@ cdef unsigned int NOISE_STATE_READY
 cdef unsigned int NOISE_STATE_CLOSED
 
 cdef bytes NOISE_HELLO
-cdef object PACK_NONCE
 cdef object InvalidTag
-
-cdef class EncryptCipher:
-
-    cdef object _nonce
-    cdef object _encrypt
-
-    cdef bytes encrypt(self, object frame)
-
-cdef class DecryptCipher:
-
-    cdef object _nonce
-    cdef object _decrypt
-
-    cdef bytes decrypt(self, object frame)
+cdef object ESPHOME_NOISE_BACKEND
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
@@ -78,15 +65,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     @cython.locals(psk_bytes=bytes)
     cdef _decode_noise_psk(self)
 
-    @cython.locals(
-        type_="unsigned int",
-        data=bytes,
-        data_header=bytes,
-        packet=tuple,
-        data_len=cython.uint,
-        frame=bytes,
-        frame_len=cython.uint,
-    )
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
     cdef _error_on_incorrect_preamble(self, bytes msg)

@@ -7,9 +7,9 @@ from aioesphomeapi.api_pb2 import (
     BluetoothLERawAdvertisementsResponse,
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.client_callbacks import on_ble_raw_advertisement_response
+from aioesphomeapi.client_base import on_ble_raw_advertisement_response
 
-# cythonize -X language_level=3 -a -i aioesphomeapi/client_callbacks.py
+# cythonize -X language_level=3 -a -i aioesphomeapi/client_base.py
 # cythonize -X language_level=3 -a -i aioesphomeapi/connection.py
 
 
