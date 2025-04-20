@@ -23,7 +23,7 @@ cdef inline int varint_size(uint64_t value) noexcept:
     return size
 
 
-def make_plain_text_packets(list packets):
+cpdef bytes make_plain_text_packets(list packets):
     """Construct a single bytes object for all packets (protobuf varint + raw bytes)."""
     cdef tuple packet
     cdef uint64_t type_
@@ -64,7 +64,7 @@ def make_plain_text_packets(list packets):
     return result
 
 
-def make_noise_packets(list packets, EncryptCipher encrypt_cipher):
+cpdef bytes make_noise_packets(list packets, EncryptCipher encrypt_cipher):
     """Construct a single bytes object with all noise packets without using lists."""
     cdef tuple packet
     cdef int type_, data_len
