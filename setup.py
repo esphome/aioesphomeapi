@@ -16,6 +16,7 @@ except ImportError:
 TO_CYTHONIZE = [
     "aioesphomeapi/client_base.py",
     "aioesphomeapi/connection.py",
+    "aioesphomeapi/_frame_helper/_packets.pyx",
     "aioesphomeapi/_frame_helper/base.py",
     "aioesphomeapi/_frame_helper/noise.py",
     "aioesphomeapi/_frame_helper/noise_encryption.py",
@@ -25,7 +26,7 @@ TO_CYTHONIZE = [
 
 EXTENSIONS = [
     Extension(
-        ext.removesuffix(".py").replace("/", "."),
+        ext.removesuffix(".py").removesuffix(".pyx").replace("/", "."),
         [ext],
         language="c",
         extra_compile_args=["-O3", "-g0"],
