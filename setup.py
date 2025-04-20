@@ -25,7 +25,7 @@ TO_CYTHONIZE = [
 
 EXTENSIONS = [
     Extension(
-        ext.removesuffix(".py").replace("/", "."),
+        ext.removesuffix(".py").removesuffix(".pyx").replace("/", "."),
         [ext],
         language="c",
         extra_compile_args=["-O3", "-g0"],
