@@ -34,8 +34,8 @@ cpdef bytes make_plain_text_packets(list packets):
 
     # --- First pass: compute total size ---
     for packet in packets:
-        type_ = packets[0]
-        data_len = len(<bytes>packets[1])
+        type_ = packet[0]
+        data_len = len(<bytes>packet[1])
         total_size += 1  # protocol marker
         total_size += varint_size(data_len)
         total_size += varint_size(type_)
@@ -48,7 +48,7 @@ cpdef bytes make_plain_text_packets(list packets):
     # --- Second pass: write packets ---
     for packet in packets:
         type_ = packet[0]
-        data_len = len(packet[1])
+        data_len = len(<bytes>packet[1])
         data_ptr = PyBytes_AsString(<bytes>packet[1])
 
         p[0] = protocol_marker_byte
@@ -78,8 +78,8 @@ cpdef bytes make_noise_packets(list packets, EncryptCipher encrypt_cipher):
 
     # --- First pass: calculate the total size of the output ---
     for packet in packets:
-        type_ = packets[0]
-        data_len = len(<bytes>packets[1])
+        type_ = packet[0]
+        data_len = len(<bytes>packet[1])
 
         # Header (4 bytes: type_hi, type_lo, len_hi, len_lo)
         total_size += 4  # header size
@@ -97,7 +97,7 @@ cpdef bytes make_noise_packets(list packets, EncryptCipher encrypt_cipher):
     # --- Second pass: populate the buffer with data ---
     for packet in packets:
         type_ = packet[0]
-        data_len = len(packet[1])
+        data_len = len(<bytes>packet[1])
         data_ptr = PyBytes_AsString(<bytes>packet[1])
 
         # Construct 4-byte data header: [type_hi, type_lo, len_hi, len_lo]
