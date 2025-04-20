@@ -6,6 +6,7 @@ from .packet_helpers import (
 )
 
 _cached_varuint_to_bytes = varuint_to_bytes
+_varuint_to_bytes = _cached_varuint_to_bytes
 
 
 def make_plain_text_packets(packets: list[tuple[int, bytes]]) -> list[bytes]:
