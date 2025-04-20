@@ -2,7 +2,7 @@ import cython
 
 from ..connection cimport APIConnection
 from .base cimport APIFrameHelper
-from .packets cimport make_plain_text_packets
+from ._packets cimport make_plain_text_packets
 
 cdef bint TYPE_CHECKING
 
