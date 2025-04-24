@@ -5,8 +5,8 @@ from functools import partial
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
 from aioesphomeapi import APIConnection
-from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
+from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
@@ -14,7 +14,7 @@ from aioesphomeapi.api_pb2 import (
 from aioesphomeapi.client import APIClient
 
 
-def test_raw_ble_plain_text_with_callback(benchmark: BenchmarkFixture) -> None:
+async def test_raw_ble_plain_text_with_callback(benchmark: BenchmarkFixture) -> None:
     """Benchmark raw BLE plaintext with callback."""
 
     class MockConnection(APIConnection):
@@ -56,7 +56,7 @@ def test_raw_ble_plain_text_with_callback(benchmark: BenchmarkFixture) -> None:
     benchmark(process_incoming_msg)
 
 
-def test_raw_ble_plain_text(benchmark: BenchmarkFixture) -> None:
+async def test_raw_ble_plain_text(benchmark: BenchmarkFixture) -> None:
     """Benchmark raw BLE plaintext."""
     adv = BluetoothLERawAdvertisementsResponse()
     fake_adv = BluetoothLERawAdvertisement(
@@ -102,7 +102,7 @@ def test_raw_ble_plain_text(benchmark: BenchmarkFixture) -> None:
     benchmark(process_incoming_msg)
 
 
-def test_raw_ble_plain_text_different_advs(benchmark: BenchmarkFixture) -> None:
+async def test_raw_ble_plain_text_different_advs(benchmark: BenchmarkFixture) -> None:
     """Benchmark raw BLE plaintext with different advertisements."""
     data = (
         b"\x01\x01\x07\x98\xaa7\xd7\xc5s\xe2\xdd\xc2\x96aG\xb1\xac:\xd3\xde"
@@ -148,7 +148,9 @@ def test_raw_ble_plain_text_different_advs(benchmark: BenchmarkFixture) -> None:
     benchmark(process_incoming_msg)
 
 
-def test_multiple_ble_adv_messages_single_read(benchmark: BenchmarkFixture) -> None:
+async def test_multiple_ble_adv_messages_single_read(
+    benchmark: BenchmarkFixture,
+) -> None:
     """Benchmark multiple raw ble advertisement messages in a single read."""
     data = (
         b"\x01\x01\x07\x98\xaa7\xd7\xc5s\xe2\xdd\xc2\x96aG\xb1\xac:\xd3\xde"

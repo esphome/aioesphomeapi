@@ -86,6 +86,7 @@ cdef class ConnectionParams:
     cdef public object zeroconf_manager
     cdef public object noise_psk
     cdef public object expected_name
+    cdef public object expected_mac
 
 
 cdef class APIConnection:
@@ -117,6 +118,7 @@ cdef class APIConnection:
 
     cpdef void send_message(self, object msg) except *
 
+    @cython.locals(msg_type=tuple)
     cdef void send_messages(self, tuple messages) except *
 
     @cython.locals(handlers=set, handlers_copy=set, klass_merge=tuple)

@@ -33,7 +33,6 @@ def test_fix_float_single_double_conversion_nan():
     assert math.isnan(util.fix_float_single_double_conversion(float("nan")))
 
 
-@pytest.mark.asyncio
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="Test requires Python 3.12+")
 async def test_create_eager_task_312() -> None:
     """Test create_eager_task schedules a task eagerly in the event loop.
@@ -59,7 +58,6 @@ async def test_create_eager_task_312() -> None:
     await task2
 
 
-@pytest.mark.asyncio
 @pytest.mark.skipif(sys.version_info >= (3, 12), reason="Test requires < Python 3.12")
 async def test_create_eager_task_pre_312() -> None:
     """Test create_eager_task schedules a task in the event loop.

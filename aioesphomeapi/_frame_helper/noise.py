@@ -2,20 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import binascii
-from functools import partial
 import logging
-from struct import Struct
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from cryptography.exceptions import InvalidTag
-from noise.backends.default import DefaultNoiseBackend
-from noise.backends.default.ciphers import ChaCha20Cipher, CryptographyCipher
 from noise.connection import NoiseConnection
-from noise.state import CipherState
 
 from ..core import (
     APIConnectionError,
+    BadMACAddressAPIError,
     BadNameAPIError,
     EncryptionErrorAPIError,
     EncryptionHelloAPIError,
@@ -25,33 +20,11 @@ from ..core import (
     ProtocolAPIError,
 )
 from .base import _LOGGER, APIFrameHelper
+from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
+from .packets import make_noise_packets
 
 if TYPE_CHECKING:
     from ..connection import APIConnection
-
-
-PACK_NONCE = partial(Struct("<LQ").pack, 0)
-
-_bytes = bytes
-
-
-class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
-    """ChaCha20 cipher that can be reused."""
-
-    format_nonce = staticmethod(PACK_NONCE)
-
-    @property
-    def klass(self) -> type[ChaCha20Poly1305Reusable]:
-        return ChaCha20Poly1305Reusable  # type: ignore[no-any-return, unused-ignore]
-
-
-class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.ciphers["ChaChaPoly"] = ChaCha20CipherReuseable
-
-
-ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
 
 
 # This is effectively an enum but we don't want to use an enum
@@ -72,53 +45,17 @@ NOISE_HELLO = b"\x01\x00\x00"
 int_ = int
 
 
-class EncryptCipher:
-    """Wrapper around the ChaCha20Poly1305 cipher for encryption."""
-
-    __slots__ = ("_encrypt", "_nonce")
-
-    def __init__(self, cipher_state: CipherState) -> None:
-        """Initialize the cipher wrapper."""
-        crypto_cipher: CryptographyCipher = cipher_state.cipher
-        cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
-        self._nonce: int = cipher_state.n
-        self._encrypt = cipher.encrypt
-
-    def encrypt(self, data: _bytes) -> bytes:
-        """Encrypt a frame."""
-        ciphertext = self._encrypt(PACK_NONCE(self._nonce), data, None)
-        self._nonce += 1
-        return ciphertext  # type: ignore[no-any-return, unused-ignore]
-
-
-class DecryptCipher:
-    """Wrapper around the ChaCha20Poly1305 cipher for decryption."""
-
-    __slots__ = ("_decrypt", "_nonce")
-
-    def __init__(self, cipher_state: CipherState) -> None:
-        """Initialize the cipher wrapper."""
-        crypto_cipher: CryptographyCipher = cipher_state.cipher
-        cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
-        self._nonce: int = cipher_state.n
-        self._decrypt = cipher.decrypt
-
-    def decrypt(self, data: _bytes) -> bytes:
-        """Decrypt a frame."""
-        plaintext = self._decrypt(PACK_NONCE(self._nonce), data, None)
-        self._nonce += 1
-        return plaintext  # type: ignore[no-any-return, unused-ignore]
-
-
 class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
 
     __slots__ = (
         "_decrypt_cipher",
         "_encrypt_cipher",
+        "_expected_mac",
         "_expected_name",
         "_noise_psk",
         "_proto",
+        "_server_mac",
         "_server_name",
         "_state",
     )
@@ -128,15 +65,18 @@ class APINoiseFrameHelper(APIFrameHelper):
         connection: APIConnection,
         noise_psk: str,
         expected_name: str | None,
+        expected_mac: str | None,
         client_info: str,
         log_name: str,
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(connection, client_info, log_name)
         self._noise_psk = noise_psk
+        self._expected_mac = expected_mac
         self._expected_name = expected_name
         self._state = NOISE_STATE_HELLO
         self._server_name: str | None = None
+        self._server_mac: str | None = None
         self._encrypt_cipher: EncryptCipher | None = None
         self._decrypt_cipher: DecryptCipher | None = None
         self._setup_proto()
@@ -263,12 +203,28 @@ class APINoiseFrameHelper(APIFrameHelper):
                 )
                 return
 
+            mac_address_i = server_hello.find(b"\0", server_name_i + 1)
+            if mac_address_i != -1:
+                # mac address found, this extension was added in 2025.4
+                mac_address = server_hello[server_name_i + 1 : mac_address_i].decode()
+                self._server_mac = mac_address
+                if self._expected_mac is not None and self._expected_mac != mac_address:
+                    self._handle_error_and_close(
+                        BadMACAddressAPIError(
+                            f"{self._log_name}: Server sent a different mac '{mac_address}'",
+                            server_name,
+                            mac_address,
+                        )
+                    )
+                    return
+
         self._state = NOISE_STATE_HANDSHAKE
 
     def _decode_noise_psk(self) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
         psk = self._noise_psk
         server_name = self._server_name
+        server_mac = self._server_mac
         try:
             psk_bytes = binascii.a2b_base64(psk)
         except ValueError:
@@ -276,12 +232,14 @@ class APINoiseFrameHelper(APIFrameHelper):
                 f"{self._log_name}: Malformed PSK `{psk}`, expected "
                 "base64-encoded value",
                 server_name,
+                server_mac,
             )
         if len(psk_bytes) != 32:
             raise InvalidEncryptionKeyAPIError(
                 f"{self._log_name}:Malformed PSK `{psk}`, expected"
                 f" 32-bytes of base64 data",
                 server_name,
+                server_mac,
             )
         return psk_bytes
 
@@ -305,7 +263,9 @@ class APINoiseFrameHelper(APIFrameHelper):
             )
         else:
             exc = InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Invalid encryption key", self._server_name
+                f"{self._log_name}: Invalid encryption key",
+                self._server_name,
+                self._server_mac,
             )
         self._handle_error_and_close(exc)
 
@@ -329,27 +289,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         """
         if TYPE_CHECKING:
             assert self._encrypt_cipher is not None, "Handshake should be complete"
-
-        out: list[bytes] = []
-        for packet in packets:
-            type_: int = packet[0]
-            data: bytes = packet[1]
-            data_len = len(data)
-            data_header = bytes(
-                (
-                    (type_ >> 8) & 0xFF,
-                    type_ & 0xFF,
-                    (data_len >> 8) & 0xFF,
-                    data_len & 0xFF,
-                )
-            )
-            frame = self._encrypt_cipher.encrypt(data_header + data)
-            frame_len = len(frame)
-            header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
-            out.append(header)
-            out.append(frame)
-
-        self._write_bytes(out, debug_enabled)
+        self._write_bytes(
+            make_noise_packets(packets, self._encrypt_cipher), debug_enabled
+        )
 
     def _handle_frame(self, frame: bytes) -> None:
         """Handle an incoming frame."""

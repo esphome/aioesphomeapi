@@ -79,7 +79,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         :param on_connect: Coroutine Function to call when connected.
         :param on_disconnect: Coroutine Function to call when disconnected.
         """
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.get_running_loop()
         self._cli = client
         self.name: str | None = None
         if name:

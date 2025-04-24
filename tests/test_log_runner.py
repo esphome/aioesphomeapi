@@ -32,13 +32,12 @@ from .common import (
 )
 
 
-@pytest.mark.asyncio
 async def test_log_runner(
     conn: APIConnection,
     aiohappyeyeballs_start_connection,
 ):
     """Test the log runner logic."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
@@ -100,14 +99,13 @@ async def test_log_runner(
     await stop_task
 
 
-@pytest.mark.asyncio
 async def test_log_runner_reconnects_on_disconnect(
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on disconnect."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
@@ -180,14 +178,13 @@ async def test_log_runner_reconnects_on_disconnect(
     await stop()
 
 
-@pytest.mark.asyncio
 async def test_log_runner_reconnects_on_subscribe_failure(
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on subscribe failure."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
