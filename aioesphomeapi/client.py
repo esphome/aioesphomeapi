@@ -52,6 +52,8 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesServicesResponse,
     LockCommandRequest,
     MediaPlayerCommandRequest,
+    NoiseEncryptionSetKeyRequest,
+    NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
@@ -130,6 +132,7 @@ from .model import (
     LockCommand,
     LogLevel,
     MediaPlayerCommand,
+    NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     UpdateCommand,
     UserService,
     UserServiceArgType,
@@ -1373,3 +1376,14 @@ class APIClient(APIClientBase):
         if code is not None:
             req.code = code
         self._get_connection().send_message(req)
+
+    async def noise_encryption_set_key(
+        self,
+        key: bytes,
+    ) -> bool:
+        """Set the noise encryption key."""
+        req = NoiseEncryptionSetKeyRequest(key=key)
+        resp = await self._get_connection().send_message_await_response(
+            req, NoiseEncryptionSetKeyResponse
+        )
+        return NoiseEncryptionSetKeyResponseModel.from_pb(resp).success

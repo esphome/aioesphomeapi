@@ -56,6 +56,8 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesServicesResponse,
     LockCommandRequest,
     MediaPlayerCommandRequest,
+    NoiseEncryptionSetKeyRequest,
+    NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
@@ -2736,3 +2738,25 @@ async def test_calls_after_connection_closed(
 
     with pytest.raises(APIConnectionError):
         await client.update_command(1, True)
+
+
+async def test_noise_encryption_set_key(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test set_noise_encryption_key."""
+    client, connection, transport, protocol = api_client
+    original_send_message = connection.send_message
+
+    def send_message(msg):
+        assert msg == NoiseEncryptionSetKeyRequest(key=b"1234")
+        original_send_message(msg)
+
+    with patch.object(connection, "send_message", new=send_message):
+        set_task = asyncio.create_task(client.noise_encryption_set_key(b"1234"))
+        await asyncio.sleep(0)
+        response: message.Message = NoiseEncryptionSetKeyResponse(success=True)
+        mock_data_received(protocol, generate_plaintext_packet(response))
+        success = await set_task
+        assert success is True
