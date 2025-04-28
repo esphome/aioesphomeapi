@@ -1335,6 +1335,16 @@ class VoiceAssistantSetConfiguration(APIModelBase):
     active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
 
 
+@_frozen_dataclass_decorator
+class NoiseEncryptionSetKeyRequest(APIModelBase):
+    key: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class NoiseEncryptionSetKeyResponse(APIModelBase):
+    success: bool = False
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1

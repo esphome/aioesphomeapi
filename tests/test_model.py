@@ -46,6 +46,7 @@ from aioesphomeapi.api_pb2 import (
     LockStateResponse,
     MediaPlayerStateResponse,
     MediaPlayerSupportedFormat,
+    NoiseEncryptionSetKeyResponse,
     NumberStateResponse,
     SelectStateResponse,
     SensorStateResponse,
@@ -96,6 +97,7 @@ from aioesphomeapi.model import (
     LockInfo,
     MediaPlayerEntityState,
     MediaPlayerInfo,
+    NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     NumberInfo,
     NumberState,
     SelectInfo,
@@ -291,6 +293,7 @@ def test_api_version_ord():
         (Event, EventResponse),
         (UpdateInfo, ListEntitiesUpdateResponse),
         (UpdateState, UpdateStateResponse),
+        (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
