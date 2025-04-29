@@ -114,6 +114,7 @@ class BluetoothProxyFeature(enum.IntFlag):
     PAIRING = 1 << 3
     CACHE_CLEARING = 1 << 4
     RAW_ADVERTISEMENTS = 1 << 5
+    FEATURE_STATE_AND_MODE = 1 << 6
 
 
 class BluetoothProxySubscriptionFlag(enum.IntFlag):
