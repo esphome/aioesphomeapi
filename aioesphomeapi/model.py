@@ -114,6 +114,7 @@ class BluetoothProxyFeature(enum.IntFlag):
     PAIRING = 1 << 3
     CACHE_CLEARING = 1 << 4
     RAW_ADVERTISEMENTS = 1 << 5
+    FEATURE_STATE_AND_MODE = 1 << 6
 
 
 class BluetoothProxySubscriptionFlag(enum.IntFlag):
@@ -1262,6 +1263,30 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CONNECT_V3_WITH_CACHE = 4
     CONNECT_V3_WITHOUT_CACHE = 5
     CLEAR_CACHE = 6
+
+
+class BluetoothScannerState(APIIntEnum):
+    IDLE = 0
+    STARTING = 1
+    RUNNING = 2
+    FAILED = 3
+    STOPPING = 4
+    STOPPED = 5
+
+
+class BluetoothScannerMode(APIIntEnum):
+    PASSIVE = 0
+    ACTIVE = 1
+
+
+@_frozen_dataclass_decorator
+class BluetoothScannerStateResponse(APIModelBase):
+    state: BluetoothScannerState | None = converter_field(
+        default=BluetoothScannerState.IDLE, converter=BluetoothScannerState.convert
+    )
+    mode: BluetoothScannerMode | None = converter_field(
+        default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
+    )
 
 
 class VoiceAssistantCommandFlag(enum.IntFlag):

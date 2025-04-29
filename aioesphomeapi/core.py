@@ -30,6 +30,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothScannerSetModeRequest,
+    BluetoothScannerStateResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -442,6 +444,8 @@ MESSAGE_TYPE_TO_PROTO = {
     123: VoiceAssistantSetConfiguration,
     124: NoiseEncryptionSetKeyRequest,
     125: NoiseEncryptionSetKeyResponse,
+    126: BluetoothScannerStateResponse,
+    127: BluetoothScannerSetModeRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

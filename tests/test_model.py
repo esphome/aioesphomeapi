@@ -11,6 +11,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
+    BluetoothScannerStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
     DateStateResponse,
@@ -72,6 +73,7 @@ from aioesphomeapi.model import (
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothGATTServices as BluetoothGATTServicesModel,
     BluetoothProxyFeature,
+    BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ButtonInfo,
     CameraInfo,
     ClimateInfo,
@@ -294,6 +296,7 @@ def test_api_version_ord():
         (UpdateInfo, ListEntitiesUpdateResponse),
         (UpdateState, UpdateStateResponse),
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
+        (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):

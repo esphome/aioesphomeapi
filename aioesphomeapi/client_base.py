@@ -22,6 +22,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTReadResponse,
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
+    BluetoothScannerStateResponse,
     CameraImageResponse,
     HomeassistantServiceResponse,
     SubscribeHomeAssistantStateResponse,
@@ -31,6 +32,7 @@ from .core import APIConnectionError
 from .model import (
     APIVersion,
     BluetoothLEAdvertisement,
+    BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     CameraState,
     EntityState,
     HomeassistantServiceCall,
@@ -111,6 +113,13 @@ def on_bluetooth_gatt_notify_data_response(
     """Handle a BluetoothGATTNotifyDataResponse message."""
     if address == msg.address and handle == msg.handle:
         on_bluetooth_gatt_notify(handle, bytearray(msg.data))
+
+
+def on_bluetooth_scanner_state_response(
+    on_bluetooth_scanner_state: Callable[[BluetoothScannerStateResponseModel], None],
+    msg: BluetoothScannerStateResponse,
+) -> None:
+    on_bluetooth_scanner_state(BluetoothScannerStateResponseModel.from_pb(msg))
 
 
 def on_subscribe_home_assistant_state_response(
