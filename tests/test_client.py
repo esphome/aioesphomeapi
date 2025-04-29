@@ -35,6 +35,10 @@ from aioesphomeapi.api_pb2 import (
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothScannerMode,
+    BluetoothScannerSetModeRequest,
+    BluetoothScannerState,
+    BluetoothScannerStateResponse,
     BluetoothServiceData,
     ButtonCommandRequest,
     CameraImageRequest,
@@ -56,6 +60,8 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesServicesResponse,
     LockCommandRequest,
     MediaPlayerCommandRequest,
+    NoiseEncryptionSetKeyRequest,
+    NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
@@ -98,6 +104,8 @@ from aioesphomeapi.model import (
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
+    BluetoothScannerMode as BluetoothScannerModeModel,
+    BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     CameraState,
     ClimateFanMode,
     ClimateMode,
@@ -2736,3 +2744,61 @@ async def test_calls_after_connection_closed(
 
     with pytest.raises(APIConnectionError):
         await client.update_command(1, True)
+
+
+async def test_noise_encryption_set_key(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test set_noise_encryption_key."""
+    client, connection, transport, protocol = api_client
+    original_send_message = connection.send_message
+
+    def send_message(msg):
+        assert msg == NoiseEncryptionSetKeyRequest(key=b"1234")
+        original_send_message(msg)
+
+    with patch.object(connection, "send_message", new=send_message):
+        set_task = asyncio.create_task(client.noise_encryption_set_key(b"1234"))
+        await asyncio.sleep(0)
+        response: message.Message = NoiseEncryptionSetKeyResponse(success=True)
+        mock_data_received(protocol, generate_plaintext_packet(response))
+        success = await set_task
+        assert success is True
+
+
+async def test_bluetooth_scanner_set_mode(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_scanner_set_mode."""
+    client, connection, transport, protocol = api_client
+    send = patch_send(client)
+    done = asyncio.Event()
+
+    def _on_bluetooth_scanner_state(state: BluetoothScannerStateResponseModel) -> None:
+        assert state.mode == BluetoothScannerModeModel.ACTIVE
+        done.set()
+
+    unsub = client.subscribe_bluetooth_scanner_state(_on_bluetooth_scanner_state)
+
+    client.bluetooth_scanner_set_mode(BluetoothScannerModeModel.ACTIVE)
+
+    send.assert_called_once_with(
+        BluetoothScannerSetModeRequest(
+            mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_ACTIVE
+        )
+    )
+    send.reset_mock()
+
+    response: message.Message = BluetoothScannerStateResponse(
+        state=BluetoothScannerState.BLUETOOTH_SCANNER_STATE_RUNNING,
+        mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_ACTIVE,
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    await asyncio.wait_for(done.wait(), 1)
+
+    unsub()

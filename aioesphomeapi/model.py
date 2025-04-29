@@ -114,6 +114,7 @@ class BluetoothProxyFeature(enum.IntFlag):
     PAIRING = 1 << 3
     CACHE_CLEARING = 1 << 4
     RAW_ADVERTISEMENTS = 1 << 5
+    FEATURE_STATE_AND_MODE = 1 << 6
 
 
 class BluetoothProxySubscriptionFlag(enum.IntFlag):
@@ -1277,6 +1278,30 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CLEAR_CACHE = 6
 
 
+class BluetoothScannerState(APIIntEnum):
+    IDLE = 0
+    STARTING = 1
+    RUNNING = 2
+    FAILED = 3
+    STOPPING = 4
+    STOPPED = 5
+
+
+class BluetoothScannerMode(APIIntEnum):
+    PASSIVE = 0
+    ACTIVE = 1
+
+
+@_frozen_dataclass_decorator
+class BluetoothScannerStateResponse(APIModelBase):
+    state: BluetoothScannerState | None = converter_field(
+        default=BluetoothScannerState.IDLE, converter=BluetoothScannerState.convert
+    )
+    mode: BluetoothScannerMode | None = converter_field(
+        default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
+    )
+
+
 class VoiceAssistantCommandFlag(enum.IntFlag):
     USE_VAD = 1 << 0
     USE_WAKE_WORD = 1 << 1
@@ -1346,6 +1371,16 @@ class VoiceAssistantConfigurationRequest(APIModelBase):
 @_frozen_dataclass_decorator
 class VoiceAssistantSetConfiguration(APIModelBase):
     active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
+
+
+@_frozen_dataclass_decorator
+class NoiseEncryptionSetKeyRequest(APIModelBase):
+    key: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class NoiseEncryptionSetKeyResponse(APIModelBase):
+    success: bool = False
 
 
 class LogLevel(APIIntEnum):

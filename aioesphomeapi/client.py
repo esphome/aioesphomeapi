@@ -32,6 +32,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothScannerSetModeRequest,
+    BluetoothScannerStateResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -52,6 +54,8 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesServicesResponse,
     LockCommandRequest,
     MediaPlayerCommandRequest,
+    NoiseEncryptionSetKeyRequest,
+    NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
@@ -90,6 +94,7 @@ from .client_base import (
     on_bluetooth_handle_message,
     on_bluetooth_le_advertising_response,
     on_bluetooth_message_types,
+    on_bluetooth_scanner_state_response,
     on_home_assistant_service_response,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
@@ -115,6 +120,8 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
     BluetoothProxySubscriptionFlag,
+    BluetoothScannerMode,
+    BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ClimateFanMode,
     ClimateMode,
     ClimatePreset,
@@ -130,6 +137,7 @@ from .model import (
     LockCommand,
     LogLevel,
     MediaPlayerCommand,
+    NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     UpdateCommand,
     UserService,
     UserServiceArgType,
@@ -406,6 +414,25 @@ class APIClient(APIClientBase):
             ),
             (BluetoothConnectionsFreeResponse,),
         )
+
+    def subscribe_bluetooth_scanner_state(
+        self,
+        on_bluetooth_scanner_state: Callable[
+            [BluetoothScannerStateResponseModel], None
+        ],
+    ) -> Callable[[], None]:
+        """Subscribe to Bluetooth scanner state updates."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_bluetooth_scanner_state_response,
+                on_bluetooth_scanner_state,
+            ),
+            (BluetoothScannerStateResponse,),
+        )
+
+    def bluetooth_scanner_set_mode(self, mode: BluetoothScannerMode) -> None:
+        """Set the Bluetooth scanner mode."""
+        self._get_connection().send_message(BluetoothScannerSetModeRequest(mode=mode))
 
     async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
         self,
@@ -1373,3 +1400,14 @@ class APIClient(APIClientBase):
         if code is not None:
             req.code = code
         self._get_connection().send_message(req)
+
+    async def noise_encryption_set_key(
+        self,
+        key: bytes,
+    ) -> bool:
+        """Set the noise encryption key."""
+        req = NoiseEncryptionSetKeyRequest(key=key)
+        resp = await self._get_connection().send_message_await_response(
+            req, NoiseEncryptionSetKeyResponse
+        )
+        return NoiseEncryptionSetKeyResponseModel.from_pb(resp).success
