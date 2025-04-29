@@ -1264,6 +1264,30 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CLEAR_CACHE = 6
 
 
+class BluetoothScannerState(APIIntEnum):
+    IDLE = 0
+    STARTING = 1
+    RUNNING = 2
+    FAILED = 3
+    STOPPING = 4
+    STOPPED = 5
+
+
+class BluetoothScannerMode(APIIntEnum):
+    PASSIVE = 0
+    ACTIVE = 1
+
+
+@_frozen_dataclass_decorator
+class BluetoothScannerStateResponse(APIModelBase):
+    state: BluetoothScannerState | None = converter_field(
+        default=BluetoothScannerState.IDLE, converter=BluetoothScannerState.convert
+    )
+    mode: BluetoothScannerMode | None = converter_field(
+        default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
+    )
+
+
 class VoiceAssistantCommandFlag(enum.IntFlag):
     USE_VAD = 1 << 0
     USE_WAKE_WORD = 1 << 1

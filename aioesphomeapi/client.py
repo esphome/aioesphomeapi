@@ -32,6 +32,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothScannerSetModeRequest,
+    BluetoothScannerStateResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -92,6 +94,7 @@ from .client_base import (
     on_bluetooth_handle_message,
     on_bluetooth_le_advertising_response,
     on_bluetooth_message_types,
+    on_bluetooth_scanner_state_response,
     on_home_assistant_service_response,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
@@ -117,6 +120,8 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothProxyFeature,
     BluetoothProxySubscriptionFlag,
+    BluetoothScannerMode,
+    BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ClimateFanMode,
     ClimateMode,
     ClimatePreset,
@@ -409,6 +414,25 @@ class APIClient(APIClientBase):
             ),
             (BluetoothConnectionsFreeResponse,),
         )
+
+    def subscribe_bluetooth_scanner_state(
+        self,
+        on_bluetooth_scanner_state: Callable[
+            [BluetoothScannerStateResponseModel], None
+        ],
+    ) -> Callable[[], None]:
+        """Subscribe to Bluetooth scanner state updates."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_bluetooth_scanner_state_response,
+                on_bluetooth_scanner_state,
+            ),
+            (BluetoothScannerStateResponse,),
+        )
+
+    def bluetooth_scanner_set_mode(self, mode: BluetoothScannerMode) -> None:
+        """Set the Bluetooth scanner mode."""
+        self._get_connection().send_message(BluetoothScannerSetModeRequest(mode=mode))
 
     async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
         self,
