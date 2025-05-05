@@ -82,6 +82,7 @@ jobs:
         shell: bash
         run: |
           pip3 install -r requirements/base.txt -r requirements/test.txt
+          pip3 install 'git+https://github.com/bdraco/cryptography.git@pybuffer_impl#egg=cryptography'
           pip3 install -e .
       - name: Set up Python environment (cython)
         if: ${{ matrix.extension == 'use_cython' }}
@@ -90,6 +91,7 @@ jobs:
         shell: bash
         run: |
           pip3 install -r requirements/base.txt -r requirements/test.txt
+          pip3 install 'git+https://github.com/bdraco/cryptography.git@pybuffer_impl#egg=cryptography'
           pip3 install -e .
       - name: Register problem matchers
         shell: bash
@@ -146,6 +148,7 @@ jobs:
         shell: bash
         run: |
             pip3 install -r requirements/base.txt -r requirements/test.txt
+            pip3 install 'git+https://github.com/bdraco/cryptography.git@pybuffer_impl#egg=cryptography'
             pip3 install -e .
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v3
