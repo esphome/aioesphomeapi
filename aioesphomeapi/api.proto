@@ -1910,7 +1910,7 @@ message ListEntitiesEventResponse {
   string device_class = 8;
 
   repeated string event_types = 9;
- uint32 device_uid = 10;
+  uint32 device_uid = 10;
 }
 message EventResponse {
   option (id) = 108;
@@ -1940,7 +1940,7 @@ message ListEntitiesValveResponse {
   bool assumed_state = 9;
   bool supports_position = 10;
   bool supports_stop = 11;
- uint32 device_uid = 12;
+  uint32 device_uid = 12;
 }
 
 enum ValveOperation {
@@ -1985,7 +1985,7 @@ message ListEntitiesDateTimeResponse {
   string icon = 5;
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
- uint32 device_uid = 8;
+  uint32 device_uid = 8;
 }
 message DateTimeStateResponse {
   option (id) = 113;
@@ -2024,7 +2024,7 @@ message ListEntitiesUpdateResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
- uint32 device_uid = 9;
+  uint32 device_uid = 9;
 }
 message UpdateStateResponse {
   option (id) = 117;
