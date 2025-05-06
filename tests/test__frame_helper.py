@@ -519,7 +519,7 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     pkg_length = (pkg_length_high << 8) + pkg_length_low
     assert len(encrypted_packet) == 3 + pkg_length
 
-    encrypt_cipher = EncryptCipher(proto.cipher_state_encrypt)
+    encrypt_cipher = EncryptCipher(proto.noise_protocol.cipher_state_encrypt)
     encrypted_packet = _make_encrypted_packet(encrypt_cipher, 42, b"from device")
 
     mock_data_received(helper, encrypted_packet)

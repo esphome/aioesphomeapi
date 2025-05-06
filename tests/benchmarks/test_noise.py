@@ -80,7 +80,7 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     helper._writelines = _empty_writelines
 
     payload = b"x" * payload_size
-    encrypt_cipher = EncryptCipher(proto.cipher_state_encrypt)
+    encrypt_cipher = EncryptCipher(proto.noise_protocol.cipher_state_encrypt)
 
     @benchmark
     def process_encrypted_packets():
