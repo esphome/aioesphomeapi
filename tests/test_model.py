@@ -669,12 +669,12 @@ def test_sub_device_info_convert_list() -> None:
         name="Base device",
         sub_devices=[
             SubDeviceInfoModel(
-                id="dev1",
+                uid=11111111,
                 name="Sub dev 1",
                 suggested_area="Sub area 1",
             ),
             SubDeviceInfoModel(
-                id="dev2",
+                uid=22222222,
                 name="Sub dev 2",
                 suggested_area="Sub area 2",
             ),
@@ -686,12 +686,12 @@ def test_sub_device_info_convert_list() -> None:
                 "name": "Base device",
                 "sub_devices": [
                     SubDeviceInfo(
-                        id="dev1",
+                        uid=11111111,
                         name="Sub dev 1",
                         suggested_area="Sub area 1",
                     ),
                     {
-                        "id": "dev2",
+                        "uid": 22222222,
                         "name": "Sub dev 2",
                         "suggested_area": "Sub area 2",
                     },
