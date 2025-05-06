@@ -33,6 +33,24 @@ class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
 ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
 
 
+class FastCipherState(CipherState):  # type: ignore[misc]
+    """FastCipherState."""
+
+    has_key = True
+
+    @classmethod
+    def from_cipher_state(
+        cls,
+        cipher_state: CipherState,
+    ) -> FastCipherState:
+        """Create a new FastCipherState from an existing CipherState."""
+        return cls(
+            k=cipher_state.k,
+            cipher=cipher_state.cipher,
+            n=cipher_state.n,
+        )
+
+
 class EncryptCipher:
     """Wrapper around the ChaCha20Poly1305 cipher for encryption."""
 

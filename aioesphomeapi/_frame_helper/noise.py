@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from cryptography.exceptions import InvalidTag
 from noise.connection import NoiseConnection
+from noise.noise_protocol import NoiseProtocol
 
 from ..core import (
     APIConnectionError,
@@ -20,7 +21,12 @@ from ..core import (
     ProtocolAPIError,
 )
 from .base import _LOGGER, APIFrameHelper
-from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
+from .noise_encryption import (
+    ESPHOME_NOISE_BACKEND,
+    DecryptCipher,
+    EncryptCipher,
+    FastCipherState,
+)
 from .packets import make_noise_packets
 
 if TYPE_CHECKING:
@@ -275,9 +281,12 @@ class APINoiseFrameHelper(APIFrameHelper):
             return
         self._proto.read_message(msg[1:])
         self._state = NOISE_STATE_READY
-        noise_protocol = self._proto.noise_protocol
-        self._decrypt_cipher = DecryptCipher(noise_protocol.cipher_state_decrypt)  # pylint: disable=no-member
-        self._encrypt_cipher = EncryptCipher(noise_protocol.cipher_state_encrypt)  # pylint: disable=no-member
+        noise_protocol: NoiseProtocol = self._proto.noise_protocol
+        noise_protocol.cipher_state_encrypt = FastCipherState.from_cipher_state(
+            noise_protocol.cipher_state_encrypt
+        )
+        self._decrypt_cipher = DecryptCipher(noise_protocol.cipher_state_decrypt)
+        self._encrypt_cipher = EncryptCipher(noise_protocol.cipher_state_encrypt)
         self.ready_future.set_result(None)
 
     def write_packets(
