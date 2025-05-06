@@ -120,21 +120,19 @@ jobs:
             echo "You have altered the generated proto files but they do not match what is expected."
             echo "Please run the following to update the generated files:"
             echo 'docker run -v "$PWD":/aioesphomeapi ghcr.io/esphome/aioesphomeapi-proto-builder:latest'
-            echo "The diff is:"
-            git diff
             exit 1
           fi
         name: Check protobuf files match
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - if: failure()
-        name: Show changes
+      - name: Show changes
         run: git diff
-      - if: failure()
-        name: Archive artifacts
+        if: ${{ failure() && matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
+      - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
           name: genrated-proto-files
           path: aioesphomeapi/*pb2.py
+        if: ${{ failure() && matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
