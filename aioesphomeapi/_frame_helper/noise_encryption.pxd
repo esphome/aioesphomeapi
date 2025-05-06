@@ -7,7 +7,7 @@ cdef class EncryptCipher:
     cdef object _nonce
     cdef object _encrypt
 
-    cdef bytes encrypt(self, object frame)
+    cpdef bytes encrypt(self, object frame)
 
 cdef class DecryptCipher:
 
