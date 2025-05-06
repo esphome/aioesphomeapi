@@ -126,6 +126,15 @@ jobs:
           fi
         name: Check protobuf files match
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
+      - if: failure()
+        name: Show changes
+        run: git diff
+      - if: failure()
+        name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: genrated-proto-files
+          path: aioesphomeapi/*pb2.py
       - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
