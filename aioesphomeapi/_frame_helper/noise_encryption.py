@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import partial
+from functools import cache, partial
 from struct import Struct
 from typing import Any
 
@@ -40,6 +40,7 @@ class EncryptCipher:
 
     def __init__(self, cipher_state: CipherState) -> None:
         """Initialize the cipher wrapper."""
+        cipher_state.has_key = cache(lambda: True)
         crypto_cipher: CryptographyCipher = cipher_state.cipher
         cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
         self._nonce: int = cipher_state.n
