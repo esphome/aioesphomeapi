@@ -15,7 +15,7 @@ _int = int
 PACK_NONCE = partial(Struct("<LQ").pack, 0)
 
 try:
-    from .pack import fast_pack_nonce  # type: ignore[import-not-found]
+    from .pack import fast_pack_nonce  # type: ignore[import-not-found, unused-ignore]
 except ImportError:
     fast_pack_nonce = PACK_NONCE
 
