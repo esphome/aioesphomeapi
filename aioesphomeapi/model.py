@@ -136,7 +136,7 @@ class VoiceAssistantSubscriptionFlag(enum.IntFlag):
 
 @_frozen_dataclass_decorator
 class SubDeviceInfo(APIModelBase):
-    id: str = ""
+    uid: int = 0
     name: str = ""
     suggested_area: str = ""
 
@@ -219,8 +219,7 @@ class EntityInfo(APIModelBase):
     entity_category: EntityCategory | None = converter_field(
         default=EntityCategory.NONE, converter=EntityCategory.convert
     )
-    # # Is it ok to ad for the generic device info before all are added?
-    # device_id: str = ""
+    device_uid: int = 0
 
 
 @_frozen_dataclass_decorator
@@ -233,7 +232,6 @@ class EntityState(APIModelBase):
 class BinarySensorInfo(EntityInfo):
     device_class: str = ""
     is_status_binary_sensor: bool = False
-    device_id: str = ""
 
 
 @_frozen_dataclass_decorator
@@ -250,7 +248,6 @@ class CoverInfo(EntityInfo):
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
-    device_id: str = ""
 
 
 class LegacyCoverState(APIIntEnum):
