@@ -9,9 +9,15 @@ from noise.backends.default import DefaultNoiseBackend
 from noise.backends.default.ciphers import ChaCha20Cipher, CryptographyCipher
 from noise.state import CipherState
 
+_bytes = bytes
+_int = int
+
 PACK_NONCE = partial(Struct("<LQ").pack, 0)
 
-_bytes = bytes
+try:
+    from .pack import fast_pack_nonce  # type: ignore[import-not-found, unused-ignore]
+except ImportError:
+    fast_pack_nonce = PACK_NONCE
 
 
 class ChaCha20CipherReuseable(ChaCha20Cipher):  # type: ignore[misc]
@@ -42,12 +48,12 @@ class EncryptCipher:
         """Initialize the cipher wrapper."""
         crypto_cipher: CryptographyCipher = cipher_state.cipher
         cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
-        self._nonce: int = cipher_state.n
+        self._nonce: _int = cipher_state.n
         self._encrypt = cipher.encrypt
 
     def encrypt(self, data: _bytes) -> bytes:
         """Encrypt a frame."""
-        ciphertext = self._encrypt(PACK_NONCE(self._nonce), data, None)
+        ciphertext = self._encrypt(fast_pack_nonce(self._nonce), data, None)
         self._nonce += 1
         return ciphertext  # type: ignore[no-any-return, unused-ignore]
 
@@ -61,11 +67,11 @@ class DecryptCipher:
         """Initialize the cipher wrapper."""
         crypto_cipher: CryptographyCipher = cipher_state.cipher
         cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
-        self._nonce: int = cipher_state.n
+        self._nonce: _int = cipher_state.n
         self._decrypt = cipher.decrypt
 
     def decrypt(self, data: _bytes) -> bytes:
         """Decrypt a frame."""
-        plaintext = self._decrypt(PACK_NONCE(self._nonce), data, None)
+        plaintext = self._decrypt(fast_pack_nonce(self._nonce), data, None)
         self._nonce += 1
         return plaintext  # type: ignore[no-any-return, unused-ignore]
