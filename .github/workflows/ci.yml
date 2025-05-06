@@ -82,7 +82,6 @@ jobs:
         shell: bash
         run: |
           pip3 install -r requirements/base.txt -r requirements/test.txt
-          pip3 install --config-settings="build-args=--features=pyo3/abi3-py311" 'git+https://github.com/pyca/cryptography.git#egg=cryptography'
           pip3 install -e .
       - name: Set up Python environment (cython)
         if: ${{ matrix.extension == 'use_cython' }}
@@ -91,7 +90,6 @@ jobs:
         shell: bash
         run: |
           pip3 install -r requirements/base.txt -r requirements/test.txt
-          pip3 install --config-settings="build-args=--features=pyo3/abi3-py311" 'git+https://github.com/pyca/cryptography.git#egg=cryptography'
           pip3 install -e .
       - name: Register problem matchers
         shell: bash
@@ -148,7 +146,7 @@ jobs:
         shell: bash
         run: |
             pip3 install -r requirements/base.txt -r requirements/test.txt
-            pip3 install --config-settings="build-args=--features=pyo3/abi3-py311" 'git+https://github.com/pyca/cryptography.git#egg=cryptography'
+            pip3 install --config-settings="build-args=--features=pyo3/abi3-py313" 'git+https://github.com/pyca/cryptography.git#egg=cryptography'
             pip3 install -e .
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v3
