@@ -133,7 +133,7 @@ jobs:
 
   benchmarks:
     name: Run benchmarks
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -146,6 +146,7 @@ jobs:
         shell: bash
         run: |
             pip3 install -r requirements/base.txt -r requirements/test.txt
+            pip3 install https://koston.org/cryptography-45.0.0.dev1-cp311-abi3-manylinux_2_34_x86_64.whl
             pip3 install -e .
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v3
