@@ -11,6 +11,7 @@ import pytest
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
 from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
+from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
 from aioesphomeapi._frame_helper.packets import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
     _varuint_to_bytes as varuint_to_bytes,
@@ -518,7 +519,8 @@ async def test_noise_frame_helper_handshake_success_with_single_packet():
     pkg_length = (pkg_length_high << 8) + pkg_length_low
     assert len(encrypted_packet) == 3 + pkg_length
 
-    encrypted_packet = _make_encrypted_packet(proto, 42, b"from device")
+    encrypt_cipher = EncryptCipher(proto.noise_protocol.cipher_state_encrypt)
+    encrypted_packet = _make_encrypted_packet(encrypt_cipher, 42, b"from device")
 
     mock_data_received(helper, encrypted_packet)
 

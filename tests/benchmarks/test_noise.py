@@ -7,6 +7,8 @@ from collections.abc import Iterable
 import pytest
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
+from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
+
 from ..common import (
     MockAPINoiseFrameHelper,
     _extract_encrypted_payload_from_handshake,
@@ -19,7 +21,7 @@ from ..common import (
 )
 
 
-@pytest.mark.parametrize("payload_size", [0, 1024, 16 * 1024])
+@pytest.mark.parametrize("payload_size", [0, 64, 128, 1024, 16 * 1024])
 async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) -> None:
     """Benchmark raw noise protocol."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
@@ -78,10 +80,11 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     helper._writelines = _empty_writelines
 
     payload = b"x" * payload_size
+    encrypt_cipher = EncryptCipher(proto.noise_protocol.cipher_state_encrypt)
 
     @benchmark
     def process_encrypted_packets():
         for _ in range(100):
-            helper.data_received(_make_encrypted_packet(proto, 42, payload))
+            helper.data_received(_make_encrypted_packet(encrypt_cipher, 42, payload))
 
     helper.close()
