@@ -48,7 +48,7 @@ combine-as-imports = true
 split-on-trailing-comma = false
 
 [build-system]
-requires = ['setuptools>=65.4.1', 'wheel', 'Cython==3.1.0rc1']
+requires = ['setuptools>=65.4.1', 'wheel', 'Cython>=3.0.2']
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
