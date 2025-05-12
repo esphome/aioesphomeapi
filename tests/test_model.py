@@ -580,6 +580,20 @@ def test_supported_color_modes_compat(
     ]
 
 
+def test_multiple_supported_color_modes_compat() -> None:
+    info = LightInfo(
+        supported_color_modes=[ColorMode.RGB_COLOR_TEMPERATURE, ColorMode.RGB],
+    )
+    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [
+        ColorMode.RGB_COLOR_TEMPERATURE,
+        ColorMode.RGB,
+    ]
+    assert info.supported_color_modes == [
+        ColorMode.RGB_COLOR_TEMPERATURE,
+        ColorMode.RGB,
+    ]
+
+
 async def test_bluetooth_gatt_services_from_dict() -> None:
     """Test bluetooth_gatt_get_services success case."""
     services: message.Message = BluetoothGATTGetServicesResponse(
