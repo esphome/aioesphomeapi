@@ -79,6 +79,7 @@ from aioesphomeapi.model import (
     ClimateInfo,
     ClimatePreset,
     ClimateState,
+    ColorMode,
     CoverInfo,
     CoverState,
     DateInfo,
@@ -342,17 +343,17 @@ def test_climate_info_supported_presets_compat(state, version, out):
 @pytest.mark.parametrize(
     "state, version, out",
     [
-        (ClimateState(legacy_away=False), (1, 4), ClimatePreset.HOME),
-        (ClimateState(legacy_away=True), (1, 4), ClimatePreset.AWAY),
+        (ClimateState(unused_legacy_away=False), (1, 4), ClimatePreset.HOME),
+        (ClimateState(unused_legacy_away=True), (1, 4), ClimatePreset.AWAY),
         (
-            ClimateState(legacy_away=True, preset=ClimatePreset.HOME),
+            ClimateState(unused_legacy_away=True, preset=ClimatePreset.HOME),
             (1, 4),
             ClimatePreset.AWAY,
         ),
         (ClimateState(preset=ClimatePreset.HOME), (1, 5), ClimatePreset.HOME),
         (ClimateState(preset=ClimatePreset.BOOST), (1, 5), ClimatePreset.BOOST),
         (
-            ClimateState(legacy_away=True, preset=ClimatePreset.BOOST),
+            ClimateState(unused_legacy_away=True, preset=ClimatePreset.BOOST),
             (1, 5),
             ClimatePreset.BOOST,
         ),
@@ -571,10 +572,26 @@ def test_supported_color_modes_compat(
         legacy_supports_rgb=legacy_supports_rgb,
         legacy_supports_white_value=legacy_supports_white_value,
         legacy_supports_color_temperature=legacy_supports_color_temperature,
-        supported_color_modes=[42],
+        supported_color_modes=[ColorMode.RGB_COLOR_TEMPERATURE],
     )
     assert info.supported_color_modes_compat(APIVersion(1, 5)) == capability
-    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [42]
+    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [
+        ColorMode.RGB_COLOR_TEMPERATURE
+    ]
+
+
+def test_multiple_supported_color_modes_compat() -> None:
+    info = LightInfo(
+        supported_color_modes=[ColorMode.RGB_COLOR_TEMPERATURE, ColorMode.RGB],
+    )
+    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [
+        ColorMode.RGB_COLOR_TEMPERATURE,
+        ColorMode.RGB,
+    ]
+    assert info.supported_color_modes == [
+        ColorMode.RGB_COLOR_TEMPERATURE,
+        ColorMode.RGB,
+    ]
 
 
 async def test_bluetooth_gatt_services_from_dict() -> None:
