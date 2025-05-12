@@ -572,11 +572,11 @@ def test_supported_color_modes_compat(
         legacy_supports_rgb=legacy_supports_rgb,
         legacy_supports_white_value=legacy_supports_white_value,
         legacy_supports_color_temperature=legacy_supports_color_temperature,
-        supported_color_modes=[ColorMode.COLOR_MODE_RGB_COLOR_TEMPERATURE],
+        supported_color_modes=[ColorMode.RGB_COLOR_TEMPERATURE],
     )
     assert info.supported_color_modes_compat(APIVersion(1, 5)) == capability
     assert info.supported_color_modes_compat(APIVersion(1, 9)) == [
-        ColorMode.COLOR_MODE_RGB_COLOR_TEMPERATURE
+        ColorMode.RGB_COLOR_TEMPERATURE
     ]
 
 

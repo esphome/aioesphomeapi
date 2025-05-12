@@ -327,16 +327,16 @@ class LightColorCapability(enum.IntFlag):
 
 
 class ColorMode(APIIntEnum):
-    COLOR_MODE_UNKNOWN = 0
-    COLOR_MODE_ON_OFF = 1
-    COLOR_MODE_BRIGHTNESS = 2
-    COLOR_MODE_WHITE = 7
-    COLOR_MODE_COLOR_TEMPERATURE = 11
-    COLOR_MODE_COLD_WARM_WHITE = 19
-    COLOR_MODE_RGB = 35
-    COLOR_MODE_RGB_WHITE = 39
-    COLOR_MODE_RGB_COLOR_TEMPERATURE = 47
-    COLOR_MODE_RGB_COLD_WARM_WHITE = 51
+    UNKNOWN = 0
+    ON_OFF = 1
+    BRIGHTNESS = 2
+    WHITE = 7
+    COLOR_TEMPERATURE = 11
+    COLD_WARM_WHITE = 19
+    RGB = 35
+    RGB_WHITE = 39
+    RGB_COLOR_TEMPERATURE = 47
+    RGB_COLD_WARM_WHITE = 51
 
 
 @_frozen_dataclass_decorator
@@ -415,7 +415,7 @@ class LightState(EntityState):
     brightness: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-    color_mode: ColorMode = ColorMode.COLOR_MODE_UNKNOWN
+    color_mode: ColorMode = ColorMode.UNKNOWN
     color_brightness: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
