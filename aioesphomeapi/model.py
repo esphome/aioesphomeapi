@@ -329,7 +329,8 @@ class LightColorCapability(enum.IntFlag):
 class ColorMode(APIIntEnum):
     UNKNOWN = 0
     ON_OFF = 1
-    BRIGHTNESS = 2
+    LEGACY_BRIGHTNESS = 2
+    BRIGHTNESS = 3
     WHITE = 7
     COLOR_TEMPERATURE = 11
     COLD_WARM_WHITE = 19
