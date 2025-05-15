@@ -594,6 +594,25 @@ def test_multiple_supported_color_modes_compat() -> None:
     ]
 
 
+def test_legacy_brightness_compat() -> None:
+    """Test legacy brightness compatibility."""
+    raw_message = (
+        b"\x0d\x78\x56\x34\x12"  # key = 0x12345678
+        b"\x10\x01"  # state = True
+        b"\x1d\xcd\xcc\x4c\x3f"  # brightness = 0.8
+        b"\x58\x02"  # color_mode = 2 (LEGACY_BRIGHTNESS)
+    )
+    msg = LightStateResponse()
+    msg.ParseFromString(raw_message)
+    assert msg.color_mode == ColorMode.LEGACY_BRIGHTNESS
+    assert LightState.from_pb(msg) == LightState(
+        key=0x12345678,
+        state=True,
+        brightness=0.8,
+        color_mode=ColorMode.LEGACY_BRIGHTNESS,
+    )
+
+
 async def test_bluetooth_gatt_services_from_dict() -> None:
     """Test bluetooth_gatt_get_services success case."""
     services: message.Message = BluetoothGATTGetServicesResponse(
