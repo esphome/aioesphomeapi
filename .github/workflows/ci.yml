@@ -146,7 +146,6 @@ jobs:
         shell: bash
         run: |
             pip3 install -r requirements/base.txt -r requirements/test.txt
-            pip3 install https://koston.org/cryptography-45.0.0.dev1-cp311-abi3-manylinux_2_34_x86_64.whl
             pip3 install -e .
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v3
