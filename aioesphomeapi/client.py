@@ -1025,8 +1025,8 @@ class APIClient(APIClientBase):
             if TYPE_CHECKING:
                 assert apiv is not None
             if apiv < APIVersion(1, 5):
-                req.has_legacy_away = True
-                req.legacy_away = preset == ClimatePreset.AWAY
+                req.unused_has_legacy_away = True
+                req.unused_legacy_away = preset == ClimatePreset.AWAY
             else:
                 req.has_preset = True
                 req.preset = preset
