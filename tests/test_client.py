@@ -525,11 +525,11 @@ async def test_switch_command(
     [
         (
             dict(key=1, preset=ClimatePreset.HOME),
-            dict(key=1, has_legacy_away=True, legacy_away=False),
+            dict(key=1, unused_has_legacy_away=True, unused_legacy_away=False),
         ),
         (
             dict(key=1, preset=ClimatePreset.AWAY),
-            dict(key=1, has_legacy_away=True, legacy_away=True),
+            dict(key=1, unused_has_legacy_away=True, unused_legacy_away=True),
         ),
     ],
 )

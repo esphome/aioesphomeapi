@@ -33,25 +33,26 @@ service APIConnection {
   rpc execute_service (ExecuteServiceRequest) returns (void) {}
   rpc noise_encryption_set_key (NoiseEncryptionSetKeyRequest) returns (NoiseEncryptionSetKeyResponse) {}
 
-  rpc cover_command (CoverCommandRequest) returns (void) {}
-  rpc fan_command (FanCommandRequest) returns (void) {}
-  rpc light_command (LightCommandRequest) returns (void) {}
-  rpc switch_command (SwitchCommandRequest) returns (void) {}
+  rpc button_command (ButtonCommandRequest) returns (void) {}
   rpc camera_image (CameraImageRequest) returns (void) {}
   rpc climate_command (ClimateCommandRequest) returns (void) {}
+  rpc cover_command (CoverCommandRequest) returns (void) {}
+  rpc date_command (DateCommandRequest) returns (void) {}
+  rpc datetime_command (DateTimeCommandRequest) returns (void) {}
+  rpc fan_command (FanCommandRequest) returns (void) {}
+  rpc light_command (LightCommandRequest) returns (void) {}
+  rpc lock_command (LockCommandRequest) returns (void) {}
+  rpc media_player_command (MediaPlayerCommandRequest) returns (void) {}
   rpc number_command (NumberCommandRequest) returns (void) {}
   rpc select_command (SelectCommandRequest) returns (void) {}
-  rpc text_command (TextCommandRequest) returns (void) {}
   rpc siren_command (SirenCommandRequest) returns (void) {}
-  rpc button_command (ButtonCommandRequest) returns (void) {}
-  rpc lock_command (LockCommandRequest) returns (void) {}
-  rpc valve_command (ValveCommandRequest) returns (void) {}
-  rpc media_player_command (MediaPlayerCommandRequest) returns (void) {}
-  rpc date_command (DateCommandRequest) returns (void) {}
+  rpc switch_command (SwitchCommandRequest) returns (void) {}
+  rpc text_command (TextCommandRequest) returns (void) {}
   rpc time_command (TimeCommandRequest) returns (void) {}
-  rpc datetime_command (DateTimeCommandRequest) returns (void) {}
+  rpc update_command (UpdateCommandRequest) returns (void) {}
+  rpc valve_command (ValveCommandRequest) returns (void) {}
 
-  rpc subscribe_bluetooth_le_advertisements (SubscribeBluetoothLEAdvertisementsRequest) returns (void) {}
+  rpc subscribe_bluetooth_le_advertisements(SubscribeBluetoothLEAdvertisementsRequest) returns (void) {}
   rpc bluetooth_device_request(BluetoothDeviceRequest) returns (void) {}
   rpc bluetooth_gatt_get_services(BluetoothGATTGetServicesRequest) returns (void) {}
   rpc bluetooth_gatt_read(BluetoothGATTReadRequest) returns (void) {}
@@ -59,10 +60,13 @@ service APIConnection {
   rpc bluetooth_gatt_read_descriptor(BluetoothGATTReadDescriptorRequest) returns (void) {}
   rpc bluetooth_gatt_write_descriptor(BluetoothGATTWriteDescriptorRequest) returns (void) {}
   rpc bluetooth_gatt_notify(BluetoothGATTNotifyRequest) returns (void) {}
+  rpc subscribe_bluetooth_connections_free(SubscribeBluetoothConnectionsFreeRequest) returns (BluetoothConnectionsFreeResponse) {}
   rpc unsubscribe_bluetooth_le_advertisements(UnsubscribeBluetoothLEAdvertisementsRequest) returns (void) {}
   rpc bluetooth_scanner_set_mode(BluetoothScannerSetModeRequest) returns (void) {}
 
   rpc subscribe_voice_assistant(SubscribeVoiceAssistantRequest) returns (void) {}
+  rpc voice_assistant_get_configuration(VoiceAssistantConfigurationRequest) returns (VoiceAssistantConfigurationResponse) {}
+  rpc voice_assistant_set_configuration(VoiceAssistantSetConfiguration) returns (void) {}
 
   rpc alarm_control_panel_command (AlarmControlPanelCommandRequest) returns (void) {}
 }
@@ -374,7 +378,7 @@ message ListEntitiesFanResponse {
   bool supports_oscillation = 5;
   bool supports_speed = 6;
   bool supports_direction = 7;
-  int32 supported_speed_levels = 8;
+  int32 supported_speed_count = 8;
   bool disabled_by_default = 9;
   string icon = 10;
   EntityCategory entity_category = 11;
@@ -425,6 +429,19 @@ message FanCommandRequest {
 }
 
 // ==================== LIGHT ====================
+enum ColorMode {
+  COLOR_MODE_UNKNOWN = 0;
+  COLOR_MODE_ON_OFF = 1;
+  COLOR_MODE_LEGACY_BRIGHTNESS = 2;
+  COLOR_MODE_BRIGHTNESS = 3;
+  COLOR_MODE_WHITE = 7;
+  COLOR_MODE_COLOR_TEMPERATURE = 11;
+  COLOR_MODE_COLD_WARM_WHITE = 19;
+  COLOR_MODE_RGB = 35;
+  COLOR_MODE_RGB_WHITE = 39;
+  COLOR_MODE_RGB_COLOR_TEMPERATURE = 47;
+  COLOR_MODE_RGB_COLD_WARM_WHITE = 51;
+}
 message ListEntitiesLightResponse {
   option (id) = 15;
   option (source) = SOURCE_SERVER;
@@ -435,7 +452,7 @@ message ListEntitiesLightResponse {
   string name = 3;
   string unique_id = 4;
 
-  repeated int32 supported_color_modes = 12;
+  repeated ColorMode supported_color_modes = 12;
   // next four supports_* are for legacy clients, newer clients should use color modes
   bool legacy_supports_brightness = 5 [deprecated=true];
   bool legacy_supports_rgb = 6 [deprecated=true];
@@ -457,7 +474,7 @@ message LightStateResponse {
   fixed32 key = 1;
   bool state = 2;
   float brightness = 3;
-  int32 color_mode = 11;
+  ColorMode color_mode = 11;
   float color_brightness = 10;
   float red = 4;
   float green = 5;
@@ -480,7 +497,7 @@ message LightCommandRequest {
   bool has_brightness = 4;
   float brightness = 5;
   bool has_color_mode = 22;
-  int32 color_mode = 23;
+  ColorMode color_mode = 23;
   bool has_color_brightness = 20;
   float color_brightness = 21;
   bool has_rgb = 6;
@@ -533,7 +550,8 @@ message ListEntitiesSensorResponse {
   bool force_update = 8;
   string device_class = 9;
   SensorStateClass state_class = 10;
-  SensorLastResetType last_reset_type = 11;
+  // Last reset type removed in 2021.9.0
+  SensorLastResetType legacy_last_reset_type = 11;
   bool disabled_by_default = 12;
   EntityCategory entity_category = 13;
 }
@@ -896,7 +914,7 @@ message ClimateStateResponse {
   float target_temperature_low = 5;
   float target_temperature_high = 6;
   // For older peers, equal to preset == CLIMATE_PRESET_AWAY
-  bool legacy_away = 7;
+  bool unused_legacy_away = 7;
   ClimateAction action = 8;
   ClimateFanMode fan_mode = 9;
   ClimateSwingMode swing_mode = 10;
@@ -922,8 +940,8 @@ message ClimateCommandRequest {
   bool has_target_temperature_high = 8;
   float target_temperature_high = 9;
   // legacy, for older peers, newer ones should use CLIMATE_PRESET_AWAY in preset
-  bool has_legacy_away = 10;
-  bool legacy_away = 11;
+  bool unused_has_legacy_away = 10;
+  bool unused_legacy_away = 11;
   bool has_fan_mode = 12;
   ClimateFanMode fan_mode = 13;
   bool has_swing_mode = 14;
@@ -1099,6 +1117,8 @@ message ListEntitiesLockResponse {
 
   bool supports_open = 9;
   bool requires_code = 10;
+
+  // Not yet implemented:
   string code_format = 11;
 }
 message LockStateResponse {
@@ -1107,7 +1127,7 @@ message LockStateResponse {
   option (ifdef) = "USE_LOCK";
   option (no_delay) = true;
   fixed32 key = 1;
-  LockState  state = 2;
+  LockState state = 2;
 }
 message LockCommandRequest {
   option (id) = 60;
@@ -1116,6 +1136,8 @@ message LockCommandRequest {
   option (no_delay) = true;
   fixed32 key = 1;
   LockCommand command = 2;
+
+  // Not yet implemented:
   bool has_code = 3;
   string code = 4;
 }
@@ -1239,13 +1261,14 @@ message MediaPlayerCommandRequest {
 message SubscribeBluetoothLEAdvertisementsRequest {
   option (id) = 66;
   option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_BLUETOOTH_PROXY";
 
-  int32 flags = 1;
+  uint32 flags = 1;
 }
 
 message BluetoothServiceData {
   string uuid = 1;
-  repeated uint32 legacy_data = 2 [packed=true];  // Removed in api version 1.7
+  repeated uint32 legacy_data = 2 [deprecated = true];  // Removed in api version 1.7
   bytes data = 3;  // Added in api version 1.7
 }
 message BluetoothLEAdvertisementResponse {
@@ -1261,6 +1284,7 @@ message BluetoothLEAdvertisementResponse {
   repeated string service_uuids = 4;
   repeated BluetoothServiceData service_data = 5;
   repeated BluetoothServiceData manufacturer_data = 6;
+
   uint32 address_type = 7;
 }
 
@@ -1497,6 +1521,7 @@ message BluetoothDeviceUnpairingResponse {
 message UnsubscribeBluetoothLEAdvertisementsRequest {
   option (id) = 87;
   option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_BLUETOOTH_PROXY";
 }
 
 message BluetoothDeviceClearCacheResponse {
@@ -1553,6 +1578,12 @@ message SubscribeVoiceAssistantRequest {
 
   bool subscribe = 1;
   uint32 flags = 2;
+}
+
+enum VoiceAssistantRequestFlag {
+  VOICE_ASSISTANT_REQUEST_NONE = 0;
+  VOICE_ASSISTANT_REQUEST_USE_VAD = 1;
+  VOICE_ASSISTANT_REQUEST_USE_WAKE_WORD = 2;
 }
 
 message VoiceAssistantAudioSettings {
