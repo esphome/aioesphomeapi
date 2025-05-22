@@ -827,6 +827,9 @@ class MediaPlayerState(APIIntEnum):
     IDLE = 1
     PLAYING = 2
     PAUSED = 3
+    ANNOUNCING = 4
+    OFF = 5
+    ON = 6
 
 
 class MediaPlayerCommand(APIIntEnum):
@@ -835,6 +838,15 @@ class MediaPlayerCommand(APIIntEnum):
     STOP = 2
     MUTE = 3
     UNMUTE = 4
+    TOGGLE = 5
+    VOLUME_UP = 6
+    VOLUME_DOWN = 7
+    ENQUEUE = 8
+    REPEAT_ONE = 9
+    REPEAT_OFF = 10
+    CLEAR_PLAYLIST = 11
+    TURN_ON = 12
+    TURN_OFF = 13
 
 
 class MediaPlayerFormatPurpose(APIIntEnum):
@@ -867,6 +879,7 @@ class MediaPlayerSupportedFormat(APIModelBase):
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
     supports_pause: bool = False
+    supports_turn_off_on: bool = False
 
     supported_formats: list[MediaPlayerSupportedFormat] = converter_field(
         default_factory=list, converter=MediaPlayerSupportedFormat.convert_list
