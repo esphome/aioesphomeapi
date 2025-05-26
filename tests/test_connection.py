@@ -1046,3 +1046,71 @@ async def test_attempting_to_finish_unstarted_connection(
     """Test that we raise when trying to finish an unstarted connection."""
     with pytest.raises(RuntimeError):
         await conn.finish_connection(login=False)
+
+
+async def test_internal_message_received_immediately_after_connection(
+    conn: APIConnection,
+    resolve_host: AsyncMock,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """Test that internal messages received immediately after connection are handled.
+
+    This test verifies the fix for the bug where internal message handlers were
+    installed too late. They need to be installed before we init the frame helper
+    because as soon as the frame helper is inited we start getting traffic right away.
+    If one of those is an internal message we need to process it.
+    """
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    # Track if ping handler was called
+    ping_handled = False
+
+    # Patch the ping handler to track if it's called
+    original_ping_handler = conn._handle_ping_request_internal
+
+    def track_ping_handler(*args, **kwargs):
+        nonlocal ping_handled
+        ping_handled = True
+        return original_ping_handler(*args, **kwargs)
+
+    with (
+        patch.object(conn, "_handle_ping_request_internal", track_ping_handler),
+        patch.object(loop, "create_connection") as create_connection,
+    ):
+        create_connection.side_effect = partial(
+            _create_mock_transport_protocol, transport, connected
+        )
+
+        # Start connection
+        connect_task = asyncio.create_task(connect(conn, login=False))
+
+        # Wait for connection to establish
+        await connected.wait()
+
+        # Simulate receiving a ping request immediately after connection
+        # This would happen before the hello/login handshake
+        protocol = conn._frame_helper
+        assert protocol is not None
+
+        # Create and send a ping request message early
+        ping_msg = PingRequest()
+        ping_packet = generate_plaintext_packet(ping_msg)
+        mock_data_received(protocol, ping_packet)
+
+        # Give async tasks time to process the ping
+        await asyncio.sleep(0)
+
+        # Verify the ping handler was called
+        assert ping_handled, "Ping handler was not called for early ping message"
+
+        # Now send the expected hello response to let connection complete
+        send_plaintext_hello(protocol)
+        send_plaintext_connect_response(protocol, False)
+
+        # Wait for the connect task to complete
+        await connect_task
+
+        # Clean up
+        conn.force_disconnect()

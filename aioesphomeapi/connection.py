@@ -644,8 +644,11 @@ class APIConnection:
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
-        await self._connect_init_frame_helper()
+        # Register internal handlers before
+        # connecting the helper so we can ensure
+        # we handle any messages that are received immediately
         self._register_internal_message_handlers()
+        await self._connect_init_frame_helper()
         await self._connect_hello_login(login)
         self._async_schedule_keep_alive(self._loop.time())
 

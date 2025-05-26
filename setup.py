@@ -21,11 +21,12 @@ TO_CYTHONIZE = [
     "aioesphomeapi/_frame_helper/noise_encryption.py",
     "aioesphomeapi/_frame_helper/packets.py",
     "aioesphomeapi/_frame_helper/plain_text.py",
+    "aioesphomeapi/_frame_helper/pack.pyx",
 ]
 
 EXTENSIONS = [
     Extension(
-        ext.removesuffix(".py").replace("/", "."),
+        ext.removesuffix(".py").removesuffix(".pyx").replace("/", "."),
         [ext],
         language="c",
         extra_compile_args=["-O3", "-g0"],
@@ -40,7 +41,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "31.0.0"
+VERSION = "31.1.1"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
