@@ -111,6 +111,12 @@ jobs:
       - run: mypy aioesphomeapi
         name: Check typing with mypy
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
+      - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native tests
+        name: Run tests with pytest
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - run: |
           docker run \
             -v "$PWD":/aioesphomeapi \
@@ -124,21 +130,6 @@ jobs:
           fi
         name: Check protobuf files match
         if: ${{ matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - name: Show changes
-        run: git diff
-        if: ${{ failure() && matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: genrated-proto-files
-          path: aioesphomeapi/*pb2.py
-        if: ${{ failure() && matrix.python-version == '3.12' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native tests
-        name: Run tests with pytest
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   benchmarks:
     name: Run benchmarks
