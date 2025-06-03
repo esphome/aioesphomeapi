@@ -197,7 +197,7 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     )
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
-    with patch.object(cli, "start_connection", side_effect=APIConnectionError):
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
         await rl.start()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -210,6 +210,7 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert rl._tries == 1
 
     with (
+        patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection", side_effect=RequiresEncryptionAPIError),
     ):
@@ -224,7 +225,11 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
     assert rl._tries == MAXIMUM_BACKOFF_TRIES
 
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
         await rl.start()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -270,7 +275,7 @@ async def test_reconnect_retry(
     assert cli.log_name == "mydevice @ 127.0.0.1"
     caplog.clear()
 
-    with patch.object(cli, "start_connection", side_effect=APIConnectionError):
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
         await rl.start()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -288,7 +293,7 @@ async def test_reconnect_retry(
 
     caplog.clear()
     # Next retry should run at debug level
-    with patch.object(cli, "start_connection", side_effect=APIConnectionError):
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
         # Should now retry
         assert rl._connect_timer is not None
         rl._connect_timer._run()
@@ -306,7 +311,11 @@ async def test_reconnect_retry(
             assert record.levelno == logging.DEBUG
 
     caplog.clear()
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
         # Should now retry
         assert rl._connect_timer is not None
         rl._connect_timer._run()
@@ -356,7 +365,7 @@ DNS_POINTER = DNSPointer(
                 "wrong_name._esphomelib._tcp.local.",
             ),
             False,
-            ReconnectLogicState.CONNECTING,
+            ReconnectLogicState.RESOLVING,
             "",
         ),
         (
@@ -428,7 +437,7 @@ async def test_reconnect_zeroconf(
         rl._connect_timer._run()
         await asyncio.sleep(0)
         assert mock_start_connection.call_count == 1
-        assert rl._connection_state is ReconnectLogicState.CONNECTING
+        assert rl._connection_state is ReconnectLogicState.RESOLVING
         assert rl._accept_zeroconf_records is True
         assert not rl._is_stopped
 
@@ -637,7 +646,7 @@ async def test_reconnect_logic_stop_callback(patchable_api_client: APIClient):
     await rl.start()
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
     await asyncio.sleep(0)
-    assert rl._connection_state is ReconnectLogicState.CONNECTING
+    assert rl._connection_state is ReconnectLogicState.RESOLVING
     assert rl._is_stopped is False
     rl.stop_callback()
     # Wait for cancellation to propagate
@@ -662,6 +671,7 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
     with (
+        patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection", side_effect=slow_connect_fail),
     ):
@@ -746,6 +756,7 @@ async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection)
             "create_connection",
             side_effect=partial(_create_mock_transport_protocol, transport, connected),
         ) as mock_create_connection,
+        patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection"),
     ):
