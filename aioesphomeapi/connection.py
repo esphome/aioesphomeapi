@@ -624,9 +624,9 @@ class APIConnection:
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+        if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
             raise RuntimeError(
-                "Connection can only be used once, connection is not in init state"
+                "Connection must be in HOST_RESOLVED state to start connection"
             )
 
         self._start_connect_future = self._loop.create_future()

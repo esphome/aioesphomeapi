@@ -196,16 +196,18 @@ async def test_expected_name(auth_client: APIClient) -> None:
 
 
 async def test_connect_backwards_compat() -> None:
-    """Verify connect is a thin wrapper around start_connection and finish_connection."""
+    """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
 
     cli = PatchableAPIClient("host", 1234, None)
     with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
         patch.object(cli, "start_connection") as mock_start_connection,
         patch.object(cli, "finish_connection") as mock_finish_connection,
     ):
         await cli.connect()
 
-    assert mock_start_connection.mock_calls == [call(None)]
+    assert mock_start_resolve_host.mock_calls == [call(None)]
+    assert mock_start_connection.mock_calls == [call()]
     assert mock_finish_connection.mock_calls == [call(False)]
 
 
