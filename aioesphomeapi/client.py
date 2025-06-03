@@ -206,7 +206,8 @@ class APIClient(APIClientBase):
         login: bool = False,
     ) -> None:
         """Connect to the device."""
-        await self.start_connection(on_stop)
+        await self.start_resolve_host(on_stop)
+        await self.start_connection()
         await self.finish_connection(login)
 
     def _on_stop(
@@ -219,11 +220,11 @@ class APIClient(APIClientBase):
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
-    async def start_connection(
+    async def start_resolve_host(
         self,
         on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
     ) -> None:
-        """Start connecting to the device."""
+        """Start resolving the host."""
         if self._connection is not None:
             raise APIConnectionError(f"Already connected to {self.log_name}!")
         self._connection = APIConnection(
@@ -232,6 +233,12 @@ class APIClient(APIClientBase):
             self._debug_enabled,
             self.log_name,
         )
+        await self._execute_connection_coro(self._connection.start_resolve_host())
+
+    async def start_connection(self) -> None:
+        """Start connecting to the device."""
+        if TYPE_CHECKING:
+            assert self._connection is not None
         await self._execute_connection_coro(self._connection.start_connection())
         # If we connected, we should set the log name now
         if self._connection.connected_address:
