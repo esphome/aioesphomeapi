@@ -1037,7 +1037,7 @@ async def test_connection_cannot_be_reused(
     send_plaintext_connect_response(protocol, False)
     await connect_task
     with pytest.raises(RuntimeError):
-        await conn.start_connection()
+        await conn.start_resolve_host()
 
 
 async def test_attempting_to_finish_unstarted_connection(
