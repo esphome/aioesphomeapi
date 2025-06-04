@@ -460,12 +460,22 @@ async def test_reconnect_zeroconf(
     async def delayed_connect(*args, **kwargs):
         await asyncio.sleep(0)
 
+    # We need to mock the entire connection flow to avoid AttributeError
+    # when finish_connection is called on a None connection
+    async def mock_finish_connection_impl(*args, **kwargs):
+        # Only succeed if we're in a state where connection should succeed
+        if should_trigger_zeroconf and resolve_event.is_set():
+            return
+        raise APIConnectionError("Connection failed")
+
     with (
         patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
         patch.object(
             cli, "start_connection", side_effect=delayed_connect
         ) as mock_start_connection,
-        patch.object(cli, "finish_connection"),
+        patch.object(
+            cli, "finish_connection", side_effect=mock_finish_connection_impl
+        ) as mock_finish_connection,
     ):
         assert rl._zc_listening is True
 
@@ -497,12 +507,21 @@ async def test_reconnect_zeroconf(
             assert (
                 mock_start_connection.call_count == 1
             )  # Existing task proceeded to connect
+            assert mock_finish_connection.call_count == 1  # And finished connection
             assert log_text in caplog.text
+            # Wait for the connection to complete
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
         else:
             # If zeroconf shouldn't trigger (wrong name), the task stays in resolving
             # and eventually fails with slow_connect_fail
             assert mock_start_resolve_host.call_count == 0
             assert mock_start_connection.call_count == 0
+            assert mock_finish_connection.call_count == 0
+
+    # Wait a bit more to ensure all tasks complete
+    for _ in range(5):
+        await asyncio.sleep(0)
 
     assert rl._connection_state is expected_state_after_trigger
 
