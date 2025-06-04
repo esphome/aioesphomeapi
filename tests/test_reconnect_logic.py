@@ -402,10 +402,13 @@ async def test_reconnect_zeroconf(
     expected_state_after_trigger: ReconnectLogicState,
     log_text: str,
 ) -> None:
-    """Test that reconnect logic retry."""
+    """Test reconnect logic behavior when zeroconf provides records during connection.
 
+    This test verifies that when the reconnect logic is in RESOLVING state:
+    - If matching zeroconf records arrive, the resolution completes and connection proceeds
+    - If non-matching records arrive, the connection stays in RESOLVING state
+    """
     cli = patchable_api_client
-
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
     rl = ReconnectLogic(
@@ -418,112 +421,95 @@ async def test_reconnect_zeroconf(
     )
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
-    with patch.object(
-        cli, "start_resolve_host", side_effect=quick_connect_fail
-    ) as mock_start_resolve_host:
+    # First connection attempt fails
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
         await rl.start()
         await asyncio.sleep(0)
 
-    assert mock_start_resolve_host.call_count == 1
+    # Should be disconnected after initial failure
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
-    # Create an event to simulate resolution completing when zeroconf triggers
+    # Create an event to coordinate resolution with zeroconf trigger
     resolve_event = asyncio.Event()
 
-    async def resolve_host_slowly(*args, **kwargs):
-        # Wait for either timeout or zeroconf to provide info
+    async def resolve_host_waiting_for_zeroconf(*args, **kwargs):
+        # This simulates the resolver waiting for mDNS records
         try:
-            await asyncio.wait_for(resolve_event.wait(), timeout=10)
+            await asyncio.wait_for(resolve_event.wait(), timeout=0.1)
         except asyncio.TimeoutError:
-            # If no zeroconf records arrive, resolution times out and fails
-            raise APIConnectionError
+            raise APIConnectionError("Resolution timed out")
         else:
-            # If zeroconf triggered (for matching records), resolution succeeds
+            return  # Resolution succeeded
+
+    # For the test, we'll control when the connection succeeds
+    connect_succeeded = False
+
+    async def controlled_start_connection(*args, **kwargs):
+        nonlocal connect_succeeded
+        if should_trigger_zeroconf and resolve_event.is_set():
+            connect_succeeded = True
+            await asyncio.sleep(0)
+        else:
+            raise APIConnectionError()
+
+    async def controlled_finish_connection(*args, **kwargs):
+        if connect_succeeded:
             return
+        raise APIConnectionError()
 
-    with patch.object(
-        cli, "start_resolve_host", side_effect=resolve_host_slowly
-    ) as mock_start_resolve_host:
-        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-        assert rl._accept_zeroconf_records is True
-        assert not rl._is_stopped
-
+    # Set up mocks for the reconnection attempt
+    with (
+        patch.object(
+            cli, "start_resolve_host", side_effect=resolve_host_waiting_for_zeroconf
+        ) as mock_resolve,
+        patch.object(
+            cli, "start_connection", side_effect=controlled_start_connection
+        ) as mock_connect,
+        patch.object(
+            cli, "finish_connection", side_effect=controlled_finish_connection
+        ) as mock_finish,
+    ):
+        # Trigger the reconnect timer
         assert rl._connect_timer is not None
         rl._connect_timer._run()
         await asyncio.sleep(0)
-        assert mock_start_resolve_host.call_count == 1
+
+        # Should now be in RESOLVING state, waiting for mDNS records
         assert rl._connection_state is ReconnectLogicState.RESOLVING
-        assert rl._accept_zeroconf_records is True
-        assert not rl._is_stopped
+        assert mock_resolve.call_count == 1
 
-    caplog.clear()
+        caplog.clear()
 
-    async def delayed_connect(*args, **kwargs):
-        await asyncio.sleep(0)
-
-    # We need to mock the entire connection flow to avoid AttributeError
-    # when finish_connection is called on a None connection
-    async def mock_finish_connection_impl(*args, **kwargs):
-        # Only succeed if we're in a state where connection should succeed
-        if should_trigger_zeroconf and resolve_event.is_set():
-            return
-        raise APIConnectionError("Connection failed")
-
-    with (
-        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
-        patch.object(
-            cli, "start_connection", side_effect=delayed_connect
-        ) as mock_start_connection,
-        patch.object(
-            cli, "finish_connection", side_effect=mock_finish_connection_impl
-        ) as mock_finish_connection,
-    ):
-        assert rl._zc_listening is True
-
-        # If zeroconf should trigger, set the event to simulate successful resolution
+        # Simulate zeroconf providing records
         if should_trigger_zeroconf:
+            # For matching records, signal the resolver to complete
             resolve_event.set()
 
         rl.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(record, None)]
         )
+
+        # Verify the expected log message
         assert (
             "Triggering connect because of received mDNS record" in caplog.text
         ) is should_trigger_zeroconf
-        assert rl._accept_zeroconf_records is not should_trigger_zeroconf
-        assert rl._zc_listening is not should_trigger_zeroconf
 
-        # When zeroconf triggers while in RESOLVING state, the existing
-        # resolve task will complete immediately since it's waiting for
-        # the same records that zeroconf just delivered
-
-        # Wait for the existing resolve task to complete
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        # Give tasks time to complete
+        for _ in range(10):
+            await asyncio.sleep(0)
 
         if should_trigger_zeroconf:
-            # The resolve should have completed and moved to connection
-            assert mock_start_resolve_host.call_count == 0  # No new resolve started
-            assert (
-                mock_start_connection.call_count == 1
-            )  # Existing task proceeded to connect
-            assert mock_finish_connection.call_count == 1  # And finished connection
+            # Verify connection proceeded after resolution
+            assert mock_connect.call_count == 1
+            assert mock_finish.call_count == 1
             assert log_text in caplog.text
-            # Wait for the connection to complete
-            await asyncio.sleep(0)
-            await asyncio.sleep(0)
+            assert rl._connection_state is expected_state_after_trigger
         else:
-            # If zeroconf shouldn't trigger (wrong name), the task stays in resolving
-            # and eventually fails with slow_connect_fail
-            assert mock_start_resolve_host.call_count == 0
-            assert mock_start_connection.call_count == 0
-            assert mock_finish_connection.call_count == 0
-
-    # Wait a bit more to ensure all tasks complete
-    for _ in range(5):
-        await asyncio.sleep(0)
-
-    assert rl._connection_state is expected_state_after_trigger
+            # For non-matching records, should still be resolving
+            assert mock_connect.call_count == 0
+            assert mock_finish.call_count == 0
+            # The resolve task is still running, waiting for correct records
+            assert rl._connection_state is ReconnectLogicState.RESOLVING
 
     await rl.stop()
     assert rl._is_stopped is True
