@@ -261,7 +261,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if self._connect_task and not self._connect_task.done():
             if self._connection_state != ReconnectLogicState.CONNECTING:
                 # Connection state is far enough along that we should
-                # not restart the connect task
+                # not restart the connect task.
+                #
+                # Zeroconf triggering scenarios:
+                # - RESOLVING state: Don't cancel, the resolve task will complete immediately
+                #   since it's waiting for the same records zeroconf is delivering
+                # - CONNECTING state: Cancel and restart to use potentially updated connection info
+                # - HANDSHAKING state or later: Don't cancel, too far along in the process
                 _LOGGER.debug(
                     "%s: Not cancelling existing connect task as its already %s!",
                     self._cli.log_name,
