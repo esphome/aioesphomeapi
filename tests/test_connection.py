@@ -1048,6 +1048,17 @@ async def test_attempting_to_finish_unstarted_connection(
         await conn.finish_connection(login=False)
 
 
+async def test_start_connection_wrong_state(
+    conn: APIConnection,
+) -> None:
+    """Test that we raise when trying to start connection in wrong state."""
+    with pytest.raises(
+        RuntimeError,
+        match="Connection must be in HOST_RESOLVED state to start connection",
+    ):
+        await conn.start_connection()
+
+
 async def test_internal_message_received_immediately_after_connection(
     conn: APIConnection,
     resolve_host: AsyncMock,
