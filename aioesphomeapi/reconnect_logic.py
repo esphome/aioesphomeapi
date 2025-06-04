@@ -34,15 +34,17 @@ MAXIMUM_BACKOFF_TRIES = 100
 
 
 class ReconnectLogicState(Enum):
-    CONNECTING = 0
-    HANDSHAKING = 1
-    READY = 2
-    DISCONNECTED = 3
+    RESOLVING = 0
+    CONNECTING = 1
+    HANDSHAKING = 2
+    READY = 3
+    DISCONNECTED = 4
 
 
 NOT_YET_CONNECTED_STATES = {
     ReconnectLogicState.DISCONNECTED,
     ReconnectLogicState.CONNECTING,
+    ReconnectLogicState.RESOLVING,
 }
 
 
@@ -187,10 +189,21 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     async def _try_connect(self) -> bool:
         """Try connecting to the API client."""
+        self._async_set_connection_state_while_locked(ReconnectLogicState.RESOLVING)
+        start_resolve_time = time.perf_counter()
+        try:
+            await self._cli.start_resolve_host(on_stop=self._on_disconnect)
+        except Exception as err:  # pylint: disable=broad-except
+            await self._handle_connection_failure(err)
+            return False
         self._async_set_connection_state_while_locked(ReconnectLogicState.CONNECTING)
         start_connect_time = time.perf_counter()
+        resolve_time = start_connect_time - start_resolve_time
+        _LOGGER.info(
+            "Successfully resolved %s in %0.3fs", self._cli.log_name, resolve_time
+        )
         try:
-            await self._cli.start_connection(on_stop=self._on_disconnect)
+            await self._cli.start_connection()
         except Exception as err:  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
@@ -248,7 +261,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if self._connect_task and not self._connect_task.done():
             if self._connection_state != ReconnectLogicState.CONNECTING:
                 # Connection state is far enough along that we should
-                # not restart the connect task
+                # not restart the connect task.
+                #
+                # Zeroconf triggering scenarios:
+                # - RESOLVING state: Don't cancel, the resolve task will complete immediately
+                #   since it's waiting for the same records zeroconf is delivering
+                # - CONNECTING state: Cancel and restart to use potentially updated connection info
+                # - HANDSHAKING state or later: Don't cancel, too far along in the process
                 _LOGGER.debug(
                     "%s: Not cancelling existing connect task as its already %s!",
                     self._cli.log_name,
@@ -300,6 +319,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 or self._is_stopped
             ):
                 return
+            self._start_zc_listen()
             if await self._try_connect():
                 return
             tries = min(self._tries, 10)  # prevent OverflowError
@@ -309,9 +329,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                     "Trying to connect to %s in the background", self._cli.log_name
                 )
             _LOGGER.debug("Retrying %s in %.2f seconds", self._cli.log_name, wait_time)
-            if wait_time:
-                # If we are waiting, start listening for mDNS records
-                self._start_zc_listen()
             self._schedule_connect(wait_time)
 
     def _remove_stop_task(self, _fut: asyncio.Future[None]) -> None:

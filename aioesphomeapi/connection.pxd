@@ -53,6 +53,7 @@ cdef object SocketClosedAPIError
 cdef object astuple
 
 cdef object CONNECTION_STATE_INITIALIZED
+cdef object CONNECTION_STATE_HOST_RESOLVED
 cdef object CONNECTION_STATE_SOCKET_OPENED
 cdef object CONNECTION_STATE_HANDSHAKE_COMPLETE
 cdef object CONNECTION_STATE_CONNECTED
@@ -104,6 +105,7 @@ cdef class APIConnection:
     cdef object _pong_timer
     cdef float _keep_alive_interval
     cdef float _keep_alive_timeout
+    cdef object _resolve_host_future
     cdef object _start_connect_future
     cdef object _finish_connect_future
     cdef public Exception _fatal_exception
@@ -115,6 +117,7 @@ cdef class APIConnection:
     cdef bint _debug_enabled
     cdef public str received_name
     cdef public str connected_address
+    cdef list _addrs_info
 
     cpdef void send_message(self, object msg) except *
 
