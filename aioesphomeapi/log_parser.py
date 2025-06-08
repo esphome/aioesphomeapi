@@ -38,12 +38,8 @@ def parse_log_message(
     # Multi-line handling
     lines = text.split("\n")
 
-    # Remove trailing empty line if present (common when messages end with \n)
-    if lines and lines[-1] == "":
-        lines.pop()
-
-    # Also remove if last line is just ANSI reset codes
-    if lines and lines[-1] in ANSI_RESET_CODES:
+    # Remove trailing empty line or ANSI reset codes
+    if lines and (lines[-1] == "" or lines[-1] in ANSI_RESET_CODES):
         lines.pop()
     result: list[str] = []
 
@@ -56,16 +52,11 @@ def parse_log_message(
     color_code = ""
 
     # Extract ANSI color code at the beginning if present (only if not stripping)
-    if not strip_ansi_escapes:
-        color_match = ANSI_ESCAPE.match(first_line)
-        if color_match:
-            color_code = color_match.group(0)
-            # Remove color code from line for prefix extraction
-            first_line_no_color = first_line[len(color_code) :]
-        else:
-            first_line_no_color = first_line
-    else:
-        first_line_no_color = first_line
+    first_line_no_color = first_line
+    if not strip_ansi_escapes and (color_match := ANSI_ESCAPE.match(first_line)):
+        color_code = color_match.group(0)
+        # Remove color code from line for prefix extraction
+        first_line_no_color = first_line[len(color_code) :]
 
     # Find the last ']:' which marks the end of the ESPHome prefix
     # Look for pattern like [C][template.sensor:022]:
@@ -86,23 +77,15 @@ def parse_log_message(
             result.append(f"{timestamp}{line}")
             continue
         # Apply timestamp, color, prefix, and the continuation line
-        if prefix:
-            if color_code and not strip_ansi_escapes:
-                # Add reset at end to ensure color doesn't bleed
-                # But only if the line doesn't already end with a reset
-                if line.endswith(ANSI_RESET_CODES):
-                    result.append(f"{timestamp}{color_code}{prefix} {line}")
-                else:
-                    result.append(f"{timestamp}{color_code}{prefix} {line}{ANSI_RESET}")
-            else:
-                result.append(f"{timestamp}{prefix} {line}")
-        # No prefix found, just add timestamp and line
-        elif color_code and not strip_ansi_escapes:
-            if line.endswith(ANSI_RESET_CODES):
-                result.append(f"{timestamp}{color_code}{line}")
-            else:
-                result.append(f"{timestamp}{color_code}{line}{ANSI_RESET}")
+        # Build the line components
+        line_content = f"{prefix} {line}" if prefix else line
+
+        if color_code and not strip_ansi_escapes:
+            # Add reset at end to ensure color doesn't bleed
+            # But only if the line doesn't already end with a reset
+            reset = "" if line.endswith(ANSI_RESET_CODES) else ANSI_RESET
+            result.append(f"{timestamp}{color_code}{line_content}{reset}")
         else:
-            result.append(f"{timestamp}{line}")
+            result.append(f"{timestamp}{line_content}")
 
     return result
