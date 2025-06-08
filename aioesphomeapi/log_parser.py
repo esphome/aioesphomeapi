@@ -15,6 +15,53 @@ ANSI_RESET_CODES = ("\033[0m", "\x1b[0m")
 ANSI_RESET = "\033[0m"
 
 
+def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str, str]:
+    """Extract ESPHome prefix and ANSI color code from line.
+
+    Returns:
+        Tuple of (prefix, color_code, line_without_color)
+    """
+    color_code = ""
+    line_no_color = line
+
+    # Extract ANSI color code at the beginning if present
+    if not strip_ansi and (color_match := ANSI_ESCAPE.match(line)):
+        color_code = color_match.group(0)
+        line_no_color = line[len(color_code) :]
+
+    # Find the ESPHome prefix
+    bracket_colon = line_no_color.find("]:")
+    prefix = line_no_color[: bracket_colon + 2] if bracket_colon != -1 else ""
+
+    return prefix, color_code, line_no_color
+
+
+def _needs_reset(line: str) -> bool:
+    """Check if line needs ANSI reset code appended."""
+    return bool(
+        line
+        and not line.endswith(ANSI_RESET_CODES)
+        and ("\033[" in line or "\x1b[" in line)
+    )
+
+
+def _format_continuation_line(
+    timestamp: str,
+    prefix: str,
+    line: str,
+    color_code: str = "",
+    strip_ansi: bool = False,
+) -> str:
+    """Format a continuation line with prefix and optional color."""
+    line_content = f"{prefix} {line}" if prefix else line
+
+    if color_code and not strip_ansi:
+        reset = "" if line.endswith(ANSI_RESET_CODES) else ANSI_RESET
+        return f"{timestamp}{color_code}{line_content}{reset}"
+    else:
+        return f"{timestamp}{line_content}"
+
+
 class LogParser:
     """Stateful parser for processing log messages one line at a time.
 
@@ -63,29 +110,15 @@ class LogParser:
 
             # Extract prefix and color for potential multi-line messages
             if line and not line[0].isspace():
-                # Extract ANSI color code at the beginning if present
-                line_no_color = line
-                if not self.strip_ansi_escapes and (
-                    color_match := ANSI_ESCAPE.match(line)
-                ):
-                    self._current_color_code = color_match.group(0)
-                    line_no_color = line[len(self._current_color_code) :]
-
-                # Find the ESPHome prefix
-                bracket_colon = line_no_color.find("]:")
-                if bracket_colon != -1:
-                    self._current_prefix = line_no_color[: bracket_colon + 2]
+                self._current_prefix, self._current_color_code, _ = (
+                    _extract_prefix_and_color(line, self.strip_ansi_escapes)
+                )
 
             # Format the first line
             output = f"{timestamp}{line}"
 
             # Add reset if line has color but no reset at end
-            if (
-                not self.strip_ansi_escapes
-                and line
-                and not line.endswith(ANSI_RESET_CODES)
-                and ("\033[" in line or "\x1b[" in line)
-            ):
+            if not self.strip_ansi_escapes and _needs_reset(line):
                 output += ANSI_RESET
 
             return output
@@ -94,17 +127,13 @@ class LogParser:
             if not line.strip():
                 return ""
 
-            # Apply prefix to continuation
-            line_content = (
-                f"{self._current_prefix} {line}" if self._current_prefix else line
+            return _format_continuation_line(
+                timestamp,
+                self._current_prefix,
+                line,
+                self._current_color_code,
+                self.strip_ansi_escapes,
             )
-
-            if self._current_color_code and not self.strip_ansi_escapes:
-                # Add color and reset
-                reset = "" if line.endswith(ANSI_RESET_CODES) else ANSI_RESET
-                return f"{timestamp}{self._current_color_code}{line_content}{reset}"
-            else:
-                return f"{timestamp}{line_content}"
 
 
 def parse_log_message(
@@ -142,13 +171,7 @@ def parse_log_message(
     first_line_output = f"{timestamp}{lines[0]}"
 
     # Check if first line has color but no reset at end (to prevent bleeding)
-    # Check if line contains ANSI codes - using direct string search for efficiency
-    if (
-        not strip_ansi_escapes
-        and lines[0]
-        and not lines[0].endswith(ANSI_RESET_CODES)
-        and ("\033[" in lines[0] or "\x1b[" in lines[0])
-    ):
+    if not strip_ansi_escapes and _needs_reset(lines[0]):
         first_line_output += ANSI_RESET
 
     result.append(first_line_output)
@@ -160,19 +183,9 @@ def parse_log_message(
 
     # Extract prefix if first line doesn't start with space
     if first_line and not first_line[0].isspace():
-        # Extract ANSI color code at the beginning if present (only if not stripping)
-        first_line_no_color = first_line
-        if not strip_ansi_escapes and (color_match := ANSI_ESCAPE.match(first_line)):
-            color_code = color_match.group(0)
-            # Remove color code from line for prefix extraction
-            first_line_no_color = first_line[len(color_code) :]
-
-        # Find the ESPHome prefix - the first ']:' is always the split point
-        # ESPHome log format: [LEVEL][component:line]: message
-        # The first ']:' will always be at the end of the component:line part
-        bracket_colon = first_line_no_color.find("]:")
-        if bracket_colon != -1:
-            prefix = first_line_no_color[: bracket_colon + 2]
+        prefix, color_code, _ = _extract_prefix_and_color(
+            first_line, strip_ansi_escapes
+        )
 
     # Process subsequent lines
     for line in lines[1:]:
@@ -185,15 +198,10 @@ def parse_log_message(
             result.append(f"{timestamp}{line}")
             continue
         # Apply timestamp, color, prefix, and the continuation line
-        # Build the line components
-        line_content = f"{prefix} {line}" if prefix else line
-
-        if color_code and not strip_ansi_escapes:
-            # Add reset at end to ensure color doesn't bleed
-            # But only if the line doesn't already end with a reset
-            reset = "" if line.endswith(ANSI_RESET_CODES) else ANSI_RESET
-            result.append(f"{timestamp}{color_code}{line_content}{reset}")
-        else:
-            result.append(f"{timestamp}{line_content}")
+        result.append(
+            _format_continuation_line(
+                timestamp, prefix, line, color_code, strip_ansi_escapes
+            )
+        )
 
     return result
