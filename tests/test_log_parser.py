@@ -545,6 +545,29 @@ def test_logparser_whitespace_only_continuation() -> None:
     assert result5 == "[08:00:00.000][I][sensor:123]:   Reading: 23.5°C"
 
 
+def test_logparser_whitespace_continuation_with_color() -> None:
+    """Test whitespace-only continuation lines with color codes."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # First establish a colored log entry
+    line1 = "\033[0;35m[C][wifi:123]: WiFi Component"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000]\033[0;35m[C][wifi:123]: WiFi Component\033[0m"
+
+    # Whitespace-only continuation line should still return empty
+    line2 = "  \t  "
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == ""
+
+    # Real continuation should have color
+    line3 = "  SSID: 'MyNetwork'"
+    result3 = parser.parse_line(line3, timestamp)
+    assert (
+        result3 == "[08:00:00.000]\033[0;35m[C][wifi:123]:   SSID: 'MyNetwork'\033[0m"
+    )
+
+
 def test_logparser_strip_ansi_escapes() -> None:
     """Test stripping ANSI escape sequences."""
     parser = LogParser(strip_ansi_escapes=True)
