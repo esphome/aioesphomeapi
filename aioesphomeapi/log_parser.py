@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import re
 
 # Pre-compiled regex for ANSI escape sequences
@@ -16,7 +17,7 @@ ANSI_RESET = "\033[0m"
 
 def parse_log_message(
     text: str, timestamp: str, *, strip_ansi_escapes: bool = False
-) -> list[str]:
+) -> Iterable[str]:
     """Parse a log message and format it with timestamps and color preservation.
 
     Args:
@@ -25,7 +26,9 @@ def parse_log_message(
         strip_ansi_escapes: If True, remove all ANSI escape sequences from output
 
     Returns:
-        List of formatted lines ready to be printed
+        Iterable of formatted lines ready to be printed.
+        For single-line logs, returns a tuple for efficiency.
+        For multi-line logs, returns a list.
     """
     # Strip ANSI escapes if requested
     if strip_ansi_escapes:
@@ -33,7 +36,7 @@ def parse_log_message(
 
     # Fast path for single line (most common case)
     if "\n" not in text:
-        return [f"{timestamp}{text}"]
+        return (f"{timestamp}{text}",)
 
     # Multi-line handling
     lines = text.split("\n")
