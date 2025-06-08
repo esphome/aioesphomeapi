@@ -196,16 +196,18 @@ async def test_expected_name(auth_client: APIClient) -> None:
 
 
 async def test_connect_backwards_compat() -> None:
-    """Verify connect is a thin wrapper around start_connection and finish_connection."""
+    """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
 
     cli = PatchableAPIClient("host", 1234, None)
     with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
         patch.object(cli, "start_connection") as mock_start_connection,
         patch.object(cli, "finish_connection") as mock_finish_connection,
     ):
         await cli.connect()
 
-    assert mock_start_connection.mock_calls == [call(None)]
+    assert mock_start_resolve_host.mock_calls == [call(None)]
+    assert mock_start_connection.mock_calls == [call()]
     assert mock_finish_connection.mock_calls == [call(False)]
 
 
@@ -216,6 +218,7 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
 
     cli = APIClient("127.0.0.1", 1234, None)
     with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
+        await cli.start_resolve_host()
         await cli.start_connection()
 
     with (
@@ -244,6 +247,7 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
         "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
         _start_connection_with_delay,
     ):
+        await cli.start_resolve_host()
         start_task = asyncio.create_task(cli.start_connection())
         await asyncio.sleep(0)
         assert cli._connection is not None
@@ -265,6 +269,7 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
             _start_connection_without_delay,
         ),
     ):
+        await cli.start_resolve_host()
         await cli.start_connection()
         await asyncio.sleep(0)
 
@@ -303,7 +308,7 @@ async def test_request_while_handshaking() -> None:
 async def test_connect_while_already_connected(auth_client: APIClient) -> None:
     """Test connecting while already connected raises."""
     with pytest.raises(APIConnectionError):
-        await auth_client.start_connection()
+        await auth_client.start_resolve_host()
 
 
 @pytest.mark.parametrize(
@@ -1066,7 +1071,11 @@ async def test_noise_psk_handles_subclassed_string():
     )
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
         await rl.start()
         for _ in range(3):
             await asyncio.sleep(0)

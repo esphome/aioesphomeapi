@@ -161,7 +161,7 @@ async def test_log_runner_reconnects_on_disconnect(
     assert len(messages) == 1
     assert messages[0].message == b"Hello world"
 
-    with patch.object(cli, "start_connection") as mock_start_connection:
+    with patch.object(cli, "start_resolve_host") as mock_start_resolve_host:
         response: message.Message = DisconnectRequest()
         mock_data_received(protocol, generate_plaintext_packet(response))
 
@@ -173,7 +173,7 @@ async def test_log_runner_reconnects_on_disconnect(
         await asyncio.sleep(0)
 
     assert "Disconnected from API" in caplog.text
-    assert mock_start_connection.called
+    assert mock_start_resolve_host.called
 
     await stop()
 

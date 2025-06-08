@@ -197,7 +197,7 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     )
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
-    with patch.object(cli, "start_connection", side_effect=APIConnectionError):
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
         await rl.start()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -210,6 +210,7 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert rl._tries == 1
 
     with (
+        patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection", side_effect=RequiresEncryptionAPIError),
     ):
@@ -224,7 +225,11 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
     assert rl._tries == MAXIMUM_BACKOFF_TRIES
 
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
         await rl.start()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -270,7 +275,7 @@ async def test_reconnect_retry(
     assert cli.log_name == "mydevice @ 127.0.0.1"
     caplog.clear()
 
-    with patch.object(cli, "start_connection", side_effect=APIConnectionError):
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
         await rl.start()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -288,7 +293,7 @@ async def test_reconnect_retry(
 
     caplog.clear()
     # Next retry should run at debug level
-    with patch.object(cli, "start_connection", side_effect=APIConnectionError):
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
         # Should now retry
         assert rl._connect_timer is not None
         rl._connect_timer._run()
@@ -306,7 +311,11 @@ async def test_reconnect_retry(
             assert record.levelno == logging.DEBUG
 
     caplog.clear()
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
         # Should now retry
         assert rl._connect_timer is not None
         rl._connect_timer._run()
@@ -356,7 +365,7 @@ DNS_POINTER = DNSPointer(
                 "wrong_name._esphomelib._tcp.local.",
             ),
             False,
-            ReconnectLogicState.CONNECTING,
+            ReconnectLogicState.RESOLVING,
             "",
         ),
         (
@@ -393,8 +402,125 @@ async def test_reconnect_zeroconf(
     expected_state_after_trigger: ReconnectLogicState,
     log_text: str,
 ) -> None:
-    """Test that reconnect logic retry."""
+    """Test reconnect logic behavior when zeroconf provides records during connection.
 
+    This test verifies that when the reconnect logic is in RESOLVING state:
+    - If matching zeroconf records arrive, the resolution completes and connection proceeds
+    - If non-matching records arrive, the connection stays in RESOLVING state
+    """
+    cli = patchable_api_client
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+    assert cli.log_name == "mydevice @ 127.0.0.1"
+
+    # First connection attempt fails
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    # Should be disconnected after initial failure
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+    # Create an event to coordinate resolution with zeroconf trigger
+    resolve_event = asyncio.Event()
+
+    async def resolve_host_waiting_for_zeroconf(*args, **kwargs):
+        # This simulates the resolver waiting for mDNS records
+        try:
+            await asyncio.wait_for(resolve_event.wait(), timeout=0.1)
+        except asyncio.TimeoutError:
+            raise APIConnectionError("Resolution timed out")
+        else:
+            return  # Resolution succeeded
+
+    # For the test, we'll control when the connection succeeds
+    connect_succeeded = False
+
+    async def controlled_start_connection(*args, **kwargs):
+        nonlocal connect_succeeded
+        if should_trigger_zeroconf and resolve_event.is_set():
+            connect_succeeded = True
+            await asyncio.sleep(0)
+        else:
+            raise APIConnectionError()
+
+    async def controlled_finish_connection(*args, **kwargs):
+        if connect_succeeded:
+            return
+        raise APIConnectionError()
+
+    # Set up mocks for the reconnection attempt
+    with (
+        patch.object(
+            cli, "start_resolve_host", side_effect=resolve_host_waiting_for_zeroconf
+        ) as mock_resolve,
+        patch.object(
+            cli, "start_connection", side_effect=controlled_start_connection
+        ) as mock_connect,
+        patch.object(
+            cli, "finish_connection", side_effect=controlled_finish_connection
+        ) as mock_finish,
+    ):
+        # Trigger the reconnect timer
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+
+        # Should now be in RESOLVING state, waiting for mDNS records
+        assert rl._connection_state is ReconnectLogicState.RESOLVING
+        assert mock_resolve.call_count == 1
+
+        caplog.clear()
+
+        # Simulate zeroconf providing records
+        if should_trigger_zeroconf:
+            # For matching records, signal the resolver to complete
+            resolve_event.set()
+
+        rl.async_update_records(
+            mock_zeroconf, current_time_millis(), [RecordUpdate(record, None)]
+        )
+
+        # Verify the expected log message
+        assert (
+            "Triggering connect because of received mDNS record" in caplog.text
+        ) is should_trigger_zeroconf
+
+        # Give tasks time to complete
+        for _ in range(10):
+            await asyncio.sleep(0)
+
+        if should_trigger_zeroconf:
+            # Verify connection proceeded after resolution
+            assert mock_connect.call_count == 1
+            assert mock_finish.call_count == 1
+            assert log_text in caplog.text
+            assert rl._connection_state is expected_state_after_trigger
+        else:
+            # For non-matching records, should still be resolving
+            assert mock_connect.call_count == 0
+            assert mock_finish.call_count == 0
+            # The resolve task is still running, waiting for correct records
+            assert rl._connection_state is ReconnectLogicState.RESOLVING
+
+    await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+async def test_reconnect_zeroconf_cancels_when_connecting(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that reconnect logic cancels and restarts connection when zeroconf triggers during CONNECTING state."""
     cli = patchable_api_client
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
@@ -410,16 +536,20 @@ async def test_reconnect_zeroconf(
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
-        cli, "start_connection", side_effect=quick_connect_fail
-    ) as mock_start_connection:
+        cli, "start_resolve_host", side_effect=quick_connect_fail
+    ) as mock_start_resolve_host:
         await rl.start()
         await asyncio.sleep(0)
 
-    assert mock_start_connection.call_count == 1
+    assert mock_start_resolve_host.call_count == 1
 
-    with patch.object(
-        cli, "start_connection", side_effect=slow_connect_fail
-    ) as mock_start_connection:
+    # Now put the connection in CONNECTING state
+    with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
+        patch.object(
+            cli, "start_connection", side_effect=slow_connect_fail
+        ) as mock_start_connection,
+    ):
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
         assert rl._accept_zeroconf_records is True
         assert not rl._is_stopped
@@ -427,6 +557,8 @@ async def test_reconnect_zeroconf(
         assert rl._connect_timer is not None
         rl._connect_timer._run()
         await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_start_resolve_host.call_count == 1
         assert mock_start_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.CONNECTING
         assert rl._accept_zeroconf_records is True
@@ -434,34 +566,29 @@ async def test_reconnect_zeroconf(
 
     caplog.clear()
 
-    async def delayed_connect(*args, **kwargs):
-        await asyncio.sleep(0)
-
+    # Now trigger zeroconf while in CONNECTING state
     with (
-        patch.object(
-            cli, "start_connection", side_effect=delayed_connect
-        ) as mock_start_connection,
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host_2,
+        patch.object(cli, "start_connection") as mock_start_connection_2,
         patch.object(cli, "finish_connection"),
     ):
-        assert rl._zc_listening is True
         rl.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(record, None)]
+            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
-        assert (
-            "Triggering connect because of received mDNS record" in caplog.text
-        ) is should_trigger_zeroconf
-        assert rl._accept_zeroconf_records is not should_trigger_zeroconf
-        assert rl._zc_listening is not should_trigger_zeroconf
 
-        # The reconnect is scheduled to run in the next loop iteration
+        # Should see the cancellation message
+        assert "Cancelling existing connect task" in caplog.text
+        assert "Triggering connect because of received mDNS record" in caplog.text
+
+        # Wait for the new connection attempt
         await asyncio.sleep(0)
         await asyncio.sleep(0)
-
-        assert mock_start_connection.call_count == int(should_trigger_zeroconf)
-        assert log_text in caplog.text
         await asyncio.sleep(0)
 
-    assert rl._connection_state is expected_state_after_trigger
+        # Should have started a new connection attempt
+        assert mock_start_resolve_host_2.call_count == 1
+        assert mock_start_connection_2.call_count == 1
+
     await rl.stop()
     assert rl._is_stopped is True
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
@@ -487,14 +614,15 @@ async def test_reconnect_zeroconf_not_while_handshaking(
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
-        cli, "start_connection", side_effect=quick_connect_fail
-    ) as mock_start_connection:
+        cli, "start_resolve_host", side_effect=quick_connect_fail
+    ) as mock_start_resolve_host:
         await rl.start()
         await asyncio.sleep(0)
 
-    assert mock_start_connection.call_count == 1
+    assert mock_start_resolve_host.call_count == 1
 
     with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
         patch.object(cli, "start_connection") as mock_start_connection,
         patch.object(
             cli, "finish_connection", side_effect=slow_connect_fail
@@ -507,6 +635,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         assert rl._connect_timer is not None
         rl._connect_timer._run()
         await asyncio.sleep(0)
+        assert mock_start_resolve_host.call_count == 1
         assert mock_start_connection.call_count == 1
         assert mock_finish_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.HANDSHAKING
@@ -543,14 +672,15 @@ async def test_connect_task_not_cancelled_while_handshaking(
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
-        cli, "start_connection", side_effect=quick_connect_fail
-    ) as mock_start_connection:
+        cli, "start_resolve_host", side_effect=quick_connect_fail
+    ) as mock_start_resolve_host:
         await rl.start()
         await asyncio.sleep(0)
 
-    assert mock_start_connection.call_count == 1
+    assert mock_start_resolve_host.call_count == 1
 
     with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
         patch.object(cli, "start_connection") as mock_start_connection,
         patch.object(
             cli, "finish_connection", side_effect=slow_connect_fail
@@ -563,6 +693,7 @@ async def test_connect_task_not_cancelled_while_handshaking(
         assert rl._connect_timer is not None
         rl._connect_timer._run()
         await asyncio.sleep(0)
+        assert mock_start_resolve_host.call_count == 1
         assert mock_start_connection.call_count == 1
         assert mock_finish_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.HANDSHAKING
@@ -602,14 +733,14 @@ async def test_connect_aborts_if_stopped(
     assert cli.log_name == "mydevice @ 127.0.0.1"
 
     with patch.object(
-        cli, "start_connection", side_effect=quick_connect_fail
-    ) as mock_start_connection:
+        cli, "start_resolve_host", side_effect=quick_connect_fail
+    ) as mock_start_resolve_host:
         await rl.start()
         await asyncio.sleep(0)
 
-    assert mock_start_connection.call_count == 1
+    assert mock_start_resolve_host.call_count == 1
 
-    with patch.object(cli, "start_connection") as mock_start_connection:
+    with patch.object(cli, "start_resolve_host") as mock_start_resolve_host:
         timer = rl._connect_timer
         assert timer is not None
         await rl.stop()
@@ -620,7 +751,7 @@ async def test_connect_aborts_if_stopped(
 
     # We should never try to connect again
     # once we are stopped
-    assert mock_start_connection.call_count == 0
+    assert mock_start_resolve_host.call_count == 0
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
@@ -634,17 +765,22 @@ async def test_reconnect_logic_stop_callback(patchable_api_client: APIClient):
         zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
-    await rl.start()
-    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-    await asyncio.sleep(0)
-    assert rl._connection_state is ReconnectLogicState.CONNECTING
-    assert rl._is_stopped is False
-    rl.stop_callback()
-    # Wait for cancellation to propagate
-    for _ in range(4):
+
+    async def slow_resolve_host(*args, **kwargs):
+        await asyncio.sleep(10)  # Hang in resolve state
+
+    with patch.object(cli, "start_resolve_host", side_effect=slow_resolve_host):
+        await rl.start()
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
         await asyncio.sleep(0)
-    assert rl._is_stopped is True
-    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._connection_state is ReconnectLogicState.RESOLVING
+        assert rl._is_stopped is False
+        rl.stop_callback()
+        # Wait for cancellation to propagate
+        for _ in range(4):
+            await asyncio.sleep(0)
+        assert rl._is_stopped is True
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
 async def test_reconnect_logic_stop_callback_waits_for_handshake(
@@ -662,6 +798,7 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
     with (
+        patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection", side_effect=slow_connect_fail),
     ):
@@ -746,6 +883,7 @@ async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection)
             "create_connection",
             side_effect=partial(_create_mock_transport_protocol, transport, connected),
         ) as mock_create_connection,
+        patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection"),
     ):

@@ -146,6 +146,7 @@ def async_fire_time_changed(
 
 async def connect(conn: APIConnection, login: bool = True):
     """Wrapper for connection logic to do both parts."""
+    await conn.start_resolve_host()
     await conn.start_connection()
     await conn.finish_connection(login=login)
 
@@ -156,7 +157,8 @@ async def connect_client(
     on_stop: Callable[[bool], Awaitable[None]] | None = None,
 ) -> None:
     """Wrapper for connection logic to do both parts."""
-    await client.start_connection(on_stop=on_stop)
+    await client.start_resolve_host(on_stop=on_stop)
+    await client.start_connection()
     await client.finish_connection(login=login)
 
 

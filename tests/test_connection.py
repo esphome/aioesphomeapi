@@ -1037,7 +1037,7 @@ async def test_connection_cannot_be_reused(
     send_plaintext_connect_response(protocol, False)
     await connect_task
     with pytest.raises(RuntimeError):
-        await conn.start_connection()
+        await conn.start_resolve_host()
 
 
 async def test_attempting_to_finish_unstarted_connection(
@@ -1046,6 +1046,17 @@ async def test_attempting_to_finish_unstarted_connection(
     """Test that we raise when trying to finish an unstarted connection."""
     with pytest.raises(RuntimeError):
         await conn.finish_connection(login=False)
+
+
+async def test_start_connection_wrong_state(
+    conn: APIConnection,
+) -> None:
+    """Test that we raise when trying to start connection in wrong state."""
+    with pytest.raises(
+        RuntimeError,
+        match="Connection must be in HOST_RESOLVED state to start connection",
+    ):
+        await conn.start_connection()
 
 
 async def test_internal_message_received_immediately_after_connection(
