@@ -514,6 +514,37 @@ def test_logparser_empty_lines() -> None:
     assert result3 == "[08:00:00.000][C][logger:224]:   Max Level: DEBUG"
 
 
+def test_logparser_whitespace_only_continuation() -> None:
+    """Test handling of whitespace-only continuation lines."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # First establish a log entry
+    line1 = "[I][sensor:123]: Temperature sensor"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000][I][sensor:123]: Temperature sensor"
+
+    # Whitespace-only continuation line (spaces)
+    line2 = "    "
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == ""
+
+    # Another whitespace-only continuation line (tabs)
+    line3 = "\t\t"
+    result3 = parser.parse_line(line3, timestamp)
+    assert result3 == ""
+
+    # Mix of spaces and tabs
+    line4 = "  \t  "
+    result4 = parser.parse_line(line4, timestamp)
+    assert result4 == ""
+
+    # Real continuation after whitespace
+    line5 = "  Reading: 23.5°C"
+    result5 = parser.parse_line(line5, timestamp)
+    assert result5 == "[08:00:00.000][I][sensor:123]:   Reading: 23.5°C"
+
+
 def test_logparser_strip_ansi_escapes() -> None:
     """Test stripping ANSI escape sequences."""
     parser = LogParser(strip_ansi_escapes=True)
