@@ -51,20 +51,27 @@ def parse_log_message(
     prefix = ""
     color_code = ""
 
-    # Extract ANSI color code at the beginning if present (only if not stripping)
-    first_line_no_color = first_line
-    if not strip_ansi_escapes and (color_match := ANSI_ESCAPE.match(first_line)):
-        color_code = color_match.group(0)
-        # Remove color code from line for prefix extraction
-        first_line_no_color = first_line[len(color_code) :]
+    # Check if first line starts with space - if so, no prefix to extract
+    if first_line and first_line[0].isspace():
+        # First line is already a continuation line, no prefix exists
+        pass
+    else:
+        # Extract ANSI color code at the beginning if present (only if not stripping)
+        first_line_no_color = first_line
+        if not strip_ansi_escapes and (color_match := ANSI_ESCAPE.match(first_line)):
+            color_code = color_match.group(0)
+            # Remove color code from line for prefix extraction
+            first_line_no_color = first_line[len(color_code) :]
 
-    # Find the last ']:' which marks the end of the ESPHome prefix
-    # Look for pattern like [C][template.sensor:022]:
-    last_bracket_colon = first_line_no_color.rfind(
-        "]:", 0, len(first_line_no_color) // 2
-    )
-    if last_bracket_colon != -1:
-        prefix = first_line_no_color[: last_bracket_colon + 2]  # Include the ']:' part
+        # Find the last ']:' which marks the end of the ESPHome prefix
+        # Look for pattern like [C][template.sensor:022]:
+        last_bracket_colon = first_line_no_color.rfind(
+            "]:", 0, len(first_line_no_color) // 2
+        )
+        if last_bracket_colon != -1:
+            prefix = first_line_no_color[
+                : last_bracket_colon + 2
+            ]  # Include the ']:' part
 
     # Process subsequent lines
     for line in lines[1:]:

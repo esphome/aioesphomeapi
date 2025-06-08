@@ -290,3 +290,26 @@ def test_strip_ansi_escapes() -> None:
         result[0]
         == "[08:00:00.000][D][esp-idf:000][BTU_TASK]: W (2335697) BT_APPL: gattc_conn_cb"
     )
+
+
+def test_first_line_starts_with_space() -> None:
+    """Test edge case where first line starts with space."""
+    text = "  First line starts with space\n  Second line also starts with space\nNot a continuation"
+    timestamp = "[08:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 3
+    assert result[0] == "[08:00:00.000]  First line starts with space"
+    assert result[1] == "[08:00:00.000]  Second line also starts with space"
+    assert result[2] == "[08:00:00.000]Not a continuation"
+
+
+def test_first_line_starts_with_space_with_color() -> None:
+    """Test edge case where first line starts with space and has ANSI color."""
+    text = "\033[0;32m  Colored line starting with space\n  Another continuation\033[0m"
+    timestamp = "[08:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 2
+    assert result[0] == "[08:00:00.000]\033[0;32m  Colored line starting with space"
+    assert result[1] == "[08:00:00.000]\033[0;32m  Another continuation\033[0m"
