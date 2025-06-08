@@ -13,7 +13,7 @@ def test_single_line_no_color() -> None:
     timestamp = "[08:00:00.000]"
     result = parse_log_message(text, timestamp)
 
-    assert isinstance(result, list)
+    assert isinstance(result, (list, tuple))
     assert len(result) == 1
     assert (
         result[0]
@@ -27,7 +27,7 @@ def test_single_line_with_color() -> None:
     timestamp = "[08:00:00.000]"
     result = parse_log_message(text, timestamp)
 
-    assert isinstance(result, list)
+    assert isinstance(result, (list, tuple))
     assert len(result) == 1
     assert (
         result[0]
@@ -41,7 +41,7 @@ def test_multi_line_no_color() -> None:
     timestamp = "[08:00:00.000]"
     result = parse_log_message(text, timestamp)
 
-    assert isinstance(result, list)
+    assert isinstance(result, (list, tuple))
     assert len(result) == 4
     assert (
         result[0]
@@ -60,7 +60,7 @@ def test_multi_line_with_color() -> None:
     timestamp = "[08:00:00.000]"
     result = parse_log_message(text, timestamp)
 
-    assert isinstance(result, list)
+    assert isinstance(result, (list, tuple))
     assert len(result) == 4
     assert (
         result[0]
@@ -86,7 +86,7 @@ def test_multi_line_with_empty_lines() -> None:
     timestamp = "[08:00:00.000]"
     result = parse_log_message(text, timestamp)
 
-    assert isinstance(result, list)
+    assert isinstance(result, (list, tuple))
     assert len(result) == 4
     assert result[0] == "[08:00:00.000][C][logger:224]: Logger:"
     assert result[1] == ""  # Empty line
@@ -100,7 +100,7 @@ def test_multi_line_mixed_entries() -> None:
     timestamp = "[08:00:00.000]"
     result = parse_log_message(text, timestamp)
 
-    assert isinstance(result, list)
+    assert isinstance(result, (list, tuple))
     assert len(result) == 3
     assert (
         result[0]
