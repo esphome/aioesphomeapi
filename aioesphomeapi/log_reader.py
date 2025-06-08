@@ -10,6 +10,7 @@ import sys
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
+from .log_parser import parse_log_message
 from .log_runner import async_run
 
 
@@ -41,9 +42,14 @@ async def main(argv: list[str]) -> None:
         message: bytes = msg.message
         text = message.decode("utf8", "backslashreplace")
         nanoseconds = time_.microsecond // 1000
-        print(
-            f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}.{nanoseconds:03}]{text}"
+        timestamp = (
+            f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}.{nanoseconds:03}]"
         )
+
+        # Parse and print the log message
+        lines = parse_log_message(text, timestamp)
+        for line in lines:
+            print(line)
 
     stop = await async_run(cli, on_log)
     try:
