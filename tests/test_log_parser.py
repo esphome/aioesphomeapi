@@ -90,9 +90,8 @@ def test_multi_line_with_empty_lines() -> None:
     assert len(result) == 4
     assert result[0] == "[08:00:00.000][C][logger:224]: Logger:"
     assert result[1] == ""  # Empty line
-    # The prefix extraction finds "Logger:" not "[C][logger:224]:" so no prefix is added
-    assert result[2] == "[08:00:00.000]  Max Level: DEBUG"
-    assert result[3] == "[08:00:00.000]  Initial Level: DEBUG"
+    assert result[2] == "[08:00:00.000][C][logger:224]:   Max Level: DEBUG"
+    assert result[3] == "[08:00:00.000][C][logger:224]:   Initial Level: DEBUG"
 
 
 def test_multi_line_mixed_entries() -> None:
@@ -237,13 +236,13 @@ def test_trailing_newline() -> None:
     assert len(result) == 1
     assert result[0] == "[08:00:00.000][I][app:191]: ESPHome version 2025.6.0"
 
-    # Multi-line with trailing newline (no ESPHome prefix found since "Config" doesn't end with ]:")
+    # Multi-line with trailing newline
     text = "[C][sensor:022]: Sensor Config\n  State: ON\n"
     result = parse_log_message(text, timestamp)
 
     assert len(result) == 2
     assert result[0] == "[08:00:00.000][C][sensor:022]: Sensor Config"
-    assert result[1] == "[08:00:00.000]  State: ON"
+    assert result[1] == "[08:00:00.000][C][sensor:022]:   State: ON"
 
     # With proper ESPHome prefix format
     text = "[C][sensor:022]: Temperature Sensor 'Living Room'\n  State Class: 'measurement'\n"
@@ -332,6 +331,25 @@ def test_newline_only_message() -> None:
     # Should handle gracefully - just timestamp with empty content
     assert len(result) == 1
     assert result[0] == "[08:00:00.000]"
+
+
+def test_long_component_name_prefix() -> None:
+    """Test that long component names are correctly extracted."""
+    text = (
+        "[C][really.long.component.name.sensor:123456]: Short message\n  Details here"
+    )
+    timestamp = "[08:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 2
+    assert (
+        result[0]
+        == "[08:00:00.000][C][really.long.component.name.sensor:123456]: Short message"
+    )
+    assert (
+        result[1]
+        == "[08:00:00.000][C][really.long.component.name.sensor:123456]:   Details here"
+    )
 
 
 def test_color_bleeding_prevention() -> None:

@@ -72,14 +72,12 @@ def parse_log_message(
             # Remove color code from line for prefix extraction
             first_line_no_color = first_line[len(color_code) :]
 
-        # Find the last ']:' which marks the end of the ESPHome prefix
-        # Look for pattern like [C][template.sensor:022]:
-        last_bracket_colon = first_line_no_color.rfind(
-            "]:", 0, len(first_line_no_color) // 2
-        )
-        if last_bracket_colon != -1:
-            # Include the ']:' part
-            prefix = first_line_no_color[: last_bracket_colon + 2]
+        # Find the ESPHome prefix - the first ']:' is always the split point
+        # ESPHome log format: [LEVEL][component:line]: message
+        # The first ']:' will always be at the end of the component:line part
+        bracket_colon = first_line_no_color.find("]:")
+        if bracket_colon != -1:
+            prefix = first_line_no_color[: bracket_colon + 2]
 
     # Process subsequent lines
     for line in lines[1:]:
