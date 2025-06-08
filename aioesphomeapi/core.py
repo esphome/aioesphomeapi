@@ -30,6 +30,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothGATTWriteResponse,
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothScannerSetModeRequest,
+    BluetoothScannerStateResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -89,6 +91,8 @@ from .api_pb2 import (  # type: ignore
     LockStateResponse,
     MediaPlayerCommandRequest,
     MediaPlayerStateResponse,
+    NoiseEncryptionSetKeyRequest,
+    NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     NumberStateResponse,
     PingRequest,
@@ -233,12 +237,31 @@ class BadNameAPIError(APIConnectionError):
         self.received_name = received_name
 
 
-class InvalidEncryptionKeyAPIError(HandshakeAPIError):
-    def __init__(
-        self, msg: str | None = None, received_name: str | None = None
-    ) -> None:
-        super().__init__(f"{msg}: received_name={received_name}")
+class BadMACAddressAPIError(APIConnectionError):
+    """Raised when a MAC address received from the remote but does not much the expected MAC address."""
+
+    def __init__(self, msg: str, received_name: str, received_mac: str) -> None:
+        super().__init__(
+            f"{msg}: received_name={received_name}, received_mac={received_mac}"
+        )
         self.received_name = received_name
+        self.received_mac = received_mac
+
+
+class InvalidEncryptionKeyAPIError(HandshakeAPIError):
+    """Raised when the encryption key is invalid."""
+
+    def __init__(
+        self,
+        msg: str | None = None,
+        received_name: str | None = None,
+        received_mac: str | None = None,
+    ) -> None:
+        super().__init__(
+            f"{msg}: received_name={received_name}, received_mac={received_mac}"
+        )
+        self.received_name = received_name
+        self.received_mac = received_mac
 
 
 class EncryptionErrorAPIError(InvalidEncryptionKeyAPIError):
@@ -419,6 +442,10 @@ MESSAGE_TYPE_TO_PROTO = {
     121: VoiceAssistantConfigurationRequest,
     122: VoiceAssistantConfigurationResponse,
     123: VoiceAssistantSetConfiguration,
+    124: NoiseEncryptionSetKeyRequest,
+    125: NoiseEncryptionSetKeyResponse,
+    126: BluetoothScannerStateResponse,
+    127: BluetoothScannerSetModeRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

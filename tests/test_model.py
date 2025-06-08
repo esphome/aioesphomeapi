@@ -11,6 +11,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
+    BluetoothScannerStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
     DateStateResponse,
@@ -46,6 +47,7 @@ from aioesphomeapi.api_pb2 import (
     LockStateResponse,
     MediaPlayerStateResponse,
     MediaPlayerSupportedFormat,
+    NoiseEncryptionSetKeyResponse,
     NumberStateResponse,
     SelectStateResponse,
     SensorStateResponse,
@@ -71,11 +73,13 @@ from aioesphomeapi.model import (
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothGATTServices as BluetoothGATTServicesModel,
     BluetoothProxyFeature,
+    BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ButtonInfo,
     CameraInfo,
     ClimateInfo,
     ClimatePreset,
     ClimateState,
+    ColorMode,
     CoverInfo,
     CoverState,
     DateInfo,
@@ -96,6 +100,7 @@ from aioesphomeapi.model import (
     LockInfo,
     MediaPlayerEntityState,
     MediaPlayerInfo,
+    NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     NumberInfo,
     NumberState,
     SelectInfo,
@@ -291,6 +296,8 @@ def test_api_version_ord():
         (Event, EventResponse),
         (UpdateInfo, ListEntitiesUpdateResponse),
         (UpdateState, UpdateStateResponse),
+        (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
+        (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -336,17 +343,17 @@ def test_climate_info_supported_presets_compat(state, version, out):
 @pytest.mark.parametrize(
     "state, version, out",
     [
-        (ClimateState(legacy_away=False), (1, 4), ClimatePreset.HOME),
-        (ClimateState(legacy_away=True), (1, 4), ClimatePreset.AWAY),
+        (ClimateState(unused_legacy_away=False), (1, 4), ClimatePreset.HOME),
+        (ClimateState(unused_legacy_away=True), (1, 4), ClimatePreset.AWAY),
         (
-            ClimateState(legacy_away=True, preset=ClimatePreset.HOME),
+            ClimateState(unused_legacy_away=True, preset=ClimatePreset.HOME),
             (1, 4),
             ClimatePreset.AWAY,
         ),
         (ClimateState(preset=ClimatePreset.HOME), (1, 5), ClimatePreset.HOME),
         (ClimateState(preset=ClimatePreset.BOOST), (1, 5), ClimatePreset.BOOST),
         (
-            ClimateState(legacy_away=True, preset=ClimatePreset.BOOST),
+            ClimateState(unused_legacy_away=True, preset=ClimatePreset.BOOST),
             (1, 5),
             ClimatePreset.BOOST,
         ),
@@ -565,13 +572,47 @@ def test_supported_color_modes_compat(
         legacy_supports_rgb=legacy_supports_rgb,
         legacy_supports_white_value=legacy_supports_white_value,
         legacy_supports_color_temperature=legacy_supports_color_temperature,
-        supported_color_modes=[42],
+        supported_color_modes=[ColorMode.RGB_COLOR_TEMPERATURE],
     )
     assert info.supported_color_modes_compat(APIVersion(1, 5)) == capability
-    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [42]
+    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [
+        ColorMode.RGB_COLOR_TEMPERATURE
+    ]
 
 
-@pytest.mark.asyncio
+def test_multiple_supported_color_modes_compat() -> None:
+    info = LightInfo(
+        supported_color_modes=[ColorMode.RGB_COLOR_TEMPERATURE, ColorMode.RGB],
+    )
+    assert info.supported_color_modes_compat(APIVersion(1, 9)) == [
+        ColorMode.RGB_COLOR_TEMPERATURE,
+        ColorMode.RGB,
+    ]
+    assert info.supported_color_modes == [
+        ColorMode.RGB_COLOR_TEMPERATURE,
+        ColorMode.RGB,
+    ]
+
+
+def test_legacy_brightness_compat() -> None:
+    """Test legacy brightness compatibility."""
+    raw_message = (
+        b"\x0d\x78\x56\x34\x12"  # key = 0x12345678
+        b"\x10\x01"  # state = True
+        b"\x1d\xcd\xcc\x4c\x3f"  # brightness = 0.8
+        b"\x58\x02"  # color_mode = 2 (LEGACY_BRIGHTNESS)
+    )
+    msg = LightStateResponse()
+    msg.ParseFromString(raw_message)
+    assert msg.color_mode == ColorMode.LEGACY_BRIGHTNESS
+    assert LightState.from_pb(msg) == LightState(
+        key=0x12345678,
+        state=True,
+        brightness=0.8,
+        color_mode=ColorMode.LEGACY_BRIGHTNESS,
+    )
+
+
 async def test_bluetooth_gatt_services_from_dict() -> None:
     """Test bluetooth_gatt_get_services success case."""
     services: message.Message = BluetoothGATTGetServicesResponse(

@@ -32,13 +32,12 @@ from .common import (
 )
 
 
-@pytest.mark.asyncio
 async def test_log_runner(
     conn: APIConnection,
     aiohappyeyeballs_start_connection,
 ):
     """Test the log runner logic."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
@@ -100,14 +99,13 @@ async def test_log_runner(
     await stop_task
 
 
-@pytest.mark.asyncio
 async def test_log_runner_reconnects_on_disconnect(
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on disconnect."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()
@@ -163,7 +161,7 @@ async def test_log_runner_reconnects_on_disconnect(
     assert len(messages) == 1
     assert messages[0].message == b"Hello world"
 
-    with patch.object(cli, "start_connection") as mock_start_connection:
+    with patch.object(cli, "start_resolve_host") as mock_start_resolve_host:
         response: message.Message = DisconnectRequest()
         mock_data_received(protocol, generate_plaintext_packet(response))
 
@@ -175,19 +173,18 @@ async def test_log_runner_reconnects_on_disconnect(
         await asyncio.sleep(0)
 
     assert "Disconnected from API" in caplog.text
-    assert mock_start_connection.called
+    assert mock_start_resolve_host.called
 
     await stop()
 
 
-@pytest.mark.asyncio
 async def test_log_runner_reconnects_on_subscribe_failure(
     conn: APIConnection,
     caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Test the log runner reconnects on subscribe failure."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     protocol: APIPlaintextFrameHelper | None = None
     transport = MagicMock()
     connected = asyncio.Event()

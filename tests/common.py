@@ -14,9 +14,13 @@ from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
 from aioesphomeapi import APIClient, APIConnection
-from aioesphomeapi._frame_helper import APINoiseFrameHelper, APIPlaintextFrameHelper
-from aioesphomeapi._frame_helper.noise import ESPHOME_NOISE_BACKEND
-from aioesphomeapi._frame_helper.plain_text import _cached_varuint_to_bytes
+from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
+from aioesphomeapi._frame_helper.noise_encryption import (
+    ESPHOME_NOISE_BACKEND,
+    EncryptCipher,
+)
+from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
+from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     ConnectResponse,
     HelloResponse,
@@ -53,6 +57,7 @@ def get_mock_connection_params() -> ConnectionParams:
         zeroconf_manager=ZeroconfManager(),
         noise_psk=None,
         expected_name=None,
+        expected_mac=None,
     )
 
 
@@ -141,6 +146,7 @@ def async_fire_time_changed(
 
 async def connect(conn: APIConnection, login: bool = True):
     """Wrapper for connection logic to do both parts."""
+    await conn.start_resolve_host()
     await conn.start_connection()
     await conn.finish_connection(login=login)
 
@@ -151,7 +157,8 @@ async def connect_client(
     on_stop: Callable[[bool], Awaitable[None]] | None = None,
 ) -> None:
     """Wrapper for connection logic to do both parts."""
-    await client.start_connection(on_stop=on_stop)
+    await client.start_resolve_host(on_stop=on_stop)
+    await client.start_connection()
     await client.finish_connection(login=login)
 
 
@@ -247,7 +254,7 @@ def _make_noise_handshake_pkt(proto: NoiseConnection) -> bytes:
 
 
 def _make_encrypted_packet(
-    proto: NoiseConnection, msg_type: int, payload: bytes
+    cipher: EncryptCipher, msg_type: int, payload: bytes
 ) -> bytes:
     msg_type = 42
     msg_type_high = (msg_type >> 8) & 0xFF
@@ -256,7 +263,7 @@ def _make_encrypted_packet(
     msg_length_high = (msg_length >> 8) & 0xFF
     msg_length_low = msg_length & 0xFF
     msg_header = bytes((msg_type_high, msg_type_low, msg_length_high, msg_length_low))
-    encrypted_payload = proto.encrypt(msg_header + payload)
+    encrypted_payload = cipher.encrypt(msg_header + payload)
     return _make_encrypted_packet_from_encrypted_payload(encrypted_payload)
 
 

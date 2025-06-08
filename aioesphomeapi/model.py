@@ -114,6 +114,7 @@ class BluetoothProxyFeature(enum.IntFlag):
     PAIRING = 1 << 3
     CACHE_CLEARING = 1 << 4
     RAW_ADVERTISEMENTS = 1 << 5
+    FEATURE_STATE_AND_MODE = 1 << 6
 
 
 class BluetoothProxySubscriptionFlag(enum.IntFlag):
@@ -284,7 +285,7 @@ class FanInfo(EntityInfo):
     supports_oscillation: bool = False
     supports_speed: bool = False
     supports_direction: bool = False
-    supported_speed_levels: int = 0
+    supported_speed_count: int = 0
     supported_preset_modes: list[str] = converter_field(
         default_factory=list, converter=list
     )
@@ -325,10 +326,24 @@ class LightColorCapability(enum.IntFlag):
     RGB = 1 << 5
 
 
+class ColorMode(APIIntEnum):
+    UNKNOWN = 0
+    ON_OFF = 1
+    LEGACY_BRIGHTNESS = 2
+    BRIGHTNESS = 3
+    WHITE = 7
+    COLOR_TEMPERATURE = 11
+    COLD_WARM_WHITE = 19
+    RGB = 35
+    RGB_WHITE = 39
+    RGB_COLOR_TEMPERATURE = 47
+    RGB_COLD_WARM_WHITE = 51
+
+
 @_frozen_dataclass_decorator
 class LightInfo(EntityInfo):
-    supported_color_modes: list[int] = converter_field(
-        default_factory=list, converter=list
+    supported_color_modes: list[ColorMode] = converter_field(
+        default_factory=list, converter=ColorMode.convert_list
     )
     min_mireds: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
@@ -344,7 +359,7 @@ class LightInfo(EntityInfo):
     legacy_supports_white_value: bool = False
     legacy_supports_color_temperature: bool = False
 
-    def supported_color_modes_compat(self, api_version: APIVersion) -> list[int]:
+    def supported_color_modes_compat(self, api_version: APIVersion) -> list[ColorMode]:
         if api_version < APIVersion(1, 6):
             key = (
                 self.legacy_supports_brightness,
@@ -390,7 +405,7 @@ class LightInfo(EntityInfo):
                 ],
             }
 
-            return cast(list[int], modes_map[key]) if key in modes_map else []
+            return cast(list[ColorMode], modes_map[key]) if key in modes_map else []
 
         return self.supported_color_modes
 
@@ -401,7 +416,7 @@ class LightState(EntityState):
     brightness: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-    color_mode: int = 0
+    color_mode: ColorMode = ColorMode.UNKNOWN
     color_brightness: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
@@ -452,7 +467,7 @@ class SensorInfo(EntityInfo):
     state_class: SensorStateClass | None = converter_field(
         default=SensorStateClass.NONE, converter=SensorStateClass.convert
     )
-    last_reset_type: LastResetType | None = converter_field(
+    legacy_last_reset_type: LastResetType | None = converter_field(
         default=LastResetType.NONE, converter=LastResetType.convert
     )
 
@@ -620,7 +635,7 @@ class ClimateState(EntityState):
     target_temperature_high: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-    legacy_away: bool = False
+    unused_legacy_away: bool = False
     fan_mode: ClimateFanMode | None = converter_field(
         default=ClimateFanMode.ON, converter=ClimateFanMode.convert
     )
@@ -637,7 +652,7 @@ class ClimateState(EntityState):
 
     def preset_compat(self, api_version: APIVersion) -> ClimatePreset | None:
         if api_version < APIVersion(1, 5):
-            return ClimatePreset.AWAY if self.legacy_away else ClimatePreset.HOME
+            return ClimatePreset.AWAY if self.unused_legacy_away else ClimatePreset.HOME
         return self.preset
 
 
@@ -1264,6 +1279,30 @@ class BluetoothDeviceRequestType(APIIntEnum):
     CLEAR_CACHE = 6
 
 
+class BluetoothScannerState(APIIntEnum):
+    IDLE = 0
+    STARTING = 1
+    RUNNING = 2
+    FAILED = 3
+    STOPPING = 4
+    STOPPED = 5
+
+
+class BluetoothScannerMode(APIIntEnum):
+    PASSIVE = 0
+    ACTIVE = 1
+
+
+@_frozen_dataclass_decorator
+class BluetoothScannerStateResponse(APIModelBase):
+    state: BluetoothScannerState | None = converter_field(
+        default=BluetoothScannerState.IDLE, converter=BluetoothScannerState.convert
+    )
+    mode: BluetoothScannerMode | None = converter_field(
+        default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
+    )
+
+
 class VoiceAssistantCommandFlag(enum.IntFlag):
     USE_VAD = 1 << 0
     USE_WAKE_WORD = 1 << 1
@@ -1333,6 +1372,16 @@ class VoiceAssistantConfigurationRequest(APIModelBase):
 @_frozen_dataclass_decorator
 class VoiceAssistantSetConfiguration(APIModelBase):
     active_wake_words: list[int] = converter_field(default_factory=list, converter=list)
+
+
+@_frozen_dataclass_decorator
+class NoiseEncryptionSetKeyRequest(APIModelBase):
+    key: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class NoiseEncryptionSetKeyResponse(APIModelBase):
+    success: bool = False
 
 
 class LogLevel(APIIntEnum):

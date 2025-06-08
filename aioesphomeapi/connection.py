@@ -71,7 +71,9 @@ PING_REQUEST_MESSAGES = (PingRequest(),)
 PING_RESPONSE_MESSAGES = (PingResponse(),)
 NO_PASSWORD_CONNECT_REQUEST = ConnectRequest()
 
-PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+PROTO_TO_MESSAGE_TYPE: dict[
+    type[message.Message], tuple[int, Callable[[message.Message], bytes]]
+] = {v: (k, v.SerializeToString) for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 #
@@ -120,21 +122,25 @@ class ConnectionParams:
     zeroconf_manager: ZeroconfManager
     noise_psk: str | None
     expected_name: str | None
+    expected_mac: str | None
 
 
 class ConnectionState(enum.Enum):
     # The connection is initialized, but connect() wasn't called yet
     INITIALIZED = 0
+    # The host has been resolved, but the socket hasn't been opened yet
+    HOST_RESOLVED = 1
     # The socket has been opened, but the handshake and login haven't been completed
-    SOCKET_OPENED = 1
+    SOCKET_OPENED = 2
     # The handshake has been completed, messages can be exchanged
-    HANDSHAKE_COMPLETE = 2
+    HANDSHAKE_COMPLETE = 3
     # The connection has been established, authenticated data can be exchanged
-    CONNECTED = 3
-    CLOSED = 4
+    CONNECTED = 4
+    CLOSED = 5
 
 
 CONNECTION_STATE_INITIALIZED = ConnectionState.INITIALIZED
+CONNECTION_STATE_HOST_RESOLVED = ConnectionState.HOST_RESOLVED
 CONNECTION_STATE_SOCKET_OPENED = ConnectionState.SOCKET_OPENED
 CONNECTION_STATE_HANDSHAKE_COMPLETE = ConnectionState.HANDSHAKE_COMPLETE
 CONNECTION_STATE_CONNECTED = ConnectionState.CONNECTED
@@ -189,6 +195,7 @@ class APIConnection:
     """
 
     __slots__ = (
+        "_addrs_info",
         "_debug_enabled",
         "_expected_disconnect",
         "_fatal_exception",
@@ -203,6 +210,7 @@ class APIConnection:
         "_ping_timer",
         "_pong_timer",
         "_read_exception_futures",
+        "_resolve_host_future",
         "_send_pending_ping",
         "_socket",
         "_start_connect_future",
@@ -244,17 +252,19 @@ class APIConnection:
         self._keep_alive_interval = keepalive
         self._keep_alive_timeout = keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
+        self._resolve_host_future: asyncio.Future[None] | None = None
         self._start_connect_future: asyncio.Future[None] | None = None
         self._finish_connect_future: asyncio.Future[None] | None = None
         self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
         self._send_pending_ping = False
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self.is_connected = False
         self._handshake_complete = False
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self.connected_address: str | None = None
+        self._addrs_info: list[hr.AddrInfo] = []
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -283,6 +293,7 @@ class APIConnection:
                 fut.set_exception(new_exc)
         self._read_exception_futures.clear()
 
+        self._set_resolve_host_future()
         self._set_start_connect_future()
         self._set_finish_connect_future()
 
@@ -423,6 +434,7 @@ class APIConnection:
                 lambda: APINoiseFrameHelper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
+                    expected_mac=self._params.expected_mac,
                     connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,
@@ -568,14 +580,43 @@ class APIConnection:
             )
         )
 
-    async def _do_connect(self) -> None:
-        """Do the actual connect process."""
-        addrs_info = await hr.async_resolve_host(
-            self._params.addresses,
-            self._params.port,
-            self._params.zeroconf_manager,
-        )
-        await self._connect_socket_connect(addrs_info)
+    async def start_resolve_host(self) -> None:
+        """Start the host resolution process.
+
+        This part of the process resolves the hostnames to IP addresses
+        and prepares the connection for the next step.
+        """
+        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+            raise RuntimeError(
+                "Connection can only be used once, connection is not in init state"
+            )
+
+        self._resolve_host_future = self._loop.create_future()
+        try:
+            async with interrupt(
+                self._resolve_host_future, ConnectionInterruptedError, None
+            ):
+                self._addrs_info = await hr.async_resolve_host(
+                    self._params.addresses,
+                    self._params.port,
+                    self._params.zeroconf_manager,
+                )
+        except (Exception, CancelledError) as ex:
+            # If the task was cancelled, we need to clean up the connection
+            # and raise the CancelledError as APIConnectionError
+            self._cleanup()
+            raise self._wrap_fatal_connection_exception("resolving", ex)
+        finally:
+            self._set_resolve_host_future()
+        self._set_connection_state(CONNECTION_STATE_HOST_RESOLVED)
+
+    def _set_resolve_host_future(self) -> None:
+        if (
+            self._resolve_host_future is not None
+            and not self._resolve_host_future.done()
+        ):
+            self._resolve_host_future.set_result(None)
+            self._resolve_host_future = None
 
     async def start_connection(self) -> None:
         """Start the connection process.
@@ -583,9 +624,9 @@ class APIConnection:
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+        if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
             raise RuntimeError(
-                "Connection can only be used once, connection is not in init state"
+                "Connection must be in HOST_RESOLVED state to start connection"
             )
 
         self._start_connect_future = self._loop.create_future()
@@ -593,7 +634,7 @@ class APIConnection:
             async with interrupt(
                 self._start_connect_future, ConnectionInterruptedError, None
             ):
-                await self._do_connect()
+                await self._connect_socket_connect(self._addrs_info)
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
@@ -640,8 +681,11 @@ class APIConnection:
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
-        await self._connect_init_frame_helper()
+        # Register internal handlers before
+        # connecting the helper so we can ensure
+        # we handle any messages that are received immediately
         self._register_internal_message_handlers()
+        await self._connect_init_frame_helper()
         await self._connect_hello_login(login)
         self._async_schedule_keep_alive(self._loop.time())
 
@@ -705,10 +749,11 @@ class APIConnection:
             )
 
         packets: list[tuple[int, bytes]] = [
-            (PROTO_TO_MESSAGE_TYPE[type(msg)], msg.SerializeToString()) for msg in msgs
+            (msg_type[0], msg_type[1](msg))
+            for msg in msgs
+            if (msg_type := PROTO_TO_MESSAGE_TYPE[type(msg)])
         ]
-
-        if debug_enabled := self._debug_enabled:
+        if self._debug_enabled:
             for msg in msgs:
                 _LOGGER.debug(
                     "%s: Sending %s: %s",
@@ -724,7 +769,7 @@ class APIConnection:
             assert self._frame_helper is not None
 
         try:
-            self._frame_helper.write_packets(packets, debug_enabled)
+            self._frame_helper.write_packets(packets, self._debug_enabled)
         except WRITE_EXCEPTIONS as err:
             # If writing packet fails, we don't know what state the frames
             # are in anymore and we have to close the connection
@@ -740,10 +785,9 @@ class APIConnection:
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Add a message callback without returning a remove callable."""
-        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            if (handlers := message_handlers.get(msg_type)) is None:
-                message_handlers[msg_type] = {on_message}
+            if (handlers := self._message_handlers.get(msg_type)) is None:
+                self._message_handlers[msg_type] = {on_message}
             else:
                 handlers.add(on_message)
 
@@ -758,9 +802,8 @@ class APIConnection:
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
     ) -> None:
         """Remove a message callback."""
-        message_handlers = self._message_handlers
         for msg_type in msg_types:
-            handlers = message_handlers[msg_type]
+            handlers = self._message_handlers[msg_type]
             handlers.discard(on_message)
 
     def send_message_callback_response(
@@ -880,7 +923,6 @@ class APIConnection:
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
-        debug_enabled = self._debug_enabled
         try:
             # MESSAGE_NUMBER_TO_PROTO is 0-indexed
             # but the message type is 1-indexed
@@ -893,7 +935,7 @@ class APIConnection:
             # after the broad exception catch to avoid having
             # to check the exception type twice for the common case
             if isinstance(e, IndexError):
-                if debug_enabled:
+                if self._debug_enabled:
                     _LOGGER.debug(
                         "%s: Skipping unknown message type %s",
                         self.log_name,
@@ -913,7 +955,7 @@ class APIConnection:
             )
             raise
 
-        if debug_enabled:
+        if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Got message of type %s: %s",
                 self.log_name,
