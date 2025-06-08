@@ -14,16 +14,23 @@ ANSI_RESET_CODES = ("\033[0m", "\x1b[0m")
 ANSI_RESET = "\033[0m"
 
 
-def parse_log_message(text: str, timestamp: str) -> list[str]:
+def parse_log_message(
+    text: str, timestamp: str, *, strip_ansi_escapes: bool = False
+) -> list[str]:
     """Parse a log message and format it with timestamps and color preservation.
 
     Args:
         text: The log message text, potentially with ANSI codes and newlines
         timestamp: The timestamp string to prepend (e.g., "[08:00:00.000]")
+        strip_ansi_escapes: If True, remove all ANSI escape sequences from output
 
     Returns:
         List of formatted lines ready to be printed
     """
+    # Strip ANSI escapes if requested
+    if strip_ansi_escapes:
+        text = ANSI_ESCAPE.sub("", text)
+
     # Fast path for single line (most common case)
     if "\n" not in text:
         return [f"{timestamp}{text}"]
@@ -48,12 +55,15 @@ def parse_log_message(text: str, timestamp: str) -> list[str]:
     prefix = ""
     color_code = ""
 
-    # Extract ANSI color code at the beginning if present
-    color_match = ANSI_ESCAPE.match(first_line)
-    if color_match:
-        color_code = color_match.group(0)
-        # Remove color code from line for prefix extraction
-        first_line_no_color = first_line[len(color_code) :]
+    # Extract ANSI color code at the beginning if present (only if not stripping)
+    if not strip_ansi_escapes:
+        color_match = ANSI_ESCAPE.match(first_line)
+        if color_match:
+            color_code = color_match.group(0)
+            # Remove color code from line for prefix extraction
+            first_line_no_color = first_line[len(color_code) :]
+        else:
+            first_line_no_color = first_line
     else:
         first_line_no_color = first_line
 
@@ -77,7 +87,7 @@ def parse_log_message(text: str, timestamp: str) -> list[str]:
             continue
         # Apply timestamp, color, prefix, and the continuation line
         if prefix:
-            if color_code:
+            if color_code and not strip_ansi_escapes:
                 # Add reset at end to ensure color doesn't bleed
                 # But only if the line doesn't already end with a reset
                 if line.endswith(ANSI_RESET_CODES):
@@ -87,7 +97,7 @@ def parse_log_message(text: str, timestamp: str) -> list[str]:
             else:
                 result.append(f"{timestamp}{prefix} {line}")
         # No prefix found, just add timestamp and line
-        elif color_code:
+        elif color_code and not strip_ansi_escapes:
             if line.endswith(ANSI_RESET_CODES):
                 result.append(f"{timestamp}{color_code}{line}")
             else:

@@ -260,3 +260,33 @@ def test_trailing_newline() -> None:
     assert len(result) == 2
     assert result[0] == "[08:00:00.000]\033[0;35m[C][sensor:022]: Temperature Sensor"
     assert result[1] == "[08:00:00.000]\033[0;35m[C][sensor:022]:   State: ON\033[0m"
+
+
+def test_strip_ansi_escapes() -> None:
+    """Test stripping ANSI escape sequences."""
+    # Single line with color
+    text = "\033[0;32m[I][app:191]: ESPHome version 2025.6.0-dev\033[0m"
+    timestamp = "[08:00:00.000]"
+    result = parse_log_message(text, timestamp, strip_ansi_escapes=True)
+
+    assert len(result) == 1
+    assert result[0] == "[08:00:00.000][I][app:191]: ESPHome version 2025.6.0-dev"
+
+    # Multi-line with color
+    text = "\033[0;35m[C][sensor:022]: Temperature Sensor\n  State: ON\n  Value: 23.5\033[0m"
+    result = parse_log_message(text, timestamp, strip_ansi_escapes=True)
+
+    assert len(result) == 3
+    assert result[0] == "[08:00:00.000][C][sensor:022]: Temperature Sensor"
+    assert result[1] == "[08:00:00.000][C][sensor:022]:   State: ON"
+    assert result[2] == "[08:00:00.000][C][sensor:022]:   Value: 23.5"
+
+    # Complex nested colors (BLE logs)
+    text = "\033[0;36m[D][esp-idf:000]\033[1;31m[BTU_TASK]\033[0;36m: \033[0;33mW (2335697) BT_APPL: gattc_conn_cb\033[0m\033[0m"
+    result = parse_log_message(text, timestamp, strip_ansi_escapes=True)
+
+    assert len(result) == 1
+    assert (
+        result[0]
+        == "[08:00:00.000][D][esp-idf:000][BTU_TASK]: W (2335697) BT_APPL: gattc_conn_cb"
+    )
