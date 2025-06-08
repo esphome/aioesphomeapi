@@ -47,8 +47,7 @@ async def main(argv: list[str]) -> None:
         )
 
         # Parse and print the log message
-        lines = parse_log_message(text, timestamp)
-        for line in lines:
+        for line in parse_log_message(text, timestamp):
             print(line)
 
     stop = await async_run(cli, on_log)
