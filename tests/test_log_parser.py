@@ -64,7 +64,7 @@ def test_multi_line_with_color() -> None:
     assert len(result) == 4
     assert (
         result[0]
-        == "[08:00:00.000]\033[0;35m[C][template.sensor:022]: Template Sensor 'Lambda Sensor 153'"
+        == "[08:00:00.000]\033[0;35m[C][template.sensor:022]: Template Sensor 'Lambda Sensor 153'\033[0m"
     )
     assert (
         result[1]
@@ -143,7 +143,10 @@ def test_various_ansi_codes() -> None:
     result = parse_log_message(text, timestamp)
 
     assert len(result) == 2
-    assert result[0] == "[08:00:00.000]\033[38;5;214m[W][test:002]: 256-color warning"
+    assert (
+        result[0]
+        == "[08:00:00.000]\033[38;5;214m[W][test:002]: 256-color warning\033[0m"
+    )
     assert result[1] == "[08:00:00.000]\033[38;5;214m[W][test:002]:   Details\033[0m"
 
 
@@ -190,7 +193,7 @@ def test_real_world_example() -> None:
     assert len(result) == 4
     assert (
         result[0]
-        == "[07:56:42.728]\033[0;35m[C][uptime.sensor:033]: Uptime Sensor 'Ethernet Uptime'"
+        == "[07:56:42.728]\033[0;35m[C][uptime.sensor:033]: Uptime Sensor 'Ethernet Uptime'\033[0m"
     )
     assert (
         result[1]
@@ -258,7 +261,10 @@ def test_trailing_newline() -> None:
 
     # Should not include the line with just the reset code
     assert len(result) == 2
-    assert result[0] == "[08:00:00.000]\033[0;35m[C][sensor:022]: Temperature Sensor"
+    assert (
+        result[0]
+        == "[08:00:00.000]\033[0;35m[C][sensor:022]: Temperature Sensor\033[0m"
+    )
     assert result[1] == "[08:00:00.000]\033[0;35m[C][sensor:022]:   State: ON\033[0m"
 
 
@@ -311,5 +317,35 @@ def test_first_line_starts_with_space_with_color() -> None:
     result = parse_log_message(text, timestamp)
 
     assert len(result) == 2
-    assert result[0] == "[08:00:00.000]\033[0;32m  Colored line starting with space"
+    assert (
+        result[0] == "[08:00:00.000]\033[0;32m  Colored line starting with space\033[0m"
+    )
     assert result[1] == "[08:00:00.000]\033[0;32m  Another continuation\033[0m"
+
+
+def test_color_bleeding_prevention() -> None:
+    """Test that color codes don't bleed to next message when first line lacks reset."""
+    # This simulates the issue from bleed_again.txt where first line of multi-line
+    # message has color but no reset, causing color to bleed to next message
+    text = "\033[0;35m[C][template.sensor:022]: Template Sensor 'Free Memory'\n  State Class: 'measurement'\n  Unit of Measurement: 'B'\n  Accuracy Decimals: 1\033[0m"
+    timestamp = "[09:05:25.545]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 4
+    # First line should have reset added to prevent bleeding
+    assert (
+        result[0]
+        == "[09:05:25.545]\033[0;35m[C][template.sensor:022]: Template Sensor 'Free Memory'\033[0m"
+    )
+    assert (
+        result[1]
+        == "[09:05:25.545]\033[0;35m[C][template.sensor:022]:   State Class: 'measurement'\033[0m"
+    )
+    assert (
+        result[2]
+        == "[09:05:25.545]\033[0;35m[C][template.sensor:022]:   Unit of Measurement: 'B'\033[0m"
+    )
+    assert (
+        result[3]
+        == "[09:05:25.545]\033[0;35m[C][template.sensor:022]:   Accuracy Decimals: 1\033[0m"
+    )

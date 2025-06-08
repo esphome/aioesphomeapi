@@ -44,18 +44,27 @@ def parse_log_message(
     result: list[str] = []
 
     # Process the first line
-    result.append(f"{timestamp}{lines[0]}")
+    first_line_output = f"{timestamp}{lines[0]}"
+
+    # Check if first line has color but no reset at end (to prevent bleeding)
+    # Check if line contains ANSI codes - using direct string search for efficiency
+    if (
+        not strip_ansi_escapes
+        and lines[0]
+        and not lines[0].endswith(ANSI_RESET_CODES)
+        and ("\033[" in lines[0] or "\x1b[" in lines[0])
+    ):
+        first_line_output += ANSI_RESET
+
+    result.append(first_line_output)
 
     # Extract prefix and color from the first line
     first_line = lines[0]
     prefix = ""
     color_code = ""
 
-    # Check if first line starts with space - if so, no prefix to extract
-    if first_line and first_line[0].isspace():
-        # First line is already a continuation line, no prefix exists
-        pass
-    else:
+    # Extract prefix if first line doesn't start with space
+    if first_line and not first_line[0].isspace():
         # Extract ANSI color code at the beginning if present (only if not stripping)
         first_line_no_color = first_line
         if not strip_ansi_escapes and (color_match := ANSI_ESCAPE.match(first_line)):
@@ -69,9 +78,8 @@ def parse_log_message(
             "]:", 0, len(first_line_no_color) // 2
         )
         if last_bracket_colon != -1:
-            prefix = first_line_no_color[
-                : last_bracket_colon + 2
-            ]  # Include the ']:' part
+            # Include the ']:' part
+            prefix = first_line_no_color[: last_bracket_colon + 2]
 
     # Process subsequent lines
     for line in lines[1:]:
