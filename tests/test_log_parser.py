@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from aioesphomeapi.log_parser import parse_log_message
+from aioesphomeapi.log_parser import LogParser, parse_log_message
 
 
 def test_single_line_no_color() -> None:
@@ -378,3 +378,287 @@ def test_color_bleeding_prevention() -> None:
         result[3]
         == "[09:05:25.545]\033[0;35m[C][template.sensor:022]:   Accuracy Decimals: 1\033[0m"
     )
+
+
+# Tests for LogParser
+
+
+def test_logparser_single_line_no_color() -> None:
+    """Test parsing a single line log without color codes."""
+    parser = LogParser()
+    line = (
+        "[I][app:191]: ESPHome version 2025.6.0-dev compiled on Jun  8 2025, 07:48:30"
+    )
+    timestamp = "[08:00:00.000]"
+    result = parser.parse_line(line, timestamp)
+
+    assert (
+        result
+        == "[08:00:00.000][I][app:191]: ESPHome version 2025.6.0-dev compiled on Jun  8 2025, 07:48:30"
+    )
+
+
+def test_logparser_single_line_with_color() -> None:
+    """Test parsing a single line log with ANSI color codes."""
+    parser = LogParser()
+    line = "\033[0;32m[I][app:191]: ESPHome version 2025.6.0-dev compiled on Jun  8 2025, 07:48:30\033[0m"
+    timestamp = "[08:00:00.000]"
+    result = parser.parse_line(line, timestamp)
+
+    assert (
+        result
+        == "[08:00:00.000]\033[0;32m[I][app:191]: ESPHome version 2025.6.0-dev compiled on Jun  8 2025, 07:48:30\033[0m"
+    )
+
+
+def test_logparser_multi_line_sequence() -> None:
+    """Test parsing a multi-line log sequence line by line."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # First line establishes prefix and color
+    line1 = "[C][template.sensor:022]: Template Sensor 'Lambda Sensor 153'"
+    result1 = parser.parse_line(line1, timestamp)
+    assert (
+        result1
+        == "[08:00:00.000][C][template.sensor:022]: Template Sensor 'Lambda Sensor 153'"
+    )
+
+    # Continuation lines
+    line2 = "  State Class: ''"
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == "[08:00:00.000][C][template.sensor:022]:   State Class: ''"
+
+    line3 = "  Unit of Measurement: ''"
+    result3 = parser.parse_line(line3, timestamp)
+    assert (
+        result3 == "[08:00:00.000][C][template.sensor:022]:   Unit of Measurement: ''"
+    )
+
+    line4 = "  Accuracy Decimals: 1"
+    result4 = parser.parse_line(line4, timestamp)
+    assert result4 == "[08:00:00.000][C][template.sensor:022]:   Accuracy Decimals: 1"
+
+
+def test_logparser_multi_line_with_color_sequence() -> None:
+    """Test parsing a multi-line log with color codes line by line."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # First line with color
+    line1 = "\033[0;35m[C][template.sensor:022]: Template Sensor 'Lambda Sensor 153'"
+    result1 = parser.parse_line(line1, timestamp)
+    # Should add reset to prevent color bleeding
+    assert (
+        result1
+        == "[08:00:00.000]\033[0;35m[C][template.sensor:022]: Template Sensor 'Lambda Sensor 153'\033[0m"
+    )
+
+    # Continuation lines should inherit color
+    line2 = "  State Class: ''"
+    result2 = parser.parse_line(line2, timestamp)
+    assert (
+        result2
+        == "[08:00:00.000]\033[0;35m[C][template.sensor:022]:   State Class: ''\033[0m"
+    )
+
+    line3 = "  Unit of Measurement: ''"
+    result3 = parser.parse_line(line3, timestamp)
+    assert (
+        result3
+        == "[08:00:00.000]\033[0;35m[C][template.sensor:022]:   Unit of Measurement: ''\033[0m"
+    )
+
+
+def test_logparser_new_entry_resets_state() -> None:
+    """Test that a new log entry resets the parser state."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # First multi-line entry with color
+    line1 = "\033[0;35m[C][sensor:022]: Sensor 1"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000]\033[0;35m[C][sensor:022]: Sensor 1\033[0m"
+
+    line2 = "  Details"
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == "[08:00:00.000]\033[0;35m[C][sensor:022]:   Details\033[0m"
+
+    # New entry should reset state
+    line3 = "[I][app:001]: Different message"
+    result3 = parser.parse_line(line3, timestamp)
+    assert result3 == "[08:00:00.000][I][app:001]: Different message"
+
+    # Continuation of new entry should not have old prefix/color
+    line4 = "  New details"
+    result4 = parser.parse_line(line4, timestamp)
+    assert result4 == "[08:00:00.000][I][app:001]:   New details"
+
+
+def test_logparser_empty_lines() -> None:
+    """Test handling of empty lines."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # Empty line as continuation
+    line1 = "[C][logger:224]: Logger:"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000][C][logger:224]: Logger:"
+
+    line2 = ""
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == ""
+
+    line3 = "  Max Level: DEBUG"
+    result3 = parser.parse_line(line3, timestamp)
+    assert result3 == "[08:00:00.000][C][logger:224]:   Max Level: DEBUG"
+
+
+def test_logparser_strip_ansi_escapes() -> None:
+    """Test stripping ANSI escape sequences."""
+    parser = LogParser(strip_ansi_escapes=True)
+    timestamp = "[08:00:00.000]"
+
+    # Single line with color
+    line1 = "\033[0;32m[I][app:191]: ESPHome version 2025.6.0-dev\033[0m"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000][I][app:191]: ESPHome version 2025.6.0-dev"
+
+    # Multi-line with color
+    line2 = "\033[0;35m[C][sensor:022]: Temperature Sensor"
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == "[08:00:00.000][C][sensor:022]: Temperature Sensor"
+
+    line3 = "  State: ON"
+    result3 = parser.parse_line(line3, timestamp)
+    assert result3 == "[08:00:00.000][C][sensor:022]:   State: ON"
+
+
+def test_logparser_line_with_trailing_newlines() -> None:
+    """Test that trailing newlines are properly stripped."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # Line with \n
+    line1 = "[I][app:001]: Test message\n"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000][I][app:001]: Test message"
+
+    # Line with \r\n
+    line2 = "[I][app:002]: Another message\r\n"
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == "[08:00:00.000][I][app:002]: Another message"
+
+
+def test_logparser_continuation_without_prefix() -> None:
+    """Test continuation lines when no prefix is found."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    line1 = "Main line without bracket-colon"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000]Main line without bracket-colon"
+
+    line2 = "  Sub line"
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == "[08:00:00.000]  Sub line"
+
+
+def test_logparser_lines_starting_with_space() -> None:
+    """Test edge case where first line starts with space."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # First line starts with space - treated as new entry
+    line1 = "  First line starts with space"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000]  First line starts with space"
+
+    # Another line starting with space - treated as continuation
+    line2 = "  Second line also starts with space"
+    result2 = parser.parse_line(line2, timestamp)
+    assert result2 == "[08:00:00.000]  Second line also starts with space"
+
+
+def test_logparser_color_code_with_reset_at_end() -> None:
+    """Test that lines already ending with reset don't get double reset."""
+    parser = LogParser()
+    timestamp = "[08:00:00.000]"
+
+    # Line already has reset at end
+    line1 = "\033[0;32m[I][test:001]: Message with reset\033[0m"
+    result1 = parser.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000]\033[0;32m[I][test:001]: Message with reset\033[0m"
+
+    # Continuation line with reset
+    line2 = "  Continuation with reset\033[0m"
+    result2 = parser.parse_line(line2, timestamp)
+    assert (
+        result2
+        == "[08:00:00.000]\033[0;32m[I][test:001]:   Continuation with reset\033[0m"
+    )
+
+
+def test_logparser_real_world_serial_sequence() -> None:
+    """Test with a real-world log sequence as it would come from streaming input."""
+    parser = LogParser()
+
+    # Simulate streaming input line by line
+    lines = [
+        (
+            "\033[0;35m[C][uptime.sensor:033]: Uptime Sensor 'Ethernet Uptime'",
+            "[07:56:42.728]",
+        ),
+        ("  State Class: 'total_increasing'", "[07:56:42.729]"),
+        ("  Unit of Measurement: 's'", "[07:56:42.730]"),
+        ("  Accuracy Decimals: 0", "[07:56:42.731]"),
+        ("[I][app:191]: ESPHome version 2025.6.0-dev", "[07:56:42.732]"),
+        (
+            "\033[0;32m[D][sensor:094]: 'Living Room Temperature': Sending state 23.50000",
+            "[07:56:42.733]",
+        ),
+    ]
+
+    expected = [
+        "[07:56:42.728]\033[0;35m[C][uptime.sensor:033]: Uptime Sensor 'Ethernet Uptime'\033[0m",
+        "[07:56:42.729]\033[0;35m[C][uptime.sensor:033]:   State Class: 'total_increasing'\033[0m",
+        "[07:56:42.730]\033[0;35m[C][uptime.sensor:033]:   Unit of Measurement: 's'\033[0m",
+        "[07:56:42.731]\033[0;35m[C][uptime.sensor:033]:   Accuracy Decimals: 0\033[0m",
+        "[07:56:42.732][I][app:191]: ESPHome version 2025.6.0-dev",
+        "[07:56:42.733]\033[0;32m[D][sensor:094]: 'Living Room Temperature': Sending state 23.50000\033[0m",
+    ]
+
+    for i, (line, timestamp) in enumerate(lines):
+        result = parser.parse_line(line, timestamp)
+        assert result == expected[i]
+
+
+def test_logparser_multiple_parsers_independent() -> None:
+    """Test that multiple parser instances maintain independent state."""
+    parser1 = LogParser()
+    parser2 = LogParser(strip_ansi_escapes=True)
+
+    timestamp = "[08:00:00.000]"
+
+    # Parser 1 processes colored multi-line
+    line1 = "\033[0;35m[C][sensor:001]: Sensor 1"
+    result1 = parser1.parse_line(line1, timestamp)
+    assert result1 == "[08:00:00.000]\033[0;35m[C][sensor:001]: Sensor 1\033[0m"
+
+    # Parser 2 processes different entry
+    line2 = "\033[0;32m[I][app:002]: App message"
+    result2 = parser2.parse_line(line2, timestamp)
+    assert result2 == "[08:00:00.000][I][app:002]: App message"  # No color due to strip
+
+    # Continue with parser 1 - should maintain its state
+    line3 = "  Details for sensor 1"
+    result3 = parser1.parse_line(line3, timestamp)
+    assert (
+        result3
+        == "[08:00:00.000]\033[0;35m[C][sensor:001]:   Details for sensor 1\033[0m"
+    )
+
+    # Continue with parser 2
+    line4 = "  Details for app"
+    result4 = parser2.parse_line(line4, timestamp)
+    assert result4 == "[08:00:00.000][I][app:002]:   Details for app"

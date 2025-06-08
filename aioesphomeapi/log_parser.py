@@ -15,6 +15,98 @@ ANSI_RESET_CODES = ("\033[0m", "\x1b[0m")
 ANSI_RESET = "\033[0m"
 
 
+class LogParser:
+    """Stateful parser for processing log messages one line at a time.
+
+    This parser is designed for streaming input where log messages come
+    line by line rather than in complete multi-line blocks.
+    """
+
+    def __init__(self, strip_ansi_escapes: bool = False) -> None:
+        """Initialize the parser.
+
+        Args:
+            strip_ansi_escapes: If True, remove all ANSI escape sequences from output
+        """
+        self.strip_ansi_escapes = strip_ansi_escapes
+        self._current_prefix = ""
+        self._current_color_code = ""
+
+    def parse_line(self, line: str, timestamp: str) -> str:
+        """Parse a single line and return formatted output.
+
+        Args:
+            line: A single line of log text (without newline)
+            timestamp: The timestamp string to prepend (e.g., "[08:00:00.000]")
+
+        Returns:
+            Formatted line ready to be printed.
+        """
+        # Strip any trailing newline if present
+        line = line.rstrip("\n\r")
+
+        # Strip ANSI escapes if requested
+        if self.strip_ansi_escapes:
+            line = ANSI_ESCAPE.sub("", line)
+
+        # Empty line handling
+        if not line:
+            return ""
+
+        # Check if this is a new log entry or a continuation
+        is_continuation = line[0].isspace()
+
+        if not is_continuation:
+            # This is a new log entry - update state
+            self._current_prefix = ""
+            self._current_color_code = ""
+
+            # Extract prefix and color for potential multi-line messages
+            if line and not line[0].isspace():
+                # Extract ANSI color code at the beginning if present
+                line_no_color = line
+                if not self.strip_ansi_escapes and (
+                    color_match := ANSI_ESCAPE.match(line)
+                ):
+                    self._current_color_code = color_match.group(0)
+                    line_no_color = line[len(self._current_color_code) :]
+
+                # Find the ESPHome prefix
+                bracket_colon = line_no_color.find("]:")
+                if bracket_colon != -1:
+                    self._current_prefix = line_no_color[: bracket_colon + 2]
+
+            # Format the first line
+            output = f"{timestamp}{line}"
+
+            # Add reset if line has color but no reset at end
+            if (
+                not self.strip_ansi_escapes
+                and line
+                and not line.endswith(ANSI_RESET_CODES)
+                and ("\033[" in line or "\x1b[" in line)
+            ):
+                output += ANSI_RESET
+
+            return output
+        else:
+            # This is a continuation line
+            if not line.strip():
+                return ""
+
+            # Apply prefix to continuation
+            line_content = (
+                f"{self._current_prefix} {line}" if self._current_prefix else line
+            )
+
+            if self._current_color_code and not self.strip_ansi_escapes:
+                # Add color and reset
+                reset = "" if line.endswith(ANSI_RESET_CODES) else ANSI_RESET
+                return f"{timestamp}{self._current_color_code}{line_content}{reset}"
+            else:
+                return f"{timestamp}{line_content}"
+
+
 def parse_log_message(
     text: str, timestamp: str, *, strip_ansi_escapes: bool = False
 ) -> Iterable[str]:
