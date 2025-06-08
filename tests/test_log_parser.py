@@ -325,7 +325,7 @@ def test_first_line_starts_with_space_with_color() -> None:
 
 def test_color_bleeding_prevention() -> None:
     """Test that color codes don't bleed to next message when first line lacks reset."""
-    # This simulates the issue from bleed_again.txt where first line of multi-line
+    # This simulates the issue where first line of multi-line
     # message has color but no reset, causing color to bleed to next message
     text = "\033[0;35m[C][template.sensor:022]: Template Sensor 'Free Memory'\n  State Class: 'measurement'\n  Unit of Measurement: 'B'\n  Accuracy Decimals: 1\033[0m"
     timestamp = "[09:05:25.545]"
