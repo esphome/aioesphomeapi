@@ -58,8 +58,8 @@ def _format_continuation_line(
     if color_code and not strip_ansi:
         reset = "" if line.endswith(ANSI_RESET_CODES) else ANSI_RESET
         return f"{timestamp}{color_code}{line_content}{reset}"
-    else:
-        return f"{timestamp}{line_content}"
+
+    return f"{timestamp}{line_content}"
 
 
 class LogParser:
@@ -122,18 +122,18 @@ class LogParser:
                 output += ANSI_RESET
 
             return output
-        else:
-            # This is a continuation line
-            if not line.strip():
-                return ""
 
-            return _format_continuation_line(
-                timestamp,
-                self._current_prefix,
-                line,
-                self._current_color_code,
-                self.strip_ansi_escapes,
-            )
+        # This is a continuation line
+        if not line.strip():
+            return ""
+
+        return _format_continuation_line(
+            timestamp,
+            self._current_prefix,
+            line,
+            self._current_color_code,
+            self.strip_ansi_escapes,
+        )
 
 
 def parse_log_message(
