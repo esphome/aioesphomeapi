@@ -323,6 +323,17 @@ def test_first_line_starts_with_space_with_color() -> None:
     assert result[1] == "[08:00:00.000]\033[0;32m  Another continuation\033[0m"
 
 
+def test_newline_only_message() -> None:
+    """Test edge case where message is just a newline."""
+    text = "\n"
+    timestamp = "[08:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    # Should handle gracefully - just timestamp with empty content
+    assert len(result) == 1
+    assert result[0] == "[08:00:00.000]"
+
+
 def test_color_bleeding_prevention() -> None:
     """Test that color codes don't bleed to next message when first line lacks reset."""
     # This simulates the issue from bleed_again.txt where first line of multi-line
