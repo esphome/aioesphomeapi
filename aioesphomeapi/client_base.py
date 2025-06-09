@@ -112,7 +112,14 @@ def on_bluetooth_gatt_notify_data_response(
 ) -> None:
     """Handle a BluetoothGATTNotifyDataResponse message."""
     if address == msg.address and handle == msg.handle:
-        on_bluetooth_gatt_notify(handle, bytearray(msg.data))
+        try:
+            on_bluetooth_gatt_notify(handle, bytearray(msg.data))
+        except Exception:
+            _LOGGER.exception(
+                "Unexpected error in Bluetooth GATT notify callback for address %s, handle %s",
+                address,
+                handle,
+            )
 
 
 def on_bluetooth_scanner_state_response(
