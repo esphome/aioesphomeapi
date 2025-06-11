@@ -60,7 +60,7 @@ def _format_continuation_line(
         return f"{timestamp}{color_code}{line_content}{reset}"
 
     # Always add reset to continuation lines if they don't have one (prevents color bleeding)
-    if not strip_ansi and not line.endswith(ANSI_RESET_CODES):
+    if not strip_ansi and color_code and not line.endswith(ANSI_RESET_CODES):
         return f"{timestamp}{line_content}{ANSI_RESET}"
 
     return f"{timestamp}{line_content}"
@@ -129,7 +129,11 @@ class LogParser:
             )
 
         # Check if line has color codes but no reset
-        if not self.strip_ansi_escapes and not line.endswith(ANSI_RESET_CODES):
+        if (
+            not self.strip_ansi_escapes
+            and self._current_color_code
+            and not line.endswith(ANSI_RESET_CODES)
+        ):
             return f"{timestamp}{line}{ANSI_RESET}"
 
         return f"{timestamp}{line}"
