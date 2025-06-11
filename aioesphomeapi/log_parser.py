@@ -127,11 +127,6 @@ class LogParser:
             self._current_prefix, self._current_color_code, _ = (
                 _extract_prefix_and_color(line, self.strip_ansi_escapes)
             )
-
-        # Check if line has color codes but no reset at end
-        if not self.strip_ansi_escapes and _needs_reset(line):
-            return f"{timestamp}{line}{ANSI_RESET}"
-
         return f"{timestamp}{line}"
 
 
