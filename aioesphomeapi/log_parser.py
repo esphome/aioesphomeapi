@@ -171,7 +171,7 @@ def parse_log_message(
     result: list[str] = []
 
     # Check if first line has color but no reset at end (to prevent bleeding)
-    if not strip_ansi_escapes and not lines[0].endswith(ANSI_RESET_CODES):
+    if not strip_ansi_escapes and _needs_reset(lines[0]):
         result.append(f"{timestamp}{lines[0]}{ANSI_RESET}")
     else:
         result.append(f"{timestamp}{lines[0]}")
