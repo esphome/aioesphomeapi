@@ -80,6 +80,20 @@ def test_multi_line_with_color() -> None:
     )
 
 
+def test_two_line_with_color() -> None:
+    """Test parsing a two-line log with ANSI color codes."""
+    text = "\033[0;35m[C][mdns:120]: mDNS:\n  Hostname: bktest\033[0m"
+    timestamp = "[08:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert isinstance(result, (list, tuple))
+    assert len(result) == 2
+    assert result[0] == "[08:00:00.000]\033[0;35m[C][mdns:120]: mDNS:\033[0m"
+    assert (
+        result[1] == "[08:00:00.000]\033[0;35m[C][mdns:120]:   Hostname: bktest\033[0m"
+    )
+
+
 def test_multi_line_with_empty_lines() -> None:
     """Test parsing a multi-line log with empty lines."""
     text = "[C][logger:224]: Logger:\n\n  Max Level: DEBUG\n  Initial Level: DEBUG"
