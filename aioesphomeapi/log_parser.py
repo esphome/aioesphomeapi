@@ -36,15 +36,6 @@ def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str, st
     return prefix, color_code, line_no_color
 
 
-def _needs_reset(line: str) -> bool:
-    """Check if line needs ANSI reset code appended."""
-    return bool(
-        line
-        and not line.endswith(ANSI_RESET_CODES)
-        and ("\033[" in line or "\x1b[" in line)
-    )
-
-
 def _format_continuation_line(
     timestamp: str,
     prefix: str,
