@@ -59,6 +59,10 @@ def _format_continuation_line(
         reset = "" if line.endswith(ANSI_RESET_CODES) else ANSI_RESET
         return f"{timestamp}{color_code}{line_content}{reset}"
 
+    # Always add reset to continuation lines if they don't have one (prevents color bleeding)
+    if not strip_ansi and not line.endswith(ANSI_RESET_CODES):
+        return f"{timestamp}{line_content}{ANSI_RESET}"
+
     return f"{timestamp}{line_content}"
 
 
@@ -101,39 +105,34 @@ class LogParser:
             return ""
 
         # Check if this is a new log entry or a continuation
-        is_continuation = line[0].isspace()
+        if line[0].isspace():
+            # This is not continuation line
+            if not line.strip():
+                return ""
 
-        if not is_continuation:
-            # This is a new log entry - update state
-            self._current_prefix = ""
-            self._current_color_code = ""
+            return _format_continuation_line(
+                timestamp,
+                self._current_prefix,
+                line,
+                self._current_color_code,
+                self.strip_ansi_escapes,
+            )
 
-            # Extract prefix and color for potential multi-line messages
-            if line and not line[0].isspace():
-                self._current_prefix, self._current_color_code, _ = (
-                    _extract_prefix_and_color(line, self.strip_ansi_escapes)
-                )
+        # This is a new log entry - update state
+        self._current_prefix = ""
+        self._current_color_code = ""
 
-            # Format the first line
-            output = f"{timestamp}{line}"
+        # Extract prefix and color for potential multi-line messages
+        if line and not line[0].isspace():
+            self._current_prefix, self._current_color_code, _ = (
+                _extract_prefix_and_color(line, self.strip_ansi_escapes)
+            )
 
-            # Add reset if line has color but no reset at end
-            if not self.strip_ansi_escapes and _needs_reset(line):
-                output += ANSI_RESET
+        # Check if line has color codes but no reset
+        if not self.strip_ansi_escapes and not line.endswith(ANSI_RESET_CODES):
+            return f"{timestamp}{line}{ANSI_RESET}"
 
-            return output
-
-        # This is a continuation line
-        if not line.strip():
-            return ""
-
-        return _format_continuation_line(
-            timestamp,
-            self._current_prefix,
-            line,
-            self._current_color_code,
-            self.strip_ansi_escapes,
-        )
+        return f"{timestamp}{line}"
 
 
 def parse_log_message(
@@ -167,14 +166,11 @@ def parse_log_message(
         lines.pop()
     result: list[str] = []
 
-    # Process the first line
-    first_line_output = f"{timestamp}{lines[0]}"
-
     # Check if first line has color but no reset at end (to prevent bleeding)
-    if not strip_ansi_escapes and _needs_reset(lines[0]):
-        first_line_output += ANSI_RESET
-
-    result.append(first_line_output)
+    if not strip_ansi_escapes and not lines[0].endswith(ANSI_RESET_CODES):
+        result.append(f"{timestamp}{lines[0]}{ANSI_RESET}")
+    else:
+        result.append(f"{timestamp}{lines[0]}")
 
     # Extract prefix and color from the first line
     first_line = lines[0]
