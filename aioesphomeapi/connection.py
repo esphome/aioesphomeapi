@@ -128,16 +128,19 @@ class ConnectionParams:
 class ConnectionState(enum.Enum):
     # The connection is initialized, but connect() wasn't called yet
     INITIALIZED = 0
+    # The host has been resolved, but the socket hasn't been opened yet
+    HOST_RESOLVED = 1
     # The socket has been opened, but the handshake and login haven't been completed
-    SOCKET_OPENED = 1
+    SOCKET_OPENED = 2
     # The handshake has been completed, messages can be exchanged
-    HANDSHAKE_COMPLETE = 2
+    HANDSHAKE_COMPLETE = 3
     # The connection has been established, authenticated data can be exchanged
-    CONNECTED = 3
-    CLOSED = 4
+    CONNECTED = 4
+    CLOSED = 5
 
 
 CONNECTION_STATE_INITIALIZED = ConnectionState.INITIALIZED
+CONNECTION_STATE_HOST_RESOLVED = ConnectionState.HOST_RESOLVED
 CONNECTION_STATE_SOCKET_OPENED = ConnectionState.SOCKET_OPENED
 CONNECTION_STATE_HANDSHAKE_COMPLETE = ConnectionState.HANDSHAKE_COMPLETE
 CONNECTION_STATE_CONNECTED = ConnectionState.CONNECTED
@@ -192,6 +195,7 @@ class APIConnection:
     """
 
     __slots__ = (
+        "_addrs_info",
         "_debug_enabled",
         "_expected_disconnect",
         "_fatal_exception",
@@ -206,6 +210,7 @@ class APIConnection:
         "_ping_timer",
         "_pong_timer",
         "_read_exception_futures",
+        "_resolve_host_future",
         "_send_pending_ping",
         "_socket",
         "_start_connect_future",
@@ -247,6 +252,7 @@ class APIConnection:
         self._keep_alive_interval = keepalive
         self._keep_alive_timeout = keepalive * KEEP_ALIVE_TIMEOUT_RATIO
 
+        self._resolve_host_future: asyncio.Future[None] | None = None
         self._start_connect_future: asyncio.Future[None] | None = None
         self._finish_connect_future: asyncio.Future[None] | None = None
         self._fatal_exception: Exception | None = None
@@ -258,6 +264,7 @@ class APIConnection:
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self.connected_address: str | None = None
+        self._addrs_info: list[hr.AddrInfo] = []
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -286,6 +293,7 @@ class APIConnection:
                 fut.set_exception(new_exc)
         self._read_exception_futures.clear()
 
+        self._set_resolve_host_future()
         self._set_start_connect_future()
         self._set_finish_connect_future()
 
@@ -572,14 +580,43 @@ class APIConnection:
             )
         )
 
-    async def _do_connect(self) -> None:
-        """Do the actual connect process."""
-        addrs_info = await hr.async_resolve_host(
-            self._params.addresses,
-            self._params.port,
-            self._params.zeroconf_manager,
-        )
-        await self._connect_socket_connect(addrs_info)
+    async def start_resolve_host(self) -> None:
+        """Start the host resolution process.
+
+        This part of the process resolves the hostnames to IP addresses
+        and prepares the connection for the next step.
+        """
+        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+            raise RuntimeError(
+                "Connection can only be used once, connection is not in init state"
+            )
+
+        self._resolve_host_future = self._loop.create_future()
+        try:
+            async with interrupt(
+                self._resolve_host_future, ConnectionInterruptedError, None
+            ):
+                self._addrs_info = await hr.async_resolve_host(
+                    self._params.addresses,
+                    self._params.port,
+                    self._params.zeroconf_manager,
+                )
+        except (Exception, CancelledError) as ex:
+            # If the task was cancelled, we need to clean up the connection
+            # and raise the CancelledError as APIConnectionError
+            self._cleanup()
+            raise self._wrap_fatal_connection_exception("resolving", ex)
+        finally:
+            self._set_resolve_host_future()
+        self._set_connection_state(CONNECTION_STATE_HOST_RESOLVED)
+
+    def _set_resolve_host_future(self) -> None:
+        if (
+            self._resolve_host_future is not None
+            and not self._resolve_host_future.done()
+        ):
+            self._resolve_host_future.set_result(None)
+            self._resolve_host_future = None
 
     async def start_connection(self) -> None:
         """Start the connection process.
@@ -587,9 +624,9 @@ class APIConnection:
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+        if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
             raise RuntimeError(
-                "Connection can only be used once, connection is not in init state"
+                "Connection must be in HOST_RESOLVED state to start connection"
             )
 
         self._start_connect_future = self._loop.create_future()
@@ -597,7 +634,7 @@ class APIConnection:
             async with interrupt(
                 self._start_connect_future, ConnectionInterruptedError, None
             ):
-                await self._do_connect()
+                await self._connect_socket_connect(self._addrs_info)
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError

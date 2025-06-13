@@ -196,16 +196,18 @@ async def test_expected_name(auth_client: APIClient) -> None:
 
 
 async def test_connect_backwards_compat() -> None:
-    """Verify connect is a thin wrapper around start_connection and finish_connection."""
+    """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
 
     cli = PatchableAPIClient("host", 1234, None)
     with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
         patch.object(cli, "start_connection") as mock_start_connection,
         patch.object(cli, "finish_connection") as mock_finish_connection,
     ):
         await cli.connect()
 
-    assert mock_start_connection.mock_calls == [call(None)]
+    assert mock_start_resolve_host.mock_calls == [call(None)]
+    assert mock_start_connection.mock_calls == [call()]
     assert mock_finish_connection.mock_calls == [call(False)]
 
 
@@ -216,6 +218,7 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
 
     cli = APIClient("127.0.0.1", 1234, None)
     with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
+        await cli.start_resolve_host()
         await cli.start_connection()
 
     with (
@@ -244,6 +247,7 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
         "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
         _start_connection_with_delay,
     ):
+        await cli.start_resolve_host()
         start_task = asyncio.create_task(cli.start_connection())
         await asyncio.sleep(0)
         assert cli._connection is not None
@@ -265,6 +269,7 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
             _start_connection_without_delay,
         ),
     ):
+        await cli.start_resolve_host()
         await cli.start_connection()
         await asyncio.sleep(0)
 
@@ -303,7 +308,7 @@ async def test_request_while_handshaking() -> None:
 async def test_connect_while_already_connected(auth_client: APIClient) -> None:
     """Test connecting while already connected raises."""
     with pytest.raises(APIConnectionError):
-        await auth_client.start_connection()
+        await auth_client.start_resolve_host()
 
 
 @pytest.mark.parametrize(
@@ -1066,7 +1071,11 @@ async def test_noise_psk_handles_subclassed_string():
     )
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
-    with patch.object(cli, "start_connection"), patch.object(cli, "finish_connection"):
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
         await rl.start()
         for _ in range(3):
             await asyncio.sleep(0)
@@ -1650,6 +1659,47 @@ async def test_bluetooth_gatt_start_notify_fails(
         len(list(itertools.chain(*connection._message_handlers.values())))
         == handlers_before
     )
+
+
+async def test_bluetooth_gatt_notify_callback_raises(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that exceptions in bluetooth gatt notify callbacks are caught."""
+    client, connection, transport, protocol = api_client
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        raise ValueError("Test exception in notify callback")
+
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    notify_response: message.Message = BluetoothGATTNotifyResponse(
+        address=1234, handle=1
+    )
+    mock_data_received(protocol, generate_plaintext_packet(notify_response))
+    await notify_task
+
+    # Clear any logs from the notify setup
+    caplog.clear()
+
+    # Send data that will trigger the exception
+    data_response: message.Message = BluetoothGATTNotifyDataResponse(
+        address=1234, handle=1, data=b"test_data"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(data_response))
+    await asyncio.sleep(0)
+
+    # Verify the exception was caught and logged
+    assert "Unexpected error in Bluetooth GATT notify callback" in caplog.text
+    assert "ValueError: Test exception in notify callback" in caplog.text
+    assert "address 1234, handle 1" in caplog.text
+
+    # Verify the connection is still alive
+    assert connection.is_connected
 
 
 async def test_subscribe_bluetooth_le_advertisements(
