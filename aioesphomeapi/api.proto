@@ -1954,6 +1954,7 @@ message ListEntitiesEventResponse {
 }
 message EventResponse {
   option (id) = 108;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_EVENT";
 
