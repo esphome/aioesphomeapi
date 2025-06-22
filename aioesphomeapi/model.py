@@ -135,6 +135,39 @@ class VoiceAssistantSubscriptionFlag(enum.IntFlag):
 
 
 @_frozen_dataclass_decorator
+class AreaInfo(APIModelBase):
+    area_id: int = 0
+    name: str = ""
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[AreaInfo]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(AreaInfo.from_dict(x))
+            else:
+                ret.append(AreaInfo.from_pb(x))
+        return ret
+
+
+@_frozen_dataclass_decorator
+class SubDeviceInfo(APIModelBase):
+    device_id: int = 0
+    name: str = ""
+    area_id: int = 0
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[SubDeviceInfo]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(SubDeviceInfo.from_dict(x))
+            else:
+                ret.append(SubDeviceInfo.from_pb(x))
+        return ret
+
+
+@_frozen_dataclass_decorator
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
     name: str = ""
@@ -154,6 +187,15 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
+    devices: list[SubDeviceInfo] = converter_field(
+        default_factory=list, converter=SubDeviceInfo.convert_list
+    )
+    areas: list[AreaInfo] = converter_field(
+        default_factory=list, converter=AreaInfo.convert_list
+    )
+    area: AreaInfo = converter_field(
+        default_factory=AreaInfo, converter=AreaInfo.from_pb
+    )
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 9):
@@ -199,6 +241,7 @@ class EntityInfo(APIModelBase):
     entity_category: EntityCategory | None = converter_field(
         default=EntityCategory.NONE, converter=EntityCategory.convert
     )
+    device_id: int = 0
 
 
 @_frozen_dataclass_decorator
