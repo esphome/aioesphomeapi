@@ -135,10 +135,26 @@ class VoiceAssistantSubscriptionFlag(enum.IntFlag):
 
 
 @_frozen_dataclass_decorator
-class SubDeviceInfo(APIModelBase):
-    uid: int = 0
+class AreaInfo(APIModelBase):
+    area_id: int = 0
     name: str = ""
-    suggested_area: str = ""
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[AreaInfo]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(AreaInfo.from_dict(x))
+            else:
+                ret.append(AreaInfo.from_pb(x))
+        return ret
+
+
+@_frozen_dataclass_decorator
+class SubDeviceInfo(APIModelBase):
+    device_id: int = 0
+    name: str = ""
+    area_id: int = 0
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[SubDeviceInfo]:
@@ -171,8 +187,14 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
-    sub_devices: list[SubDeviceInfo] = converter_field(
+    devices: list[SubDeviceInfo] = converter_field(
         default_factory=list, converter=SubDeviceInfo.convert_list
+    )
+    areas: list[AreaInfo] = converter_field(
+        default_factory=list, converter=AreaInfo.convert_list
+    )
+    area: AreaInfo = converter_field(
+        default_factory=AreaInfo, converter=AreaInfo.from_pb
     )
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
@@ -219,7 +241,7 @@ class EntityInfo(APIModelBase):
     entity_category: EntityCategory | None = converter_field(
         default=EntityCategory.NONE, converter=EntityCategory.convert
     )
-    device_uid: int = 0
+    device_id: int = 0
 
 
 @_frozen_dataclass_decorator

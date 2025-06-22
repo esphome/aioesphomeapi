@@ -7,6 +7,7 @@ import pytest
 
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,
+    AreaInfo as AreaInfoProto,
     BinarySensorStateResponse,
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
@@ -16,6 +17,7 @@ from aioesphomeapi.api_pb2 import (
     CoverStateResponse,
     DateStateResponse,
     DateTimeStateResponse,
+    DeviceInfo as SubDeviceInfoProto,
     DeviceInfoResponse,
     EventResponse,
     FanStateResponse,
@@ -52,7 +54,6 @@ from aioesphomeapi.api_pb2 import (
     SelectStateResponse,
     SensorStateResponse,
     ServiceArgType,
-    SubDeviceInfo,
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
@@ -67,6 +68,7 @@ from aioesphomeapi.model import (
     APIIntEnum,
     APIModelBase,
     APIVersion,
+    AreaInfo,
     BinarySensorInfo,
     BinarySensorState,
     BluetoothGATTCharacteristic as BluetoothGATTCharacteristicModel,
@@ -109,7 +111,7 @@ from aioesphomeapi.model import (
     SensorInfo,
     SensorState,
     SirenInfo,
-    SubDeviceInfo as SubDeviceInfoModel,
+    SubDeviceInfo,
     SwitchInfo,
     SwitchState,
     TextInfo,
@@ -699,20 +701,18 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
     ) == BluetoothGATTDescriptorModel(uuid=[1, 3], handle=3)
 
 
-def test_sub_device_info_convert_list() -> None:
-    """Test list conversion for SubDeviceInfo."""
+def test_area_info_convert_list() -> None:
+    """Test list conversion for AreaInfo."""
     device_info = DeviceInfo(
         name="Base device",
-        sub_devices=[
-            SubDeviceInfoModel(
-                uid=11111111,
-                name="Sub dev 1",
-                suggested_area="Sub area 1",
+        areas=[
+            AreaInfo(
+                area_id=1,
+                name="Living Room",
             ),
-            SubDeviceInfoModel(
-                uid=22222222,
-                name="Sub dev 2",
-                suggested_area="Sub area 2",
+            AreaInfo(
+                area_id=2,
+                name="Bedroom",
             ),
         ],
     )
@@ -720,16 +720,53 @@ def test_sub_device_info_convert_list() -> None:
         DeviceInfo.from_dict(
             {
                 "name": "Base device",
-                "sub_devices": [
-                    SubDeviceInfo(
-                        uid=11111111,
-                        name="Sub dev 1",
-                        suggested_area="Sub area 1",
+                "areas": [
+                    AreaInfoProto(
+                        area_id=1,
+                        name="Living Room",
                     ),
                     {
-                        "uid": 22222222,
+                        "area_id": 2,
+                        "name": "Bedroom",
+                    },
+                ],
+            }
+        )
+        == device_info
+    )
+
+
+def test_sub_device_info_convert_list() -> None:
+    """Test list conversion for SubDeviceInfo."""
+    device_info = DeviceInfo(
+        name="Base device",
+        devices=[
+            SubDeviceInfo(
+                device_id=11111111,
+                name="Sub dev 1",
+                area_id=1,
+            ),
+            SubDeviceInfo(
+                device_id=22222222,
+                name="Sub dev 2",
+                area_id=2,
+            ),
+        ],
+    )
+    assert (
+        DeviceInfo.from_dict(
+            {
+                "name": "Base device",
+                "devices": [
+                    SubDeviceInfoProto(
+                        device_id=11111111,
+                        name="Sub dev 1",
+                        area_id=1,
+                    ),
+                    {
+                        "device_id": 22222222,
                         "name": "Sub dev 2",
-                        "suggested_area": "Sub area 2",
+                        "area_id": 2,
                     },
                 ],
             }
@@ -765,6 +802,31 @@ def test_media_player_supported_format_convert_list() -> None:
             )
         ],
     )
+
+
+def test_device_info_area_field() -> None:
+    """Test DeviceInfo with area field set."""
+    device_info = DeviceInfo(
+        name="Test Device",
+        area=AreaInfo(
+            area_id=1,
+            name="Living Room",
+        ),
+    )
+    assert device_info.area.area_id == 1
+    assert device_info.area.name == "Living Room"
+
+    # Test from_pb conversion
+    pb_response = DeviceInfoResponse(
+        name="Test Device",
+        area=AreaInfoProto(
+            area_id=2,
+            name="Bedroom",
+        ),
+    )
+    device_info_from_pb = DeviceInfo.from_pb(pb_response)
+    assert device_info_from_pb.area.area_id == 2
+    assert device_info_from_pb.area.name == "Bedroom"
 
 
 def test_voice_assistant_wake_word_convert_list() -> None:
