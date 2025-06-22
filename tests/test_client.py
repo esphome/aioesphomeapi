@@ -1661,6 +1661,47 @@ async def test_bluetooth_gatt_start_notify_fails(
     )
 
 
+async def test_bluetooth_gatt_notify_callback_raises(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that exceptions in bluetooth gatt notify callbacks are caught."""
+    client, connection, transport, protocol = api_client
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        raise ValueError("Test exception in notify callback")
+
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    notify_response: message.Message = BluetoothGATTNotifyResponse(
+        address=1234, handle=1
+    )
+    mock_data_received(protocol, generate_plaintext_packet(notify_response))
+    await notify_task
+
+    # Clear any logs from the notify setup
+    caplog.clear()
+
+    # Send data that will trigger the exception
+    data_response: message.Message = BluetoothGATTNotifyDataResponse(
+        address=1234, handle=1, data=b"test_data"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(data_response))
+    await asyncio.sleep(0)
+
+    # Verify the exception was caught and logged
+    assert "Unexpected error in Bluetooth GATT notify callback" in caplog.text
+    assert "ValueError: Test exception in notify callback" in caplog.text
+    assert "address 1234, handle 1" in caplog.text
+
+    # Verify the connection is still alive
+    assert connection.is_connected
+
+
 async def test_subscribe_bluetooth_le_advertisements(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper

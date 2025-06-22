@@ -25,4 +25,4 @@ from .core import (
 )
 from .model import *
 from .reconnect_logic import ReconnectLogic
-from .log_parser import parse_log_message
+from .log_parser import parse_log_message, LogParser

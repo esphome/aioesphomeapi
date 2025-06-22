@@ -12,6 +12,7 @@ jobs:
     name: Wheels for ${{ matrix.os }} (${{ matrix.musl == 'musllinux' && 'musllinux' || 'manylinux' }}) ${{ matrix.qemu }} ${{ matrix.pyver }}
     runs-on: ${{ matrix.os }}
     strategy:
+      max-parallel: 5
       matrix:
         os:
           [
