@@ -854,3 +854,157 @@ def test_voice_assistant_wake_word_convert_list() -> None:
         active_wake_words=["1234"],
         max_active_wake_words=1,
     )
+
+
+def test_device_info_sub_devices_field() -> None:
+    """Test DeviceInfo with sub devices field set."""
+    device_info = DeviceInfo(
+        name="Main Device",
+        devices=[
+            SubDeviceInfo(
+                device_id=11111111,
+                name="Sub Device 1",
+                area_id=1,
+            ),
+            SubDeviceInfo(
+                device_id=22222222,
+                name="Sub Device 2",
+                area_id=2,
+            ),
+        ],
+    )
+    assert len(device_info.devices) == 2
+    assert device_info.devices[0].device_id == 11111111
+    assert device_info.devices[0].name == "Sub Device 1"
+    assert device_info.devices[0].area_id == 1
+    assert device_info.devices[1].device_id == 22222222
+    assert device_info.devices[1].name == "Sub Device 2"
+    assert device_info.devices[1].area_id == 2
+
+    # Test from_pb conversion
+    pb_response = DeviceInfoResponse(
+        name="Main Device",
+        devices=[
+            SubDeviceInfoProto(
+                device_id=33333333,
+                name="Sub Device 3",
+                area_id=3,
+            ),
+            SubDeviceInfoProto(
+                device_id=44444444,
+                name="Sub Device 4",
+                area_id=4,
+            ),
+        ],
+    )
+    device_info_from_pb = DeviceInfo.from_pb(pb_response)
+    assert len(device_info_from_pb.devices) == 2
+    assert device_info_from_pb.devices[0].device_id == 33333333
+    assert device_info_from_pb.devices[0].name == "Sub Device 3"
+    assert device_info_from_pb.devices[0].area_id == 3
+    assert device_info_from_pb.devices[1].device_id == 44444444
+    assert device_info_from_pb.devices[1].name == "Sub Device 4"
+    assert device_info_from_pb.devices[1].area_id == 4
+
+
+def test_entity_info_sub_device_assignment() -> None:
+    """Test EntityInfo with device_id field for sub device assignment."""
+    # Test that entities can be assigned to sub devices via device_id
+
+    # Test with BinarySensorInfo
+    sensor_info = BinarySensorInfo(
+        name="Motion Sensor",
+        object_id="motion_sensor",
+        key=12345,
+        device_id=11111111,  # Assigned to sub device 1
+        device_class="motion",
+    )
+    assert sensor_info.device_id == 11111111
+
+    # Test with SwitchInfo
+    switch_info = SwitchInfo(
+        name="Living Room Light",
+        object_id="living_room_light",
+        key=23456,
+        device_id=22222222,  # Assigned to sub device 2
+        assumed_state=False,
+    )
+    assert switch_info.device_id == 22222222
+
+    # Test from_pb conversion with device_id
+    pb_binary_sensor = ListEntitiesBinarySensorResponse(
+        name="Temperature Sensor",
+        object_id="temp_sensor",
+        key=34567,
+        device_id=33333333,
+        device_class="temperature",
+    )
+    sensor_from_pb = BinarySensorInfo.from_pb(pb_binary_sensor)
+    assert sensor_from_pb.device_id == 33333333
+    assert sensor_from_pb.name == "Temperature Sensor"
+
+    # Test from_dict conversion with device_id
+    sensor_from_dict = BinarySensorInfo.from_dict(
+        {
+            "name": "Humidity Sensor",
+            "object_id": "humidity_sensor",
+            "key": 45678,
+            "device_id": 44444444,
+            "device_class": "humidity",
+        }
+    )
+    assert sensor_from_dict.device_id == 44444444
+    assert sensor_from_dict.name == "Humidity Sensor"
+
+
+def test_device_info_with_areas_and_sub_devices() -> None:
+    """Test DeviceInfo with both areas and sub devices fields for comprehensive conversion testing."""
+    # Test complete DeviceInfo structure with areas and sub devices
+    device_info = DeviceInfo(
+        name="Smart Home Hub",
+        friendly_name="My Smart Hub",
+        areas=[
+            AreaInfo(area_id=1, name="Living Room"),
+            AreaInfo(area_id=2, name="Bedroom"),
+            AreaInfo(area_id=3, name="Kitchen"),
+        ],
+        devices=[
+            SubDeviceInfo(device_id=11111111, name="Motion Sensor", area_id=1),
+            SubDeviceInfo(device_id=22222222, name="Light Switch", area_id=1),
+            SubDeviceInfo(device_id=33333333, name="Temperature Sensor", area_id=2),
+        ],
+        area=AreaInfo(area_id=0, name="Main Hub"),
+    )
+
+    # Test to_dict conversion
+    device_dict = device_info.to_dict()
+    assert device_dict["name"] == "Smart Home Hub"
+    assert len(device_dict["areas"]) == 3
+    assert len(device_dict["devices"]) == 3
+    assert device_dict["area"]["name"] == "Main Hub"
+
+    # Test from_dict conversion with mixed proto and dict objects
+    device_from_mixed = DeviceInfo.from_dict(
+        {
+            "name": "Smart Home Hub 2",
+            "areas": [
+                AreaInfoProto(area_id=4, name="Garage"),
+                {"area_id": 5, "name": "Basement"},
+            ],
+            "devices": [
+                SubDeviceInfoProto(device_id=44444444, name="Door Sensor", area_id=4),
+                {"device_id": 55555555, "name": "Leak Detector", "area_id": 5},
+            ],
+        }
+    )
+    assert device_from_mixed.name == "Smart Home Hub 2"
+    assert len(device_from_mixed.areas) == 2
+    assert device_from_mixed.areas[0].area_id == 4
+    assert device_from_mixed.areas[0].name == "Garage"
+    assert device_from_mixed.areas[1].area_id == 5
+    assert device_from_mixed.areas[1].name == "Basement"
+    assert len(device_from_mixed.devices) == 2
+    assert device_from_mixed.devices[0].device_id == 44444444
+    assert device_from_mixed.devices[0].name == "Door Sensor"
+    assert device_from_mixed.devices[1].device_id == 55555555
+    assert device_from_mixed.devices[1].name == "Leak Detector"
