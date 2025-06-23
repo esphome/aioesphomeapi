@@ -149,6 +149,12 @@ class AreaInfo(APIModelBase):
                 ret.append(AreaInfo.from_pb(x))
         return ret
 
+    @classmethod
+    def convert(cls, value: Any) -> AreaInfo:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
 
 @_frozen_dataclass_decorator
 class SubDeviceInfo(APIModelBase):
@@ -194,7 +200,7 @@ class DeviceInfo(APIModelBase):
         default_factory=list, converter=AreaInfo.convert_list
     )
     area: AreaInfo = converter_field(
-        default_factory=AreaInfo, converter=AreaInfo.from_pb
+        default_factory=AreaInfo, converter=AreaInfo.convert
     )
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:

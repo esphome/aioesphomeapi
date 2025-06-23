@@ -1008,3 +1008,73 @@ def test_device_info_with_areas_and_sub_devices() -> None:
     assert device_from_mixed.devices[0].name == "Door Sensor"
     assert device_from_mixed.devices[1].device_id == 55555555
     assert device_from_mixed.devices[1].name == "Leak Detector"
+
+
+def test_device_info_mock_with_friendly_name() -> None:
+    """Test that mocking DeviceInfo with friendly_name works after areas/devices were added."""
+    # Create a device info object
+    device = DeviceInfo(name="Test Device", friendly_name="Original Friendly Name")
+
+    # Try to mock it by modifying the friendly_name field like the user's example
+    # This simulates what a user would do when mocking
+    mocked_device = DeviceInfo(
+        **{**device.to_dict(), "friendly_name": "I have a friendly name"}
+    )
+
+    # This should work and the friendly_name should be updated
+    assert mocked_device.friendly_name == "I have a friendly name"
+    assert mocked_device.name == "Test Device"  # Other fields should be preserved
+
+
+def test_device_info_mock_with_areas_and_devices() -> None:
+    """Test that mocking DeviceInfo with areas and devices works correctly."""
+    # Create a device info object with areas and devices
+    device = DeviceInfo(
+        name="Test Device",
+        friendly_name="Original Friendly Name",
+        areas=[
+            AreaInfo(area_id=1, name="Living Room"),
+            AreaInfo(area_id=2, name="Bedroom"),
+        ],
+        devices=[
+            SubDeviceInfo(device_id=100, name="Sub Device 1", area_id=1),
+            SubDeviceInfo(device_id=200, name="Sub Device 2", area_id=2),
+        ],
+        area=AreaInfo(area_id=0, name="Main Area"),
+    )
+
+    # Convert to dict and back to simulate mocking
+    device_dict = device.to_dict()
+
+    # Modify some fields
+    device_dict["friendly_name"] = "Modified Friendly Name"
+    device_dict["area"]["name"] = "Modified Main Area"
+    device_dict["areas"][0]["name"] = "Modified Living Room"
+    device_dict["devices"][1]["name"] = "Modified Sub Device 2"
+
+    # Create a new DeviceInfo from the modified dict
+    mocked_device = DeviceInfo(**device_dict)
+
+    # Verify all fields are correctly handled
+    assert mocked_device.name == "Test Device"
+    assert mocked_device.friendly_name == "Modified Friendly Name"
+
+    # Check area field
+    assert mocked_device.area.area_id == 0
+    assert mocked_device.area.name == "Modified Main Area"
+
+    # Check areas list
+    assert len(mocked_device.areas) == 2
+    assert mocked_device.areas[0].area_id == 1
+    assert mocked_device.areas[0].name == "Modified Living Room"
+    assert mocked_device.areas[1].area_id == 2
+    assert mocked_device.areas[1].name == "Bedroom"
+
+    # Check devices list
+    assert len(mocked_device.devices) == 2
+    assert mocked_device.devices[0].device_id == 100
+    assert mocked_device.devices[0].name == "Sub Device 1"
+    assert mocked_device.devices[0].area_id == 1
+    assert mocked_device.devices[1].device_id == 200
+    assert mocked_device.devices[1].name == "Modified Sub Device 2"
+    assert mocked_device.devices[1].area_id == 2
