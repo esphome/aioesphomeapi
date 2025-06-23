@@ -153,8 +153,7 @@ class AreaInfo(APIModelBase):
     def convert(cls, value: Any) -> AreaInfo:
         if isinstance(value, dict):
             return cls.from_dict(value)
-        else:
-            return cls.from_pb(value)
+        return cls.from_pb(value)
 
 
 @_frozen_dataclass_decorator
