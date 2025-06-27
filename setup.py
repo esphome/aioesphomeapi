@@ -100,7 +100,7 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
     if os.environ.get("SKIP_CYTHON"):
         return
     try:
-        from Cython.Build import cythonize
+        from Cython.Build import cythonize  # noqa: PLC0415
 
         setup_kwargs.update(
             dict(
