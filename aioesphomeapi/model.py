@@ -193,6 +193,7 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
+    api_encryption_supported: bool = False
     devices: list[SubDeviceInfo] = converter_field(
         default_factory=list, converter=SubDeviceInfo.convert_list
     )
