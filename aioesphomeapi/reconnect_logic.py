@@ -22,7 +22,7 @@ from .core import (
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
-from .util import address_is_local, create_eager_task, host_is_name_part
+from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_address
 from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,6 +84,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self.loop = asyncio.get_running_loop()
         self._cli = client
         self.name: str | None = None
+        self._is_ip_address = is_ip_address(name)
         if name:
             self.name = name
         elif host_is_name_part(client.address) or address_is_local(client.address):
@@ -382,7 +383,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         This listener allows us to schedule a connect as soon as a
         received mDNS record indicates the node is up again.
         """
-        if not self._zc_listening and self.name:
+        if not self._zc_listening and self.name and not self._is_ip_address:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
             self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
             self._a_name = f"{self.name}.local."

@@ -963,3 +963,63 @@ async def test_backoff_on_encryption_error(
     assert logic._connect_timer.when() - now == pytest.approx(60, 1)
     assert logic._tries == MAXIMUM_BACKOFF_TRIES
     await logic.stop()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
+    patchable_api_client: APIClient,
+) -> None:
+    """Test that zeroconf listener is not started for IP addresses."""
+    cli = patchable_api_client
+
+    # Mock get_async_zeroconf to raise - this ensures it's not called for IP addresses
+    with patch.object(
+        cli.zeroconf_manager,
+        "get_async_zeroconf",
+        side_effect=Exception("Should not create zeroconf instance for IP addresses"),
+    ):
+        # Test with IP address as name - should not raise
+        logic_with_ip = ReconnectLogic(
+            client=cli,
+            on_connect=AsyncMock(),
+            on_disconnect=AsyncMock(),
+            name="192.168.1.100",  # IP address
+        )
+
+        # This should work without calling get_async_zeroconf
+        await logic_with_ip.start()
+        await asyncio.sleep(0)
+        await logic_with_ip.stop()
+
+        # Test with IP:port as name - should not raise
+        logic_with_ip_port = ReconnectLogic(
+            client=cli,
+            on_connect=AsyncMock(),
+            on_disconnect=AsyncMock(),
+            name="127.0.0.1:6053",  # IP address with port
+        )
+
+        await logic_with_ip_port.start()
+        await asyncio.sleep(0)
+        await logic_with_ip_port.stop()
+
+    # Now test with a real device name - this SHOULD call get_async_zeroconf
+    async_zeroconf = get_mock_async_zeroconf()
+
+    with patch.object(
+        cli.zeroconf_manager, "get_async_zeroconf", return_value=async_zeroconf
+    ) as mock_get_zc:
+        logic_with_name = ReconnectLogic(
+            client=cli,
+            on_connect=AsyncMock(),
+            on_disconnect=AsyncMock(),
+            name="living_room",  # Device name
+        )
+
+        await logic_with_name.start()
+        await asyncio.sleep(0)
+
+        # Should have called get_async_zeroconf for device name
+        mock_get_zc.assert_called()
+
+        await logic_with_name.stop()
