@@ -188,6 +188,17 @@ message DeviceInfoRequest {
   // Empty
 }
 
+message AreaInfo {
+  uint32 area_id = 1;
+  string name = 2;
+}
+
+message DeviceInfo {
+  uint32 device_id = 1;
+  string name = 2;
+  uint32 area_id = 3;
+}
+
 message DeviceInfoResponse {
   option (id) = 10;
   option (source) = SOURCE_SERVER;
@@ -236,6 +247,12 @@ message DeviceInfoResponse {
 
   // Supports receiving and saving api encryption key
   bool api_encryption_supported = 19;
+
+  repeated DeviceInfo devices = 20;
+  repeated AreaInfo areas = 21;
+
+  // Top-level area info to phase out suggested_area
+  AreaInfo area = 22;
 }
 
 message ListEntitiesRequest {
@@ -266,6 +283,7 @@ enum EntityCategory {
 // ==================== BINARY SENSOR ====================
 message ListEntitiesBinarySensorResponse {
   option (id) = 12;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_BINARY_SENSOR";
 
@@ -279,9 +297,11 @@ message ListEntitiesBinarySensorResponse {
   bool disabled_by_default = 7;
   string icon = 8;
   EntityCategory entity_category = 9;
+  uint32 device_id = 10;
 }
 message BinarySensorStateResponse {
   option (id) = 21;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_BINARY_SENSOR";
   option (no_delay) = true;
@@ -296,6 +316,7 @@ message BinarySensorStateResponse {
 // ==================== COVER ====================
 message ListEntitiesCoverResponse {
   option (id) = 13;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_COVER";
 
@@ -312,6 +333,7 @@ message ListEntitiesCoverResponse {
   string icon = 10;
   EntityCategory entity_category = 11;
   bool supports_stop = 12;
+  uint32 device_id = 13;
 }
 
 enum LegacyCoverState {
@@ -325,6 +347,7 @@ enum CoverOperation {
 }
 message CoverStateResponse {
   option (id) = 22;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_COVER";
   option (no_delay) = true;
@@ -367,6 +390,7 @@ message CoverCommandRequest {
 // ==================== FAN ====================
 message ListEntitiesFanResponse {
   option (id) = 14;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_FAN";
 
@@ -383,6 +407,7 @@ message ListEntitiesFanResponse {
   string icon = 10;
   EntityCategory entity_category = 11;
   repeated string supported_preset_modes = 12;
+  uint32 device_id = 13;
 }
 enum FanSpeed {
   FAN_SPEED_LOW = 0;
@@ -395,6 +420,7 @@ enum FanDirection {
 }
 message FanStateResponse {
   option (id) = 23;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_FAN";
   option (no_delay) = true;
@@ -444,6 +470,7 @@ enum ColorMode {
 }
 message ListEntitiesLightResponse {
   option (id) = 15;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_LIGHT";
 
@@ -464,9 +491,11 @@ message ListEntitiesLightResponse {
   bool disabled_by_default = 13;
   string icon = 14;
   EntityCategory entity_category = 15;
+  uint32 device_id = 16;
 }
 message LightStateResponse {
   option (id) = 24;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_LIGHT";
   option (no_delay) = true;
@@ -536,6 +565,7 @@ enum SensorLastResetType {
 
 message ListEntitiesSensorResponse {
   option (id) = 16;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SENSOR";
 
@@ -554,9 +584,11 @@ message ListEntitiesSensorResponse {
   SensorLastResetType legacy_last_reset_type = 11;
   bool disabled_by_default = 12;
   EntityCategory entity_category = 13;
+  uint32 device_id = 14;
 }
 message SensorStateResponse {
   option (id) = 25;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SENSOR";
   option (no_delay) = true;
@@ -571,6 +603,7 @@ message SensorStateResponse {
 // ==================== SWITCH ====================
 message ListEntitiesSwitchResponse {
   option (id) = 17;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SWITCH";
 
@@ -584,9 +617,11 @@ message ListEntitiesSwitchResponse {
   bool disabled_by_default = 7;
   EntityCategory entity_category = 8;
   string device_class = 9;
+  uint32 device_id = 10;
 }
 message SwitchStateResponse {
   option (id) = 26;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SWITCH";
   option (no_delay) = true;
@@ -607,6 +642,7 @@ message SwitchCommandRequest {
 // ==================== TEXT SENSOR ====================
 message ListEntitiesTextSensorResponse {
   option (id) = 18;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_TEXT_SENSOR";
 
@@ -619,9 +655,11 @@ message ListEntitiesTextSensorResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
+  uint32 device_id = 9;
 }
 message TextSensorStateResponse {
   option (id) = 27;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_TEXT_SENSOR";
   option (no_delay) = true;
@@ -789,6 +827,7 @@ message ExecuteServiceRequest {
 // ==================== CAMERA ====================
 message ListEntitiesCameraResponse {
   option (id) = 43;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_ESP32_CAMERA";
 
@@ -799,6 +838,7 @@ message ListEntitiesCameraResponse {
   bool disabled_by_default = 5;
   string icon = 6;
   EntityCategory entity_category = 7;
+  uint32 device_id = 8;
 }
 
 message CameraImageResponse {
@@ -869,6 +909,7 @@ enum ClimatePreset {
 }
 message ListEntitiesClimateResponse {
   option (id) = 46;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_CLIMATE";
 
@@ -900,9 +941,11 @@ message ListEntitiesClimateResponse {
   bool supports_target_humidity = 23;
   float visual_min_humidity = 24;
   float visual_max_humidity = 25;
+  uint32 device_id = 26;
 }
 message ClimateStateResponse {
   option (id) = 47;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_CLIMATE";
   option (no_delay) = true;
@@ -964,6 +1007,7 @@ enum NumberMode {
 }
 message ListEntitiesNumberResponse {
   option (id) = 49;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_NUMBER";
 
@@ -981,9 +1025,11 @@ message ListEntitiesNumberResponse {
   string unit_of_measurement = 11;
   NumberMode mode = 12;
   string device_class = 13;
+  uint32 device_id = 14;
 }
 message NumberStateResponse {
   option (id) = 50;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_NUMBER";
   option (no_delay) = true;
@@ -1007,6 +1053,7 @@ message NumberCommandRequest {
 // ==================== SELECT ====================
 message ListEntitiesSelectResponse {
   option (id) = 52;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SELECT";
 
@@ -1019,9 +1066,11 @@ message ListEntitiesSelectResponse {
   repeated string options = 6;
   bool disabled_by_default = 7;
   EntityCategory entity_category = 8;
+  uint32 device_id = 9;
 }
 message SelectStateResponse {
   option (id) = 53;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SELECT";
   option (no_delay) = true;
@@ -1045,6 +1094,7 @@ message SelectCommandRequest {
 // ==================== SIREN ====================
 message ListEntitiesSirenResponse {
   option (id) = 55;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SIREN";
 
@@ -1059,9 +1109,11 @@ message ListEntitiesSirenResponse {
   bool supports_duration = 8;
   bool supports_volume = 9;
   EntityCategory entity_category = 10;
+  uint32 device_id = 11;
 }
 message SirenStateResponse {
   option (id) = 56;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SIREN";
   option (no_delay) = true;
@@ -1102,6 +1154,7 @@ enum LockCommand  {
 }
 message ListEntitiesLockResponse {
   option (id) = 58;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_LOCK";
 
@@ -1120,9 +1173,11 @@ message ListEntitiesLockResponse {
 
   // Not yet implemented:
   string code_format = 11;
+  uint32 device_id = 12;
 }
 message LockStateResponse {
   option (id) = 59;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_LOCK";
   option (no_delay) = true;
@@ -1145,6 +1200,7 @@ message LockCommandRequest {
 // ==================== BUTTON ====================
 message ListEntitiesButtonResponse {
   option (id) = 61;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_BUTTON";
 
@@ -1157,6 +1213,7 @@ message ListEntitiesButtonResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
+  uint32 device_id = 9;
 }
 message ButtonCommandRequest {
   option (id) = 62;
@@ -1209,6 +1266,7 @@ message MediaPlayerSupportedFormat {
 }
 message ListEntitiesMediaPlayerResponse {
   option (id) = 63;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_MEDIA_PLAYER";
 
@@ -1224,10 +1282,14 @@ message ListEntitiesMediaPlayerResponse {
   bool supports_pause = 8;
 
   repeated MediaPlayerSupportedFormat supported_formats = 9;
-  bool supports_turn_off_on = 10;
+
+  uint32 device_id = 10;
+
+  bool supports_turn_off_on = 11;
 }
 message MediaPlayerStateResponse {
   option (id) = 64;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_MEDIA_PLAYER";
   option (no_delay) = true;
@@ -1629,6 +1691,7 @@ enum VoiceAssistantEvent {
   VOICE_ASSISTANT_STT_VAD_END = 12;
   VOICE_ASSISTANT_TTS_STREAM_START = 98;
   VOICE_ASSISTANT_TTS_STREAM_END = 99;
+  VOICE_ASSISTANT_INTENT_PROGRESS = 100;
 }
 
 message VoiceAssistantEventData {
@@ -1749,6 +1812,7 @@ enum AlarmControlPanelStateCommand {
 
 message ListEntitiesAlarmControlPanelResponse {
   option (id) = 94;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_ALARM_CONTROL_PANEL";
 
@@ -1762,10 +1826,12 @@ message ListEntitiesAlarmControlPanelResponse {
   uint32 supported_features = 8;
   bool requires_code = 9;
   bool requires_code_to_arm = 10;
+  uint32 device_id = 11;
 }
 
 message AlarmControlPanelStateResponse {
   option (id) = 95;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_ALARM_CONTROL_PANEL";
   option (no_delay) = true;
@@ -1790,6 +1856,7 @@ enum TextMode {
 }
 message ListEntitiesTextResponse {
   option (id) = 97;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_TEXT";
 
@@ -1805,9 +1872,11 @@ message ListEntitiesTextResponse {
   uint32 max_length = 9;
   string pattern = 10;
   TextMode mode = 11;
+  uint32 device_id = 12;
 }
 message TextStateResponse {
   option (id) = 98;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_TEXT";
   option (no_delay) = true;
@@ -1832,6 +1901,7 @@ message TextCommandRequest {
 // ==================== DATETIME DATE ====================
 message ListEntitiesDateResponse {
   option (id) = 100;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_DATETIME_DATE";
 
@@ -1843,9 +1913,11 @@ message ListEntitiesDateResponse {
   string icon = 5;
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
+  uint32 device_id = 8;
 }
 message DateStateResponse {
   option (id) = 101;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_DATETIME_DATE";
   option (no_delay) = true;
@@ -1873,6 +1945,7 @@ message DateCommandRequest {
 // ==================== DATETIME TIME ====================
 message ListEntitiesTimeResponse {
   option (id) = 103;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_DATETIME_TIME";
 
@@ -1884,9 +1957,11 @@ message ListEntitiesTimeResponse {
   string icon = 5;
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
+  uint32 device_id = 8;
 }
 message TimeStateResponse {
   option (id) = 104;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_DATETIME_TIME";
   option (no_delay) = true;
@@ -1914,6 +1989,7 @@ message TimeCommandRequest {
 // ==================== EVENT ====================
 message ListEntitiesEventResponse {
   option (id) = 107;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_EVENT";
 
@@ -1928,9 +2004,11 @@ message ListEntitiesEventResponse {
   string device_class = 8;
 
   repeated string event_types = 9;
+  uint32 device_id = 10;
 }
 message EventResponse {
   option (id) = 108;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_EVENT";
 
@@ -1941,6 +2019,7 @@ message EventResponse {
 // ==================== VALVE ====================
 message ListEntitiesValveResponse {
   option (id) = 109;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_VALVE";
 
@@ -1957,6 +2036,7 @@ message ListEntitiesValveResponse {
   bool assumed_state = 9;
   bool supports_position = 10;
   bool supports_stop = 11;
+  uint32 device_id = 12;
 }
 
 enum ValveOperation {
@@ -1966,6 +2046,7 @@ enum ValveOperation {
 }
 message ValveStateResponse {
   option (id) = 110;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_VALVE";
   option (no_delay) = true;
@@ -1990,6 +2071,7 @@ message ValveCommandRequest {
 // ==================== DATETIME DATETIME ====================
 message ListEntitiesDateTimeResponse {
   option (id) = 112;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_DATETIME_DATETIME";
 
@@ -2001,9 +2083,11 @@ message ListEntitiesDateTimeResponse {
   string icon = 5;
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
+  uint32 device_id = 8;
 }
 message DateTimeStateResponse {
   option (id) = 113;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_DATETIME_DATETIME";
   option (no_delay) = true;
@@ -2027,6 +2111,7 @@ message DateTimeCommandRequest {
 // ==================== UPDATE ====================
 message ListEntitiesUpdateResponse {
   option (id) = 116;
+  option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_UPDATE";
 
@@ -2039,9 +2124,11 @@ message ListEntitiesUpdateResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
+  uint32 device_id = 9;
 }
 message UpdateStateResponse {
   option (id) = 117;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_UPDATE";
   option (no_delay) = true;

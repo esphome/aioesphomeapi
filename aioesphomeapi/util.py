@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from asyncio import AbstractEventLoop, Task, get_running_loop
 from collections.abc import Coroutine
+import ipaddress
 import math
 import sys
 from typing import Any, TypeVar
@@ -46,6 +47,24 @@ def host_is_name_part(address: str) -> bool:
 def address_is_local(address: str) -> bool:
     """Return True if the address is a local address."""
     return address.removesuffix(".").endswith(".local")
+
+
+def is_ip_address(address: str | None) -> bool:
+    """Return True if the address is an IP address.
+
+    Handles addresses with or without port (e.g., "192.168.1.1" or "192.168.1.1:6053").
+    Returns False if address is None.
+    """
+    if address is None:
+        return False
+    # Remove port if present
+    host = address.partition(":")[0]
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    else:
+        return True
 
 
 def build_log_name(
@@ -104,4 +123,5 @@ __all__ = (
     "create_eager_task",
     "fix_float_single_double_conversion",
     "host_is_name_part",
+    "is_ip_address",
 )

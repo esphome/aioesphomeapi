@@ -41,7 +41,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "32.2.2"
+VERSION = "34.0.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -100,7 +100,7 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
     if os.environ.get("SKIP_CYTHON"):
         return
     try:
-        from Cython.Build import cythonize
+        from Cython.Build import cythonize  # noqa: PLC0415
 
         setup_kwargs.update(
             dict(
