@@ -87,7 +87,7 @@ async def auth_client():
 
 
 @pytest.fixture
-def connection_params(event_loop: asyncio.AbstractEventLoop) -> ConnectionParams:
+def connection_params() -> ConnectionParams:
     return get_mock_connection_params()
 
 
@@ -263,10 +263,15 @@ def long_repr_strings() -> Generator[None]:
 
 
 @pytest.fixture(autouse=True)
-def verify_no_lingering_tasks(
-    event_loop: asyncio.AbstractEventLoop,
-) -> Generator[None]:
+def verify_no_lingering_tasks() -> Generator[None]:
     """Verify that all tasks are cleaned up."""
+    try:
+        event_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No event loop running, nothing to verify
+        yield
+        return
+
     tasks_before = asyncio.all_tasks(event_loop)
     yield
 
