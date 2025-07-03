@@ -1112,7 +1112,7 @@ STATE_RESPONSE_DEVICE_ID_TEST_DATA = [
 
 
 @pytest.mark.parametrize(
-    "proto_cls,model_cls,extra_fields", STATE_RESPONSE_DEVICE_ID_TEST_DATA
+    ("proto_cls", "model_cls", "extra_fields"), STATE_RESPONSE_DEVICE_ID_TEST_DATA
 )
 def test_state_response_has_device_id_field(proto_cls, model_cls, extra_fields):
     """Test that all StateResponse protobuf messages have device_id field."""
@@ -1130,7 +1130,7 @@ def test_state_response_has_device_id_field(proto_cls, model_cls, extra_fields):
 
 
 @pytest.mark.parametrize(
-    "proto_cls,model_cls,extra_fields", STATE_RESPONSE_DEVICE_ID_TEST_DATA
+    ("proto_cls", "model_cls", "extra_fields"), STATE_RESPONSE_DEVICE_ID_TEST_DATA
 )
 def test_state_response_device_id_default_value(proto_cls, model_cls, extra_fields):
     """Test that device_id defaults to 0 when not set."""
