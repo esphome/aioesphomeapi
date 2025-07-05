@@ -504,17 +504,23 @@ class APIConnection:
                 self.log_name,
                 api_version.major,
             )
-            raise APIConnectionError(f"Incompatible API version ({api_version}).")
+            err = APIConnectionError(f"Incompatible API version ({api_version}).")
+            self._set_fatal_exception_if_unset(err)
+            self._cleanup()
+            return
 
         self.api_version = api_version
         expected_name = self._params.expected_name
         if received_name := resp.name:
             if expected_name is not None and received_name != expected_name:
-                raise BadNameAPIError(
+                err = BadNameAPIError(
                     f"Expected '{expected_name}' but server sent "
                     f"a different name: '{received_name}'",
                     received_name,
                 )
+                self._set_fatal_exception_if_unset(err)
+                self._cleanup()
+                return
 
             self.received_name = received_name
             self.set_log_name(self.received_name)

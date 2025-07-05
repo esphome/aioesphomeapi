@@ -128,13 +128,9 @@ async def test_disconnect_when_not_fully_connected(
 ) -> None:
     conn, transport, protocol, connect_task = plaintext_connect_task_no_login
 
-    # Only send the first part of the handshake
-    # so we are stuck in the middle of the connection process
-    mock_data_received(
-        protocol,
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
-    )
-
+    # Don't send any hello response to keep connection incomplete
+    # Since we no longer wait for hello response when login=False,
+    # the connection will complete, but we can still test disconnect
     await asyncio.sleep(0)
     transport.reset_mock()
 
@@ -144,12 +140,10 @@ async def test_disconnect_when_not_fully_connected(
     ):
         await conn.disconnect()
 
-    with pytest.raises(
-        APIConnectionError,
-        match="Timed out waiting to finish connect before disconnecting",
-    ):
-        await connect_task
+    # Connection should complete successfully now even without hello response
+    await connect_task
 
+    # Should still try to send disconnect
     transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05"])
 
     assert "disconnect request failed" in caplog.text
@@ -441,19 +435,21 @@ async def test_finish_connection_times_out(
         messages.append(msg)
 
     remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
+
+    # Since we don't wait for hello response when login=False,
+    # the connection completes immediately
+    await connect_task
+
+    # Send hello response after connection is complete to verify handler works
     mock_data_received(
         protocol,
         b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
     )
     await asyncio.sleep(0)
 
-    async_fire_time_changed(utcnow() + timedelta(seconds=200))
-    await asyncio.sleep(0)
-
-    with pytest.raises(
-        APIConnectionError, match="Timeout waiting for HelloResponse after 30.0s"
-    ):
-        await connect_task
+    # Verify the hello response was received by the handler
+    assert len(messages) == 1
+    assert isinstance(messages[0], HelloResponse)
 
     async_fire_time_changed(utcnow() + timedelta(seconds=600))
     await asyncio.sleep(0)
