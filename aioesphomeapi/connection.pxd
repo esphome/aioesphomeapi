@@ -94,6 +94,7 @@ cdef class APIConnection:
 
     cdef ConnectionParams _params
     cdef public object on_stop
+    cdef object _name_received_callback
     cdef public object _socket
     cdef public APIFrameHelper _frame_helper
     cdef public object api_version

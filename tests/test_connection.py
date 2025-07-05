@@ -121,33 +121,46 @@ async def test_timeout_sending_message(
 
 
 async def test_disconnect_when_not_fully_connected(
-    plaintext_connect_task_no_login: tuple[
-        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
-    ],
+    connection_params: ConnectionParams,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_no_login
+    conn = APIConnection(connection_params, lambda expected: None, True, None)
 
-    # Don't send any hello response to keep connection incomplete
-    # Since we no longer wait for hello response when login=False,
-    # the connection will complete, but we can still test disconnect
-    await asyncio.sleep(0)
-    transport.reset_mock()
+    # Resolve host first
+    await conn.start_resolve_host()
 
-    with (
-        patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0),
-        patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0),
-    ):
-        await conn.disconnect()
+    # Use a future to control when we complete the connection
+    connect_future = asyncio.Future()
 
-    # Connection should complete successfully now even without hello response
-    await connect_task
+    async def slow_connect(*args, **kwargs):
+        await connect_future
+        return MagicMock(), MagicMock()
 
-    # Should still try to send disconnect
-    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05"])
+    loop = asyncio.get_running_loop()
+    with patch.object(loop, "create_connection", side_effect=slow_connect):
+        connect_task = asyncio.create_task(conn.start_connection())
+        await asyncio.sleep(0)  # Let the task start
 
-    assert "disconnect request failed" in caplog.text
-    assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
+        # Now disconnect before connection completes
+        with (
+            patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0),
+        ):
+            disconnect_task = asyncio.create_task(conn.disconnect())
+            await asyncio.sleep(0)
+
+            # Complete the connection
+            connect_future.set_result(None)
+
+            # Both tasks should complete
+            await disconnect_task
+
+            with pytest.raises(
+                APIConnectionError,
+                match="Timed out waiting to finish connect before disconnecting",
+            ):
+                await connect_task
 
 
 async def test_requires_encryption_propagates(conn: APIConnection):
@@ -422,42 +435,46 @@ async def test_finish_connection_is_cancelled(
 
 
 async def test_finish_connection_times_out(
-    plaintext_connect_task_no_login: tuple[
-        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
-    ],
+    conn_with_password: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test handling of finish connection timing out."""
-    conn, transport, protocol, connect_task = plaintext_connect_task_no_login
-    messages = []
+    # Use connection with password so it waits for responses
+    transport = MagicMock()
+    connected = asyncio.Event()
+    event_loop = asyncio.get_running_loop()
 
-    def on_msg(msg):
-        messages.append(msg)
+    with patch.object(
+        event_loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect(conn_with_password, login=True))
+        await connected.wait()
 
-    remove = conn.add_message_callback(on_msg, (HelloResponse, DeviceInfoResponse))
+        protocol = conn_with_password._frame_helper
 
-    # Since we don't wait for hello response when login=False,
-    # the connection completes immediately
-    await connect_task
+        # Send hello but no connect response
+        send_plaintext_hello(protocol)
+        await asyncio.sleep(0)
 
-    # Send hello response after connection is complete to verify handler works
-    mock_data_received(
-        protocol,
-        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
-    )
-    await asyncio.sleep(0)
+        # Let the timeout happen
+        async_fire_time_changed(utcnow() + timedelta(seconds=200))
+        await asyncio.sleep(0)
 
-    # Verify the hello response was received by the handler
-    assert len(messages) == 1
-    assert isinstance(messages[0], HelloResponse)
+        with pytest.raises(
+            APIConnectionError, match="Timeout waiting for ConnectResponse after 30.0s"
+        ):
+            await connect_task
 
-    async_fire_time_changed(utcnow() + timedelta(seconds=600))
-    await asyncio.sleep(0)
+        async_fire_time_changed(utcnow() + timedelta(seconds=600))
+        await asyncio.sleep(0)
 
-    assert not conn.is_connected
-    remove()
-    conn.force_disconnect()
-    await asyncio.sleep(0)
+        assert not conn_with_password.is_connected
+        conn_with_password.force_disconnect()
+        await asyncio.sleep(0)
 
 
 @pytest.mark.parametrize(
@@ -608,14 +625,19 @@ async def test_connect_wrong_name(
     ],
 ) -> None:
     conn, transport, protocol, connect_task = plaintext_connect_task_expected_name
-    send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
 
-    with pytest.raises(
-        APIConnectionError,
-        match="Expected 'test' but server sent a different name: 'fake'",
-    ):
-        await connect_task
+    # The connect task will complete successfully since we don't wait for hello when login=False
+    await connect_task
+
+    # Now send the hello with wrong name
+    send_plaintext_hello(protocol)
+    await asyncio.sleep(0)  # Let the handler process it
+
+    # The connection should have been closed due to wrong name
+    assert conn._fatal_exception is not None
+    assert "Expected 'test' but server sent a different name: 'fake'" in str(
+        conn._fatal_exception
+    )
 
     assert conn.is_connected is False
 

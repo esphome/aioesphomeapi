@@ -206,6 +206,7 @@ class APIConnection:
         "_keep_alive_timeout",
         "_loop",
         "_message_handlers",
+        "_name_received_callback",
         "_params",
         "_ping_timer",
         "_pong_timer",
@@ -229,9 +230,11 @@ class APIConnection:
         on_stop: Callable[[bool], None] | None,
         debug_enabled: bool,
         log_name: str | None,
+        name_received_callback: Callable[[str], None] | None = None,
     ) -> None:
         self._params = params
         self.on_stop = on_stop
+        self._name_received_callback = name_received_callback
         self._socket: socket.socket | None = None
         self._frame_helper: None | APINoiseFrameHelper | APIPlaintextFrameHelper = None
         self.api_version: APIVersion | None = None
@@ -524,6 +527,9 @@ class APIConnection:
 
             self.received_name = received_name
             self.set_log_name(self.received_name)
+            # Notify callback if registered
+            if self._name_received_callback:
+                self._name_received_callback(received_name)
 
     def _async_schedule_keep_alive(self, now: _float) -> None:
         """Start the keep alive task."""

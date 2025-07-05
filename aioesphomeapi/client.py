@@ -232,6 +232,7 @@ class APIClient(APIClientBase):
             partial(self._on_stop, on_stop),
             self._debug_enabled,
             self.log_name,
+            self._set_name_from_device,
         )
         await self._execute_connection_coro(self._connection.start_resolve_host())
 
