@@ -80,6 +80,7 @@ async def auth_client():
         on_stop=client._on_stop,
         debug_enabled=False,
         log_name=client.log_name,
+        name_received_callback=None,
     )
     mock_connection.is_connected = True
     with patch.object(client, "_connection", mock_connection):
@@ -97,13 +98,13 @@ def mock_on_stop(expected_disconnect: bool) -> None:
 
 @pytest.fixture
 async def conn(connection_params: ConnectionParams) -> APIConnection:
-    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None, None)
 
 
 @pytest.fixture
 async def conn_with_password(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(connection_params, password="password")
-    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None, None)
 
 
 @pytest.fixture
@@ -111,13 +112,13 @@ async def noise_conn(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(
         connection_params, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     )
-    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None, None)
 
 
 @pytest.fixture
 async def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnection:
     connection_params = replace(connection_params, expected_name="test")
-    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
+    return PatchableAPIConnection(connection_params, mock_on_stop, True, None, None)
 
 
 @pytest.fixture()

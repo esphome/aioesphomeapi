@@ -126,7 +126,7 @@ async def test_disconnect_when_not_fully_connected(
     aiohappyeyeballs_start_connection,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    conn = APIConnection(connection_params, lambda expected: None, True, None)
+    conn = APIConnection(connection_params, lambda expected: None, True, None, None)
 
     # Resolve host first
     await conn.start_resolve_host()
