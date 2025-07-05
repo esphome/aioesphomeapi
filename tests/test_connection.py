@@ -121,46 +121,39 @@ async def test_timeout_sending_message(
 
 
 async def test_disconnect_when_not_fully_connected(
-    connection_params: ConnectionParams,
-    resolve_host,
-    aiohappyeyeballs_start_connection,
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    conn = APIConnection(connection_params, lambda expected: None, True, None, None)
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
 
-    # Resolve host first
-    await conn.start_resolve_host()
+    # Only send the first part of the handshake
+    # so we are stuck in the middle of the connection process
+    mock_data_received(
+        protocol,
+        b'\x00@\x02\x08\x01\x10\x07\x1a(m5stackatomproxy (esphome v2023.1.0-dev)"\x10m',
+    )
 
-    # Use a future to control when we complete the connection
-    connect_future = asyncio.Future()
+    await asyncio.sleep(0)
+    transport.reset_mock()
 
-    async def slow_connect(*args, **kwargs):
-        await connect_future
-        return MagicMock(), MagicMock()
+    with (
+        patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0),
+        patch("aioesphomeapi.connection.DISCONNECT_RESPONSE_TIMEOUT", 0.0),
+    ):
+        await conn.disconnect()
 
-    loop = asyncio.get_running_loop()
-    with patch.object(loop, "create_connection", side_effect=slow_connect):
-        connect_task = asyncio.create_task(conn.start_connection())
-        await asyncio.sleep(0)  # Let the task start
+    with pytest.raises(
+        APIConnectionError,
+        match="Timed out waiting to finish connect before disconnecting",
+    ):
+        await connect_task
 
-        # Now disconnect before connection completes
-        with (
-            patch("aioesphomeapi.connection.DISCONNECT_CONNECT_TIMEOUT", 0.0),
-        ):
-            disconnect_task = asyncio.create_task(conn.disconnect())
-            await asyncio.sleep(0)
+    transport.writelines.assert_called_with([b"\x00", b"\x00", b"\x05"])
 
-            # Complete the connection
-            connect_future.set_result(None)
-
-            # Both tasks should complete
-            await disconnect_task
-
-            with pytest.raises(
-                APIConnectionError,
-                match="Timed out waiting to finish connect before disconnecting",
-            ):
-                await connect_task
+    assert "disconnect request failed" in caplog.text
+    assert " Timeout waiting for DisconnectResponse after 0.0s" in caplog.text
 
 
 async def test_requires_encryption_propagates(conn: APIConnection):
