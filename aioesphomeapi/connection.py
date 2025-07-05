@@ -464,25 +464,23 @@ class APIConnection:
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
-        messages = [make_hello_request(self._params.client_info)]
-        msg_types = [HelloResponse]
-        if login:
-            messages.append(self._make_connect_request())
-            msg_types.append(ConnectResponse)
+        hello_msg = make_hello_request(self._params.client_info)
 
+        if not login:
+            # No password required - just send hello, handler will process response
+            self.send_messages((hello_msg,))
+            return
+
+        # Password required - send hello and connect, wait for connect response
         responses = await self.send_messages_await_response_complex(
-            tuple(messages),
+            (hello_msg, self._make_connect_request()),
             None,
-            lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
-            is msg_types[-1],
-            tuple(msg_types),
+            lambda resp: type(resp) is ConnectResponse,  # pylint: disable=unidiomatic-typecheck
+            (ConnectResponse,),
             CONNECT_REQUEST_TIMEOUT,
         )
-        resp = responses.pop(0)
-        self._process_hello_resp(resp)
-        if login:
-            login_response = responses.pop(0)
-            self._process_login_response(login_response)
+        # HelloResponse is handled by registered handler, process the ConnectResponse
+        self._process_login_response(responses[0])
 
     def _process_login_response(self, login_response: ConnectResponse) -> None:
         """Process a ConnectResponse."""
@@ -1010,6 +1008,9 @@ class APIConnection:
         )
         self._add_message_callback_without_remove(
             self._handle_get_time_request_internal, (GetTimeRequest,)
+        )
+        self._add_message_callback_without_remove(
+            self._process_hello_resp, (HelloResponse,)
         )
 
     def _handle_disconnect_request_internal(  # pylint: disable=unused-argument
