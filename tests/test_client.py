@@ -1251,7 +1251,7 @@ async def test_device_info(
 
     # With the callback mechanism, the client name is updated quickly after hello response
     # Wait a moment for the hello response to be processed
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0)
 
     # Both connection and client should have the updated name
     assert connection.received_name == "fake"
@@ -1989,7 +1989,7 @@ async def test_set_debug(
     client.set_debug(True)
 
     # With the callback mechanism, the client name is updated quickly after hello response
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0)
 
     # Both connection and client should have the updated name
     assert connection.received_name == "fake"
