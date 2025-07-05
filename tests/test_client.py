@@ -224,7 +224,7 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
     with (
         patch.object(
             cli._connection,
-            "send_messages_await_response_complex",
+            "send_messages",
             side_effect=Exception("foo"),
         ),
         pytest.raises(UnhandledAPIConnectionError, match="foo"),
@@ -1248,6 +1248,8 @@ async def test_device_info(
 ) -> None:
     """Test fetching device info."""
     client, connection, transport, protocol = api_client
+    # Wait for the hello response to be processed
+    await asyncio.sleep(0)
     assert client.log_name == "fake @ 10.0.0.512"
     device_info_task = asyncio.create_task(client.device_info())
     await asyncio.sleep(0)
@@ -1979,6 +1981,8 @@ async def test_set_debug(
     caplog.set_level(logging.DEBUG)
 
     client.set_debug(True)
+    # Wait for the hello response to be processed
+    await asyncio.sleep(0)
     assert client.log_name == "fake @ 10.0.0.512"
     device_info_task = asyncio.create_task(client.device_info())
     await asyncio.sleep(0)
