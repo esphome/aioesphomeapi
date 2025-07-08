@@ -256,6 +256,12 @@ class EntityState(APIModelBase):
     device_id: int = 0
 
 
+@_frozen_dataclass_decorator
+class CommandProtoMessage(APIModelBase):
+    key: int = 0
+    device_id: int = 0
+
+
 # ==================== BINARY SENSOR ====================
 @_frozen_dataclass_decorator
 class BinarySensorInfo(EntityInfo):
