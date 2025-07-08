@@ -844,7 +844,7 @@ message ListEntitiesCameraResponse {
   option (id) = 43;
   option (base_class) = "InfoResponseProtoMessage";
   option (source) = SOURCE_SERVER;
-  option (ifdef) = "USE_ESP32_CAMERA";
+  option (ifdef) = "USE_CAMERA";
 
   string object_id = 1;
   fixed32 key = 2;
@@ -858,17 +858,19 @@ message ListEntitiesCameraResponse {
 
 message CameraImageResponse {
   option (id) = 44;
+  option (base_class) = "StateResponseProtoMessage";
   option (source) = SOURCE_SERVER;
-  option (ifdef) = "USE_ESP32_CAMERA";
+  option (ifdef) = "USE_CAMERA";
 
   fixed32 key = 1;
   bytes data = 2;
   bool done = 3;
+  uint32 device_id = 4;
 }
 message CameraImageRequest {
   option (id) = 45;
   option (source) = SOURCE_CLIENT;
-  option (ifdef) = "USE_ESP32_CAMERA";
+  option (ifdef) = "USE_CAMERA";
   option (no_delay) = true;
 
   bool single = 1;
