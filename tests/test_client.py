@@ -353,6 +353,28 @@ async def test_subscribe_states_camera(auth_client: APIClient) -> None:
     on_state.assert_called_once_with(CameraState(key=1, data=b"asdfqwer"))
 
 
+async def test_subscribe_states_camera_with_device_id(auth_client: APIClient) -> None:
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # Test with device_id=0 (default)
+    await send(CameraImageResponse(key=1, data=b"asdf", device_id=0))
+    on_state.assert_not_called()
+
+    await send(CameraImageResponse(key=1, data=b"qwer", done=True, device_id=0))
+    on_state.assert_called_once_with(CameraState(key=1, data=b"asdfqwer", device_id=0))
+
+    on_state.reset_mock()
+
+    # Test with device_id=5
+    await send(CameraImageResponse(key=2, data=b"test", device_id=5))
+    on_state.assert_not_called()
+
+    await send(CameraImageResponse(key=2, data=b"data", done=True, device_id=5))
+    on_state.assert_called_once_with(CameraState(key=2, data=b"testdata", device_id=5))
+
+
 @pytest.mark.parametrize(
     "cmd, req",
     [
