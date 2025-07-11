@@ -874,9 +874,10 @@ class APIClient(APIClientBase):
         position: float | None = None,
         tilt: float | None = None,
         stop: bool = False,
+        device_id: int = 0,
     ) -> None:
         connection = self._get_connection()
-        req = CoverCommandRequest(key=key)
+        req = CoverCommandRequest(key=key, device_id=device_id)
         apiv = self.api_version
         if TYPE_CHECKING:
             assert apiv is not None
@@ -909,8 +910,9 @@ class APIClient(APIClientBase):
         oscillating: bool | None = None,
         direction: FanDirection | None = None,
         preset_mode: str | None = None,
+        device_id: int = 0,
     ) -> None:
-        req = FanCommandRequest(key=key)
+        req = FanCommandRequest(key=key, device_id=device_id)
         if state is not None:
             req.has_state = True
             req.state = state
@@ -946,8 +948,9 @@ class APIClient(APIClientBase):
         transition_length: float | None = None,
         flash_length: float | None = None,
         effect: str | None = None,
+        device_id: int = 0,
     ) -> None:
-        req = LightCommandRequest(key=key)
+        req = LightCommandRequest(key=key, device_id=device_id)
         if state is not None:
             req.has_state = True
             req.state = state
@@ -988,8 +991,10 @@ class APIClient(APIClientBase):
             req.effect = effect
         self._get_connection().send_message(req)
 
-    def switch_command(self, key: int, state: bool) -> None:
-        self._get_connection().send_message(SwitchCommandRequest(key=key, state=state))
+    def switch_command(self, key: int, state: bool, device_id: int = 0) -> None:
+        self._get_connection().send_message(
+            SwitchCommandRequest(key=key, state=state, device_id=device_id)
+        )
 
     def climate_command(  # pylint: disable=too-many-branches
         self,
@@ -1004,9 +1009,10 @@ class APIClient(APIClientBase):
         preset: ClimatePreset | None = None,
         custom_preset: str | None = None,
         target_humidity: float | None = None,
+        device_id: int = 0,
     ) -> None:
         connection = self._get_connection()
-        req = ClimateCommandRequest(key=key)
+        req = ClimateCommandRequest(key=key, device_id=device_id)
         if mode is not None:
             req.has_mode = True
             req.mode = mode
@@ -1046,33 +1052,47 @@ class APIClient(APIClientBase):
             req.target_humidity = target_humidity
         connection.send_message(req)
 
-    def number_command(self, key: int, state: float) -> None:
-        self._get_connection().send_message(NumberCommandRequest(key=key, state=state))
-
-    def date_command(self, key: int, year: int, month: int, day: int) -> None:
+    def number_command(self, key: int, state: float, device_id: int = 0) -> None:
         self._get_connection().send_message(
-            DateCommandRequest(key=key, year=year, month=month, day=day)
+            NumberCommandRequest(key=key, state=state, device_id=device_id)
         )
 
-    def time_command(self, key: int, hour: int, minute: int, second: int) -> None:
+    def date_command(
+        self, key: int, year: int, month: int, day: int, device_id: int = 0
+    ) -> None:
         self._get_connection().send_message(
-            TimeCommandRequest(key=key, hour=hour, minute=minute, second=second)
+            DateCommandRequest(
+                key=key, year=year, month=month, day=day, device_id=device_id
+            )
+        )
+
+    def time_command(
+        self, key: int, hour: int, minute: int, second: int, device_id: int = 0
+    ) -> None:
+        self._get_connection().send_message(
+            TimeCommandRequest(
+                key=key, hour=hour, minute=minute, second=second, device_id=device_id
+            )
         )
 
     def datetime_command(
         self,
         key: int,
         epoch_seconds: int,
+        device_id: int = 0,
     ) -> None:
         self._get_connection().send_message(
             DateTimeCommandRequest(
                 key=key,
                 epoch_seconds=epoch_seconds,
+                device_id=device_id,
             )
         )
 
-    def select_command(self, key: int, state: str) -> None:
-        self._get_connection().send_message(SelectCommandRequest(key=key, state=state))
+    def select_command(self, key: int, state: str, device_id: int = 0) -> None:
+        self._get_connection().send_message(
+            SelectCommandRequest(key=key, state=state, device_id=device_id)
+        )
 
     def siren_command(
         self,
@@ -1081,8 +1101,9 @@ class APIClient(APIClientBase):
         tone: str | None = None,
         volume: float | None = None,
         duration: int | None = None,
+        device_id: int = 0,
     ) -> None:
-        req = SirenCommandRequest(key=key)
+        req = SirenCommandRequest(key=key, device_id=device_id)
         if state is not None:
             req.state = state
             req.has_state = True
@@ -1097,16 +1118,19 @@ class APIClient(APIClientBase):
             req.has_duration = True
         self._get_connection().send_message(req)
 
-    def button_command(self, key: int) -> None:
-        self._get_connection().send_message(ButtonCommandRequest(key=key))
+    def button_command(self, key: int, device_id: int = 0) -> None:
+        self._get_connection().send_message(
+            ButtonCommandRequest(key=key, device_id=device_id)
+        )
 
     def lock_command(
         self,
         key: int,
         command: LockCommand,
         code: str | None = None,
+        device_id: int = 0,
     ) -> None:
-        req = LockCommandRequest(key=key, command=command)
+        req = LockCommandRequest(key=key, command=command, device_id=device_id)
         if code is not None:
             req.code = code
         self._get_connection().send_message(req)
@@ -1116,8 +1140,9 @@ class APIClient(APIClientBase):
         key: int,
         position: float | None = None,
         stop: bool = False,
+        device_id: int = 0,
     ) -> None:
-        req = ValveCommandRequest(key=key)
+        req = ValveCommandRequest(key=key, device_id=device_id)
         if position is not None:
             req.has_position = True
             req.position = position
@@ -1133,8 +1158,9 @@ class APIClient(APIClientBase):
         volume: float | None = None,
         media_url: str | None = None,
         announcement: bool | None = None,
+        device_id: int = 0,
     ) -> None:
-        req = MediaPlayerCommandRequest(key=key)
+        req = MediaPlayerCommandRequest(key=key, device_id=device_id)
         if command is not None:
             req.command = command
             req.has_command = True
@@ -1149,12 +1175,16 @@ class APIClient(APIClientBase):
             req.has_announcement = True
         self._get_connection().send_message(req)
 
-    def text_command(self, key: int, state: str) -> None:
-        self._get_connection().send_message(TextCommandRequest(key=key, state=state))
-
-    def update_command(self, key: int, command: UpdateCommand) -> None:
+    def text_command(self, key: int, state: str, device_id: int = 0) -> None:
         self._get_connection().send_message(
-            UpdateCommandRequest(key=key, command=command)
+            TextCommandRequest(key=key, state=state, device_id=device_id)
+        )
+
+    def update_command(
+        self, key: int, command: UpdateCommand, device_id: int = 0
+    ) -> None:
+        self._get_connection().send_message(
+            UpdateCommandRequest(key=key, command=command, device_id=device_id)
         )
 
     def execute_service(
@@ -1403,8 +1433,11 @@ class APIClient(APIClientBase):
         key: int,
         command: AlarmControlPanelCommand,
         code: str | None = None,
+        device_id: int = 0,
     ) -> None:
-        req = AlarmControlPanelCommandRequest(key=key, command=command)
+        req = AlarmControlPanelCommandRequest(
+            key=key, command=command, device_id=device_id
+        )
         if code is not None:
             req.code = code
         self._get_connection().send_message(req)
