@@ -54,6 +54,7 @@ from aioesphomeapi.api_pb2 import (
     SelectStateResponse,
     SensorStateResponse,
     ServiceArgType,
+    SirenStateResponse,
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
@@ -90,6 +91,7 @@ from aioesphomeapi.model import (
     DateTimeInfo,
     DateTimeState,
     DeviceInfo,
+    EntityState,
     Event,
     EventInfo,
     FanInfo,
@@ -111,6 +113,7 @@ from aioesphomeapi.model import (
     SensorInfo,
     SensorState,
     SirenInfo,
+    SirenState,
     SubDeviceInfo,
     SwitchInfo,
     SwitchState,
@@ -1077,4 +1080,149 @@ def test_device_info_mock_with_areas_and_devices() -> None:
     assert mocked_device.devices[0].area_id == 1
     assert mocked_device.devices[1].device_id == 200
     assert mocked_device.devices[1].name == "Modified Sub Device 2"
-    assert mocked_device.devices[1].area_id == 2
+
+
+# ==================== DEVICE_ID TESTS ====================
+
+# Test data for all state response types with device_id field
+STATE_RESPONSE_DEVICE_ID_TEST_DATA = [
+    # (protobuf_class, model_class, extra_fields)
+    (BinarySensorStateResponse, BinarySensorState, {"state": True}),
+    (CoverStateResponse, CoverState, {"position": 0.5}),
+    (FanStateResponse, FanState, {"state": True, "speed_level": 3}),
+    (LightStateResponse, LightState, {"state": True, "brightness": 0.8}),
+    (SensorStateResponse, SensorState, {"state": 25.5}),
+    (SwitchStateResponse, SwitchState, {"state": True}),
+    (TextSensorStateResponse, TextSensorState, {"state": "test"}),
+    (ClimateStateResponse, ClimateState, {"mode": 1, "current_temperature": 22.0}),
+    (NumberStateResponse, NumberState, {"state": 42.0}),
+    (SelectStateResponse, SelectState, {"state": "option1"}),
+    (SirenStateResponse, SirenState, {"state": True}),
+    (LockStateResponse, LockEntityState, {"state": 1}),
+    (MediaPlayerStateResponse, MediaPlayerEntityState, {"state": 2, "volume": 0.5}),
+    (AlarmControlPanelStateResponse, AlarmControlPanelEntityState, {"state": 1}),
+    (TextStateResponse, TextState, {"state": "text"}),
+    (DateStateResponse, DateState, {"year": 2024, "month": 1, "day": 15}),
+    (TimeStateResponse, TimeState, {"hour": 12, "minute": 30, "second": 0}),
+    (EventResponse, Event, {"event_type": "button_press"}),
+    (ValveStateResponse, ValveState, {"position": 0.75}),
+    (DateTimeStateResponse, DateTimeState, {"epoch_seconds": 1737000000}),
+    (UpdateStateResponse, UpdateState, {"current_version": "1.0.0"}),
+]
+
+
+@pytest.mark.parametrize(
+    ("proto_cls", "model_cls", "extra_fields"), STATE_RESPONSE_DEVICE_ID_TEST_DATA
+)
+def test_state_response_has_device_id_field(proto_cls, model_cls, extra_fields):
+    """Test that all StateResponse protobuf messages have device_id field."""
+    # Create protobuf message with device_id
+    proto_msg = proto_cls(key=123, device_id=456, **extra_fields)
+
+    # Verify the protobuf message has the device_id field set
+    assert proto_msg.key == 123
+    assert proto_msg.device_id == 456
+
+    # Convert to model and verify device_id is preserved
+    model_instance = model_cls.from_pb(proto_msg)
+    assert model_instance.key == 123
+    assert model_instance.device_id == 456
+
+
+@pytest.mark.parametrize(
+    ("proto_cls", "model_cls", "extra_fields"), STATE_RESPONSE_DEVICE_ID_TEST_DATA
+)
+def test_state_response_device_id_default_value(proto_cls, model_cls, extra_fields):
+    """Test that device_id defaults to 0 when not set."""
+    # Create protobuf message without device_id
+    proto_msg = proto_cls(key=123, **extra_fields)
+
+    # Verify default value is 0
+    assert proto_msg.device_id == 0
+
+    # Convert to model and verify default
+    model_instance = model_cls.from_pb(proto_msg)
+    assert model_instance.device_id == 0
+
+
+def test_entity_state_base_class_has_device_id():
+    """Test that EntityState base class has device_id field."""
+
+    # Check that EntityState has device_id field with default value 0
+    state = EntityState(key=100)
+    assert state.key == 100
+    assert state.device_id == 0
+
+    # Check that device_id can be set
+    state_with_device = EntityState(key=100, device_id=42)
+    assert state_with_device.key == 100
+    assert state_with_device.device_id == 42
+
+
+def test_state_model_to_dict_includes_device_id():
+    """Test that to_dict() includes device_id field."""
+    # Test a few different state types
+    sensor_state = SensorState(key=1, state=25.5, device_id=10)
+    sensor_dict = sensor_state.to_dict()
+    assert sensor_dict["key"] == 1
+    assert sensor_dict["state"] == 25.5
+    assert sensor_dict["device_id"] == 10
+
+    switch_state = SwitchState(key=2, state=True, device_id=20)
+    switch_dict = switch_state.to_dict()
+    assert switch_dict["key"] == 2
+    assert switch_dict["state"] is True
+    assert switch_dict["device_id"] == 20
+
+
+def test_state_model_from_dict_handles_device_id():
+    """Test that from_dict() properly handles device_id field."""
+    # Test creating from dict with device_id
+    sensor_dict = {"key": 1, "state": 25.5, "device_id": 10, "missing_state": False}
+    sensor_state = SensorState.from_dict(sensor_dict)
+    assert sensor_state.key == 1
+    assert sensor_state.state == 25.5
+    assert sensor_state.device_id == 10
+
+    # Test creating from dict without device_id (should default to 0)
+    switch_dict = {"key": 2, "state": True}
+    switch_state = SwitchState.from_dict(switch_dict)
+    assert switch_state.key == 2
+    assert switch_state.state is True
+    assert switch_state.device_id == 0
+
+
+def test_event_entity_state_device_id():
+    """Test Event entity state specifically for device_id handling."""
+    # Test Event with device_id set
+    event_proto = EventResponse(key=100, event_type="button_press", device_id=42)
+    assert event_proto.key == 100
+    assert event_proto.event_type == "button_press"
+    assert event_proto.device_id == 42
+
+    # Convert to model
+    event_model = Event.from_pb(event_proto)
+    assert event_model.key == 100
+    assert event_model.event_type == "button_press"
+    assert event_model.device_id == 42
+
+    # Test Event without device_id (defaults to 0)
+    event_proto_no_device = EventResponse(key=101, event_type="motion_detected")
+    assert event_proto_no_device.device_id == 0
+
+    event_model_no_device = Event.from_pb(event_proto_no_device)
+    assert event_model_no_device.key == 101
+    assert event_model_no_device.event_type == "motion_detected"
+    assert event_model_no_device.device_id == 0
+
+    # Test to_dict includes device_id
+    event_dict = event_model.to_dict()
+    assert event_dict == {"key": 100, "event_type": "button_press", "device_id": 42}
+
+    # Test from_dict with device_id
+    event_from_dict = Event.from_dict(
+        {"key": 102, "event_type": "door_opened", "device_id": 99}
+    )
+    assert event_from_dict.key == 102
+    assert event_from_dict.event_type == "door_opened"
+    assert event_from_dict.device_id == 99

@@ -80,7 +80,7 @@ def on_state_msg(
             # Return CameraState with the merged data
             image_data = b"".join(data_parts)
             del image_stream[msg_key]
-            on_state(CameraState(key=msg.key, data=image_data))  # type: ignore[call-arg]
+            on_state(CameraState(key=msg.key, data=image_data, device_id=msg.device_id))  # type: ignore[call-arg]
 
 
 def on_home_assistant_service_response(

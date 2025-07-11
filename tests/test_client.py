@@ -353,6 +353,28 @@ async def test_subscribe_states_camera(auth_client: APIClient) -> None:
     on_state.assert_called_once_with(CameraState(key=1, data=b"asdfqwer"))
 
 
+async def test_subscribe_states_camera_with_device_id(auth_client: APIClient) -> None:
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # Test with device_id=0 (default)
+    await send(CameraImageResponse(key=1, data=b"asdf", device_id=0))
+    on_state.assert_not_called()
+
+    await send(CameraImageResponse(key=1, data=b"qwer", done=True, device_id=0))
+    on_state.assert_called_once_with(CameraState(key=1, data=b"asdfqwer", device_id=0))
+
+    on_state.reset_mock()
+
+    # Test with device_id=5
+    await send(CameraImageResponse(key=2, data=b"test", device_id=5))
+    on_state.assert_not_called()
+
+    await send(CameraImageResponse(key=2, data=b"data", done=True, device_id=5))
+    on_state.assert_called_once_with(CameraState(key=2, data=b"testdata", device_id=5))
+
+
 @pytest.mark.parametrize(
     "cmd, req",
     [
@@ -2852,3 +2874,236 @@ async def test_bluetooth_scanner_set_mode(
     await asyncio.wait_for(done.wait(), 1)
 
     unsub()
+
+
+@pytest.mark.parametrize(
+    ("method_name", "method_args", "expected_request"),
+    [
+        # Test with device_id=0 (default)
+        (
+            "switch_command",
+            {"key": 1, "state": True},
+            SwitchCommandRequest(key=1, state=True, device_id=0),
+        ),
+        # Test with device_id=5
+        (
+            "switch_command",
+            {"key": 1, "state": True, "device_id": 5},
+            SwitchCommandRequest(key=1, state=True, device_id=5),
+        ),
+        # Button command
+        ("button_command", {"key": 2}, ButtonCommandRequest(key=2, device_id=0)),
+        (
+            "button_command",
+            {"key": 2, "device_id": 10},
+            ButtonCommandRequest(key=2, device_id=10),
+        ),
+        # Number command
+        (
+            "number_command",
+            {"key": 3, "state": 50.0},
+            NumberCommandRequest(key=3, state=50.0, device_id=0),
+        ),
+        (
+            "number_command",
+            {"key": 3, "state": 50.0, "device_id": 15},
+            NumberCommandRequest(key=3, state=50.0, device_id=15),
+        ),
+        # Select command
+        (
+            "select_command",
+            {"key": 4, "state": "option1"},
+            SelectCommandRequest(key=4, state="option1", device_id=0),
+        ),
+        (
+            "select_command",
+            {"key": 4, "state": "option1", "device_id": 20},
+            SelectCommandRequest(key=4, state="option1", device_id=20),
+        ),
+        # Text command
+        (
+            "text_command",
+            {"key": 5, "state": "hello"},
+            TextCommandRequest(key=5, state="hello", device_id=0),
+        ),
+        (
+            "text_command",
+            {"key": 5, "state": "hello", "device_id": 25},
+            TextCommandRequest(key=5, state="hello", device_id=25),
+        ),
+        # Date command
+        (
+            "date_command",
+            {"key": 6, "year": 2024, "month": 1, "day": 1},
+            DateCommandRequest(key=6, year=2024, month=1, day=1, device_id=0),
+        ),
+        (
+            "date_command",
+            {"key": 6, "year": 2024, "month": 1, "day": 1, "device_id": 30},
+            DateCommandRequest(key=6, year=2024, month=1, day=1, device_id=30),
+        ),
+        # Time command
+        (
+            "time_command",
+            {"key": 7, "hour": 12, "minute": 30, "second": 0},
+            TimeCommandRequest(key=7, hour=12, minute=30, second=0, device_id=0),
+        ),
+        (
+            "time_command",
+            {"key": 7, "hour": 12, "minute": 30, "second": 0, "device_id": 35},
+            TimeCommandRequest(key=7, hour=12, minute=30, second=0, device_id=35),
+        ),
+        # DateTime command
+        (
+            "datetime_command",
+            {"key": 8, "epoch_seconds": 1234567890},
+            DateTimeCommandRequest(key=8, epoch_seconds=1234567890, device_id=0),
+        ),
+        (
+            "datetime_command",
+            {"key": 8, "epoch_seconds": 1234567890, "device_id": 40},
+            DateTimeCommandRequest(key=8, epoch_seconds=1234567890, device_id=40),
+        ),
+        # Update command
+        (
+            "update_command",
+            {"key": 9, "command": UpdateCommand.INSTALL},
+            UpdateCommandRequest(key=9, command=UpdateCommand.INSTALL, device_id=0),
+        ),
+        (
+            "update_command",
+            {"key": 9, "command": UpdateCommand.INSTALL, "device_id": 45},
+            UpdateCommandRequest(key=9, command=UpdateCommand.INSTALL, device_id=45),
+        ),
+        # Cover command
+        (
+            "cover_command",
+            {"key": 10, "position": 0.5},
+            CoverCommandRequest(key=10, device_id=0),
+        ),
+        (
+            "cover_command",
+            {"key": 10, "position": 0.5, "device_id": 50},
+            CoverCommandRequest(key=10, device_id=50),
+        ),
+        # Fan command
+        (
+            "fan_command",
+            {"key": 11, "state": True},
+            FanCommandRequest(key=11, device_id=0),
+        ),
+        (
+            "fan_command",
+            {"key": 11, "state": True, "device_id": 55},
+            FanCommandRequest(key=11, device_id=55),
+        ),
+        # Light command
+        (
+            "light_command",
+            {"key": 12, "state": True},
+            LightCommandRequest(key=12, device_id=0),
+        ),
+        (
+            "light_command",
+            {"key": 12, "state": True, "device_id": 60},
+            LightCommandRequest(key=12, device_id=60),
+        ),
+        # Climate command
+        (
+            "climate_command",
+            {"key": 13, "target_temperature": 22.0},
+            ClimateCommandRequest(key=13, device_id=0),
+        ),
+        (
+            "climate_command",
+            {"key": 13, "target_temperature": 22.0, "device_id": 65},
+            ClimateCommandRequest(key=13, device_id=65),
+        ),
+        # Siren command
+        (
+            "siren_command",
+            {"key": 14, "state": True},
+            SirenCommandRequest(key=14, device_id=0),
+        ),
+        (
+            "siren_command",
+            {"key": 14, "state": True, "device_id": 70},
+            SirenCommandRequest(key=14, device_id=70),
+        ),
+        # Lock command
+        (
+            "lock_command",
+            {"key": 15, "command": LockCommand.LOCK},
+            LockCommandRequest(key=15, command=LockCommand.LOCK, device_id=0),
+        ),
+        (
+            "lock_command",
+            {"key": 15, "command": LockCommand.LOCK, "device_id": 75},
+            LockCommandRequest(key=15, command=LockCommand.LOCK, device_id=75),
+        ),
+        # Valve command
+        (
+            "valve_command",
+            {"key": 16, "position": 0.5},
+            ValveCommandRequest(key=16, device_id=0),
+        ),
+        (
+            "valve_command",
+            {"key": 16, "position": 0.5, "device_id": 80},
+            ValveCommandRequest(key=16, device_id=80),
+        ),
+        # Media player command
+        (
+            "media_player_command",
+            {"key": 17, "command": MediaPlayerCommand.PLAY},
+            MediaPlayerCommandRequest(key=17, device_id=0),
+        ),
+        (
+            "media_player_command",
+            {"key": 17, "command": MediaPlayerCommand.PLAY, "device_id": 85},
+            MediaPlayerCommandRequest(key=17, device_id=85),
+        ),
+        # Alarm control panel command
+        (
+            "alarm_control_panel_command",
+            {"key": 18, "command": AlarmControlPanelCommand.DISARM},
+            AlarmControlPanelCommandRequest(
+                key=18, command=AlarmControlPanelCommand.DISARM, device_id=0
+            ),
+        ),
+        (
+            "alarm_control_panel_command",
+            {"key": 18, "command": AlarmControlPanelCommand.DISARM, "device_id": 90},
+            AlarmControlPanelCommandRequest(
+                key=18, command=AlarmControlPanelCommand.DISARM, device_id=90
+            ),
+        ),
+    ],
+)
+async def test_device_id_in_commands(
+    auth_client: APIClient,
+    method_name: str,
+    method_args: dict[str, Any],
+    expected_request: Any,
+) -> None:
+    """Test that device_id is properly passed through all command methods and defaults to 0."""
+    send = patch_send(auth_client)
+    # Set API version for commands that need it (like cover_command)
+    patch_api_version(auth_client, APIVersion(1, 1))
+
+    # Call the command method
+    method = getattr(auth_client, method_name)
+    method(**method_args)
+
+    # Verify send_message was called once
+    assert send.call_count == 1
+
+    # Get the actual request that was sent
+    actual_request = send.call_args[0][0]
+
+    # Verify it's the correct request type
+    assert type(actual_request) is type(expected_request)
+
+    # Verify key and device_id match
+    assert actual_request.key == expected_request.key
+    assert actual_request.device_id == expected_request.device_id
