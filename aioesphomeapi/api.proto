@@ -222,37 +222,37 @@ message DeviceInfoResponse {
   // The model of the board. For example NodeMCU
   string model = 6;
 
-  bool has_deep_sleep = 7;
+  bool has_deep_sleep = 7 [(field_ifdef) = "USE_DEEP_SLEEP"];
 
   // The esphome project details if set
-  string project_name = 8;
-  string project_version = 9;
+  string project_name = 8 [(field_ifdef) = "ESPHOME_PROJECT_NAME"];
+  string project_version = 9 [(field_ifdef) = "ESPHOME_PROJECT_NAME"];
 
-  uint32 webserver_port = 10;
+  uint32 webserver_port = 10 [(field_ifdef) = "USE_WEBSERVER"];
 
-  uint32 legacy_bluetooth_proxy_version = 11;
-  uint32 bluetooth_proxy_feature_flags = 15;
+  uint32 legacy_bluetooth_proxy_version = 11 [(field_ifdef) = "USE_BLUETOOTH_PROXY"];
+  uint32 bluetooth_proxy_feature_flags = 15 [(field_ifdef) = "USE_BLUETOOTH_PROXY"];
 
   string manufacturer = 12;
 
   string friendly_name = 13;
 
-  uint32 legacy_voice_assistant_version = 14;
-  uint32 voice_assistant_feature_flags = 17;
+  uint32 legacy_voice_assistant_version = 14 [(field_ifdef) = "USE_VOICE_ASSISTANT"];
+  uint32 voice_assistant_feature_flags = 17 [(field_ifdef) = "USE_VOICE_ASSISTANT"];
 
-  string suggested_area = 16;
+  string suggested_area = 16 [(field_ifdef) = "USE_AREAS"];
 
   // The Bluetooth mac address of the device. For example "AC:BC:32:89:0E:AA"
-  string bluetooth_mac_address = 18;
+  string bluetooth_mac_address = 18 [(field_ifdef) = "USE_BLUETOOTH_PROXY"];
 
   // Supports receiving and saving api encryption key
-  bool api_encryption_supported = 19;
+  bool api_encryption_supported = 19 [(field_ifdef) = "USE_API_NOISE"];
 
-  repeated DeviceInfo devices = 20;
-  repeated AreaInfo areas = 21;
+  repeated DeviceInfo devices = 20 [(field_ifdef) = "USE_DEVICES"];
+  repeated AreaInfo areas = 21 [(field_ifdef) = "USE_AREAS"];
 
   // Top-level area info to phase out suggested_area
-  AreaInfo area = 22;
+  AreaInfo area = 22 [(field_ifdef) = "USE_AREAS"];
 }
 
 message ListEntitiesRequest {
@@ -295,9 +295,9 @@ message ListEntitiesBinarySensorResponse {
   string device_class = 5;
   bool is_status_binary_sensor = 6;
   bool disabled_by_default = 7;
-  string icon = 8;
+  string icon = 8 [(field_ifdef) = "USE_ENTITY_ICON"];
   EntityCategory entity_category = 9;
-  uint32 device_id = 10;
+  uint32 device_id = 10 [(field_ifdef) = "USE_DEVICES"];
 }
 message BinarySensorStateResponse {
   option (id) = 21;
@@ -331,10 +331,10 @@ message ListEntitiesCoverResponse {
   bool supports_tilt = 7;
   string device_class = 8;
   bool disabled_by_default = 9;
-  string icon = 10;
+  string icon = 10 [(field_ifdef) = "USE_ENTITY_ICON"];
   EntityCategory entity_category = 11;
   bool supports_stop = 12;
-  uint32 device_id = 13;
+  uint32 device_id = 13 [(field_ifdef) = "USE_DEVICES"];
 }
 
 enum LegacyCoverState {
@@ -388,7 +388,7 @@ message CoverCommandRequest {
   bool has_tilt = 6;
   float tilt = 7;
   bool stop = 8;
-  uint32 device_id = 9;
+  uint32 device_id = 9 [(field_ifdef) = "USE_DEVICES"];
 }
 
 // ==================== FAN ====================
@@ -408,10 +408,10 @@ message ListEntitiesFanResponse {
   bool supports_direction = 7;
   int32 supported_speed_count = 8;
   bool disabled_by_default = 9;
-  string icon = 10;
+  string icon = 10 [(field_ifdef) = "USE_ENTITY_ICON"];
   EntityCategory entity_category = 11;
   repeated string supported_preset_modes = 12;
-  uint32 device_id = 13;
+  uint32 device_id = 13 [(field_ifdef) = "USE_DEVICES"];
 }
 enum FanSpeed {
   FAN_SPEED_LOW = 0;
@@ -436,7 +436,7 @@ message FanStateResponse {
   FanDirection direction = 5;
   int32 speed_level = 6;
   string preset_mode = 7;
-  uint32 device_id = 8;
+  uint32 device_id = 8 [(field_ifdef) = "USE_DEVICES"];
 }
 message FanCommandRequest {
   option (id) = 31;
@@ -496,9 +496,9 @@ message ListEntitiesLightResponse {
   float max_mireds = 10;
   repeated string effects = 11;
   bool disabled_by_default = 13;
-  string icon = 14;
+  string icon = 14 [(field_ifdef) = "USE_ENTITY_ICON"];
   EntityCategory entity_category = 15;
-  uint32 device_id = 16;
+  uint32 device_id = 16 [(field_ifdef) = "USE_DEVICES"];
 }
 message LightStateResponse {
   option (id) = 24;
@@ -584,7 +584,7 @@ message ListEntitiesSensorResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   string unit_of_measurement = 6;
   int32 accuracy_decimals = 7;
   bool force_update = 8;
@@ -623,12 +623,12 @@ message ListEntitiesSwitchResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool assumed_state = 6;
   bool disabled_by_default = 7;
   EntityCategory entity_category = 8;
   string device_class = 9;
-  uint32 device_id = 10;
+  uint32 device_id = 10 [(field_ifdef) = "USE_DEVICES"];
 }
 message SwitchStateResponse {
   option (id) = 26;
@@ -665,11 +665,11 @@ message ListEntitiesTextSensorResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
-  uint32 device_id = 9;
+  uint32 device_id = 9 [(field_ifdef) = "USE_DEVICES"];
 }
 message TextSensorStateResponse {
   option (id) = 27;
@@ -855,9 +855,9 @@ message ListEntitiesCameraResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
   bool disabled_by_default = 5;
-  string icon = 6;
+  string icon = 6 [(field_ifdef) = "USE_ENTITY_ICON"];
   EntityCategory entity_category = 7;
-  uint32 device_id = 8;
+  uint32 device_id = 8 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message CameraImageResponse {
@@ -955,14 +955,14 @@ message ListEntitiesClimateResponse {
   repeated ClimatePreset supported_presets = 16;
   repeated string supported_custom_presets = 17;
   bool disabled_by_default = 18;
-  string icon = 19;
+  string icon = 19 [(field_ifdef) = "USE_ENTITY_ICON"];
   EntityCategory entity_category = 20;
   float visual_current_temperature_step = 21;
   bool supports_current_humidity = 22;
   bool supports_target_humidity = 23;
   float visual_min_humidity = 24;
   float visual_max_humidity = 25;
-  uint32 device_id = 26;
+  uint32 device_id = 26 [(field_ifdef) = "USE_DEVICES"];
 }
 message ClimateStateResponse {
   option (id) = 47;
@@ -987,7 +987,7 @@ message ClimateStateResponse {
   string custom_preset = 13;
   float current_humidity = 14;
   float target_humidity = 15;
-  uint32 device_id = 16;
+  uint32 device_id = 16 [(field_ifdef) = "USE_DEVICES"];
 }
 message ClimateCommandRequest {
   option (id) = 48;
@@ -1040,7 +1040,7 @@ message ListEntitiesNumberResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   float min_value = 6;
   float max_value = 7;
   float step = 8;
@@ -1089,11 +1089,11 @@ message ListEntitiesSelectResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   repeated string options = 6;
   bool disabled_by_default = 7;
   EntityCategory entity_category = 8;
-  uint32 device_id = 9;
+  uint32 device_id = 9 [(field_ifdef) = "USE_DEVICES"];
 }
 message SelectStateResponse {
   option (id) = 53;
@@ -1133,13 +1133,13 @@ message ListEntitiesSirenResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   repeated string tones = 7;
   bool supports_duration = 8;
   bool supports_volume = 9;
   EntityCategory entity_category = 10;
-  uint32 device_id = 11;
+  uint32 device_id = 11 [(field_ifdef) = "USE_DEVICES"];
 }
 message SirenStateResponse {
   option (id) = 56;
@@ -1168,7 +1168,7 @@ message SirenCommandRequest {
   uint32 duration = 7;
   bool has_volume = 8;
   float volume = 9;
-  uint32 device_id = 10;
+  uint32 device_id = 10 [(field_ifdef) = "USE_DEVICES"];
 }
 
 // ==================== LOCK ====================
@@ -1196,7 +1196,7 @@ message ListEntitiesLockResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   bool assumed_state = 8;
@@ -1206,7 +1206,7 @@ message ListEntitiesLockResponse {
 
   // Not yet implemented:
   string code_format = 11;
-  uint32 device_id = 12;
+  uint32 device_id = 12 [(field_ifdef) = "USE_DEVICES"];
 }
 message LockStateResponse {
   option (id) = 59;
@@ -1245,11 +1245,11 @@ message ListEntitiesButtonResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
-  uint32 device_id = 9;
+  uint32 device_id = 9 [(field_ifdef) = "USE_DEVICES"];
 }
 message ButtonCommandRequest {
   option (id) = 62;
@@ -1300,7 +1300,7 @@ message ListEntitiesMediaPlayerResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
 
@@ -1308,7 +1308,7 @@ message ListEntitiesMediaPlayerResponse {
 
   repeated MediaPlayerSupportedFormat supported_formats = 9;
 
-  uint32 device_id = 10;
+  uint32 device_id = 10 [(field_ifdef) = "USE_DEVICES"];
 }
 message MediaPlayerStateResponse {
   option (id) = 64;
@@ -1342,7 +1342,7 @@ message MediaPlayerCommandRequest {
 
   bool has_announcement = 8;
   bool announcement = 9;
-  uint32 device_id = 10;
+  uint32 device_id = 10 [(field_ifdef) = "USE_DEVICES"];
 }
 
 // ==================== BLUETOOTH ====================
@@ -1381,7 +1381,7 @@ message BluetoothLERawAdvertisement {
   sint32 rssi = 2;
   uint32 address_type = 3;
 
-  bytes data = 4 [(fixed_array_size) = 62];
+  bytes data = 4;
 }
 
 message BluetoothLERawAdvertisementsResponse {
@@ -1846,13 +1846,13 @@ message ListEntitiesAlarmControlPanelResponse {
   fixed32 key = 2;
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   uint32 supported_features = 8;
   bool requires_code = 9;
   bool requires_code_to_arm = 10;
-  uint32 device_id = 11;
+  uint32 device_id = 11 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message AlarmControlPanelStateResponse {
@@ -1893,7 +1893,7 @@ message ListEntitiesTextResponse {
   fixed32 key = 2;
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
 
@@ -1901,7 +1901,7 @@ message ListEntitiesTextResponse {
   uint32 max_length = 9;
   string pattern = 10;
   TextMode mode = 11;
-  uint32 device_id = 12;
+  uint32 device_id = 12 [(field_ifdef) = "USE_DEVICES"];
 }
 message TextStateResponse {
   option (id) = 98;
@@ -1942,10 +1942,10 @@ message ListEntitiesDateResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
-  uint32 device_id = 8;
+  uint32 device_id = 8 [(field_ifdef) = "USE_DEVICES"];
 }
 message DateStateResponse {
   option (id) = 101;
@@ -1989,10 +1989,10 @@ message ListEntitiesTimeResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
-  uint32 device_id = 8;
+  uint32 device_id = 8 [(field_ifdef) = "USE_DEVICES"];
 }
 message TimeStateResponse {
   option (id) = 104;
@@ -2036,13 +2036,13 @@ message ListEntitiesEventResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
 
   repeated string event_types = 9;
-  uint32 device_id = 10;
+  uint32 device_id = 10 [(field_ifdef) = "USE_DEVICES"];
 }
 message EventResponse {
   option (id) = 108;
@@ -2067,7 +2067,7 @@ message ListEntitiesValveResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
@@ -2075,7 +2075,7 @@ message ListEntitiesValveResponse {
   bool assumed_state = 9;
   bool supports_position = 10;
   bool supports_stop = 11;
-  uint32 device_id = 12;
+  uint32 device_id = 12 [(field_ifdef) = "USE_DEVICES"];
 }
 
 enum ValveOperation {
@@ -2122,10 +2122,10 @@ message ListEntitiesDateTimeResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
-  uint32 device_id = 8;
+  uint32 device_id = 8 [(field_ifdef) = "USE_DEVICES"];
 }
 message DateTimeStateResponse {
   option (id) = 113;
@@ -2165,11 +2165,11 @@ message ListEntitiesUpdateResponse {
   string name = 3;
   reserved 4; // Deprecated: was string unique_id
 
-  string icon = 5;
+  string icon = 5 [(field_ifdef) = "USE_ENTITY_ICON"];
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
   string device_class = 8;
-  uint32 device_id = 9;
+  uint32 device_id = 9 [(field_ifdef) = "USE_DEVICES"];
 }
 message UpdateStateResponse {
   option (id) = 117;
@@ -2188,7 +2188,7 @@ message UpdateStateResponse {
   string title = 8;
   string release_summary = 9;
   string release_url = 10;
-  uint32 device_id = 11;
+  uint32 device_id = 11 [(field_ifdef) = "USE_DEVICES"];
 }
 enum UpdateCommand {
   UPDATE_COMMAND_NONE = 0;
