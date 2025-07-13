@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from enum import Enum
 import logging
 import time
-from typing import Callable
 
 import zeroconf
 from zeroconf.const import (

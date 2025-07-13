@@ -5,6 +5,7 @@ import asyncio
 # After we drop support for Python 3.10, we can use the built-in TimeoutError
 # instead of the one from asyncio since they are the same in Python 3.11+
 from asyncio import CancelledError, TimeoutError as asyncio_TimeoutError
+from collections.abc import Callable
 from dataclasses import astuple, dataclass
 import enum
 from functools import lru_cache, partial
@@ -12,7 +13,7 @@ import logging
 import socket
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import aiohappyeyeballs
 from async_interrupt import interrupt
