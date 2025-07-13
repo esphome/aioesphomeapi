@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 import logging
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
 
 from ..core import SocketClosedAPIError
 

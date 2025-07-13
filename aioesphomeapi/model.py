@@ -1,24 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
-import sys
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from google.protobuf import message
 
 from .util import fix_float_single_double_conversion
 
-if sys.version_info[:2] < (3, 10):
-    _dataclass_decorator = dataclass
-    _frozen_dataclass_decorator = partial(dataclass, frozen=True)
-else:
-    _dataclass_decorator = partial(dataclass, slots=True)
-    _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
+_dataclass_decorator = partial(dataclass, slots=True)
+_frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 import logging
 import socket
-from typing import Callable, cast
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
 from google.protobuf import message

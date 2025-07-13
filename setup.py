@@ -79,7 +79,7 @@ setup_kwargs = {
     "include_package_data": True,
     "zip_safe": False,
     "install_requires": REQUIRES,
-    "python_requires": ">=3.9",
+    "python_requires": ">=3.10",
     "test_suite": "tests",
     "entry_points": {
         "console_scripts": [
