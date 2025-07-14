@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from zeroconf.asyncio import AsyncZeroconf
 
