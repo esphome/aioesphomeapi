@@ -34,10 +34,6 @@ jobs:
           - os: ubuntu-latest
             qemu: armv7l
             musl: "musllinux"
-            pyver: cp39
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: "musllinux"
             pyver: cp310
           - os: ubuntu-latest
             qemu: armv7l
@@ -53,10 +49,6 @@ jobs:
             pyver: cp313
           # qemu is slow, make a single
           # runner per Python version
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: ""
-            pyver: cp39
           - os: ubuntu-latest
             qemu: armv7l
             musl: ""
@@ -109,7 +101,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.0.1
         env:
-          CIBW_SKIP: cp36-* cp37-* cp38-* pp* ${{ matrix.musl == 'musllinux' && '*manylinux*' || '*musllinux*' }}
+          CIBW_SKIP: cp36-* cp37-* cp38-* cp39-* pp* ${{ matrix.musl == 'musllinux' && '*manylinux*' || '*musllinux*' }}
           CIBW_BEFORE_ALL_LINUX: apt-get install -y gcc || yum install -y gcc || apk add gcc
           REQUIRE_CYTHON: 1
 
