@@ -1376,7 +1376,9 @@ message SubscribeBluetoothLEAdvertisementsRequest {
   uint32 flags = 1;
 }
 
+// Deprecated - only used by deprecated BluetoothLEAdvertisementResponse
 message BluetoothServiceData {
+  option deprecated = true;
   string uuid = 1;
   // Deprecated in API version 1.7
   repeated uint32 legacy_data = 2 [deprecated=true];  // Removed in api version 1.7
