@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-
-# After we drop support for Python 3.10, we can use the built-in TimeoutError
-# instead of the one from asyncio since they are the same in Python 3.11+
-from asyncio import CancelledError, TimeoutError as asyncio_TimeoutError
+from asyncio import CancelledError
 from collections.abc import Callable
 from dataclasses import astuple, dataclass
 import enum
@@ -162,7 +159,7 @@ make_hello_request = _cached_make_hello_request
 def handle_timeout(fut: asyncio.Future[None]) -> None:
     """Handle a timeout."""
     if not fut.done():
-        fut.set_exception(asyncio_TimeoutError)
+        fut.set_exception(TimeoutError)
 
 
 _handle_timeout = handle_timeout
@@ -354,12 +351,12 @@ class APIConnection:
                         loop=self._loop,
                     )
                     break
-            except (OSError, asyncio_TimeoutError) as err:
+            except (OSError, TimeoutError) as err:
                 last_exception = err
                 aiohappyeyeballs.pop_addr_infos_interleave(addr_infos, interleave)
 
         if sock is None:
-            if isinstance(last_exception, asyncio_TimeoutError):
+            if isinstance(last_exception, TimeoutError):
                 raise TimeoutAPIError(
                     f"Timeout while connecting to {addrs}"
                 ) from last_exception
@@ -453,7 +450,7 @@ class APIConnection:
         )
         try:
             await self._frame_helper.ready_future
-        except asyncio_TimeoutError as err:
+        except TimeoutError as err:
             raise TimeoutAPIError(
                 f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
             ) from err
@@ -862,7 +859,7 @@ class APIConnection:
         timeout_expired = False
         try:
             await fut
-        except asyncio_TimeoutError as err:
+        except TimeoutError as err:
             timeout_expired = True
             response_names = message_types_to_names(msg_types)
             raise TimeoutAPIError(
