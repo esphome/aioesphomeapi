@@ -422,7 +422,9 @@ message ListEntitiesFanResponse {
   repeated string supported_preset_modes = 12;
   uint32 device_id = 13 [(field_ifdef) = "USE_DEVICES"];
 }
+// Deprecated in API version 1.6 - only used in deprecated fields
 enum FanSpeed {
+  option deprecated = true;
   FAN_SPEED_LOW = 0;
   FAN_SPEED_MEDIUM = 1;
   FAN_SPEED_HIGH = 2;
@@ -585,6 +587,7 @@ enum SensorStateClass {
 
 // Deprecated in API version 1.5
 enum SensorLastResetType {
+  option deprecated = true;
   LAST_RESET_NONE = 0;
   LAST_RESET_NEVER = 1;
   LAST_RESET_AUTO = 2;
