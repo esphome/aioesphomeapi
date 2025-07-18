@@ -493,7 +493,7 @@ class APIClient(APIClientBase):
         try:
             await connect_future
             connect_ok = True
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             # If the timeout expires, make sure
             # to unsub before calling _bluetooth_device_disconnect_guard_timeout
             # so that the disconnect message is not propagated back to the caller
