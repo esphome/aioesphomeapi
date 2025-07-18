@@ -24,7 +24,7 @@ cdef object NO_PASSWORD_CONNECT_REQUEST
 
 cdef object asyncio_timeout
 cdef object CancelledError
-cdef object asyncio_TimeoutError
+cdef object TimeoutError
 
 cdef object ConnectRequest, ConnectResponse
 cdef object DisconnectRequest
