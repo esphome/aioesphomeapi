@@ -341,6 +341,7 @@ message ListEntitiesCoverResponse {
 
 // Deprecated in API version 1.1
 enum LegacyCoverState {
+  option deprecated = true;
   LEGACY_COVER_STATE_OPEN = 0;
   LEGACY_COVER_STATE_CLOSED = 1;
 }
@@ -370,6 +371,7 @@ message CoverStateResponse {
 
 // Deprecated in API version 1.1
 enum LegacyCoverCommand {
+  option deprecated = true;
   LEGACY_COVER_COMMAND_OPEN = 0;
   LEGACY_COVER_COMMAND_CLOSE = 1;
   LEGACY_COVER_COMMAND_STOP = 2;
@@ -420,7 +422,9 @@ message ListEntitiesFanResponse {
   repeated string supported_preset_modes = 12;
   uint32 device_id = 13 [(field_ifdef) = "USE_DEVICES"];
 }
+// Deprecated in API version 1.6 - only used in deprecated fields
 enum FanSpeed {
+  option deprecated = true;
   FAN_SPEED_LOW = 0;
   FAN_SPEED_MEDIUM = 1;
   FAN_SPEED_HIGH = 2;
@@ -583,6 +587,7 @@ enum SensorStateClass {
 
 // Deprecated in API version 1.5
 enum SensorLastResetType {
+  option deprecated = true;
   LAST_RESET_NONE = 0;
   LAST_RESET_NEVER = 1;
   LAST_RESET_AUTO = 2;
@@ -1374,13 +1379,17 @@ message SubscribeBluetoothLEAdvertisementsRequest {
   uint32 flags = 1;
 }
 
+// Deprecated - only used by deprecated BluetoothLEAdvertisementResponse
 message BluetoothServiceData {
+  option deprecated = true;
   string uuid = 1;
   // Deprecated in API version 1.7
   repeated uint32 legacy_data = 2 [deprecated=true];  // Removed in api version 1.7
   bytes data = 3;  // Added in api version 1.7
 }
+// Removed in ESPHome 2025.8.0 - use BluetoothLERawAdvertisementsResponse instead
 message BluetoothLEAdvertisementResponse {
+  option deprecated = true;
   option (id) = 67;
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_BLUETOOTH_PROXY";
