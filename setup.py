@@ -41,7 +41,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "35.0.2"
+VERSION = "37.0.1"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -79,7 +79,7 @@ setup_kwargs = {
     "include_package_data": True,
     "zip_safe": False,
     "install_requires": REQUIRES,
-    "python_requires": ">=3.10",
+    "python_requires": ">=3.11",
     "test_suite": "tests",
     "entry_points": {
         "console_scripts": [

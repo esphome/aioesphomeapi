@@ -436,7 +436,7 @@ async def test_reconnect_zeroconf(
         # This simulates the resolver waiting for mDNS records
         try:
             await asyncio.wait_for(resolve_event.wait(), timeout=0.1)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise APIConnectionError("Resolution timed out")
         else:
             return  # Resolution succeeded

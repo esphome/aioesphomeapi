@@ -254,7 +254,7 @@ async def async_resolve_host(
                     await _async_resolve_host(
                         hosts, port, resolve_results, exceptions, aiozc, timeout
                     )
-            except asyncio.TimeoutError as err:
+            except TimeoutError as err:
                 raise ResolveTimeoutAPIError(
                     f"Timeout while resolving IP address for {hosts}"
                 ) from err

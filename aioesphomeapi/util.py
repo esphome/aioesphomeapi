@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from asyncio import AbstractEventLoop, Task, get_running_loop
+from asyncio import (
+    AbstractEventLoop,
+    Task,
+    get_running_loop,
+    timeout as asyncio_timeout,
+)
 from collections.abc import Coroutine
 import ipaddress
 import math
@@ -8,12 +13,6 @@ import sys
 from typing import Any, TypeVar
 
 _T = TypeVar("_T")
-
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout
-else:
-    from asyncio import timeout as asyncio_timeout
 
 
 def fix_float_single_double_conversion(value: float) -> float:

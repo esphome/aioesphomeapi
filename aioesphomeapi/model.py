@@ -237,7 +237,6 @@ class EntityInfo(APIModelBase):
     object_id: str = ""
     key: int = 0
     name: str = ""
-    unique_id: str = ""
     disabled_by_default: bool = False
     icon: str = ""
     entity_category: EntityCategory | None = converter_field(
