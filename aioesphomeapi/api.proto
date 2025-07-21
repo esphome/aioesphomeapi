@@ -731,7 +731,7 @@ message SubscribeLogsResponse {
   option (no_delay) = false;
 
   LogLevel level = 1;
-  bytes message = 3;
+  bytes message = 3 [(zero_copy) = true];
   bool send_failed = 4;
 }
 
@@ -888,7 +888,7 @@ message CameraImageResponse {
   option (ifdef) = "USE_CAMERA";
 
   fixed32 key = 1;
-  bytes data = 2;
+  bytes data = 2 [(zero_copy) = true];
   bool done = 3;
   uint32 device_id = 4 [(field_ifdef) = "USE_DEVICES"];
 }
