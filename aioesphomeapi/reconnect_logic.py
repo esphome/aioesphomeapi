@@ -15,6 +15,7 @@ from zeroconf.const import (
 
 from .client import APIClient
 from .core import (
+    APIConnectionCancelledError,
     APIConnectionError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
@@ -173,6 +174,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         ) and isinstance(err, APIConnectionError)
         if not is_handled_exception:
             level = logging.ERROR
+        elif isinstance(err, APIConnectionCancelledError):
+            # APIConnectionCancelledError is harmless and should always be DEBUG
+            level = logging.DEBUG
         elif self._tries == 0:
             level = logging.WARNING
         else:
