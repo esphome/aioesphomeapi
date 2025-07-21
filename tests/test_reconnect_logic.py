@@ -1032,14 +1032,12 @@ async def test_connection_cancelled_error_logged_at_debug_level(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that APIConnectionCancelledError is always logged at DEBUG level."""
-    cli = patchable_api_client
-
     on_connect = AsyncMock()
     on_disconnect = AsyncMock()
     on_connect_fail = AsyncMock()
 
     logic = ReconnectLogic(
-        client=cli,
+        client=patchable_api_client,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
         on_connect_error=on_connect_fail,
@@ -1049,7 +1047,7 @@ async def test_connection_cancelled_error_logged_at_debug_level(
     caplog.clear()
     # First attempt - APIConnectionCancelledError should be DEBUG even on first try
     with patch.object(
-        cli,
+        patchable_api_client,
         "start_resolve_host",
         side_effect=APIConnectionCancelledError("Starting connection cancelled"),
     ):
