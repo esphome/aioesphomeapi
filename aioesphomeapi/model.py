@@ -981,6 +981,7 @@ class MediaPlayerInfo(EntityInfo):
 
         return self.feature_flags
 
+
 @_frozen_dataclass_decorator
 class MediaPlayerEntityState(EntityState):
     state: MediaPlayerState | None = converter_field(
