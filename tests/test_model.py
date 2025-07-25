@@ -47,6 +47,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
     LockStateResponse,
+    MediaPlayerEntityFeature,
     MediaPlayerStateResponse,
     MediaPlayerSupportedFormat,
     NoiseEncryptionSetKeyResponse,
@@ -810,7 +811,7 @@ def test_media_player_supported_format_convert_list() -> None:
 
 
 def test_media_player_feature_flags_compat() -> None:
-    """Test feature flags works for before and after APIVersion implementation"""
+    """Test feature flags compatibility across API versions"""
     info = MediaPlayerInfo(
         supports_pause=False,
         supported_formats=[
@@ -822,11 +823,29 @@ def test_media_player_feature_flags_compat() -> None:
                 sample_bytes=2,
             )
         ],
-        # PLAY_MEDIA,BROWSE_MEDIA,STOP,VOLUME_SET,VOLUME_MUTE,MEDIA_ANNOUNCE
-        feature_flags=1184268,
+        feature_flags=999999,  # Different from calculated compatibility flags
     )
-    assert info.feature_flags_compat(APIVersion(2, 2)) == info.feature_flags_compat(
-        APIVersion(2, 3)
+    # For API version < 2.3, should return calculated compatibility flags
+    compat_flags = info.feature_flags_compat(APIVersion(2, 2))
+    expected_compat = (
+        MediaPlayerEntityFeature.PLAY_MEDIA
+        | MediaPlayerEntityFeature.BROWSE_MEDIA
+        | MediaPlayerEntityFeature.STOP
+        | MediaPlayerEntityFeature.VOLUME_SET
+        | MediaPlayerEntityFeature.VOLUME_MUTE
+        | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
+    )
+    assert compat_flags == expected_compat
+    
+    # For API version >= 2.3, should return feature_flags directly
+    direct_flags = info.feature_flags_compat(APIVersion(2, 3))
+    assert direct_flags == 999999
+    
+    # Test with supports_pause=True to verify PAUSE|PLAY flags are added
+    info_with_pause = MediaPlayerInfo(supports_pause=True, feature_flags=888888)
+    compat_with_pause = info_with_pause.feature_flags_compat(APIVersion(2, 2))
+    expected_with_pause = expected_compat | MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
+    assert compat_with_pause == expected_with_pause
     )
 
 
