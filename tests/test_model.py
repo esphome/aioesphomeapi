@@ -825,8 +825,8 @@ def test_media_player_feature_flags_compat() -> None:
         ],
         feature_flags=999999,  # Different from calculated compatibility flags
     )
-    # For API version < 2.3, should return calculated compatibility flags
-    compat_flags = info.feature_flags_compat(APIVersion(2, 2))
+    # For API version < 1.11, should return calculated compatibility flags
+    compat_flags = info.feature_flags_compat(APIVersion(1, 10))
     expected_compat = (
         MediaPlayerEntityFeature.PLAY_MEDIA
         | MediaPlayerEntityFeature.BROWSE_MEDIA
@@ -837,13 +837,13 @@ def test_media_player_feature_flags_compat() -> None:
     )
     assert compat_flags == expected_compat
 
-    # For API version >= 2.3, should return feature_flags directly
-    direct_flags = info.feature_flags_compat(APIVersion(2, 3))
+    # For API version >= 1.11, should return feature_flags directly
+    direct_flags = info.feature_flags_compat(APIVersion(1, 11))
     assert direct_flags == 999999
 
     # Test with supports_pause=True to verify PAUSE|PLAY flags are added
     info_with_pause = MediaPlayerInfo(supports_pause=True, feature_flags=888888)
-    compat_with_pause = info_with_pause.feature_flags_compat(APIVersion(2, 2))
+    compat_with_pause = info_with_pause.feature_flags_compat(APIVersion(1, 10))
     expected_with_pause = (
         expected_compat | MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
     )
