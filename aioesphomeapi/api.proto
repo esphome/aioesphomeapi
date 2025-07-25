@@ -1341,13 +1341,14 @@ message ListEntitiesMediaPlayerResponse {
   bool disabled_by_default = 6;
   EntityCategory entity_category = 7;
 
-  bool supports_pause = 8;
+  // Deprecated in API version 2.3
+  bool supports_pause = 8 [deprecated=true];
 
   repeated MediaPlayerSupportedFormat supported_formats = 9;
 
   uint32 device_id = 10 [(field_ifdef) = "USE_DEVICES"];
 
-  bool supports_turn_off_on = 11;
+  uint32 feature_flags = 11;
 }
 message MediaPlayerStateResponse {
   option (id) = 64;
