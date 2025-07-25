@@ -964,7 +964,7 @@ class MediaPlayerInfo(EntityInfo):
     )
     feature_flags: int = 0
 
-    def feature_flags_compat(self, api_version: APIVersion) -> int
+    def feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(2, 3):
             flags = (
                 MediaPlayerEntityFeature.PLAY_MEDIA
