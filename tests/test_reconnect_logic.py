@@ -21,6 +21,7 @@ from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR
 from aioesphomeapi import APIConnectionError, RequiresEncryptionAPIError
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
+from aioesphomeapi.core import APIConnectionCancelledError
 from aioesphomeapi.reconnect_logic import (
     MAXIMUM_BACKOFF_TRIES,
     ReconnectLogic,
@@ -1023,3 +1024,53 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
         mock_get_zc.assert_called()
 
         await logic_with_name.stop()
+
+
+@pytest.mark.asyncio
+async def test_connection_cancelled_error_logged_at_debug_level(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that APIConnectionCancelledError is always logged at DEBUG level."""
+    on_connect = AsyncMock()
+    on_disconnect = AsyncMock()
+    on_connect_fail = AsyncMock()
+
+    logic = ReconnectLogic(
+        client=patchable_api_client,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        on_connect_error=on_connect_fail,
+        name="mydevice",
+    )
+
+    caplog.clear()
+    # First attempt - APIConnectionCancelledError should be DEBUG even on first try
+    with patch.object(
+        patchable_api_client,
+        "start_resolve_host",
+        side_effect=APIConnectionCancelledError("Starting connection cancelled"),
+    ):
+        await logic.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert len(on_connect_fail.call_args_list) == 1
+    assert isinstance(
+        on_connect_fail.call_args_list[0][0][0], APIConnectionCancelledError
+    )
+
+    # Check that the error was logged at DEBUG level, not WARNING
+    found_log = False
+    for record in caplog.records:
+        if (
+            "Can't connect to ESPHome API" in record.message
+            and "APIConnectionCancelledError" in record.message
+        ):
+            assert record.levelno == logging.DEBUG
+            found_log = True
+            break
+
+    assert found_log, "Expected log message not found"
+
+    await logic.stop()
