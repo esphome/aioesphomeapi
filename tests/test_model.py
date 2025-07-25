@@ -844,7 +844,9 @@ def test_media_player_feature_flags_compat() -> None:
     # Test with supports_pause=True to verify PAUSE|PLAY flags are added
     info_with_pause = MediaPlayerInfo(supports_pause=True, feature_flags=888888)
     compat_with_pause = info_with_pause.feature_flags_compat(APIVersion(2, 2))
-    expected_with_pause = expected_compat | MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
+    expected_with_pause = (
+        expected_compat | MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
+    )
     assert compat_with_pause == expected_with_pause
 
 
