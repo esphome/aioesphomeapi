@@ -965,7 +965,7 @@ class MediaPlayerInfo(EntityInfo):
     feature_flags: int = 0
 
     def feature_flags_compat(self, api_version: APIVersion) -> int:
-        if api_version < APIVersion(2, 3):
+        if api_version < APIVersion(1, 11):
             flags = (
                 MediaPlayerEntityFeature.PLAY_MEDIA
                 | MediaPlayerEntityFeature.BROWSE_MEDIA
@@ -977,7 +977,7 @@ class MediaPlayerInfo(EntityInfo):
             if self.supports_pause:
                 flags |= MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
 
-            return flags
+            return flags.value
 
         return self.feature_flags
 
