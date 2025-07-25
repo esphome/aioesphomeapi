@@ -846,7 +846,6 @@ def test_media_player_feature_flags_compat() -> None:
     compat_with_pause = info_with_pause.feature_flags_compat(APIVersion(2, 2))
     expected_with_pause = expected_compat | MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
     assert compat_with_pause == expected_with_pause
-    )
 
 
 def test_device_info_area_field() -> None:
