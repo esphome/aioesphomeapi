@@ -462,11 +462,17 @@ class APIConnection:
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
+        has_password = self._params.password is not None
         messages = [make_hello_request(self._params.client_info)]
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_connect_request())
-            msg_types.append(ConnectResponse)
+            if has_password:
+                # Only wait for ConnectResponse if we actually have
+                # a password to send, but we will still register
+                # a handler for a ConnectResponse just in case
+                # the device has a password but we don't expect it
+                msg_types.append(ConnectResponse)
 
         responses = await self.send_messages_await_response_complex(
             tuple(messages),
@@ -478,7 +484,7 @@ class APIConnection:
         )
         resp = responses.pop(0)
         self._process_hello_resp(resp)
-        if login:
+        if has_password:
             login_response = responses.pop(0)
             self._process_login_response(login_response)
 
@@ -486,6 +492,11 @@ class APIConnection:
         """Process a ConnectResponse."""
         if login_response.invalid_password:
             raise InvalidAuthAPIError("Invalid password!")
+
+    def _handle_login_response(self, login_response: ConnectResponse) -> None:
+        """Handle a ConnectResponse."""
+        if login_response.invalid_password:
+            self.report_fatal_error(InvalidAuthAPIError("Invalid password!"))
 
     def _process_hello_resp(self, resp: HelloResponse) -> None:
         """Process a HelloResponse."""
@@ -1008,6 +1019,9 @@ class APIConnection:
         )
         self._add_message_callback_without_remove(
             self._handle_get_time_request_internal, (GetTimeRequest,)
+        )
+        self._add_message_callback_without_remove(
+            self._handle_login_response, (ConnectResponse,)
         )
 
     def _handle_disconnect_request_internal(  # pylint: disable=unused-argument
