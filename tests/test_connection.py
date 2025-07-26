@@ -58,6 +58,59 @@ from .common import (
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
 
+async def test_connect_hello_login_with_login_false_and_password_none(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """Test that _connect_hello_login works with login=False and password=None.
+
+    This test verifies the fix for the issue where _connect_hello_login would
+    try to pop from an empty list when login=False but password=None.
+    """
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    protocol: APIPlaintextFrameHelper | None = None
+
+    async def _create_connection(*args, **kwargs):
+        nonlocal protocol
+        transport_proto = _create_mock_transport_protocol(
+            transport,
+            connected,
+            lambda: APIPlaintextFrameHelper(
+                connection=conn,
+                client_info="test",
+                log_name=conn.log_name,
+            ),
+        )
+        protocol = transport_proto[1]
+        return transport, protocol
+
+    with patch.object(loop, "create_connection", side_effect=_create_connection):
+        # Use the connect helper which properly handles the connection flow
+        connect_task = asyncio.create_task(connect(conn, login=False))
+
+        # Wait for connection to be established
+        await connected.wait()
+
+        # Send only HelloResponse (no ConnectResponse since login=False)
+        assert protocol is not None
+        hello_response = bytes.fromhex(
+            "003602080110091a216d6173746572617672656c61792028657"
+            "370686f6d652076323032332e362e3329220d6d617374657261"
+            "7672656c6179"
+        )
+        mock_data_received(protocol, hello_response)
+
+        # The connection should complete successfully without trying to pop
+        # a ConnectResponse from an empty list
+        await connect_task
+
+        assert conn.is_connected
+        assert conn.api_version is not None
+
+
 async def test_connect(
     plaintext_connect_task_no_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
