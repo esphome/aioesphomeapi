@@ -591,6 +591,48 @@ async def test_connect_correct_password(
     assert conn.is_connected
 
 
+async def test_connect_password_required_but_not_sent(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """Test that when the device requires a password but we don't send one, we get an auth error."""
+    transport = MagicMock()
+    connected = asyncio.Event()
+    event_loop = asyncio.get_running_loop()
+
+    with patch.object(
+        event_loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        # Note: login=False because conn fixture has no password
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+
+        protocol = conn._frame_helper
+
+        # Send hello response
+        send_plaintext_hello(protocol)
+
+        # Complete the connection first since we're not expecting a ConnectResponse
+        await connect_task
+        assert conn.is_connected
+
+        # Device sends ConnectResponse with invalid_password=True
+        # This simulates a device that requires a password but we didn't send one
+        send_plaintext_connect_response(protocol, True)
+
+        # Give the event loop a chance to process the message
+        await asyncio.sleep(0)
+
+        # The connection should now be disconnected due to the auth error
+        assert not conn.is_connected
+        # Check that the fatal exception was set
+        assert isinstance(conn._fatal_exception, InvalidAuthAPIError)
+        conn.force_disconnect()
+
+
 async def test_connect_wrong_version(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
