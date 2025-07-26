@@ -462,11 +462,12 @@ class APIConnection:
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
+        has_password = self._params.password is not None
         messages = [make_hello_request(self._params.client_info)]
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_connect_request())
-            if self._params.password is not None:
+            if has_password:
                 # Only wait for ConnectResponse if we actually have
                 # a password to send, but we will still register
                 # a handler for a ConnectResponse just in case
@@ -483,7 +484,7 @@ class APIConnection:
         )
         resp = responses.pop(0)
         self._process_hello_resp(resp)
-        if login:
+        if has_password:
             login_response = responses.pop(0)
             self._process_login_response(login_response)
 
