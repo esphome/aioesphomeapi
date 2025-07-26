@@ -88,18 +88,11 @@ async def test_connect_hello_login_with_login_false_and_password_none(
         return transport, protocol
 
     with patch.object(loop, "create_connection", side_effect=_create_connection):
-        # Start the connection process
-        await conn.start_resolve_host()
-        await conn.start_connection()
+        # Use the connect helper which properly handles the connection flow
+        connect_task = asyncio.create_task(connect(conn, login=False))
 
-        # Register internal handlers like in normal flow
-        conn._register_internal_message_handlers()
-
-        # Create a task for finish_connection with login=False
-        finish_task = asyncio.create_task(conn.finish_connection(login=False))
-
-        # Let the task start
-        await asyncio.sleep(0)
+        # Wait for connection to be established
+        await connected.wait()
 
         # Send only HelloResponse (no ConnectResponse since login=False)
         assert protocol is not None
@@ -112,7 +105,7 @@ async def test_connect_hello_login_with_login_false_and_password_none(
 
         # The connection should complete successfully without trying to pop
         # a ConnectResponse from an empty list
-        await finish_task
+        await connect_task
 
         assert conn.is_connected
         assert conn.api_version is not None
