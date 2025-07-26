@@ -977,7 +977,7 @@ class MediaPlayerInfo(EntityInfo):
             if self.supports_pause:
                 flags |= MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
 
-            if (self.feature_flags > flags.value):
+            if self.feature_flags > flags.value:
                 return self.feature_flags
             else:
                 return flags.value
