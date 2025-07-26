@@ -613,8 +613,9 @@ class APIConnection:
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
-            self._cleanup()
-            raise self._wrap_fatal_connection_exception("resolving", ex)
+            fatal_exc = self._wrap_fatal_connection_exception("resolving", ex)
+            self.report_fatal_error(fatal_exc)
+            raise fatal_exc
         finally:
             self._set_resolve_host_future()
         self._set_connection_state(CONNECTION_STATE_HOST_RESOLVED)
@@ -647,8 +648,9 @@ class APIConnection:
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
-            self._cleanup()
-            raise self._wrap_fatal_connection_exception("starting", ex)
+            fatal_exc = self._wrap_fatal_connection_exception("starting", ex)
+            self.report_fatal_error(fatal_exc)
+            raise fatal_exc
         finally:
             self._set_start_connect_future()
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
@@ -717,8 +719,9 @@ class APIConnection:
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
-            self._cleanup()
-            raise self._wrap_fatal_connection_exception("finishing", ex)
+            fatal_exc = self._wrap_fatal_connection_exception("finishing", ex)
+            self.report_fatal_error(fatal_exc)
+            raise fatal_exc
         finally:
             self._set_finish_connect_future()
         self._set_connection_state(CONNECTION_STATE_CONNECTED)
@@ -912,7 +915,10 @@ class APIConnection:
                     "%s: Connection error occurred: %s",
                     self.log_name,
                     err or type(err),
-                    exc_info=not str(err),  # Log the full stack on empty error string
+                    exc_info=not str(err)
+                    or isinstance(
+                        err, UnhandledAPIConnectionError
+                    ),  # Log the full stack on empty error string
                 )
 
             # Only set the first error since otherwise the original
