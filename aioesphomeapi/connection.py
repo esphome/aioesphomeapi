@@ -462,12 +462,11 @@ class APIConnection:
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
-        has_password = self._params.password is not None
         messages = [make_hello_request(self._params.client_info)]
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_connect_request())
-            if has_password:
+            if self._params.password:
                 # Only wait for ConnectResponse if we actually have
                 # a password to send, but we will still register
                 # a handler for a ConnectResponse just in case
@@ -482,9 +481,10 @@ class APIConnection:
             tuple(msg_types),
             CONNECT_REQUEST_TIMEOUT,
         )
+
         resp = responses.pop(0)
         self._process_hello_resp(resp)
-        if has_password:
+        if login and self._params.password:
             login_response = responses.pop(0)
             self._process_login_response(login_response)
 
@@ -613,8 +613,9 @@ class APIConnection:
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
-            self._cleanup()
-            raise self._wrap_fatal_connection_exception("resolving", ex)
+            fatal_exc = self._wrap_fatal_connection_exception("resolving", ex)
+            self.report_fatal_error(fatal_exc)
+            raise fatal_exc
         finally:
             self._set_resolve_host_future()
         self._set_connection_state(CONNECTION_STATE_HOST_RESOLVED)
@@ -647,8 +648,9 @@ class APIConnection:
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
-            self._cleanup()
-            raise self._wrap_fatal_connection_exception("starting", ex)
+            fatal_exc = self._wrap_fatal_connection_exception("starting", ex)
+            self.report_fatal_error(fatal_exc)
+            raise fatal_exc
         finally:
             self._set_start_connect_future()
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
@@ -717,8 +719,9 @@ class APIConnection:
         except (Exception, CancelledError) as ex:
             # If the task was cancelled, we need to clean up the connection
             # and raise the CancelledError as APIConnectionError
-            self._cleanup()
-            raise self._wrap_fatal_connection_exception("finishing", ex)
+            fatal_exc = self._wrap_fatal_connection_exception("finishing", ex)
+            self.report_fatal_error(fatal_exc)
+            raise fatal_exc
         finally:
             self._set_finish_connect_future()
         self._set_connection_state(CONNECTION_STATE_CONNECTED)
@@ -912,7 +915,10 @@ class APIConnection:
                     "%s: Connection error occurred: %s",
                     self.log_name,
                     err or type(err),
-                    exc_info=not str(err),  # Log the full stack on empty error string
+                    exc_info=not str(err)
+                    or isinstance(
+                        err, UnhandledAPIConnectionError
+                    ),  # Log the full stack on empty error string
                 )
 
             # Only set the first error since otherwise the original
