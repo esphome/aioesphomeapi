@@ -103,6 +103,7 @@ from aioesphomeapi.model import (
     LightState,
     LockEntityState,
     LockInfo,
+    MediaPlayerEntityFeature,
     MediaPlayerEntityState,
     MediaPlayerInfo,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
@@ -792,6 +793,7 @@ def test_media_player_supported_format_convert_list() -> None:
                     "sample_bytes": 2,
                 }
             ],
+            "feature_flags": 0,
         }
     ) == MediaPlayerInfo(
         supports_pause=False,
@@ -804,7 +806,48 @@ def test_media_player_supported_format_convert_list() -> None:
                 sample_bytes=2,
             )
         ],
+        feature_flags=0,
     )
+
+
+def test_media_player_feature_flags_compat() -> None:
+    """Test feature flags compatibility across API versions"""
+    info = MediaPlayerInfo(
+        supports_pause=False,
+        supported_formats=[
+            MediaPlayerSupportedFormat(
+                format="flac",
+                sample_rate=48000,
+                num_channels=2,
+                purpose=1,
+                sample_bytes=2,
+            )
+        ],
+        feature_flags=999999,  # Different from calculated compatibility flags
+    )
+    # For API version < 1.11, should return calculated compatibility flags
+    compat_flags = info.feature_flags_compat(APIVersion(1, 10))
+    expected_compat = (
+        MediaPlayerEntityFeature.PLAY_MEDIA
+        | MediaPlayerEntityFeature.BROWSE_MEDIA
+        | MediaPlayerEntityFeature.STOP
+        | MediaPlayerEntityFeature.VOLUME_SET
+        | MediaPlayerEntityFeature.VOLUME_MUTE
+        | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
+    )
+    assert compat_flags == expected_compat
+
+    # For API version >= 1.11, should return feature_flags directly
+    direct_flags = info.feature_flags_compat(APIVersion(1, 11))
+    assert direct_flags == 999999
+
+    # Test with supports_pause=True to verify PAUSE|PLAY flags are added
+    info_with_pause = MediaPlayerInfo(supports_pause=True, feature_flags=888888)
+    compat_with_pause = info_with_pause.feature_flags_compat(APIVersion(1, 10))
+    expected_with_pause = (
+        expected_compat | MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
+    )
+    assert compat_with_pause == expected_with_pause
 
 
 def test_device_info_area_field() -> None:
