@@ -18,6 +18,7 @@ select = [
   "PIE", # flake8-pie
   "PL", # pylint
   "UP", # pyupgrade
+  "RET", # flake8-return
   "RUF", # ruff
   "SIM", # flake8-SIM
   "SLOT", # flake8-slots
