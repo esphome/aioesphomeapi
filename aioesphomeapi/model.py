@@ -876,29 +876,29 @@ class ValveState(EntityState):
 class MediaPlayerEntityFeature(enum.IntFlag):
     """Supported features of the media player entity."""
 
-    PAUSE = 1
-    SEEK = 2
-    VOLUME_SET = 4
-    VOLUME_MUTE = 8
-    PREVIOUS_TRACK = 16
-    NEXT_TRACK = 32
+    PAUSE = 1 << 0
+    SEEK = 1 << 1
+    VOLUME_SET = 1 << 2
+    VOLUME_MUTE = 1 << 3
+    PREVIOUS_TRACK = 1 << 4
+    NEXT_TRACK = 1 << 5
 
-    TURN_ON = 128
-    TURN_OFF = 256
-    PLAY_MEDIA = 512
-    VOLUME_STEP = 1024
-    SELECT_SOURCE = 2048
-    STOP = 4096
-    CLEAR_PLAYLIST = 8192
-    PLAY = 16384
-    SHUFFLE_SET = 32768
-    SELECT_SOUND_MODE = 65536
-    BROWSE_MEDIA = 131072
-    REPEAT_SET = 262144
-    GROUPING = 524288
-    MEDIA_ANNOUNCE = 1048576
-    MEDIA_ENQUEUE = 2097152
-    SEARCH_MEDIA = 4194304
+    TURN_ON = 1 << 7
+    TURN_OFF = 1 << 8
+    PLAY_MEDIA = 1 << 9
+    VOLUME_STEP = 1 << 10
+    SELECT_SOURCE = 1 << 11
+    STOP = 1 << 12
+    CLEAR_PLAYLIST = 1 << 13
+    PLAY = 1 << 14
+    SHUFFLE_SET = 1 << 15
+    SELECT_SOUND_MODE = 1 << 16
+    BROWSE_MEDIA = 1 << 17
+    REPEAT_SET = 1 << 18
+    GROUPING = 1 << 19
+    MEDIA_ANNOUNCE = 1 << 20
+    MEDIA_ENQUEUE = 1 << 21
+    SEARCH_MEDIA = 1 << 22
 
 
 class MediaPlayerState(APIIntEnum):
