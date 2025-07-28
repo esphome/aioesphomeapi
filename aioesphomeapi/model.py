@@ -980,8 +980,7 @@ class MediaPlayerInfo(EntityInfo):
             # APIVersion 1.10, but with feature_flags added to MediaPlayer
             if self.feature_flags > flags:
                 return self.feature_flags
-            else:
-                return flags
+            return flags
 
         return self.feature_flags
 
