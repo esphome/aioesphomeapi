@@ -60,12 +60,11 @@ def resolve_host() -> Generator[AsyncMock]:
 
 @pytest.fixture
 async def patchable_api_client() -> APIClient:
-    cli = PatchableAPIClient(
+    return PatchableAPIClient(
         address="127.0.0.1",
         port=6052,
         password=None,
     )
-    return cli
 
 
 @pytest.fixture
