@@ -873,11 +873,40 @@ class ValveState(EntityState):
 
 
 # ==================== MEDIA PLAYER ====================
+class MediaPlayerEntityFeature(enum.IntFlag):
+    """Supported features of the media player entity."""
+
+    PAUSE = 1 << 0
+    SEEK = 1 << 1
+    VOLUME_SET = 1 << 2
+    VOLUME_MUTE = 1 << 3
+    PREVIOUS_TRACK = 1 << 4
+    NEXT_TRACK = 1 << 5
+
+    TURN_ON = 1 << 7
+    TURN_OFF = 1 << 8
+    PLAY_MEDIA = 1 << 9
+    VOLUME_STEP = 1 << 10
+    SELECT_SOURCE = 1 << 11
+    STOP = 1 << 12
+    CLEAR_PLAYLIST = 1 << 13
+    PLAY = 1 << 14
+    SHUFFLE_SET = 1 << 15
+    SELECT_SOUND_MODE = 1 << 16
+    BROWSE_MEDIA = 1 << 17
+    REPEAT_SET = 1 << 18
+    GROUPING = 1 << 19
+    MEDIA_ANNOUNCE = 1 << 20
+    MEDIA_ENQUEUE = 1 << 21
+    SEARCH_MEDIA = 1 << 22
+
+
 class MediaPlayerState(APIIntEnum):
     NONE = 0
     IDLE = 1
     PLAYING = 2
     PAUSED = 3
+    ANNOUNCING = 4
 
 
 class MediaPlayerCommand(APIIntEnum):
@@ -886,6 +915,13 @@ class MediaPlayerCommand(APIIntEnum):
     STOP = 2
     MUTE = 3
     UNMUTE = 4
+    TOGGLE = 5
+    VOLUME_UP = 6
+    VOLUME_DOWN = 7
+    ENQUEUE = 8
+    REPEAT_ONE = 9
+    REPEAT_OFF = 10
+    CLEAR_PLAYLIST = 11
 
 
 class MediaPlayerFormatPurpose(APIIntEnum):
@@ -922,6 +958,24 @@ class MediaPlayerInfo(EntityInfo):
     supported_formats: list[MediaPlayerSupportedFormat] = converter_field(
         default_factory=list, converter=MediaPlayerSupportedFormat.convert_list
     )
+    feature_flags: int = 0
+
+    def feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 11):
+            flags = (
+                MediaPlayerEntityFeature.PLAY_MEDIA
+                | MediaPlayerEntityFeature.BROWSE_MEDIA
+                | MediaPlayerEntityFeature.STOP
+                | MediaPlayerEntityFeature.VOLUME_SET
+                | MediaPlayerEntityFeature.VOLUME_MUTE
+                | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
+            )
+            if self.supports_pause:
+                flags |= MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
+
+            return flags
+
+        return self.feature_flags
 
 
 @_frozen_dataclass_decorator
