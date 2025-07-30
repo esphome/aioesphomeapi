@@ -907,6 +907,8 @@ class MediaPlayerState(APIIntEnum):
     PLAYING = 2
     PAUSED = 3
     ANNOUNCING = 4
+    OFF = 5
+    ON = 6
 
 
 class MediaPlayerCommand(APIIntEnum):
@@ -922,6 +924,8 @@ class MediaPlayerCommand(APIIntEnum):
     REPEAT_ONE = 9
     REPEAT_OFF = 10
     CLEAR_PLAYLIST = 11
+    TURN_ON = 12
+    TURN_OFF = 13
 
 
 class MediaPlayerFormatPurpose(APIIntEnum):
