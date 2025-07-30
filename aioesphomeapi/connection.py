@@ -911,7 +911,13 @@ class APIConnection:
         if self._fatal_exception is None:
             if self._expected_disconnect is False:
                 # Only log the first error
-                _LOGGER.warning(
+                log_level = (
+                    logging.DEBUG
+                    if isinstance(err, APIConnectionCancelledError)
+                    else logging.WARNING
+                )
+                _LOGGER.log(
+                    log_level,
                     "%s: Connection error occurred: %s",
                     self.log_name,
                     err or type(err),

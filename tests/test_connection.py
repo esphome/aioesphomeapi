@@ -1221,3 +1221,53 @@ async def test_internal_message_received_immediately_after_connection(
 
         # Clean up
         conn.force_disconnect()
+
+
+@pytest.mark.asyncio
+async def test_report_fatal_error_cancellation_logged_at_debug_level(
+    conn: APIConnection,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that APIConnectionCancelledError is logged at DEBUG level in report_fatal_error."""
+    with caplog.at_level(logging.DEBUG):
+        # Report a cancelled error
+        cancelled_error = APIConnectionCancelledError("Connection was cancelled")
+        conn.report_fatal_error(cancelled_error)
+
+    # Check that the error was logged at DEBUG level
+    assert "Connection error occurred" in caplog.text
+    assert "Connection was cancelled" in caplog.text
+
+    # Verify it was logged at DEBUG level
+    matching_records = [
+        record
+        for record in caplog.records
+        if "Connection error occurred" in record.message
+    ]
+    assert len(matching_records) == 1
+    assert matching_records[0].levelno == logging.DEBUG
+
+
+@pytest.mark.asyncio
+async def test_report_fatal_error_regular_errors_logged_at_warning_level(
+    conn: APIConnection,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that regular errors are still logged at WARNING level in report_fatal_error."""
+    with caplog.at_level(logging.DEBUG):
+        # Report a regular connection error
+        regular_error = APIConnectionError("Regular connection error")
+        conn.report_fatal_error(regular_error)
+
+    # Check that the error was logged at WARNING level
+    assert "Connection error occurred" in caplog.text
+    assert "Regular connection error" in caplog.text
+
+    # Verify it was logged at WARNING level
+    matching_records = [
+        record
+        for record in caplog.records
+        if "Connection error occurred" in record.message
+    ]
+    assert len(matching_records) == 1
+    assert matching_records[0].levelno == logging.WARNING
