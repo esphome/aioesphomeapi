@@ -941,6 +941,35 @@ def test_bluetooth_gatt_services_response_efficient_uuids() -> None:
     assert services_model.services[2].handle == 20
 
 
+def test_bluetooth_gatt_from_pb_already_model() -> None:
+    """Test from_pb methods when data is already a model instance."""
+    # Test BluetoothGATTDescriptor
+    descriptor = BluetoothGATTDescriptorModel(
+        uuid="00002902-0000-1000-8000-00805f9b34fb", handle=10
+    )
+    result = BluetoothGATTDescriptorModel.from_pb(descriptor)
+    assert result is descriptor  # Should return the same instance
+
+    # Test BluetoothGATTCharacteristic
+    characteristic = BluetoothGATTCharacteristicModel(
+        uuid="00002a00-0000-1000-8000-00805f9b34fb",
+        handle=20,
+        properties=0x02,
+        descriptors=[descriptor],
+    )
+    result = BluetoothGATTCharacteristicModel.from_pb(characteristic)
+    assert result is characteristic  # Should return the same instance
+
+    # Test BluetoothGATTService
+    service = BluetoothGATTServiceModel(
+        uuid="00001800-0000-1000-8000-00805f9b34fb",
+        handle=30,
+        characteristics=[characteristic],
+    )
+    result = BluetoothGATTServiceModel.from_pb(service)
+    assert result is service  # Should return the same instance
+
+
 def test_area_info_convert_list() -> None:
     """Test list conversion for AreaInfo."""
     device_info = DeviceInfo(
