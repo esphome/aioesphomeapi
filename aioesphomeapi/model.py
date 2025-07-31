@@ -1336,14 +1336,8 @@ class BluetoothGATTDescriptor(APIModelBase):
         if isinstance(data, cls):
             return data
 
-        # Handle efficient UUID fields for v1.12+ clients
-        # Use walrus operator to handle protobuf's on-demand construction
-        if uuid16 := data.uuid16:
-            return cls(uuid=_convert_16bit_uuid_to_128bit(uuid16), handle=data.handle)  # type: ignore[call-arg]
-        if uuid32 := data.uuid32:
-            return cls(uuid=_convert_32bit_uuid_to_128bit(uuid32), handle=data.handle)  # type: ignore[call-arg]
-        # Fall back to 128-bit UUID
-        return cls(uuid=_join_split_uuid(data.uuid), handle=data.handle)  # type: ignore[call-arg]
+        # Convert UUID using the common function
+        return cls(uuid=_convert_bluetooth_uuid(data), handle=data.handle)  # type: ignore[call-arg]
 
     @classmethod
     def from_dict(
@@ -1382,25 +1376,9 @@ class BluetoothGATTCharacteristic(APIModelBase):
         if isinstance(data, cls):
             return data
 
-        # Handle efficient UUID fields for v1.12+ clients
-        # Use walrus operator to handle protobuf's on-demand construction
-        if uuid16 := data.uuid16:
-            return cls(  # type: ignore[call-arg]
-                uuid=_convert_16bit_uuid_to_128bit(uuid16),
-                handle=data.handle,
-                properties=data.properties,
-                descriptors=BluetoothGATTDescriptor.convert_list(data.descriptors),
-            )
-        if uuid32 := data.uuid32:
-            return cls(  # type: ignore[call-arg]
-                uuid=_convert_32bit_uuid_to_128bit(uuid32),
-                handle=data.handle,
-                properties=data.properties,
-                descriptors=BluetoothGATTDescriptor.convert_list(data.descriptors),
-            )
-        # Fall back to 128-bit UUID
+        # Convert UUID using the common function
         return cls(  # type: ignore[call-arg]
-            uuid=_join_split_uuid(data.uuid),
+            uuid=_convert_bluetooth_uuid(data),
             handle=data.handle,
             properties=data.properties,
             descriptors=BluetoothGATTDescriptor.convert_list(data.descriptors),
@@ -1441,27 +1419,9 @@ class BluetoothGATTService(APIModelBase):
         if isinstance(data, cls):
             return data
 
-        # Handle efficient UUID fields for v1.12+ clients
-        # Use walrus operator to handle protobuf's on-demand construction
-        if uuid16 := data.uuid16:
-            return cls(  # type: ignore[call-arg]
-                uuid=_convert_16bit_uuid_to_128bit(uuid16),
-                handle=data.handle,
-                characteristics=BluetoothGATTCharacteristic.convert_list(
-                    data.characteristics
-                ),
-            )
-        if uuid32 := data.uuid32:
-            return cls(  # type: ignore[call-arg]
-                uuid=_convert_32bit_uuid_to_128bit(uuid32),
-                handle=data.handle,
-                characteristics=BluetoothGATTCharacteristic.convert_list(
-                    data.characteristics
-                ),
-            )
-        # Fall back to 128-bit UUID
+        # Convert UUID using the common function
         return cls(  # type: ignore[call-arg]
-            uuid=_join_split_uuid(data.uuid),
+            uuid=_convert_bluetooth_uuid(data),
             handle=data.handle,
             characteristics=BluetoothGATTCharacteristic.convert_list(
                 data.characteristics
