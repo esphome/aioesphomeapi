@@ -196,7 +196,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._async_set_connection_state_while_locked(ReconnectLogicState.RESOLVING)
         start_resolve_time = time.perf_counter()
         try:
-            await self._cli.start_resolve_host(on_stop=self._on_disconnect)
+            await self._cli.start_resolve_host(
+                on_stop=self._on_disconnect, log_errors=False
+            )
         except Exception as err:  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False

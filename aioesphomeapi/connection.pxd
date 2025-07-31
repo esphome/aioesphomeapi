@@ -117,6 +117,7 @@ cdef class APIConnection:
     cdef public str received_name
     cdef public str connected_address
     cdef list _addrs_info
+    cdef bint _log_errors
 
     cpdef void send_message(self, object msg) except *
 
