@@ -1485,12 +1485,11 @@ message BluetoothGATTDescriptor {
   repeated uint64 uuid = 1 [(fixed_array_size) = 2, (fixed_array_skip_zero) = true];
   uint32 handle = 2;
 
-  // New fields for efficient UUID (v1.12+)
-  // Only one of uuid, uuid16, or uuid32 will be set.
-  // uuid16/uuid32 are only used for 16/32-bit UUIDs with v1.12+ clients.
+  // New field for efficient UUID (v1.12+)
+  // Only one of uuid or short_uuid will be set.
+  // short_uuid is used for both 16-bit and 32-bit UUIDs with v1.12+ clients.
   // 128-bit UUIDs always use the uuid field for backwards compatibility.
-  uint32 uuid16 = 3;  // 16-bit UUID
-  uint32 uuid32 = 4;  // 32-bit UUID
+  uint32 short_uuid = 3;  // 16-bit or 32-bit UUID
 }
 
 message BluetoothGATTCharacteristic {
@@ -1499,12 +1498,11 @@ message BluetoothGATTCharacteristic {
   uint32 properties = 3;
   repeated BluetoothGATTDescriptor descriptors = 4;
 
-  // New fields for efficient UUID (v1.12+)
-  // Only one of uuid, uuid16, or uuid32 will be set.
-  // uuid16/uuid32 are only used for 16/32-bit UUIDs with v1.12+ clients.
+  // New field for efficient UUID (v1.12+)
+  // Only one of uuid or short_uuid will be set.
+  // short_uuid is used for both 16-bit and 32-bit UUIDs with v1.12+ clients.
   // 128-bit UUIDs always use the uuid field for backwards compatibility.
-  uint32 uuid16 = 5;  // 16-bit UUID
-  uint32 uuid32 = 6;  // 32-bit UUID
+  uint32 short_uuid = 5;  // 16-bit or 32-bit UUID
 }
 
 message BluetoothGATTService {
@@ -1512,12 +1510,11 @@ message BluetoothGATTService {
   uint32 handle = 2;
   repeated BluetoothGATTCharacteristic characteristics = 3;
 
-  // New fields for efficient UUID (v1.12+)
-  // Only one of uuid, uuid16, or uuid32 will be set.
-  // uuid16/uuid32 are only used for 16/32-bit UUIDs with v1.12+ clients.
+  // New field for efficient UUID (v1.12+)
+  // Only one of uuid or short_uuid will be set.
+  // short_uuid is used for both 16-bit and 32-bit UUIDs with v1.12+ clients.
   // 128-bit UUIDs always use the uuid field for backwards compatibility.
-  uint32 uuid16 = 4;  // 16-bit UUID
-  uint32 uuid32 = 5;  // 32-bit UUID
+  uint32 short_uuid = 4;  // 16-bit or 32-bit UUID
 }
 
 message BluetoothGATTGetServicesResponse {
