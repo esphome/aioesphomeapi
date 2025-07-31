@@ -1300,7 +1300,6 @@ enum MediaPlayerState {
   MEDIA_PLAYER_STATE_ANNOUNCING = 4;
   MEDIA_PLAYER_STATE_OFF = 5;
   MEDIA_PLAYER_STATE_ON = 6;
-
 }
 enum MediaPlayerCommand {
   MEDIA_PLAYER_COMMAND_PLAY = 0;
@@ -1506,7 +1505,7 @@ message BluetoothGATTGetServicesResponse {
   option (ifdef) = "USE_BLUETOOTH_PROXY";
 
   uint64 address = 1;
-  repeated BluetoothGATTService services = 2 [(fixed_array_size) = 1];
+  repeated BluetoothGATTService services = 2;
 }
 
 message BluetoothGATTGetServicesDoneResponse {
