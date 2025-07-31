@@ -12,6 +12,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
+    BluetoothGATTService as BluetoothGATTServicePb,
     BluetoothScannerStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
@@ -644,14 +645,18 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
     )
     services = BluetoothGATTServicesModel.from_pb(services)
     assert services.services[0] == BluetoothGATTServiceModel(
-        uuid=[1, 1],
+        uuid="00000000-0000-0001-0000-000000000001",
         handle=1,
         characteristics=[
-            BluetoothGATTCharacteristic(
-                uuid=[1, 2],
+            BluetoothGATTCharacteristicModel(
+                uuid="00000000-0000-0001-0000-000000000002",
                 handle=2,
                 properties=1,
-                descriptors=[BluetoothGATTDescriptor(uuid=[1, 3], handle=3)],
+                descriptors=[
+                    BluetoothGATTDescriptorModel(
+                        uuid="00000000-0000-0001-0000-000000000003", handle=3
+                    )
+                ],
             )
         ],
     )
@@ -676,14 +681,18 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
         }
     )
     assert services.services[0] == BluetoothGATTServiceModel(
-        uuid=[1, 1],
+        uuid="00000000-0000-0001-0000-000000000001",
         handle=1,
         characteristics=[
-            BluetoothGATTCharacteristic(
-                uuid=[1, 2],
+            BluetoothGATTCharacteristicModel(
+                uuid="00000000-0000-0001-0000-000000000002",
                 handle=2,
                 properties=1,
-                descriptors=[BluetoothGATTDescriptor(uuid=[1, 3], handle=3)],
+                descriptors=[
+                    BluetoothGATTDescriptorModel(
+                        uuid="00000000-0000-0001-0000-000000000003", handle=3
+                    )
+                ],
             )
         ],
     )
@@ -695,14 +704,109 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
             "descriptors": [],
         }
     ) == BluetoothGATTCharacteristicModel(
-        uuid=[1, 2],
+        uuid="00000000-0000-0001-0000-000000000002",
         handle=2,
         properties=1,
         descriptors=[],
     )
     assert BluetoothGATTDescriptorModel.from_dict(
         {"uuid": [1, 3], "handle": 3},
-    ) == BluetoothGATTDescriptorModel(uuid=[1, 3], handle=3)
+    ) == BluetoothGATTDescriptorModel(
+        uuid="00000000-0000-0001-0000-000000000003", handle=3
+    )
+
+
+def test_bluetooth_16bit_uuid_conversion() -> None:
+    """Test conversion of 16-bit UUIDs."""
+    # Create a descriptor with a 16-bit UUID
+    pb_descriptor = BluetoothGATTDescriptor()
+    pb_descriptor.uuid16 = 0x2902  # Client Characteristic Configuration
+    pb_descriptor.handle = 42
+
+    descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
+    assert descriptor.uuid == "00002902-0000-1000-8000-00805f9b34fb"
+    assert descriptor.handle == 42
+
+
+def test_bluetooth_32bit_uuid_conversion() -> None:
+    """Test conversion of 32-bit UUIDs."""
+    # Create a descriptor with a 32-bit UUID
+    pb_descriptor = BluetoothGATTDescriptor()
+    pb_descriptor.uuid32 = 0x12345678
+    pb_descriptor.handle = 43
+
+    descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
+    assert descriptor.uuid == "12345678-0000-1000-8000-00805f9b34fb"
+    assert descriptor.handle == 43
+
+
+def test_bluetooth_128bit_uuid_fallback() -> None:
+    """Test fallback to 128-bit UUID when no efficient UUID is present."""
+    # Create a descriptor with only 128-bit UUID
+    pb_descriptor = BluetoothGATTDescriptor()
+    pb_descriptor.uuid.extend([0x123456789ABCDEF0, 0x1122334455667788])
+    pb_descriptor.handle = 44
+
+    descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
+    assert descriptor.uuid == "12345678-9abc-def0-1122-334455667788"
+    assert descriptor.handle == 44
+
+
+def test_bluetooth_characteristic_efficient_uuids() -> None:
+    """Test characteristic with mixed UUID types in descriptors."""
+    pb_char = BluetoothGATTCharacteristic()
+    pb_char.uuid16 = 0x2A00  # Device Name
+    pb_char.handle = 10
+    pb_char.properties = 0x02  # Read
+
+    # Add descriptors with different UUID types
+    desc1 = pb_char.descriptors.add()
+    desc1.uuid16 = 0x2901  # Characteristic User Description
+    desc1.handle = 11
+
+    desc2 = pb_char.descriptors.add()
+    desc2.uuid32 = 0xABCDEF00
+    desc2.handle = 12
+
+    characteristic = BluetoothGATTCharacteristicModel.from_pb(pb_char)
+    assert characteristic.uuid == "00002a00-0000-1000-8000-00805f9b34fb"
+    assert characteristic.handle == 10
+    assert characteristic.properties == 0x02
+    assert len(characteristic.descriptors) == 2
+    assert characteristic.descriptors[0].uuid == "00002901-0000-1000-8000-00805f9b34fb"
+    assert characteristic.descriptors[1].uuid == "abcdef00-0000-1000-8000-00805f9b34fb"
+
+
+def test_bluetooth_service_efficient_uuids() -> None:
+    """Test service with efficient UUIDs throughout."""
+    pb_service = BluetoothGATTServicePb()
+    pb_service.uuid16 = 0x180A  # Device Information Service
+    pb_service.handle = 1
+
+    # Add characteristic
+    char = pb_service.characteristics.add()
+    char.uuid16 = 0x2A29  # Manufacturer Name String
+    char.handle = 2
+    char.properties = 0x02
+
+    service = BluetoothGATTServiceModel.from_pb(pb_service)
+    assert service.uuid == "0000180a-0000-1000-8000-00805f9b34fb"
+    assert service.handle == 1
+    assert len(service.characteristics) == 1
+    assert service.characteristics[0].uuid == "00002a29-0000-1000-8000-00805f9b34fb"
+
+
+def test_bluetooth_uuid_priority() -> None:
+    """Test that efficient UUID fields take priority over 128-bit."""
+    # If both 16-bit and 128-bit are present, 16-bit should be used
+    pb_descriptor = BluetoothGATTDescriptor()
+    pb_descriptor.uuid16 = 0x2902
+    pb_descriptor.uuid.extend([0x123456789ABCDEF0, 0x1122334455667788])
+    pb_descriptor.handle = 45
+
+    descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
+    # Should use the 16-bit UUID, not the 128-bit
+    assert descriptor.uuid == "00002902-0000-1000-8000-00805f9b34fb"
 
 
 def test_area_info_convert_list() -> None:
