@@ -1206,10 +1206,6 @@ def _convert_bluetooth_uuid(value: Any) -> str:
     Handles efficient UUID fields (uuid16, uuid32) for v1.12+ clients,
     falling back to the standard 128-bit UUID array format.
     """
-    # If value is already a list (from dict), convert it directly
-    if isinstance(value, list):
-        return _join_split_uuid(value)
-
     # Check for efficient UUID fields (v1.12+)
     # Use walrus operator to handle protobuf's on-demand construction
     if uuid16 := value.uuid16:
