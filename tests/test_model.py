@@ -720,7 +720,7 @@ def test_bluetooth_16bit_uuid_conversion() -> None:
     """Test conversion of 16-bit UUIDs."""
     # Create a descriptor with a 16-bit UUID
     pb_descriptor = BluetoothGATTDescriptor()
-    pb_descriptor.uuid16 = 0x2902  # Client Characteristic Configuration
+    pb_descriptor.short_uuid = 0x2902  # Client Characteristic Configuration
     pb_descriptor.handle = 42
 
     descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
@@ -732,7 +732,7 @@ def test_bluetooth_32bit_uuid_conversion() -> None:
     """Test conversion of 32-bit UUIDs."""
     # Create a descriptor with a 32-bit UUID
     pb_descriptor = BluetoothGATTDescriptor()
-    pb_descriptor.uuid32 = 0x12345678
+    pb_descriptor.short_uuid = 0x12345678
     pb_descriptor.handle = 43
 
     descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
@@ -755,17 +755,17 @@ def test_bluetooth_128bit_uuid_fallback() -> None:
 def test_bluetooth_characteristic_efficient_uuids() -> None:
     """Test characteristic with mixed UUID types in descriptors."""
     pb_char = BluetoothGATTCharacteristic()
-    pb_char.uuid16 = 0x2A00  # Device Name
+    pb_char.short_uuid = 0x2A00  # Device Name
     pb_char.handle = 10
     pb_char.properties = 0x02  # Read
 
     # Add descriptors with different UUID types
     desc1 = pb_char.descriptors.add()
-    desc1.uuid16 = 0x2901  # Characteristic User Description
+    desc1.short_uuid = 0x2901  # Characteristic User Description
     desc1.handle = 11
 
     desc2 = pb_char.descriptors.add()
-    desc2.uuid32 = 0xABCDEF00
+    desc2.short_uuid = 0xABCDEF00
     desc2.handle = 12
 
     characteristic = BluetoothGATTCharacteristicModel.from_pb(pb_char)
@@ -780,12 +780,12 @@ def test_bluetooth_characteristic_efficient_uuids() -> None:
 def test_bluetooth_service_efficient_uuids() -> None:
     """Test service with efficient UUIDs throughout."""
     pb_service = BluetoothGATTServicePb()
-    pb_service.uuid16 = 0x180A  # Device Information Service
+    pb_service.short_uuid = 0x180A  # Device Information Service
     pb_service.handle = 1
 
     # Add characteristic
     char = pb_service.characteristics.add()
-    char.uuid16 = 0x2A29  # Manufacturer Name String
+    char.short_uuid = 0x2A29  # Manufacturer Name String
     char.handle = 2
     char.properties = 0x02
 
@@ -798,14 +798,14 @@ def test_bluetooth_service_efficient_uuids() -> None:
 
 def test_bluetooth_uuid_priority() -> None:
     """Test that efficient UUID fields take priority over 128-bit."""
-    # If both 16-bit and 128-bit are present, 16-bit should be used
+    # If both short_uuid and 128-bit are present, short_uuid should be used
     pb_descriptor = BluetoothGATTDescriptor()
-    pb_descriptor.uuid16 = 0x2902
+    pb_descriptor.short_uuid = 0x2902
     pb_descriptor.uuid.extend([0x123456789ABCDEF0, 0x1122334455667788])
     pb_descriptor.handle = 45
 
     descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
-    # Should use the 16-bit UUID, not the 128-bit
+    # Should use the short_uuid, not the 128-bit
     assert descriptor.uuid == "00002902-0000-1000-8000-00805f9b34fb"
 
 
@@ -813,23 +813,23 @@ def test_bluetooth_gatt_nested_structure() -> None:
     """Test nested GATT structure with all efficient UUID types."""
     # Create a complete service with characteristics and descriptors
     pb_service = BluetoothGATTServicePb()
-    pb_service.uuid16 = 0x180D  # Heart Rate Service
+    pb_service.short_uuid = 0x180D  # Heart Rate Service
     pb_service.handle = 10
 
     # First characteristic - Heart Rate Measurement (16-bit UUID)
     char1 = pb_service.characteristics.add()
-    char1.uuid16 = 0x2A37  # Heart Rate Measurement
+    char1.short_uuid = 0x2A37  # Heart Rate Measurement
     char1.handle = 11
     char1.properties = 0x10  # Notify
 
     # Add descriptor to first characteristic (16-bit UUID)
     desc1 = char1.descriptors.add()
-    desc1.uuid16 = 0x2902  # Client Characteristic Configuration
+    desc1.short_uuid = 0x2902  # Client Characteristic Configuration
     desc1.handle = 12
 
     # Second characteristic - Body Sensor Location (32-bit UUID)
     char2 = pb_service.characteristics.add()
-    char2.uuid32 = 0x12345678  # Custom 32-bit UUID
+    char2.short_uuid = 0x12345678  # Custom 32-bit UUID
     char2.handle = 13
     char2.properties = 0x02  # Read
 
@@ -877,28 +877,28 @@ def test_bluetooth_gatt_services_response_efficient_uuids() -> None:
 
     # First service - Generic Access (16-bit UUID)
     service1 = pb_response.services.add()
-    service1.uuid16 = 0x1800  # Generic Access
+    service1.short_uuid = 0x1800  # Generic Access
     service1.handle = 1
 
     # Add characteristic to first service
     char1 = service1.characteristics.add()
-    char1.uuid16 = 0x2A00  # Device Name
+    char1.short_uuid = 0x2A00  # Device Name
     char1.handle = 2
     char1.properties = 0x02  # Read
 
     # Second service - Battery Service (32-bit UUID)
     service2 = pb_response.services.add()
-    service2.uuid32 = 0xABCDEF00  # Custom service
+    service2.short_uuid = 0xABCDEF00  # Custom service
     service2.handle = 10
 
     # Add characteristic with descriptor
     char2 = service2.characteristics.add()
-    char2.uuid16 = 0x2A19  # Battery Level
+    char2.short_uuid = 0x2A19  # Battery Level
     char2.handle = 11
     char2.properties = 0x12  # Read | Notify
 
     desc = char2.descriptors.add()
-    desc.uuid16 = 0x2902  # Client Characteristic Configuration
+    desc.short_uuid = 0x2902  # Client Characteristic Configuration
     desc.handle = 12
 
     # Third service - Custom Service (128-bit UUID)
@@ -1005,7 +1005,7 @@ def test_bluetooth_gatt_mixed_format() -> None:
 
     # Service 1: Uses efficient 16-bit UUID
     service1 = pb_response.services.add()
-    service1.uuid16 = 0x180F  # Battery Service
+    service1.short_uuid = 0x180F  # Battery Service
     service1.handle = 10
 
     # Characteristic with old 128-bit format
@@ -1021,7 +1021,7 @@ def test_bluetooth_gatt_mixed_format() -> None:
 
     # Characteristic with efficient 32-bit format
     char2 = service2.characteristics.add()
-    char2.uuid32 = 0x12345678
+    char2.short_uuid = 0x12345678
     char2.handle = 21
     char2.properties = 0x02
 

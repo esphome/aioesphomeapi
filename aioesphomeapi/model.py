@@ -1188,30 +1188,22 @@ def _join_split_uuid_high_low(high: int, low: int) -> str:
     return str(UUID(int=(high << 64) | low))
 
 
-@lru_cache(maxsize=128)
-def _convert_16bit_uuid_to_128bit(uuid16: int) -> str:
-    """Convert a 16-bit UUID to 128-bit string format."""
-    return f"0000{uuid16:04x}-0000-1000-8000-00805f9b34fb"
-
-
-@lru_cache(maxsize=128)
-def _convert_32bit_uuid_to_128bit(uuid32: int) -> str:
-    """Convert a 32-bit UUID to 128-bit string format."""
-    return f"{uuid32:08x}-0000-1000-8000-00805f9b34fb"
+@lru_cache(maxsize=256)
+def _convert_short_uuid_to_128bit(short_uuid: int) -> str:
+    """Convert a 16-bit or 32-bit UUID to 128-bit string format."""
+    return f"{short_uuid:08x}-0000-1000-8000-00805f9b34fb"
 
 
 def _convert_bluetooth_uuid(value: Any) -> str:
     """Convert a Bluetooth UUID from protobuf format to string.
 
-    Handles efficient UUID fields (uuid16, uuid32) for v1.12+ clients,
+    Handles efficient UUID field (short_uuid) for v1.12+ clients,
     falling back to the standard 128-bit UUID array format.
     """
-    # Check for efficient UUID fields (v1.12+)
+    # Check for efficient UUID field (v1.12+)
     # Use walrus operator to handle protobuf's on-demand construction
-    if uuid16 := value.uuid16:
-        return _convert_16bit_uuid_to_128bit(uuid16)
-    if uuid32 := value.uuid32:
-        return _convert_32bit_uuid_to_128bit(uuid32)
+    if short_uuid := value.short_uuid:
+        return _convert_short_uuid_to_128bit(short_uuid)
     # Fall back to 128-bit UUID
     return _join_split_uuid(value.uuid)
 
