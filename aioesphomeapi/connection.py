@@ -148,7 +148,7 @@ CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 def _make_hello_request(client_info: str) -> HelloRequest:
     """Make a HelloRequest."""
     return HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=10
+        client_info=client_info, api_version_major=1, api_version_minor=12
     )
 
 
@@ -978,9 +978,10 @@ class APIConnection:
 
         if self._debug_enabled:
             _LOGGER.debug(
-                "%s: Got message of type %s: %s",
+                "%s: Got message of type %s (len=%d): %s",
                 self.log_name,
                 type(msg).__name__,
+                len(data),
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead

@@ -1188,6 +1188,34 @@ def _join_split_uuid_high_low(high: int, low: int) -> str:
     return str(UUID(int=(high << 64) | low))
 
 
+@lru_cache(maxsize=128)
+def _convert_16bit_uuid_to_128bit(uuid16: int) -> str:
+    """Convert a 16-bit UUID to 128-bit string format."""
+    return f"0000{uuid16:04x}-0000-1000-8000-00805f9b34fb"
+
+
+@lru_cache(maxsize=128)
+def _convert_32bit_uuid_to_128bit(uuid32: int) -> str:
+    """Convert a 32-bit UUID to 128-bit string format."""
+    return f"{uuid32:08x}-0000-1000-8000-00805f9b34fb"
+
+
+def _convert_bluetooth_uuid(value: Any) -> str:
+    """Convert a Bluetooth UUID from protobuf format to string.
+
+    Handles efficient UUID fields (uuid16, uuid32) for v1.12+ clients,
+    falling back to the standard 128-bit UUID array format.
+    """
+    # Check for efficient UUID fields (v1.12+)
+    # Use walrus operator to handle protobuf's on-demand construction
+    if uuid16 := value.uuid16:
+        return _convert_16bit_uuid_to_128bit(uuid16)
+    if uuid32 := value.uuid32:
+        return _convert_32bit_uuid_to_128bit(uuid32)
+    # Fall back to 128-bit UUID
+    return _join_split_uuid(value.uuid)
+
+
 def _uuid_converter(uuid: str) -> str:
     return (
         f"0000{uuid[2:].lower()}-0000-1000-8000-00805f9b34fb"
@@ -1295,8 +1323,27 @@ class BluetoothGATTRead(APIModelBase):
 
 @_frozen_dataclass_decorator
 class BluetoothGATTDescriptor(APIModelBase):
-    uuid: str = converter_field(default="", converter=_join_split_uuid)
+    uuid: str = ""
     handle: int = 0
+
+    @classmethod
+    def from_pb(cls, data: Any) -> BluetoothGATTDescriptor:
+        # If data is already a model instance, return it
+        if isinstance(data, cls):
+            return data
+
+        # Convert UUID using the common function
+        return cls(uuid=_convert_bluetooth_uuid(data), handle=data.handle)  # type: ignore[call-arg]
+
+    @classmethod
+    def from_dict(
+        cls, data: dict[str, Any], *, ignore_missing: bool = True
+    ) -> BluetoothGATTDescriptor:
+        # Handle UUID conversion from list to string
+        if "uuid" in data and isinstance(data["uuid"], list):
+            data = data.copy()
+            data["uuid"] = _join_split_uuid(data["uuid"])
+        return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[BluetoothGATTDescriptor]:
@@ -1311,13 +1358,37 @@ class BluetoothGATTDescriptor(APIModelBase):
 
 @_frozen_dataclass_decorator
 class BluetoothGATTCharacteristic(APIModelBase):
-    uuid: str = converter_field(default="", converter=_join_split_uuid)
+    uuid: str = ""
     handle: int = 0
     properties: int = 0
 
     descriptors: list[BluetoothGATTDescriptor] = converter_field(
         default_factory=list, converter=BluetoothGATTDescriptor.convert_list
     )
+
+    @classmethod
+    def from_pb(cls, data: Any) -> BluetoothGATTCharacteristic:
+        # If data is already a model instance, return it
+        if isinstance(data, cls):
+            return data
+
+        # Convert UUID using the common function
+        return cls(  # type: ignore[call-arg]
+            uuid=_convert_bluetooth_uuid(data),
+            handle=data.handle,
+            properties=data.properties,
+            descriptors=BluetoothGATTDescriptor.convert_list(data.descriptors),
+        )
+
+    @classmethod
+    def from_dict(
+        cls, data: dict[str, Any], *, ignore_missing: bool = True
+    ) -> BluetoothGATTCharacteristic:
+        # Handle UUID conversion from list to string
+        if "uuid" in data and isinstance(data["uuid"], list):
+            data = data.copy()
+            data["uuid"] = _join_split_uuid(data["uuid"])
+        return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[BluetoothGATTCharacteristic]:
@@ -1332,11 +1403,36 @@ class BluetoothGATTCharacteristic(APIModelBase):
 
 @_frozen_dataclass_decorator
 class BluetoothGATTService(APIModelBase):
-    uuid: str = converter_field(default="", converter=_join_split_uuid)
+    uuid: str = ""
     handle: int = 0
     characteristics: list[BluetoothGATTCharacteristic] = converter_field(
         default_factory=list, converter=BluetoothGATTCharacteristic.convert_list
     )
+
+    @classmethod
+    def from_pb(cls, data: Any) -> BluetoothGATTService:
+        # If data is already a model instance, return it
+        if isinstance(data, cls):
+            return data
+
+        # Convert UUID using the common function
+        return cls(  # type: ignore[call-arg]
+            uuid=_convert_bluetooth_uuid(data),
+            handle=data.handle,
+            characteristics=BluetoothGATTCharacteristic.convert_list(
+                data.characteristics
+            ),
+        )
+
+    @classmethod
+    def from_dict(
+        cls, data: dict[str, Any], *, ignore_missing: bool = True
+    ) -> BluetoothGATTService:
+        # Handle UUID conversion from list to string
+        if "uuid" in data and isinstance(data["uuid"], list):
+            data = data.copy()
+            data["uuid"] = _join_split_uuid(data["uuid"])
+        return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[BluetoothGATTService]:
