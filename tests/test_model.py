@@ -941,6 +941,113 @@ def test_bluetooth_gatt_services_response_efficient_uuids() -> None:
     assert services_model.services[2].handle == 20
 
 
+def test_bluetooth_gatt_old_format_compatibility() -> None:
+    """Test compatibility with old ESPHome versions that only send 128-bit UUIDs."""
+    # Create response as old ESPHome would send (only 128-bit UUIDs)
+    pb_response = BluetoothGATTGetServicesResponse()
+    pb_response.address = 0x112233445566
+
+    # Service with only 128-bit UUID (old format)
+    service = pb_response.services.add()
+    # 0x1800 = Generic Access Service as 128-bit
+    # UUID: 00001800-0000-1000-8000-00805F9B34FB
+    service.uuid.extend([0x0000180000001000, 0x800000805F9B34FB])
+    service.handle = 1
+
+    # Characteristic with only 128-bit UUID
+    char = service.characteristics.add()
+    # 0x2A00 = Device Name as 128-bit
+    # UUID: 00002A00-0000-1000-8000-00805F9B34FB
+    char.uuid.extend([0x00002A0000001000, 0x800000805F9B34FB])
+    char.handle = 2
+    char.properties = 0x02
+
+    # Descriptor with only 128-bit UUID
+    desc = char.descriptors.add()
+    # 0x2902 = Client Characteristic Configuration as 128-bit
+    # UUID: 00002902-0000-1000-8000-00805F9B34FB
+    desc.uuid.extend([0x0000290200001000, 0x800000805F9B34FB])
+    desc.handle = 3
+
+    # Convert to model
+    services_model = BluetoothGATTServicesModel.from_pb(pb_response)
+
+    # Verify all UUIDs are correctly converted from 128-bit format
+    assert services_model.address == 0x112233445566
+    assert len(services_model.services) == 1
+
+    # Service UUID should be properly formatted
+    assert services_model.services[0].uuid == "00001800-0000-1000-8000-00805f9b34fb"
+    assert services_model.services[0].handle == 1
+
+    # Characteristic UUID
+    assert len(services_model.services[0].characteristics) == 1
+    assert (
+        services_model.services[0].characteristics[0].uuid
+        == "00002a00-0000-1000-8000-00805f9b34fb"
+    )
+    assert services_model.services[0].characteristics[0].handle == 2
+
+    # Descriptor UUID
+    assert len(services_model.services[0].characteristics[0].descriptors) == 1
+    assert (
+        services_model.services[0].characteristics[0].descriptors[0].uuid
+        == "00002902-0000-1000-8000-00805f9b34fb"
+    )
+    assert services_model.services[0].characteristics[0].descriptors[0].handle == 3
+
+
+def test_bluetooth_gatt_mixed_format() -> None:
+    """Test handling mixed UUID formats in the same response."""
+    # This simulates a scenario where some UUIDs use efficient format and others don't
+    pb_response = BluetoothGATTGetServicesResponse()
+    pb_response.address = 0xAABBCCDDEEFF
+
+    # Service 1: Uses efficient 16-bit UUID
+    service1 = pb_response.services.add()
+    service1.uuid16 = 0x180F  # Battery Service
+    service1.handle = 10
+
+    # Characteristic with old 128-bit format
+    char1 = service1.characteristics.add()
+    char1.uuid.extend([0x00002A1900001000, 0x800000805F9B34FB])  # Battery Level
+    char1.handle = 11
+    char1.properties = 0x12
+
+    # Service 2: Uses old 128-bit format
+    service2 = pb_response.services.add()
+    service2.uuid.extend([0x0000180A00001000, 0x800000805F9B34FB])  # Device Information
+    service2.handle = 20
+
+    # Characteristic with efficient 32-bit format
+    char2 = service2.characteristics.add()
+    char2.uuid32 = 0x12345678
+    char2.handle = 21
+    char2.properties = 0x02
+
+    # Convert to model
+    services_model = BluetoothGATTServicesModel.from_pb(pb_response)
+
+    # Verify mixed format handling
+    assert len(services_model.services) == 2
+
+    # Service 1 uses efficient format
+    assert services_model.services[0].uuid == "0000180f-0000-1000-8000-00805f9b34fb"
+    # Its characteristic uses old format
+    assert (
+        services_model.services[0].characteristics[0].uuid
+        == "00002a19-0000-1000-8000-00805f9b34fb"
+    )
+
+    # Service 2 uses old format
+    assert services_model.services[1].uuid == "0000180a-0000-1000-8000-00805f9b34fb"
+    # Its characteristic uses efficient format
+    assert (
+        services_model.services[1].characteristics[0].uuid
+        == "12345678-0000-1000-8000-00805f9b34fb"
+    )
+
+
 def test_bluetooth_gatt_from_pb_already_model() -> None:
     """Test from_pb methods when data is already a model instance."""
     # Test BluetoothGATTDescriptor
