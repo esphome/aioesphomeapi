@@ -1271,3 +1271,23 @@ async def test_report_fatal_error_regular_errors_logged_at_warning_level(
     ]
     assert len(matching_records) == 1
     assert matching_records[0].levelno == logging.WARNING
+
+
+@pytest.mark.asyncio
+async def test_report_fatal_error_with_log_errors_false(
+    connection_params: ConnectionParams,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that report_fatal_error doesn't log when log_errors=False."""
+    conn = APIConnection(connection_params, None, False, None, log_errors=False)
+
+    with caplog.at_level(logging.DEBUG):
+        # Report a regular connection error
+        regular_error = APIConnectionError("Test connection error")
+        conn.report_fatal_error(regular_error)
+
+    # Verify no error was logged
+    assert len(caplog.records) == 0
+
+    # Verify the error is still stored internally
+    assert conn._fatal_exception is regular_error

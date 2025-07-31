@@ -206,7 +206,7 @@ async def test_connect_backwards_compat() -> None:
     ):
         await cli.connect()
 
-    assert mock_start_resolve_host.mock_calls == [call(None)]
+    assert mock_start_resolve_host.mock_calls == [call(None, log_errors=True)]
     assert mock_start_connection.mock_calls == [call()]
     assert mock_finish_connection.mock_calls == [call(False)]
 

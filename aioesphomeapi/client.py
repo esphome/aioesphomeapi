@@ -204,9 +204,10 @@ class APIClient(APIClientBase):
         self,
         on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
         login: bool = False,
+        log_errors: bool = True,
     ) -> None:
         """Connect to the device."""
-        await self.start_resolve_host(on_stop)
+        await self.start_resolve_host(on_stop, log_errors=log_errors)
         await self.start_connection()
         await self.finish_connection(login)
 
@@ -223,6 +224,7 @@ class APIClient(APIClientBase):
     async def start_resolve_host(
         self,
         on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
+        log_errors: bool = True,
     ) -> None:
         """Start resolving the host."""
         if self._connection is not None:
@@ -232,6 +234,7 @@ class APIClient(APIClientBase):
             partial(self._on_stop, on_stop),
             self._debug_enabled,
             self.log_name,
+            log_errors=log_errors,
         )
         await self._execute_connection_coro(self._connection.start_resolve_host())
 
