@@ -978,9 +978,10 @@ class APIConnection:
 
         if self._debug_enabled:
             _LOGGER.debug(
-                "%s: Got message of type %s: %s",
+                "%s: Got message of type %s (len=%d): %s",
                 self.log_name,
                 type(msg).__name__,
+                len(data),
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead
