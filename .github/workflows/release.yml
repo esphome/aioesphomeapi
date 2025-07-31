@@ -29,34 +29,6 @@ jobs:
             musl: "musllinux"
           - os: ubuntu-24.04-arm
             musl: "musllinux"
-          # qemu is slow, make a single
-          # runner per Python version
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: "musllinux"
-            pyver: cp311
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: "musllinux"
-            pyver: cp312
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: "musllinux"
-            pyver: cp313
-          # qemu is slow, make a single
-          # runner per Python version
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: ""
-            pyver: cp311
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: ""
-            pyver: cp312
-          - os: ubuntu-latest
-            qemu: armv7l
-            musl: ""
-            pyver: cp313
     steps:
       - uses: actions/checkout@v4
         with:
