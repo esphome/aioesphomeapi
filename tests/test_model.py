@@ -809,6 +809,138 @@ def test_bluetooth_uuid_priority() -> None:
     assert descriptor.uuid == "00002902-0000-1000-8000-00805f9b34fb"
 
 
+def test_bluetooth_gatt_nested_structure() -> None:
+    """Test nested GATT structure with all efficient UUID types."""
+    # Create a complete service with characteristics and descriptors
+    pb_service = BluetoothGATTServicePb()
+    pb_service.uuid16 = 0x180D  # Heart Rate Service
+    pb_service.handle = 10
+
+    # First characteristic - Heart Rate Measurement (16-bit UUID)
+    char1 = pb_service.characteristics.add()
+    char1.uuid16 = 0x2A37  # Heart Rate Measurement
+    char1.handle = 11
+    char1.properties = 0x10  # Notify
+
+    # Add descriptor to first characteristic (16-bit UUID)
+    desc1 = char1.descriptors.add()
+    desc1.uuid16 = 0x2902  # Client Characteristic Configuration
+    desc1.handle = 12
+
+    # Second characteristic - Body Sensor Location (32-bit UUID)
+    char2 = pb_service.characteristics.add()
+    char2.uuid32 = 0x12345678  # Custom 32-bit UUID
+    char2.handle = 13
+    char2.properties = 0x02  # Read
+
+    # Add descriptor to second characteristic (128-bit UUID)
+    desc2 = char2.descriptors.add()
+    desc2.uuid.extend([0x123456789ABCDEF0, 0x1122334455667788])
+    desc2.handle = 14
+
+    # Convert to model
+    service = BluetoothGATTServiceModel.from_pb(pb_service)
+
+    # Verify service
+    assert service.uuid == "0000180d-0000-1000-8000-00805f9b34fb"
+    assert service.handle == 10
+    assert len(service.characteristics) == 2
+
+    # Verify first characteristic
+    assert service.characteristics[0].uuid == "00002a37-0000-1000-8000-00805f9b34fb"
+    assert service.characteristics[0].handle == 11
+    assert service.characteristics[0].properties == 0x10
+    assert len(service.characteristics[0].descriptors) == 1
+    assert (
+        service.characteristics[0].descriptors[0].uuid
+        == "00002902-0000-1000-8000-00805f9b34fb"
+    )
+    assert service.characteristics[0].descriptors[0].handle == 12
+
+    # Verify second characteristic
+    assert service.characteristics[1].uuid == "12345678-0000-1000-8000-00805f9b34fb"
+    assert service.characteristics[1].handle == 13
+    assert service.characteristics[1].properties == 0x02
+    assert len(service.characteristics[1].descriptors) == 1
+    assert (
+        service.characteristics[1].descriptors[0].uuid
+        == "12345678-9abc-def0-1122-334455667788"
+    )
+    assert service.characteristics[1].descriptors[0].handle == 14
+
+
+def test_bluetooth_gatt_services_response_efficient_uuids() -> None:
+    """Test BluetoothGATTGetServicesResponse with multiple services using efficient UUIDs."""
+    # Create response with multiple services
+    pb_response = BluetoothGATTGetServicesResponse()
+    pb_response.address = 0x112233445566
+
+    # First service - Generic Access (16-bit UUID)
+    service1 = pb_response.services.add()
+    service1.uuid16 = 0x1800  # Generic Access
+    service1.handle = 1
+
+    # Add characteristic to first service
+    char1 = service1.characteristics.add()
+    char1.uuid16 = 0x2A00  # Device Name
+    char1.handle = 2
+    char1.properties = 0x02  # Read
+
+    # Second service - Battery Service (32-bit UUID)
+    service2 = pb_response.services.add()
+    service2.uuid32 = 0xABCDEF00  # Custom service
+    service2.handle = 10
+
+    # Add characteristic with descriptor
+    char2 = service2.characteristics.add()
+    char2.uuid16 = 0x2A19  # Battery Level
+    char2.handle = 11
+    char2.properties = 0x12  # Read | Notify
+
+    desc = char2.descriptors.add()
+    desc.uuid16 = 0x2902  # Client Characteristic Configuration
+    desc.handle = 12
+
+    # Third service - Custom Service (128-bit UUID)
+    service3 = pb_response.services.add()
+    service3.uuid.extend([0x123456789ABCDEF0, 0xFEDCBA9876543210])
+    service3.handle = 20
+
+    # Convert to model
+    services_model = BluetoothGATTServicesModel.from_pb(pb_response)
+
+    # Verify response
+    assert services_model.address == 0x112233445566
+    assert len(services_model.services) == 3
+
+    # Verify first service
+    assert services_model.services[0].uuid == "00001800-0000-1000-8000-00805f9b34fb"
+    assert services_model.services[0].handle == 1
+    assert len(services_model.services[0].characteristics) == 1
+    assert (
+        services_model.services[0].characteristics[0].uuid
+        == "00002a00-0000-1000-8000-00805f9b34fb"
+    )
+
+    # Verify second service
+    assert services_model.services[1].uuid == "abcdef00-0000-1000-8000-00805f9b34fb"
+    assert services_model.services[1].handle == 10
+    assert len(services_model.services[1].characteristics) == 1
+    assert (
+        services_model.services[1].characteristics[0].uuid
+        == "00002a19-0000-1000-8000-00805f9b34fb"
+    )
+    assert len(services_model.services[1].characteristics[0].descriptors) == 1
+    assert (
+        services_model.services[1].characteristics[0].descriptors[0].uuid
+        == "00002902-0000-1000-8000-00805f9b34fb"
+    )
+
+    # Verify third service
+    assert services_model.services[2].uuid == "12345678-9abc-def0-fedc-ba9876543210"
+    assert services_model.services[2].handle == 20
+
+
 def test_area_info_convert_list() -> None:
     """Test list conversion for AreaInfo."""
     device_info = DeviceInfo(
