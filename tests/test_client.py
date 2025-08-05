@@ -1138,6 +1138,24 @@ async def test_empty_noise_psk_or_expected_name():
     assert cli._params.expected_name is None
 
 
+async def test_addresses_parameter_handles_subclassed_string() -> None:
+    """Test that the addresses parameter gets converted to a list of strings."""
+    cli = APIClient(
+        address=Estr("127.0.0.1"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=None,
+        addresses=[Estr("192.168.1.100"), Estr("192.168.1.101"), Estr("10.0.0.1")],
+    )
+    # Make sure all addresses are converted to regular strings
+    assert len(cli._params.addresses) == 3
+    assert all(type(addr) is str for addr in cli._params.addresses)
+    assert cli._params.addresses[0] == "192.168.1.100"
+    assert cli._params.addresses[1] == "192.168.1.101"
+    assert cli._params.addresses[2] == "10.0.0.1"
+
+
 async def test_bluetooth_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
