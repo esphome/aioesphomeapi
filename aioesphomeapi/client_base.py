@@ -255,7 +255,9 @@ class APIClientBase:
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
-            addresses=addresses if addresses else [str(address)],
+            addresses=[str(addr) for addr in addresses]
+            if addresses
+            else [str(address)],
             port=port,
             password=password,
             client_info=client_info,
