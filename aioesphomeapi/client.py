@@ -463,9 +463,11 @@ class APIClient(APIClientBase):
             # REMOTE_CACHING feature without cache: esp will wipe the service list after sending to save memory
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
         else:
-            # Device does not support REMOTE_CACHING feature: esp will hold the service list in memory for the duration
-            # of the connection. This can crash the esp if the service list is too large.
-            request_type = BluetoothDeviceRequestType.CONNECT
+            # ESPHome device does not support REMOTE_CACHING feature: old CONNECT method is no longer supported
+            raise ValueError(
+                f"{self.log_name}: ESPHome device does not support REMOTE_CACHING feature. "
+                "Please update the ESPHome device to version 2022.12.0 or later."
+            )
 
         if self._debug_enabled:
             _LOGGER.debug("%s: Using connection version %s", address, request_type)

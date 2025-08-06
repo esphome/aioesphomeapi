@@ -2054,7 +2054,6 @@ async def test_force_disconnect(
 @pytest.mark.parametrize(
     ("has_cache", "feature_flags", "method"),
     [
-        (False, BluetoothProxyFeature(0), BluetoothDeviceRequestType.CONNECT),
         (
             False,
             BluetoothProxyFeature.REMOTE_CACHING,
@@ -2135,6 +2134,32 @@ async def test_bluetooth_device_connect(
     assert not client._connection
     # Make sure cancel is safe to call after disconnect
     cancel()
+
+
+async def test_bluetooth_device_connect_without_cache_support_raises(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_connect raises when device doesn't support REMOTE_CACHING."""
+    client, connection, transport, protocol = api_client
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        pass
+
+    with pytest.raises(ValueError) as exc_info:
+        await client.bluetooth_device_connect(
+            1234,
+            on_bluetooth_connection_state,
+            timeout=1,
+            feature_flags=0,  # No REMOTE_CACHING feature
+            has_cache=False,
+        )
+
+    assert "ESPHome device does not support REMOTE_CACHING feature" in str(
+        exc_info.value
+    )
+    assert "2022.12.0 or later" in str(exc_info.value)
 
 
 async def test_bluetooth_device_connect_and_disconnect_times_out(
