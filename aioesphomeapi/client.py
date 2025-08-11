@@ -861,6 +861,47 @@ class APIClient(APIClientBase):
             (SubscribeHomeAssistantStateResponse,),
         )
 
+    def subscribe_homeassistant_states_and_services(
+        self,
+        on_state: Callable[[EntityState], None],
+        on_service_call: Callable[[HomeassistantServiceCall], None],
+        on_state_sub: Callable[[str, str | None], None],
+        on_state_request: Callable[[str, str | None], None] | None = None,
+    ) -> None:
+        """Subscribe to all state updates and service calls in a single request.
+
+        This is more efficient than calling the individual subscribe methods
+        as it sends all subscription requests in a single packet.
+        """
+        connection = self._get_connection()
+
+        # Register callbacks first to avoid missing any messages
+        connection.add_message_callback(
+            partial(on_state_msg, on_state, {}),
+            SUBSCRIBE_STATES_MSG_TYPES,
+        )
+        connection.add_message_callback(
+            partial(on_home_assistant_service_response, on_service_call),
+            (HomeassistantServiceResponse,),
+        )
+        connection.add_message_callback(
+            partial(
+                on_subscribe_home_assistant_state_response,
+                on_state_sub,
+                on_state_request,
+            ),
+            (SubscribeHomeAssistantStateResponse,),
+        )
+
+        # Send all three subscription requests at once
+        connection.send_messages(
+            (
+                SubscribeStatesRequest(),
+                SubscribeHomeassistantServicesRequest(),
+                SubscribeHomeAssistantStatesRequest(),
+            )
+        )
+
     def send_home_assistant_state(
         self, entity_id: str, attribute: str | None, state: str
     ) -> None:
