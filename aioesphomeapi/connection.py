@@ -152,6 +152,13 @@ def _make_hello_request(client_info: str) -> HelloRequest:
     )
 
 
+def _make_time_response() -> GetTimeResponse:
+    """Create a GetTimeResponse."""
+    resp = GetTimeResponse()
+    resp.epoch_seconds = int(time.time())
+    return resp
+
+
 _cached_make_hello_request = lru_cache(maxsize=16)(_make_hello_request)
 make_hello_request = _cached_make_hello_request
 
@@ -200,6 +207,7 @@ class APIConnection:
         "_finish_connect_future",
         "_frame_helper",
         "_handshake_complete",
+        "_initial_time_sent",
         "_keep_alive_interval",
         "_keep_alive_timeout",
         "_log_errors",
@@ -261,6 +269,7 @@ class APIConnection:
         self._loop = asyncio.get_running_loop()
         self.is_connected = False
         self._handshake_complete = False
+        self._initial_time_sent = False
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self.connected_address: str | None = None
@@ -476,6 +485,13 @@ class APIConnection:
                 # the device has a password but we don't expect it
                 msg_types.append(ConnectResponse)
 
+        # Send a GetTimeResponse proactively to reduce latency during reconnect.
+        # This avoids an additional round-trip for the GetTimeRequest.
+        # If the device doesn't have Home Assistant time enabled, it will
+        # simply ignore this response, but since it's included in the same
+        # packet, it's nearly free to send and reduces pressure during reconnect.
+        messages.append(_make_time_response())
+        self._initial_time_sent = True
         responses = await self.send_messages_await_response_complex(
             tuple(messages),
             None,
@@ -1061,9 +1077,11 @@ class APIConnection:
         self, _msg: GetTimeRequest
     ) -> None:
         """Handle a GetTimeRequest."""
-        resp = GetTimeResponse()
-        resp.epoch_seconds = int(time.time())
-        self.send_messages((resp,))
+        if self._initial_time_sent:
+            # Ignore the first time request since we already sent it proactively
+            self._initial_time_sent = False
+            return
+        self.send_messages((_make_time_response(),))
 
     async def disconnect(self) -> None:
         """Disconnect from the API."""
