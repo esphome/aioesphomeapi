@@ -861,7 +861,7 @@ class APIClient(APIClientBase):
             (SubscribeHomeAssistantStateResponse,),
         )
 
-    def subscribe_homeassistant_states_and_services(
+    def subscribe_home_assistant_states_and_services(
         self,
         on_state: Callable[[EntityState], None],
         on_service_call: Callable[[HomeassistantServiceCall], None],
