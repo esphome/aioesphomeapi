@@ -23,6 +23,7 @@ from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     ConnectResponse,
+    GetTimeRequest,
     HelloResponse,
     PingRequest,
     PingResponse,
@@ -190,6 +191,11 @@ def send_ping_response(protocol: APIPlaintextFrameHelper) -> None:
 def send_ping_request(protocol: APIPlaintextFrameHelper) -> None:
     ping_request: message.Message = PingRequest()
     protocol.data_received(generate_plaintext_packet(ping_request))
+
+
+def send_time_request(protocol: APIPlaintextFrameHelper) -> None:
+    time_request: message.Message = GetTimeRequest()
+    protocol.data_received(generate_plaintext_packet(time_request))
 
 
 def get_mock_protocol(conn: APIConnection):

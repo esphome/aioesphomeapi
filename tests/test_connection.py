@@ -52,6 +52,7 @@ from .common import (
     send_ping_response,
     send_plaintext_connect_response,
     send_plaintext_hello,
+    send_time_request,
     utcnow,
 )
 
@@ -1291,3 +1292,53 @@ async def test_report_fatal_error_with_log_errors_false(
 
     # Verify the error is still stored internally
     assert conn._fatal_exception is regular_error
+
+
+async def test_time_request_response(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """Test that the first GetTimeRequest is ignored but subsequent ones are handled."""
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    send_plaintext_hello(protocol)
+    send_plaintext_connect_response(protocol, False)
+
+    await connect_task
+    assert conn.is_connected
+
+    # Reset transport mock to check what gets sent after connection
+    transport.reset_mock()
+
+    # Send first GetTimeRequest - this should be ignored since we sent time proactively
+    send_time_request(protocol)
+    await asyncio.sleep(0)
+
+    # Verify no response was sent for the first request
+    assert transport.writelines.call_count == 0
+
+    # Send second GetTimeRequest - this should be answered
+    send_time_request(protocol)
+    await asyncio.sleep(0)
+
+    # Verify GetTimeResponse was sent
+    assert transport.writelines.call_count == 1
+    # GetTimeResponse message type is 37 (0x25)
+    # writelines is called with a list of bytes, check that we have the right message type
+    call_args = transport.writelines.call_args_list[0][0][0]
+    # Join all the bytes together to check
+    full_data = b"".join(call_args)
+    # Message type 37 is 0x25
+    assert b"\x25" in full_data
+
+    # Send third GetTimeRequest - this should also be answered
+    transport.reset_mock()
+    send_time_request(protocol)
+    await asyncio.sleep(0)
+
+    # Verify another GetTimeResponse was sent
+    assert transport.writelines.call_count == 1
+    call_args = transport.writelines.call_args_list[0][0][0]
+    full_data = b"".join(call_args)
+    assert b"\x25" in full_data
