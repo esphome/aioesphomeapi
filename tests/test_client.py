@@ -1987,12 +1987,12 @@ async def test_subscribe_logs(auth_client: APIClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_subscribe_homeassistant_states_and_services(
+async def test_subscribe_home_assistant_states_and_services(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test subscribe_homeassistant_states_and_services."""
+    """Test subscribe_home_assistant_states_and_services."""
     client, connection, transport, protocol = api_client
 
     # Patch send_messages to verify it's called with all 3 messages
@@ -2005,7 +2005,7 @@ async def test_subscribe_homeassistant_states_and_services(
     on_state_request = MagicMock()
 
     # Call the unified subscription method
-    client.subscribe_homeassistant_states_and_services(
+    client.subscribe_home_assistant_states_and_services(
         on_state=on_state,
         on_service_call=on_service_call,
         on_state_sub=on_state_sub,
