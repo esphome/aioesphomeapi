@@ -65,8 +65,11 @@ from aioesphomeapi.api_pb2 import (
     NumberCommandRequest,
     SelectCommandRequest,
     SirenCommandRequest,
+    SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
+    SubscribeHomeAssistantStatesRequest,
     SubscribeLogsResponse,
+    SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
     TextCommandRequest,
@@ -1981,6 +1984,62 @@ async def test_subscribe_logs(auth_client: APIClient) -> None:
     await send(log_msg)
     on_logs.assert_not_called()
     on_logs.reset_mock()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_homeassistant_states_and_services(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_homeassistant_states_and_services."""
+    client, connection, transport, protocol = api_client
+
+    # Patch send_messages to verify it's called with all 3 messages
+    send_messages = connection.send_messages = MagicMock()
+
+    # Mock callbacks
+    on_state = MagicMock()
+    on_service_call = MagicMock()
+    on_state_sub = MagicMock()
+    on_state_request = MagicMock()
+
+    # Call the unified subscription method
+    client.subscribe_homeassistant_states_and_services(
+        on_state=on_state,
+        on_service_call=on_service_call,
+        on_state_sub=on_state_sub,
+        on_state_request=on_state_request,
+    )
+
+    # Verify that all three subscription messages were sent in a single call
+    assert send_messages.call_count == 1
+    sent_messages = send_messages.call_args[0][0]
+    assert len(sent_messages) == 3
+    assert isinstance(sent_messages[0], SubscribeStatesRequest)
+    assert isinstance(sent_messages[1], SubscribeHomeassistantServicesRequest)
+    assert isinstance(sent_messages[2], SubscribeHomeAssistantStatesRequest)
+
+    # Test that callbacks work correctly
+    # Test state update
+    await asyncio.sleep(0)
+    response: message.Message = BinarySensorStateResponse(key=1, state=True)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    on_state.assert_called_once()
+
+    # Test service call
+    on_state.reset_mock()
+    service_msg = HomeassistantServiceResponse(service="test_service")
+    mock_data_received(protocol, generate_plaintext_packet(service_msg))
+    on_service_call.assert_called_once()
+
+    # Test home assistant state subscription
+    on_service_call.reset_mock()
+    ha_state_msg = SubscribeHomeAssistantStateResponse(
+        entity_id="sensor.test", attribute="value"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(ha_state_msg))
+    on_state_sub.assert_called_once_with("sensor.test", "value")
 
 
 async def test_send_home_assistant_state(auth_client: APIClient) -> None:
