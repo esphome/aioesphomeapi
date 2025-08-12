@@ -1299,8 +1299,21 @@ async def test_time_request_response(
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    """Test that the first GetTimeRequest is ignored but subsequent ones are handled."""
+    """Test that GetTimeResponse is sent proactively and first request is ignored."""
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    # Verify that GetTimeResponse is sent proactively during initial handshake
+    # This happens before we even receive HelloResponse/ConnectResponse
+    initial_calls = transport.writelines.call_args_list
+    # Find the initial handshake packet that should contain Hello, Connect, and GetTimeResponse
+    handshake_found = False
+    for call_args in initial_calls:
+        full_data = b"".join(call_args[0][0])
+        # Check if this packet contains GetTimeResponse (message type 0x25)
+        if b"\x25" in full_data:
+            handshake_found = True
+            break
+    assert handshake_found, "GetTimeResponse was not sent proactively during handshake"
 
     send_plaintext_hello(protocol)
     send_plaintext_connect_response(protocol, False)
