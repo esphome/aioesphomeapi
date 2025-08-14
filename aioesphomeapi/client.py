@@ -306,6 +306,60 @@ class APIClient(APIClientBase):
                 entities.append(cls.from_pb(msg))
         return entities, services
 
+    async def device_info_and_list_entities(
+        self,
+    ) -> tuple[DeviceInfo, list[EntityInfo], list[UserService]]:
+        """Get device info and list entities in a single call.
+
+        This method reduces connection latency by fetching device info
+        and entity list in a single network packet.
+        """
+        # Define message types we expect to receive
+        msg_types = (DeviceInfoResponse, *LIST_ENTITIES_MSG_TYPES)
+
+        # Track whether we've received both required responses
+        has_device_info = False
+        has_entities_done = False
+
+        def is_response(msg: message.Message) -> bool:
+            nonlocal has_device_info, has_entities_done
+            msg_type = type(msg)
+            if msg_type is DeviceInfoResponse:
+                has_device_info = True
+            elif msg_type is ListEntitiesDoneResponse:
+                has_entities_done = True
+            return True
+
+        def do_stop(msg: message.Message) -> bool:
+            return has_device_info and has_entities_done
+
+        msgs = await self._get_connection().send_messages_await_response_complex(
+            (DeviceInfoRequest(), ListEntitiesRequest()),
+            is_response,
+            do_stop,
+            msg_types,
+            60,
+        )
+
+        # Process responses
+        device_info: DeviceInfo | None = None
+        entities: list[EntityInfo] = []
+        services: list[UserService] = []
+        response_types = LIST_ENTITIES_SERVICES_RESPONSE_TYPES
+
+        for msg in msgs:
+            msg_type = type(msg)
+            if msg_type is DeviceInfoResponse:
+                device_info = DeviceInfo.from_pb(msg)
+                self._set_name_from_device(device_info.name)
+            elif msg_type is ListEntitiesServicesResponse:
+                services.append(UserService.from_pb(msg))
+            elif cls := response_types.get(msg_type):
+                entities.append(cls.from_pb(msg))
+
+        assert device_info is not None
+        return device_info, entities, services
+
     def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         """Subscribe to state updates."""
         self._get_connection().send_message_callback_response(

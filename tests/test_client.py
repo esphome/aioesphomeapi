@@ -57,6 +57,7 @@ from aioesphomeapi.api_pb2 import (
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
+    ListEntitiesSensorResponse,
     ListEntitiesServicesResponse,
     LockCommandRequest,
     MediaPlayerCommandRequest,
@@ -114,6 +115,7 @@ from aioesphomeapi.model import (
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    DeviceInfo,
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
@@ -122,6 +124,7 @@ from aioesphomeapi.model import (
     LightColorCapability,
     LockCommand,
     MediaPlayerCommand,
+    SensorInfo,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -315,7 +318,7 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input", "output"),
     [
         (
             [ListEntitiesBinarySensorResponse(), ListEntitiesDoneResponse()],
@@ -332,6 +335,44 @@ async def test_list_entities(
 ) -> None:
     patch_response_complex(auth_client, input)
     resp = await auth_client.list_entities_services()
+    assert resp == output
+
+
+@pytest.mark.parametrize(
+    ("input", "output"),
+    [
+        (
+            [
+                DeviceInfoResponse(name="test", mac_address="AA:BB:CC:DD:EE:FF"),
+                ListEntitiesBinarySensorResponse(),
+                ListEntitiesDoneResponse(),
+            ],
+            (
+                DeviceInfo(name="test", mac_address="AA:BB:CC:DD:EE:FF"),
+                [BinarySensorInfo()],
+                [],
+            ),
+        ),
+        (
+            [
+                DeviceInfoResponse(name="test2", mac_address="11:22:33:44:55:66"),
+                ListEntitiesServicesResponse(),
+                ListEntitiesSensorResponse(),
+                ListEntitiesDoneResponse(),
+            ],
+            (
+                DeviceInfo(name="test2", mac_address="11:22:33:44:55:66"),
+                [SensorInfo()],
+                [UserService()],
+            ),
+        ),
+    ],
+)
+async def test_device_info_and_list_entities(
+    auth_client: APIClient, input: list[Any], output: tuple[Any, Any, Any]
+) -> None:
+    patch_response_complex(auth_client, input)
+    resp = await auth_client.device_info_and_list_entities()
     assert resp == output
 
 
