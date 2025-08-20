@@ -510,6 +510,12 @@ class APIClient(APIClientBase):
     ) -> Callable[[], None]:
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
+        if address_type is None:
+            raise ValueError(
+                f"{self.log_name}: address_type is required for Bluetooth connection. "
+                "The connection attempt cannot proceed without a valid address_type."
+            )
+
         if has_cache:
             # REMOTE_CACHING feature with cache: requestor has services and mtu cached
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITH_CACHE
@@ -530,8 +536,8 @@ class APIClient(APIClientBase):
             BluetoothDeviceRequest(
                 address=address,
                 request_type=request_type,
-                has_address_type=address_type is not None,
-                address_type=address_type or 0,
+                has_address_type=True,  # Always true since we now require address_type
+                address_type=address_type,
             ),
             partial(
                 on_bluetooth_device_connection_response,
