@@ -2254,6 +2254,7 @@ async def test_bluetooth_device_connect_without_cache_support_raises(
             timeout=1,
             feature_flags=0,  # No REMOTE_CACHING feature
             has_cache=False,
+            address_type=0,
         )
 
     assert "ESPHome device does not support REMOTE_CACHING feature" in str(
