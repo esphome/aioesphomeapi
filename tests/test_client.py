@@ -2254,12 +2254,38 @@ async def test_bluetooth_device_connect_without_cache_support_raises(
             timeout=1,
             feature_flags=0,  # No REMOTE_CACHING feature
             has_cache=False,
+            address_type=0,
         )
 
     assert "ESPHome device does not support REMOTE_CACHING feature" in str(
         exc_info.value
     )
     assert "2022.12.0 or later" in str(exc_info.value)
+
+
+async def test_bluetooth_device_connect_without_address_type_raises(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_connect raises when address_type is None."""
+    client, connection, transport, protocol = api_client
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        pass
+
+    with pytest.raises(
+        ValueError,
+        match="address_type is required for Bluetooth connection.*cannot proceed without a valid address_type",
+    ):
+        await client.bluetooth_device_connect(
+            1234,
+            on_bluetooth_connection_state,
+            timeout=1,
+            feature_flags=BluetoothProxyFeature.REMOTE_CACHING,
+            has_cache=False,
+            address_type=None,
+        )
 
 
 async def test_bluetooth_device_connect_and_disconnect_times_out(
