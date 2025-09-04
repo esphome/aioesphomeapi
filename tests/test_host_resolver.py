@@ -307,7 +307,7 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
         if call_count == 1:
             await asyncio.sleep(0)
             return mock_getaddrinfo
-        # Make second call take longer so first one wins
+        # Ensure async execution
         await asyncio.sleep(0)
         return mock_getaddrinfo
 
@@ -348,7 +348,7 @@ async def test_resolve_host_mdns_and_mdns_exception_dns_wins(
         if call_count == 1:
             await asyncio.sleep(0)
             return mock_getaddrinfo
-        # Make second call take longer so first one wins
+        # Ensure async execution
         await asyncio.sleep(0)
         return mock_getaddrinfo
 
@@ -383,7 +383,7 @@ async def test_resolve_host_mdns_and_mdns_no_results_dns_wins(
         if call_count == 1:
             await asyncio.sleep(0)
             return mock_getaddrinfo
-        # Make second call take longer so first one wins
+        # Ensure async execution
         await asyncio.sleep(0)
         return mock_getaddrinfo
 
