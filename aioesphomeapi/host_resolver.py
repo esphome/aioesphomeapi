@@ -111,15 +111,28 @@ def service_info_to_addr_info(info: AsyncServiceInfo, port: int) -> list[AddrInf
     ]
 
 
+def _remove_local_suffix(hostname: str) -> str:
+    """Remove .local or .local. suffix from hostname."""
+    if hostname.endswith(".local."):
+        return hostname.removesuffix(".local.")
+    if hostname.endswith(".local"):
+        return hostname.removesuffix(".local")
+    return hostname
+
+
 async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo]:
     loop = asyncio.get_running_loop()
+    _LOGGER.debug("Attempting to resolve %s via getaddrinfo", host)
     try:
         # Limit to TCP IP protocol and SOCK_STREAM
         res = await loop.getaddrinfo(
             host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP
         )
     except OSError as err:
+        _LOGGER.debug("Failed to resolve %s via getaddrinfo: %s", host, err)
         raise ResolveAPIError(f"Error resolving {host} to IP address: {err}")
+
+    _LOGGER.debug("Successfully resolved %s via getaddrinfo", host)
 
     addrs: list[AddrInfo] = []
     for family, type_, proto, _, raw in res:
@@ -262,8 +275,11 @@ async def async_resolve_host(
         if manager and not had_zeroconf_instance:
             await asyncio.shield(create_eager_task(manager.async_close()))
 
-    if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
-        return addrs
+    # Deduplicate addresses since we may have gotten the same results from multiple sources
+    # (e.g., both "example.local" and "example" might resolve to the same IP)
+    if all_addrs := list(itertools.chain.from_iterable(resolve_results.values())):
+        # Use dict.fromkeys() to preserve order while removing duplicates
+        return list(dict.fromkeys(all_addrs))
 
     if exceptions:
         raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
@@ -304,7 +320,18 @@ async def _async_resolve_host(
                     )
                 )
 
+            _LOGGER.debug("Adding DNS resolution task for %s", host)
             coros.append(_async_resolve_host_getaddrinfo(host, port))
+
+            # If the host ends with .local, also try without the suffix in parallel
+            # This handles cases where mDNS resolution might fail but the hostname
+            # is resolvable via regular DNS (violates RFC 6762 but improves compatibility)
+            if host.endswith((".local", ".local.")):
+                stripped = _remove_local_suffix(host)
+                _LOGGER.debug(
+                    "Also adding DNS resolution without .local suffix for %s", stripped
+                )
+                coros.append(_async_resolve_host_getaddrinfo(stripped, port))
 
             for coro in coros:
                 task = create_eager_task(coro)
@@ -338,6 +365,7 @@ async def _async_resolve_host(
             for host in finished_hosts:
                 for task in host_tasks.pop(host, ()):
                     resolve_task_to_host.pop(task, None)
+                    _LOGGER.debug("Cancelling remaining resolution task for %s", host)
                     task.cancel()
                     with suppress(asyncio.CancelledError):
                         await task
