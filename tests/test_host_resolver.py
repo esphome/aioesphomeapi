@@ -421,7 +421,7 @@ async def test_resolve_host_mdns_and_dns_fast_dns_wins(
             await asyncio.sleep(0)
             return mock_getaddrinfo
         if host == "example":
-            # Make the stripped version take longer
+            # Ensure async execution for stripped version
             await asyncio.sleep(0)
             return mock_getaddrinfo
         raise OSError("Unexpected host")
