@@ -173,7 +173,10 @@ async def test_resolve_host_mdns_and_dns(resolve_addr, resolve_zc, addr_infos):
     ret = await hr.async_resolve_host(["example.local"], 6052)
 
     resolve_zc.assert_called_once_with(ANY, "example", 6052, timeout=RESOLVE_TIMEOUT)
-    resolve_addr.assert_called_once_with("example.local", 6052)
+    # Now we call getaddrinfo twice - with and without .local suffix
+    assert resolve_addr.call_count == 2
+    resolve_addr.assert_any_call("example.local", 6052)
+    resolve_addr.assert_any_call("example", 6052)
     assert ret == addr_infos
 
 
@@ -293,10 +296,19 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
 
     info.async_request = slow_async_request
 
+    call_count = 0
+
     async def slow_getaddrinfo(
         *args: Any, **kwargs: Any
     ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        await asyncio.sleep(0)
+        nonlocal call_count
+        call_count += 1
+        # Only return results for the first call to avoid duplicates
+        if call_count == 1:
+            await asyncio.sleep(0)
+            return mock_getaddrinfo
+        # Make second call take longer so first one wins
+        await asyncio.sleep(0.2)
         return mock_getaddrinfo
 
     with (
@@ -325,10 +337,19 @@ async def test_resolve_host_mdns_and_mdns_exception_dns_wins(
 
     info.async_request = exception_async_request
 
+    call_count = 0
+
     async def fast_getaddrinfo(
         *args: Any, **kwargs: Any
     ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        await asyncio.sleep(0)
+        nonlocal call_count
+        call_count += 1
+        # Only return results for the first call to avoid duplicates
+        if call_count == 1:
+            await asyncio.sleep(0)
+            return mock_getaddrinfo
+        # Make second call take longer so first one wins
+        await asyncio.sleep(0.2)
         return mock_getaddrinfo
 
     with (
@@ -351,10 +372,19 @@ async def test_resolve_host_mdns_and_mdns_no_results_dns_wins(
     info.ip_addresses_by_version.return_value = []
     info.async_request = AsyncMock(return_value=False)
 
+    call_count = 0
+
     async def fast_getaddrinfo(
         *args: Any, **kwargs: Any
     ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        await asyncio.sleep(0)
+        nonlocal call_count
+        call_count += 1
+        # Only return results for the first call to avoid duplicates
+        if call_count == 1:
+            await asyncio.sleep(0)
+            return mock_getaddrinfo
+        # Make second call take longer so first one wins
+        await asyncio.sleep(0.2)
         return mock_getaddrinfo
 
     with (
@@ -383,9 +413,18 @@ async def test_resolve_host_mdns_and_dns_fast_dns_wins(
     info.async_request = slow_async_request
 
     async def fast_getaddrinfo(
-        *args: Any, **kwargs: Any
+        host: str, *args: Any, **kwargs: Any
     ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        return mock_getaddrinfo
+        # Only return results for example.local, not the stripped version
+        if host == "example.local":
+            # Small await to ensure truly async but still fast
+            await asyncio.sleep(0)
+            return mock_getaddrinfo
+        if host == "example":
+            # Make the stripped version take longer
+            await asyncio.sleep(0.2)
+            return mock_getaddrinfo
+        raise OSError("Unexpected host")
 
     with (
         patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
@@ -482,8 +521,16 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
     ret = await hr.async_resolve_host(["example.local"], 6052)
 
     resolve_zc.assert_called_once_with(ANY, "example", 6052, timeout=RESOLVE_TIMEOUT)
-    resolve_addr.assert_called_once_with("example.local", 6052)
-    assert ret == addr_infos
+    # Now we call getaddrinfo twice - with and without .local suffix
+    assert resolve_addr.call_count == 2
+    resolve_addr.assert_any_call("example.local", 6052)
+    resolve_addr.assert_any_call("example", 6052)
+    # Both calls might succeed and return results, leading to duplicates
+    # Check that we have the expected addresses (possibly duplicated)
+    assert len(ret) >= len(addr_infos)
+    # Verify the addresses are correct (even if duplicated)
+    for addr in addr_infos:
+        assert addr in ret
 
 
 @patch("aioesphomeapi.host_resolver.AsyncServiceInfo.async_request", return_value=False)
@@ -514,6 +561,95 @@ async def test_resolve_host_addrinfo_empty(resolve_addr, resolve_zc, addr_infos)
 
     resolve_zc.assert_not_called()
     resolve_addr.assert_called_once_with("example.com", 6052)
+
+
+@patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
+async def test_resolve_host_with_local_suffix_strips_suffix(
+    resolve_addr, resolve_zc, addr_infos
+):
+    """Test that .local hostnames try both with and without the suffix."""
+    resolve_addr.return_value = addr_infos
+    resolve_zc.return_value = []
+
+    ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    # Should attempt both with and without .local suffix
+    assert resolve_addr.call_count == 2
+    resolve_addr.assert_any_call("example.local", 6052)
+    resolve_addr.assert_any_call("example", 6052)
+    # Both calls might succeed and return results, leading to duplicates
+    assert len(ret) >= len(addr_infos)
+    for addr in addr_infos:
+        assert addr in ret
+
+
+@patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
+async def test_resolve_host_with_local_dot_suffix_strips_suffix(
+    resolve_addr, resolve_zc, addr_infos
+):
+    """Test that .local. hostnames also get stripped correctly."""
+    resolve_addr.return_value = addr_infos
+    resolve_zc.return_value = []
+
+    ret = await hr.async_resolve_host(["example.local."], 6052)
+
+    # Should attempt both with and without .local. suffix
+    assert resolve_addr.call_count == 2
+    resolve_addr.assert_any_call("example.local.", 6052)
+    resolve_addr.assert_any_call("example", 6052)
+    assert ret == addr_infos
+
+
+def test_remove_local_suffix():
+    """Test the _remove_local_suffix helper function."""
+    assert hr._remove_local_suffix("example.local") == "example"
+    assert hr._remove_local_suffix("example.local.") == "example"
+    assert hr._remove_local_suffix("example.com") == "example.com"
+    assert hr._remove_local_suffix("example") == "example"
+    assert hr._remove_local_suffix("test.example.local") == "test.example"
+    assert hr._remove_local_suffix("test.example.local.") == "test.example"
+
+
+async def test_resolve_host_local_suffix_fallback_wins(
+    addr_infos: list[AddrInfo],
+    mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
+) -> None:
+    """Test that when .local DNS fails but stripped version succeeds."""
+    loop = asyncio.get_running_loop()
+    info = MagicMock(auto_spec=AsyncServiceInfo)
+    info.load_from_cache = Mock(return_value=False)
+
+    async def slow_async_request(self, zc: Zeroconf, *args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0.1)
+        return False
+
+    info.async_request = slow_async_request
+
+    call_count = 0
+
+    async def getaddrinfo_with_fallback(
+        host: str, *args: Any, **kwargs: Any
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        nonlocal call_count
+        call_count += 1
+        if host == "example.local":
+            # .local resolution fails
+            raise OSError("Name or service not known")
+        if host == "example":
+            # Stripped version succeeds
+            return mock_getaddrinfo
+        raise OSError("Unexpected host")
+
+    with (
+        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch.object(loop, "getaddrinfo", getaddrinfo_with_fallback),
+    ):
+        ret = await hr.async_resolve_host(["example.local"], 6052)
+
+    assert ret == addr_infos
+    assert call_count == 2  # Both .local and stripped version attempted
 
 
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")

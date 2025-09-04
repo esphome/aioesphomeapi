@@ -275,8 +275,11 @@ async def async_resolve_host(
         if manager and not had_zeroconf_instance:
             await asyncio.shield(create_eager_task(manager.async_close()))
 
-    if addrs := list(itertools.chain.from_iterable(resolve_results.values())):
-        return addrs
+    # Deduplicate addresses since we may have gotten the same results from multiple sources
+    # (e.g., both "example.local" and "example" might resolve to the same IP)
+    if all_addrs := list(itertools.chain.from_iterable(resolve_results.values())):
+        # Use dict.fromkeys() to preserve order while removing duplicates
+        return list(dict.fromkeys(all_addrs))
 
     if exceptions:
         raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
