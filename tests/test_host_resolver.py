@@ -715,3 +715,48 @@ def test_scope_id_to_int():
     assert hr._scope_id_to_int("123") == 123
     assert hr._scope_id_to_int("eth0") == 0
     assert hr._scope_id_to_int(None) == 0
+
+
+@pytest.mark.asyncio
+async def test_async_resolve_host_partial_success_with_timeout():
+    """Test that partial resolution succeeds even if some hosts timeout."""
+
+    async def mock_getaddrinfo(host: str, port: int):
+        if host == "working.local":
+            # Return immediately for working host
+            return [
+                hr.AddrInfo(
+                    family=socket.AF_INET,
+                    type=socket.SOCK_STREAM,
+                    proto=socket.IPPROTO_TCP,
+                    sockaddr=hr.IPv4Sockaddr(address="192.168.1.100", port=port),
+                )
+            ]
+        # Hang forever for non-working hosts to simulate timeout
+        await asyncio.sleep(100)
+        return []
+
+    async def mock_zeroconf(*args, **kwargs):
+        await asyncio.sleep(100)  # Also timeout mDNS
+        return []
+
+    with (
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo",
+            side_effect=mock_getaddrinfo,
+        ),
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf",
+            side_effect=mock_zeroconf,
+        ),
+    ):
+        # Should succeed with the working host even though others timeout
+        results = await hr.async_resolve_host(
+            ["timeout1.local", "working.local", "timeout2.local"],
+            6053,
+            timeout=0.5,  # Short timeout for test
+        )
+
+        assert len(results) == 1
+        assert results[0].sockaddr.address == "192.168.1.100"
+        assert results[0].sockaddr.port == 6053

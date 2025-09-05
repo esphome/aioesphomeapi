@@ -268,9 +268,15 @@ async def async_resolve_host(
                         hosts, port, resolve_results, exceptions, aiozc, timeout
                     )
             except TimeoutError as err:
-                raise ResolveTimeoutAPIError(
-                    f"Timeout while resolving IP address for {hosts}"
-                ) from err
+                # If we already have some results, don't fail on timeout
+                if not resolve_results:
+                    raise ResolveTimeoutAPIError(
+                        f"Timeout while resolving IP address for {hosts}"
+                    ) from err
+                _LOGGER.debug(
+                    "Timeout while resolving some hosts, but got results for: %s",
+                    list(resolve_results.keys()),
+                )
     finally:
         if manager and not had_zeroconf_instance:
             await asyncio.shield(create_eager_task(manager.async_close()))
