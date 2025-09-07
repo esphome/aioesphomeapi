@@ -81,7 +81,7 @@ def _scope_id_to_int(value: str | None) -> int:
     try:
         return int(value)
     except ValueError:
-        return 0
+        return socket.if_nametoindex(value)
 
 
 def _make_service_info_for_short_host(host: str) -> AsyncServiceInfo:
