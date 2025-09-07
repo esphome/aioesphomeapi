@@ -713,7 +713,7 @@ async def test_resolve_host_create_zeroconf_oserror(
 
 def test_scope_id_to_int():
     assert hr._scope_id_to_int("123") == 123
-    assert hr._scope_id_to_int("eth0") == 0
+    assert hr._scope_id_to_int(socket.if_indextoname(1)) == 1
     assert hr._scope_id_to_int(None) == 0
 
 
