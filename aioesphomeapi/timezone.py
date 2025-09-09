@@ -45,17 +45,21 @@ def _get_local_timezone() -> str:
     Returns empty string if timezone cannot be determined.
 
     This function is cached since the timezone doesn't change during runtime.
+    This matches the implementation in ESPHome's time component.
     """
     try:
+        # Use tzlocal to get the IANA timezone key, same as ESPHome
         iana_key = tzlocal.get_localzone_name()
         if iana_key is None:
             return ""
 
+        # Load timezone data from tzdata package
         tzfile = _load_tzdata(iana_key)
         if tzfile is None:
-            # Not a IANA key, probably already a TZ string
+            # Not an IANA key, probably already a TZ string
             return str(iana_key)
 
+        # Extract POSIX TZ string from tzdata file
         return _extract_tz_string(tzfile)
     except Exception:
         _LOGGER.exception("Failed to detect timezone")
