@@ -50,7 +50,7 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .model import APIVersion, message_types_to_names
-from .time_zone import get_local_timezone
+from .timezone import get_local_timezone
 from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
 

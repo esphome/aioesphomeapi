@@ -145,7 +145,7 @@ async def test_get_local_timezone_async_simultaneous() -> None:
     """Test that simultaneous async calls are handled properly."""
     call_count = 0
 
-    def mock_sync_timezone():
+    def mock_sync_timezone() -> str:
         nonlocal call_count
         call_count += 1
         # Simulate slow I/O with a sleep

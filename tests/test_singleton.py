@@ -20,7 +20,7 @@ async def test_singleton_caches_result() -> None:
     call_count = 0
 
     @singleton("test_key")
-    async def get_value():
+    async def get_value() -> str:
         nonlocal call_count
         call_count += 1
         await asyncio.sleep(0)  # Simulate async work
@@ -48,7 +48,7 @@ async def test_singleton_handles_simultaneous_calls() -> None:
     event = asyncio.Event()
 
     @singleton("simultaneous_key")
-    async def slow_function():
+    async def slow_function() -> str:
         nonlocal call_count
         call_count += 1
         await event.wait()  # Wait for event to be set
@@ -82,13 +82,13 @@ async def test_singleton_different_keys() -> None:
     call_count2 = 0
 
     @singleton("key1")
-    async def func1():
+    async def func1() -> str:
         nonlocal call_count1
         call_count1 += 1
         return "value1"
 
     @singleton("key2")
-    async def func2():
+    async def func2() -> str:
         nonlocal call_count2
         call_count2 += 1
         return "value2"
@@ -117,7 +117,7 @@ async def test_singleton_with_exception() -> None:
     call_count = 0
 
     @singleton("exception_key")
-    async def failing_function():
+    async def failing_function() -> None:
         nonlocal call_count
         call_count += 1
         raise ValueError("Test error")
@@ -142,7 +142,7 @@ async def test_singleton_returns_none() -> None:
     call_count = 0
 
     @singleton("none_key")
-    async def return_none():
+    async def return_none() -> None:
         nonlocal call_count
         call_count += 1
 
