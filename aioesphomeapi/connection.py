@@ -50,6 +50,7 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .model import APIVersion, message_types_to_names
+from .time_zone import get_local_timezone
 from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
 
@@ -194,6 +195,7 @@ class APIConnection:
 
     __slots__ = (
         "_addrs_info",
+        "_cached_timezone",
         "_debug_enabled",
         "_expected_disconnect",
         "_fatal_exception",
@@ -263,6 +265,7 @@ class APIConnection:
         self._handshake_complete = False
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
+        self._cached_timezone: str = ""
         self.connected_address: str | None = None
         self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
@@ -695,6 +698,9 @@ class APIConnection:
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
+        # Cache timezone before registering handlers to ensure it's available
+        # when GetTimeRequest is received
+        self._cached_timezone = await get_local_timezone()
         # Register internal handlers before
         # connecting the helper so we can ensure
         # we handle any messages that are received immediately
@@ -1063,6 +1069,7 @@ class APIConnection:
         """Handle a GetTimeRequest."""
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
+        resp.timezone = self._cached_timezone
         self.send_messages((resp,))
 
     async def disconnect(self) -> None:
