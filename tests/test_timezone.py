@@ -56,7 +56,7 @@ def test_load_tzdata_invalid_key() -> None:
     assert result is None
 
 
-@patch("aioesphomeapi.time_zone.resources.files")
+@patch("aioesphomeapi.timezone.resources.files")
 def test_load_tzdata_file_not_found(mock_files) -> None:
     """Test loading tzdata when file doesn't exist."""
     mock_files.side_effect = FileNotFoundError()
@@ -64,7 +64,7 @@ def test_load_tzdata_file_not_found(mock_files) -> None:
     assert result is None
 
 
-@patch("aioesphomeapi.time_zone.resources.files")
+@patch("aioesphomeapi.timezone.resources.files")
 def test_load_tzdata_success(mock_files) -> None:
     """Test successful tzdata loading."""
     mock_resource = MagicMock()
@@ -76,9 +76,9 @@ def test_load_tzdata_success(mock_files) -> None:
     mock_files.assert_called_with("tzdata.zoneinfo.America")
 
 
-@patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
-@patch("aioesphomeapi.time_zone._load_tzdata")
-@patch("aioesphomeapi.time_zone._extract_tz_string")
+@patch("aioesphomeapi.timezone.tzlocal.get_localzone_name")
+@patch("aioesphomeapi.timezone._load_tzdata")
+@patch("aioesphomeapi.timezone._extract_tz_string")
 def test_get_local_timezone_sync_success(mock_extract, mock_load, mock_tzlocal) -> None:
     """Test successful synchronous timezone detection."""
     mock_tzlocal.return_value = "America/Chicago"
@@ -96,7 +96,7 @@ def test_get_local_timezone_sync_success(mock_extract, mock_load, mock_tzlocal) 
     assert mock_tzlocal.call_count == 1
 
 
-@patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
+@patch("aioesphomeapi.timezone.tzlocal.get_localzone_name")
 def test_get_local_timezone_sync_no_timezone(mock_tzlocal) -> None:
     """Test when system timezone cannot be determined."""
     mock_tzlocal.return_value = None
@@ -105,8 +105,8 @@ def test_get_local_timezone_sync_no_timezone(mock_tzlocal) -> None:
     assert result == ""
 
 
-@patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
-@patch("aioesphomeapi.time_zone._load_tzdata")
+@patch("aioesphomeapi.timezone.tzlocal.get_localzone_name")
+@patch("aioesphomeapi.timezone._load_tzdata")
 def test_get_local_timezone_sync_already_tz_string(mock_load, mock_tzlocal) -> None:
     """Test when tzlocal returns a TZ string directly."""
     mock_tzlocal.return_value = "EST5EDT,M3.2.0,M11.1.0"
@@ -116,7 +116,7 @@ def test_get_local_timezone_sync_already_tz_string(mock_load, mock_tzlocal) -> N
     assert result == "EST5EDT,M3.2.0,M11.1.0"
 
 
-@patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
+@patch("aioesphomeapi.timezone.tzlocal.get_localzone_name")
 def test_get_local_timezone_sync_exception(mock_tzlocal) -> None:
     """Test exception handling in timezone detection."""
     mock_tzlocal.side_effect = Exception("Test error")
@@ -127,7 +127,7 @@ def test_get_local_timezone_sync_exception(mock_tzlocal) -> None:
 
 async def test_get_local_timezone_async() -> None:
     """Test async timezone detection."""
-    with patch("aioesphomeapi.time_zone._get_local_timezone") as mock_sync:
+    with patch("aioesphomeapi.timezone._get_local_timezone") as mock_sync:
         mock_sync.return_value = "CST6CDT,M3.2.0,M11.1.0"
 
         result = await get_local_timezone()
@@ -153,7 +153,7 @@ async def test_get_local_timezone_async_simultaneous() -> None:
         time.sleep(0.01)
         return "CST6CDT,M3.2.0,M11.1.0"
 
-    with patch("aioesphomeapi.time_zone._get_local_timezone", mock_sync_timezone):
+    with patch("aioesphomeapi.timezone._get_local_timezone", mock_sync_timezone):
         # Start two tasks simultaneously
         task1 = asyncio.create_task(get_local_timezone())
         task2 = asyncio.create_task(get_local_timezone())
@@ -171,7 +171,7 @@ async def test_get_local_timezone_async_simultaneous() -> None:
 
 async def test_get_local_timezone_async_empty_result() -> None:
     """Test async timezone detection with empty result."""
-    with patch("aioesphomeapi.time_zone._get_local_timezone") as mock_sync:
+    with patch("aioesphomeapi.timezone._get_local_timezone") as mock_sync:
         mock_sync.return_value = ""
 
         result = await get_local_timezone()
