@@ -49,7 +49,7 @@ def _get_local_timezone() -> str:
     """
     try:
         # Use tzlocal to get the IANA timezone key, same as ESPHome
-        iana_key = tzlocal.get_localzone_name()
+        iana_key: str | None = tzlocal.get_localzone_name()
         if iana_key is None:
             return ""
 
@@ -57,7 +57,7 @@ def _get_local_timezone() -> str:
         tzfile = _load_tzdata(iana_key)
         if tzfile is None:
             # Not an IANA key, probably already a TZ string
-            return str(iana_key)
+            return iana_key
 
         # Extract POSIX TZ string from tzdata file
         return _extract_tz_string(tzfile)
