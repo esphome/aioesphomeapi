@@ -31,35 +31,32 @@ def singleton(
         @functools.wraps(func)
         async def async_wrapped() -> T:
             if key not in _SINGLETON_CACHE:
-                # Use an event to handle simultaneous calls
-                evt = _SINGLETON_CACHE[key] = asyncio.Event()
+                # Use a future to handle simultaneous calls
+                loop = asyncio.get_running_loop()
+                future: asyncio.Future[T] = loop.create_future()
+                _SINGLETON_CACHE[key] = future
                 try:
                     result = await func()
-                except Exception:
-                    # On exception, remove the event so next call can retry
+                except Exception as e:
+                    # On exception, remove the future so next call can retry
+                    # Set exception first so waiters get it, then remove from cache
+                    future.set_exception(e)
                     del _SINGLETON_CACHE[key]
-                    evt.set()  # Wake up any waiters
                     raise
                 else:
+                    # Replace future with the actual result
                     _SINGLETON_CACHE[key] = result
-                    evt.set()
+                    future.set_result(result)
                     return result
 
-            obj_or_evt = _SINGLETON_CACHE[key]
+            obj_or_future = _SINGLETON_CACHE[key]
 
-            if isinstance(obj_or_evt, asyncio.Event):
+            if isinstance(obj_or_future, asyncio.Future):
                 # Another call is already in progress, wait for it
-                await obj_or_evt.wait()
-                # Check if the key still exists (might have been deleted on exception)
-                if key in _SINGLETON_CACHE and not isinstance(
-                    _SINGLETON_CACHE[key], asyncio.Event
-                ):
-                    return cast(T, _SINGLETON_CACHE[key])
-                # If it was deleted or is still an event, the original call failed
-                # Try again
-                return await async_wrapped()
+                # This will either return the result or raise the exception
+                return cast(T, await obj_or_future)
 
-            return cast(T, obj_or_evt)
+            return cast(T, obj_or_future)
 
         return async_wrapped
 

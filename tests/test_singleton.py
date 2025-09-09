@@ -59,7 +59,7 @@ async def test_singleton_handles_simultaneous_calls() -> None:
     task2 = asyncio.create_task(slow_function())
 
     # Give tasks a moment to start
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.01)
 
     # Set the event to allow the function to complete
     event.set()
@@ -153,3 +153,37 @@ async def test_singleton_returns_none() -> None:
     result2 = await return_none()
     assert result2 is None
     assert call_count == 1  # Not called again
+
+
+async def test_singleton_exception_with_waiters() -> None:
+    """Test that waiting calls receive the same exception as the first call."""
+    call_count = 0
+    event = asyncio.Event()
+
+    @singleton("exception_waiter_key")
+    async def failing_function() -> str:
+        nonlocal call_count
+        call_count += 1
+        await event.wait()
+        raise ValueError("First call fails")
+
+    # Start two tasks simultaneously
+    task1 = asyncio.create_task(failing_function())
+    task2 = asyncio.create_task(failing_function())
+
+    # Give tasks time to start
+    await asyncio.sleep(0)
+
+    # Let the first call proceed and fail
+    event.set()
+
+    # First task should raise exception
+    with pytest.raises(ValueError, match="First call fails"):
+        await task1
+
+    # Second task should also raise the same exception (not retry)
+    with pytest.raises(ValueError, match="First call fails"):
+        await task2
+
+    # Function should only be called once
+    assert call_count == 1
