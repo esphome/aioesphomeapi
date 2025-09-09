@@ -16,7 +16,7 @@ from aioesphomeapi.time_zone import (
 
 
 @pytest.fixture(autouse=True)
-def clear_caches():
+def clear_caches() -> None:
     """Clear caches before and after each test."""
     _SINGLETON_CACHE.clear()
     _get_local_timezone.cache_clear()
@@ -25,7 +25,7 @@ def clear_caches():
     _get_local_timezone.cache_clear()
 
 
-def test_extract_tz_string_valid():
+def test_extract_tz_string_valid() -> None:
     """Test extracting TZ string from valid tzdata."""
     # Sample tzdata file content with TZ string on second-to-last line
     tzdata = b"TZif2\x00\x00\x00\x00\x00\x00\x00\nCST6CDT,M3.2.0,M11.1.0\n"
@@ -33,21 +33,21 @@ def test_extract_tz_string_valid():
     assert result == "CST6CDT,M3.2.0,M11.1.0"
 
 
-def test_extract_tz_string_empty():
+def test_extract_tz_string_empty() -> None:
     """Test extracting TZ string from empty data."""
     tzdata = b""
     result = _extract_tz_string(tzdata)
     assert result == ""
 
 
-def test_extract_tz_string_invalid_utf8():
+def test_extract_tz_string_invalid_utf8() -> None:
     """Test extracting TZ string with invalid UTF-8."""
     tzdata = b"\xff\xfe\n\xff\xfe\n"
     result = _extract_tz_string(tzdata)
     assert result == ""
 
 
-def test_load_tzdata_invalid_key():
+def test_load_tzdata_invalid_key() -> None:
     """Test loading tzdata with invalid IANA key."""
     result = _load_tzdata("invalid")
     assert result is None
@@ -57,7 +57,7 @@ def test_load_tzdata_invalid_key():
 
 
 @patch("aioesphomeapi.time_zone.resources.files")
-def test_load_tzdata_file_not_found(mock_files):
+def test_load_tzdata_file_not_found(mock_files) -> None:
     """Test loading tzdata when file doesn't exist."""
     mock_files.side_effect = FileNotFoundError()
     result = _load_tzdata("America/Chicago")
@@ -65,7 +65,7 @@ def test_load_tzdata_file_not_found(mock_files):
 
 
 @patch("aioesphomeapi.time_zone.resources.files")
-def test_load_tzdata_success(mock_files):
+def test_load_tzdata_success(mock_files) -> None:
     """Test successful tzdata loading."""
     mock_resource = MagicMock()
     mock_resource.read_bytes.return_value = b"tzdata_content"
@@ -79,7 +79,7 @@ def test_load_tzdata_success(mock_files):
 @patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
 @patch("aioesphomeapi.time_zone._load_tzdata")
 @patch("aioesphomeapi.time_zone._extract_tz_string")
-def test_get_local_timezone_sync_success(mock_extract, mock_load, mock_tzlocal):
+def test_get_local_timezone_sync_success(mock_extract, mock_load, mock_tzlocal) -> None:
     """Test successful synchronous timezone detection."""
     mock_tzlocal.return_value = "America/Chicago"
     mock_load.return_value = b"tzdata"
@@ -97,7 +97,7 @@ def test_get_local_timezone_sync_success(mock_extract, mock_load, mock_tzlocal):
 
 
 @patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
-def test_get_local_timezone_sync_no_timezone(mock_tzlocal):
+def test_get_local_timezone_sync_no_timezone(mock_tzlocal) -> None:
     """Test when system timezone cannot be determined."""
     mock_tzlocal.return_value = None
 
@@ -107,7 +107,7 @@ def test_get_local_timezone_sync_no_timezone(mock_tzlocal):
 
 @patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
 @patch("aioesphomeapi.time_zone._load_tzdata")
-def test_get_local_timezone_sync_already_tz_string(mock_load, mock_tzlocal):
+def test_get_local_timezone_sync_already_tz_string(mock_load, mock_tzlocal) -> None:
     """Test when tzlocal returns a TZ string directly."""
     mock_tzlocal.return_value = "EST5EDT,M3.2.0,M11.1.0"
     mock_load.return_value = None  # Indicates it's not an IANA key
@@ -117,7 +117,7 @@ def test_get_local_timezone_sync_already_tz_string(mock_load, mock_tzlocal):
 
 
 @patch("aioesphomeapi.time_zone.tzlocal.get_localzone_name")
-def test_get_local_timezone_sync_exception(mock_tzlocal):
+def test_get_local_timezone_sync_exception(mock_tzlocal) -> None:
     """Test exception handling in timezone detection."""
     mock_tzlocal.side_effect = Exception("Test error")
 
@@ -125,7 +125,7 @@ def test_get_local_timezone_sync_exception(mock_tzlocal):
     assert result == ""
 
 
-async def test_get_local_timezone_async():
+async def test_get_local_timezone_async() -> None:
     """Test async timezone detection."""
     with patch("aioesphomeapi.time_zone._get_local_timezone") as mock_sync:
         mock_sync.return_value = "CST6CDT,M3.2.0,M11.1.0"
@@ -141,7 +141,7 @@ async def test_get_local_timezone_async():
         assert mock_sync.call_count == 1
 
 
-async def test_get_local_timezone_async_simultaneous():
+async def test_get_local_timezone_async_simultaneous() -> None:
     """Test that simultaneous async calls are handled properly."""
     call_count = 0
 
@@ -169,7 +169,7 @@ async def test_get_local_timezone_async_simultaneous():
         assert call_count == 1
 
 
-async def test_get_local_timezone_async_empty_result():
+async def test_get_local_timezone_async_empty_result() -> None:
     """Test async timezone detection with empty result."""
     with patch("aioesphomeapi.time_zone._get_local_timezone") as mock_sync:
         mock_sync.return_value = ""
@@ -178,7 +178,7 @@ async def test_get_local_timezone_async_empty_result():
         assert result == ""
 
 
-def test_real_timezone_detection():
+def test_real_timezone_detection() -> None:
     """Test that real timezone detection works (integration test)."""
     # This test will use the actual system timezone
     result = _get_local_timezone()

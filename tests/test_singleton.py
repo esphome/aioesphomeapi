@@ -8,14 +8,14 @@ from aioesphomeapi.singleton import _SINGLETON_CACHE, singleton
 
 
 @pytest.fixture(autouse=True)
-def clear_singleton_cache():
+def clear_singleton_cache() -> None:
     """Clear the singleton cache before and after each test."""
     _SINGLETON_CACHE.clear()
     yield
     _SINGLETON_CACHE.clear()
 
 
-async def test_singleton_caches_result():
+async def test_singleton_caches_result() -> None:
     """Test that singleton decorator caches the result."""
     call_count = 0
 
@@ -42,7 +42,7 @@ async def test_singleton_caches_result():
     assert call_count == 1  # Function still not called again
 
 
-async def test_singleton_handles_simultaneous_calls():
+async def test_singleton_handles_simultaneous_calls() -> None:
     """Test that singleton properly handles simultaneous calls."""
     call_count = 0
     event = asyncio.Event()
@@ -76,7 +76,7 @@ async def test_singleton_handles_simultaneous_calls():
     assert call_count == 1
 
 
-async def test_singleton_different_keys():
+async def test_singleton_different_keys() -> None:
     """Test that different keys maintain separate caches."""
     call_count1 = 0
     call_count2 = 0
@@ -112,7 +112,7 @@ async def test_singleton_different_keys():
     assert call_count2 == 1  # Not incremented
 
 
-async def test_singleton_with_exception():
+async def test_singleton_with_exception() -> None:
     """Test that singleton handles exceptions properly."""
     call_count = 0
 
@@ -137,7 +137,7 @@ async def test_singleton_with_exception():
     assert call_count == 2
 
 
-async def test_singleton_returns_none():
+async def test_singleton_returns_none() -> None:
     """Test that singleton can cache None as a valid result."""
     call_count = 0
 
