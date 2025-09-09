@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aioesphomeapi.singleton import _SINGLETON_CACHE
-from aioesphomeapi.time_zone import (
+from aioesphomeapi.timezone import (
     _extract_tz_string,
     _get_local_timezone,
     _load_tzdata,
