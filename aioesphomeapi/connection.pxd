@@ -116,6 +116,7 @@ cdef class APIConnection:
     cdef bint _debug_enabled
     cdef public str received_name
     cdef public str connected_address
+    cdef str _cached_timezone
     cdef list _addrs_info
     cdef bint _log_errors
 
