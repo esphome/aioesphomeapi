@@ -1206,7 +1206,7 @@ async def test_bluetooth_disconnect(
     ],
 ) -> None:
     """Test bluetooth_device_disconnect."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     disconnect_task = asyncio.create_task(client.bluetooth_device_disconnect(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceConnectionResponse(
@@ -1222,7 +1222,7 @@ async def test_bluetooth_pair(
     ],
 ) -> None:
     """Test bluetooth_device_pair."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDevicePairingResponse(address=4567)
@@ -1240,7 +1240,7 @@ async def test_bluetooth_pair_connection_drops(
     ],
 ) -> None:
     """Test connection drop during bluetooth_device_pair."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     pair_task = asyncio.create_task(client.bluetooth_device_pair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceConnectionResponse(
@@ -1261,7 +1261,7 @@ async def test_bluetooth_unpair_connection_drops(
     ],
 ) -> None:
     """Test connection drop during bluetooth_device_unpair."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     pair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceConnectionResponse(
@@ -1282,7 +1282,7 @@ async def test_bluetooth_clear_cache_connection_drops(
     ],
 ) -> None:
     """Test connection drop during bluetooth_device_clear_cache."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     pair_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceConnectionResponse(
@@ -1303,7 +1303,7 @@ async def test_bluetooth_unpair(
     ],
 ) -> None:
     """Test bluetooth_device_unpair."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     unpair_task = asyncio.create_task(client.bluetooth_device_unpair(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceUnpairingResponse(address=1234)
@@ -1317,7 +1317,7 @@ async def test_bluetooth_clear_cache(
     ],
 ) -> None:
     """Test bluetooth_device_clear_cache."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     clear_task = asyncio.create_task(client.bluetooth_device_clear_cache(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceClearCacheResponse(address=1234)
@@ -1331,7 +1331,7 @@ async def test_device_info(
     ],
 ) -> None:
     """Test fetching device info."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     assert client.log_name == "fake @ 10.0.0.512"
     device_info_task = asyncio.create_task(client.device_info())
     await asyncio.sleep(0)
@@ -1365,7 +1365,7 @@ async def test_bluetooth_gatt_read(
     ],
 ) -> None:
     """Test bluetooth_gatt_read."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     read_task = asyncio.create_task(client.bluetooth_gatt_read(1234, 1234))
     await asyncio.sleep(0)
 
@@ -1387,7 +1387,7 @@ async def test_bluetooth_gatt_read_connection_drops(
     ],
 ) -> None:
     """Test connection drop during bluetooth_gatt_read."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     read_task = asyncio.create_task(client.bluetooth_gatt_read(1234, 1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceConnectionResponse(
@@ -1408,7 +1408,7 @@ async def test_bluetooth_gatt_read_error(
     ],
 ) -> None:
     """Test bluetooth_gatt_read that errors."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     read_task = asyncio.create_task(client.bluetooth_gatt_read(1234, 1234))
     await asyncio.sleep(0)
     error_response: message.Message = BluetoothGATTErrorResponse(
@@ -1425,7 +1425,7 @@ async def test_bluetooth_gatt_read_descriptor(
     ],
 ) -> None:
     """Test bluetooth_gatt_read_descriptor."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     read_task = asyncio.create_task(client.bluetooth_gatt_read_descriptor(1234, 1234))
     await asyncio.sleep(0)
 
@@ -1447,7 +1447,7 @@ async def test_bluetooth_gatt_write(
     ],
 ) -> None:
     """Test bluetooth_gatt_write."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     write_task = asyncio.create_task(
         client.bluetooth_gatt_write(1234, 1234, b"1234", True)
     )
@@ -1469,7 +1469,7 @@ async def test_bluetooth_gatt_write_connection_drops(
     ],
 ) -> None:
     """Test connection drop during bluetooth_gatt_read."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     write_task = asyncio.create_task(
         client.bluetooth_gatt_write(1234, 1234, b"1234", True)
     )
@@ -1492,7 +1492,7 @@ async def test_bluetooth_gatt_write_without_response(
     ],
 ) -> None:
     """Test bluetooth_gatt_write without response."""
-    client, connection, transport, protocol = api_client
+    client, _connection, transport, _protocol = api_client
     transport.reset_mock()
     write_task = asyncio.create_task(
         client.bluetooth_gatt_write(1234, 1234, b"1234", False)
@@ -1516,7 +1516,7 @@ async def test_bluetooth_gatt_write_descriptor(
     ],
 ) -> None:
     """Test bluetooth_gatt_write_descriptor."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     write_task = asyncio.create_task(
         client.bluetooth_gatt_write_descriptor(1234, 1234, b"1234", True)
     )
@@ -1538,7 +1538,7 @@ async def test_bluetooth_gatt_write_descriptor_without_response(
     ],
 ) -> None:
     """Test bluetooth_gatt_write_descriptor without response."""
-    client, connection, transport, protocol = api_client
+    client, _connection, transport, _protocol = api_client
     transport.reset_mock()
     write_task = asyncio.create_task(
         client.bluetooth_gatt_write_descriptor(
@@ -1564,7 +1564,7 @@ async def test_bluetooth_gatt_get_services_connection_drops(
     ],
 ) -> None:
     """Test connection drop during bluetooth_gatt_get_services."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     services_task = asyncio.create_task(client.bluetooth_gatt_get_services(1234))
     await asyncio.sleep(0)
     response: message.Message = BluetoothDeviceConnectionResponse(
@@ -1586,7 +1586,7 @@ async def test_bluetooth_gatt_get_services(
     ],
 ) -> None:
     """Test bluetooth_gatt_get_services success case."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     services_task = asyncio.create_task(client.bluetooth_gatt_get_services(1234))
     await asyncio.sleep(0)
     service1: message.Message = BluetoothGATTService(
@@ -1622,7 +1622,7 @@ async def test_bluetooth_gatt_get_services_errors(
     ],
 ) -> None:
     """Test bluetooth_gatt_get_services with a failure."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     services_task = asyncio.create_task(client.bluetooth_gatt_get_services(1234))
     await asyncio.sleep(0)
     service1: message.Message = BluetoothGATTService(
@@ -1645,7 +1645,7 @@ async def test_bluetooth_gatt_start_notify_connection_drops(
     ],
 ) -> None:
     """Test connection drop during bluetooth_gatt_start_notify."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     notify_task = asyncio.create_task(
         client.bluetooth_gatt_start_notify(1234, 1, lambda handle, data: None)
     )
@@ -1668,7 +1668,7 @@ async def test_bluetooth_gatt_start_notify(
     ],
 ) -> None:
     """Test bluetooth_gatt_start_notify."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
     notifies = []
 
     handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
@@ -1721,7 +1721,7 @@ async def test_bluetooth_gatt_start_notify_fails(
     ],
 ) -> None:
     """Test bluetooth_gatt_start_notify failure does not leak."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, _protocol = api_client
     notifies = []
 
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
@@ -1752,7 +1752,7 @@ async def test_bluetooth_gatt_notify_callback_raises(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that exceptions in bluetooth gatt notify callbacks are caught."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
 
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
         raise ValueError("Test exception in notify callback")
@@ -1792,7 +1792,7 @@ async def test_subscribe_bluetooth_le_advertisements(
     ],
 ) -> None:
     """Test subscribe_bluetooth_le_advertisements."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     advs = []
 
     def on_bluetooth_le_advertisements(adv: BluetoothLEAdvertisement) -> None:
@@ -1905,7 +1905,7 @@ async def test_subscribe_bluetooth_le_raw_advertisements(
     ],
 ) -> None:
     """Test subscribe_bluetooth_le_raw_advertisements."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     adv_groups = []
 
     def on_raw_bluetooth_le_advertisements(
@@ -1944,7 +1944,7 @@ async def test_subscribe_bluetooth_connections_free(
     ],
 ) -> None:
     """Test subscribe_bluetooth_connections_free."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     connections = []
 
     def on_bluetooth_connections_free(
@@ -1969,7 +1969,7 @@ async def test_subscribe_home_assistant_states(
     ],
 ) -> None:
     """Test subscribe_home_assistant_states."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     states = []
     requests = []
 
@@ -2034,7 +2034,7 @@ async def test_subscribe_home_assistant_states_and_services(
     ],
 ) -> None:
     """Test subscribe_home_assistant_states_and_services."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
 
     # Patch send_messages to verify it's called with all 3 messages
     send_messages = connection.send_messages = MagicMock()
@@ -2109,7 +2109,7 @@ async def test_set_debug(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test set_debug."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     response: message.Message = DeviceInfoResponse(
         name="realname",
         friendly_name="My Device",
@@ -2141,7 +2141,7 @@ async def test_force_disconnect(
     ],
 ) -> None:
     """Test force disconnect can be called multiple times."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, _protocol = api_client
     assert connection.is_connected is True
     assert connection.on_stop is not None
     await client.disconnect(force=True)
@@ -2175,7 +2175,7 @@ async def test_bluetooth_device_connect(
     method: BluetoothDeviceRequestType,
 ) -> None:
     """Test bluetooth_device_connect."""
-    client, connection, transport, protocol = api_client
+    client, _connection, transport, protocol = api_client
     states = []
 
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
@@ -2242,7 +2242,7 @@ async def test_bluetooth_device_connect_without_cache_support_raises(
     ],
 ) -> None:
     """Test bluetooth_device_connect raises when device doesn't support REMOTE_CACHING."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, _protocol = api_client
 
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
         pass
@@ -2269,14 +2269,14 @@ async def test_bluetooth_device_connect_without_address_type_raises(
     ],
 ) -> None:
     """Test bluetooth_device_connect raises when address_type is None."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, _protocol = api_client
 
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
         pass
 
     with pytest.raises(
         ValueError,
-        match="address_type is required for Bluetooth connection.*cannot proceed without a valid address_type",
+        match=r"address_type is required for Bluetooth connection.*cannot proceed without a valid address_type",
     ):
         await client.bluetooth_device_connect(
             1234,
@@ -2294,7 +2294,7 @@ async def test_bluetooth_device_connect_and_disconnect_times_out(
     ],
 ) -> None:
     """Test bluetooth_device_connect and disconnect times out."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, _protocol = api_client
     states = []
 
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
@@ -2322,7 +2322,7 @@ async def test_bluetooth_device_connect_times_out_disconnect_ok(
     ],
 ) -> None:
     """Test bluetooth_device_connect and disconnect times out."""
-    client, connection, transport, protocol = api_client
+    client, _connection, transport, protocol = api_client
     states = []
 
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
@@ -2363,7 +2363,7 @@ async def test_bluetooth_device_connect_cancelled(
     ],
 ) -> None:
     """Test bluetooth_device_connect handles cancellation."""
-    client, connection, transport, protocol = api_client
+    client, connection, transport, _protocol = api_client
     states = []
 
     handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
@@ -2437,7 +2437,7 @@ async def test_subscribe_voice_assistant(
     ],
 ) -> None:
     """Test subscribe_voice_assistant."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     send = patch_send(client)
     starts = []
     stops = []
@@ -2519,7 +2519,7 @@ async def test_subscribe_voice_assistant_failure(
     ],
 ) -> None:
     """Test subscribe_voice_assistant failure."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     send = patch_send(client)
     starts = []
     stops = []
@@ -2601,7 +2601,7 @@ async def test_subscribe_voice_assistant_cancels_long_running_handle_start(
     ],
 ) -> None:
     """Test subscribe_voice_assistant cancels long running tasks on unsub."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     send = patch_send(client)
     starts = []
     stops = []
@@ -2668,7 +2668,7 @@ async def test_subscribe_voice_assistant_api_audio(
     ],
 ) -> None:
     """Test subscribe_voice_assistant."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     send = patch_send(client)
     starts = []
     stops = []
@@ -2829,7 +2829,7 @@ async def test_subscribe_voice_assistant_announcement_finished(
     ],
 ) -> None:
     """Test subscribe_voice_assistant with handle_announcement_finished."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     send = patch_send(client)
     done = asyncio.Event()
 
@@ -2909,7 +2909,7 @@ async def test_set_voice_assistant_configuration(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    client, connection, _transport, protocol = api_client
+    client, connection, _transport, _protocol = api_client
     original_send_message = connection.send_message
 
     def send_message(msg):
@@ -2926,7 +2926,7 @@ async def test_api_version_after_connection_closed(
     ],
 ) -> None:
     """Test api version is None after connection close."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, _protocol = api_client
     assert client.api_version == APIVersion(1, 9)
     await client.disconnect(force=True)
     assert client.api_version is None
@@ -2938,7 +2938,7 @@ async def test_calls_after_connection_closed(
     ],
 ) -> None:
     """Test calls after connection close should raise APIConnectionError."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, _protocol = api_client
     assert client.api_version == APIVersion(1, 9)
     await client.disconnect(force=True)
     assert client.api_version is None
@@ -2993,7 +2993,7 @@ async def test_noise_encryption_set_key(
     ],
 ) -> None:
     """Test set_noise_encryption_key."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
     original_send_message = connection.send_message
 
     def send_message(msg):
@@ -3015,7 +3015,7 @@ async def test_bluetooth_scanner_set_mode(
     ],
 ) -> None:
     """Test bluetooth_scanner_set_mode."""
-    client, connection, transport, protocol = api_client
+    client, _connection, _transport, protocol = api_client
     send = patch_send(client)
     done = asyncio.Event()
 

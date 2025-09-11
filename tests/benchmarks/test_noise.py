@@ -31,7 +31,7 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     def _writelines(data: Iterable[bytes]):
         writes.append(b"".join(data))
 
-    connection, packets = _make_mock_connection()
+    connection, _packets = _make_mock_connection()
 
     helper = MockAPINoiseFrameHelper(
         connection=connection,

@@ -15,7 +15,7 @@ def test_sending_light_command_request_with_bool(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, _protocol = api_client
 
     connection._frame_helper._writelines = lambda lines: None
 
@@ -30,7 +30,7 @@ def test_sending_empty_light_command_request(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, _protocol = api_client
 
     connection._frame_helper._writelines = lambda lines: None
 
