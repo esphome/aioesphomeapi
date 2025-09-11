@@ -885,7 +885,7 @@ async def test_eof_received_closes_connection(
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
     assert protocol.eof_received() is False
     assert conn.is_connected is False
     with pytest.raises(SocketClosedAPIError, match="EOF received"):
@@ -908,7 +908,7 @@ async def test_connection_lost_closes_connection_and_logs(
     exception_map: tuple[Exception, Exception],
 ) -> None:
     exception, raised_exception = exception_map
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
     protocol.connection_lost(exception)
     assert conn.is_connected is False
     assert "original message" in caplog.text

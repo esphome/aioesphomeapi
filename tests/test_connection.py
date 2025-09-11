@@ -117,7 +117,7 @@ async def test_connect(
     ],
 ) -> None:
     """Test that a plaintext connection works."""
-    conn, transport, protocol, connect_task = plaintext_connect_task_no_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_no_login
     mock_data_received(
         protocol,
         bytes.fromhex(
@@ -244,7 +244,7 @@ async def test_plaintext_connection(
 ) -> None:
     """Test that a plaintext connection works."""
     messages = []
-    conn, transport, protocol, connect_task = plaintext_connect_task_no_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_no_login
 
     def on_msg(msg):
         messages.append(msg)
@@ -488,7 +488,7 @@ async def test_finish_connection_times_out(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test handling of finish connection timing out."""
-    conn, transport, protocol, connect_task = plaintext_connect_task_no_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_no_login
     messages = []
 
     def on_msg(msg):
@@ -505,7 +505,7 @@ async def test_finish_connection_times_out(
     await asyncio.sleep(0)
 
     with pytest.raises(
-        APIConnectionError, match="Timeout waiting for HelloResponse after 30.0s"
+        APIConnectionError, match=r"Timeout waiting for HelloResponse after 30.0s"
     ):
         await connect_task
 
@@ -618,7 +618,7 @@ async def test_connect_wrong_password(
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
     send_plaintext_connect_response(protocol, True)
@@ -634,7 +634,7 @@ async def test_connect_correct_password(
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
     send_plaintext_connect_response(protocol, False)
@@ -691,7 +691,7 @@ async def test_connect_wrong_version(
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol, 3, 2)
     send_plaintext_connect_response(protocol, False)
@@ -707,7 +707,7 @@ async def test_connect_wrong_name(
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_expected_name
+    conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
     send_plaintext_hello(protocol)
     send_plaintext_connect_response(protocol, False)
 
@@ -726,7 +726,7 @@ async def test_force_disconnect_fails(
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
     send_plaintext_connect_response(protocol, False)
@@ -754,7 +754,7 @@ async def test_connection_lost_while_connecting(
     ],
     exception_map: tuple[Exception, Exception],
 ) -> None:
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     exception, raised_exception = exception_map
     protocol.connection_lost(exception)
@@ -862,7 +862,7 @@ async def test_connect_resolver_times_out(
         ),
         pytest.raises(
             ResolveAPIError,
-            match="Timeout while resolving IP address for fake.address",
+            match=r"Timeout while resolving IP address for fake.address",
         ),
     ):
         await connect(conn, login=False)
@@ -1069,7 +1069,7 @@ async def test_unknown_protobuf_message_type_logged(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test unknown protobuf messages are logged but do not cause the connection to collapse."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
     response: message.Message = DeviceInfoResponse(
         name="realname",
         friendly_name="My Device",
@@ -1100,7 +1100,7 @@ async def test_bad_protobuf_message_drops_connection(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test ad bad protobuf messages is logged and causes the connection to collapse."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
     msg: message.Message = TextSensorStateResponse(
         key=1, state="invalid", missing_state=False
     )
@@ -1128,7 +1128,7 @@ async def test_connection_cannot_be_reused(
     ],
 ) -> None:
     """Test that we raise when trying to connect when already connected."""
-    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
     send_plaintext_hello(protocol)
     send_plaintext_connect_response(protocol, False)
     await connect_task
