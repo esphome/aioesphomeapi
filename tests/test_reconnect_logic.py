@@ -32,7 +32,7 @@ from .common import (
     get_mock_async_zeroconf,
     get_mock_zeroconf,
     mock_data_received,
-    send_plaintext_connect_response,
+    send_plaintext_auth_response,
     send_plaintext_hello,
 )
 from .conftest import _create_mock_transport_protocol
@@ -871,7 +871,7 @@ async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection)
         await connected.wait()
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
-        send_plaintext_connect_response(protocol, False)
+        send_plaintext_auth_response(protocol, False)
         await asyncio.sleep(0)
         await asyncio.sleep(0)
 

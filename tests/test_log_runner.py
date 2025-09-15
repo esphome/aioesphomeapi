@@ -26,7 +26,7 @@ from .common import (
     generate_plaintext_packet,
     get_mock_async_zeroconf,
     mock_data_received,
-    send_plaintext_connect_response,
+    send_plaintext_auth_response,
     send_plaintext_hello,
     utcnow,
 )
@@ -84,7 +84,7 @@ async def test_log_runner(
         await connected.wait()
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
-        send_plaintext_connect_response(protocol, False)
+        send_plaintext_auth_response(protocol, False)
         await subscribed.wait()
 
     response: message.Message = SubscribeLogsResponse()
@@ -152,7 +152,7 @@ async def test_log_runner_reconnects_on_disconnect(
         await connected.wait()
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
-        send_plaintext_connect_response(protocol, False)
+        send_plaintext_auth_response(protocol, False)
         await subscribed.wait()
 
     response: message.Message = SubscribeLogsResponse()
@@ -231,7 +231,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
             await connected.wait()
             protocol = cli._connection._frame_helper
             send_plaintext_hello(protocol)
-            send_plaintext_connect_response(protocol, False)
+            send_plaintext_auth_response(protocol, False)
 
         await asyncio.wait_for(subscribed.wait(), timeout=1)
 
@@ -254,7 +254,7 @@ async def test_log_runner_reconnects_on_subscribe_failure(
     await asyncio.sleep(0)
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await asyncio.sleep(0)
     await asyncio.sleep(0)

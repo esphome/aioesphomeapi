@@ -50,7 +50,7 @@ from .common import (
     mock_data_received,
     send_ping_request,
     send_ping_response,
-    send_plaintext_connect_response,
+    send_plaintext_auth_response,
     send_plaintext_hello,
     utcnow,
 )
@@ -94,7 +94,7 @@ async def test_connect_hello_login_with_login_false_and_password_none(
         # Wait for connection to be established
         await connected.wait()
 
-        # Send only HelloResponse (no ConnectResponse since login=False)
+        # Send only HelloResponse (no AuthenticationResponse since login=False)
         assert protocol is not None
         hello_response = bytes.fromhex(
             "003602080110091a216d6173746572617672656c61792028657"
@@ -104,7 +104,7 @@ async def test_connect_hello_login_with_login_false_and_password_none(
         mock_data_received(protocol, hello_response)
 
         # The connection should complete successfully without trying to pop
-        # a ConnectResponse from an empty list
+        # a AuthenticationResponse from an empty list
         await connect_task
 
         assert conn.is_connected
@@ -621,7 +621,7 @@ async def test_connect_wrong_password(
     conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, True)
+    send_plaintext_auth_response(protocol, True)
 
     with pytest.raises(InvalidAuthAPIError):
         await connect_task
@@ -637,7 +637,7 @@ async def test_connect_correct_password(
     conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await connect_task
 
@@ -668,13 +668,13 @@ async def test_connect_password_required_but_not_sent(
         # Send hello response
         send_plaintext_hello(protocol)
 
-        # Complete the connection first since we're not expecting a ConnectResponse
+        # Complete the connection first since we're not expecting a AuthenticationResponse
         await connect_task
         assert conn.is_connected
 
-        # Device sends ConnectResponse with invalid_password=True
+        # Device sends AuthenticationResponse with invalid_password=True
         # This simulates a device that requires a password but we didn't send one
-        send_plaintext_connect_response(protocol, True)
+        send_plaintext_auth_response(protocol, True)
 
         # Give the event loop a chance to process the message
         await asyncio.sleep(0)
@@ -694,7 +694,7 @@ async def test_connect_wrong_version(
     conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol, 3, 2)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     with pytest.raises(APIConnectionError, match="Incompatible API version"):
         await connect_task
@@ -709,7 +709,7 @@ async def test_connect_wrong_name(
 ) -> None:
     conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     with pytest.raises(
         APIConnectionError,
@@ -729,7 +729,7 @@ async def test_force_disconnect_fails(
     conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await connect_task
     assert conn.is_connected
@@ -902,7 +902,7 @@ async def test_disconnect_fails_to_send_response(
         transport.reset_mock()
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await connect_task
     assert client._connection.is_connected
@@ -950,7 +950,7 @@ async def test_disconnect_success_case(
         transport.reset_mock()
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await connect_task
     assert client._connection.is_connected
@@ -972,7 +972,7 @@ async def test_ping_disconnects_after_no_responses(
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await connect_task
 
@@ -1011,7 +1011,7 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await connect_task
     ping_request_bytes = [b"\x00", b"\x00", b"\x07"]
@@ -1049,7 +1049,7 @@ async def test_respond_to_ping_request(
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
 
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
 
     await connect_task
     assert conn.is_connected
@@ -1130,7 +1130,7 @@ async def test_connection_cannot_be_reused(
     """Test that we raise when trying to connect when already connected."""
     conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
     send_plaintext_hello(protocol)
-    send_plaintext_connect_response(protocol, False)
+    send_plaintext_auth_response(protocol, False)
     await connect_task
     with pytest.raises(RuntimeError):
         await conn.start_resolve_host()
@@ -1214,7 +1214,7 @@ async def test_internal_message_received_immediately_after_connection(
 
         # Now send the expected hello response to let connection complete
         send_plaintext_hello(protocol)
-        send_plaintext_connect_response(protocol, False)
+        send_plaintext_auth_response(protocol, False)
 
         # Wait for the connect task to complete
         await connect_task
