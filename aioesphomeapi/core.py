@@ -8,6 +8,8 @@ from aioesphomeapi.model import BluetoothGATTError
 from .api_pb2 import (  # type: ignore
     AlarmControlPanelCommandRequest,
     AlarmControlPanelStateResponse,
+    AuthenticationRequest,
+    AuthenticationResponse,
     BinarySensorStateResponse,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,
@@ -37,8 +39,6 @@ from .api_pb2 import (  # type: ignore
     CameraImageResponse,
     ClimateCommandRequest,
     ClimateStateResponse,
-    ConnectRequest,
-    ConnectResponse,
     CoverCommandRequest,
     CoverStateResponse,
     DateCommandRequest,
@@ -321,8 +321,8 @@ class BluetoothGATTAPIError(APIConnectionError):
 MESSAGE_TYPE_TO_PROTO = {
     1: HelloRequest,
     2: HelloResponse,
-    3: ConnectRequest,
-    4: ConnectResponse,
+    3: AuthenticationRequest,
+    4: AuthenticationResponse,
     5: DisconnectRequest,
     6: DisconnectResponse,
     7: PingRequest,

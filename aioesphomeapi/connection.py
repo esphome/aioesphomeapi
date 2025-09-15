@@ -22,8 +22,8 @@ import aioesphomeapi.host_resolver as hr
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore
-    ConnectRequest,
-    ConnectResponse,
+    AuthenticationRequest,
+    AuthenticationResponse,
     DisconnectRequest,
     DisconnectResponse,
     GetTimeRequest,
@@ -68,7 +68,7 @@ DISCONNECT_REQUEST_MESSAGE = DisconnectRequest()
 DISCONNECT_RESPONSE_MESSAGES = (DisconnectResponse(),)
 PING_REQUEST_MESSAGES = (PingRequest(),)
 PING_RESPONSE_MESSAGES = (PingResponse(),)
-NO_PASSWORD_CONNECT_REQUEST = ConnectRequest()
+NO_PASSWORD_AUTH_REQUEST = AuthenticationRequest()
 
 PROTO_TO_MESSAGE_TYPE: dict[
     type[message.Message], tuple[int, Callable[[message.Message], bytes]]
@@ -471,13 +471,13 @@ class APIConnection:
         messages = [make_hello_request(self._params.client_info)]
         msg_types = [HelloResponse]
         if login:
-            messages.append(self._make_connect_request())
+            messages.append(self._make_auth_request())
             if self._params.password:
-                # Only wait for ConnectResponse if we actually have
+                # Only wait for AuthenticationResponse if we actually have
                 # a password to send, but we will still register
-                # a handler for a ConnectResponse just in case
+                # a handler for a AuthenticationResponse just in case
                 # the device has a password but we don't expect it
-                msg_types.append(ConnectResponse)
+                msg_types.append(AuthenticationResponse)
 
         responses = await self.send_messages_await_response_complex(
             tuple(messages),
@@ -494,13 +494,13 @@ class APIConnection:
             login_response = responses.pop(0)
             self._process_login_response(login_response)
 
-    def _process_login_response(self, login_response: ConnectResponse) -> None:
-        """Process a ConnectResponse."""
+    def _process_login_response(self, login_response: AuthenticationResponse) -> None:
+        """Process a AuthenticationResponse."""
         if login_response.invalid_password:
             raise InvalidAuthAPIError("Invalid password!")
 
-    def _handle_login_response(self, login_response: ConnectResponse) -> None:
-        """Handle a ConnectResponse."""
+    def _handle_login_response(self, login_response: AuthenticationResponse) -> None:
+        """Handle a AuthenticationResponse."""
         if login_response.invalid_password:
             self.report_fatal_error(InvalidAuthAPIError("Invalid password!"))
 
@@ -752,11 +752,11 @@ class APIConnection:
             or state is CONNECTION_STATE_CONNECTED
         )
 
-    def _make_connect_request(self) -> ConnectRequest:
-        """Make a ConnectRequest."""
+    def _make_auth_request(self) -> AuthenticationRequest:
+        """Make a AuthenticationRequest."""
         if self._params.password is not None:
-            return ConnectRequest(password=self._params.password)
-        return NO_PASSWORD_CONNECT_REQUEST
+            return AuthenticationRequest(password=self._params.password)
+        return NO_PASSWORD_AUTH_REQUEST
 
     def send_message(self, msg: message.Message) -> None:
         """Send a message to the remote."""
@@ -1043,7 +1043,7 @@ class APIConnection:
             self._handle_get_time_request_internal, (GetTimeRequest,)
         )
         self._add_message_callback_without_remove(
-            self._handle_login_response, (ConnectResponse,)
+            self._handle_login_response, (AuthenticationResponse,)
         )
 
     def _handle_disconnect_request_internal(  # pylint: disable=unused-argument

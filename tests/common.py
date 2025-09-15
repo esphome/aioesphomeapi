@@ -22,7 +22,7 @@ from aioesphomeapi._frame_helper.noise_encryption import (
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
-    ConnectResponse,
+    AuthenticationResponse,
     HelloResponse,
     PingRequest,
     PingResponse,
@@ -174,12 +174,12 @@ def send_plaintext_hello(
     protocol.data_received(generate_plaintext_packet(hello_response))
 
 
-def send_plaintext_connect_response(
+def send_plaintext_auth_response(
     protocol: APIPlaintextFrameHelper, invalid_password: bool
 ) -> None:
-    connect_response: message.Message = ConnectResponse()
-    connect_response.invalid_password = invalid_password
-    protocol.data_received(generate_plaintext_packet(connect_response))
+    auth_response: message.Message = AuthenticationResponse()
+    auth_response.invalid_password = invalid_password
+    protocol.data_received(generate_plaintext_packet(auth_response))
 
 
 def send_ping_response(protocol: APIPlaintextFrameHelper) -> None:

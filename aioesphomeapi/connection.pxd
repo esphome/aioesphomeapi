@@ -20,12 +20,12 @@ cdef object DISCONNECT_REQUEST_MESSAGE
 cdef tuple DISCONNECT_RESPONSE_MESSAGES
 cdef tuple PING_REQUEST_MESSAGES
 cdef tuple PING_RESPONSE_MESSAGES
-cdef object NO_PASSWORD_CONNECT_REQUEST
+cdef object NO_PASSWORD_AUTH_REQUEST
 
 cdef object asyncio_timeout
 cdef object CancelledError
 
-cdef object ConnectRequest, ConnectResponse
+cdef object AuthenticationRequest, AuthenticationResponse
 cdef object DisconnectRequest
 cdef object PingRequest
 cdef object GetTimeRequest, GetTimeResponse
@@ -140,7 +140,7 @@ cdef class APIConnection:
 
     cpdef set_log_name(self, str name)
 
-    cdef _make_connect_request(self)
+    cdef _make_auth_request(self)
 
     cdef void _process_hello_resp(self, object resp) except *
 
