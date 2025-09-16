@@ -62,6 +62,8 @@ from aioesphomeapi.api_pb2 import (
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    ZWaveProxyFrame as ZWaveProxyFramePb,
+    ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
@@ -135,6 +137,10 @@ from aioesphomeapi.model import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    ZWaveProxyFeature,
+    ZWaveProxyFrame,
+    ZWaveProxyRequest,
+    ZWaveProxyRequestType,
     build_unique_id,
     converter_field,
 )
@@ -307,6 +313,8 @@ def test_api_version_ord():
         (UpdateState, UpdateStateResponse),
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
+        (ZWaveProxyFrame, ZWaveProxyFramePb),
+        (ZWaveProxyRequest, ZWaveProxyRequestPb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -489,6 +497,75 @@ def test_voice_assistant_backcompat_for_device_info(
     )
     assert info.voice_assistant_feature_flags_compat(APIVersion(1, 9)) is flags
     assert info.voice_assistant_feature_flags_compat(APIVersion(1, 10)) == 42
+
+
+@pytest.mark.parametrize(
+    ("flags"),
+    [
+        (1, ZWaveProxyFeature.ENABLED),
+        (2, 0),
+    ],
+)
+def test_zwave_backcompat_for_device_info(flags: ZWaveProxyFeature) -> None:
+    info = DeviceInfo(zwave_proxy_feature_flags=flags)
+    assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) is flags
+
+
+def test_zwave_proxy_frame_conversion() -> None:
+    """Test ZWaveProxyFrame conversion from protobuf."""
+    # Test with empty data
+    pb_frame = ZWaveProxyFramePb()
+    frame = ZWaveProxyFrame.from_pb(pb_frame)
+    assert frame.data == b""
+
+    # Test with actual data
+    pb_frame_with_data = ZWaveProxyFramePb(data=b"\x01\x02\x03\x04")
+    frame_with_data = ZWaveProxyFrame.from_pb(pb_frame_with_data)
+    assert frame_with_data.data == b"\x01\x02\x03\x04"
+
+    # Test to_dict
+    assert frame_with_data.to_dict() == {"data": b"\x01\x02\x03\x04"}
+
+    # Test from_dict
+    frame_from_dict = ZWaveProxyFrame.from_dict({"data": b"\x05\x06\x07\x08"})
+    assert frame_from_dict.data == b"\x05\x06\x07\x08"
+
+
+def test_zwave_proxy_request_type_enum() -> None:
+    """Test ZWaveProxyRequestType enum values."""
+    assert ZWaveProxyRequestType.SUBSCRIBE == 0
+    assert ZWaveProxyRequestType.UNSUBSCRIBE == 1
+
+    # Test conversion
+    assert ZWaveProxyRequestType.convert(0) == ZWaveProxyRequestType.SUBSCRIBE
+    assert ZWaveProxyRequestType.convert(1) == ZWaveProxyRequestType.UNSUBSCRIBE
+    assert ZWaveProxyRequestType.convert(2) is None
+    assert ZWaveProxyRequestType.convert(-1) is None
+
+
+def test_zwave_proxy_request_conversion() -> None:
+    """Test ZWaveProxyRequest conversion from protobuf."""
+    # Test with default value (SUBSCRIBE)
+    pb_request = ZWaveProxyRequestPb()
+    request = ZWaveProxyRequest.from_pb(pb_request)
+    assert request.type == ZWaveProxyRequestType.SUBSCRIBE
+
+    # Test with UNSUBSCRIBE
+    pb_request_unsub = ZWaveProxyRequestPb(type=1)
+    request_unsub = ZWaveProxyRequest.from_pb(pb_request_unsub)
+    assert request_unsub.type == ZWaveProxyRequestType.UNSUBSCRIBE
+
+    # Test to_dict
+    assert request.to_dict() == {"type": 0}
+    assert request_unsub.to_dict() == {"type": 1}
+
+    # Test from_dict
+    request_from_dict = ZWaveProxyRequest.from_dict({"type": 1})
+    assert request_from_dict.type == ZWaveProxyRequestType.UNSUBSCRIBE
+
+    # Test from_dict with default when not provided
+    request_default = ZWaveProxyRequest.from_dict({})
+    assert request_default.type == ZWaveProxyRequestType.SUBSCRIBE
 
 
 @pytest.mark.parametrize(

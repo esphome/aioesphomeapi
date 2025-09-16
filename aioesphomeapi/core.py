@@ -133,6 +133,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    ZWaveProxyFrame,
+    ZWaveProxyRequest,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -446,6 +448,8 @@ MESSAGE_TYPE_TO_PROTO = {
     125: NoiseEncryptionSetKeyResponse,
     126: BluetoothScannerStateResponse,
     127: BluetoothScannerSetModeRequest,
+    128: ZWaveProxyFrame,
+    129: ZWaveProxyRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

@@ -125,6 +125,20 @@ class VoiceAssistantFeature(enum.IntFlag):
     START_CONVERSATION = 1 << 5
 
 
+class ZWaveProxyFeature(enum.IntFlag):
+    ENABLED = 1 << 0
+
+
+class ZWaveProxyRequestType(APIIntEnum):
+    SUBSCRIBE = 0
+    UNSUBSCRIBE = 1
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyRequest(APIModelBase):
+    type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
+
+
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
@@ -186,6 +200,7 @@ class DeviceInfo(APIModelBase):
     voice_assistant_feature_flags: int = 0
     legacy_bluetooth_proxy_version: int = 0
     bluetooth_proxy_feature_flags: int = 0
+    zwave_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -224,6 +239,9 @@ class DeviceInfo(APIModelBase):
                 flags |= VoiceAssistantFeature.SPEAKER
             return flags
         return self.voice_assistant_feature_flags
+
+    def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+        return self.zwave_proxy_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -1274,6 +1292,11 @@ class BluetoothLEAdvertisement:
             service_data=service_data,
             manufacturer_data=manufacturer_data,
         )
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyFrame(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
