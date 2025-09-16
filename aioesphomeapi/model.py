@@ -1284,6 +1284,7 @@ class BluetoothLEAdvertisement:
             manufacturer_data=manufacturer_data,
         )
 
+
 @_dataclass_decorator
 class ZWaveFrame:
     frame: list[bytes]

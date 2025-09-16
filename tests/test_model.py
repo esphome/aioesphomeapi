@@ -135,6 +135,7 @@ from aioesphomeapi.model import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    ZWaveProxyFeature,
     build_unique_id,
     converter_field,
 )
@@ -489,6 +490,22 @@ def test_voice_assistant_backcompat_for_device_info(
     )
     assert info.voice_assistant_feature_flags_compat(APIVersion(1, 9)) is flags
     assert info.voice_assistant_feature_flags_compat(APIVersion(1, 10)) == 42
+
+
+@pytest.mark.parametrize(
+    ("flags"),
+    [
+        (1, ZWaveProxyFeature.ENABLED),
+        (2, 0),
+    ],
+)
+def test_zwave_backcompat_for_device_info(
+    flags: ZWaveProxyFeature
+) -> None:
+    info = DeviceInfo(
+        zwave_proxy_feature_flags=flags
+    )
+    assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) is flags
 
 
 @pytest.mark.parametrize(
