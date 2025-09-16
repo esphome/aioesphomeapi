@@ -129,6 +129,16 @@ class ZWaveProxyFeature(enum.IntFlag):
     ENABLED = 1 << 0
 
 
+class ZWaveProxyRequestType(APIIntEnum):
+    SUBSCRIBE = 0
+    UNSUBSCRIBE = 1
+
+
+@_dataclass_decorator
+class ZWaveProxyRequest(APIModelBase):
+    type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
+
+
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
