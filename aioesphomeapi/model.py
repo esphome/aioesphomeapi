@@ -1294,7 +1294,7 @@ class BluetoothLEAdvertisement:
         )
 
 
-@_dataclass_decorator
+@_frozen_dataclass_decorator
 class ZWaveProxyFrame(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
