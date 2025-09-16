@@ -1291,7 +1291,7 @@ class ZWaveFrame:
 
     @classmethod
     def from_pb(  # type: ignore[misc]
-        data: ZWaveProxyFrame
+        data: ZWaveProxyFrame,
     ) -> ZWaveFrame:
         return data.frame
 
