@@ -563,9 +563,9 @@ def test_zwave_proxy_request_conversion() -> None:
     request_from_dict = ZWaveProxyRequest.from_dict({"type": 1})
     assert request_from_dict.type == ZWaveProxyRequestType.UNSUBSCRIBE
 
-    # Test from_dict with invalid type value (should convert to None but still create object)
-    request_invalid = ZWaveProxyRequest.from_dict({"type": 99})
-    assert request_invalid.type is None
+    # Test from_dict with default when not provided
+    request_default = ZWaveProxyRequest.from_dict({})
+    assert request_default.type == ZWaveProxyRequestType.SUBSCRIBE
 
 
 @pytest.mark.parametrize(
