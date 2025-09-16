@@ -1284,13 +1284,14 @@ class BluetoothLEAdvertisement:
             manufacturer_data=manufacturer_data,
         )
 
+
 @_dataclass_decorator
 class ZWaveFrame:
     frame: list[bytes]
 
     @classmethod
     def from_pb(  # type: ignore[misc]
-        data: ZWaveProxyFrame
+        data: ZWaveProxyFrame,
     ) -> ZWaveFrame:
         return data.frame
 
