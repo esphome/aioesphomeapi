@@ -134,7 +134,7 @@ class ZWaveProxyRequestType(APIIntEnum):
     UNSUBSCRIBE = 1
 
 
-@_dataclass_decorator
+@_frozen_dataclass_decorator
 class ZWaveProxyRequest(APIModelBase):
     type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
 
