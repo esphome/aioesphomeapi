@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
         HomeassistantServiceMap,
-        ZWaveProxyFrame,
     )
 
 # All fields in here should have defaults set
@@ -1286,14 +1285,8 @@ class BluetoothLEAdvertisement:
 
 
 @_dataclass_decorator
-class ZWaveFrame:
-    frame: list[bytes]
-
-    @classmethod
-    def from_pb(
-        data: ZWaveProxyFrame,
-    ) -> ZWaveFrame:
-        return data.frame
+class ZWaveProxyFrame(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
