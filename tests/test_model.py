@@ -499,12 +499,8 @@ def test_voice_assistant_backcompat_for_device_info(
         (2, 0),
     ],
 )
-def test_zwave_backcompat_for_device_info(
-    flags: ZWaveProxyFeature
-) -> None:
-    info = DeviceInfo(
-        zwave_proxy_feature_flags=flags
-    )
+def test_zwave_backcompat_for_device_info(flags: ZWaveProxyFeature) -> None:
+    info = DeviceInfo(zwave_proxy_feature_flags=flags)
     assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) is flags
 
 
