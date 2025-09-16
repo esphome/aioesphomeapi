@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from .api_pb2 import (  # type: ignore
         BluetoothLEAdvertisementResponse,
         HomeassistantServiceMap,
+        ZWaveProxyFrame,
     )
 
 # All fields in here should have defaults set
@@ -125,6 +126,10 @@ class VoiceAssistantFeature(enum.IntFlag):
     START_CONVERSATION = 1 << 5
 
 
+class ZWaveProxyFeature(enum.IntFlag):
+    ENABLED = 1 << 0
+
+
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
@@ -186,6 +191,7 @@ class DeviceInfo(APIModelBase):
     voice_assistant_feature_flags: int = 0
     legacy_bluetooth_proxy_version: int = 0
     bluetooth_proxy_feature_flags: int = 0
+    zwave_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -224,6 +230,9 @@ class DeviceInfo(APIModelBase):
                 flags |= VoiceAssistantFeature.SPEAKER
             return flags
         return self.voice_assistant_feature_flags
+
+    def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+        return self.zwave_proxy_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -1274,6 +1283,16 @@ class BluetoothLEAdvertisement:
             service_data=service_data,
             manufacturer_data=manufacturer_data,
         )
+
+@_dataclass_decorator
+class ZWaveFrame:
+    frame: list[bytes]
+
+    @classmethod
+    def from_pb(  # type: ignore[misc]
+        data: ZWaveProxyFrame
+    ) -> ZWaveFrame:
+        return data.frame
 
 
 @_frozen_dataclass_decorator
