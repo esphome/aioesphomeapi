@@ -1290,7 +1290,7 @@ class ZWaveFrame:
     frame: list[bytes]
 
     @classmethod
-    def from_pb(  # type: ignore[misc]
+    def from_pb(
         data: ZWaveProxyFrame,
     ) -> ZWaveFrame:
         return data.frame
