@@ -1202,12 +1202,12 @@ async def test_addresses_parameter_handles_subclassed_string() -> None:
     assert cli._params.addresses[2] == "10.0.0.1"
 
 
-async def test_conneted_address(
+async def test_connected_address(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test bluetooth_device_disconnect."""
+    """Test getting the connected address."""
     client, _connection, _transport, _protocol = api_client
     assert client.connected_address == "10.0.0.512"
 
