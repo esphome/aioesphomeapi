@@ -205,6 +205,8 @@ async def test_connect_backwards_compat() -> None:
     """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
 
     cli = PatchableAPIClient("host", 1234, None)
+    assert cli.connected_address is None
+
     with (
         patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
         patch.object(cli, "start_connection") as mock_start_connection,
@@ -1198,6 +1200,16 @@ async def test_addresses_parameter_handles_subclassed_string() -> None:
     assert cli._params.addresses[0] == "192.168.1.100"
     assert cli._params.addresses[1] == "192.168.1.101"
     assert cli._params.addresses[2] == "10.0.0.1"
+
+
+async def test_connected_address(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test getting the connected address."""
+    client, _connection, _transport, _protocol = api_client
+    assert client.connected_address == "10.0.0.512"
 
 
 async def test_bluetooth_disconnect(
