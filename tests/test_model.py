@@ -511,7 +511,7 @@ def test_zwave_backcompat_for_device_info(
 ) -> None:
     info = DeviceInfo(zwave_proxy_feature_flags=flags, zwave_home_id=home_id)
     assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) == flags
-    assert info.zwave_home_id_compat() == home_id
+    assert info.zwave_home_id == home_id
 
 
 def test_zwave_proxy_frame_conversion() -> None:

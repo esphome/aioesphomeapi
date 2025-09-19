@@ -244,9 +244,6 @@ class DeviceInfo(APIModelBase):
     def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         return self.zwave_proxy_feature_flags
 
-    def zwave_home_id_compat(self) -> int:
-        return self.zwave_home_id
-
 
 class EntityCategory(APIIntEnum):
     NONE = 0
