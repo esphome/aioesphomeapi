@@ -506,7 +506,9 @@ def test_voice_assistant_backcompat_for_device_info(
         (0, 0x01234567),
     ],
 )
-def test_zwave_backcompat_for_device_info(flags: ZWaveProxyFeature, home_id: int) -> None:
+def test_zwave_backcompat_for_device_info(
+    flags: ZWaveProxyFeature, home_id: int
+) -> None:
     info = DeviceInfo(zwave_proxy_feature_flags=flags, zwave_home_id=home_id)
     assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) is flags
     assert info.zwave_home_id_compat() is home_id
