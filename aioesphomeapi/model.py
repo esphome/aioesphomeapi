@@ -201,6 +201,7 @@ class DeviceInfo(APIModelBase):
     legacy_bluetooth_proxy_version: int = 0
     bluetooth_proxy_feature_flags: int = 0
     zwave_proxy_feature_flags: int = 0
+    zwave_home_id: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -242,6 +243,9 @@ class DeviceInfo(APIModelBase):
 
     def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         return self.zwave_proxy_feature_flags
+
+    def zwave_home_id_compat(self) -> int:
+        return self.zwave_home_id
 
 
 class EntityCategory(APIIntEnum):
