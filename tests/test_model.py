@@ -500,15 +500,18 @@ def test_voice_assistant_backcompat_for_device_info(
 
 
 @pytest.mark.parametrize(
-    ("flags"),
+    ("flags", "home_id"),
     [
-        (1, ZWaveProxyFeature.ENABLED),
-        (2, 0),
+        (ZWaveProxyFeature.ENABLED, 0x12345678),
+        (0, 0x01234567),
     ],
 )
-def test_zwave_backcompat_for_device_info(flags: ZWaveProxyFeature) -> None:
-    info = DeviceInfo(zwave_proxy_feature_flags=flags)
-    assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) is flags
+def test_zwave_backcompat_for_device_info(
+    flags: ZWaveProxyFeature, home_id: int
+) -> None:
+    info = DeviceInfo(zwave_proxy_feature_flags=flags, zwave_home_id=home_id)
+    assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) == flags
+    assert info.zwave_home_id == home_id
 
 
 def test_zwave_proxy_frame_conversion() -> None:
