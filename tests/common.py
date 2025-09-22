@@ -58,6 +58,7 @@ def get_mock_connection_params() -> ConnectionParams:
         noise_psk=None,
         expected_name=None,
         expected_mac=None,
+        timezone=None,
     )
 
 

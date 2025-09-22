@@ -87,6 +87,7 @@ cdef class ConnectionParams:
     cdef public object noise_psk
     cdef public object expected_name
     cdef public object expected_mac
+    cdef public object timezone
 
 
 cdef class APIConnection:
