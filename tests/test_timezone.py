@@ -12,6 +12,8 @@ from aioesphomeapi.timezone import (
     _get_local_timezone,
     _load_tzdata,
     get_local_timezone,
+    get_timezone,
+    iana_to_posix_tz,
 )
 
 
@@ -194,3 +196,97 @@ def test_real_timezone_detection() -> None:
         assert len(result) > 0
         # Should be ASCII
         assert result.isascii()
+
+
+@patch("aioesphomeapi.timezone._load_tzdata")
+@patch("aioesphomeapi.timezone._extract_tz_string")
+def test_iana_to_posix_tz_success(mock_extract, mock_load) -> None:
+    """Test successful IANA to POSIX conversion."""
+    mock_load.return_value = b"tzdata"
+    mock_extract.return_value = "CST6CDT,M3.2.0,M11.1.0"
+
+    result = iana_to_posix_tz("America/Chicago")
+    assert result == "CST6CDT,M3.2.0,M11.1.0"
+
+    result2 = iana_to_posix_tz("America/Chicago")
+    assert result2 == "CST6CDT,M3.2.0,M11.1.0"
+
+    assert mock_load.call_count == 2
+
+
+@patch("aioesphomeapi.timezone._load_tzdata")
+def test_iana_to_posix_tz_invalid_iana(mock_load) -> None:
+    """Test when input is not a valid IANA key."""
+    mock_load.return_value = None  # Indicates it's not an IANA key
+
+    result = iana_to_posix_tz("InvalidTimezone")
+    assert result == ""
+
+
+@patch("aioesphomeapi.timezone._load_tzdata")
+def test_iana_to_posix_tz_exception(mock_load) -> None:
+    """Test that exceptions bubble up from IANA conversion."""
+    mock_load.side_effect = Exception("Test error")
+
+    with pytest.raises(Exception, match="Test error"):
+        iana_to_posix_tz("America/Chicago")
+
+
+async def test_get_timezone_with_iana_key() -> None:
+    """Test get_timezone with IANA key."""
+    with patch("aioesphomeapi.timezone.iana_to_posix_tz") as mock_convert:
+        mock_convert.return_value = "CST6CDT,M3.2.0,M11.1.0"
+
+        result = await get_timezone("America/Chicago")
+        assert result == "CST6CDT,M3.2.0,M11.1.0"
+
+        mock_convert.assert_called_once_with("America/Chicago")
+
+
+async def test_get_timezone_without_key() -> None:
+    """Test get_timezone without IANA key (local detection)."""
+    with patch("aioesphomeapi.timezone._get_local_timezone") as mock_local:
+        mock_local.return_value = "PST8PDT,M3.2.0,M11.1.0"
+
+        result = await get_timezone(None)
+        assert result == "PST8PDT,M3.2.0,M11.1.0"
+
+        mock_local.assert_called_once()
+
+
+async def test_get_timezone_with_empty_key() -> None:
+    """Test get_timezone with empty string (should use local)."""
+    with patch("aioesphomeapi.timezone._get_local_timezone") as mock_local:
+        mock_local.return_value = "EST5EDT,M3.2.0,M11.1.0"
+
+        result = await get_timezone("")
+        assert result == "EST5EDT,M3.2.0,M11.1.0"
+
+        mock_local.assert_called_once()
+
+
+async def test_get_timezone_caching() -> None:
+    """Test that get_timezone properly caches IANA timezone conversions."""
+    call_count = 0
+
+    def mock_convert(key: str) -> str:
+        nonlocal call_count
+        call_count += 1
+        return "CST6CDT,M3.2.0,M11.1.0"
+
+    with patch("aioesphomeapi.timezone.iana_to_posix_tz", mock_convert):
+        # First call
+        result1 = await get_timezone("America/Chicago")
+        assert result1 == "CST6CDT,M3.2.0,M11.1.0"
+
+        # Second call with same key - should be cached
+        result2 = await get_timezone("America/Chicago")
+        assert result2 == "CST6CDT,M3.2.0,M11.1.0"
+
+        # Should only be called once due to singleton caching
+        assert call_count == 1
+
+        # Different timezone should trigger another call
+        result3 = await get_timezone("Europe/London")
+        assert result3 == "CST6CDT,M3.2.0,M11.1.0"  # Mock returns same value
+        assert call_count == 2

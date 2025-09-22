@@ -201,6 +201,16 @@ async def test_expected_name(auth_client: APIClient) -> None:
     assert auth_client.expected_name == "awesome"
 
 
+async def test_timezone_parameter() -> None:
+    """Test that timezone parameter is passed to ConnectionParams."""
+    cli = PatchableAPIClient("host", 1234, None, timezone="America/Chicago")
+    assert cli._params.timezone == "America/Chicago"
+
+    # Test with None timezone (should use auto-detection)
+    cli2 = PatchableAPIClient("host", 1234, None)
+    assert cli2._params.timezone is None
+
+
 async def test_connect_backwards_compat() -> None:
     """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
 

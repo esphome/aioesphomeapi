@@ -50,7 +50,7 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .model import APIVersion, message_types_to_names
-from .timezone import get_local_timezone
+from .timezone import get_timezone
 from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
 
@@ -122,6 +122,7 @@ class ConnectionParams:
     noise_psk: str | None
     expected_name: str | None
     expected_mac: str | None
+    timezone: str | None = None
 
 
 class ConnectionState(enum.Enum):
@@ -700,7 +701,9 @@ class APIConnection:
         """Finish the connection process."""
         # Cache timezone before registering handlers to ensure it's available
         # when GetTimeRequest is received
-        self._cached_timezone = await get_local_timezone()
+        # Use provided timezone from params (converted from IANA to POSIX if needed),
+        # or fall back to local timezone detection
+        self._cached_timezone = await get_timezone(self._params.timezone)
         # Register internal handlers before
         # connecting the helper so we can ensure
         # we handle any messages that are received immediately

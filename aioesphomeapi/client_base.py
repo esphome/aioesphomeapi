@@ -230,6 +230,7 @@ class APIClientBase:
         expected_name: str_ | None = None,
         addresses: list[str_] | None = None,
         expected_mac: str_ | None = None,
+        timezone: str_ | None = None,
     ) -> None:
         """Create a client, this object is shared across sessions.
 
@@ -252,6 +253,9 @@ class APIClientBase:
         :param expected_mac: Optional MAC address to check against the device.
             The format should be lower case without : or - separators.
             Example: 00:aa:22:33:44:55 -> 00aa22334455
+        :param timezone: Optional IANA timezone name to send to ESPHome devices.
+            If not provided, the system timezone will be detected automatically.
+            Example: 'America/Chicago' or 'Europe/London'
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
@@ -267,6 +271,7 @@ class APIClientBase:
             noise_psk=_stringify_or_none(noise_psk) or None,
             expected_name=_stringify_or_none(expected_name) or None,
             expected_mac=_stringify_or_none(expected_mac) or None,
+            timezone=_stringify_or_none(timezone) or None,
         )
         self._connection: APIConnection | None = None
         self.cached_name: str | None = None
