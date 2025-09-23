@@ -46,7 +46,7 @@ from .api_pb2 import (  # type: ignore
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
-    HomeassistantServiceResponse,
+    HomeassistantActionRequest,
     HomeAssistantStateResponse,
     LightCommandRequest,
     ListEntitiesDoneResponse,
@@ -401,7 +401,7 @@ class APIClient(APIClientBase):
         self._get_connection().send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
             partial(on_home_assistant_service_response, on_service_call),
-            (HomeassistantServiceResponse,),
+            (HomeassistantActionRequest,),
         )
 
     async def _send_bluetooth_message_await_response(
@@ -942,7 +942,7 @@ class APIClient(APIClientBase):
         )
         connection.add_message_callback(
             partial(on_home_assistant_service_response, on_service_call),
-            (HomeassistantServiceResponse,),
+            (HomeassistantActionRequest,),
         )
         connection.add_message_callback(
             partial(

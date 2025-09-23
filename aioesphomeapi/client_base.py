@@ -24,7 +24,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothLEAdvertisementResponse,
     BluetoothScannerStateResponse,
     CameraImageResponse,
-    HomeassistantServiceResponse,
+    HomeassistantActionRequest,
     SubscribeHomeAssistantStateResponse,
 )
 from .connection import ConnectionParams
@@ -85,7 +85,7 @@ def on_state_msg(
 
 def on_home_assistant_service_response(
     on_service_call: Callable[[HomeassistantServiceCall], None],
-    msg: HomeassistantServiceResponse,
+    msg: HomeassistantActionRequest,
 ) -> None:
     on_service_call(HomeassistantServiceCall.from_pb(msg))
 

@@ -52,7 +52,7 @@ from aioesphomeapi.api_pb2 import (
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     FanCommandRequest,
-    HomeassistantServiceResponse,
+    HomeassistantActionRequest,
     HomeAssistantStateResponse,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
@@ -2097,7 +2097,7 @@ async def test_subscribe_home_assistant_states_and_services(
 
     # Test service call
     on_state.reset_mock()
-    service_msg = HomeassistantServiceResponse(service="test_service")
+    service_msg = HomeassistantActionRequest(service="test_service")
     mock_data_received(protocol, generate_plaintext_packet(service_msg))
     on_service_call.assert_called_once()
 
@@ -2124,7 +2124,7 @@ async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_service_call = MagicMock()
     auth_client.subscribe_service_calls(on_service_call)
-    service_msg = HomeassistantServiceResponse(service="bob")
+    service_msg = HomeassistantActionRequest(service="bob")
     await send(service_msg)
     on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
 
