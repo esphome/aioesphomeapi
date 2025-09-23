@@ -22,8 +22,8 @@ from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
     EventResponse,
     FanStateResponse,
+    HomeassistantActionRequest,
     HomeassistantServiceMap,
-    HomeassistantServiceResponse,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
@@ -290,7 +290,7 @@ def test_api_version_ord():
         (DateState, DateStateResponse),
         (SelectInfo, ListEntitiesSelectResponse),
         (SelectState, SelectStateResponse),
-        (HomeassistantServiceCall, HomeassistantServiceResponse),
+        (HomeassistantServiceCall, HomeassistantActionRequest),
         (UserServiceArg, ListEntitiesServicesArgument),
         (UserService, ListEntitiesServicesResponse),
         (ButtonInfo, ListEntitiesButtonResponse),
@@ -382,7 +382,7 @@ def test_climate_state_preset_compat(state, version, out):
 
 def test_homeassistant_service_map_conversion():
     assert HomeassistantServiceCall.from_pb(
-        HomeassistantServiceResponse(
+        HomeassistantActionRequest(
             data=[HomeassistantServiceMap(key="key", value="value")]
         )
     ) == HomeassistantServiceCall(data={"key": "value"})
