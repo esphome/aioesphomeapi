@@ -1465,7 +1465,7 @@ message BluetoothDeviceRequest {
 
   uint64 address = 1;
   BluetoothDeviceRequestType request_type = 2;
-  bool has_address_type = 3;
+  bool has_address_type = 3;  // Deprecated, should be removed in 2027.8 - https://github.com/esphome/esphome/pull/10318
   uint32 address_type = 4;
 }
 
