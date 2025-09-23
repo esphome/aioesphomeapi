@@ -147,7 +147,8 @@ jobs:
             pip3 install -r requirements/base.txt -r requirements/test.txt
             pip3 install -e .
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v3
+        uses: CodSpeedHQ/action@v4
         with:
+          mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
           run: pytest tests/benchmarks --codspeed
