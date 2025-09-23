@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
+from dataclasses import asdict
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any, Union
@@ -77,7 +78,6 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantAnnounceFinished,
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
-    VoiceAssistantConfigurationRequest,
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
@@ -85,6 +85,9 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    VoiceAssistantConfigurationRequest,
+    VoiceAssistantExternalWakeWord,
+    VoiceAssistantWakeWord,
 )
 from .client_base import (
     APIClientBase,
@@ -150,6 +153,7 @@ from .model import (
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
     message_types_to_names,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
 )
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
@@ -1518,10 +1522,26 @@ class APIClient(APIClientBase):
         return VoiceAssistantAnnounceFinishedModel.from_pb(resp)
 
     async def get_voice_assistant_configuration(
-        self, timeout: float
+        self,
+        timeout: float,
+        external_wake_words: list[VoiceAssistantExternalWakeWordModel] | None = None,
     ) -> VoiceAssistantConfigurationResponseModel:
+        if external_wake_words is None:
+            external_wake_words = []
+
         resp = await self._get_connection().send_message_await_response(
-            VoiceAssistantConfigurationRequest(),
+            VoiceAssistantConfigurationRequest(
+                external_wake_words=[
+                    VoiceAssistantExternalWakeWord(
+                        id=ex_ww.id,
+                        wake_word=ex_ww.wake_word,
+                        trained_languages=ex_ww.trained_languages,
+                        model_type=ex_ww.model_type,
+                        url=ex_ww.url,
+                    )
+                    for ex_ww in external_wake_words
+                ]
+            ),
             VoiceAssistantConfigurationResponse,
             timeout,
         )

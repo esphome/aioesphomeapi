@@ -1577,6 +1577,25 @@ class VoiceAssistantWakeWord(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class VoiceAssistantExternalWakeWord(APIModelBase):
+    id: str
+    wake_word: str
+    trained_languages: list[str]
+    model_type: str
+    url: str
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantExternalWakeWord]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(VoiceAssistantExternalWakeWord.from_dict(x))
+            else:
+                ret.append(VoiceAssistantExternalWakeWord.from_pb(x))
+        return ret
+
+
+@_frozen_dataclass_decorator
 class VoiceAssistantConfigurationResponse(APIModelBase):
     available_wake_words: list[VoiceAssistantWakeWord] = converter_field(
         default_factory=list, converter=VoiceAssistantWakeWord.convert_list
@@ -1587,7 +1606,9 @@ class VoiceAssistantConfigurationResponse(APIModelBase):
 
 @_frozen_dataclass_decorator
 class VoiceAssistantConfigurationRequest(APIModelBase):
-    pass
+    external_wake_words: list[VoiceAssistantExternalWakeWord] = converter_field(
+        default_factory=list, converter=VoiceAssistantExternalWakeWord.convert_list
+    )
 
 
 @_frozen_dataclass_decorator
