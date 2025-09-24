@@ -1427,9 +1427,10 @@ def test_send_messages_when_frame_helper_is_none_with_handshake_complete(
     # Report a fatal error to trigger cleanup (sets _frame_helper to None)
     conn.report_fatal_error(APIConnectionError("Test error"))
 
-    # Now manually set _handshake_complete back to True to simulate a race condition
-    # where handshake_complete gets set after cleanup
+    # Now manually set state back to simulate a race condition
+    # where these get set after cleanup but frame_helper is still None
     conn._handshake_complete = True
+    conn.connection_state = ConnectionState.CONNECTED
 
     # Should raise the fatal exception since _frame_helper is None
     # This tests the segfault protection that raises _fatal_exception when available
@@ -1452,10 +1453,10 @@ def test_send_messages_when_frame_helper_none_no_fatal_exception(
     # Report a fatal error to trigger cleanup (sets _frame_helper to None)
     conn.report_fatal_error(APIConnectionError("Test error"))
 
-    # Clear the fatal exception and set handshake back to True
-    # to simulate a race condition
+    # Clear the fatal exception and reset state to simulate a race condition
     conn._fatal_exception = None
     conn._handshake_complete = True
+    conn.connection_state = ConnectionState.CONNECTED
 
     # Should raise ConnectionNotEstablishedAPIError since both
     # _frame_helper and _fatal_exception are None
