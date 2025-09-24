@@ -81,6 +81,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
@@ -147,6 +148,7 @@ from .model import (
     VoiceAssistantCommand,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
     message_types_to_names,
@@ -1518,10 +1520,28 @@ class APIClient(APIClientBase):
         return VoiceAssistantAnnounceFinishedModel.from_pb(resp)
 
     async def get_voice_assistant_configuration(
-        self, timeout: float
+        self,
+        timeout: float,
+        external_wake_words: list[VoiceAssistantExternalWakeWordModel] | None = None,
     ) -> VoiceAssistantConfigurationResponseModel:
+        if external_wake_words is None:
+            external_wake_words = []
+
         resp = await self._get_connection().send_message_await_response(
-            VoiceAssistantConfigurationRequest(),
+            VoiceAssistantConfigurationRequest(
+                external_wake_words=[
+                    VoiceAssistantExternalWakeWord(
+                        id=ex_ww.id,
+                        wake_word=ex_ww.wake_word,
+                        trained_languages=ex_ww.trained_languages,
+                        model_type=ex_ww.model_type,
+                        model_size=ex_ww.model_size,
+                        model_hash=ex_ww.model_hash,
+                        url=ex_ww.url,
+                    )
+                    for ex_ww in external_wake_words
+                ]
+            ),
             VoiceAssistantConfigurationResponse,
             timeout,
         )

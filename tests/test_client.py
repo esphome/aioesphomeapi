@@ -85,6 +85,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
@@ -133,6 +134,7 @@ from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType as VoiceAssistantEventModelType,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
@@ -2904,13 +2906,13 @@ async def test_get_voice_assistant_configuration(
     ],
 ) -> None:
     client, connection, _transport, protocol = api_client
-    original_send_message = connection.send_message
+    original_send_messages = connection.send_messages
 
-    def send_message(msg):
-        assert msg == VoiceAssistantConfigurationRequest()
-        original_send_message(msg)
+    def send_messages(msgs):
+        assert msgs == (VoiceAssistantConfigurationRequest(),)
+        original_send_messages(msgs)
 
-    with patch.object(connection, "send_message", new=send_message):
+    with patch.object(connection, "send_messages", new=send_messages):
         config_task = asyncio.create_task(
             client.get_voice_assistant_configuration(timeout=1.0)
         )
@@ -2929,6 +2931,84 @@ async def test_get_voice_assistant_configuration(
         mock_data_received(protocol, generate_plaintext_packet(response))
         config = await config_task
         assert isinstance(config, VoiceAssistantConfigurationResponseModel)
+
+
+async def test_get_voice_assistant_configuration_external_wake_words(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    client, connection, _transport, protocol = api_client
+    original_send_messages = connection.send_messages
+
+    def send_messages(msgs):
+        assert msgs == (
+            VoiceAssistantConfigurationRequest(
+                external_wake_words=[
+                    VoiceAssistantExternalWakeWord(
+                        id="5678",
+                        wake_word="hey jarvis",
+                        trained_languages=["en"],
+                        model_type="micro",
+                        model_size=12345,
+                        model_hash="test hash",
+                        url="http://test.com/hey_jarvis.json",
+                    )
+                ]
+            ),
+        )
+        original_send_messages(msgs)
+
+    with patch.object(connection, "send_messages", new=send_messages):
+        config_task = asyncio.create_task(
+            client.get_voice_assistant_configuration(
+                timeout=1.0,
+                external_wake_words=[
+                    VoiceAssistantExternalWakeWordModel(
+                        id="5678",
+                        wake_word="hey jarvis",
+                        trained_languages=["en"],
+                        model_type="micro",
+                        model_size=12345,
+                        model_hash="test hash",
+                        url="http://test.com/hey_jarvis.json",
+                    )
+                ],
+            )
+        )
+        await asyncio.sleep(0)
+        response: message.Message = VoiceAssistantConfigurationResponse(
+            available_wake_words=[
+                VoiceAssistantWakeWord(
+                    id="1234",
+                    wake_word="okay nabu",
+                    trained_languages=["en"],
+                )
+            ],
+            active_wake_words=["1234"],
+            max_active_wake_words=1,
+        )
+        mock_data_received(protocol, generate_plaintext_packet(response))
+        config = await config_task
+        assert isinstance(config, VoiceAssistantConfigurationResponseModel)
+
+
+async def test_external_wake_words_convert_list() -> None:
+    wake_word_dict = {
+        "id": "5678",
+        "wake_word": "hey jarvis",
+        "trained_languages": ["en"],
+        "model_type": "micro",
+        "model_size": 12345,
+        "model_hash": "test hash",
+        "url": "http://test.com/hey_jarvis.json",
+    }
+
+    expected_wake_word = VoiceAssistantExternalWakeWordModel(**wake_word_dict)
+    for value in (wake_word_dict, VoiceAssistantExternalWakeWord(**wake_word_dict)):
+        assert VoiceAssistantExternalWakeWordModel.convert_list([value]) == [
+            expected_wake_word
+        ]
 
 
 async def test_set_voice_assistant_configuration(
