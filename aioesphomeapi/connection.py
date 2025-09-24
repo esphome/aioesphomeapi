@@ -489,11 +489,6 @@ class APIConnection:
         resp = responses.pop(0)
         self._process_hello_resp(resp)
 
-    def _process_login_response(self, login_response: AuthenticationResponse) -> None:
-        """Process a AuthenticationResponse."""
-        if login_response.invalid_password:
-            raise InvalidAuthAPIError("Invalid password!")
-
     def _handle_login_response(self, login_response: AuthenticationResponse) -> None:
         """Handle a AuthenticationResponse."""
         if login_response.invalid_password:
