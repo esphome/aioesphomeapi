@@ -791,9 +791,7 @@ class APIConnection:
 
         # Check frame_helper is not None to prevent segfault in Cython code
         if self._frame_helper is None:
-            if self._fatal_exception is not None:
-                raise self._fatal_exception
-            raise ConnectionNotEstablishedAPIError(
+            raise self._fatal_exception or ConnectionNotEstablishedAPIError(
                 f"Connection is closed ({self.connection_state})"
             )
 
