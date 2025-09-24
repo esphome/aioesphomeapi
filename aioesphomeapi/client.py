@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
-from dataclasses import asdict
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any, Union
@@ -78,16 +77,15 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantAnnounceFinished,
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
+    VoiceAssistantConfigurationRequest,
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
-    VoiceAssistantConfigurationRequest,
-    VoiceAssistantExternalWakeWord,
-    VoiceAssistantWakeWord,
 )
 from .client_base import (
     APIClientBase,
@@ -150,10 +148,10 @@ from .model import (
     VoiceAssistantCommand,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
     message_types_to_names,
-    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
 )
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,

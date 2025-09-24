@@ -85,12 +85,12 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
-    VoiceAssistantExternalWakeWord,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
@@ -134,8 +134,8 @@ from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType as VoiceAssistantEventModelType,
-    VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
+    VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -3006,10 +3006,9 @@ async def test_external_wake_words_convert_list() -> None:
 
     expected_wake_word = VoiceAssistantExternalWakeWordModel(**wake_word_dict)
     for value in (wake_word_dict, VoiceAssistantExternalWakeWord(**wake_word_dict)):
-        assert (
-            VoiceAssistantExternalWakeWordModel.convert_list([value])
-            == [expected_wake_word]
-        )
+        assert VoiceAssistantExternalWakeWordModel.convert_list([value]) == [
+            expected_wake_word
+        ]
 
 
 async def test_set_voice_assistant_configuration(
