@@ -2909,6 +2909,39 @@ async def test_get_voice_assistant_configuration(
     original_send_messages = connection.send_messages
 
     def send_messages(msgs):
+        assert msgs == (VoiceAssistantConfigurationRequest(),)
+        original_send_messages(msgs)
+
+    with patch.object(connection, "send_messages", new=send_messages):
+        config_task = asyncio.create_task(
+            client.get_voice_assistant_configuration(timeout=1.0)
+        )
+        await asyncio.sleep(0)
+        response: message.Message = VoiceAssistantConfigurationResponse(
+            available_wake_words=[
+                VoiceAssistantWakeWord(
+                    id="1234",
+                    wake_word="okay nabu",
+                    trained_languages=["en"],
+                )
+            ],
+            active_wake_words=["1234"],
+            max_active_wake_words=1,
+        )
+        mock_data_received(protocol, generate_plaintext_packet(response))
+        config = await config_task
+        assert isinstance(config, VoiceAssistantConfigurationResponseModel)
+
+
+async def test_get_voice_assistant_configuration_external_wake_words(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    client, connection, _transport, protocol = api_client
+    original_send_messages = connection.send_messages
+
+    def send_messages(msgs):
         assert msgs == (
             VoiceAssistantConfigurationRequest(
                 external_wake_words=[
@@ -2918,6 +2951,7 @@ async def test_get_voice_assistant_configuration(
                         trained_languages=["en"],
                         model_type="micro",
                         model_size=12345,
+                        model_hash="test hash",
                         url="http://test.com/hey_jarvis.json",
                     )
                 ]
@@ -2936,6 +2970,7 @@ async def test_get_voice_assistant_configuration(
                         trained_languages=["en"],
                         model_type="micro",
                         model_size=12345,
+                        model_hash="test hash",
                         url="http://test.com/hey_jarvis.json",
                     )
                 ],
@@ -2956,6 +2991,25 @@ async def test_get_voice_assistant_configuration(
         mock_data_received(protocol, generate_plaintext_packet(response))
         config = await config_task
         assert isinstance(config, VoiceAssistantConfigurationResponseModel)
+
+
+async def test_external_wake_words_convert_list() -> None:
+    wake_word_dict = {
+        "id": "5678",
+        "wake_word": "hey jarvis",
+        "trained_languages": ["en"],
+        "model_type": "micro",
+        "model_size": 12345,
+        "model_hash": "test hash",
+        "url": "http://test.com/hey_jarvis.json",
+    }
+
+    expected_wake_word = VoiceAssistantExternalWakeWordModel(**wake_word_dict)
+    for value in (wake_word_dict, VoiceAssistantExternalWakeWord(**wake_word_dict)):
+        assert (
+            VoiceAssistantExternalWakeWordModel.convert_list([value])
+            == [expected_wake_word]
+        )
 
 
 async def test_set_voice_assistant_configuration(
