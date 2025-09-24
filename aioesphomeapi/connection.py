@@ -767,8 +767,6 @@ class APIConnection:
 
     def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
-        if self._fatal_exception is not None:
-            raise self._fatal_exception
         if not self._handshake_complete:
             raise ConnectionNotEstablishedAPIError(
                 f"Connection isn't established yet ({self.connection_state})"
@@ -793,6 +791,8 @@ class APIConnection:
 
         # Check frame_helper is not None to prevent segfault in Cython code
         if self._frame_helper is None:
+            if self._fatal_exception is not None:
+                raise self._fatal_exception
             raise ConnectionNotEstablishedAPIError(
                 f"Connection is closed ({self.connection_state})"
             )
@@ -1102,12 +1102,12 @@ class APIConnection:
                     )
 
         self._expected_disconnect = True
-        if self._handshake_complete and self._fatal_exception is None:
+        if self._handshake_complete and self._frame_helper is not None:
             # We still want to send a disconnect request even
             # if the hello phase isn't finished to ensure we
             # the esp will clean up the connection as soon
             # as possible.
-            # But skip if there's already a fatal exception
+            # But skip if frame_helper is None (connection already cleaned up)
             try:
                 await self.send_message_await_response(
                     DISCONNECT_REQUEST_MESSAGE,
@@ -1122,10 +1122,10 @@ class APIConnection:
     def force_disconnect(self) -> None:
         """Forcefully disconnect from the API."""
         self._expected_disconnect = True
-        if self._handshake_complete and self._fatal_exception is None:
+        if self._handshake_complete and self._frame_helper is not None:
             # Still try to tell the esp to disconnect gracefully
             # but don't wait for it to finish
-            # But skip if there's already a fatal exception
+            # But skip if frame_helper is None (connection already cleaned up)
             try:
                 self.send_messages((DISCONNECT_REQUEST_MESSAGE,))
             except APIConnectionError:
