@@ -1582,6 +1582,7 @@ class VoiceAssistantExternalWakeWord(APIModelBase):
     wake_word: str
     trained_languages: list[str]
     model_type: str
+    model_size: int
     url: str
 
     @classmethod

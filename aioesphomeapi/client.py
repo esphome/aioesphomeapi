@@ -1537,6 +1537,7 @@ class APIClient(APIClientBase):
                         wake_word=ex_ww.wake_word,
                         trained_languages=ex_ww.trained_languages,
                         model_type=ex_ww.model_type,
+                        model_size=ex_ww.model_size,
                         url=ex_ww.url,
                     )
                     for ex_ww in external_wake_words
