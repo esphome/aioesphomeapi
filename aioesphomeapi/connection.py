@@ -789,8 +789,11 @@ class APIConnection:
                     MessageToDict(msg) if _WIN32 else msg,
                 )
 
-        if TYPE_CHECKING:
-            assert self._frame_helper is not None
+        # Check frame_helper is not None to prevent segfault in Cython code
+        if self._frame_helper is None:
+            raise self._fatal_exception or ConnectionNotEstablishedAPIError(
+                f"Connection is closed ({self.connection_state})"
+            )
 
         try:
             self._frame_helper.write_packets(packets, self._debug_enabled)
@@ -1097,11 +1100,12 @@ class APIConnection:
                     )
 
         self._expected_disconnect = True
-        if self._handshake_complete:
+        if self._handshake_complete and self._frame_helper is not None:
             # We still want to send a disconnect request even
             # if the hello phase isn't finished to ensure we
             # the esp will clean up the connection as soon
             # as possible.
+            # But skip if frame_helper is None (connection already cleaned up)
             try:
                 await self.send_message_await_response(
                     DISCONNECT_REQUEST_MESSAGE,
@@ -1116,9 +1120,10 @@ class APIConnection:
     def force_disconnect(self) -> None:
         """Forcefully disconnect from the API."""
         self._expected_disconnect = True
-        if self._handshake_complete:
+        if self._handshake_complete and self._frame_helper is not None:
             # Still try to tell the esp to disconnect gracefully
             # but don't wait for it to finish
+            # But skip if frame_helper is None (connection already cleaned up)
             try:
                 self.send_messages((DISCONNECT_REQUEST_MESSAGE,))
             except APIConnectionError:
