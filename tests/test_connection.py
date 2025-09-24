@@ -1303,7 +1303,10 @@ def test_send_messages_after_cleanup_raises_exception(conn: APIConnection) -> No
     conn.report_fatal_error(APIConnectionError("Connection lost"))
 
     # Now try to send messages - this should raise instead of segfaulting
-    with pytest.raises(APIConnectionError, match="Connection lost"):
+    # report_fatal_error clears _handshake_complete, so we get a different error
+    with pytest.raises(
+        ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
+    ):
         conn.send_messages((PingRequest(),))
 
 
