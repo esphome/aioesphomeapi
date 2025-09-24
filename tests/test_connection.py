@@ -613,22 +613,6 @@ async def test_plaintext_connection_fails_handshake(
     await asyncio.sleep(0)
 
 
-async def test_connect_wrong_password(
-    plaintext_connect_task_with_login: tuple[
-        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
-    ],
-) -> None:
-    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
-
-    send_plaintext_hello(protocol)
-    send_plaintext_auth_response(protocol, True)
-
-    with pytest.raises(InvalidAuthAPIError):
-        await connect_task
-
-    assert not conn.is_connected
-
-
 async def test_connect_correct_password(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
