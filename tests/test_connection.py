@@ -1297,6 +1297,7 @@ def test_send_messages_after_cleanup_raises_exception(conn: APIConnection) -> No
     """Test that calling send_messages after cleanup raises an exception instead of segfaulting."""
     # Set up the connection state as if it was connected
     conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
     # Create a mock frame helper and set it
     mock_frame_helper = MagicMock(spec=APIPlaintextFrameHelper)
@@ -1324,6 +1325,7 @@ def test_send_messages_with_fatal_exception_and_no_frame_helper(
     """Test that send_messages raises the fatal exception when frame_helper is None and fatal exception is set."""
     # Set up the connection state as if it was connected
     conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
     # Set frame_helper to None (as if cleanup was called)
     conn._frame_helper = None
@@ -1341,6 +1343,7 @@ def test_send_messages_after_report_fatal_error(conn: APIConnection) -> None:
     """Test that send_messages raises exception after report_fatal_error is called."""
     # Set up the connection state as if it was connected
     conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
     # Create a mock frame helper
     mock_frame_helper = MagicMock(spec=APIPlaintextFrameHelper)
@@ -1367,6 +1370,7 @@ async def test_disconnect_skips_sending_when_frame_helper_is_none(
     """Test that disconnect() doesn't try to send messages when frame_helper is None."""
     # Set up the connection state as if it was connected
     conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
     # Set frame_helper to None (as if cleanup was already called)
     conn._frame_helper = None
@@ -1384,6 +1388,7 @@ def test_force_disconnect_skips_sending_when_frame_helper_is_none(
     """Test that force_disconnect() doesn't try to send messages when frame_helper is None."""
     # Set up the connection state as if it was connected
     conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
     # Set frame_helper to None (as if cleanup was already called)
     conn._frame_helper = None
@@ -1399,6 +1404,7 @@ def test_send_messages_race_condition_with_cleanup(conn: APIConnection) -> None:
     """Test handling of race condition where cleanup happens during send_messages."""
     # Set up the connection state as if it was connected
     conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
     # Create a mock frame helper
     mock_frame_helper = MagicMock(spec=APIPlaintextFrameHelper)
