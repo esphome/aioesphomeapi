@@ -1410,3 +1410,54 @@ def test_send_messages_race_condition_with_cleanup(conn: APIConnection) -> None:
 
     # Verify connection is closed
     assert conn.connection_state == ConnectionState.CLOSED
+
+
+def test_send_messages_when_frame_helper_is_none_with_handshake_complete(
+    conn: APIConnection,
+) -> None:
+    """Test send_messages when frame_helper is None but handshake is complete.
+
+    This covers the edge case where _handshake_complete is True but _frame_helper
+    is None, which triggers the segfault protection that raises the fatal exception.
+    """
+    # Set up connection state as connected with handshake complete
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
+
+    # Report a fatal error to trigger cleanup (sets _frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Test error"))
+
+    # Now manually set _handshake_complete back to True to simulate a race condition
+    # where handshake_complete gets set after cleanup
+    conn._handshake_complete = True
+
+    # Should raise the fatal exception since _frame_helper is None
+    # This tests the segfault protection that raises _fatal_exception when available
+    with pytest.raises(APIConnectionError, match="Test error"):
+        conn.send_messages((PingRequest(),))
+
+
+def test_send_messages_when_frame_helper_none_no_fatal_exception(
+    conn: APIConnection,
+) -> None:
+    """Test send_messages when frame_helper is None and no fatal exception.
+
+    This covers the fallback case where ConnectionNotEstablishedAPIError
+    is raised when _frame_helper is None but _fatal_exception is also None.
+    """
+    # Set up connection state as connected with handshake complete
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
+
+    # Report a fatal error to trigger cleanup (sets _frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Test error"))
+
+    # Clear the fatal exception and set handshake back to True
+    # to simulate a race condition
+    conn._fatal_exception = None
+    conn._handshake_complete = True
+
+    # Should raise ConnectionNotEstablishedAPIError since both
+    # _frame_helper and _fatal_exception are None
+    with pytest.raises(ConnectionNotEstablishedAPIError, match="Connection is closed"):
+        conn.send_messages((PingRequest(),))
