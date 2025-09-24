@@ -113,7 +113,7 @@ cdef class APIConnection:
     cdef object _loop
     cdef bint _send_pending_ping
     cdef public bint is_connected
-    cdef bint _handshake_complete
+    cdef public bint _handshake_complete
     cdef bint _debug_enabled
     cdef public str received_name
     cdef public str connected_address

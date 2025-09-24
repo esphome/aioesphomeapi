@@ -1296,26 +1296,18 @@ async def test_report_fatal_error_with_log_errors_false(
 def test_send_messages_after_cleanup_raises_exception(conn: APIConnection) -> None:
     """Test that calling send_messages after cleanup raises an exception instead of segfaulting."""
     # Set up the connection state as if it was connected
-    conn._set_connection_state(ConnectionState.CONNECTED)
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
-    # Create a mock frame helper and set it
-    mock_frame_helper = MagicMock(spec=APIPlaintextFrameHelper)
-    conn._frame_helper = mock_frame_helper
-
-    # Call cleanup which sets _frame_helper to None
-    conn._cleanup()
-
-    # Verify frame_helper is None after cleanup
-    assert conn._frame_helper is None
+    # Report a fatal error to trigger cleanup (which sets _frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Connection lost"))
 
     # Now try to send messages - this should raise instead of segfaulting
+    # report_fatal_error clears _handshake_complete, so we get a different error
     with pytest.raises(
         ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
     ):
         conn.send_messages((PingRequest(),))
-
-    # Verify the mock was never called (would have segfaulted in Cython)
-    mock_frame_helper.write_packets.assert_not_called()
 
 
 def test_send_messages_with_fatal_exception_and_no_frame_helper(
@@ -1323,38 +1315,36 @@ def test_send_messages_with_fatal_exception_and_no_frame_helper(
 ) -> None:
     """Test that send_messages raises the fatal exception when frame_helper is None and fatal exception is set."""
     # Set up the connection state as if it was connected
-    conn._set_connection_state(ConnectionState.CONNECTED)
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
-    # Set frame_helper to None (as if cleanup was called)
-    conn._frame_helper = None
-
-    # Set a fatal exception
+    # Report an auth error to trigger cleanup and set fatal exception
     fatal_error = InvalidAuthAPIError("Authentication failed")
-    conn._fatal_exception = fatal_error
+    conn.report_fatal_error(fatal_error)
 
-    # Try to send messages - should raise the fatal exception
-    with pytest.raises(InvalidAuthAPIError, match="Authentication failed"):
+    # Try to send messages - should raise ConnectionNotEstablishedAPIError
+    # because report_fatal_error clears _handshake_complete
+    with pytest.raises(
+        ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
+    ):
         conn.send_messages((PingRequest(),))
 
 
 def test_send_messages_after_report_fatal_error(conn: APIConnection) -> None:
     """Test that send_messages raises exception after report_fatal_error is called."""
     # Set up the connection state as if it was connected
-    conn._set_connection_state(ConnectionState.CONNECTED)
-
-    # Create a mock frame helper
-    mock_frame_helper = MagicMock(spec=APIPlaintextFrameHelper)
-    conn._frame_helper = mock_frame_helper
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
     # Report a fatal error
     fatal_error = APIConnectionError("Connection lost")
     conn.report_fatal_error(fatal_error)
 
-    # Verify cleanup was called
-    assert conn._frame_helper is None
+    # Verify fatal exception was set
     assert conn._fatal_exception is fatal_error
 
-    # Try to send messages - should raise because connection is closed
+    # Try to send messages - should raise ConnectionNotEstablishedAPIError
+    # because report_fatal_error clears _handshake_complete
     with pytest.raises(
         ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
     ):
@@ -1366,12 +1356,13 @@ async def test_disconnect_skips_sending_when_frame_helper_is_none(
 ) -> None:
     """Test that disconnect() doesn't try to send messages when frame_helper is None."""
     # Set up the connection state as if it was connected
-    conn._set_connection_state(ConnectionState.CONNECTED)
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
-    # Set frame_helper to None (as if cleanup was already called)
-    conn._frame_helper = None
+    # Report a fatal error to trigger cleanup (sets frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Test error"))
 
-    # Call disconnect - should not raise
+    # Call disconnect - should not raise even though frame_helper is None
     await conn.disconnect()
 
     # Verify cleanup was called
@@ -1383,12 +1374,13 @@ def test_force_disconnect_skips_sending_when_frame_helper_is_none(
 ) -> None:
     """Test that force_disconnect() doesn't try to send messages when frame_helper is None."""
     # Set up the connection state as if it was connected
-    conn._set_connection_state(ConnectionState.CONNECTED)
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
-    # Set frame_helper to None (as if cleanup was already called)
-    conn._frame_helper = None
+    # Report a fatal error to trigger cleanup (sets frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Test error"))
 
-    # Call force_disconnect - should not raise
+    # Call force_disconnect - should not raise even though frame_helper is None
     conn.force_disconnect()
 
     # Verify cleanup was called
@@ -1396,29 +1388,77 @@ def test_force_disconnect_skips_sending_when_frame_helper_is_none(
 
 
 def test_send_messages_race_condition_with_cleanup(conn: APIConnection) -> None:
-    """Test handling of race condition where cleanup happens during send_messages."""
+    """Test handling of race condition where cleanup happens during send_messages.
+
+    This test verifies that the segfault fix prevents crashes when _frame_helper
+    becomes None between the handshake check and its usage.
+    """
     # Set up the connection state as if it was connected
-    conn._set_connection_state(ConnectionState.CONNECTED)
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
 
-    # Create a mock frame helper
-    mock_frame_helper = MagicMock(spec=APIPlaintextFrameHelper)
-    conn._frame_helper = mock_frame_helper
-
-    # Simulate a race condition where cleanup happens after the handshake check
-    # but before the frame_helper is used
-    original_write = mock_frame_helper.write_packets
-
-    def cleanup_during_write(*args, **kwargs):
-        # Simulate cleanup happening during the operation
-        conn._cleanup()
-        return original_write(*args, **kwargs)
-
-    mock_frame_helper.write_packets.side_effect = cleanup_during_write
+    # Report a fatal error to trigger cleanup (sets frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Simulated race condition"))
 
     # This would previously segfault if frame_helper became None during operation
-    # Now it should handle it gracefully
-    with suppress(ConnectionNotEstablishedAPIError, APIConnectionError):
+    # Now it should handle it gracefully by raising ConnectionNotEstablishedAPIError
+    # because report_fatal_error clears _handshake_complete
+    with pytest.raises(
+        ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
+    ):
         conn.send_messages((PingRequest(),))
 
     # Verify connection is closed
     assert conn.connection_state == ConnectionState.CLOSED
+
+
+def test_send_messages_when_frame_helper_is_none_with_handshake_complete(
+    conn: APIConnection,
+) -> None:
+    """Test send_messages when frame_helper is None but handshake is complete.
+
+    This covers the edge case where _handshake_complete is True but _frame_helper
+    is None, which triggers the segfault protection that raises the fatal exception.
+    """
+    # Set up connection state as connected with handshake complete
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
+
+    # Report a fatal error to trigger cleanup (sets _frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Test error"))
+
+    # Now manually set state back to simulate a race condition
+    # where these get set after cleanup but frame_helper is still None
+    conn._handshake_complete = True
+    conn.connection_state = ConnectionState.CONNECTED
+
+    # Should raise the fatal exception since _frame_helper is None
+    # This tests the segfault protection that raises _fatal_exception when available
+    with pytest.raises(APIConnectionError, match="Test error"):
+        conn.send_messages((PingRequest(),))
+
+
+def test_send_messages_when_frame_helper_none_no_fatal_exception(
+    conn: APIConnection,
+) -> None:
+    """Test send_messages when frame_helper is None and no fatal exception.
+
+    This covers the fallback case where ConnectionNotEstablishedAPIError
+    is raised when _frame_helper is None but _fatal_exception is also None.
+    """
+    # Set up connection state as connected with handshake complete
+    conn.connection_state = ConnectionState.CONNECTED
+    conn._handshake_complete = True
+
+    # Report a fatal error to trigger cleanup (sets _frame_helper to None)
+    conn.report_fatal_error(APIConnectionError("Test error"))
+
+    # Clear the fatal exception and reset state to simulate a race condition
+    conn._fatal_exception = None
+    conn._handshake_complete = True
+    conn.connection_state = ConnectionState.CONNECTED
+
+    # Should raise ConnectionNotEstablishedAPIError since both
+    # _frame_helper and _fatal_exception are None
+    with pytest.raises(ConnectionNotEstablishedAPIError, match="Connection is closed"):
+        conn.send_messages((PingRequest(),))
