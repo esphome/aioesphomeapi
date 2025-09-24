@@ -1322,8 +1322,11 @@ def test_send_messages_with_fatal_exception_and_no_frame_helper(
     fatal_error = InvalidAuthAPIError("Authentication failed")
     conn.report_fatal_error(fatal_error)
 
-    # Try to send messages - should raise the fatal exception
-    with pytest.raises(InvalidAuthAPIError, match="Authentication failed"):
+    # Try to send messages - should raise ConnectionNotEstablishedAPIError
+    # because report_fatal_error clears _handshake_complete
+    with pytest.raises(
+        ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
+    ):
         conn.send_messages((PingRequest(),))
 
 
@@ -1340,8 +1343,11 @@ def test_send_messages_after_report_fatal_error(conn: APIConnection) -> None:
     # Verify fatal exception was set
     assert conn._fatal_exception is fatal_error
 
-    # Try to send messages - should raise the fatal error
-    with pytest.raises(APIConnectionError, match="Connection lost"):
+    # Try to send messages - should raise ConnectionNotEstablishedAPIError
+    # because report_fatal_error clears _handshake_complete
+    with pytest.raises(
+        ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
+    ):
         conn.send_messages((PingRequest(),))
 
 
@@ -1395,8 +1401,11 @@ def test_send_messages_race_condition_with_cleanup(conn: APIConnection) -> None:
     conn.report_fatal_error(APIConnectionError("Simulated race condition"))
 
     # This would previously segfault if frame_helper became None during operation
-    # Now it should handle it gracefully by raising the fatal exception
-    with pytest.raises(APIConnectionError, match="Simulated race condition"):
+    # Now it should handle it gracefully by raising ConnectionNotEstablishedAPIError
+    # because report_fatal_error clears _handshake_complete
+    with pytest.raises(
+        ConnectionNotEstablishedAPIError, match="Connection isn't established yet"
+    ):
         conn.send_messages((PingRequest(),))
 
     # Verify connection is closed
