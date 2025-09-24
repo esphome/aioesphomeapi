@@ -145,8 +145,6 @@ cdef class APIConnection:
 
     cdef void _process_hello_resp(self, object resp) except *
 
-    cdef void _process_login_response(self, object hello_response) except *
-
     cdef void _set_connection_state(self, object state) except *
 
     cpdef void report_fatal_error(self, Exception err) except *
