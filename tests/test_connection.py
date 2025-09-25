@@ -1446,3 +1446,51 @@ def test_send_messages_when_frame_helper_none_no_fatal_exception(
     # _frame_helper and _fatal_exception are None
     with pytest.raises(ConnectionNotEstablishedAPIError, match="Connection is closed"):
         conn.send_messages((PingRequest(),))
+
+
+def test_cleanup_debug_message_with_error(
+    conn: APIConnection,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that cleanup debug message includes error when there is a fatal exception."""
+    # Enable debug logging
+    caplog.set_level(logging.DEBUG)
+    conn._debug_enabled = True
+    conn.log_name = "test-device"
+
+    # Set connection to a non-closed state so cleanup will run
+    conn.connection_state = ConnectionState.CONNECTED
+
+    # Set a fatal exception directly and trigger cleanup
+    conn._fatal_exception = APIConnectionError("Test error occurred")
+
+    # Clear logs and call force_disconnect which will trigger cleanup
+    caplog.clear()
+    conn.force_disconnect()
+
+    # Check that the error is included in the debug message
+    assert (
+        "Cleaning up connection to test-device (error: Test error occurred)"
+        in caplog.text
+    )
+
+
+def test_cleanup_debug_message_without_error(
+    conn: APIConnection,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that cleanup debug message doesn't include error when there is no fatal exception."""
+    # Enable debug logging
+    caplog.set_level(logging.DEBUG)
+    conn._debug_enabled = True
+    conn.log_name = "test-device"
+
+    # Set connection to a non-closed state so cleanup will run
+    conn.connection_state = ConnectionState.CONNECTED
+
+    # Test cleanup without fatal exception via force_disconnect
+    caplog.clear()
+    conn.force_disconnect()
+    # Should not contain "(error:" part
+    assert "Cleaning up connection to test-device" in caplog.text
+    assert "(error:" not in caplog.text
