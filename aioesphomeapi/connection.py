@@ -287,7 +287,14 @@ class APIConnection:
         was_connected = self.is_connected
         self._set_connection_state(CONNECTION_STATE_CLOSED)
         if self._debug_enabled:
-            _LOGGER.debug("Cleaning up connection to %s", self.log_name)
+            if self._fatal_exception:
+                _LOGGER.debug(
+                    "Cleaning up connection to %s (error: %s)",
+                    self.log_name,
+                    self._fatal_exception,
+                )
+            else:
+                _LOGGER.debug("Cleaning up connection to %s", self.log_name)
         for fut in self._read_exception_futures:
             if not fut.done():
                 err = self._fatal_exception or APIConnectionError("Connection closed")
