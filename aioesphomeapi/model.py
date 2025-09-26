@@ -132,11 +132,18 @@ class ZWaveProxyFeature(enum.IntFlag):
 class ZWaveProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
+    HOME_ID_CHANGE = 2
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyFrame(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
 class ZWaveProxyRequest(APIModelBase):
     type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
@@ -1293,11 +1300,6 @@ class BluetoothLEAdvertisement:
             service_data=service_data,
             manufacturer_data=manufacturer_data,
         )
-
-
-@_frozen_dataclass_decorator
-class ZWaveProxyFrame(APIModelBase):
-    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
