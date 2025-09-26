@@ -138,7 +138,6 @@ from aioesphomeapi.model import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
     ZWaveProxyRequest,
-    ZWaveProxyRequestType,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -2134,16 +2133,12 @@ async def test_subscribe_zwave_proxy_request(
     client, _connection, _transport, protocol = api_client
     test_msg = []
 
-    def on_zwave_proxy_request(
-        msg: ZWaveProxyRequest
-    ) -> None:
+    def on_zwave_proxy_request(msg: ZWaveProxyRequest) -> None:
         test_msg.append(msg)
 
     client.subscribe_zwave_proxy_request(on_zwave_proxy_request)
     await asyncio.sleep(0)
-    response: message.Message = ZWaveProxyRequestPb(
-        type=2, data=b"\x00\x01\x02\x03"
-    )
+    response: message.Message = ZWaveProxyRequestPb(type=2, data=b"\x00\x01\x02\x03")
     mock_data_received(protocol, generate_plaintext_packet(response))
 
     assert len(test_msg) == 1
