@@ -91,6 +91,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
+    ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
@@ -136,6 +137,8 @@ from aioesphomeapi.model import (
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    ZWaveProxyRequest,
+    ZWaveProxyRequestType,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -2120,6 +2123,33 @@ async def test_send_home_assistant_state(auth_client: APIClient) -> None:
             entity_id="binary_sensor.bla", state="on", attribute=None
         )
     )
+
+
+async def test_subscribe_zwave_proxy_request(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_zwave_proxy_request."""
+    client, _connection, _transport, protocol = api_client
+    test_msg = []
+
+    def on_zwave_proxy_request(
+        msg: ZWaveProxyRequest
+    ) -> None:
+        test_msg.append(msg)
+
+    client.subscribe_zwave_proxy_request(on_zwave_proxy_request)
+    await asyncio.sleep(0)
+    response: message.Message = ZWaveProxyRequestPb(
+        type=2, data=b"\x00\x01\x02\x03"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert len(test_msg) == 1
+    first_msg = test_msg[0]
+    assert first_msg.type == 2
+    assert first_msg.data == b"\x00\x01\x02\x03"
 
 
 async def test_subscribe_service_calls(auth_client: APIClient) -> None:
