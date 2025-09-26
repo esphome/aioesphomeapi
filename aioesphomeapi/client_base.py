@@ -26,6 +26,7 @@ from .api_pb2 import (  # type: ignore
     CameraImageResponse,
     HomeassistantActionRequest,
     SubscribeHomeAssistantStateResponse,
+    ZWaveProxyRequest,
 )
 from .connection import ConnectionParams
 from .core import APIConnectionError
@@ -36,6 +37,7 @@ from .model import (
     CameraState,
     EntityState,
     HomeassistantServiceCall,
+    ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
 from .util import build_log_name, create_eager_task
@@ -189,6 +191,13 @@ def on_bluetooth_message_types(
 ) -> bool:
     """Filter Bluetooth messages of a specific type and address."""
     return type(msg) in msg_types and bool(msg.address == address)
+
+
+def on_zwave_proxy_request_message(
+    on_zwave_proxy_request: Callable[[ZWaveProxyRequestModel], None],
+    msg: ZWaveProxyRequest,
+) -> None:
+    on_zwave_proxy_request(ZWaveProxyRequestModel.from_pb(msg))
 
 
 str_ = str

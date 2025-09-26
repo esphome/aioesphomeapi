@@ -538,11 +538,13 @@ def test_zwave_proxy_request_type_enum() -> None:
     """Test ZWaveProxyRequestType enum values."""
     assert ZWaveProxyRequestType.SUBSCRIBE == 0
     assert ZWaveProxyRequestType.UNSUBSCRIBE == 1
+    assert ZWaveProxyRequestType.HOME_ID_CHANGE == 2
 
     # Test conversion
     assert ZWaveProxyRequestType.convert(0) == ZWaveProxyRequestType.SUBSCRIBE
     assert ZWaveProxyRequestType.convert(1) == ZWaveProxyRequestType.UNSUBSCRIBE
-    assert ZWaveProxyRequestType.convert(2) is None
+    assert ZWaveProxyRequestType.convert(2) == ZWaveProxyRequestType.HOME_ID_CHANGE
+    assert ZWaveProxyRequestType.convert(3) is None
     assert ZWaveProxyRequestType.convert(-1) is None
 
 
@@ -558,9 +560,15 @@ def test_zwave_proxy_request_conversion() -> None:
     request_unsub = ZWaveProxyRequest.from_pb(pb_request_unsub)
     assert request_unsub.type == ZWaveProxyRequestType.UNSUBSCRIBE
 
+    # Test with HOME_ID_CHANGE
+    pb_request_home_id_change = ZWaveProxyRequestPb(type=2, data=b"1,2,3,4")
+    request_home_id_change = ZWaveProxyRequest.from_pb(pb_request_home_id_change)
+    assert request_home_id_change.type == ZWaveProxyRequestType.HOME_ID_CHANGE
+
     # Test to_dict
-    assert request.to_dict() == {"type": 0}
-    assert request_unsub.to_dict() == {"type": 1}
+    assert request.to_dict() == {"type": 0, "data": b""}
+    assert request_unsub.to_dict() == {"type": 1, "data": b""}
+    assert request_home_id_change.to_dict() == {"type": 2, "data": b"1,2,3,4"}
 
     # Test from_dict
     request_from_dict = ZWaveProxyRequest.from_dict({"type": 1})

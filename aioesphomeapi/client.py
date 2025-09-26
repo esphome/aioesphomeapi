@@ -86,6 +86,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    ZWaveProxyRequest,
 )
 from .client_base import (
     APIClientBase,
@@ -99,6 +100,7 @@ from .client_base import (
     on_home_assistant_service_response,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
+    on_zwave_proxy_request_message,
 )
 from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa: F401
 from .core import (
@@ -151,6 +153,7 @@ from .model import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
+    ZWaveProxyRequest as ZWaveProxyRequestModel,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -404,6 +407,21 @@ class APIClient(APIClientBase):
             SubscribeHomeassistantServicesRequest(),
             partial(on_home_assistant_service_response, on_service_call),
             (HomeassistantActionRequest,),
+        )
+
+    def subscribe_zwave_proxy_request(
+        self,
+        on_zwave_proxy_request: Callable[
+            [ZWaveProxyRequestModel], None
+        ],
+    ) -> Callable[[], None]:
+        """Subscribe to Z-Wave Proxy Request messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_zwave_proxy_request_message,
+                on_zwave_proxy_request,
+            ),
+            (ZWaveProxyRequest,),
         )
 
     async def _send_bluetooth_message_await_response(
