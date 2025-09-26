@@ -411,9 +411,7 @@ class APIClient(APIClientBase):
 
     def subscribe_zwave_proxy_request(
         self,
-        on_zwave_proxy_request: Callable[
-            [ZWaveProxyRequestModel], None
-        ],
+        on_zwave_proxy_request: Callable[[ZWaveProxyRequestModel], None],
     ) -> Callable[[], None]:
         """Subscribe to Z-Wave Proxy Request messages."""
         return self._get_connection().add_message_callback(
