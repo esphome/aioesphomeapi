@@ -1167,7 +1167,7 @@ class HomeassistantServiceCall(APIModelBase):
 class HomeassistantActionResponse(APIModelBase):
     call_id: int = 0  # Call ID that matches the original request
     response_data: str = ""  # Response data from Home Assistant
-    success: bool = True  # Whether the service call was successful
+    success: bool = False  # Whether the service call was successful
     error_message: str = ""  # Error message if the call failed
 
 
