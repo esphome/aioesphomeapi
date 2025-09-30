@@ -47,6 +47,7 @@ from .api_pb2 import (  # type: ignore
     ExecuteServiceRequest,
     FanCommandRequest,
     HomeassistantActionRequest,
+    HomeassistantActionResponse,
     HomeAssistantStateResponse,
     LightCommandRequest,
     ListEntitiesDoneResponse,
@@ -97,7 +98,7 @@ from .client_base import (
     on_bluetooth_le_advertising_response,
     on_bluetooth_message_types,
     on_bluetooth_scanner_state_response,
-    on_home_assistant_service_response,
+    on_home_assistant_action_request,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -405,7 +406,7 @@ class APIClient(APIClientBase):
     ) -> None:
         self._get_connection().send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
-            partial(on_home_assistant_service_response, on_service_call),
+            partial(on_home_assistant_action_request, on_service_call),
             (HomeassistantActionRequest,),
         )
 
@@ -959,7 +960,7 @@ class APIClient(APIClientBase):
             SUBSCRIBE_STATES_MSG_TYPES,
         )
         connection.add_message_callback(
-            partial(on_home_assistant_service_response, on_service_call),
+            partial(on_home_assistant_action_request, on_service_call),
             (HomeassistantActionRequest,),
         )
         connection.add_message_callback(
@@ -1593,3 +1594,18 @@ class APIClient(APIClientBase):
             req, NoiseEncryptionSetKeyResponse
         )
         return NoiseEncryptionSetKeyResponseModel.from_pb(resp).success
+
+    async def send_homeassistant_action_response(
+        self,
+        call_id: int,
+        response_data: str,
+        success: bool = True,
+        error_message: str = "",
+    ) -> None:
+        """Send a service call response back to ESPHome."""
+        req = HomeassistantActionResponse()
+        req.call_id = call_id
+        req.response_data = response_data
+        req.success = success
+        req.error_message = error_message
+        self._get_connection().send_message(req)
