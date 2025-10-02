@@ -645,6 +645,7 @@ class ClimatePreset(APIIntEnum):
 class ClimateInfo(EntityInfo):
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
+    requires_two_point_target_temperature: bool = False
     supported_modes: list[ClimateMode] = converter_field(
         default_factory=list, converter=ClimateMode.convert_list
     )
