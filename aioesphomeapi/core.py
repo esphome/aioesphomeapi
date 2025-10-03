@@ -58,6 +58,7 @@ from .api_pb2 import (  # type: ignore
     HelloRequest,
     HelloResponse,
     HomeassistantActionRequest,
+    HomeassistantActionResponse,
     HomeAssistantStateResponse,
     LightCommandRequest,
     LightStateResponse,
@@ -450,6 +451,7 @@ MESSAGE_TYPE_TO_PROTO = {
     127: BluetoothScannerSetModeRequest,
     128: ZWaveProxyFrame,
     129: ZWaveProxyRequest,
+    130: HomeassistantActionResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
