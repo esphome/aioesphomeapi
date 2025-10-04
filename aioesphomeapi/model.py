@@ -112,6 +112,15 @@ class BluetoothProxyFeature(enum.IntFlag):
     FEATURE_STATE_AND_MODE = 1 << 6
 
 
+class ClimateFeature(enum.IntFlag):
+    SUPPORTS_CURRENT_TEMPERATURE = 1 << 0
+    SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 1
+    REQUIRES_TWO_POINT_TARGET_TEMPERATURE = 1 << 2
+    SUPPORTS_CURRENT_HUMIDITY = 1 << 3
+    SUPPORTS_TARGET_HUMIDITY = 1 << 4
+    SUPPORTS_ACTION = 1 << 5
+
+
 class BluetoothProxySubscriptionFlag(enum.IntFlag):
     RAW_ADVERTISEMENTS = 1 << 0
 
@@ -643,9 +652,9 @@ class ClimatePreset(APIIntEnum):
 
 @_frozen_dataclass_decorator
 class ClimateInfo(EntityInfo):
+    feature_flags: int = 0
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
-    requires_two_point_target_temperature: bool = False
     supported_modes: list[ClimateMode] = converter_field(
         default_factory=list, converter=ClimateMode.convert_list
     )
