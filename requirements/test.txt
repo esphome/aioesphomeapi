@@ -1,4 +1,4 @@
-pylint==3.3.8
+pylint==3.3.9
 ruff==0.13.3
 flake8==7.3.0
 isort==6.1.0
