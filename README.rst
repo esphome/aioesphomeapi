@@ -35,11 +35,15 @@ Usage
 
 It's required that you enable the `Native API <https://esphome.io/components/api.html>`_ component for the device.
 
+The use of passwords for APIs in ESPHome is deprecated. Using an encryption key is the recomended method.
+
 .. code:: yaml
 
    # Example configuration entry
    api:
      password: 'MyPassword'
+     encryption:
+       key: 'aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=' # A key can be obtain at https://next.esphome.io/components/api/
 
 Check the output to get the local address of the device or use the ``name:``under ``esphome:`` from the device configuration.
 
@@ -60,7 +64,13 @@ The sample code below will connect to the device and retrieve details.
        """Connect to an ESPHome device and get details."""
 
        # Establish connection
-       api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
+       
+       # If a password is used in the ESP configuration use the following line:
+       api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword",noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # OR
+       #If there is no password used in the ESP configuration:
+       api = aioesphomeapi.APIClient("api_test.local", 6053, None,noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+
        await api.connect(login=True)
 
        # Get API version of the device's firmware
@@ -86,7 +96,11 @@ Subscribe to state changes of an ESPHome device.
 
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
-       cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
+       # If a password is used in the ESP configuration use the following line:
+       cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword",noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # OR
+       #If there is no password used in the ESP configuration:
+       cli = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
 
        await cli.connect(login=True)
 
