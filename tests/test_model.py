@@ -83,6 +83,7 @@ from aioesphomeapi.model import (
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ButtonInfo,
     CameraInfo,
+    ClimateFeature,
     ClimateInfo,
     ClimatePreset,
     ClimateState,
@@ -333,6 +334,45 @@ def test_basic_pb_conversions(model, pb):
 )
 def test_cover_state_legacy_state(state, version, out):
     assert state.is_closed(APIVersion(*version)) is out
+
+
+@pytest.mark.parametrize(
+    "state, version, out",
+    [
+        (
+            ClimateInfo(supports_current_temperature=True),
+            (1, 12),
+            ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE,
+        ),
+        (
+            ClimateInfo(supports_two_point_target_temperature=True),
+            (1, 12),
+            ClimateFeature.REQUIRES_TWO_POINT_TARGET_TEMPERATURE,
+        ),
+        (
+            ClimateInfo(supports_current_humidity=True),
+            (1, 12),
+            ClimateFeature.SUPPORTS_CURRENT_HUMIDITY,
+        ),
+        (
+            ClimateInfo(supports_target_humidity=True),
+            (1, 12),
+            ClimateFeature.SUPPORTS_TARGET_HUMIDITY,
+        ),
+        (ClimateInfo(supports_action=True), (1, 12), ClimateFeature.SUPPORTS_ACTION),
+        (
+            ClimateInfo(
+                feature_flags=ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE
+                | ClimateFeature.SUPPORTS_ACTION
+            ),
+            (1, 13),
+            ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE
+            | ClimateFeature.SUPPORTS_ACTION,
+        ),
+    ],
+)
+def test_climate_info_supported_feature_flags_compat(state, version, out):
+    assert state.supported_feature_flags_compat(APIVersion(*version)) == out
 
 
 @pytest.mark.parametrize(
