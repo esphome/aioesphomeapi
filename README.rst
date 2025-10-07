@@ -35,7 +35,7 @@ Usage
 
 It's required that you enable the `Native API <https://esphome.io/components/api.html>`_ component for the device.
 
-The use of passwords for APIs in ESPHome is deprecated. Using an encryption key is the recomended method.
+The use of passwords for APIs in ESPHome is deprecated. Using an encryption key is the recommended method.
 
 .. code:: yaml
 
@@ -43,7 +43,7 @@ The use of passwords for APIs in ESPHome is deprecated. Using an encryption key 
    api:
      password: 'MyPassword'
      encryption:
-       key: 'aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=' # A key can be obtain at https://next.esphome.io/components/api/
+       key: 'aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=' # A key can be obtained at https://next.esphome.io/components/api/
 
 Check the output to get the local address of the device or use the ``name:``under ``esphome:`` from the device configuration.
 
