@@ -2163,7 +2163,7 @@ async def test_send_homeassistant_service_call_response(auth_client: APIClient) 
     """Test sending a service call response back to ESPHome."""
     send = patch_send(auth_client)
 
-    response_data = json.dumps({"result": "success", "value": "42"})
+    response_data = json.dumps({"result": "success", "value": "42"}).encode("utf-8")
 
     # Test successful response
     await auth_client.send_homeassistant_action_response(
@@ -2191,14 +2191,14 @@ async def test_send_homeassistant_service_call_response_error(
     # Test error response
     await auth_client.send_homeassistant_action_response(
         call_id=456,
-        response_data="",
+        response_data=b"",
         success=False,
         error_message="Service not found",
     )
 
     expected_response = HomeassistantActionResponse()
     expected_response.call_id = 456
-    expected_response.response_data = ""
+    expected_response.response_data = b""
     expected_response.success = False
     expected_response.error_message = "Service not found"
 
@@ -2226,7 +2226,7 @@ async def test_homeassistant_service_call_with_new_fields(
 
 async def test_homeassistant_service_call_response_model() -> None:
     """Test HomeassistantServiceCallResponse model."""
-    response_data = json.dumps({"result": "success", "value": 42})
+    response_data = json.dumps({"result": "success", "value": 42}).encode("utf-8")
     response = HomeassistantActionResponseModel(
         call_id=123, response_data=response_data, success=True, error_message=""
     )
