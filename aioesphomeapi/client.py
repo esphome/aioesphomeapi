@@ -1598,14 +1598,14 @@ class APIClient(APIClientBase):
     async def send_homeassistant_action_response(
         self,
         call_id: int,
-        response_data: str,
         success: bool = True,
         error_message: str = "",
+        response_data: bytes = b"",
     ) -> None:
         """Send a service call response back to ESPHome."""
         req = HomeassistantActionResponse()
         req.call_id = call_id
-        req.response_data = response_data
         req.success = success
         req.error_message = error_message
+        req.response_data = response_data
         self._get_connection().send_message(req)
