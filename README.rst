@@ -64,7 +64,7 @@ The sample code below will connect to the device and retrieve details.
        """Connect to an ESPHome device and get details."""
 
        # Establish connection
-       
+
        # If a password is used in the ESP configuration use the following line:
        api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword",noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
        # OR
