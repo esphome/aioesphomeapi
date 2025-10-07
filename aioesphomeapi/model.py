@@ -1160,13 +1160,16 @@ class HomeassistantServiceCall(APIModelBase):
         default_factory=dict, converter=_convert_homeassistant_service_map
     )
     call_id: int = 0  # Call ID for response tracking
+    wants_response: bool = False
     response_template: str = ""  # Optional Jinja template for response processing
 
 
 @_frozen_dataclass_decorator
 class HomeassistantActionResponse(APIModelBase):
     call_id: int = 0  # Call ID that matches the original request
-    response_data: str = ""  # Response data from Home Assistant
+    response_data: bytes = field(
+        default_factory=bytes
+    )  # Response data from Home Assistant
     success: bool = False  # Whether the service call was successful
     error_message: str = ""  # Error message if the call failed
 
