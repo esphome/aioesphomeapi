@@ -692,6 +692,23 @@ class ClimateInfo(EntityInfo):
     visual_min_humidity: float = 0
     visual_max_humidity: float = 0
 
+    def supported_feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 13):
+            flags: int = 0
+            if self.supports_current_temperature:
+                flags |= ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE
+            if self.supports_two_point_target_temperature:
+                # Use REQUIRES_TWO_POINT_TARGET_TEMPERATURE to mimic previous behavior
+                flags |= ClimateFeature.REQUIRES_TWO_POINT_TARGET_TEMPERATURE
+            if self.supports_current_humidity:
+                flags |= ClimateFeature.SUPPORTS_CURRENT_HUMIDITY
+            if self.supports_target_humidity:
+                flags |= ClimateFeature.SUPPORTS_TARGET_HUMIDITY
+            if self.supports_action:
+                flags |= ClimateFeature.SUPPORTS_ACTION
+            return flags
+        return self.feature_flags
+
     def supported_presets_compat(self, api_version: APIVersion) -> list[ClimatePreset]:
         if api_version < APIVersion(1, 5):
             return (
