@@ -41,7 +41,7 @@ The use of passwords for APIs in ESPHome is deprecated. Using an encryption key 
 
    # Example configuration entry
    api:
-     password: 'MyPassword'
+     password: 'MyPassword' # DEPRECATED: Use encryption key instead
      encryption:
        key: 'aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=' # A key can be obtained at https://next.esphome.io/components/api/
 
@@ -65,11 +65,11 @@ The sample code below will connect to the device and retrieve details.
 
        # Establish connection
 
-       # If a password is used in the ESP configuration use the following line:
-       api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword",noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # If a password is used in the ESP configuration, use the following line:
+       api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
        # OR
-       #If there is no password used in the ESP configuration:
-       api = aioesphomeapi.APIClient("api_test.local", 6053, None,noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # If there is no password used in the ESP configuration:
+       api = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
 
        await api.connect(login=True)
 
@@ -96,11 +96,11 @@ Subscribe to state changes of an ESPHome device.
 
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
-       # If a password is used in the ESP configuration use the following line:
-       cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword",noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # If a password is used in the ESP configuration, use the following line:
+       cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
        # OR
-       #If there is no password used in the ESP configuration:
-       cli = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # If there is no password used in the ESP configuration:
+       cli = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
 
        await cli.connect(login=True)
 
