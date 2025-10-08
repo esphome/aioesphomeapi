@@ -85,11 +85,11 @@ def on_state_msg(
             on_state(CameraState(key=msg.key, data=image_data, device_id=msg.device_id))  # type: ignore[call-arg]
 
 
-def on_home_assistant_service_response(
-    on_service_call: Callable[[HomeassistantServiceCall], None],
+def on_home_assistant_action_request(
+    on_action: Callable[[HomeassistantServiceCall], None],
     msg: HomeassistantActionRequest,
 ) -> None:
-    on_service_call(HomeassistantServiceCall.from_pb(msg))
+    on_action(HomeassistantServiceCall.from_pb(msg))
 
 
 def on_bluetooth_le_advertising_response(
