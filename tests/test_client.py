@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 from functools import partial
 import itertools
+import json
 import logging
 import socket
 from typing import Any
@@ -53,6 +54,7 @@ from aioesphomeapi.api_pb2 import (
     ExecuteServiceRequest,
     FanCommandRequest,
     HomeassistantActionRequest,
+    HomeassistantActionResponse,
     HomeAssistantStateResponse,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
@@ -121,6 +123,7 @@ from aioesphomeapi.model import (
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
+    HomeassistantActionResponse as HomeassistantActionResponseModel,
     HomeassistantServiceCall,
     LegacyCoverCommand,
     LightColorCapability,
@@ -2154,6 +2157,84 @@ async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     service_msg = HomeassistantActionRequest(service="bob")
     await send(service_msg)
     on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
+
+
+async def test_send_homeassistant_service_call_response(auth_client: APIClient) -> None:
+    """Test sending a service call response back to ESPHome."""
+    send = patch_send(auth_client)
+
+    response_data = json.dumps({"result": "success", "value": "42"}).encode("utf-8")
+
+    # Test successful response
+    auth_client.send_homeassistant_action_response(
+        call_id=123,
+        response_data=response_data,
+        success=True,
+        error_message="",
+    )
+
+    expected_response = HomeassistantActionResponse()
+    expected_response.call_id = 123
+    expected_response.response_data = response_data
+    expected_response.success = True
+    expected_response.error_message = ""
+
+    send.assert_called_once_with(expected_response)
+
+
+async def test_send_homeassistant_service_call_response_error(
+    auth_client: APIClient,
+) -> None:
+    """Test sending an error service call response."""
+    send = patch_send(auth_client)
+
+    # Test error response
+    auth_client.send_homeassistant_action_response(
+        call_id=456,
+        response_data=b"",
+        success=False,
+        error_message="Service not found",
+    )
+
+    expected_response = HomeassistantActionResponse()
+    expected_response.call_id = 456
+    expected_response.response_data = b""
+    expected_response.success = False
+    expected_response.error_message = "Service not found"
+
+    send.assert_called_once_with(expected_response)
+
+
+async def test_homeassistant_service_call_with_new_fields(
+    auth_client: APIClient,
+) -> None:
+    """Test HomeassistantServiceCall model with new fields."""
+    service_call = HomeassistantServiceCall(
+        service="test.service",
+        is_event=False,
+        data={"param": "value"},
+        data_template={"template": "{{ state }}"},
+        variables={"var": "data"},
+        call_id=789,
+        response_template="Response: {{ response }}",
+    )
+
+    assert service_call.service == "test.service"
+    assert service_call.call_id == 789
+    assert service_call.response_template == "Response: {{ response }}"
+
+
+async def test_homeassistant_service_call_response_model() -> None:
+    """Test HomeassistantServiceCallResponse model."""
+    response_data = json.dumps({"result": "success", "value": 42}).encode("utf-8")
+    response = HomeassistantActionResponseModel(
+        call_id=123, response_data=response_data, success=True, error_message=""
+    )
+
+    assert response.call_id == 123
+    assert response.response_data == response_data
+    assert response.success is True
+    assert response.error_message == ""
 
 
 async def test_set_debug(
