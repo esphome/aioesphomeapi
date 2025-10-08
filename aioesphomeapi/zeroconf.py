@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
-ZeroconfInstanceType = Union[Zeroconf, AsyncZeroconf]
+ZeroconfInstanceType = Zeroconf | AsyncZeroconf
 
 _LOGGER = logging.getLogger(__name__)
 
