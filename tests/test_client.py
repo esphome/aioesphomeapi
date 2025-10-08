@@ -2166,7 +2166,7 @@ async def test_send_homeassistant_service_call_response(auth_client: APIClient) 
     response_data = json.dumps({"result": "success", "value": "42"}).encode("utf-8")
 
     # Test successful response
-    await auth_client.send_homeassistant_action_response(
+    auth_client.send_homeassistant_action_response(
         call_id=123,
         response_data=response_data,
         success=True,
@@ -2189,7 +2189,7 @@ async def test_send_homeassistant_service_call_response_error(
     send = patch_send(auth_client)
 
     # Test error response
-    await auth_client.send_homeassistant_action_response(
+    auth_client.send_homeassistant_action_response(
         call_id=456,
         response_data=b"",
         success=False,
