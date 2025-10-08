@@ -1595,7 +1595,7 @@ class APIClient(APIClientBase):
         )
         return NoiseEncryptionSetKeyResponseModel.from_pb(resp).success
 
-    async def send_homeassistant_action_response(
+    def send_homeassistant_action_response(
         self,
         call_id: int,
         success: bool = True,
