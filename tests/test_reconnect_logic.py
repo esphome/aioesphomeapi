@@ -40,6 +40,25 @@ from .conftest import _create_mock_transport_protocol
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
 
 
+def find_log_with_message(
+    caplog: pytest.LogCaptureFixture,
+    message_substring: str,
+) -> logging.LogRecord | None:
+    """Find a log record containing the specified message substring.
+
+    Args:
+        caplog: pytest log capture fixture
+        message_substring: substring to search for in log messages
+
+    Returns:
+        LogRecord if found, None otherwise
+    """
+    for record in caplog.records:
+        if message_substring in record.message:
+            return record
+    return None
+
+
 async def slow_connect_fail(*args, **kwargs):
     await asyncio.sleep(10)
     raise APIConnectionError
@@ -1061,16 +1080,74 @@ async def test_connection_cancelled_error_logged_at_debug_level(
     )
 
     # Check that the error was logged at DEBUG level, not WARNING
-    found_log = False
-    for record in caplog.records:
-        if (
-            "Can't connect to ESPHome API" in record.message
-            and "APIConnectionCancelledError" in record.message
-        ):
-            assert record.levelno == logging.DEBUG
-            found_log = True
-            break
+    log_record = find_log_with_message(caplog, "Can't connect to ESPHome API")
+    assert log_record is not None, "Expected log message not found"
+    assert "APIConnectionCancelledError" in log_record.message
+    assert log_record.levelno == logging.DEBUG
 
-    assert found_log, "Expected log message not found"
+    await logic.stop()
+
+
+@pytest.mark.asyncio
+async def test_resolved_log_level_changes_after_first_attempt(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that 'Successfully resolved' is logged at INFO on first attempt, DEBUG on subsequent."""
+    on_connect = AsyncMock()
+    on_disconnect = AsyncMock()
+    on_connect_fail = AsyncMock()
+
+    logic = ReconnectLogic(
+        client=patchable_api_client,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        on_connect_error=on_connect_fail,
+        name="mydevice",
+    )
+
+    caplog.clear()
+    # First attempt - should be INFO level
+    with (
+        patch.object(patchable_api_client, "start_resolve_host"),
+        patch.object(
+            patchable_api_client,
+            "start_connection",
+            side_effect=APIConnectionError("Connection failed"),
+        ),
+    ):
+        await logic.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    # Check that the resolved message was logged at INFO level on first attempt
+    log_record = find_log_with_message(caplog, "Successfully resolved")
+    assert log_record is not None, (
+        "Expected INFO log message not found on first attempt"
+    )
+    assert log_record.levelno == logging.INFO
+
+    caplog.clear()
+    # Second attempt - should be DEBUG level
+    with (
+        patch.object(patchable_api_client, "start_resolve_host"),
+        patch.object(
+            patchable_api_client,
+            "start_connection",
+            side_effect=APIConnectionError("Connection failed"),
+        ),
+    ):
+        # Trigger the next connection attempt
+        assert logic._connect_timer is not None
+        logic._connect_timer._run()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    # Check that the resolved message was logged at DEBUG level on second attempt
+    log_record = find_log_with_message(caplog, "Successfully resolved")
+    assert log_record is not None, (
+        "Expected DEBUG log message not found on subsequent attempt"
+    )
+    assert log_record.levelno == logging.DEBUG
 
     await logic.stop()
