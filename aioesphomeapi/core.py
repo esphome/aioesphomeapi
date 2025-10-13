@@ -304,6 +304,45 @@ def to_human_readable_address(address: int) -> str:
     return ":".join(TWO_CHAR.findall(f"{address:012X}"))
 
 
+def wifi_mac_to_bluetooth_mac(wifi_mac: str) -> str:
+    """Convert a WiFi MAC address to a Bluetooth MAC address.
+
+    ESP32 devices use a single base MAC address and derive other interface
+    MAC addresses from it. The Bluetooth MAC is calculated as base_mac + 2
+    to the last octet.
+
+    Args:
+        wifi_mac: WiFi MAC address in format "AABBCCDDEEFF" or "aa:bb:cc:dd:ee:ff"
+
+    Returns:
+        Bluetooth MAC address in uppercase with colons (e.g., "AA:BB:CC:DD:EE:01")
+
+    Examples:
+        >>> wifi_mac_to_bluetooth_mac("AABBCCDDEEFF")
+        "AA:BB:CC:DD:EE:01"
+        >>> wifi_mac_to_bluetooth_mac("aa:bb:cc:dd:ee:ff")
+        "AA:BB:CC:DD:EE:01"
+        >>> wifi_mac_to_bluetooth_mac("AA:BB:CC:DD:EE:FE")
+        "AA:BB:CC:DD:EE:00"
+    """
+    # Remove colons and convert to uppercase
+    clean_mac = wifi_mac.replace(":", "").upper()
+
+    # Validate MAC address format
+    if len(clean_mac) != 12 or not all(c in "0123456789ABCDEF" for c in clean_mac):
+        raise ValueError(f"Invalid MAC address format: {wifi_mac}")
+
+    # Extract the last octet and add 2
+    last_octet = int(clean_mac[-2:], 16)
+    new_last_octet = (last_octet + 2) % 256
+
+    # Build the new MAC address
+    bt_mac = clean_mac[:-2] + f"{new_last_octet:02X}"
+
+    # Always return with colons
+    return ":".join(TWO_CHAR.findall(bt_mac))
+
+
 def to_human_readable_gatt_error(error: int) -> str:
     """Convert a GATT error to a human readable format."""
     return ESPHOME_GATT_ERRORS.get(error, "Unknown error")
