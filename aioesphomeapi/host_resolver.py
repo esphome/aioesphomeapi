@@ -11,7 +11,7 @@ import logging
 import socket
 from typing import TYPE_CHECKING, Any, cast
 
-from zeroconf import IPVersion
+from zeroconf import DNSQuestionType, IPVersion
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from .core import ResolveAPIError, ResolveTimeoutAPIError
@@ -66,7 +66,14 @@ async def _async_zeroconf_get_service_info(
 ) -> AsyncServiceInfo:
     info = _make_service_info_for_short_host(short_host)
     try:
-        await info.async_request(aiozc.zeroconf, int(timeout * 1000))
+        # Use QM (multicast) questions so all zeroconf instances on the network
+        # see the responses and can update their caches. ESP devices de-duplicate
+        # queries and may not respond to every QU (unicast) request, but QM ensures
+        # responses are multicast so the dashboard can observe them when the CLI
+        # does resolution. This prevents the dashboard's cache from going stale.
+        await info.async_request(
+            aiozc.zeroconf, int(timeout * 1000), question_type=DNSQuestionType.QM
+        )
     except Exception as exc:
         raise ResolveAPIError(
             f"Error resolving mDNS {short_host} via mDNS: {exc}"
