@@ -205,8 +205,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._async_set_connection_state_while_locked(ReconnectLogicState.CONNECTING)
         start_connect_time = time.perf_counter()
         resolve_time = start_connect_time - start_resolve_time
-        _LOGGER.info(
-            "Successfully resolved %s in %0.3fs", self._cli.log_name, resolve_time
+        _LOGGER.log(
+            logging.INFO if self._tries == 0 else logging.DEBUG,
+            "Successfully resolved %s in %0.3fs",
+            self._cli.log_name,
+            resolve_time,
         )
         try:
             await self._cli.start_connection()

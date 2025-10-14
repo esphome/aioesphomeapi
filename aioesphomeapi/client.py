@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import partial
 import logging
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 from google.protobuf import message
 
@@ -191,7 +191,7 @@ USER_SERVICE_MAP_SINGLE = {
 
 
 ExecuteServiceDataType = dict[
-    str, Union[bool, int, float, str, list[bool], list[int], list[float], list[str]]
+    str, bool | int | float | str | list[bool] | list[int] | list[float] | list[str]
 ]
 
 
