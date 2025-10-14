@@ -66,11 +66,13 @@ async def _async_zeroconf_get_service_info(
 ) -> AsyncServiceInfo:
     info = _make_service_info_for_short_host(short_host)
     try:
-        # Use QM (multicast) questions so all zeroconf instances on the network
-        # see the responses and can update their caches. ESP devices de-duplicate
-        # queries and may not respond to every QU (unicast) request, but QM ensures
-        # responses are multicast so the dashboard can observe them when the CLI
-        # does resolution. This prevents the dashboard's cache from going stale.
+        # Use QM (multicast) questions to ensure multicast responses that all
+        # zeroconf instances on the network can observe and cache. RFC 6762 Section
+        # 5.4 specifies that responders SHOULD send multicast responses to QU
+        # (unicast) questions if they haven't multicast recently (within 1/4 TTL),
+        # but ESP32 mDNS doesn't implement this - it always sends unicast to QU.
+        # By using QM, we ensure the dashboard observes responses when the CLI does
+        # resolution, preventing the dashboard's cache from going stale.
         await info.async_request(
             aiozc.zeroconf, int(timeout * 1000), question_type=DNSQuestionType.QM
         )
