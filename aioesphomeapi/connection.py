@@ -150,7 +150,7 @@ CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 def _make_hello_request(client_info: str) -> HelloRequest:
     """Make a HelloRequest."""
     return HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=12
+        client_info=client_info, api_version_major=1, api_version_minor=13
     )
 
 
