@@ -133,7 +133,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-          allow-prereleases: true
           cache: 'pip' # caching pip dependencies
       - name: Set up Python environment (cython)
         env:
