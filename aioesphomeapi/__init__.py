@@ -22,6 +22,7 @@ from .core import (
     EncryptionHelloAPIError,
     SocketAPIError,
     BadMACAddressAPIError,
+    wifi_mac_to_bluetooth_mac,
 )
 from .model import *
 from .reconnect_logic import ReconnectLogic
