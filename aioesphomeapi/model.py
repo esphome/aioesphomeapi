@@ -112,6 +112,15 @@ class BluetoothProxyFeature(enum.IntFlag):
     FEATURE_STATE_AND_MODE = 1 << 6
 
 
+class ClimateFeature(enum.IntFlag):
+    SUPPORTS_CURRENT_TEMPERATURE = 1 << 0
+    SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 1
+    REQUIRES_TWO_POINT_TARGET_TEMPERATURE = 1 << 2
+    SUPPORTS_CURRENT_HUMIDITY = 1 << 3
+    SUPPORTS_TARGET_HUMIDITY = 1 << 4
+    SUPPORTS_ACTION = 1 << 5
+
+
 class BluetoothProxySubscriptionFlag(enum.IntFlag):
     RAW_ADVERTISEMENTS = 1 << 0
 
@@ -643,6 +652,7 @@ class ClimatePreset(APIIntEnum):
 
 @_frozen_dataclass_decorator
 class ClimateInfo(EntityInfo):
+    feature_flags: int = 0
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
     supported_modes: list[ClimateMode] = converter_field(
@@ -681,6 +691,23 @@ class ClimateInfo(EntityInfo):
     supports_target_humidity: bool = False
     visual_min_humidity: float = 0
     visual_max_humidity: float = 0
+
+    def supported_feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 13):
+            flags: int = 0
+            if self.supports_current_temperature:
+                flags |= ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE
+            if self.supports_two_point_target_temperature:
+                # Use REQUIRES_TWO_POINT_TARGET_TEMPERATURE to mimic previous behavior
+                flags |= ClimateFeature.REQUIRES_TWO_POINT_TARGET_TEMPERATURE
+            if self.supports_current_humidity:
+                flags |= ClimateFeature.SUPPORTS_CURRENT_HUMIDITY
+            if self.supports_target_humidity:
+                flags |= ClimateFeature.SUPPORTS_TARGET_HUMIDITY
+            if self.supports_action:
+                flags |= ClimateFeature.SUPPORTS_ACTION
+            return flags
+        return self.feature_flags
 
     def supported_presets_compat(self, api_version: APIVersion) -> list[ClimatePreset]:
         if api_version < APIVersion(1, 5):
