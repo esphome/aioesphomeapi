@@ -3,7 +3,7 @@ ruff==0.14.3
 flake8==7.3.0
 isort==7.0.0
 mypy==1.18.2
-types-protobuf==6.32.1.20250918
+types-protobuf==6.32.1.20251105
 pytest>=6.2.4,<9
 pytest-asyncio==1.2.0
 pytest-codspeed==4.2.0
