@@ -20,7 +20,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Update version number in setup.py
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Calculate version
         id: version
         run: |
