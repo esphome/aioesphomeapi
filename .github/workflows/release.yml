@@ -31,7 +31,7 @@ jobs:
           - os: ubuntu-24.04-arm
             musl: "musllinux"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       # Used to host cibuildwheel
@@ -79,7 +79,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build sdist
         run: pipx run build --sdist
