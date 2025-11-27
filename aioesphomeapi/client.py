@@ -1357,7 +1357,6 @@ class APIClient(APIClientBase):
             unsub: Callable[[], None] | None = None
 
             def _on_response(msg: ExecuteServiceResponse) -> None:
-                nonlocal unsub
                 if msg.call_id == call_id:
                     on_response(ExecuteServiceResponseModel.from_pb(msg))
                     if unsub is not None:
