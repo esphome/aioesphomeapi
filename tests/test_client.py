@@ -52,6 +52,7 @@ from aioesphomeapi.api_pb2 import (
     DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
+    ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanCommandRequest,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
@@ -121,6 +122,7 @@ from aioesphomeapi.model import (
     ClimateSwingMode,
     DeviceInfo,
     ESPHomeBluetoothGATTServices,
+    ExecuteServiceResponse as ExecuteServiceResponseModel,
     FanDirection,
     FanSpeed,
     HomeassistantActionResponse as HomeassistantActionResponseModel,
@@ -1039,6 +1041,96 @@ async def test_execute_service(auth_client: APIClient) -> None:
             ],
         )
     )
+    send.reset_mock()
+
+
+async def test_execute_service_with_call_id(auth_client: APIClient) -> None:
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 3))
+
+    service = UserService(
+        name="my_service",
+        key=1,
+        args=[
+            UserServiceArg(name="arg1", type=UserServiceArgType.BOOL),
+        ],
+    )
+
+    # Test with call_id but no on_response (return_response=False)
+    auth_client.execute_service(
+        service,
+        data={"arg1": True},
+        call_id=12345,
+    )
+    send.assert_called_once_with(
+        ExecuteServiceRequest(
+            key=1,
+            args=[
+                ExecuteServiceArgument(bool_=True),
+            ],
+            call_id=12345,
+            return_response=False,
+        )
+    )
+    send.reset_mock()
+
+    # Test without call_id (default 0)
+    auth_client.execute_service(
+        service,
+        data={"arg1": False},
+    )
+    send.assert_called_once_with(
+        ExecuteServiceRequest(
+            key=1,
+            args=[
+                ExecuteServiceArgument(bool_=False),
+            ],
+            call_id=0,
+            return_response=False,
+        )
+    )
+
+
+async def test_execute_service_return_response_combinations(
+    auth_client: APIClient,
+) -> None:
+    """Test that return_response is set correctly based on call_id and on_response."""
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 3))
+
+    service = UserService(
+        name="test_service",
+        key=1,
+        args=[],
+    )
+
+    def dummy_callback(response: ExecuteServiceResponseModel) -> None:
+        pass
+
+    # Case 1: call_id=0, on_response=None -> return_response=False
+    auth_client.execute_service(service, data={}, call_id=0, on_response=None)
+    assert send.call_args[0][0].return_response is False
+    assert send.call_args[0][0].call_id == 0
+    send.reset_mock()
+
+    # Case 2: call_id=123, on_response=None -> return_response=False
+    auth_client.execute_service(service, data={}, call_id=123, on_response=None)
+    assert send.call_args[0][0].return_response is False
+    assert send.call_args[0][0].call_id == 123
+    send.reset_mock()
+
+    # Case 3: call_id=0, on_response=callback -> return_response=False (call_id must be non-zero)
+    auth_client.execute_service(service, data={}, call_id=0, on_response=dummy_callback)
+    assert send.call_args[0][0].return_response is False
+    assert send.call_args[0][0].call_id == 0
+    send.reset_mock()
+
+    # Case 4: call_id=456, on_response=callback -> return_response=True
+    auth_client.execute_service(
+        service, data={}, call_id=456, on_response=dummy_callback
+    )
+    assert send.call_args[0][0].return_response is True
+    assert send.call_args[0][0].call_id == 456
     send.reset_mock()
 
 
@@ -2148,6 +2240,94 @@ async def test_subscribe_zwave_proxy_request(
     first_msg = test_msg[0]
     assert first_msg.type == 2
     assert first_msg.data == b"\x00\x01\x02\x03"
+
+
+async def test_execute_service_with_response_callback(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test execute_service with on_response callback."""
+    client, _connection, _transport, protocol = api_client
+    patch_api_version(client, APIVersion(1, 3))
+    test_msg: list[ExecuteServiceResponseModel] = []
+
+    def on_response(msg: ExecuteServiceResponseModel) -> None:
+        test_msg.append(msg)
+
+    service = UserService(
+        name="my_service",
+        key=1,
+        args=[
+            UserServiceArg(name="arg1", type=UserServiceArgType.BOOL),
+        ],
+    )
+
+    # Execute service with callback
+    client.execute_service(
+        service,
+        data={"arg1": True},
+        call_id=12345,
+        on_response=on_response,
+    )
+    await asyncio.sleep(0)
+
+    # Simulate response from device
+    response: message.Message = ExecuteServiceResponsePb(
+        call_id=12345,
+        success=True,
+        error_message="",
+        response_data=b'{"result": "ok"}',
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert len(test_msg) == 1
+    first_msg = test_msg[0]
+    assert first_msg.call_id == 12345
+    assert first_msg.success is True
+    assert first_msg.error_message == ""
+    assert first_msg.response_data == b'{"result": "ok"}'
+
+    # Callback should auto-unsubscribe, so another response shouldn't be received
+    response2: message.Message = ExecuteServiceResponsePb(
+        call_id=12345,
+        success=True,
+        error_message="",
+        response_data=b'{"result": "second"}',
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response2))
+    assert len(test_msg) == 1  # Still only one message
+
+    # Test that responses with different call_id are ignored
+    test_msg.clear()
+    client.execute_service(
+        service,
+        data={"arg1": False},
+        call_id=99999,
+        on_response=on_response,
+    )
+    await asyncio.sleep(0)
+
+    # Response with wrong call_id should be ignored
+    wrong_response: message.Message = ExecuteServiceResponsePb(
+        call_id=11111,
+        success=False,
+        error_message="Wrong call",
+        response_data=b"",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(wrong_response))
+    assert len(test_msg) == 0
+
+    # Correct call_id should be received
+    correct_response: message.Message = ExecuteServiceResponsePb(
+        call_id=99999,
+        success=True,
+        error_message="",
+        response_data=b"",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(correct_response))
+    assert len(test_msg) == 1
+    assert test_msg[0].call_id == 99999
 
 
 async def test_subscribe_service_calls(auth_client: APIClient) -> None:

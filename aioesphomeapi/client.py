@@ -45,6 +45,7 @@ from .api_pb2 import (  # type: ignore
     DeviceInfoResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
+    ExecuteServiceResponse,
     FanCommandRequest,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
@@ -134,6 +135,7 @@ from .model import (
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
+    ExecuteServiceResponse as ExecuteServiceResponseModel,
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
@@ -1312,10 +1314,21 @@ class APIClient(APIClientBase):
         )
 
     def execute_service(
-        self, service: UserService, data: ExecuteServiceDataType
+        self,
+        service: UserService,
+        data: ExecuteServiceDataType,
+        *,
+        call_id: int = 0,
+        on_response: Callable[[ExecuteServiceResponseModel], None] | None = None,
+        return_response: bool | None = None,
     ) -> None:
         connection = self._get_connection()
-        req = ExecuteServiceRequest(key=service.key)
+        # If return_response is not explicitly set, derive from on_response
+        if return_response is None:
+            return_response = on_response is not None and call_id != 0
+        req = ExecuteServiceRequest(
+            key=service.key, call_id=call_id, return_response=return_response
+        )
         args = []
         apiv = self.api_version
         if TYPE_CHECKING:
@@ -1338,6 +1351,22 @@ class APIClient(APIClientBase):
             args.append(arg)
         # pylint: disable=no-member
         req.args.extend(args)
+
+        # Register callback for response if provided
+        if on_response is not None and call_id != 0:
+            unsub: Callable[[], None] | None = None
+
+            def _on_response(msg: ExecuteServiceResponse) -> None:
+                nonlocal unsub
+                if msg.call_id == call_id:
+                    on_response(ExecuteServiceResponseModel.from_pb(msg))
+                    if unsub is not None:
+                        unsub()
+
+            unsub = connection.add_message_callback(
+                _on_response,
+                (ExecuteServiceResponse,),
+            )
 
         connection.send_message(req)
 
