@@ -15,6 +15,46 @@
         "panel": "new"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Run tests",
+      "type": "shell",
+      "command": "${commandpython.interpreterPath}",
+      "args": [
+        "-m",
+        "pytest",
+        "-v",
+        "tests"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run tests with coverage",
+      "type": "shell",
+      "command": "${command:python.interpreterPath}",
+      "args": [
+        "-m",
+        "pytest",
+        "--cov=aioesphomeapi",
+        "--cov-report",
+        "term-missing",
+        "--",
+        "tests"
+      ],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
     }
   ]
 }
