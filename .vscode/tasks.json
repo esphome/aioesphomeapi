@@ -19,7 +19,7 @@
     {
       "label": "Run tests",
       "type": "shell",
-      "command": "${commandpython.interpreterPath}",
+      "command": "${command:python.interpreterPath}",
       "args": [
         "-m",
         "pytest",
