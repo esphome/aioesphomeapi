@@ -343,10 +343,15 @@ async def _async_resolve_host(
             # is resolvable via regular DNS (violates RFC 6762 but improves compatibility)
             if host.endswith((".local", ".local.")):
                 stripped = _remove_local_suffix(host)
-                _LOGGER.debug(
-                    "Also adding DNS resolution without .local suffix for %s", stripped
-                )
-                coros.append(_async_resolve_host_getaddrinfo(stripped, port))
+                # Skip getaddrinfo for purely numeric hostnames - they get
+                # misinterpreted as decimal IP addresses by the socket library
+                # (e.g., "1234" becomes 0.0.4.210)
+                if not stripped.isdigit():
+                    _LOGGER.debug(
+                        "Also adding DNS resolution without .local suffix for %s",
+                        stripped,
+                    )
+                    coros.append(_async_resolve_host_getaddrinfo(stripped, port))
 
             for coro in coros:
                 task = create_eager_task(coro)

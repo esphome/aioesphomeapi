@@ -612,6 +612,49 @@ def test_remove_local_suffix():
     assert hr._remove_local_suffix("test.example.local.") == "test.example"
 
 
+@patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
+async def test_resolve_host_numeric_hostname_no_stripped_fallback(
+    resolve_addr, resolve_zc, addr_infos
+):
+    """Test that numeric .local hostnames don't try getaddrinfo on stripped name.
+
+    Purely numeric hostnames like "1234" get misinterpreted as decimal IP addresses
+    by socket.getaddrinfo (e.g., "1234" becomes 0.0.4.210). This test verifies that
+    we skip the stripped-suffix fallback for numeric hostnames.
+    """
+    resolve_addr.return_value = addr_infos
+    resolve_zc.return_value = addr_infos
+
+    ret = await hr.async_resolve_host(["1234.local"], 6052)
+
+    # Should only call getaddrinfo with the full hostname, NOT the stripped "1234"
+    # because "1234" would be misinterpreted as IP address 0.0.4.210
+    resolve_addr.assert_called_once_with("1234.local", 6052)
+    assert ret == addr_infos
+
+
+@patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
+async def test_resolve_host_alphanumeric_hostname_uses_stripped_fallback(
+    resolve_addr, resolve_zc, addr_infos
+):
+    """Test that alphanumeric hostnames still use the stripped fallback.
+
+    Non-purely-numeric hostnames should still try both with and without
+    the .local suffix for compatibility.
+    """
+    resolve_addr.return_value = addr_infos
+    resolve_zc.return_value = []
+
+    await hr.async_resolve_host(["device123.local"], 6052)
+
+    # Should call getaddrinfo with both the full hostname and stripped version
+    assert resolve_addr.call_count == 2
+    resolve_addr.assert_any_call("device123.local", 6052)
+    resolve_addr.assert_any_call("device123", 6052)
+
+
 async def test_resolve_host_local_suffix_fallback_wins(
     addr_infos: list[AddrInfo],
     mock_getaddrinfo: list[tuple[int, int, int, str, tuple[str, int]]],
