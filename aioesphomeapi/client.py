@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import partial
+import itertools
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -166,6 +167,7 @@ from .model_conversions import (
 from .util import create_eager_task
 
 _LOGGER = logging.getLogger(__name__)
+_CALL_ID_COUNTER = itertools.count(1)
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
@@ -1318,16 +1320,16 @@ class APIClient(APIClientBase):
         service: UserService,
         data: ExecuteServiceDataType,
         *,
-        call_id: int = 0,
         on_response: Callable[[ExecuteServiceResponseModel], None] | None = None,
-        return_response: bool | None = None,
+        return_response: bool = False,
     ) -> None:
         connection = self._get_connection()
-        # If return_response is not explicitly set, derive from on_response
-        if return_response is None:
-            return_response = on_response is not None and call_id != 0
+        # Generate call_id when response callback is provided
+        call_id = next(_CALL_ID_COUNTER) if on_response is not None else 0
         req = ExecuteServiceRequest(
-            key=service.key, call_id=call_id, return_response=return_response
+            key=service.key,
+            call_id=call_id,
+            return_response=return_response,
         )
         args = []
         apiv = self.api_version
@@ -1353,7 +1355,7 @@ class APIClient(APIClientBase):
         req.args.extend(args)
 
         # Register callback for response if provided
-        if on_response is not None and call_id != 0:
+        if on_response is not None:
             unsub: Callable[[], None] | None = None
 
             def _on_response(msg: ExecuteServiceResponse) -> None:

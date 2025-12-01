@@ -1045,6 +1045,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
 
 
 async def test_execute_service_with_call_id(auth_client: APIClient) -> None:
+    """Test that call_id is auto-generated when on_response is provided."""
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 3))
 
@@ -1056,11 +1057,13 @@ async def test_execute_service_with_call_id(auth_client: APIClient) -> None:
         ],
     )
 
-    # Test with call_id but no on_response (return_response=False)
+    def dummy_callback(response: ExecuteServiceResponseModel) -> None:
+        pass
+
+    # Test without on_response - call_id should be 0
     auth_client.execute_service(
         service,
         data={"arg1": True},
-        call_id=12345,
     )
     send.assert_called_once_with(
         ExecuteServiceRequest(
@@ -1068,33 +1071,37 @@ async def test_execute_service_with_call_id(auth_client: APIClient) -> None:
             args=[
                 ExecuteServiceArgument(bool_=True),
             ],
-            call_id=12345,
+            call_id=0,
             return_response=False,
         )
     )
     send.reset_mock()
 
-    # Test without call_id (default 0)
+    # Test with on_response - call_id should be auto-generated (non-zero)
     auth_client.execute_service(
         service,
         data={"arg1": False},
+        on_response=dummy_callback,
     )
-    send.assert_called_once_with(
-        ExecuteServiceRequest(
-            key=1,
-            args=[
-                ExecuteServiceArgument(bool_=False),
-            ],
-            call_id=0,
-            return_response=False,
-        )
+    req = send.call_args[0][0]
+    assert req.call_id != 0  # Auto-generated
+    first_call_id = req.call_id
+    send.reset_mock()
+
+    # Test that call_id increments
+    auth_client.execute_service(
+        service,
+        data={"arg1": True},
+        on_response=dummy_callback,
     )
+    req = send.call_args[0][0]
+    assert req.call_id == first_call_id + 1
 
 
 async def test_execute_service_return_response_combinations(
     auth_client: APIClient,
 ) -> None:
-    """Test that return_response is set correctly based on call_id and on_response."""
+    """Test that return_response is passed through and call_id is generated for on_response."""
     send = patch_send(auth_client)
     patch_api_version(auth_client, APIVersion(1, 3))
 
@@ -1107,30 +1114,30 @@ async def test_execute_service_return_response_combinations(
     def dummy_callback(response: ExecuteServiceResponseModel) -> None:
         pass
 
-    # Case 1: call_id=0, on_response=None -> return_response=False
-    auth_client.execute_service(service, data={}, call_id=0, on_response=None)
+    # Case 1: no callback, no return_response -> call_id=0, return_response=False
+    auth_client.execute_service(service, data={})
     assert send.call_args[0][0].return_response is False
     assert send.call_args[0][0].call_id == 0
     send.reset_mock()
 
-    # Case 2: call_id=123, on_response=None -> return_response=False
-    auth_client.execute_service(service, data={}, call_id=123, on_response=None)
-    assert send.call_args[0][0].return_response is False
-    assert send.call_args[0][0].call_id == 123
-    send.reset_mock()
-
-    # Case 3: call_id=0, on_response=callback -> return_response=False (call_id must be non-zero)
-    auth_client.execute_service(service, data={}, call_id=0, on_response=dummy_callback)
-    assert send.call_args[0][0].return_response is False
+    # Case 2: return_response=True without callback -> call_id=0, return_response=True
+    auth_client.execute_service(service, data={}, return_response=True)
+    assert send.call_args[0][0].return_response is True
     assert send.call_args[0][0].call_id == 0
     send.reset_mock()
 
-    # Case 4: call_id=456, on_response=callback -> return_response=True
+    # Case 3: on_response generates call_id, return_response passed through
+    auth_client.execute_service(service, data={}, on_response=dummy_callback)
+    assert send.call_args[0][0].return_response is False
+    assert send.call_args[0][0].call_id != 0
+    send.reset_mock()
+
+    # Case 4: on_response with return_response=True
     auth_client.execute_service(
-        service, data={}, call_id=456, on_response=dummy_callback
+        service, data={}, on_response=dummy_callback, return_response=True
     )
     assert send.call_args[0][0].return_response is True
-    assert send.call_args[0][0].call_id == 456
+    assert send.call_args[0][0].call_id != 0
     send.reset_mock()
 
 
@@ -2248,9 +2255,20 @@ async def test_execute_service_with_response_callback(
     ],
 ) -> None:
     """Test execute_service with on_response callback."""
-    client, _connection, _transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
     patch_api_version(client, APIVersion(1, 3))
     test_msg: list[ExecuteServiceResponseModel] = []
+    sent_requests: list[ExecuteServiceRequest] = []
+
+    # Capture sent requests to get auto-generated call_id
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, ExecuteServiceRequest):
+            sent_requests.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
 
     def on_response(msg: ExecuteServiceResponseModel) -> None:
         test_msg.append(msg)
@@ -2267,14 +2285,18 @@ async def test_execute_service_with_response_callback(
     client.execute_service(
         service,
         data={"arg1": True},
-        call_id=12345,
         on_response=on_response,
     )
     await asyncio.sleep(0)
 
+    # Get the auto-generated call_id
+    assert len(sent_requests) == 1
+    first_call_id = sent_requests[0].call_id
+    assert first_call_id != 0  # Should be auto-generated
+
     # Simulate response from device
     response: message.Message = ExecuteServiceResponsePb(
-        call_id=12345,
+        call_id=first_call_id,
         success=True,
         error_message="",
         response_data=b'{"result": "ok"}',
@@ -2283,14 +2305,14 @@ async def test_execute_service_with_response_callback(
 
     assert len(test_msg) == 1
     first_msg = test_msg[0]
-    assert first_msg.call_id == 12345
+    assert first_msg.call_id == first_call_id
     assert first_msg.success is True
     assert first_msg.error_message == ""
     assert first_msg.response_data == b'{"result": "ok"}'
 
     # Callback should auto-unsubscribe, so another response shouldn't be received
     response2: message.Message = ExecuteServiceResponsePb(
-        call_id=12345,
+        call_id=first_call_id,
         success=True,
         error_message="",
         response_data=b'{"result": "second"}',
@@ -2300,13 +2322,18 @@ async def test_execute_service_with_response_callback(
 
     # Test that responses with different call_id are ignored
     test_msg.clear()
+    sent_requests.clear()
     client.execute_service(
         service,
         data={"arg1": False},
-        call_id=99999,
         on_response=on_response,
     )
     await asyncio.sleep(0)
+
+    # Get second auto-generated call_id
+    assert len(sent_requests) == 1
+    second_call_id = sent_requests[0].call_id
+    assert second_call_id == first_call_id + 1  # Should increment
 
     # Response with wrong call_id should be ignored
     wrong_response: message.Message = ExecuteServiceResponsePb(
@@ -2320,14 +2347,14 @@ async def test_execute_service_with_response_callback(
 
     # Correct call_id should be received
     correct_response: message.Message = ExecuteServiceResponsePb(
-        call_id=99999,
+        call_id=second_call_id,
         success=True,
         error_message="",
         response_data=b"",
     )
     mock_data_received(protocol, generate_plaintext_packet(correct_response))
     assert len(test_msg) == 1
-    assert test_msg[0].call_id == 99999
+    assert test_msg[0].call_id == second_call_id
 
 
 async def test_subscribe_service_calls(auth_client: APIClient) -> None:
