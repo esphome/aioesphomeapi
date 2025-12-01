@@ -64,12 +64,13 @@ The sample code below will connect to the device and retrieve details.
        """Connect to an ESPHome device and get details."""
 
        # Establish connection
-
-       # If a password is used in the ESP configuration, use the following line:
-       api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
-       # OR
-       # If there is no password used in the ESP configuration:
-       api = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
+       # Choose ONE of the following options depending on your configuration:
+       # Option 1 - If both a password and an encryption key are in use:
+       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # Option 2 - If only an encryption key is in use:
+       api = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # Option 3 - If you only have a password: (Not recommended)
+       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
 
        await api.connect(login=True)
 
