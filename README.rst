@@ -43,7 +43,7 @@ The use of passwords for APIs in ESPHome is deprecated. Using an encryption key 
    api:
      password: 'MyPassword' # DEPRECATED: Use encryption key instead
      encryption:
-       key: 'aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=' # A key can be obtained at https://next.esphome.io/components/api/
+       key: 'aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=' # A key can be obtained at https://esphome.io/components/api/
 
 Check the output to get the local address of the device or use the ``name:``under ``esphome:`` from the device configuration.
 
