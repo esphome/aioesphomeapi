@@ -97,11 +97,13 @@ Subscribe to state changes of an ESPHome device.
 
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
-       # If a password is used in the ESP configuration, use the following line:
-       cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
-       # OR
-       # If there is no password used in the ESP configuration:
-       cli = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=') # noise_psk is optional and to be used only if an encryption key is configured.
+       # Choose ONE of the following options depending on your configuration:
+       # Option 1 - If both a password and an encryption key are in use:
+       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # Option 2 - If only an encryption key is in use:
+       api = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
+       # Option 3 - If you only have a password: (Not recommended)
+       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
 
        await cli.connect(login=True)
 
