@@ -45,6 +45,7 @@ from .api_pb2 import (  # type: ignore
     DeviceInfoResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
+    ExecuteServiceResponse,
     FanCommandRequest,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
@@ -134,6 +135,7 @@ from .model import (
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
+    ExecuteServiceResponse as ExecuteServiceResponseModel,
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
@@ -1312,10 +1314,21 @@ class APIClient(APIClientBase):
         )
 
     def execute_service(
-        self, service: UserService, data: ExecuteServiceDataType
+        self,
+        service: UserService,
+        data: ExecuteServiceDataType,
+        *,
+        on_response: Callable[[ExecuteServiceResponseModel], None] | None = None,
+        return_response: bool = False,
     ) -> None:
         connection = self._get_connection()
-        req = ExecuteServiceRequest(key=service.key)
+        # Generate call_id when response callback is provided
+        call_id = next(self._call_id_counter) if on_response is not None else 0
+        req = ExecuteServiceRequest(
+            key=service.key,
+            call_id=call_id,
+            return_response=return_response,
+        )
         args = []
         apiv = self.api_version
         if TYPE_CHECKING:
@@ -1338,6 +1351,21 @@ class APIClient(APIClientBase):
             args.append(arg)
         # pylint: disable=no-member
         req.args.extend(args)
+
+        # Register callback for response if provided
+        if on_response is not None:
+            unsub: Callable[[], None] | None = None
+
+            def _on_response(msg: ExecuteServiceResponse) -> None:
+                if msg.call_id == call_id:
+                    on_response(ExecuteServiceResponseModel.from_pb(msg))
+                    if unsub is not None:
+                        unsub()
+
+            unsub = connection.add_message_callback(
+                _on_response,
+                (ExecuteServiceResponse,),
+            )
 
         connection.send_message(req)
 

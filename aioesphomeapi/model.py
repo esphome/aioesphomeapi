@@ -1213,6 +1213,13 @@ class UserServiceArgType(APIIntEnum):
     STRING_ARRAY = 7
 
 
+class SupportsResponseType(APIIntEnum):
+    NONE = 0
+    OPTIONAL = 1
+    ONLY = 2
+    STATUS = 100
+
+
 @_frozen_dataclass_decorator
 class UserServiceArg(APIModelBase):
     name: str = ""
@@ -1240,6 +1247,19 @@ class UserService(APIModelBase):
     args: list[UserServiceArg] = converter_field(
         default_factory=list, converter=UserServiceArg.convert_list
     )
+    supports_response: SupportsResponseType | None = converter_field(
+        default=SupportsResponseType.NONE, converter=SupportsResponseType.convert
+    )
+
+
+@_frozen_dataclass_decorator
+class ExecuteServiceResponse(APIModelBase):
+    call_id: int = 0  # Call ID that matches the original request
+    success: bool = False  # Whether the service execution succeeded
+    error_message: str = ""  # Error message if success = false
+    response_data: bytes = field(
+        default_factory=bytes
+    )  # JSON response data from ESPHome
 
 
 # ==================== BLUETOOTH ====================
