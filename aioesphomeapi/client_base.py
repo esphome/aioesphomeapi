@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Coroutine
+import itertools
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -218,6 +219,7 @@ class APIClientBase:
 
     __slots__ = (
         "_background_tasks",
+        "_call_id_counter",
         "_connection",
         "_debug_enabled",
         "_loop",
@@ -286,6 +288,7 @@ class APIClientBase:
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_running_loop()
+        self._call_id_counter = itertools.count(1)
         self._set_log_name()
 
     def set_debug(self, enabled: bool) -> None:

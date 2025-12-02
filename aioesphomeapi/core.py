@@ -51,6 +51,7 @@ from .api_pb2 import (  # type: ignore
     DisconnectResponse,
     EventResponse,
     ExecuteServiceRequest,
+    ExecuteServiceResponse,
     FanCommandRequest,
     FanStateResponse,
     GetTimeRequest,
@@ -491,6 +492,7 @@ MESSAGE_TYPE_TO_PROTO = {
     128: ZWaveProxyFrame,
     129: ZWaveProxyRequest,
     130: HomeassistantActionResponse,
+    131: ExecuteServiceResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
