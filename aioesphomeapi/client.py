@@ -1319,13 +1319,12 @@ class APIClient(APIClientBase):
         service: UserService,
         data: ExecuteServiceDataType,
         *,
-        on_response: Callable[[ExecuteServiceResponseModel], None] | None = None,
-        return_response: bool = False,
+        return_response: bool | None = None,
         timeout: float = DEFAULT_EXECUTE_SERVICE_TIMEOUT,
-    ) -> None:
+    ) -> ExecuteServiceResponseModel | None:
         connection = self._get_connection()
         # Generate call_id when response callback is provided
-        call_id = next(self._call_id_counter) if on_response is not None else 0
+        call_id = next(self._call_id_counter) if return_response is not None else 0
         req = ExecuteServiceRequest(
             key=service.key,
             call_id=call_id,
@@ -1355,7 +1354,7 @@ class APIClient(APIClientBase):
         req.args.extend(args)
 
         # Register callback for response if provided
-        if on_response is not None:
+        if return_response is not None:
             response_event = asyncio.Event()
             response_msg: ExecuteServiceResponseModel | None = None
 
@@ -1373,12 +1372,13 @@ class APIClient(APIClientBase):
             try:
                 connection.send_message(req)
                 await asyncio.wait_for(response_event.wait(), timeout=timeout)
-                if response_msg is not None:
-                    on_response(response_msg)
+                return response_msg
             finally:
                 unsub()
         else:
             connection.send_message(req)
+
+        return None
 
     def _request_image(self, *, single: bool = False, stream: bool = False) -> None:
         self._get_connection().send_message(
