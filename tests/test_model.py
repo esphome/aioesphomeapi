@@ -21,6 +21,7 @@ from aioesphomeapi.api_pb2 import (
     DeviceInfo as SubDeviceInfoProto,
     DeviceInfoResponse,
     EventResponse,
+    ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanStateResponse,
     HomeassistantActionRequest,
     HomeassistantServiceMap,
@@ -56,6 +57,7 @@ from aioesphomeapi.api_pb2 import (
     SensorStateResponse,
     ServiceArgType,
     SirenStateResponse,
+    SupportsResponseType as SupportsResponseTypePb,
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
@@ -98,6 +100,7 @@ from aioesphomeapi.model import (
     EntityState,
     Event,
     EventInfo,
+    ExecuteServiceResponse,
     FanInfo,
     FanState,
     HomeassistantServiceCall,
@@ -120,6 +123,7 @@ from aioesphomeapi.model import (
     SirenInfo,
     SirenState,
     SubDeviceInfo,
+    SupportsResponseType,
     SwitchInfo,
     SwitchState,
     TextInfo,
@@ -316,6 +320,7 @@ def test_api_version_ord():
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
         (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
+        (ExecuteServiceResponse, ExecuteServiceResponsePb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -1769,3 +1774,137 @@ def test_event_entity_state_device_id():
     assert event_from_dict.key == 102
     assert event_from_dict.event_type == "door_opened"
     assert event_from_dict.device_id == 99
+
+
+@pytest.mark.parametrize(
+    "input, output",
+    [
+        (0, SupportsResponseType.NONE),
+        (1, SupportsResponseType.OPTIONAL),
+        (2, SupportsResponseType.ONLY),
+        (100, SupportsResponseType.STATUS),
+        (999, None),  # Unknown value
+    ],
+)
+def test_supports_response_type_convert(input, output):
+    assert SupportsResponseType.convert(input) == output
+
+
+def test_supports_response_type_values():
+    """Test that SupportsResponseType enum has expected values."""
+    assert SupportsResponseType.NONE == 0
+    assert SupportsResponseType.OPTIONAL == 1
+    assert SupportsResponseType.ONLY == 2
+    assert SupportsResponseType.STATUS == 100
+
+
+def test_user_service_with_supports_response():
+    """Test UserService model with supports_response field."""
+    # Test from protobuf with supports_response
+    pb = ListEntitiesServicesResponse(
+        name="test_service",
+        key=123,
+        supports_response=SupportsResponseTypePb.SUPPORTS_RESPONSE_OPTIONAL,
+    )
+    service = UserService.from_pb(pb)
+    assert service.name == "test_service"
+    assert service.key == 123
+    assert service.supports_response == SupportsResponseType.OPTIONAL
+    assert service.args == []
+
+    # Test with STATUS response type
+    pb_status = ListEntitiesServicesResponse(
+        name="status_service",
+        key=456,
+        supports_response=SupportsResponseTypePb.SUPPORTS_RESPONSE_STATUS,
+    )
+    service_status = UserService.from_pb(pb_status)
+    assert service_status.supports_response == SupportsResponseType.STATUS
+
+    # Test default value (NONE)
+    pb_default = ListEntitiesServicesResponse(name="default_service", key=789)
+    service_default = UserService.from_pb(pb_default)
+    assert service_default.supports_response == SupportsResponseType.NONE
+
+    # Test from_dict
+    service_dict = UserService.from_dict(
+        {
+            "name": "dict_service",
+            "key": 111,
+            "supports_response": 2,  # ONLY
+        }
+    )
+    assert service_dict.supports_response == SupportsResponseType.ONLY
+
+    # Test to_dict
+    service_to_dict = UserService(
+        name="to_dict_service",
+        key=222,
+        supports_response=SupportsResponseType.OPTIONAL,
+    )
+    result = service_to_dict.to_dict()
+    assert result["supports_response"] == 1
+
+
+def test_execute_service_response():
+    """Test ExecuteServiceResponse model."""
+    # Test from protobuf with all fields
+    pb = ExecuteServiceResponsePb(
+        call_id=12345,
+        success=True,
+        error_message="",
+        response_data=b'{"result": "ok"}',
+    )
+    response = ExecuteServiceResponse.from_pb(pb)
+    assert response.call_id == 12345
+    assert response.success is True
+    assert response.error_message == ""
+    assert response.response_data == b'{"result": "ok"}'
+
+    # Test error response
+    pb_error = ExecuteServiceResponsePb(
+        call_id=67890,
+        success=False,
+        error_message="Service execution failed",
+        response_data=b"",
+    )
+    response_error = ExecuteServiceResponse.from_pb(pb_error)
+    assert response_error.call_id == 67890
+    assert response_error.success is False
+    assert response_error.error_message == "Service execution failed"
+    assert response_error.response_data == b""
+
+    # Test default values
+    pb_default = ExecuteServiceResponsePb()
+    response_default = ExecuteServiceResponse.from_pb(pb_default)
+    assert response_default.call_id == 0
+    assert response_default.success is False
+    assert response_default.error_message == ""
+    assert response_default.response_data == b""
+
+    # Test from_dict
+    response_dict = ExecuteServiceResponse.from_dict(
+        {
+            "call_id": 99999,
+            "success": True,
+            "error_message": "test",
+            "response_data": b"data",
+        }
+    )
+    assert response_dict.call_id == 99999
+    assert response_dict.success is True
+    assert response_dict.error_message == "test"
+    assert response_dict.response_data == b"data"
+
+    # Test to_dict
+    response_to_dict = ExecuteServiceResponse(
+        call_id=11111,
+        success=True,
+        error_message="",
+        response_data=b"test_data",
+    )
+    result = response_to_dict.to_dict()
+    assert result["call_id"] == 11111
+    assert result["success"] is True
+    assert result["error_message"] == ""
+    assert result["response_data"] == b"test_data"

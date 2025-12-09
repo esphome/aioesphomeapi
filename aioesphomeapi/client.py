@@ -45,6 +45,7 @@ from .api_pb2 import (  # type: ignore
     DeviceInfoResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
+    ExecuteServiceResponse,
     FanCommandRequest,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
@@ -134,6 +135,7 @@ from .model import (
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
+    ExecuteServiceResponse as ExecuteServiceResponseModel,
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
@@ -167,6 +169,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
+DEFAULT_EXECUTE_SERVICE_TIMEOUT = 30.0
 
 SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
 
@@ -1311,11 +1314,22 @@ class APIClient(APIClientBase):
             UpdateCommandRequest(key=key, command=command, device_id=device_id)
         )
 
-    def execute_service(
-        self, service: UserService, data: ExecuteServiceDataType
-    ) -> None:
+    async def execute_service(
+        self,
+        service: UserService,
+        data: ExecuteServiceDataType,
+        *,
+        return_response: bool | None = None,
+        timeout: float = DEFAULT_EXECUTE_SERVICE_TIMEOUT,
+    ) -> ExecuteServiceResponseModel | None:
         connection = self._get_connection()
-        req = ExecuteServiceRequest(key=service.key)
+        # Generate call_id when response callback is provided
+        call_id = next(self._call_id_counter) if return_response is not None else 0
+        req = ExecuteServiceRequest(
+            key=service.key,
+            call_id=call_id,
+            return_response=return_response,
+        )
         args = []
         apiv = self.api_version
         if TYPE_CHECKING:
@@ -1339,7 +1353,32 @@ class APIClient(APIClientBase):
         # pylint: disable=no-member
         req.args.extend(args)
 
-        connection.send_message(req)
+        # Register callback for response if provided
+        if return_response is not None:
+            response_event = asyncio.Event()
+            response_msg: ExecuteServiceResponseModel | None = None
+
+            def _on_response(msg: ExecuteServiceResponse) -> None:
+                nonlocal response_msg
+                if msg.call_id == call_id:
+                    response_msg = ExecuteServiceResponseModel.from_pb(msg)
+                    response_event.set()
+
+            unsub = connection.add_message_callback(
+                _on_response,
+                (ExecuteServiceResponse,),
+            )
+
+            try:
+                connection.send_message(req)
+                await asyncio.wait_for(response_event.wait(), timeout=timeout)
+                return response_msg
+            finally:
+                unsub()
+        else:
+            connection.send_message(req)
+
+        return None
 
     def _request_image(self, *, single: bool = False, stream: bool = False) -> None:
         self._get_connection().send_message(

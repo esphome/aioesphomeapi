@@ -52,6 +52,7 @@ from aioesphomeapi.api_pb2 import (
     DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
+    ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanCommandRequest,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
@@ -961,9 +962,9 @@ async def test_execute_service(auth_client: APIClient) -> None:
     )
 
     with pytest.raises(KeyError):
-        auth_client.execute_service(service, data={})
+        await auth_client.execute_service(service, data={})
 
-    auth_client.execute_service(
+    await auth_client.execute_service(
         service,
         data={
             "arg1": False,
@@ -1004,7 +1005,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
     )
 
     # Test legacy_int
-    auth_client.execute_service(
+    await auth_client.execute_service(
         service,
         data={
             "arg1": False,
@@ -1023,7 +1024,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
     send.reset_mock()
 
     # Test arg order
-    auth_client.execute_service(
+    await auth_client.execute_service(
         service,
         data={
             "arg2": 42,
@@ -1039,6 +1040,91 @@ async def test_execute_service(auth_client: APIClient) -> None:
             ],
         )
     )
+    send.reset_mock()
+
+
+async def test_execute_service_with_call_id(auth_client: APIClient) -> None:
+    """Test that call_id is auto-generated when return_response is set."""
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 3))
+
+    service = UserService(
+        name="my_service",
+        key=1,
+        args=[
+            UserServiceArg(name="arg1", type=UserServiceArgType.BOOL),
+        ],
+    )
+
+    # Test without return_response - call_id should be 0
+    await auth_client.execute_service(
+        service,
+        data={"arg1": True},
+    )
+    req = send.call_args[0][0]
+    assert req.call_id == 0
+    send.reset_mock()
+
+    # Test with return_response=True - call_id should be auto-generated (non-zero)
+    # Use short timeout since no response will come, we just want to verify the request
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service,
+            data={"arg1": False},
+            return_response=True,
+            timeout=0.01,
+        )
+    req = send.call_args[0][0]
+    assert req.call_id != 0  # Auto-generated
+    first_call_id = req.call_id
+    send.reset_mock()
+
+    # Test that call_id increments
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service,
+            data={"arg1": True},
+            return_response=True,
+            timeout=0.01,
+        )
+    req = send.call_args[0][0]
+    assert req.call_id == first_call_id + 1
+
+
+async def test_execute_service_return_response_combinations(
+    auth_client: APIClient,
+) -> None:
+    """Test return_response behavior and call_id generation."""
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 3))
+
+    service = UserService(
+        name="test_service",
+        key=1,
+        args=[],
+    )
+
+    # Case 1: return_response=None (default) -> call_id=0, no waiting
+    await auth_client.execute_service(service, data={})
+    assert send.call_args[0][0].call_id == 0
+    send.reset_mock()
+
+    # Case 2: return_response=True -> generates call_id, waits for response
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service, data={}, return_response=True, timeout=0.01
+        )
+    assert send.call_args[0][0].return_response is True
+    assert send.call_args[0][0].call_id != 0
+    send.reset_mock()
+
+    # Case 3: return_response=False -> generates call_id, waits for response
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service, data={}, return_response=False, timeout=0.01
+        )
+    assert send.call_args[0][0].return_response is False
+    assert send.call_args[0][0].call_id != 0
     send.reset_mock()
 
 
@@ -2150,6 +2236,105 @@ async def test_subscribe_zwave_proxy_request(
     assert first_msg.data == b"\x00\x01\x02\x03"
 
 
+async def test_execute_service_with_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test execute_service with return_response returns response directly."""
+    client, connection, _transport, protocol = api_client
+    patch_api_version(client, APIVersion(1, 3))
+    sent_requests: list[ExecuteServiceRequest] = []
+
+    # Capture sent requests to get auto-generated call_id
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, ExecuteServiceRequest):
+            sent_requests.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    service = UserService(
+        name="my_service",
+        key=1,
+        args=[
+            UserServiceArg(name="arg1", type=UserServiceArgType.BOOL),
+        ],
+    )
+
+    # Execute service with return_response - start as task so we can simulate response
+    task = asyncio.create_task(
+        client.execute_service(
+            service,
+            data={"arg1": True},
+            return_response=True,
+        )
+    )
+    await asyncio.sleep(0)  # Let task start and send request
+
+    # Get the auto-generated call_id
+    assert len(sent_requests) == 1
+    first_call_id = sent_requests[0].call_id
+    assert first_call_id != 0  # Should be auto-generated
+
+    # Simulate response from device
+    response: message.Message = ExecuteServiceResponsePb(
+        call_id=first_call_id,
+        success=True,
+        error_message="",
+        response_data=b'{"result": "ok"}',
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    result = await task  # Task should complete now that response was received
+
+    assert result is not None
+    assert result.call_id == first_call_id
+    assert result.success is True
+    assert result.error_message == ""
+    assert result.response_data == b'{"result": "ok"}'
+
+    # Test that responses with different call_id are ignored until correct one arrives
+    sent_requests.clear()
+    task2 = asyncio.create_task(
+        client.execute_service(
+            service,
+            data={"arg1": False},
+            return_response=True,
+        )
+    )
+    await asyncio.sleep(0)
+
+    # Get second auto-generated call_id
+    assert len(sent_requests) == 1
+    second_call_id = sent_requests[0].call_id
+    assert second_call_id == first_call_id + 1  # Should increment
+
+    # Response with wrong call_id should be ignored
+    wrong_response: message.Message = ExecuteServiceResponsePb(
+        call_id=11111,
+        success=False,
+        error_message="Wrong call",
+        response_data=b"",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(wrong_response))
+    await asyncio.sleep(0)
+    assert not task2.done()  # Task still waiting
+
+    # Correct call_id should be received
+    correct_response: message.Message = ExecuteServiceResponsePb(
+        call_id=second_call_id,
+        success=True,
+        error_message="",
+        response_data=b"",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(correct_response))
+    result2 = await task2  # Task should complete now
+    assert result2 is not None
+    assert result2.call_id == second_call_id
+
+
 async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_service_call = MagicMock()
@@ -3161,7 +3346,7 @@ async def test_calls_after_connection_closed(
         args=[],
     )
     with pytest.raises(APIConnectionError):
-        client.execute_service(service, {})
+        await client.execute_service(service, {})
     for method in (
         client.button_command,
         client.climate_command,
