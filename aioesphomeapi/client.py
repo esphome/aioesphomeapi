@@ -50,6 +50,8 @@ from .api_pb2 import (  # type: ignore
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
+    InfraredProxyReceiveEvent,
+    InfraredProxyTransmitRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
@@ -100,6 +102,7 @@ from .client_base import (
     on_bluetooth_message_types,
     on_bluetooth_scanner_state_response,
     on_home_assistant_action_request,
+    on_infrared_proxy_receive_event,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -139,6 +142,8 @@ from .model import (
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
+    InfraredProxyReceiveEvent as InfraredProxyReceiveEventModel,
+    InfraredProxyTimingParams,
     LegacyCoverCommand,
     LockCommand,
     LogLevel,
@@ -425,6 +430,46 @@ class APIClient(APIClientBase):
             ),
             (ZWaveProxyRequest,),
         )
+
+    def subscribe_infrared_proxy_receive(
+        self,
+        on_infrared_proxy_receive: Callable[[InfraredProxyReceiveEventModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to Infrared Proxy Receive Event messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_infrared_proxy_receive_event,
+                on_infrared_proxy_receive,
+            ),
+            (InfraredProxyReceiveEvent,),
+        )
+
+    def infrared_proxy_transmit(
+        self,
+        key: int,
+        timing: InfraredProxyTimingParams,
+        data: bytes,
+    ) -> None:
+        """Send an infrared proxy transmit request."""
+        req = InfraredProxyTransmitRequest()
+        req.key = key
+        req.timing.frequency = timing.frequency
+        req.timing.length_in_bits = timing.length_in_bits
+        req.timing.header_high_us = timing.header_high_us
+        req.timing.header_low_us = timing.header_low_us
+        req.timing.one_high_us = timing.one_high_us
+        req.timing.one_low_us = timing.one_low_us
+        req.timing.zero_high_us = timing.zero_high_us
+        req.timing.zero_low_us = timing.zero_low_us
+        req.timing.footer_high_us = timing.footer_high_us
+        req.timing.footer_low_us = timing.footer_low_us
+        req.timing.repeat_high_us = timing.repeat_high_us
+        req.timing.repeat_low_us = timing.repeat_low_us
+        req.timing.minimum_idle_time_us = timing.minimum_idle_time_us
+        req.timing.msb_first = timing.msb_first
+        req.timing.repeat_count = timing.repeat_count
+        req.data = data
+        self._get_connection().send_message(req)
 
     async def _send_bluetooth_message_await_response(
         self,

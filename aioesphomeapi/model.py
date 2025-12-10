@@ -155,6 +155,41 @@ class ZWaveProxyRequest(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
+class InfraredProxyFeature(enum.IntFlag):
+    ENABLED = 1 << 0
+
+
+class InfraredProxyCapability(enum.IntFlag):
+    TRANSMITTER = 1 << 0
+    RECEIVER = 1 << 1
+    RADIO_FREQ = 1 << 2
+
+
+@_frozen_dataclass_decorator
+class InfraredProxyTimingParams(APIModelBase):
+    frequency: int = 0
+    length_in_bits: int = 0
+    header_high_us: int = 0
+    header_low_us: int = 0
+    one_high_us: int = 0
+    one_low_us: int = 0
+    zero_high_us: int = 0
+    zero_low_us: int = 0
+    footer_high_us: int = 0
+    footer_low_us: int = 0
+    repeat_high_us: int = 0
+    repeat_low_us: int = 0
+    minimum_idle_time_us: int = 0
+    msb_first: bool = False
+    repeat_count: int = 0
+
+
+@_frozen_dataclass_decorator
+class InfraredProxyReceiveEvent(APIModelBase):
+    key: int = 0
+    timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call
+
+
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
@@ -218,6 +253,7 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     zwave_proxy_feature_flags: int = 0
     zwave_home_id: int = 0
+    infrared_proxy_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -259,6 +295,9 @@ class DeviceInfo(APIModelBase):
 
     def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         return self.zwave_proxy_feature_flags
+
+    def infrared_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+        return self.infrared_proxy_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -1135,6 +1174,14 @@ class UpdateState(EntityState):
     release_url: str = ""
 
 
+# ==================== INFRARED PROXY ====================
+
+
+@_frozen_dataclass_decorator
+class InfraredProxyInfo(EntityInfo):
+    capabilities: int = 0
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
@@ -1161,6 +1208,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "valve": ValveInfo,
     "event": EventInfo,
     "update": UpdateInfo,
+    "infrared_proxy": InfraredProxyInfo,
 }
 
 
@@ -1752,6 +1800,7 @@ _TYPE_TO_NAME = {
     ValveInfo: "valve",
     EventInfo: "event",
     UpdateInfo: "update",
+    InfraredProxyInfo: "infrared_proxy",
 }
 
 
