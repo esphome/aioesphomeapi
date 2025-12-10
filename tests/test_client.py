@@ -57,6 +57,8 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
+    InfraredProxyReceiveEvent as InfraredProxyReceiveEventPb,
+    InfraredProxyTransmitRequest as InfraredProxyTransmitRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -126,6 +128,8 @@ from aioesphomeapi.model import (
     FanSpeed,
     HomeassistantActionResponse as HomeassistantActionResponseModel,
     HomeassistantServiceCall,
+    InfraredProxyReceiveEvent,
+    InfraredProxyTimingParams,
     LegacyCoverCommand,
     LightColorCapability,
     LockCommand,
@@ -2234,6 +2238,94 @@ async def test_subscribe_zwave_proxy_request(
     first_msg = test_msg[0]
     assert first_msg.type == 2
     assert first_msg.data == b"\x00\x01\x02\x03"
+
+
+async def test_subscribe_infrared_proxy_receive(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_infrared_proxy_receive."""
+    client, _connection, _transport, protocol = api_client
+    test_msg = []
+
+    def on_infrared_proxy_receive(msg: InfraredProxyReceiveEvent) -> None:
+        test_msg.append(msg)
+
+    client.subscribe_infrared_proxy_receive(on_infrared_proxy_receive)
+    await asyncio.sleep(0)
+    response: message.Message = InfraredProxyReceiveEventPb(
+        key=123, timings=[9000, -4500, 560, -560, 560, -1690]
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert len(test_msg) == 1
+    first_msg = test_msg[0]
+    assert first_msg.key == 123
+    assert first_msg.timings == [9000, -4500, 560, -560, 560, -1690]
+
+
+async def test_infrared_proxy_transmit(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test infrared_proxy_transmit."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[InfraredProxyTransmitRequestPb] = []
+
+    # Capture sent messages
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredProxyTransmitRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    # Create timing params
+    timing = InfraredProxyTimingParams(
+        frequency=38000,
+        length_in_bits=32,
+        header_high_us=9000,
+        header_low_us=4500,
+        one_high_us=560,
+        one_low_us=1690,
+        zero_high_us=560,
+        zero_low_us=560,
+        footer_high_us=560,
+        footer_low_us=0,
+        repeat_high_us=9000,
+        repeat_low_us=2250,
+        minimum_idle_time_us=50000,
+        msb_first=True,
+        repeat_count=3,
+    )
+
+    # Send transmit request
+    client.infrared_proxy_transmit(key=456, timing=timing, data=b"\x01\x02\x03\x04")
+
+    # Verify the message was sent
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.key == 456
+    assert sent_msg.timing.frequency == 38000
+    assert sent_msg.timing.length_in_bits == 32
+    assert sent_msg.timing.header_high_us == 9000
+    assert sent_msg.timing.header_low_us == 4500
+    assert sent_msg.timing.one_high_us == 560
+    assert sent_msg.timing.one_low_us == 1690
+    assert sent_msg.timing.zero_high_us == 560
+    assert sent_msg.timing.zero_low_us == 560
+    assert sent_msg.timing.footer_high_us == 560
+    assert sent_msg.timing.footer_low_us == 0
+    assert sent_msg.timing.repeat_high_us == 9000
+    assert sent_msg.timing.repeat_low_us == 2250
+    assert sent_msg.timing.minimum_idle_time_us == 50000
+    assert sent_msg.timing.msb_first is True
+    assert sent_msg.timing.repeat_count == 3
+    assert sent_msg.data == b"\x01\x02\x03\x04"
 
 
 async def test_execute_service_with_response(

@@ -61,6 +61,8 @@ from .api_pb2 import (  # type: ignore
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
+    InfraredProxyReceiveEvent,
+    InfraredProxyTransmitRequest,
     LightCommandRequest,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
@@ -74,6 +76,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesDoneResponse,
     ListEntitiesEventResponse,
     ListEntitiesFanResponse,
+    ListEntitiesInfraredProxyResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
@@ -493,6 +496,9 @@ MESSAGE_TYPE_TO_PROTO = {
     129: ZWaveProxyRequest,
     130: HomeassistantActionResponse,
     131: ExecuteServiceResponse,
+    132: ListEntitiesInfraredProxyResponse,
+    133: InfraredProxyTransmitRequest,
+    134: InfraredProxyReceiveEvent,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
