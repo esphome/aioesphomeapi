@@ -13,7 +13,7 @@ repos:
     - id: pyupgrade
       args: [--py311-plus]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.8
+    rev: v0.14.9
     hooks:
       - id: ruff
         args: [--fix]
@@ -34,7 +34,7 @@ repos:
     - id: cython-lint
     - id: double-quote-cython-strings
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.0
+    rev: v1.19.1
     hooks:
       - id: mypy
         additional_dependencies: ["aiohappyeyeballs>=2.3.0", "noiseprotocol>=0.3.1,<1.0", "cryptography>=43.0.0", "zeroconf>=0.143.0,<1.0"]
