@@ -23,6 +23,7 @@ jobs:
         python-version:
           - "3.11"
           - "3.14"
+          - "3.14t"
         os:
           - ubuntu-latest
           - windows-latest
@@ -34,6 +35,10 @@ jobs:
           - python-version: "3.14"
             os: windows-latest
           - python-version: "3.14"
+            os: macos-latest
+          - python-version: "3.14t"
+            os: windows-latest
+          - python-version: "3.14t"
             os: macos-latest
           - extension: "use_cython"
             os: windows-latest
