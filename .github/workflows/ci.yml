@@ -23,6 +23,7 @@ jobs:
         python-version:
           - "3.11"
           - "3.14"
+          - "3.14t"
         os:
           - ubuntu-latest
           - windows-latest
@@ -34,6 +35,10 @@ jobs:
           - python-version: "3.14"
             os: windows-latest
           - python-version: "3.14"
+            os: macos-latest
+          - python-version: "3.14t"
+            os: windows-latest
+          - python-version: "3.14t"
             os: macos-latest
           - extension: "use_cython"
             os: windows-latest
@@ -54,7 +59,7 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements/base.txt', 'requirements/test.txt') }}
@@ -113,7 +118,7 @@ jobs:
         run: git diff
         if: ${{ failure() && matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - name: Archive artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: genrated-proto-files
           path: aioesphomeapi/*pb2.py
