@@ -106,7 +106,10 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
             dict(
                 ext_modules=cythonize(
                     EXTENSIONS,
-                    compiler_directives={"language_level": "3"},  # Python 3
+                    compiler_directives={
+                        "language_level": "3",  # Python 3
+                        "freethreading_compatible": True,  # PEP 703
+                    },
                 ),
                 cmdclass=dict(build_ext=OptionalBuildExt),
             )
