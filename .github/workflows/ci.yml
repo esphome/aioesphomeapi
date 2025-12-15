@@ -113,7 +113,7 @@ jobs:
         run: git diff
         if: ${{ failure() && matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - name: Archive artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: genrated-proto-files
           path: aioesphomeapi/*pb2.py
