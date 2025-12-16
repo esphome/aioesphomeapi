@@ -58,7 +58,8 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredProxyReceiveEvent as InfraredProxyReceiveEventPb,
-    InfraredProxyTransmitRequest as InfraredProxyTransmitRequestPb,
+    InfraredProxyTransmitProtocolRequest as InfraredProxyTransmitProtocolRequestPb,
+    InfraredProxyTransmitPulseWidthRequest as InfraredProxyTransmitPulseWidthRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -2494,13 +2495,13 @@ async def test_infrared_proxy_transmit(
 ) -> None:
     """Test infrared_proxy_transmit."""
     client, connection, _transport, _protocol = api_client
-    sent_messages: list[InfraredProxyTransmitRequestPb] = []
+    sent_messages: list[InfraredProxyTransmitPulseWidthRequestPb] = []
 
     # Capture sent messages
     original_send = connection.send_message
 
     def capture_send(msg: Any) -> None:
-        if isinstance(msg, InfraredProxyTransmitRequestPb):
+        if isinstance(msg, InfraredProxyTransmitPulseWidthRequestPb):
             sent_messages.append(msg)
         original_send(msg)
 
@@ -2548,6 +2549,36 @@ async def test_infrared_proxy_transmit(
     assert sent_msg.timing.msb_first is True
     assert sent_msg.timing.repeat_count == 3
     assert sent_msg.data == b"\x01\x02\x03\x04"
+
+
+async def test_infrared_proxy_transmit_protocol(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test infrared_proxy_transmit_protocol."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[InfraredProxyTransmitProtocolRequestPb] = []
+
+    # Capture sent messages
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredProxyTransmitProtocolRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    # Send protocol transmit request
+    protocol_json = '{"protocol": "NEC", "address": 0x04, "command": 0x08}'
+    client.infrared_proxy_transmit_protocol(key=789, protocol_json=protocol_json)
+
+    # Verify the message was sent
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.key == 789
+    assert sent_msg.protocol_json == protocol_json
 
 
 async def test_execute_service_with_response(
