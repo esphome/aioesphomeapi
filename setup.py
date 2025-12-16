@@ -41,7 +41,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "43.0.0"
+VERSION = "43.3.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -106,7 +106,10 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
             dict(
                 ext_modules=cythonize(
                     EXTENSIONS,
-                    compiler_directives={"language_level": "3"},  # Python 3
+                    compiler_directives={
+                        "language_level": "3",  # Python 3
+                        "freethreading_compatible": True,  # PEP 703
+                    },
                 ),
                 cmdclass=dict(build_ext=OptionalBuildExt),
             )
