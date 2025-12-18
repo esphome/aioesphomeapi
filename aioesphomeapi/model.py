@@ -1248,6 +1248,7 @@ class UpdateState(EntityState):
 @_frozen_dataclass_decorator
 class InfraredProxyInfo(EntityInfo):
     capabilities: int = 0
+    frequency: int = 0
 
 
 # ==================== INFO MAP ====================
