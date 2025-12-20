@@ -88,6 +88,7 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterCommandRequest,
     ZWaveProxyRequest,
 )
 from .client_base import (
@@ -156,6 +157,8 @@ from .model import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
+    WaterHeaterCommandField,
+    WaterHeaterStateFlag,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
     message_types_to_names,
 )
@@ -1275,6 +1278,47 @@ class APIClient(APIClientBase):
             req.position = position
         if stop:
             req.stop = stop
+        self._get_connection().send_message(req)
+
+    def water_heater_command(
+        self,
+        key: int,
+        *,
+        mode: int | None = None,
+        target_temperature: float | None = None,
+        target_temperature_low: float | None = None,
+        target_temperature_high: float | None = None,
+        away: bool | None = None,
+        on: bool | None = None,
+        device_id: int = 0,
+    ) -> None:
+        req = WaterHeaterCommandRequest(key=key, device_id=device_id)
+
+        if mode is not None:
+            req.has_fields |= WaterHeaterCommandField.MODE
+            req.mode = mode
+
+        if target_temperature is not None:
+            req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE
+            req.target_temperature = target_temperature
+
+        if away is not None or on is not None:
+            req.has_fields |= WaterHeaterCommandField.STATE
+            state = WaterHeaterStateFlag(0)
+            if away:
+                state |= WaterHeaterStateFlag.AWAY
+            if on:
+                state |= WaterHeaterStateFlag.ON
+            req.state = state
+
+        if target_temperature_low is not None:
+            req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE_LOW
+            req.target_temperature_low = target_temperature_low
+
+        if target_temperature_high is not None:
+            req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH
+            req.target_temperature_high = target_temperature_high
+
         self._get_connection().send_message(req)
 
     def media_player_command(
