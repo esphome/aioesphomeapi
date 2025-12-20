@@ -1097,6 +1097,23 @@ class WaterHeaterMode(APIIntEnum):
     GAS = 6
 
 
+class WaterHeaterCommandField(enum.IntFlag):
+    """Bitmask for has_fields in WaterHeaterCommandRequest."""
+
+    MODE = 1 << 0
+    TARGET_TEMPERATURE = 1 << 1
+    STATE = 1 << 2
+    TARGET_TEMPERATURE_LOW = 1 << 3
+    TARGET_TEMPERATURE_HIGH = 1 << 4
+
+
+class WaterHeaterStateFlag(enum.IntFlag):
+    """Bitmask for state field in WaterHeaterStateResponse/CommandRequest."""
+
+    AWAY = 1 << 0
+    ON = 1 << 1
+
+
 @_frozen_dataclass_decorator
 class WaterHeaterInfo(EntityInfo):
     min_temperature: float = converter_field(
