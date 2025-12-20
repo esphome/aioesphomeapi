@@ -617,20 +617,63 @@ async def test_switch_command(
     "cmd, req",
     [
         (
-            dict(key=1, mode=WaterHeaterMode.ECO),
-            dict(
-                key=1,
-                has_fields=1,  # WATER_HEATER_COMMAND_HAS_MODE
-                mode=WaterHeaterMode.ECO,
-            ),
+            {"key": 1, "mode": WaterHeaterMode.ECO},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": 1,  # MODE
+                "mode": WaterHeaterMode.ECO,
+            },
         ),
         (
-            dict(key=1, target_temperature=55.0),
-            dict(
-                key=1,
-                has_fields=2,  # WATER_HEATER_COMMAND_HAS_TARGET_TEMPERATURE
-                target_temperature=55.0,
-            ),
+            {"key": 1, "target_temperature": 55.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": 2,
+                "target_temperature": 55.0,
+            },
+        ),
+        (
+            {"key": 1, "state": 1},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": 4,
+                "state": 1,
+            },
+        ),
+        (
+            {"key": 1, "target_temperature_low": 40.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": 8,
+                "target_temperature_low": 40.0,
+            },
+        ),
+        (
+            {"key": 1, "target_temperature_high": 60.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": 16,
+                "target_temperature_high": 60.0,
+            },
+        ),
+        (
+            {
+                "key": 1,
+                "target_temperature_low": 40.0,
+                "target_temperature_high": 60.0,
+            },
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": 8 | 16,
+                "target_temperature_low": 40.0,
+                "target_temperature_high": 60.0,
+            },
         ),
     ],
 )
@@ -638,11 +681,8 @@ async def test_water_heater_command(
     auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
 ) -> None:
     send = patch_send(auth_client)
-    patch_api_version(auth_client, APIVersion(1, 5))
 
     auth_client.water_heater_command(**cmd)
-
-    req.setdefault("device_id", 0)
 
     send.assert_called_once_with(WaterHeaterCommandRequest(**req))
 
