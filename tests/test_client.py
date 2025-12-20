@@ -94,6 +94,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
+    WaterHeaterCommandRequest,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
@@ -141,6 +142,7 @@ from aioesphomeapi.model import (
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    WaterHeaterMode,
     ZWaveProxyRequest,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
@@ -609,6 +611,40 @@ async def test_switch_command(
 
     auth_client.switch_command(**cmd)
     send.assert_called_once_with(SwitchCommandRequest(**req))
+
+
+@pytest.mark.parametrize(
+    "cmd, req",
+    [
+        (
+            dict(key=1, mode=WaterHeaterMode.ECO),
+            dict(
+                key=1,
+                has_fields=1,  # WATER_HEATER_COMMAND_HAS_MODE
+                mode=WaterHeaterMode.ECO,
+            ),
+        ),
+        (
+            dict(key=1, target_temperature=55.0),
+            dict(
+                key=1,
+                has_fields=2,  # WATER_HEATER_COMMAND_HAS_TARGET_TEMPERATURE
+                target_temperature=55.0,
+            ),
+        ),
+    ],
+)
+async def test_water_heater_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 5))
+
+    auth_client.water_heater_command(**cmd)
+
+    req.setdefault("device_id", 0)
+
+    send.assert_called_once_with(WaterHeaterCommandRequest(**req))
 
 
 @pytest.mark.parametrize(
@@ -3356,6 +3392,7 @@ async def test_calls_after_connection_closed(
         client.valve_command,
         client.media_player_command,
         client.siren_command,
+        client.water_heater_command,
     ):
         with pytest.raises(APIConnectionError):
             await method(1)
@@ -3643,6 +3680,27 @@ async def test_bluetooth_scanner_set_mode(
             {"key": 18, "command": AlarmControlPanelCommand.DISARM, "device_id": 90},
             AlarmControlPanelCommandRequest(
                 key=18, command=AlarmControlPanelCommand.DISARM, device_id=90
+            ),
+        ),
+        # Water Heater command
+        (
+            "water_heater_command",
+            {"key": 19, "mode": WaterHeaterMode.ECO},
+            WaterHeaterCommandRequest(
+                key=19,
+                device_id=0,
+                has_fields=1,
+                mode=WaterHeaterMode.ECO,
+            ),
+        ),
+        (
+            "water_heater_command",
+            {"key": 19, "mode": WaterHeaterMode.ECO, "device_id": 95},
+            WaterHeaterCommandRequest(
+                key=19,
+                device_id=95,
+                has_fields=1,
+                mode=WaterHeaterMode.ECO,
             ),
         ),
     ],
