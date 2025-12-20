@@ -146,7 +146,6 @@ from aioesphomeapi.model import (
     VoiceAssistantWakeWord,
     WaterHeaterInfo,
     WaterHeaterState,
-    WaterHeaterMode,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
