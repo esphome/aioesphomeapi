@@ -142,7 +142,9 @@ from aioesphomeapi.model import (
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    WaterHeaterCommandField,
     WaterHeaterMode,
+    WaterHeaterStateFlag,
     ZWaveProxyRequest,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
@@ -621,7 +623,7 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": 1,  # MODE
+                "has_fields": WaterHeaterCommandField.MODE,
                 "mode": WaterHeaterMode.ECO,
             },
         ),
@@ -630,17 +632,44 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": 2,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE,
                 "target_temperature": 55.0,
             },
         ),
         (
-            {"key": 1, "state": 1},
+            {"key": 1, "away": True},
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": 4,
-                "state": 1,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.AWAY,
+            },
+        ),
+        (
+            {"key": 1, "on": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.ON,
+            },
+        ),
+        (
+            {"key": 1, "away": True, "on": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.AWAY | WaterHeaterStateFlag.ON,
+            },
+        ),
+        (
+            {"key": 1, "away": False, "on": False},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag(0),
             },
         ),
         (
@@ -648,7 +677,7 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": 8,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_LOW,
                 "target_temperature_low": 40.0,
             },
         ),
@@ -657,7 +686,7 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": 16,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH,
                 "target_temperature_high": 60.0,
             },
         ),
@@ -670,7 +699,8 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": 8 | 16,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_LOW
+                | WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH,
                 "target_temperature_low": 40.0,
                 "target_temperature_high": 60.0,
             },
