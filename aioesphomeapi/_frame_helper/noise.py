@@ -276,12 +276,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._proto.read_message(msg[1:])
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
-        self._decrypt_cipher = DecryptCipher(
-            noise_protocol.cipher_state_decrypt
-        )  # pylint: disable=no-member
-        self._encrypt_cipher = EncryptCipher(
-            noise_protocol.cipher_state_encrypt
-        )  # pylint: disable=no-member
+        self._decrypt_cipher = DecryptCipher(noise_protocol.cipher_state_decrypt)  # pylint: disable=no-member
+        self._encrypt_cipher = EncryptCipher(noise_protocol.cipher_state_encrypt)  # pylint: disable=no-member
         self.ready_future.set_result(None)
 
     def write_packets(
