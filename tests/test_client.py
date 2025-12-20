@@ -616,7 +616,7 @@ async def test_switch_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             {"key": 1, "mode": WaterHeaterMode.ECO},
@@ -3759,7 +3759,7 @@ async def test_bluetooth_scanner_set_mode(
             WaterHeaterCommandRequest(
                 key=19,
                 device_id=0,
-                has_fields=1,
+                has_fields=WaterHeaterCommandField.MODE,
                 mode=WaterHeaterMode.ECO,
             ),
         ),
@@ -3769,7 +3769,7 @@ async def test_bluetooth_scanner_set_mode(
             WaterHeaterCommandRequest(
                 key=19,
                 device_id=95,
-                has_fields=1,
+                has_fields=WaterHeaterCommandField.MODE,
                 mode=WaterHeaterMode.ECO,
             ),
         ),
