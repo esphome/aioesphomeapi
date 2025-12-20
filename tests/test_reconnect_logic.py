@@ -1122,9 +1122,9 @@ async def test_resolved_log_level_changes_after_first_attempt(
 
     # Check that the resolved message was logged at INFO level on first attempt
     log_record = find_log_with_message(caplog, "Successfully resolved")
-    assert (
-        log_record is not None
-    ), "Expected INFO log message not found on first attempt"
+    assert log_record is not None, (
+        "Expected INFO log message not found on first attempt"
+    )
     assert log_record.levelno == logging.INFO
 
     caplog.clear()
@@ -1145,9 +1145,9 @@ async def test_resolved_log_level_changes_after_first_attempt(
 
     # Check that the resolved message was logged at DEBUG level on second attempt
     log_record = find_log_with_message(caplog, "Successfully resolved")
-    assert (
-        log_record is not None
-    ), "Expected DEBUG log message not found on subsequent attempt"
+    assert log_record is not None, (
+        "Expected DEBUG log message not found on subsequent attempt"
+    )
     assert log_record.levelno == logging.DEBUG
 
     await logic.stop()
