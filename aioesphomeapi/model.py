@@ -1086,6 +1086,57 @@ class AlarmControlPanelEntityState(EntityState):
     )
 
 
+# ==================== WATER HEATER ====================
+class WaterHeaterMode(APIIntEnum):
+    OFF = 0
+    ECO = 1
+    ELECTRIC = 2
+    PERFORMANCE = 3
+    HIGH_DEMAND = 4
+    HEAT_PUMP = 5
+    GAS = 6
+
+
+@_frozen_dataclass_decorator
+class WaterHeaterInfo(EntityInfo):
+    min_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    max_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    supported_modes: list[WaterHeaterMode] = converter_field(
+        default_factory=list, converter=WaterHeaterMode.convert_list
+    )
+    supported_features: int = 0
+
+
+@_frozen_dataclass_decorator
+class WaterHeaterState(EntityState):
+    current_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    target_temperature_low: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_high: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    mode: WaterHeaterMode | None = converter_field(
+        default=WaterHeaterMode.OFF, converter=WaterHeaterMode.convert
+    )
+    state: int = 0
+
+
 # ==================== TEXT ====================
 class TextMode(APIIntEnum):
     TEXT = 0
@@ -1752,6 +1803,7 @@ _TYPE_TO_NAME = {
     ValveInfo: "valve",
     EventInfo: "event",
     UpdateInfo: "update",
+    WaterHeaterInfo: "water_heater",
 }
 
 

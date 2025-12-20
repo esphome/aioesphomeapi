@@ -89,6 +89,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesTimeResponse,
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
+    ListEntitiesWaterHeaterResponse,
     LockCommandRequest,
     LockStateResponse,
     MediaPlayerCommandRequest,
@@ -135,6 +136,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterRequest,
+    WaterHeaterResponse,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
 )

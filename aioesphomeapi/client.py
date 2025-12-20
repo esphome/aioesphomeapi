@@ -54,6 +54,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
     ListEntitiesServicesResponse,
+    ListEntitiesWaterHeaterResponse,
     LockCommandRequest,
     MediaPlayerCommandRequest,
     NoiseEncryptionSetKeyRequest,
@@ -88,6 +89,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterStateResponse,
+    WaterHeaterCommandRequest,
     ZWaveProxyRequest,
 )
 from .client_base import (
@@ -1275,6 +1278,41 @@ class APIClient(APIClientBase):
             req.position = position
         if stop:
             req.stop = stop
+        self._get_connection().send_message(req)
+
+    def water_heater_command(
+        self,
+        key: int,
+        *,
+        mode: int | None = None,
+        target_temperature: float | None = None,
+        target_temperature_low: float | None = None,
+        target_temperature_high: float | None = None,
+        state: int | None = None,
+        device_id: int = 0,
+    ) -> None:
+        req = WaterHeaterCommandRequest(key=key, device_id=device_id)
+
+        if mode is not None:
+            req.has_fields |= 1
+            req.mode = mode
+
+        if target_temperature is not None:
+            req.has_fields |= 2
+            req.target_temperature = target_temperature
+
+        if state is not None:
+            req.has_fields |= 4
+            req.state = state
+
+        if target_temperature_low is not None:
+            req.has_fields |= 8
+            req.target_temperature_low = target_temperature_low
+
+        if target_temperature_high is not None:
+            req.has_fields |= 16
+            req.target_temperature_high = target_temperature_high
+
         self._get_connection().send_message(req)
 
     def media_player_command(
