@@ -166,6 +166,7 @@ from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
 )
+from .object_id import fill_missing_object_ids
 from .util import create_eager_task
 
 _LOGGER = logging.getLogger(__name__)
@@ -230,6 +231,7 @@ class APIClient(APIClientBase):
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
         self._connection = None
+        self._cached_device_info = None
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
@@ -294,6 +296,7 @@ class APIClient(APIClientBase):
         )
         info = DeviceInfo.from_pb(resp)
         self._set_name_from_device(info.name)
+        self._cached_device_info = info
         return info
 
     async def list_entities_services(
@@ -316,6 +319,9 @@ class APIClient(APIClientBase):
                 continue
             if cls := response_types[msg_type]:
                 entities.append(cls.from_pb(msg))
+        # Fill in missing object_id values if we have cached device_info
+        if self._cached_device_info is not None:
+            entities = fill_missing_object_ids(entities, self._cached_device_info)
         return entities, services
 
     async def device_info_and_list_entities(
@@ -370,6 +376,10 @@ class APIClient(APIClientBase):
                 entities.append(cls.from_pb(msg))
 
         assert device_info is not None
+        self._cached_device_info = device_info
+        # Fill in missing object_id values for entities that don't have them
+        # (ESPHome may stop sending object_id to reduce protocol overhead)
+        entities = fill_missing_object_ids(entities, device_info)
         return device_info, entities, services
 
     def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
