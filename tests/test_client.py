@@ -174,6 +174,15 @@ def patch_response_complex(client: APIClient, messages):
     client._connection.send_messages_await_response_complex = patched
 
 
+def patch_response_simple(client: APIClient, response):
+    """Patch send_message_await_response to return a single response."""
+
+    async def patched(req, response_type):
+        return response
+
+    client._connection.send_message_await_response = patched
+
+
 def patch_response_callback(client: APIClient):
     on_message = None
 
@@ -360,6 +369,35 @@ async def test_list_entities(
     patch_response_complex(auth_client, input)
     resp = await auth_client.list_entities_services()
     assert resp == output
+
+
+async def test_list_entities_with_cached_device_info(auth_client: APIClient) -> None:
+    """Test list_entities_services fills object_id when device_info was called first."""
+    # First call device_info() to populate the cache
+    patch_response_simple(
+        auth_client,
+        DeviceInfoResponse(name="my-device", mac_address="AA:BB:CC:DD:EE:FF"),
+    )
+    device_info = await auth_client.device_info()
+    assert device_info.name == "my-device"
+
+    # Now call list_entities_services - it should use cached device_info
+    # to fill in missing object_id values
+    patch_response_complex(
+        auth_client,
+        [
+            ListEntitiesBinarySensorResponse(name="My Sensor"),
+            ListEntitiesSensorResponse(name=""),  # Empty name, should use device name
+            ListEntitiesDoneResponse(),
+        ],
+    )
+    entities, _services = await auth_client.list_entities_services()
+
+    assert len(entities) == 2
+    # Named entity gets object_id from its name
+    assert entities[0].object_id == "my_sensor"
+    # Empty-name entity gets object_id from device name
+    assert entities[1].object_id == "my-device"
 
 
 @pytest.mark.parametrize(
