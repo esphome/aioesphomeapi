@@ -110,11 +110,11 @@ def fill_missing_object_ids(
     using the same algorithm as ESPHome.
 
     Args:
-        entities: List of entities (may be modified in place)
+        entities: List of entities to process
         device_info: Device info from the API
 
     Returns:
-        The same list of entities with object_id filled in where missing
+        A new list of entities with object_id filled in where missing
     """
     # Build device_id -> name lookup from sub-devices
     device_id_to_name = {d.device_id: d.name for d in device_info.devices}

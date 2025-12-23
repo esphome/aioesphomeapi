@@ -231,6 +231,7 @@ class APIClient(APIClientBase):
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
         self._connection = None
+        self._cached_device_info = None
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
