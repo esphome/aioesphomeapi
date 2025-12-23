@@ -487,8 +487,17 @@ def test_user_service_conversion():
     ],
 )
 def test_build_unique_id(model):
-    obj = model(object_id="id")
+    obj = model(object_id="id", name="My Sensor")
+    # Version 1 (default): uses object_id
     assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+    assert (
+        build_unique_id("mac", obj, version=1) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+    )
+    # Version 2: uses name directly (preserves spaces, Unicode, etc.)
+    assert (
+        build_unique_id("mac", obj, version=2)
+        == f"mac-{_TYPE_TO_NAME[type(obj)]}-My Sensor"
+    )
 
 
 @pytest.mark.parametrize(

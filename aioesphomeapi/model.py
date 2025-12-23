@@ -1824,17 +1824,61 @@ _TYPE_TO_NAME = {
 }
 
 
-def build_unique_id(formatted_mac: str, entity_info: EntityInfo) -> str:
+def build_unique_id(
+    formatted_mac: str, entity_info: EntityInfo, *, version: int = 1
+) -> str:
     """Build a unique id for an entity.
 
-    This is the new format for unique ids which replaces the old format
-    that is included in the EntityInfo object. This new format is used
-    because the old format used the name in the unique id which is not
-    guaranteed to be unique. This new format is guaranteed to be unique
-    and is also more human readable.
+    Version history and rationale:
+    -----------------------------
+
+    **Version 1 (default, legacy):** Uses `object_id` which is the entity name
+    after applying `snake_case()` + `sanitize()` transformations.
+
+        Format: `{mac}-{entity_type}-{object_id}`
+        Example: `aabbccddeeff-sensor-temperature_sensor`
+
+    This was introduced as a compromise to satisfy Home Assistant's unique ID
+    requirements (https://developers.home-assistant.io/docs/entity_registry_index#unique-id-requirements)
+    which list "Device Name" as an unacceptable source. For ESPHome devices,
+    the entity name IS the unique identifier - users explicitly configure it
+    in their YAML. The `object_id` was a compromise to derive a stable identifier
+    from the name while technically not "using the name directly".
+
+    Unfortunately, this approach had unintended consequences. The `object_id`
+    mangles names by converting to lowercase, replacing spaces with underscores,
+    and replacing non-ASCII characters with underscores. This causes collisions:
+
+    - UTF-8 names get sanitized to underscores, causing collisions
+      (e.g., "温度传感器" and "湿度传感器" both become "___")
+    - Sub-devices with same-named entities collide (e.g., two "Battery" sensors
+      on different sub-devices get the same object_id)
+      See https://github.com/esphome/esphome-webserver/issues/160
+      and https://github.com/esphome/esphome-webserver/issues/153
+
+    The `object_id` concept is planned for removal. See
+    https://github.com/esphome/backlog/issues/76 for the full history.
+
+    **Version 2:** Uses the entity `name` directly without mangling.
+
+        Format: `{mac}-{entity_type}-{name}`
+        Example: `aabbccddeeff-sensor-Temperature Sensor`
+
+    This preserves the full entity name including Unicode characters, spaces,
+    and special characters. Since the name is what the user configured and is
+    unique within the device, this provides true uniqueness without collisions.
+
+    The "Device Name" rule in Home Assistant's requirements exists because
+    device names can change or be duplicated across devices. For ESPHome
+    entity names within a single device (identified by MAC), they ARE stable
+    unique identifiers explicitly chosen by the user in their configuration.
     """
-    # <mac>-<entity type>-<object_id>
-    return f"{formatted_mac}-{_TYPE_TO_NAME[type(entity_info)]}-{entity_info.object_id}"
+    # <mac>-<entity type>-<object_id or name>
+    entity_type = _TYPE_TO_NAME[type(entity_info)]
+    if version == 1:
+        return f"{formatted_mac}-{entity_type}-{entity_info.object_id}"
+    # Version 2: use name directly to avoid mangling/collisions
+    return f"{formatted_mac}-{entity_type}-{entity_info.name}"
 
 
 def message_types_to_names(msg_types: Iterable[type[message.Message]]) -> str:
