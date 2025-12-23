@@ -49,7 +49,11 @@ def compute_object_id(name: str) -> str:
 
 def _infer_name_add_mac_suffix(device_info: DeviceInfo) -> bool:
     """Infer name_add_mac_suffix from device name ending with MAC suffix."""
-    mac_suffix = device_info.mac_address.replace(":", "")[-6:].lower()
+    # Guard against missing or malformed MAC addresses
+    cleaned_mac = device_info.mac_address.replace(":", "")
+    if len(cleaned_mac) < 6:
+        return False
+    mac_suffix = cleaned_mac[-6:].lower()
     return device_info.name.endswith(f"-{mac_suffix}")
 
 

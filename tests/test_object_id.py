@@ -442,3 +442,48 @@ def test_mac_suffix_partial_not_detected() -> None:
 
     # Partial suffix not detected, falls back to device name
     assert result[0].object_id == "device-eeff"
+
+
+def test_mac_suffix_empty_mac_address() -> None:
+    """Test that empty MAC address doesn't cause false positive."""
+    device_info = DeviceInfo(
+        name="device-",  # Ends with hyphen, could false-match empty suffix
+        friendly_name="",
+        mac_address="",  # Empty MAC
+    )
+    entities: list[SensorInfo] = [SensorInfo(name="", object_id="")]
+
+    result = fill_missing_object_ids(entities, device_info)
+
+    # Empty MAC should not match, falls back to device name
+    assert result[0].object_id == "device-"
+
+
+def test_mac_suffix_short_mac_address() -> None:
+    """Test that short MAC address doesn't cause issues."""
+    device_info = DeviceInfo(
+        name="device-abc",  # Ends with hyphen + 3 chars
+        friendly_name="",
+        mac_address="AB:CD",  # Only 4 hex chars
+    )
+    entities: list[SensorInfo] = [SensorInfo(name="", object_id="")]
+
+    result = fill_missing_object_ids(entities, device_info)
+
+    # Short MAC should not match, falls back to device name
+    assert result[0].object_id == "device-abc"
+
+
+def test_mac_suffix_malformed_mac_address() -> None:
+    """Test that malformed MAC address is handled safely."""
+    device_info = DeviceInfo(
+        name="device-12345",
+        friendly_name="",
+        mac_address="not-a-mac",  # Malformed
+    )
+    entities: list[SensorInfo] = [SensorInfo(name="", object_id="")]
+
+    result = fill_missing_object_ids(entities, device_info)
+
+    # Malformed MAC should not cause issues, falls back to device name
+    assert result[0].object_id == "device-12345"
