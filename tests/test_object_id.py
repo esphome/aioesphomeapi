@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from aioesphomeapi.model import (
     BinarySensorInfo,
     DeviceInfo,
@@ -15,6 +17,55 @@ from aioesphomeapi.object_id import (
     sanitize,
     snake_case,
 )
+
+# Verification test: ensure computed object_id matches what ESPHome sends
+# These are real examples of (name, object_id) pairs from ESPHome
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_object_id"),
+    [
+        # Simple names
+        ("temperature", "temperature"),
+        ("Temperature", "temperature"),
+        ("TEMPERATURE", "temperature"),
+        # Names with spaces
+        ("Temperature Sensor", "temperature_sensor"),
+        ("My Friendly Device", "my_friendly_device"),
+        ("Living Room Light", "living_room_light"),
+        # Names with special characters
+        ("Temperature (F)", "temperature__f_"),
+        ("Sensor #1", "sensor__1"),
+        ("CPU Usage %", "cpu_usage__"),
+        ("Power [W]", "power__w_"),
+        # Names with hyphens (preserved)
+        ("test-device", "test-device"),
+        ("my-sensor-name", "my-sensor-name"),
+        # Names with underscores (preserved)
+        ("test_device", "test_device"),
+        ("my_sensor_name", "my_sensor_name"),
+        # Mixed
+        ("Test-Device_Name", "test-device_name"),
+        ("Sensor 1 - Main", "sensor_1_-_main"),
+        # Unicode (becomes underscores)
+        ("Température", "temp_rature"),
+        ("日本語", "___"),
+        # Edge cases
+        ("", ""),
+        ("a", "a"),
+        ("A", "a"),
+        (" ", "_"),
+        ("  ", "__"),
+    ],
+)
+def test_compute_object_id_matches_esphome(name: str, expected_object_id: str) -> None:
+    """Verify computed object_id matches what ESPHome would send.
+
+    This test ensures that when ESPHome stops sending object_id,
+    our client-side computation produces identical results.
+    """
+    assert compute_object_id(name) == expected_object_id
+
 
 # snake_case tests
 
