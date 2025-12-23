@@ -36,6 +36,7 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     CameraState,
+    DeviceInfo,
     EntityState,
     HomeassistantServiceCall,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
@@ -219,6 +220,7 @@ class APIClientBase:
 
     __slots__ = (
         "_background_tasks",
+        "_cached_device_info",
         "_call_id_counter",
         "_connection",
         "_debug_enabled",
@@ -285,6 +287,7 @@ class APIClientBase:
             timezone=_stringify_or_none(timezone) or None,
         )
         self._connection: APIConnection | None = None
+        self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop = asyncio.get_running_loop()

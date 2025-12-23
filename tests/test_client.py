@@ -373,7 +373,8 @@ async def test_list_entities(
             ],
             (
                 DeviceInfo(name="test", mac_address="AA:BB:CC:DD:EE:FF"),
-                [BinarySensorInfo()],
+                # Empty-name entity gets object_id from device name
+                [BinarySensorInfo(object_id="test")],
                 [],
             ),
         ),
@@ -386,7 +387,8 @@ async def test_list_entities(
             ],
             (
                 DeviceInfo(name="test2", mac_address="11:22:33:44:55:66"),
-                [SensorInfo()],
+                # Empty-name entity gets object_id from device name
+                [SensorInfo(object_id="test2")],
                 [UserService()],
             ),
         ),

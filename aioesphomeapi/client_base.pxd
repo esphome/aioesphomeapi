@@ -26,6 +26,7 @@ cdef str _stringify_or_none(object value)
 cdef class APIClientBase:
 
     cdef public set _background_tasks
+    cdef public object _cached_device_info
     cdef public object _call_id_counter
     cdef public APIConnection _connection
     cdef public bint _debug_enabled
