@@ -72,8 +72,12 @@ def _get_name_for_object_id(
         return entity.name
     if entity.device_id != 0:
         return device_id_to_name[entity.device_id]
-    if _infer_name_add_mac_suffix(device_info) or device_info.friendly_name:
+    # If friendly_name is set, always use it
+    if device_info.friendly_name:
         return device_info.friendly_name
+    # Only compute MAC suffix when friendly_name is empty
+    if _infer_name_add_mac_suffix(device_info):
+        return ""  # Bug-for-bug compat: MAC suffix + no friendly_name = empty
     return device_info.name
 
 
