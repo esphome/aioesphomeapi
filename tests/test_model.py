@@ -48,6 +48,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesTimeResponse,
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
+    ListEntitiesWaterHeaterResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
     MediaPlayerSupportedFormat,
@@ -64,6 +65,7 @@ from aioesphomeapi.api_pb2 import (
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    WaterHeaterStateResponse,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
@@ -142,6 +144,8 @@ from aioesphomeapi.model import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    WaterHeaterInfo,
+    WaterHeaterState,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
@@ -321,6 +325,8 @@ def test_api_version_ord():
         (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
+        (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
+        (WaterHeaterState, WaterHeaterStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -477,11 +483,21 @@ def test_user_service_conversion():
         AlarmControlPanelInfo,
         TextInfo,
         TimeInfo,
+        WaterHeaterInfo,
     ],
 )
 def test_build_unique_id(model):
-    obj = model(object_id="id")
+    obj = model(object_id="id", name="My Sensor")
+    # Version 1 (default): uses object_id
     assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+    assert (
+        build_unique_id("mac", obj, version=1) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+    )
+    # Version 2: uses name directly (preserves spaces, Unicode, etc.)
+    assert (
+        build_unique_id("mac", obj, version=2)
+        == f"mac-{_TYPE_TO_NAME[type(obj)]}-My Sensor"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1656,6 +1672,7 @@ STATE_RESPONSE_DEVICE_ID_TEST_DATA = [
     (ValveStateResponse, ValveState, {"position": 0.75}),
     (DateTimeStateResponse, DateTimeState, {"epoch_seconds": 1737000000}),
     (UpdateStateResponse, UpdateState, {"current_version": "1.0.0"}),
+    (WaterHeaterStateResponse, WaterHeaterState, {"current_temperature": 60.0}),
 ]
 
 

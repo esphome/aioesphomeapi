@@ -94,6 +94,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
+    WaterHeaterCommandRequest,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
@@ -141,6 +142,9 @@ from aioesphomeapi.model import (
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    WaterHeaterCommandField,
+    WaterHeaterMode,
+    WaterHeaterStateFlag,
     ZWaveProxyRequest,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
@@ -168,6 +172,15 @@ def patch_response_complex(client: APIClient, messages):
         return resp
 
     client._connection.send_messages_await_response_complex = patched
+
+
+def patch_response_simple(client: APIClient, response):
+    """Patch send_message_await_response to return a single response."""
+
+    async def patched(req, response_type):
+        return response
+
+    client._connection.send_message_await_response = patched
 
 
 def patch_response_callback(client: APIClient):
@@ -358,6 +371,35 @@ async def test_list_entities(
     assert resp == output
 
 
+async def test_list_entities_with_cached_device_info(auth_client: APIClient) -> None:
+    """Test list_entities_services fills object_id when device_info was called first."""
+    # First call device_info() to populate the cache
+    patch_response_simple(
+        auth_client,
+        DeviceInfoResponse(name="my-device", mac_address="AA:BB:CC:DD:EE:FF"),
+    )
+    device_info = await auth_client.device_info()
+    assert device_info.name == "my-device"
+
+    # Now call list_entities_services - it should use cached device_info
+    # to fill in missing object_id values
+    patch_response_complex(
+        auth_client,
+        [
+            ListEntitiesBinarySensorResponse(name="My Sensor"),
+            ListEntitiesSensorResponse(name=""),  # Empty name, should use device name
+            ListEntitiesDoneResponse(),
+        ],
+    )
+    entities, _services = await auth_client.list_entities_services()
+
+    assert len(entities) == 2
+    # Named entity gets object_id from its name
+    assert entities[0].object_id == "my_sensor"
+    # Empty-name entity gets object_id from device name
+    assert entities[1].object_id == "my-device"
+
+
 @pytest.mark.parametrize(
     ("input", "output"),
     [
@@ -369,7 +411,8 @@ async def test_list_entities(
             ],
             (
                 DeviceInfo(name="test", mac_address="AA:BB:CC:DD:EE:FF"),
-                [BinarySensorInfo()],
+                # Empty-name entity gets object_id from device name
+                [BinarySensorInfo(object_id="test")],
                 [],
             ),
         ),
@@ -382,7 +425,8 @@ async def test_list_entities(
             ],
             (
                 DeviceInfo(name="test2", mac_address="11:22:33:44:55:66"),
-                [SensorInfo()],
+                # Empty-name entity gets object_id from device name
+                [SensorInfo(object_id="test2")],
                 [UserService()],
             ),
         ),
@@ -609,6 +653,108 @@ async def test_switch_command(
 
     auth_client.switch_command(**cmd)
     send.assert_called_once_with(SwitchCommandRequest(**req))
+
+
+@pytest.mark.parametrize(
+    ("cmd", "req"),
+    [
+        (
+            {"key": 1, "mode": WaterHeaterMode.ECO},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.MODE,
+                "mode": WaterHeaterMode.ECO,
+            },
+        ),
+        (
+            {"key": 1, "target_temperature": 55.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE,
+                "target_temperature": 55.0,
+            },
+        ),
+        (
+            {"key": 1, "away": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.AWAY,
+            },
+        ),
+        (
+            {"key": 1, "on": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.ON,
+            },
+        ),
+        (
+            {"key": 1, "away": True, "on": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.AWAY | WaterHeaterStateFlag.ON,
+            },
+        ),
+        (
+            {"key": 1, "away": False, "on": False},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag(0),
+            },
+        ),
+        (
+            {"key": 1, "target_temperature_low": 40.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_LOW,
+                "target_temperature_low": 40.0,
+            },
+        ),
+        (
+            {"key": 1, "target_temperature_high": 60.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH,
+                "target_temperature_high": 60.0,
+            },
+        ),
+        (
+            {
+                "key": 1,
+                "target_temperature_low": 40.0,
+                "target_temperature_high": 60.0,
+            },
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_LOW
+                | WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH,
+                "target_temperature_low": 40.0,
+                "target_temperature_high": 60.0,
+            },
+        ),
+    ],
+)
+async def test_water_heater_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.water_heater_command(**cmd)
+
+    send.assert_called_once_with(WaterHeaterCommandRequest(**req))
 
 
 @pytest.mark.parametrize(
@@ -3356,6 +3502,7 @@ async def test_calls_after_connection_closed(
         client.valve_command,
         client.media_player_command,
         client.siren_command,
+        client.water_heater_command,
     ):
         with pytest.raises(APIConnectionError):
             await method(1)
@@ -3643,6 +3790,27 @@ async def test_bluetooth_scanner_set_mode(
             {"key": 18, "command": AlarmControlPanelCommand.DISARM, "device_id": 90},
             AlarmControlPanelCommandRequest(
                 key=18, command=AlarmControlPanelCommand.DISARM, device_id=90
+            ),
+        ),
+        # Water Heater command
+        (
+            "water_heater_command",
+            {"key": 19, "mode": WaterHeaterMode.ECO},
+            WaterHeaterCommandRequest(
+                key=19,
+                device_id=0,
+                has_fields=WaterHeaterCommandField.MODE,
+                mode=WaterHeaterMode.ECO,
+            ),
+        ),
+        (
+            "water_heater_command",
+            {"key": 19, "mode": WaterHeaterMode.ECO, "device_id": 95},
+            WaterHeaterCommandRequest(
+                key=19,
+                device_id=95,
+                has_fields=WaterHeaterCommandField.MODE,
+                mode=WaterHeaterMode.ECO,
             ),
         ),
     ],
