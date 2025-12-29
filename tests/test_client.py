@@ -434,16 +434,19 @@ async def test_list_entities_with_cached_device_info(auth_client: APIClient) -> 
         [
             ListEntitiesBinarySensorResponse(name="My Sensor"),
             ListEntitiesSensorResponse(name=""),  # Empty name, should use device name
+            ListEntitiesServicesResponse(),  # Also test services in cached path
             ListEntitiesDoneResponse(),
         ],
     )
-    entities, _services = await auth_client.list_entities_services()
+    entities, services = await auth_client.list_entities_services()
 
     assert len(entities) == 2
     # Named entity gets object_id from its name
     assert entities[0].object_id == "my_sensor"
     # Empty-name entity gets object_id from device name
     assert entities[1].object_id == "my-device"
+    # Verify services were parsed
+    assert len(services) == 1
 
 
 @pytest.mark.parametrize(
