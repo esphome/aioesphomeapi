@@ -302,6 +302,9 @@ class APIClient(APIClientBase):
     async def list_entities_services(
         self,
     ) -> tuple[list[EntityInfo], list[UserService]]:
+        # Ensure we have device_info for computing missing object_ids
+        if (device_info := self._cached_device_info) is None:
+            device_info = await self.device_info()
         msgs = await self._get_connection().send_messages_await_response_complex(
             (ListEntitiesRequest(),),
             lambda msg: type(msg) is not ListEntitiesDoneResponse,
@@ -319,9 +322,8 @@ class APIClient(APIClientBase):
                 continue
             if cls := response_types[msg_type]:
                 entities.append(cls.from_pb(msg))
-        # Fill in missing object_id values if we have cached device_info
-        if self._cached_device_info is not None:
-            entities = fill_missing_object_ids(entities, self._cached_device_info)
+        # Fill in missing object_id values using cached device_info
+        entities = fill_missing_object_ids(entities, device_info)
         return entities, services
 
     async def device_info_and_list_entities(
