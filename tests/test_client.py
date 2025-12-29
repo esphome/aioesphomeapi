@@ -354,12 +354,22 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
     ("input", "output"),
     [
         (
-            [ListEntitiesBinarySensorResponse(), ListEntitiesDoneResponse()],
+            # When not cached, delegates to device_info_and_list_entities
+            # which expects DeviceInfoResponse + entity responses + ListEntitiesDoneResponse
+            [
+                DeviceInfoResponse(name="test-device", mac_address="AA:BB:CC:DD:EE:FF"),
+                ListEntitiesBinarySensorResponse(),
+                ListEntitiesDoneResponse(),
+            ],
             # Empty-name entity gets object_id from device name
             ([BinarySensorInfo(object_id="test-device")], []),
         ),
         (
-            [ListEntitiesServicesResponse(), ListEntitiesDoneResponse()],
+            [
+                DeviceInfoResponse(name="test-device", mac_address="AA:BB:CC:DD:EE:FF"),
+                ListEntitiesServicesResponse(),
+                ListEntitiesDoneResponse(),
+            ],
             ([], [UserService()]),
         ),
     ],
@@ -367,31 +377,22 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
 async def test_list_entities(
     auth_client: APIClient, input: dict[str, Any], output: dict[str, Any]
 ) -> None:
-    # list_entities_services now automatically fetches device_info if not cached
-    patch_response_simple(
-        auth_client,
-        DeviceInfoResponse(name="test-device", mac_address="AA:BB:CC:DD:EE:FF"),
-    )
+    # list_entities_services delegates to device_info_and_list_entities when not cached
     patch_response_complex(auth_client, input)
     resp = await auth_client.list_entities_services()
     assert resp == output
 
 
 async def test_list_entities_auto_fetches_device_info(auth_client: APIClient) -> None:
-    """Test list_entities_services automatically fetches device_info when not cached."""
+    """Test list_entities_services delegates to device_info_and_list_entities when not cached."""
     # Verify _cached_device_info is initially None
     assert auth_client._cached_device_info is None
 
-    # Patch device_info response (will be called automatically)
-    patch_response_simple(
-        auth_client,
-        DeviceInfoResponse(name="auto-device", mac_address="AA:BB:CC:DD:EE:FF"),
-    )
-
-    # Patch list_entities response
+    # Patch combined response (device_info_and_list_entities sends both in one packet)
     patch_response_complex(
         auth_client,
         [
+            DeviceInfoResponse(name="auto-device", mac_address="AA:BB:CC:DD:EE:FF"),
             ListEntitiesBinarySensorResponse(name="My Sensor"),
             ListEntitiesSensorResponse(name=""),  # Empty name, should use device name
             ListEntitiesDoneResponse(),
@@ -433,16 +434,19 @@ async def test_list_entities_with_cached_device_info(auth_client: APIClient) -> 
         [
             ListEntitiesBinarySensorResponse(name="My Sensor"),
             ListEntitiesSensorResponse(name=""),  # Empty name, should use device name
+            ListEntitiesServicesResponse(),  # Also test services in cached path
             ListEntitiesDoneResponse(),
         ],
     )
-    entities, _services = await auth_client.list_entities_services()
+    entities, services = await auth_client.list_entities_services()
 
     assert len(entities) == 2
     # Named entity gets object_id from its name
     assert entities[0].object_id == "my_sensor"
     # Empty-name entity gets object_id from device name
     assert entities[1].object_id == "my-device"
+    # Verify services were parsed
+    assert len(services) == 1
 
 
 @pytest.mark.parametrize(
