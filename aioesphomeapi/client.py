@@ -302,9 +302,11 @@ class APIClient(APIClientBase):
     async def list_entities_services(
         self,
     ) -> tuple[list[EntityInfo], list[UserService]]:
-        # Ensure we have device_info for computing missing object_ids
+        # If device_info is not cached, use combined call for efficiency
+        # (sends both requests in a single packet)
         if (device_info := self._cached_device_info) is None:
-            device_info = await self.device_info()
+            _, ents, svcs = await self.device_info_and_list_entities()
+            return ents, svcs
         msgs = await self._get_connection().send_messages_await_response_complex(
             (ListEntitiesRequest(),),
             lambda msg: type(msg) is not ListEntitiesDoneResponse,
