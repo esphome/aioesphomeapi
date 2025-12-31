@@ -175,6 +175,21 @@ DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
 DEFAULT_EXECUTE_SERVICE_TIMEOUT = 30.0
 
+# API version 1.14+ may omit object_id to reduce protocol overhead
+MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
+
+
+def _fill_object_ids_if_needed(
+    api_version: APIVersion,
+    entities: list[EntityInfo],
+    device_info: DeviceInfo,
+) -> list[EntityInfo]:
+    """Fill in missing object_id values if API version supports omitting them."""
+    if api_version >= MIN_VERSION_OBJECT_ID_OPTIONAL:
+        return fill_missing_object_ids(entities, device_info)
+    return entities
+
+
 SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
 
 LIST_ENTITIES_MSG_TYPES = (
@@ -302,6 +317,11 @@ class APIClient(APIClientBase):
     async def list_entities_services(
         self,
     ) -> tuple[list[EntityInfo], list[UserService]]:
+        # If device_info is not cached, use combined call for efficiency
+        # (sends both requests in a single packet)
+        if (device_info := self._cached_device_info) is None:
+            _, ents, svcs = await self.device_info_and_list_entities()
+            return ents, svcs
         msgs = await self._get_connection().send_messages_await_response_complex(
             (ListEntitiesRequest(),),
             lambda msg: type(msg) is not ListEntitiesDoneResponse,
@@ -319,10 +339,10 @@ class APIClient(APIClientBase):
                 continue
             if cls := response_types[msg_type]:
                 entities.append(cls.from_pb(msg))
-        # Fill in missing object_id values if we have cached device_info
-        if self._cached_device_info is not None:
-            entities = fill_missing_object_ids(entities, self._cached_device_info)
-        return entities, services
+        # Fill in missing object_id values using cached device_info
+        api_version = self.api_version
+        assert api_version is not None
+        return _fill_object_ids_if_needed(api_version, entities, device_info), services
 
     async def device_info_and_list_entities(
         self,
@@ -378,9 +398,13 @@ class APIClient(APIClientBase):
         assert device_info is not None
         self._cached_device_info = device_info
         # Fill in missing object_id values for entities that don't have them
-        # (ESPHome may stop sending object_id to reduce protocol overhead)
-        entities = fill_missing_object_ids(entities, device_info)
-        return device_info, entities, services
+        api_version = self.api_version
+        assert api_version is not None
+        return (
+            device_info,
+            _fill_object_ids_if_needed(api_version, entities, device_info),
+            services,
+        )
 
     def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         """Subscribe to state updates."""
