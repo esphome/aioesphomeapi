@@ -2,10 +2,10 @@ aioesphomeapi
 =============
 
 .. image:: https://github.com/esphome/aioesphomeapi/workflows/CI/badge.svg
-   :target: https://github.com/esphome/aioesphomeapi?query=workflow%3ACI+branch%3Amain
+   :target: https://github.com/esphome/aioesphomeapi/actions/workflows/ci.yml?query=branch%3Amain
 
 .. image:: https://img.shields.io/pypi/v/aioesphomeapi.svg
-    :target: https://pypi.python.org/pypi/aioesphomeapi
+    :target: https://pypi.org/project/aioesphomeapi/
 
 .. image:: https://codecov.io/gh/esphome/aioesphomeapi/branch/main/graph/badge.svg
    :target: https://app.codecov.io/gh/esphome/aioesphomeapi/tree/main
@@ -18,7 +18,7 @@ aioesphomeapi
 Installation
 ------------
 
-The module is available from the `Python Package Index <https://pypi.python.org/pypi>`_.
+The module is available from the `Python Package Index <https://pypi.org/>`_.
 
 .. code:: bash
 
@@ -33,7 +33,7 @@ Building the extension can be forcefully disabled by setting the environment var
 Usage
 -----
 
-It's required that you enable the `Native API <https://esphome.io/components/api.html>`_ component for the device.
+It's required that you enable the `Native API <https://esphome.io/components/api/>`_ component for the device.
 
 .. code:: yaml
 
