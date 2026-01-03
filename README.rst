@@ -58,7 +58,7 @@ To connect to older devices still using password authentication:
 
    api = aioesphomeapi.APIClient("device.local", 6053, password="MyPassword")
 
-Check the output to get the local address of the device or use the ``name:``under ``esphome:`` from the device configuration.
+Check the output to get the local address of the device or use the ``name:`` under ``esphome:`` from the device configuration.
 
 .. code:: bash
 
