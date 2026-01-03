@@ -39,9 +39,26 @@ It's required that you enable the `Native API <https://esphome.io/components/api
 
    # Example configuration entry
    api:
-     password: 'MyPassword'
 
-Check the output to get the local address of the device or use the ``name:``under ``esphome:`` from the device configuration.
+For secure communication, use encryption (recommended):
+
+.. code:: yaml
+
+   api:
+     encryption:
+       key: !secret api_encryption_key
+
+Generate an encryption key with ``openssl rand -base64 32`` or visit https://esphome.io/components/api/
+
+**Note:** Password authentication was removed in ESPHome 2026.1.0. Encryption is optional but recommended for security.
+
+To connect to older devices still using password authentication:
+
+.. code:: python
+
+   api = aioesphomeapi.APIClient("device.local", 6053, password="MyPassword")
+
+Check the output to get the local address of the device or use the ``name:`` under ``esphome:`` from the device configuration.
 
 .. code:: bash
 
@@ -60,7 +77,11 @@ The sample code below will connect to the device and retrieve details.
        """Connect to an ESPHome device and get details."""
 
        # Establish connection
-       api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
+       api = aioesphomeapi.APIClient(
+           "api_test.local",
+           6053,
+           noise_psk="YOUR_ENCRYPTION_KEY",  # Remove if not using encryption
+       )
        await api.connect(login=True)
 
        # Get API version of the device's firmware
@@ -86,16 +107,19 @@ Subscribe to state changes of an ESPHome device.
 
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
-       cli = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
-
-       await cli.connect(login=True)
+       api = aioesphomeapi.APIClient(
+           "api_test.local",
+           6053,
+           noise_psk="YOUR_ENCRYPTION_KEY",  # Remove if not using encryption
+       )
+       await api.connect(login=True)
 
        def change_callback(state):
-           """Print the state changes of the device.."""
+           """Print the state changes of the device."""
            print(state)
 
        # Subscribe to the state changes
-       cli.subscribe_states(change_callback)
+       api.subscribe_states(change_callback)
 
    loop = asyncio.get_event_loop()
    try:
