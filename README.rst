@@ -35,15 +35,30 @@ Usage
 
 It's required that you enable the `Native API <https://esphome.io/components/api/>`_ component for the device.
 
-The use of passwords for APIs in ESPHome is deprecated. Using an encryption key is the recommended method.
-
 .. code:: yaml
 
    # Example configuration entry
    api:
-     password: 'MyPassword' # DEPRECATED: Use encryption key instead
+
+For secure communication, use encryption (recommended):
+
+.. code:: yaml
+
+   api:
      encryption:
-       key: 'aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=' # A key can be obtained at https://esphome.io/components/api/
+       key: !secret api_encryption_key
+
+Generate an encryption key with ``openssl rand -base64 32`` or visit https://esphome.io/components/api/
+
+.. note::
+
+   Password authentication was removed in ESPHome 2026.1.0. Encryption is optional but recommended for security.
+
+   To connect to older devices still using password authentication:
+
+   .. code:: python
+
+      api = aioesphomeapi.APIClient("device.local", 6053, password="MyPassword")
 
 Check the output to get the local address of the device or use the ``name:``under ``esphome:`` from the device configuration.
 
@@ -64,14 +79,14 @@ The sample code below will connect to the device and retrieve details.
        """Connect to an ESPHome device and get details."""
 
        # Establish connection
-       # Choose ONE of the following options depending on your configuration:
-       # Option 1 - If both a password and an encryption key are in use:
-       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
-       # Option 2 - If only an encryption key is in use:
-       api = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
-       # Option 3 - If you only have a password: (Not recommended)
-       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
-
+       # For plain text (no encryption):
+       # api = aioesphomeapi.APIClient("api_test.local", 6053)
+       # For encrypted connection (recommended):
+       api = aioesphomeapi.APIClient(
+           "api_test.local",
+           6053,
+           noise_psk="YOUR_ENCRYPTION_KEY",
+       )
        await api.connect(login=True)
 
        # Get API version of the device's firmware
@@ -97,22 +112,22 @@ Subscribe to state changes of an ESPHome device.
 
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
-       # Choose ONE of the following options depending on your configuration:
-       # Option 1 - If both a password and an encryption key are in use:
-       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword", noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
-       # Option 2 - If only an encryption key is in use:
-       api = aioesphomeapi.APIClient("api_test.local", 6053, None, noise_psk='aaaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaaaaaaaaaaa=')
-       # Option 3 - If you only have a password: (Not recommended)
-       #api = aioesphomeapi.APIClient("api_test.local", 6053, "MyPassword")
-
-       await cli.connect(login=True)
+       # For plain text (no encryption):
+       # api = aioesphomeapi.APIClient("api_test.local", 6053)
+       # For encrypted connection (recommended):
+       api = aioesphomeapi.APIClient(
+           "api_test.local",
+           6053,
+           noise_psk="YOUR_ENCRYPTION_KEY",
+       )
+       await api.connect(login=True)
 
        def change_callback(state):
-           """Print the state changes of the device.."""
+           """Print the state changes of the device."""
            print(state)
 
        # Subscribe to the state changes
-       cli.subscribe_states(change_callback)
+       api.subscribe_states(change_callback)
 
    loop = asyncio.get_event_loop()
    try:
