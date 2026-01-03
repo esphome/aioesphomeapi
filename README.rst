@@ -153,8 +153,10 @@ For development is recommended to use a Python virtual environment (``venv``).
 
     # Run linters & test
     $ script/lint
-    # Update protobuf _pb2.py definitions (requires a protobuf compiler installation)
-    $ script/gen-protoc
+    # Update protobuf _pb2.py definitions (requires docker or podman)
+    $ docker run --rm -v $PWD:/aioesphomeapi ghcr.io/esphome/aioesphomeapi-proto-builder:latest
+    # Or with podman:
+    $ podman run --rm -v $PWD:/aioesphomeapi --userns=keep-id ghcr.io/esphome/aioesphomeapi-proto-builder:latest
 
 A cli tool is also available for watching logs:
 
