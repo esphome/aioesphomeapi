@@ -77,13 +77,10 @@ The sample code below will connect to the device and retrieve details.
        """Connect to an ESPHome device and get details."""
 
        # Establish connection
-       # For plain text (no encryption):
-       # api = aioesphomeapi.APIClient("api_test.local", 6053)
-       # For encrypted connection (recommended):
        api = aioesphomeapi.APIClient(
            "api_test.local",
            6053,
-           noise_psk="YOUR_ENCRYPTION_KEY",
+           noise_psk="YOUR_ENCRYPTION_KEY",  # Remove if not using encryption
        )
        await api.connect(login=True)
 
@@ -110,13 +107,10 @@ Subscribe to state changes of an ESPHome device.
 
    async def main():
        """Connect to an ESPHome device and wait for state changes."""
-       # For plain text (no encryption):
-       # api = aioesphomeapi.APIClient("api_test.local", 6053)
-       # For encrypted connection (recommended):
        api = aioesphomeapi.APIClient(
            "api_test.local",
            6053,
-           noise_psk="YOUR_ENCRYPTION_KEY",
+           noise_psk="YOUR_ENCRYPTION_KEY",  # Remove if not using encryption
        )
        await api.connect(login=True)
 
