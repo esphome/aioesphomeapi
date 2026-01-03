@@ -50,15 +50,13 @@ For secure communication, use encryption (recommended):
 
 Generate an encryption key with ``openssl rand -base64 32`` or visit https://esphome.io/components/api/
 
-.. note::
+**Note:** Password authentication was removed in ESPHome 2026.1.0. Encryption is optional but recommended for security.
 
-   Password authentication was removed in ESPHome 2026.1.0. Encryption is optional but recommended for security.
+To connect to older devices still using password authentication:
 
-   To connect to older devices still using password authentication:
+.. code:: python
 
-   .. code:: python
-
-      api = aioesphomeapi.APIClient("device.local", 6053, password="MyPassword")
+   api = aioesphomeapi.APIClient("device.local", 6053, password="MyPassword")
 
 Check the output to get the local address of the device or use the ``name:``under ``esphome:`` from the device configuration.
 
