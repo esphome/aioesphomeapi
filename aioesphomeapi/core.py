@@ -89,6 +89,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesTimeResponse,
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
+    ListEntitiesWaterHeaterResponse,
     LockCommandRequest,
     LockStateResponse,
     MediaPlayerCommandRequest,
@@ -135,6 +136,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterCommandRequest,
+    WaterHeaterStateResponse,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
 )
@@ -493,6 +496,9 @@ MESSAGE_TYPE_TO_PROTO = {
     129: ZWaveProxyRequest,
     130: HomeassistantActionResponse,
     131: ExecuteServiceResponse,
+    132: ListEntitiesWaterHeaterResponse,
+    133: WaterHeaterStateResponse,
+    134: WaterHeaterCommandRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
