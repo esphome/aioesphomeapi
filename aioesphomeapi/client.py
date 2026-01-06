@@ -53,6 +53,7 @@ from .api_pb2 import (  # type: ignore
     InfraredProxyReceiveEvent,
     InfraredProxyTransmitProtocolRequest,
     InfraredProxyTransmitPulseWidthRequest,
+    InfraredProxyTransmitRawTimingsRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
@@ -518,6 +519,21 @@ class APIClient(APIClientBase):
         req = InfraredProxyTransmitProtocolRequest()
         req.key = key
         req.protocol_json = protocol_json
+        self._get_connection().send_message(req)
+
+    def infrared_proxy_transmit_raw_timings(
+        self,
+        key: int,
+        carrier_frequency: int,
+        timings: list[int],
+        repeat_count: int = 1,
+    ) -> None:
+        """Send an infrared proxy raw timings transmit request."""
+        req = InfraredProxyTransmitRawTimingsRequest()
+        req.key = key
+        req.carrier_frequency = carrier_frequency
+        req.repeat_count = repeat_count
+        req.timings.extend(timings)
         self._get_connection().send_message(req)
 
     async def _send_bluetooth_message_await_response(

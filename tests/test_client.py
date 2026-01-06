@@ -60,6 +60,7 @@ from aioesphomeapi.api_pb2 import (
     InfraredProxyReceiveEvent as InfraredProxyReceiveEventPb,
     InfraredProxyTransmitProtocolRequest as InfraredProxyTransmitProtocolRequestPb,
     InfraredProxyTransmitPulseWidthRequest as InfraredProxyTransmitPulseWidthRequestPb,
+    InfraredProxyTransmitRawTimingsRequest as InfraredProxyTransmitRawTimingsRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -2579,6 +2580,40 @@ async def test_infrared_proxy_transmit_protocol(
     sent_msg = sent_messages[0]
     assert sent_msg.key == 789
     assert sent_msg.protocol_json == protocol_json
+
+
+async def test_infrared_proxy_transmit_raw_timings(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test infrared_proxy_transmit_raw_timings."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[InfraredProxyTransmitRawTimingsRequestPb] = []
+
+    # Capture sent messages
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredProxyTransmitRawTimingsRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    # Send raw timings transmit request with repeat_count
+    timings = [9000, 4500, 560, 560, 560, 1690, 560, 560]
+    client.infrared_proxy_transmit_raw_timings(
+        key=999, carrier_frequency=38000, timings=timings, repeat_count=3
+    )
+
+    # Verify the message was sent
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.key == 999
+    assert sent_msg.carrier_frequency == 38000
+    assert sent_msg.repeat_count == 3
+    assert list(sent_msg.timings) == timings
 
 
 async def test_execute_service_with_response(

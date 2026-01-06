@@ -64,6 +64,7 @@ from .api_pb2 import (  # type: ignore
     InfraredProxyReceiveEvent,
     InfraredProxyTransmitProtocolRequest,
     InfraredProxyTransmitPulseWidthRequest,
+    InfraredProxyTransmitRawTimingsRequest,
     LightCommandRequest,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
@@ -507,6 +508,7 @@ MESSAGE_TYPE_TO_PROTO = {
     136: InfraredProxyTransmitPulseWidthRequest,
     137: InfraredProxyTransmitProtocolRequest,
     138: InfraredProxyReceiveEvent,
+    139: InfraredProxyTransmitRawTimingsRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
