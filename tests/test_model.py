@@ -26,7 +26,6 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantActionRequest,
     HomeassistantServiceMap,
     InfraredProxyReceiveEvent as InfraredProxyReceiveEventPb,
-    InfraredProxyTimingParams as InfraredProxyTimingParamsPb,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
@@ -112,7 +111,6 @@ from aioesphomeapi.model import (
     InfraredProxyFeature,
     InfraredProxyInfo,
     InfraredProxyReceiveEvent,
-    InfraredProxyTimingParams,
     LegacyCoverState,
     LightColorCapability,
     LightInfo,
@@ -1951,88 +1949,6 @@ def test_infrared_proxy_capability_enum() -> None:
     assert InfraredProxyCapability.TRANSMITTER == 1
     assert InfraredProxyCapability.RECEIVER == 2
     assert InfraredProxyCapability.RADIO_FREQ == 4
-
-
-def test_infrared_proxy_timing_params_conversion() -> None:
-    """Test InfraredProxyTimingParams conversion from protobuf."""
-    # Test with default values
-    pb_timing = InfraredProxyTimingParamsPb()
-    timing = InfraredProxyTimingParams.from_pb(pb_timing)
-    assert timing.frequency == 0
-    assert timing.length_in_bits == 0
-    assert timing.header_high_us == 0
-    assert timing.header_low_us == 0
-    assert timing.one_high_us == 0
-    assert timing.one_low_us == 0
-    assert timing.zero_high_us == 0
-    assert timing.zero_low_us == 0
-    assert timing.footer_high_us == 0
-    assert timing.footer_low_us == 0
-    assert timing.repeat_high_us == 0
-    assert timing.repeat_low_us == 0
-    assert timing.minimum_idle_time_us == 0
-    assert timing.msb_first is False
-    assert timing.repeat_count == 0
-
-    # Test with actual values
-    pb_timing_with_data = InfraredProxyTimingParamsPb(
-        frequency=38000,
-        length_in_bits=32,
-        header_high_us=9000,
-        header_low_us=4500,
-        one_high_us=560,
-        one_low_us=1690,
-        zero_high_us=560,
-        zero_low_us=560,
-        footer_high_us=560,
-        footer_low_us=0,
-        repeat_high_us=9000,
-        repeat_low_us=2250,
-        minimum_idle_time_us=50000,
-        msb_first=True,
-        repeat_count=3,
-    )
-    timing_with_data = InfraredProxyTimingParams.from_pb(pb_timing_with_data)
-    assert timing_with_data.frequency == 38000
-    assert timing_with_data.length_in_bits == 32
-    assert timing_with_data.header_high_us == 9000
-    assert timing_with_data.header_low_us == 4500
-    assert timing_with_data.one_high_us == 560
-    assert timing_with_data.one_low_us == 1690
-    assert timing_with_data.zero_high_us == 560
-    assert timing_with_data.zero_low_us == 560
-    assert timing_with_data.footer_high_us == 560
-    assert timing_with_data.footer_low_us == 0
-    assert timing_with_data.repeat_high_us == 9000
-    assert timing_with_data.repeat_low_us == 2250
-    assert timing_with_data.minimum_idle_time_us == 50000
-    assert timing_with_data.msb_first is True
-    assert timing_with_data.repeat_count == 3
-
-    # Test to_dict
-    timing_dict = timing_with_data.to_dict()
-    assert timing_dict["frequency"] == 38000
-    assert timing_dict["length_in_bits"] == 32
-    assert timing_dict["msb_first"] is True
-
-    # Test from_dict
-    timing_from_dict = InfraredProxyTimingParams.from_dict(
-        {
-            "frequency": 40000,
-            "length_in_bits": 24,
-            "header_high_us": 8000,
-            "header_low_us": 4000,
-            "one_high_us": 600,
-            "one_low_us": 1600,
-            "zero_high_us": 600,
-            "zero_low_us": 600,
-            "msb_first": False,
-            "repeat_count": 2,
-        }
-    )
-    assert timing_from_dict.frequency == 40000
-    assert timing_from_dict.length_in_bits == 24
-    assert timing_from_dict.msb_first is False
 
 
 def test_infrared_proxy_receive_event_conversion() -> None:

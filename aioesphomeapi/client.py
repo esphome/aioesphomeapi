@@ -51,8 +51,6 @@ from .api_pb2 import (  # type: ignore
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredProxyReceiveEvent,
-    InfraredProxyTransmitProtocolRequest,
-    InfraredProxyTransmitPulseWidthRequest,
     InfraredProxyTransmitRawTimingsRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
@@ -146,7 +144,6 @@ from .model import (
     FanSpeed,
     HomeassistantServiceCall,
     InfraredProxyReceiveEvent as InfraredProxyReceiveEventModel,
-    InfraredProxyTimingParams,
     LegacyCoverCommand,
     LockCommand,
     LogLevel,
@@ -482,44 +479,6 @@ class APIClient(APIClientBase):
             ),
             (InfraredProxyReceiveEvent,),
         )
-
-    def infrared_proxy_transmit(
-        self,
-        key: int,
-        timing: InfraredProxyTimingParams,
-        data: bytes,
-    ) -> None:
-        """Send an infrared proxy pulse width transmit request."""
-        req = InfraredProxyTransmitPulseWidthRequest()
-        req.key = key
-        req.timing.frequency = timing.frequency
-        req.timing.length_in_bits = timing.length_in_bits
-        req.timing.header_high_us = timing.header_high_us
-        req.timing.header_low_us = timing.header_low_us
-        req.timing.one_high_us = timing.one_high_us
-        req.timing.one_low_us = timing.one_low_us
-        req.timing.zero_high_us = timing.zero_high_us
-        req.timing.zero_low_us = timing.zero_low_us
-        req.timing.footer_high_us = timing.footer_high_us
-        req.timing.footer_low_us = timing.footer_low_us
-        req.timing.repeat_high_us = timing.repeat_high_us
-        req.timing.repeat_low_us = timing.repeat_low_us
-        req.timing.minimum_idle_time_us = timing.minimum_idle_time_us
-        req.timing.msb_first = timing.msb_first
-        req.timing.repeat_count = timing.repeat_count
-        req.data = data
-        self._get_connection().send_message(req)
-
-    def infrared_proxy_transmit_protocol(
-        self,
-        key: int,
-        protocol_json: str,
-    ) -> None:
-        """Send an infrared proxy protocol-based transmit request."""
-        req = InfraredProxyTransmitProtocolRequest()
-        req.key = key
-        req.protocol_json = protocol_json
-        self._get_connection().send_message(req)
 
     def infrared_proxy_transmit_raw_timings(
         self,

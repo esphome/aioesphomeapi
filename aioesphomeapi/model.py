@@ -166,25 +166,6 @@ class InfraredProxyCapability(enum.IntFlag):
 
 
 @_frozen_dataclass_decorator
-class InfraredProxyTimingParams(APIModelBase):
-    frequency: int = 0
-    length_in_bits: int = 0
-    header_high_us: int = 0
-    header_low_us: int = 0
-    one_high_us: int = 0
-    one_low_us: int = 0
-    zero_high_us: int = 0
-    zero_low_us: int = 0
-    footer_high_us: int = 0
-    footer_low_us: int = 0
-    repeat_high_us: int = 0
-    repeat_low_us: int = 0
-    minimum_idle_time_us: int = 0
-    msb_first: bool = False
-    repeat_count: int = 0
-
-
-@_frozen_dataclass_decorator
 class InfraredProxyReceiveEvent(APIModelBase):
     key: int = 0
     timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call
