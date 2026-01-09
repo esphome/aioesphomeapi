@@ -50,8 +50,8 @@ from .api_pb2 import (  # type: ignore
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
-    InfraredProxyReceiveEvent,
-    InfraredProxyTransmitRawTimingsRequest,
+    IrRfProxyReceiveEvent,
+    IrRfProxyTransmitRawTimingsRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
@@ -103,7 +103,7 @@ from .client_base import (
     on_bluetooth_message_types,
     on_bluetooth_scanner_state_response,
     on_home_assistant_action_request,
-    on_infrared_proxy_receive_event,
+    on_ir_rf_proxy_receive_event,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -143,7 +143,7 @@ from .model import (
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
-    InfraredProxyReceiveEvent as InfraredProxyReceiveEventModel,
+    IrRfProxyReceiveEvent as IrRfProxyReceiveEventModel,
     LegacyCoverCommand,
     LockCommand,
     LogLevel,
@@ -467,28 +467,28 @@ class APIClient(APIClientBase):
             (ZWaveProxyRequest,),
         )
 
-    def subscribe_infrared_proxy_receive(
+    def subscribe_ir_rf_proxy_receive(
         self,
-        on_infrared_proxy_receive: Callable[[InfraredProxyReceiveEventModel], None],
+        on_ir_rf_proxy_receive: Callable[[IrRfProxyReceiveEventModel], None],
     ) -> Callable[[], None]:
-        """Subscribe to Infrared Proxy Receive Event messages."""
+        """Subscribe to IR/RF Proxy Receive Event messages."""
         return self._get_connection().add_message_callback(
             partial(
-                on_infrared_proxy_receive_event,
-                on_infrared_proxy_receive,
+                on_ir_rf_proxy_receive_event,
+                on_ir_rf_proxy_receive,
             ),
-            (InfraredProxyReceiveEvent,),
+            (IrRfProxyReceiveEvent,),
         )
 
-    def infrared_proxy_transmit_raw_timings(
+    def ir_rf_proxy_transmit_raw_timings(
         self,
         key: int,
         carrier_frequency: int,
         timings: list[int],
         repeat_count: int = 1,
     ) -> None:
-        """Send an infrared proxy raw timings transmit request."""
-        req = InfraredProxyTransmitRawTimingsRequest()
+        """Send an IR/RF proxy raw timings transmit request."""
+        req = IrRfProxyTransmitRawTimingsRequest()
         req.key = key
         req.carrier_frequency = carrier_frequency
         req.repeat_count = repeat_count

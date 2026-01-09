@@ -25,7 +25,7 @@ from aioesphomeapi.api_pb2 import (
     FanStateResponse,
     HomeassistantActionRequest,
     HomeassistantServiceMap,
-    InfraredProxyReceiveEvent as InfraredProxyReceiveEventPb,
+    IrRfProxyReceiveEvent as IrRfProxyReceiveEventPb,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
@@ -107,10 +107,10 @@ from aioesphomeapi.model import (
     FanInfo,
     FanState,
     HomeassistantServiceCall,
-    InfraredProxyCapability,
-    InfraredProxyFeature,
-    InfraredProxyInfo,
-    InfraredProxyReceiveEvent,
+    IrRfProxyCapability,
+    IrRfProxyFeature,
+    IrRfProxyInfo,
+    IrRfProxyReceiveEvent,
     LegacyCoverState,
     LightColorCapability,
     LightInfo,
@@ -1932,38 +1932,38 @@ def test_execute_service_response():
     assert result["response_data"] == b"test_data"
 
 
-def test_infrared_proxy_backcompat_for_device_info() -> None:
+def test_ir_rf_proxy_backcompat_for_device_info() -> None:
     """Test infrared proxy feature flags compatibility for DeviceInfo."""
-    flags = InfraredProxyFeature.ENABLED
-    info = DeviceInfo(infrared_proxy_feature_flags=flags)
-    assert info.infrared_proxy_feature_flags_compat(APIVersion(1, 9)) == flags
+    flags = IrRfProxyFeature.ENABLED
+    info = DeviceInfo(ir_rf_proxy_feature_flags=flags)
+    assert info.ir_rf_proxy_feature_flags_compat(APIVersion(1, 9)) == flags
 
 
-def test_infrared_proxy_feature_enum() -> None:
-    """Test InfraredProxyFeature enum values."""
-    assert InfraredProxyFeature.ENABLED == 1
+def test_ir_rf_proxy_feature_enum() -> None:
+    """Test IrRfProxyFeature enum values."""
+    assert IrRfProxyFeature.ENABLED == 1
 
 
-def test_infrared_proxy_capability_enum() -> None:
-    """Test InfraredProxyCapability enum values."""
-    assert InfraredProxyCapability.TRANSMITTER == 1
-    assert InfraredProxyCapability.RECEIVER == 2
-    assert InfraredProxyCapability.RADIO_FREQ == 4
+def test_ir_rf_proxy_capability_enum() -> None:
+    """Test IrRfProxyCapability enum values."""
+    assert IrRfProxyCapability.TRANSMITTER == 1
+    assert IrRfProxyCapability.RECEIVER == 2
+    assert IrRfProxyCapability.RADIO_FREQ == 4
 
 
-def test_infrared_proxy_receive_event_conversion() -> None:
-    """Test InfraredProxyReceiveEvent conversion from protobuf."""
+def test_ir_rf_proxy_receive_event_conversion() -> None:
+    """Test IrRfProxyReceiveEvent conversion from protobuf."""
     # Test with empty timings
-    pb_event = InfraredProxyReceiveEventPb(key=123)
-    event = InfraredProxyReceiveEvent.from_pb(pb_event)
+    pb_event = IrRfProxyReceiveEventPb(key=123)
+    event = IrRfProxyReceiveEvent.from_pb(pb_event)
     assert event.key == 123
     assert event.timings == []
 
     # Test with actual timings
-    pb_event_with_timings = InfraredProxyReceiveEventPb(
+    pb_event_with_timings = IrRfProxyReceiveEventPb(
         key=456, timings=[9000, -4500, 560, -560, 560, -1690]
     )
-    event_with_timings = InfraredProxyReceiveEvent.from_pb(pb_event_with_timings)
+    event_with_timings = IrRfProxyReceiveEvent.from_pb(pb_event_with_timings)
     assert event_with_timings.key == 456
     assert event_with_timings.timings == [9000, -4500, 560, -560, 560, -1690]
 
@@ -1973,14 +1973,14 @@ def test_infrared_proxy_receive_event_conversion() -> None:
     assert event_dict["timings"] == [9000, -4500, 560, -560, 560, -1690]
 
     # Test from_dict
-    event_from_dict = InfraredProxyReceiveEvent.from_dict(
+    event_from_dict = IrRfProxyReceiveEvent.from_dict(
         {"key": 789, "timings": [1000, -2000, 3000, -4000]}
     )
     assert event_from_dict.key == 789
     assert event_from_dict.timings == [1000, -2000, 3000, -4000]
 
 
-def test_infrared_proxy_info_in_type_to_name() -> None:
-    """Test that InfraredProxyInfo is registered in _TYPE_TO_NAME."""
-    assert InfraredProxyInfo in _TYPE_TO_NAME
-    assert _TYPE_TO_NAME[InfraredProxyInfo] == "infrared_proxy"
+def test_ir_rf_proxy_info_in_type_to_name() -> None:
+    """Test that IrRfProxyInfo is registered in _TYPE_TO_NAME."""
+    assert IrRfProxyInfo in _TYPE_TO_NAME
+    assert _TYPE_TO_NAME[IrRfProxyInfo] == "ir_rf_proxy"

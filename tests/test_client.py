@@ -57,8 +57,8 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
-    InfraredProxyReceiveEvent as InfraredProxyReceiveEventPb,
-    InfraredProxyTransmitRawTimingsRequest as InfraredProxyTransmitRawTimingsRequestPb,
+    IrRfProxyReceiveEvent as IrRfProxyReceiveEventPb,
+    IrRfProxyTransmitRawTimingsRequest as IrRfProxyTransmitRawTimingsRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -129,7 +129,7 @@ from aioesphomeapi.model import (
     FanSpeed,
     HomeassistantActionResponse as HomeassistantActionResponseModel,
     HomeassistantServiceCall,
-    InfraredProxyReceiveEvent,
+    IrRfProxyReceiveEvent,
     LegacyCoverCommand,
     LightColorCapability,
     LockCommand,
@@ -2461,21 +2461,21 @@ async def test_subscribe_zwave_proxy_request(
     assert first_msg.data == b"\x00\x01\x02\x03"
 
 
-async def test_subscribe_infrared_proxy_receive(
+async def test_subscribe_ir_rf_proxy_receive(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test subscribe_infrared_proxy_receive."""
+    """Test subscribe_ir_rf_proxy_receive."""
     client, _connection, _transport, protocol = api_client
     test_msg = []
 
-    def on_infrared_proxy_receive(msg: InfraredProxyReceiveEvent) -> None:
+    def on_ir_rf_proxy_receive(msg: IrRfProxyReceiveEvent) -> None:
         test_msg.append(msg)
 
-    client.subscribe_infrared_proxy_receive(on_infrared_proxy_receive)
+    client.subscribe_ir_rf_proxy_receive(on_ir_rf_proxy_receive)
     await asyncio.sleep(0)
-    response: message.Message = InfraredProxyReceiveEventPb(
+    response: message.Message = IrRfProxyReceiveEventPb(
         key=123, timings=[9000, -4500, 560, -560, 560, -1690]
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
@@ -2486,20 +2486,20 @@ async def test_subscribe_infrared_proxy_receive(
     assert first_msg.timings == [9000, -4500, 560, -560, 560, -1690]
 
 
-async def test_infrared_proxy_transmit_raw_timings(
+async def test_ir_rf_proxy_transmit_raw_timings(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test infrared_proxy_transmit_raw_timings."""
+    """Test ir_rf_proxy_transmit_raw_timings."""
     client, connection, _transport, _protocol = api_client
-    sent_messages: list[InfraredProxyTransmitRawTimingsRequestPb] = []
+    sent_messages: list[IrRfProxyTransmitRawTimingsRequestPb] = []
 
     # Capture sent messages
     original_send = connection.send_message
 
     def capture_send(msg: Any) -> None:
-        if isinstance(msg, InfraredProxyTransmitRawTimingsRequestPb):
+        if isinstance(msg, IrRfProxyTransmitRawTimingsRequestPb):
             sent_messages.append(msg)
         original_send(msg)
 
@@ -2507,7 +2507,7 @@ async def test_infrared_proxy_transmit_raw_timings(
 
     # Send raw timings transmit request with repeat_count
     timings = [9000, 4500, 560, 560, 560, 1690, 560, 560]
-    client.infrared_proxy_transmit_raw_timings(
+    client.ir_rf_proxy_transmit_raw_timings(
         key=999, carrier_frequency=38000, timings=timings, repeat_count=3
     )
 
