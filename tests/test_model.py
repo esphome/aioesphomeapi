@@ -1954,29 +1954,33 @@ def test_ir_rf_proxy_capability_enum() -> None:
 def test_ir_rf_proxy_receive_event_conversion() -> None:
     """Test IrRfProxyReceiveEvent conversion from protobuf."""
     # Test with empty timings
-    pb_event = IrRfProxyReceiveEventPb(key=123)
+    pb_event = IrRfProxyReceiveEventPb(key=123, device_id=0)
     event = IrRfProxyReceiveEvent.from_pb(pb_event)
     assert event.key == 123
+    assert event.device_id == 0
     assert event.timings == []
 
     # Test with actual timings
     pb_event_with_timings = IrRfProxyReceiveEventPb(
-        key=456, timings=[9000, -4500, 560, -560, 560, -1690]
+        key=456, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
     )
     event_with_timings = IrRfProxyReceiveEvent.from_pb(pb_event_with_timings)
     assert event_with_timings.key == 456
+    assert event_with_timings.device_id == 5
     assert event_with_timings.timings == [9000, -4500, 560, -560, 560, -1690]
 
     # Test to_dict
     event_dict = event_with_timings.to_dict()
     assert event_dict["key"] == 456
+    assert event_dict["device_id"] == 5
     assert event_dict["timings"] == [9000, -4500, 560, -560, 560, -1690]
 
     # Test from_dict
     event_from_dict = IrRfProxyReceiveEvent.from_dict(
-        {"key": 789, "timings": [1000, -2000, 3000, -4000]}
+        {"key": 789, "device_id": 3, "timings": [1000, -2000, 3000, -4000]}
     )
     assert event_from_dict.key == 789
+    assert event_from_dict.device_id == 3
     assert event_from_dict.timings == [1000, -2000, 3000, -4000]
 
 

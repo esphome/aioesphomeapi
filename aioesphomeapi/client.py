@@ -486,9 +486,11 @@ class APIClient(APIClientBase):
         carrier_frequency: int,
         timings: list[int],
         repeat_count: int = 1,
+        device_id: int = 0,
     ) -> None:
         """Send an IR/RF proxy raw timings transmit request."""
         req = IrRfProxyTransmitRawTimingsRequest()
+        req.device_id = device_id
         req.key = key
         req.carrier_frequency = carrier_frequency
         req.repeat_count = repeat_count

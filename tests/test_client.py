@@ -2476,13 +2476,14 @@ async def test_subscribe_ir_rf_proxy_receive(
     client.subscribe_ir_rf_proxy_receive(on_ir_rf_proxy_receive)
     await asyncio.sleep(0)
     response: message.Message = IrRfProxyReceiveEventPb(
-        key=123, timings=[9000, -4500, 560, -560, 560, -1690]
+        key=123, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
 
     assert len(test_msg) == 1
     first_msg = test_msg[0]
     assert first_msg.key == 123
+    assert first_msg.device_id == 5
     assert first_msg.timings == [9000, -4500, 560, -560, 560, -1690]
 
 
@@ -2508,13 +2509,14 @@ async def test_ir_rf_proxy_transmit_raw_timings(
     # Send raw timings transmit request with repeat_count
     timings = [9000, 4500, 560, 560, 560, 1690, 560, 560]
     client.ir_rf_proxy_transmit_raw_timings(
-        key=999, carrier_frequency=38000, timings=timings, repeat_count=3
+        key=999, carrier_frequency=38000, timings=timings, repeat_count=3, device_id=7
     )
 
     # Verify the message was sent
     assert len(sent_messages) == 1
     sent_msg = sent_messages[0]
     assert sent_msg.key == 999
+    assert sent_msg.device_id == 7
     assert sent_msg.carrier_frequency == 38000
     assert sent_msg.repeat_count == 3
     assert list(sent_msg.timings) == timings
