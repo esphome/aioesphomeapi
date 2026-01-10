@@ -50,6 +50,8 @@ from .api_pb2 import (  # type: ignore
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
+    IrRfProxyReceiveEvent,
+    IrRfProxyTransmitRawTimingsRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
@@ -101,6 +103,7 @@ from .client_base import (
     on_bluetooth_message_types,
     on_bluetooth_scanner_state_response,
     on_home_assistant_action_request,
+    on_ir_rf_proxy_receive_event,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -140,6 +143,7 @@ from .model import (
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
+    IrRfProxyReceiveEvent as IrRfProxyReceiveEventModel,
     LegacyCoverCommand,
     LockCommand,
     LogLevel,
@@ -462,6 +466,36 @@ class APIClient(APIClientBase):
             ),
             (ZWaveProxyRequest,),
         )
+
+    def subscribe_ir_rf_proxy_receive(
+        self,
+        on_ir_rf_proxy_receive: Callable[[IrRfProxyReceiveEventModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to IR/RF Proxy Receive Event messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_ir_rf_proxy_receive_event,
+                on_ir_rf_proxy_receive,
+            ),
+            (IrRfProxyReceiveEvent,),
+        )
+
+    def ir_rf_proxy_transmit_raw_timings(
+        self,
+        key: int,
+        carrier_frequency: int,
+        timings: list[int],
+        repeat_count: int = 1,
+        device_id: int = 0,
+    ) -> None:
+        """Send an IR/RF proxy raw timings transmit request."""
+        req = IrRfProxyTransmitRawTimingsRequest()
+        req.device_id = device_id
+        req.key = key
+        req.carrier_frequency = carrier_frequency
+        req.repeat_count = repeat_count
+        req.timings.extend(timings)
+        self._get_connection().send_message(req)
 
     async def _send_bluetooth_message_await_response(
         self,

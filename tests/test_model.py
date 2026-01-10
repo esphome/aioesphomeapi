@@ -25,6 +25,7 @@ from aioesphomeapi.api_pb2 import (
     FanStateResponse,
     HomeassistantActionRequest,
     HomeassistantServiceMap,
+    IrRfProxyReceiveEvent as IrRfProxyReceiveEventPb,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
@@ -106,6 +107,10 @@ from aioesphomeapi.model import (
     FanInfo,
     FanState,
     HomeassistantServiceCall,
+    IrRfProxyCapability,
+    IrRfProxyFeature,
+    IrRfProxyInfo,
+    IrRfProxyReceiveEvent,
     LegacyCoverState,
     LightColorCapability,
     LightInfo,
@@ -1925,3 +1930,61 @@ def test_execute_service_response():
     assert result["success"] is True
     assert result["error_message"] == ""
     assert result["response_data"] == b"test_data"
+
+
+def test_ir_rf_proxy_backcompat_for_device_info() -> None:
+    """Test infrared proxy feature flags compatibility for DeviceInfo."""
+    flags = IrRfProxyFeature.ENABLED
+    info = DeviceInfo(ir_rf_proxy_feature_flags=flags)
+    assert info.ir_rf_proxy_feature_flags_compat(APIVersion(1, 9)) == flags
+
+
+def test_ir_rf_proxy_feature_enum() -> None:
+    """Test IrRfProxyFeature enum values."""
+    assert IrRfProxyFeature.ENABLED == 1
+
+
+def test_ir_rf_proxy_capability_enum() -> None:
+    """Test IrRfProxyCapability enum values."""
+    assert IrRfProxyCapability.TRANSMITTER == 1
+    assert IrRfProxyCapability.RECEIVER == 2
+    assert IrRfProxyCapability.RADIO_FREQ == 4
+
+
+def test_ir_rf_proxy_receive_event_conversion() -> None:
+    """Test IrRfProxyReceiveEvent conversion from protobuf."""
+    # Test with empty timings
+    pb_event = IrRfProxyReceiveEventPb(key=123, device_id=0)
+    event = IrRfProxyReceiveEvent.from_pb(pb_event)
+    assert event.key == 123
+    assert event.device_id == 0
+    assert event.timings == []
+
+    # Test with actual timings
+    pb_event_with_timings = IrRfProxyReceiveEventPb(
+        key=456, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
+    )
+    event_with_timings = IrRfProxyReceiveEvent.from_pb(pb_event_with_timings)
+    assert event_with_timings.key == 456
+    assert event_with_timings.device_id == 5
+    assert event_with_timings.timings == [9000, -4500, 560, -560, 560, -1690]
+
+    # Test to_dict
+    event_dict = event_with_timings.to_dict()
+    assert event_dict["key"] == 456
+    assert event_dict["device_id"] == 5
+    assert event_dict["timings"] == [9000, -4500, 560, -560, 560, -1690]
+
+    # Test from_dict
+    event_from_dict = IrRfProxyReceiveEvent.from_dict(
+        {"key": 789, "device_id": 3, "timings": [1000, -2000, 3000, -4000]}
+    )
+    assert event_from_dict.key == 789
+    assert event_from_dict.device_id == 3
+    assert event_from_dict.timings == [1000, -2000, 3000, -4000]
+
+
+def test_ir_rf_proxy_info_in_type_to_name() -> None:
+    """Test that IrRfProxyInfo is registered in _TYPE_TO_NAME."""
+    assert IrRfProxyInfo in _TYPE_TO_NAME
+    assert _TYPE_TO_NAME[IrRfProxyInfo] == "ir_rf_proxy"

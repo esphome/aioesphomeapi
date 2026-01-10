@@ -26,6 +26,7 @@ from .api_pb2 import (  # type: ignore
     BluetoothScannerStateResponse,
     CameraImageResponse,
     HomeassistantActionRequest,
+    IrRfProxyReceiveEvent,
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
 )
@@ -39,6 +40,7 @@ from .model import (
     DeviceInfo,
     EntityState,
     HomeassistantServiceCall,
+    IrRfProxyReceiveEvent as IrRfProxyReceiveEventModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
@@ -200,6 +202,13 @@ def on_zwave_proxy_request_message(
     msg: ZWaveProxyRequest,
 ) -> None:
     on_zwave_proxy_request(ZWaveProxyRequestModel.from_pb(msg))
+
+
+def on_ir_rf_proxy_receive_event(
+    on_ir_rf_proxy_receive: Callable[[IrRfProxyReceiveEventModel], None],
+    msg: IrRfProxyReceiveEvent,
+) -> None:
+    on_ir_rf_proxy_receive(IrRfProxyReceiveEventModel.from_pb(msg))
 
 
 str_ = str
