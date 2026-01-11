@@ -155,18 +155,17 @@ class ZWaveProxyRequest(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
-class IrRfProxyFeature(enum.IntFlag):
+class InfraredFeature(enum.IntFlag):
     ENABLED = 1 << 0
 
 
-class IrRfProxyCapability(enum.IntFlag):
+class InfraredCapability(enum.IntFlag):
     TRANSMITTER = 1 << 0
     RECEIVER = 1 << 1
-    RADIO_FREQ = 1 << 2
 
 
 @_frozen_dataclass_decorator
-class IrRfProxyReceiveEvent(APIModelBase):
+class InfraredReceiveEvent(APIModelBase):
     device_id: int = 0
     key: int = 0
     timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call
@@ -235,7 +234,7 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     zwave_proxy_feature_flags: int = 0
     zwave_home_id: int = 0
-    ir_rf_proxy_feature_flags: int = 0
+    infrared_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -278,8 +277,8 @@ class DeviceInfo(APIModelBase):
     def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         return self.zwave_proxy_feature_flags
 
-    def ir_rf_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
-        return self.ir_rf_proxy_feature_flags
+    def infrared_feature_flags_compat(self, api_version: APIVersion) -> int:
+        return self.infrared_feature_flags
 
 
 class EntityCategory(APIIntEnum):
@@ -1224,13 +1223,12 @@ class UpdateState(EntityState):
     release_url: str = ""
 
 
-# ==================== IR/RF PROXY ====================
+# ==================== INFRARED ====================
 
 
 @_frozen_dataclass_decorator
-class IrRfProxyInfo(EntityInfo):
+class InfraredInfo(EntityInfo):
     capabilities: int = 0
-    frequency: int = 0
 
 
 # ==================== INFO MAP ====================
@@ -1259,7 +1257,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "valve": ValveInfo,
     "event": EventInfo,
     "update": UpdateInfo,
-    "ir_rf_proxy": IrRfProxyInfo,
+    "infrared": InfraredInfo,
 }
 
 
@@ -1852,7 +1850,7 @@ _TYPE_TO_NAME = {
     EventInfo: "event",
     UpdateInfo: "update",
     WaterHeaterInfo: "water_heater",
-    IrRfProxyInfo: "ir_rf_proxy",
+    InfraredInfo: "infrared",
 }
 
 
