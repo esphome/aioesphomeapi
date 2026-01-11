@@ -155,10 +155,6 @@ class ZWaveProxyRequest(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
-class InfraredFeature(enum.IntFlag):
-    ENABLED = 1 << 0
-
-
 class InfraredCapability(enum.IntFlag):
     TRANSMITTER = 1 << 0
     RECEIVER = 1 << 1
@@ -234,7 +230,6 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     zwave_proxy_feature_flags: int = 0
     zwave_home_id: int = 0
-    infrared_feature_flags: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -276,9 +271,6 @@ class DeviceInfo(APIModelBase):
 
     def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         return self.zwave_proxy_feature_flags
-
-    def infrared_feature_flags_compat(self, api_version: APIVersion) -> int:
-        return self.infrared_feature_flags
 
 
 class EntityCategory(APIIntEnum):

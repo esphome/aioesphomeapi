@@ -108,7 +108,6 @@ from aioesphomeapi.model import (
     FanState,
     HomeassistantServiceCall,
     InfraredCapability,
-    InfraredFeature,
     InfraredInfo,
     InfraredRFReceiveEvent,
     LegacyCoverState,
@@ -1930,18 +1929,6 @@ def test_execute_service_response():
     assert result["success"] is True
     assert result["error_message"] == ""
     assert result["response_data"] == b"test_data"
-
-
-def test_infrared_backcompat_for_device_info() -> None:
-    """Test infrared feature flags compatibility for DeviceInfo."""
-    flags = InfraredFeature.ENABLED
-    info = DeviceInfo(infrared_feature_flags=flags)
-    assert info.infrared_feature_flags_compat(APIVersion(1, 9)) == flags
-
-
-def test_infrared_feature_enum() -> None:
-    """Test InfraredFeature enum values."""
-    assert InfraredFeature.ENABLED == 1
 
 
 def test_infrared_capability_enum() -> None:
