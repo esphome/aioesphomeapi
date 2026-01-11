@@ -68,7 +68,7 @@ service APIConnection {
   rpc zwave_proxy_frame(ZWaveProxyFrame) returns (void) {}
   rpc zwave_proxy_request(ZWaveProxyRequest) returns (void) {}
 
-  rpc infrared_transmit_raw_timings(InfraredRFTransmitRawTimingsRequest) returns (void) {}
+  rpc infrared_rf_transmit_raw_timings(InfraredRFTransmitRawTimingsRequest) returns (void) {}
 }
 
 
