@@ -155,6 +155,18 @@ class ZWaveProxyRequest(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
+class InfraredCapability(enum.IntFlag):
+    TRANSMITTER = 1 << 0
+    RECEIVER = 1 << 1
+
+
+@_frozen_dataclass_decorator
+class InfraredRFReceiveEvent(APIModelBase):
+    device_id: int = 0
+    key: int = 0
+    timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call
+
+
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
@@ -1203,6 +1215,14 @@ class UpdateState(EntityState):
     release_url: str = ""
 
 
+# ==================== INFRARED ====================
+
+
+@_frozen_dataclass_decorator
+class InfraredInfo(EntityInfo):
+    capabilities: int = 0
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
@@ -1229,6 +1249,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "valve": ValveInfo,
     "event": EventInfo,
     "update": UpdateInfo,
+    "infrared": InfraredInfo,
 }
 
 
@@ -1821,6 +1842,7 @@ _TYPE_TO_NAME = {
     EventInfo: "event",
     UpdateInfo: "update",
     WaterHeaterInfo: "water_heater",
+    InfraredInfo: "infrared",
 }
 
 

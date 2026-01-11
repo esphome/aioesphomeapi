@@ -25,6 +25,7 @@ from aioesphomeapi.api_pb2 import (
     FanStateResponse,
     HomeassistantActionRequest,
     HomeassistantServiceMap,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventPb,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
@@ -106,6 +107,9 @@ from aioesphomeapi.model import (
     FanInfo,
     FanState,
     HomeassistantServiceCall,
+    InfraredCapability,
+    InfraredInfo,
+    InfraredRFReceiveEvent,
     LegacyCoverState,
     LightColorCapability,
     LightInfo,
@@ -1925,3 +1929,48 @@ def test_execute_service_response():
     assert result["success"] is True
     assert result["error_message"] == ""
     assert result["response_data"] == b"test_data"
+
+
+def test_infrared_capability_enum() -> None:
+    """Test InfraredCapability enum values."""
+    assert InfraredCapability.TRANSMITTER == 1
+    assert InfraredCapability.RECEIVER == 2
+
+
+def test_infrared_rf_receive_event_conversion() -> None:
+    """Test InfraredRFReceiveEvent conversion from protobuf."""
+    # Test with empty timings
+    pb_event = InfraredRFReceiveEventPb(key=123, device_id=0)
+    event = InfraredRFReceiveEvent.from_pb(pb_event)
+    assert event.key == 123
+    assert event.device_id == 0
+    assert event.timings == []
+
+    # Test with actual timings
+    pb_event_with_timings = InfraredRFReceiveEventPb(
+        key=456, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
+    )
+    event_with_timings = InfraredRFReceiveEvent.from_pb(pb_event_with_timings)
+    assert event_with_timings.key == 456
+    assert event_with_timings.device_id == 5
+    assert event_with_timings.timings == [9000, -4500, 560, -560, 560, -1690]
+
+    # Test to_dict
+    event_dict = event_with_timings.to_dict()
+    assert event_dict["key"] == 456
+    assert event_dict["device_id"] == 5
+    assert event_dict["timings"] == [9000, -4500, 560, -560, 560, -1690]
+
+    # Test from_dict
+    event_from_dict = InfraredRFReceiveEvent.from_dict(
+        {"key": 789, "device_id": 3, "timings": [1000, -2000, 3000, -4000]}
+    )
+    assert event_from_dict.key == 789
+    assert event_from_dict.device_id == 3
+    assert event_from_dict.timings == [1000, -2000, 3000, -4000]
+
+
+def test_infrared_info_in_type_to_name() -> None:
+    """Test that InfraredInfo is registered in _TYPE_TO_NAME."""
+    assert InfraredInfo in _TYPE_TO_NAME
+    assert _TYPE_TO_NAME[InfraredInfo] == "infrared"
