@@ -68,7 +68,7 @@ service APIConnection {
   rpc zwave_proxy_frame(ZWaveProxyFrame) returns (void) {}
   rpc zwave_proxy_request(ZWaveProxyRequest) returns (void) {}
 
-  rpc infrared_transmit_raw_timings(InfraredTransmitRawTimingsRequest) returns (void) {}
+  rpc infrared_transmit_raw_timings(InfraredRFTransmitRawTimingsRequest) returns (void) {}
 }
 
 
@@ -2465,8 +2465,8 @@ message ListEntitiesInfraredResponse {
   uint32 capabilities = 8;  // Bitfield of InfraredCapabilityFlags
 }
 
-// Command to transmit infrared data using raw timings
-message InfraredTransmitRawTimingsRequest {
+// Command to transmit infrared/RF data using raw timings
+message InfraredRFTransmitRawTimingsRequest {
   option (id) = 136;
   option (source) = SOURCE_CLIENT;
   option (ifdef) = "USE_INFRARED";
@@ -2478,8 +2478,8 @@ message InfraredTransmitRawTimingsRequest {
   repeated sint32 timings = 5 [packed = true, (packed_buffer) = true];  // Raw timings in microseconds (zigzag-encoded): positive = mark (LED/TX on), negative = space (LED/TX off)
 }
 
-// Event message for received infrared data
-message InfraredReceiveEvent {
+// Event message for received infrared/RF data
+message InfraredRFReceiveEvent {
   option (id) = 137;
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_INFRARED";

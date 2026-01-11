@@ -165,7 +165,7 @@ class InfraredCapability(enum.IntFlag):
 
 
 @_frozen_dataclass_decorator
-class InfraredReceiveEvent(APIModelBase):
+class InfraredRFReceiveEvent(APIModelBase):
     device_id: int = 0
     key: int = 0
     timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call

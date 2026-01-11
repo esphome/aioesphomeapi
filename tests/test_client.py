@@ -57,8 +57,8 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
-    InfraredReceiveEvent as InfraredReceiveEventPb,
-    InfraredTransmitRawTimingsRequest as InfraredTransmitRawTimingsRequestPb,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventPb,
+    InfraredRFTransmitRawTimingsRequest as InfraredRFTransmitRawTimingsRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -129,7 +129,7 @@ from aioesphomeapi.model import (
     FanSpeed,
     HomeassistantActionResponse as HomeassistantActionResponseModel,
     HomeassistantServiceCall,
-    InfraredReceiveEvent,
+    InfraredRFReceiveEvent,
     LegacyCoverCommand,
     LightColorCapability,
     LockCommand,
@@ -2461,21 +2461,21 @@ async def test_subscribe_zwave_proxy_request(
     assert first_msg.data == b"\x00\x01\x02\x03"
 
 
-async def test_subscribe_infrared_receive(
+async def test_subscribe_infrared_rf_receive(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test subscribe_infrared_receive."""
+    """Test subscribe_infrared_rf_receive."""
     client, _connection, _transport, protocol = api_client
     test_msg = []
 
-    def on_infrared_receive(msg: InfraredReceiveEvent) -> None:
+    def on_infrared_rf_receive(msg: InfraredRFReceiveEvent) -> None:
         test_msg.append(msg)
 
-    client.subscribe_infrared_receive(on_infrared_receive)
+    client.subscribe_infrared_rf_receive(on_infrared_rf_receive)
     await asyncio.sleep(0)
-    response: message.Message = InfraredReceiveEventPb(
+    response: message.Message = InfraredRFReceiveEventPb(
         key=123, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
@@ -2487,20 +2487,20 @@ async def test_subscribe_infrared_receive(
     assert first_msg.timings == [9000, -4500, 560, -560, 560, -1690]
 
 
-async def test_infrared_transmit_raw_timings(
+async def test_infrared_rf_transmit_raw_timings(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test infrared_transmit_raw_timings."""
+    """Test infrared_rf_transmit_raw_timings."""
     client, connection, _transport, _protocol = api_client
-    sent_messages: list[InfraredTransmitRawTimingsRequestPb] = []
+    sent_messages: list[InfraredRFTransmitRawTimingsRequestPb] = []
 
     # Capture sent messages
     original_send = connection.send_message
 
     def capture_send(msg: Any) -> None:
-        if isinstance(msg, InfraredTransmitRawTimingsRequestPb):
+        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
             sent_messages.append(msg)
         original_send(msg)
 
@@ -2508,7 +2508,7 @@ async def test_infrared_transmit_raw_timings(
 
     # Send raw timings transmit request with repeat_count
     timings = [9000, 4500, 560, 560, 560, 1690, 560, 560]
-    client.infrared_transmit_raw_timings(
+    client.infrared_rf_transmit_raw_timings(
         key=999, carrier_frequency=38000, timings=timings, repeat_count=3, device_id=7
     )
 

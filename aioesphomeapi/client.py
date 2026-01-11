@@ -50,8 +50,8 @@ from .api_pb2 import (  # type: ignore
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
-    InfraredReceiveEvent,
-    InfraredTransmitRawTimingsRequest,
+    InfraredRFReceiveEvent,
+    InfraredRFTransmitRawTimingsRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
@@ -103,7 +103,7 @@ from .client_base import (
     on_bluetooth_message_types,
     on_bluetooth_scanner_state_response,
     on_home_assistant_action_request,
-    on_infrared_receive_event,
+    on_infrared_rf_receive_event,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -143,7 +143,7 @@ from .model import (
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
-    InfraredReceiveEvent as InfraredReceiveEventModel,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
     LegacyCoverCommand,
     LockCommand,
     LogLevel,
@@ -467,20 +467,20 @@ class APIClient(APIClientBase):
             (ZWaveProxyRequest,),
         )
 
-    def subscribe_infrared_receive(
+    def subscribe_infrared_rf_receive(
         self,
-        on_infrared_receive: Callable[[InfraredReceiveEventModel], None],
+        on_infrared_rf_receive: Callable[[InfraredRFReceiveEventModel], None],
     ) -> Callable[[], None]:
-        """Subscribe to Infrared Receive Event messages."""
+        """Subscribe to Infrared/RF Receive Event messages."""
         return self._get_connection().add_message_callback(
             partial(
-                on_infrared_receive_event,
-                on_infrared_receive,
+                on_infrared_rf_receive_event,
+                on_infrared_rf_receive,
             ),
-            (InfraredReceiveEvent,),
+            (InfraredRFReceiveEvent,),
         )
 
-    def infrared_transmit_raw_timings(
+    def infrared_rf_transmit_raw_timings(
         self,
         key: int,
         carrier_frequency: int,
@@ -488,8 +488,8 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send an infrared raw timings transmit request."""
-        req = InfraredTransmitRawTimingsRequest()
+        """Send an infrared/RF raw timings transmit request."""
+        req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
         req.carrier_frequency = carrier_frequency

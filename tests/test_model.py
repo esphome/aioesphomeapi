@@ -25,7 +25,7 @@ from aioesphomeapi.api_pb2 import (
     FanStateResponse,
     HomeassistantActionRequest,
     HomeassistantServiceMap,
-    InfraredReceiveEvent as InfraredReceiveEventPb,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventPb,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
@@ -110,7 +110,7 @@ from aioesphomeapi.model import (
     InfraredCapability,
     InfraredFeature,
     InfraredInfo,
-    InfraredReceiveEvent,
+    InfraredRFReceiveEvent,
     LegacyCoverState,
     LightColorCapability,
     LightInfo,
@@ -1950,20 +1950,20 @@ def test_infrared_capability_enum() -> None:
     assert InfraredCapability.RECEIVER == 2
 
 
-def test_infrared_receive_event_conversion() -> None:
-    """Test InfraredReceiveEvent conversion from protobuf."""
+def test_infrared_rf_receive_event_conversion() -> None:
+    """Test InfraredRFReceiveEvent conversion from protobuf."""
     # Test with empty timings
-    pb_event = InfraredReceiveEventPb(key=123, device_id=0)
-    event = InfraredReceiveEvent.from_pb(pb_event)
+    pb_event = InfraredRFReceiveEventPb(key=123, device_id=0)
+    event = InfraredRFReceiveEvent.from_pb(pb_event)
     assert event.key == 123
     assert event.device_id == 0
     assert event.timings == []
 
     # Test with actual timings
-    pb_event_with_timings = InfraredReceiveEventPb(
+    pb_event_with_timings = InfraredRFReceiveEventPb(
         key=456, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
     )
-    event_with_timings = InfraredReceiveEvent.from_pb(pb_event_with_timings)
+    event_with_timings = InfraredRFReceiveEvent.from_pb(pb_event_with_timings)
     assert event_with_timings.key == 456
     assert event_with_timings.device_id == 5
     assert event_with_timings.timings == [9000, -4500, 560, -560, 560, -1690]
@@ -1975,7 +1975,7 @@ def test_infrared_receive_event_conversion() -> None:
     assert event_dict["timings"] == [9000, -4500, 560, -560, 560, -1690]
 
     # Test from_dict
-    event_from_dict = InfraredReceiveEvent.from_dict(
+    event_from_dict = InfraredRFReceiveEvent.from_dict(
         {"key": 789, "device_id": 3, "timings": [1000, -2000, 3000, -4000]}
     )
     assert event_from_dict.key == 789
