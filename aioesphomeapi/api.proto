@@ -766,7 +766,7 @@ message SubscribeHomeassistantServicesRequest {
 
 message HomeassistantServiceMap {
   string key = 1;
-  string value = 2 [(no_zero_copy) = true];
+  string value = 2;
 }
 
 message HomeassistantActionRequest {
@@ -782,7 +782,7 @@ message HomeassistantActionRequest {
   bool is_event = 5;
   uint32 call_id = 6 [(field_ifdef) = "USE_API_HOMEASSISTANT_ACTION_RESPONSES"];
   bool wants_response = 7 [(field_ifdef) = "USE_API_HOMEASSISTANT_ACTION_RESPONSES_JSON"];
-  string response_template = 8 [(no_zero_copy) = true, (field_ifdef) = "USE_API_HOMEASSISTANT_ACTION_RESPONSES_JSON"];
+  string response_template = 8 [(field_ifdef) = "USE_API_HOMEASSISTANT_ACTION_RESPONSES_JSON"];
 }
 
 // Message sent by Home Assistant to ESPHome with service call response data
@@ -2484,5 +2484,5 @@ message InfraredRFReceiveEvent {
 
   uint32 device_id = 1 [(field_ifdef) = "USE_DEVICES"];
   fixed32 key = 2;                                    // Key identifying the receiver instance
-  repeated sint32 timings = 3 [packed = true];        // Raw timings in microseconds (zigzag-encoded): alternating mark/space periods
+  repeated sint32 timings = 3 [packed = true, (container_pointer_no_template) = "std::vector<int32_t>"];  // Raw timings in microseconds (zigzag-encoded): alternating mark/space periods
 }
