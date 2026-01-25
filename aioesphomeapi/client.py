@@ -1001,7 +1001,11 @@ class APIClient(APIClientBase):
         async def stop_notify() -> None:
             self.bluetooth_gatt_stop_notify(address, handle)
 
-        return stop_notify, remove_callback
+        def wrapped_remove_callback() -> None:
+            self._notify_callbacks.pop(key, None)
+            remove_callback()
+
+        return stop_notify, wrapped_remove_callback
 
     def bluetooth_gatt_stop_notify(self, address: int, handle: int) -> None:
         """Stop a notify session for a GATT characteristic.
