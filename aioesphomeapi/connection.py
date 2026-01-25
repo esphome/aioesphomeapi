@@ -533,7 +533,7 @@ class APIConnection:
             self.received_name = received_name
             self.set_log_name(self.received_name)
 
-        if keepalive := resp.server_keepalive_interval
+        if keepalive := resp.server_keepalive_interval:
             self._keep_alive_interval = keepalive
             self._keep_alive_timeout = keepalive * KEEP_ALIVE_TIMEOUT_RATIO
             _LOGGER.debug("keep_alive_interval = %d", keepalive)
