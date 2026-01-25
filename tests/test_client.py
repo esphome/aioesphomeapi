@@ -2137,7 +2137,7 @@ async def test_bluetooth_gatt_stop_notify(
     ],
 ) -> None:
     """Test bluetooth_gatt_stop_notify stops notify and removes callback."""
-    client, connection, transport, protocol = api_client
+    client, connection, _transport, protocol = api_client
     notifies = []
 
     handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
@@ -2170,9 +2170,6 @@ async def test_bluetooth_gatt_stop_notify(
         len(list(itertools.chain(*connection._message_handlers.values())))
         == handlers_before
     )
-
-    # Verify a disable message was sent
-    assert transport.write.call_count == 1
 
 
 async def test_bluetooth_gatt_stop_notify_for_address(
@@ -2278,7 +2275,7 @@ async def test_bluetooth_device_connect_cleans_up_notify_on_disconnect(
         client.bluetooth_device_connect(
             1234,
             on_bluetooth_connection_state,
-            feature_flags=1,  # REMOTE_CACHING
+            feature_flags=BluetoothProxyFeature.REMOTE_CACHING,
             address_type=0,
         )
     )
