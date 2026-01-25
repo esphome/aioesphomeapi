@@ -31,6 +31,7 @@ cdef class APIClientBase:
     cdef public APIConnection _connection
     cdef public bint _debug_enabled
     cdef public object _loop
+    cdef public dict _notify_callbacks
     cdef public ConnectionParams _params
     cdef public str cached_name
     cdef public str log_name

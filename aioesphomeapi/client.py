@@ -625,6 +625,14 @@ class APIClient(APIClientBase):
         if self._debug_enabled:
             _LOGGER.debug("%s: Using connection version %s", address, request_type)
 
+        def on_bluetooth_connection_state_with_notify_cleanup(
+            connected: bool, mtu: int, error: int
+        ) -> None:
+            """Wrap connection state callback to clean up notify callbacks on disconnect."""
+            if not connected:
+                self.bluetooth_gatt_stop_notify_for_address(address)
+            on_bluetooth_connection_state(connected, mtu, error)
+
         unsub = self._get_connection().send_message_callback_response(
             BluetoothDeviceRequest(
                 address=address,
@@ -636,7 +644,7 @@ class APIClient(APIClientBase):
                 on_bluetooth_device_connection_response,
                 connect_future,
                 address,
-                on_bluetooth_connection_state,
+                on_bluetooth_connection_state_with_notify_cleanup,
             ),
             (BluetoothDeviceConnectionResponse,),
         )
@@ -987,17 +995,40 @@ class APIClient(APIClientBase):
             remove_callback()
             raise
 
-        async def stop_notify() -> None:
-            if self._connection is None:
-                return
+        key = (address, handle)
+        self._notify_callbacks[key] = remove_callback
 
+        async def stop_notify() -> None:
+            self.bluetooth_gatt_stop_notify(address, handle)
+
+        return stop_notify, remove_callback
+
+    def bluetooth_gatt_stop_notify(self, address: int, handle: int) -> None:
+        """Stop a notify session for a GATT characteristic.
+
+        This is a synchronous method that can be safely called from
+        exception handlers without awaiting.
+        """
+        key = (address, handle)
+        if remove_callback := self._notify_callbacks.pop(key, None):
             remove_callback()
 
+        if self._connection is not None:
             self._connection.send_message(
                 BluetoothGATTNotifyRequest(address=address, handle=handle, enable=False)
             )
 
-        return stop_notify, remove_callback
+    def bluetooth_gatt_stop_notify_for_address(self, address: int) -> None:
+        """Stop all notify sessions for a Bluetooth device.
+
+        This is a synchronous method that removes all notify callbacks
+        for a given address. It does not send disable messages since
+        this is typically called when the device has disconnected.
+        """
+        keys_to_remove = [key for key in self._notify_callbacks if key[0] == address]
+        for key in keys_to_remove:
+            if remove_callback := self._notify_callbacks.pop(key, None):
+                remove_callback()
 
     def subscribe_home_assistant_states(
         self,
