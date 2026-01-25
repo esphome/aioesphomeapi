@@ -2288,7 +2288,7 @@ async def test_bluetooth_device_connect_cleans_up_notify_on_disconnect(
             BluetoothDeviceConnectionResponse(address=1234, connected=True, mtu=500)
         ),
     )
-    await connect_task
+    cancel = await connect_task
 
     # Verify connected state was received
     assert connection_states == [(True, 500, 0)]
@@ -2307,6 +2307,9 @@ async def test_bluetooth_device_connect_cleans_up_notify_on_disconnect(
 
     # Verify notify callback was cleaned up
     assert (1234, 1) not in client._notify_callbacks
+
+    # Clean up
+    cancel()
 
 
 async def test_subscribe_bluetooth_le_advertisements(
