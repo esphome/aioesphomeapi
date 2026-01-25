@@ -234,6 +234,7 @@ class APIClientBase:
         "_connection",
         "_debug_enabled",
         "_loop",
+        "_notify_callbacks",
         "_params",
         "cached_name",
         "log_name",
@@ -299,6 +300,7 @@ class APIClientBase:
         self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
         self._set_log_name()
