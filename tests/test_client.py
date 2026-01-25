@@ -2131,6 +2131,227 @@ async def test_bluetooth_gatt_notify_callback_raises(
     assert connection.is_connected
 
 
+async def test_bluetooth_gatt_stop_notify(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_stop_notify stops notify and removes callback."""
+    client, connection, _transport, protocol = api_client
+    notifies = []
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        notifies.append((handle, data))
+
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    notify_response: message.Message = BluetoothGATTNotifyResponse(
+        address=1234, handle=1
+    )
+    mock_data_received(protocol, generate_plaintext_packet(notify_response))
+
+    await notify_task
+
+    # Verify the callback is registered
+    assert (1234, 1) in client._notify_callbacks
+
+    # Stop notify using the sync method
+    client.bluetooth_gatt_stop_notify(1234, 1)
+
+    # Verify callback is removed
+    assert (1234, 1) not in client._notify_callbacks
+
+    # Verify handlers are cleaned up
+    assert (
+        len(list(itertools.chain(*connection._message_handlers.values())))
+        == handlers_before
+    )
+
+
+async def test_bluetooth_gatt_start_notify_abort_callback_cleans_up(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that the abort callback (second return value) cleans up _notify_callbacks."""
+    client, connection, _transport, protocol = api_client
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        pass
+
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(BluetoothGATTNotifyResponse(address=1234, handle=1)),
+    )
+
+    _cancel_cb, abort_cb = await notify_task
+
+    # Verify the callback is registered
+    assert (1234, 1) in client._notify_callbacks
+
+    # Call abort callback directly (simulates connection lost scenario)
+    abort_cb()
+
+    # Verify _notify_callbacks is cleaned up
+    assert (1234, 1) not in client._notify_callbacks
+
+    # Verify handlers are cleaned up
+    assert (
+        len(list(itertools.chain(*connection._message_handlers.values())))
+        == handlers_before
+    )
+
+
+async def test_bluetooth_gatt_stop_notify_for_address(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_gatt_stop_notify_for_address stops all notifies for an address."""
+    client, connection, _transport, protocol = api_client
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        pass
+
+    # Start multiple notifies for the same address
+    notify_task1 = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(BluetoothGATTNotifyResponse(address=1234, handle=1)),
+    )
+    await notify_task1
+
+    notify_task2 = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 2, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(BluetoothGATTNotifyResponse(address=1234, handle=2)),
+    )
+    await notify_task2
+
+    # Also start a notify for a different address
+    notify_task3 = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(5678, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(BluetoothGATTNotifyResponse(address=5678, handle=1)),
+    )
+    await notify_task3
+
+    # Verify all callbacks are registered
+    assert (1234, 1) in client._notify_callbacks
+    assert (1234, 2) in client._notify_callbacks
+    assert (5678, 1) in client._notify_callbacks
+
+    # Stop all notifies for address 1234
+    client.bluetooth_gatt_stop_notify_for_address(1234)
+
+    # Verify callbacks for 1234 are removed but 5678 remains
+    assert (1234, 1) not in client._notify_callbacks
+    assert (1234, 2) not in client._notify_callbacks
+    assert (5678, 1) in client._notify_callbacks
+
+    # Clean up
+    client.bluetooth_gatt_stop_notify(5678, 1)
+
+    # Verify all handlers are cleaned up
+    assert (
+        len(list(itertools.chain(*connection._message_handlers.values())))
+        == handlers_before
+    )
+
+
+async def test_bluetooth_device_connect_cleans_up_notify_on_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that notify callbacks are cleaned up when device disconnects."""
+    client, _connection, _transport, protocol = api_client
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        pass
+
+    # Start a notify
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(BluetoothGATTNotifyResponse(address=1234, handle=1)),
+    )
+    await notify_task
+
+    # Verify the callback is registered
+    assert (1234, 1) in client._notify_callbacks
+
+    # Simulate device connecting (sets up the disconnect handler)
+    connection_states = []
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        connection_states.append((connected, mtu, error))
+
+    connect_task = asyncio.create_task(
+        client.bluetooth_device_connect(
+            1234,
+            on_bluetooth_connection_state,
+            feature_flags=BluetoothProxyFeature.REMOTE_CACHING,
+            address_type=0,
+        )
+    )
+    await asyncio.sleep(0)
+
+    # Send connection response
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            BluetoothDeviceConnectionResponse(address=1234, connected=True, mtu=500)
+        ),
+    )
+    cancel = await connect_task
+
+    # Verify connected state was received
+    assert connection_states == [(True, 500, 0)]
+
+    # Now simulate disconnect
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            BluetoothDeviceConnectionResponse(address=1234, connected=False, error=0)
+        ),
+    )
+    await asyncio.sleep(0)
+
+    # Verify disconnect state was received
+    assert connection_states == [(True, 500, 0), (False, 0, 0)]
+
+    # Verify notify callback was cleaned up
+    assert (1234, 1) not in client._notify_callbacks
+
+    # Clean up
+    cancel()
+
+
 async def test_subscribe_bluetooth_le_advertisements(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
