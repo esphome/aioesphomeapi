@@ -2172,6 +2172,46 @@ async def test_bluetooth_gatt_stop_notify(
     )
 
 
+async def test_bluetooth_gatt_start_notify_abort_callback_cleans_up(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that the abort callback (second return value) cleans up _notify_callbacks."""
+    client, connection, _transport, protocol = api_client
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
+        pass
+
+    notify_task = asyncio.create_task(
+        client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
+    )
+    await asyncio.sleep(0)
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(BluetoothGATTNotifyResponse(address=1234, handle=1)),
+    )
+
+    _cancel_cb, abort_cb = await notify_task
+
+    # Verify the callback is registered
+    assert (1234, 1) in client._notify_callbacks
+
+    # Call abort callback directly (simulates connection lost scenario)
+    abort_cb()
+
+    # Verify _notify_callbacks is cleaned up
+    assert (1234, 1) not in client._notify_callbacks
+
+    # Verify handlers are cleaned up
+    assert (
+        len(list(itertools.chain(*connection._message_handlers.values())))
+        == handlers_before
+    )
+
+
 async def test_bluetooth_gatt_stop_notify_for_address(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
