@@ -535,7 +535,6 @@ class APIConnection:
 
         if keepalive := resp.server_keepalive_interval:
             self._keep_alive_interval = keepalive
-            self._keep_alive_timeout = keepalive * KEEP_ALIVE_TIMEOUT_RATIO
             _LOGGER.debug("keep_alive_interval = %d", keepalive)
 
     def _async_schedule_keep_alive(self, now: _float) -> None:
