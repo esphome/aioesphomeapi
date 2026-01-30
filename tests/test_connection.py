@@ -598,9 +598,7 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (
-        pytest.raises(raised_exception),
-    ):
+    with (pytest.raises(raised_exception),):
         await asyncio.sleep(0)
         await connect_task
 
@@ -703,7 +701,8 @@ async def test_connect_wrong_name(
 
     assert conn.is_connected is False
 
-async def test_connect_test_timeut_interval(
+
+async def test_connect_test_timeout_interval(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
@@ -716,6 +715,7 @@ async def test_connect_test_timeut_interval(
     await connect_task
 
     assert conn.is_connected is True
+
 
 async def test_force_disconnect_fails(
     caplog: pytest.LogCaptureFixture,
