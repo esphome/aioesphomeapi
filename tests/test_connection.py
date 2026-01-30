@@ -598,7 +598,9 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (pytest.raises(raised_exception),):
+    with (
+        pytest.raises(raised_exception),
+    ):
         await asyncio.sleep(0)
         await connect_task
 
