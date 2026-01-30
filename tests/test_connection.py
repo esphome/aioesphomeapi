@@ -703,6 +703,19 @@ async def test_connect_wrong_name(
 
     assert conn.is_connected is False
 
+async def test_connect_test_timeut_interval(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    send_plaintext_hello(protocol, 1, 9, 20)
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+
+    assert conn.is_connected is True
 
 async def test_force_disconnect_fails(
     caplog: pytest.LogCaptureFixture,
