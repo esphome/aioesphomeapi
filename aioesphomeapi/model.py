@@ -1118,6 +1118,7 @@ class WaterHeaterFeature(enum.IntFlag):
     SUPPORTS_AWAY_MODE = 1 << 3
     SUPPORTS_ON_OFF = 1 << 4
 
+
 class WaterHeaterCommandField(enum.IntFlag):
     """Bitmask for has_fields in WaterHeaterCommandRequest."""
 
