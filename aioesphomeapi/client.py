@@ -1405,6 +1405,10 @@ class APIClient(APIClientBase):
             req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE
             req.target_temperature = target_temperature
 
+        # Use the new granular AWAY_STATE/ON_STATE fields instead of the
+        # deprecated combined STATE field. Water heater support only shipped
+        # in HA 2026.2.0/ESPHome 2026.1.0 so early adopters can update
+        # their devices; no need for legacy STATE backward compat.
         if away is not None:
             req.has_fields |= WaterHeaterCommandField.AWAY_STATE
             if away:
