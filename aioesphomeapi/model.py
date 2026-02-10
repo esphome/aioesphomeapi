@@ -1127,6 +1127,8 @@ class WaterHeaterCommandField(enum.IntFlag):
     STATE = 1 << 2
     TARGET_TEMPERATURE_LOW = 1 << 3
     TARGET_TEMPERATURE_HIGH = 1 << 4
+    ON_STATE = 1 << 5
+    AWAY_STATE = 1 << 6
 
 
 class WaterHeaterStateFlag(enum.IntFlag):

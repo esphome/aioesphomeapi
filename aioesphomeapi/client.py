@@ -1405,14 +1405,15 @@ class APIClient(APIClientBase):
             req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE
             req.target_temperature = target_temperature
 
-        if away is not None or on is not None:
-            req.has_fields |= WaterHeaterCommandField.STATE
-            state = WaterHeaterStateFlag(0)
+        if away is not None:
+            req.has_fields |= WaterHeaterCommandField.AWAY_STATE
             if away:
-                state |= WaterHeaterStateFlag.AWAY
+                req.state |= WaterHeaterStateFlag.AWAY
+
+        if on is not None:
+            req.has_fields |= WaterHeaterCommandField.ON_STATE
             if on:
-                state |= WaterHeaterStateFlag.ON
-            req.state = state
+                req.state |= WaterHeaterStateFlag.ON
 
         if target_temperature_low is not None:
             req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE_LOW

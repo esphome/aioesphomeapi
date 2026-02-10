@@ -760,7 +760,7 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": WaterHeaterCommandField.STATE,
+                "has_fields": WaterHeaterCommandField.AWAY_STATE,
                 "state": WaterHeaterStateFlag.AWAY,
             },
         ),
@@ -769,7 +769,7 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": WaterHeaterCommandField.STATE,
+                "has_fields": WaterHeaterCommandField.ON_STATE,
                 "state": WaterHeaterStateFlag.ON,
             },
         ),
@@ -778,7 +778,8 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": WaterHeaterCommandField.STATE,
+                "has_fields": WaterHeaterCommandField.AWAY_STATE
+                | WaterHeaterCommandField.ON_STATE,
                 "state": WaterHeaterStateFlag.AWAY | WaterHeaterStateFlag.ON,
             },
         ),
@@ -787,7 +788,8 @@ async def test_switch_command(
             {
                 "key": 1,
                 "device_id": 0,
-                "has_fields": WaterHeaterCommandField.STATE,
+                "has_fields": WaterHeaterCommandField.AWAY_STATE
+                | WaterHeaterCommandField.ON_STATE,
                 "state": WaterHeaterStateFlag(0),
             },
         ),
