@@ -1109,6 +1109,16 @@ class WaterHeaterMode(APIIntEnum):
     GAS = 6
 
 
+class WaterHeaterFeature(enum.IntFlag):
+    """ESPHome water heater feature flags (WaterHeaterFeature)."""
+
+    SUPPORTS_CURRENT_TEMPERATURE = 1 << 0
+    SUPPORTS_TARGET_TEMPERATURE = 1 << 1
+    SUPPORTS_OPERATION_MODE = 1 << 2
+    SUPPORTS_AWAY_MODE = 1 << 3
+    SUPPORTS_ON_OFF = 1 << 4
+
+
 class WaterHeaterCommandField(enum.IntFlag):
     """Bitmask for has_fields in WaterHeaterCommandRequest."""
 
@@ -1117,6 +1127,8 @@ class WaterHeaterCommandField(enum.IntFlag):
     STATE = 1 << 2
     TARGET_TEMPERATURE_LOW = 1 << 3
     TARGET_TEMPERATURE_HIGH = 1 << 4
+    ON_STATE = 1 << 5
+    AWAY_STATE = 1 << 6
 
 
 class WaterHeaterStateFlag(enum.IntFlag):
