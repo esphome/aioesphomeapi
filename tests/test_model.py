@@ -131,6 +131,7 @@ from aioesphomeapi.model import (
     SerialProxyDataReceived,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyRequestType,
     SirenInfo,
     SirenState,
     SubDeviceInfo,
@@ -1996,6 +1997,14 @@ def test_serial_proxy_parity_enum() -> None:
     assert SerialProxyParity.convert(1) == SerialProxyParity.EVEN
     assert SerialProxyParity.convert(2) == SerialProxyParity.ODD
     assert SerialProxyParity.convert(-1) is None
+
+
+def test_serial_proxy_request_type_enum() -> None:
+    """Test SerialProxyRequestType enum values."""
+    assert SerialProxyRequestType.FLUSH == 0
+
+    assert SerialProxyRequestType.convert(0) == SerialProxyRequestType.FLUSH
+    assert SerialProxyRequestType.convert(-1) is None
 
 
 def test_serial_proxy_data_received_conversion() -> None:

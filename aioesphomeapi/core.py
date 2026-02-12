@@ -108,9 +108,9 @@ from .api_pb2 import (  # type: ignore
     SensorStateResponse,
     SerialProxyConfigureRequest,
     SerialProxyDataReceived,
-    SerialProxyFlushRequest,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyRequest,
     SerialProxySetModemPinsRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
@@ -518,7 +518,7 @@ MESSAGE_TYPE_TO_PROTO = {
     141: SerialProxySetModemPinsRequest,
     142: SerialProxyGetModemPinsRequest,
     143: SerialProxyGetModemPinsResponse,
-    144: SerialProxyFlushRequest,
+    144: SerialProxyRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

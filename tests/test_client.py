@@ -72,9 +72,9 @@ from aioesphomeapi.api_pb2 import (
     SelectCommandRequest,
     SerialProxyConfigureRequest as SerialProxyConfigureRequestPb,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
-    SerialProxyFlushRequest as SerialProxyFlushRequestPb,
     SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyRequest as SerialProxyRequestPb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
@@ -146,6 +146,7 @@ from aioesphomeapi.model import (
     SerialProxyDataReceived,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyRequestType,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -3033,12 +3034,12 @@ async def test_serial_proxy_flush(
 ) -> None:
     """Test serial_proxy_flush sends the correct request."""
     client, connection, _transport, _protocol = api_client
-    sent_messages: list[SerialProxyFlushRequestPb] = []
+    sent_messages: list[SerialProxyRequestPb] = []
 
     original_send = connection.send_message
 
     def capture_send(msg: Any) -> None:
-        if isinstance(msg, SerialProxyFlushRequestPb):
+        if isinstance(msg, SerialProxyRequestPb):
             sent_messages.append(msg)
         original_send(msg)
 
@@ -3048,6 +3049,7 @@ async def test_serial_proxy_flush(
 
     assert len(sent_messages) == 1
     assert sent_messages[0].instance == 1
+    assert sent_messages[0].type == SerialProxyRequestType.FLUSH
 
 
 async def test_execute_service_with_response(

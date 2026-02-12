@@ -64,9 +64,9 @@ from .api_pb2 import (  # type: ignore
     SelectCommandRequest,
     SerialProxyConfigureRequest,
     SerialProxyDataReceived,
-    SerialProxyFlushRequest,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyRequest,
     SerialProxySetModemPinsRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
@@ -160,6 +160,7 @@ from .model import (
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyRequestType,
     UpdateCommand,
     UserService,
     UserServiceArgType,
@@ -596,7 +597,12 @@ class APIClient(APIClientBase):
         instance: int,
     ) -> None:
         """Flush the serial port (block until all TX data is sent)."""
-        self._get_connection().send_message(SerialProxyFlushRequest(instance=instance))
+        self._get_connection().send_message(
+            SerialProxyRequest(
+                instance=instance,
+                type=SerialProxyRequestType.FLUSH,
+            )
+        )
 
     async def _send_bluetooth_message_await_response(
         self,

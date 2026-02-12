@@ -1245,6 +1245,10 @@ class SerialProxyParity(APIIntEnum):
     ODD = 2
 
 
+class SerialProxyRequestType(APIIntEnum):
+    FLUSH = 0
+
+
 @_frozen_dataclass_decorator
 class SerialProxyDataReceived(APIModelBase):
     instance: int = 0
