@@ -587,7 +587,7 @@ class APIClient(APIClientBase):
         timeout: float = 10.0,
     ) -> SerialProxyGetModemPinsResponse:
         req = SerialProxyGetModemPinsRequest(instance=instance)
-        return await self._get_connection().send_message_await_response(  # type: ignore[return-value]
+        return await self._get_connection().send_message_await_response(
             req, SerialProxyGetModemPinsResponse, timeout=timeout
         )
 
