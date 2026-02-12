@@ -106,6 +106,13 @@ from .api_pb2 import (  # type: ignore
     SelectCommandRequest,
     SelectStateResponse,
     SensorStateResponse,
+    SerialProxyConfigureRequest,
+    SerialProxyDataReceived,
+    SerialProxyFlushRequest,
+    SerialProxyGetModemPinsRequest,
+    SerialProxyGetModemPinsResponse,
+    SerialProxySetModemPinsRequest,
+    SerialProxyWriteRequest,
     SirenCommandRequest,
     SirenStateResponse,
     SubscribeBluetoothConnectionsFreeRequest,
@@ -505,6 +512,13 @@ MESSAGE_TYPE_TO_PROTO = {
     135: ListEntitiesInfraredResponse,
     136: InfraredRFTransmitRawTimingsRequest,
     137: InfraredRFReceiveEvent,
+    138: SerialProxyConfigureRequest,
+    139: SerialProxyDataReceived,
+    140: SerialProxyWriteRequest,
+    141: SerialProxySetModemPinsRequest,
+    142: SerialProxyGetModemPinsRequest,
+    143: SerialProxyGetModemPinsResponse,
+    144: SerialProxyFlushRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

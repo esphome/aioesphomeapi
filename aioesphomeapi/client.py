@@ -62,6 +62,13 @@ from .api_pb2 import (  # type: ignore
     NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
+    SerialProxyConfigureRequest,
+    SerialProxyDataReceived,
+    SerialProxyFlushRequest,
+    SerialProxyGetModemPinsRequest,
+    SerialProxyGetModemPinsResponse,
+    SerialProxySetModemPinsRequest,
+    SerialProxyWriteRequest,
     SirenCommandRequest,
     SubscribeBluetoothConnectionsFreeRequest,
     SubscribeBluetoothLEAdvertisementsRequest,
@@ -104,6 +111,7 @@ from .client_base import (
     on_bluetooth_scanner_state_response,
     on_home_assistant_action_request,
     on_infrared_rf_receive_event,
+    on_serial_proxy_data_received,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -149,6 +157,9 @@ from .model import (
     LogLevel,
     MediaPlayerCommand,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
+    SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyModemPins,
+    SerialProxyParity,
     UpdateCommand,
     UserService,
     UserServiceArgType,
@@ -496,6 +507,96 @@ class APIClient(APIClientBase):
         req.repeat_count = repeat_count
         req.timings.extend(timings)
         self._get_connection().send_message(req)
+
+    def serial_proxy_configure(
+        self,
+        instance: int,
+        baudrate: int,
+        *,
+        flow_control: bool = False,
+        parity: SerialProxyParity = SerialProxyParity.NONE,
+        stop_bits: int = 1,
+        data_size: int = 8,
+    ) -> None:
+        """Configure UART parameters for a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxyConfigureRequest(
+                instance=instance,
+                baudrate=baudrate,
+                flow_control=flow_control,
+                parity=parity,
+                stop_bits=stop_bits,
+                data_size=data_size,
+            )
+        )
+
+    def serial_proxy_write(
+        self,
+        instance: int,
+        data: bytes,
+    ) -> None:
+        """Write data to a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxyWriteRequest(
+                instance=instance,
+                data=data,
+            )
+        )
+
+    def subscribe_serial_proxy_data(
+        self,
+        on_data: Callable[[SerialProxyDataReceivedModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to serial proxy data received messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_serial_proxy_data_received,
+                on_data,
+            ),
+            (SerialProxyDataReceived,),
+        )
+
+    def serial_proxy_set_modem_pins(
+        self,
+        instance: int,
+        *,
+        rts: bool = False,
+        dtr: bool = False,
+    ) -> None:
+        """Set modem control pin states (RTS and DTR) for a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxySetModemPinsRequest(
+                instance=instance,
+                rts=rts,
+                dtr=dtr,
+            )
+        )
+
+    async def serial_proxy_get_modem_pins(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyModemPins:
+        """Get current modem control pin states for a serial proxy instance."""
+        resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
+        return SerialProxyModemPins.from_pb(resp)
+
+    async def _send_serial_proxy_get_modem_pins(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyGetModemPinsResponse:
+        req = SerialProxyGetModemPinsRequest(instance=instance)
+        return await self._get_connection().send_message_await_response(  # type: ignore[return-value]
+            req, SerialProxyGetModemPinsResponse, timeout=timeout
+        )
+
+    def serial_proxy_flush(
+        self,
+        instance: int,
+    ) -> None:
+        """Flush the serial port (block until all TX data is sent)."""
+        self._get_connection().send_message(SerialProxyFlushRequest(instance=instance))
 
     async def _send_bluetooth_message_await_response(
         self,

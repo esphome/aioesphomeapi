@@ -70,6 +70,13 @@ from aioesphomeapi.api_pb2 import (
     NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
+    SerialProxyConfigureRequest as SerialProxyConfigureRequestPb,
+    SerialProxyDataReceived as SerialProxyDataReceivedPb,
+    SerialProxyFlushRequest as SerialProxyFlushRequestPb,
+    SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
+    SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
+    SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
@@ -135,6 +142,9 @@ from aioesphomeapi.model import (
     LockCommand,
     MediaPlayerCommand,
     SensorInfo,
+    SerialProxyDataReceived,
+    SerialProxyModemPins,
+    SerialProxyParity,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -2743,6 +2753,289 @@ async def test_infrared_rf_transmit_raw_timings(
     assert sent_msg.carrier_frequency == 38000
     assert sent_msg.repeat_count == 3
     assert list(sent_msg.timings) == timings
+
+
+# ==================== SERIAL PROXY ====================
+
+
+async def test_serial_proxy_configure(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_configure sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyConfigureRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyConfigureRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_configure(
+        instance=1,
+        baudrate=115200,
+        flow_control=True,
+        parity=SerialProxyParity.EVEN,
+        stop_bits=2,
+        data_size=7,
+    )
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 1
+    assert sent_msg.baudrate == 115200
+    assert sent_msg.flow_control is True
+    assert sent_msg.parity == 1  # EVEN
+    assert sent_msg.stop_bits == 2
+    assert sent_msg.data_size == 7
+
+
+async def test_serial_proxy_configure_defaults(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_configure with default parameters."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyConfigureRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyConfigureRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_configure(instance=0, baudrate=9600)
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 0
+    assert sent_msg.baudrate == 9600
+    assert sent_msg.flow_control is False
+    assert sent_msg.parity == 0  # NONE
+    assert sent_msg.stop_bits == 1
+    assert sent_msg.data_size == 8
+
+
+async def test_serial_proxy_write(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_write sends data to the device."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyWriteRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyWriteRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_write(instance=0, data=b"AT\r\n")
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 0
+    assert sent_msg.data == b"AT\r\n"
+
+
+async def test_serial_proxy_write_empty(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_write with empty data."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyWriteRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyWriteRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_write(instance=2, data=b"")
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 2
+    assert sent_msg.data == b""
+
+
+async def test_subscribe_serial_proxy_data(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_serial_proxy_data receives data from device."""
+    client, _connection, _transport, protocol = api_client
+    test_msg: list[SerialProxyDataReceived] = []
+
+    def on_data(msg: SerialProxyDataReceived) -> None:
+        test_msg.append(msg)
+
+    client.subscribe_serial_proxy_data(on_data)
+    await asyncio.sleep(0)
+
+    response: message.Message = SerialProxyDataReceivedPb(
+        instance=0, data=b"\x48\x65\x6c\x6c\x6f"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert len(test_msg) == 1
+    first_msg = test_msg[0]
+    assert first_msg.instance == 0
+    assert first_msg.data == b"\x48\x65\x6c\x6c\x6f"
+
+
+async def test_subscribe_serial_proxy_data_multiple(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_serial_proxy_data receives multiple messages."""
+    client, _connection, _transport, protocol = api_client
+    test_msg: list[SerialProxyDataReceived] = []
+
+    def on_data(msg: SerialProxyDataReceived) -> None:
+        test_msg.append(msg)
+
+    client.subscribe_serial_proxy_data(on_data)
+    await asyncio.sleep(0)
+
+    # Send data from instance 0
+    response1: message.Message = SerialProxyDataReceivedPb(instance=0, data=b"first")
+    mock_data_received(protocol, generate_plaintext_packet(response1))
+
+    # Send data from instance 1
+    response2: message.Message = SerialProxyDataReceivedPb(instance=1, data=b"second")
+    mock_data_received(protocol, generate_plaintext_packet(response2))
+
+    assert len(test_msg) == 2
+    assert test_msg[0].instance == 0
+    assert test_msg[0].data == b"first"
+    assert test_msg[1].instance == 1
+    assert test_msg[1].data == b"second"
+
+
+async def test_subscribe_serial_proxy_data_unsub(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test unsubscribing from serial proxy data."""
+    client, _connection, _transport, protocol = api_client
+    test_msg: list[SerialProxyDataReceived] = []
+
+    def on_data(msg: SerialProxyDataReceived) -> None:
+        test_msg.append(msg)
+
+    unsub = client.subscribe_serial_proxy_data(on_data)
+    await asyncio.sleep(0)
+
+    # Should receive this
+    response1: message.Message = SerialProxyDataReceivedPb(instance=0, data=b"before")
+    mock_data_received(protocol, generate_plaintext_packet(response1))
+    assert len(test_msg) == 1
+
+    # Unsubscribe
+    unsub()
+
+    # Should NOT receive this
+    response2: message.Message = SerialProxyDataReceivedPb(instance=0, data=b"after")
+    mock_data_received(protocol, generate_plaintext_packet(response2))
+    assert len(test_msg) == 1
+
+
+async def test_serial_proxy_set_modem_pins(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_set_modem_pins sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxySetModemPinsRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxySetModemPinsRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_set_modem_pins(instance=0, rts=True, dtr=False)
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 0
+    assert sent_msg.rts is True
+    assert sent_msg.dtr is False
+
+
+async def test_serial_proxy_get_modem_pins(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_get_modem_pins returns modem pin states."""
+    client, connection, _transport, _protocol = api_client
+
+    response_pb = SerialProxyGetModemPinsResponsePb(instance=0, rts=True, dtr=False)
+
+    async def mock_send_await(req, response_type, timeout=10.0):
+        assert isinstance(req, SerialProxyGetModemPinsRequestPb)
+        assert req.instance == 0
+        return response_pb
+
+    connection.send_message_await_response = mock_send_await
+
+    result = await client.serial_proxy_get_modem_pins(instance=0)
+
+    assert isinstance(result, SerialProxyModemPins)
+    assert result.instance == 0
+    assert result.rts is True
+    assert result.dtr is False
+
+
+async def test_serial_proxy_flush(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_flush sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyFlushRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyFlushRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_flush(instance=1)
+
+    assert len(sent_messages) == 1
+    assert sent_messages[0].instance == 1
 
 
 async def test_execute_service_with_response(

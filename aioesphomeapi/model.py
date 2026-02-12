@@ -242,6 +242,7 @@ class DeviceInfo(APIModelBase):
     area: AreaInfo = converter_field(
         default_factory=AreaInfo, converter=AreaInfo.convert
     )
+    serial_proxy_count: int = 0
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 9):
@@ -1233,6 +1234,28 @@ class UpdateState(EntityState):
 @_frozen_dataclass_decorator
 class InfraredInfo(EntityInfo):
     capabilities: int = 0
+
+
+# ==================== SERIAL PROXY ====================
+
+
+class SerialProxyParity(APIIntEnum):
+    NONE = 0
+    EVEN = 1
+    ODD = 2
+
+
+@_frozen_dataclass_decorator
+class SerialProxyDataReceived(APIModelBase):
+    instance: int = 0
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class SerialProxyModemPins(APIModelBase):
+    instance: int = 0
+    rts: bool = False
+    dtr: bool = False
 
 
 # ==================== INFO MAP ====================
