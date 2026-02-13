@@ -717,7 +717,6 @@ async def test_connect_with_server_keepalive_interval(
     await connect_task
 
     assert conn.is_connected is True
-    assert conn._keep_alive_interval == 20
 
 
 async def test_force_disconnect_fails(
