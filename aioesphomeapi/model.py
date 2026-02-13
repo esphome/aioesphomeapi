@@ -210,6 +210,30 @@ class SubDeviceInfo(APIModelBase):
         return ret
 
 
+class SerialProxyPortType(APIIntEnum):
+    TTL = 0
+    RS232 = 1
+    RS485 = 2
+
+
+@_frozen_dataclass_decorator
+class SerialProxyInfo(APIModelBase):
+    name: str = ""
+    port_type: SerialProxyPortType | None = converter_field(
+        default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
+    )
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[SerialProxyInfo]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(SerialProxyInfo.from_dict(x))
+            else:
+                ret.append(SerialProxyInfo.from_pb(x))
+        return ret
+
+
 @_frozen_dataclass_decorator
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
@@ -242,7 +266,9 @@ class DeviceInfo(APIModelBase):
     area: AreaInfo = converter_field(
         default_factory=AreaInfo, converter=AreaInfo.convert
     )
-    serial_proxy_count: int = 0
+    serial_proxies: list[SerialProxyInfo] = converter_field(
+        default_factory=list, converter=SerialProxyInfo.convert_list
+    )
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 9):

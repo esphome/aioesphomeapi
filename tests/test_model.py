@@ -59,6 +59,7 @@ from aioesphomeapi.api_pb2 import (
     SensorStateResponse,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyInfo as SerialProxyInfoPb,
     ServiceArgType,
     SirenStateResponse,
     SupportsResponseType as SupportsResponseTypePb,
@@ -129,8 +130,10 @@ from aioesphomeapi.model import (
     SensorInfo,
     SensorState,
     SerialProxyDataReceived,
+    SerialProxyInfo,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyPortType,
     SerialProxyRequestType,
     SirenInfo,
     SirenState,
@@ -337,6 +340,7 @@ def test_api_version_ord():
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
         (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
         (WaterHeaterState, WaterHeaterStateResponse),
+        (SerialProxyInfo, SerialProxyInfoPb),
         (SerialProxyDataReceived, SerialProxyDataReceivedPb),
         (SerialProxyModemPins, SerialProxyGetModemPinsResponsePb),
     ],
@@ -2060,13 +2064,58 @@ def test_serial_proxy_modem_pins_conversion() -> None:
     assert model_from_dict.dtr is True
 
 
-def test_device_info_serial_proxy_count() -> None:
-    """Test DeviceInfo has serial_proxy_count field."""
+def test_serial_proxy_port_type_enum() -> None:
+    """Test SerialProxyPortType enum values."""
+    assert SerialProxyPortType.TTL == 0
+    assert SerialProxyPortType.RS232 == 1
+    assert SerialProxyPortType.RS485 == 2
+
+    assert SerialProxyPortType.convert(0) == SerialProxyPortType.TTL
+    assert SerialProxyPortType.convert(1) == SerialProxyPortType.RS232
+    assert SerialProxyPortType.convert(2) == SerialProxyPortType.RS485
+    assert SerialProxyPortType.convert(-1) is None
+
+
+def test_serial_proxy_info_conversion() -> None:
+    """Test SerialProxyInfo conversion from protobuf."""
+    # Default values
+    pb_msg = SerialProxyInfoPb()
+    model = SerialProxyInfo.from_pb(pb_msg)
+    assert model.name == ""
+    assert model.port_type == SerialProxyPortType.TTL
+
+    # With values
+    pb_msg = SerialProxyInfoPb(name="UART1", port_type=2)
+    model = SerialProxyInfo.from_pb(pb_msg)
+    assert model.name == "UART1"
+    assert model.port_type == SerialProxyPortType.RS485
+
+    # to_dict / from_dict
+    assert model.to_dict() == {"name": "UART1", "port_type": 2}
+    model_from_dict = SerialProxyInfo.from_dict({"name": "RS485 Port", "port_type": 2})
+    assert model_from_dict.name == "RS485 Port"
+    assert model_from_dict.port_type == SerialProxyPortType.RS485
+
+
+def test_device_info_serial_proxies() -> None:
+    """Test DeviceInfo has serial_proxies field."""
     # Default value
     info = DeviceInfo()
-    assert info.serial_proxy_count == 0
+    assert info.serial_proxies == []
 
-    # Set value
-    pb = DeviceInfoResponse(serial_proxy_count=3)
+    # With serial proxy info
+    pb = DeviceInfoResponse(
+        serial_proxies=[
+            SerialProxyInfoPb(name="UART0", port_type=0),
+            SerialProxyInfoPb(name="COM1", port_type=1),
+            SerialProxyInfoPb(name="RS485", port_type=2),
+        ]
+    )
     info = DeviceInfo.from_pb(pb)
-    assert info.serial_proxy_count == 3
+    assert len(info.serial_proxies) == 3
+    assert info.serial_proxies[0].name == "UART0"
+    assert info.serial_proxies[0].port_type == SerialProxyPortType.TTL
+    assert info.serial_proxies[1].name == "COM1"
+    assert info.serial_proxies[1].port_type == SerialProxyPortType.RS232
+    assert info.serial_proxies[2].name == "RS485"
+    assert info.serial_proxies[2].port_type == SerialProxyPortType.RS485
