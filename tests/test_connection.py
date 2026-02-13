@@ -704,7 +704,7 @@ async def test_connect_wrong_name(
     assert conn.is_connected is False
 
 
-async def test_connect_test_timeout_interval(
+async def test_connect_with_server_keepalive_interval(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
@@ -717,7 +717,7 @@ async def test_connect_test_timeout_interval(
     await connect_task
 
     assert conn.is_connected is True
-
+    assert conn._keep_alive_interval == 20
 
 async def test_force_disconnect_fails(
     caplog: pytest.LogCaptureFixture,
