@@ -2119,3 +2119,18 @@ def test_device_info_serial_proxies() -> None:
     assert info.serial_proxies[1].port_type == SerialProxyPortType.RS232
     assert info.serial_proxies[2].name == "RS485"
     assert info.serial_proxies[2].port_type == SerialProxyPortType.RS485
+
+    # From dict (exercises SerialProxyInfo.convert_list with dict input)
+    info_from_dict = DeviceInfo.from_dict(
+        {
+            "serial_proxies": [
+                {"name": "TTL Port", "port_type": 0},
+                {"name": "RS232 Port", "port_type": 1},
+            ]
+        }
+    )
+    assert len(info_from_dict.serial_proxies) == 2
+    assert info_from_dict.serial_proxies[0].name == "TTL Port"
+    assert info_from_dict.serial_proxies[0].port_type == SerialProxyPortType.TTL
+    assert info_from_dict.serial_proxies[1].name == "RS232 Port"
+    assert info_from_dict.serial_proxies[1].port_type == SerialProxyPortType.RS232
