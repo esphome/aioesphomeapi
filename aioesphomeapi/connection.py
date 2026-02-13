@@ -487,8 +487,10 @@ class APIConnection:
         responses = await self.send_messages_await_response_complex(
             tuple(messages),
             None,
-            lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
-            is HelloResponse,  # Only wait for HelloResponse
+            lambda resp: (
+                type(resp)  # pylint: disable=unidiomatic-typecheck
+                is HelloResponse
+            ),  # Only wait for HelloResponse
             tuple(msg_types),
             CONNECT_REQUEST_TIMEOUT,
         )
