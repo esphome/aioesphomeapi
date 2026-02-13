@@ -279,7 +279,7 @@ message DeviceInfoResponse {
   uint32 zwave_home_id = 24 [(field_ifdef) = "USE_ZWAVE_PROXY"];
 
   // Serial proxy instance metadata
-  repeated SerialProxyInfo serial_proxies = 25 [(field_ifdef) = "USE_SERIAL_PROXY", (fixed_array_size_define) = "ESPHOME_ENTITY_SERIAL_PROXY_COUNT"];
+  repeated SerialProxyInfo serial_proxies = 25 [(field_ifdef) = "USE_SERIAL_PROXY", (fixed_array_size_define) = "SERIAL_PROXY_COUNT"];
 }
 
 message ListEntitiesRequest {
