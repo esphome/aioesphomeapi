@@ -155,6 +155,27 @@ class ZWaveProxyRequest(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
+class ZigbeeProxyFeature(enum.IntFlag):
+    ENABLED = 1 << 0
+
+
+class ZigbeeProxyRequestType(APIIntEnum):
+    SUBSCRIBE = 0
+    UNSUBSCRIBE = 1
+    NETWORK_INFO = 2
+
+
+@_frozen_dataclass_decorator
+class ZigbeeProxyFrame(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class ZigbeeProxyRequest(APIModelBase):
+    type: ZigbeeProxyRequestType = ZigbeeProxyRequestType.SUBSCRIBE
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
 class InfraredCapability(enum.IntFlag):
     TRANSMITTER = 1 << 0
     RECEIVER = 1 << 1
@@ -230,6 +251,8 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     zwave_proxy_feature_flags: int = 0
     zwave_home_id: int = 0
+    zigbee_proxy_feature_flags: int = 0
+    zigbee_ieee_address: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -271,6 +294,9 @@ class DeviceInfo(APIModelBase):
 
     def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
         return self.zwave_proxy_feature_flags
+
+    def zigbee_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+        return self.zigbee_proxy_feature_flags
 
 
 class EntityCategory(APIIntEnum):

@@ -29,6 +29,8 @@ from .api_pb2 import (  # type: ignore
     InfraredRFReceiveEvent,
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
+    ZigbeeProxyFrame,
+    ZigbeeProxyRequest,
 )
 from .connection import ConnectionParams
 from .core import APIConnectionError
@@ -42,6 +44,8 @@ from .model import (
     HomeassistantServiceCall,
     InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
+    ZigbeeProxyFrame as ZigbeeProxyFrameModel,
+    ZigbeeProxyRequest as ZigbeeProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
 from .util import build_log_name, create_eager_task
@@ -202,6 +206,20 @@ def on_zwave_proxy_request_message(
     msg: ZWaveProxyRequest,
 ) -> None:
     on_zwave_proxy_request(ZWaveProxyRequestModel.from_pb(msg))
+
+
+def on_zigbee_proxy_frame_message(
+    on_zigbee_proxy_frame: Callable[[ZigbeeProxyFrameModel], None],
+    msg: ZigbeeProxyFrame,
+) -> None:
+    on_zigbee_proxy_frame(ZigbeeProxyFrameModel.from_pb(msg))
+
+
+def on_zigbee_proxy_request_message(
+    on_zigbee_proxy_request: Callable[[ZigbeeProxyRequestModel], None],
+    msg: ZigbeeProxyRequest,
+) -> None:
+    on_zigbee_proxy_request(ZigbeeProxyRequestModel.from_pb(msg))
 
 
 def on_infrared_rf_receive_event(

@@ -143,6 +143,8 @@ from .api_pb2 import (  # type: ignore
     WaterHeaterStateResponse,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
+    ZigbeeProxyFrame,
+    ZigbeeProxyRequest,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -505,6 +507,8 @@ MESSAGE_TYPE_TO_PROTO = {
     135: ListEntitiesInfraredResponse,
     136: InfraredRFTransmitRawTimingsRequest,
     137: InfraredRFReceiveEvent,
+    138: ZigbeeProxyFrame,
+    139: ZigbeeProxyRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
