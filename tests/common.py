@@ -167,11 +167,14 @@ def send_plaintext_hello(
     protocol: APIPlaintextFrameHelper,
     major: int | None = None,
     minor: int | None = None,
+    keepalive: int | None = None,
 ) -> None:
     hello_response: message.Message = HelloResponse()
     hello_response.api_version_major = 1 if major is None else major
     hello_response.api_version_minor = 9 if minor is None else minor
     hello_response.name = "fake"
+    if keepalive:
+        hello_response.server_keepalive_interval = keepalive
     protocol.data_received(generate_plaintext_packet(hello_response))
 
 
