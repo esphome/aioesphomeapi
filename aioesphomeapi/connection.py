@@ -535,6 +535,10 @@ class APIConnection:
             self.received_name = received_name
             self.set_log_name(self.received_name)
 
+        if keepalive := resp.server_keepalive_interval:
+            self._keep_alive_interval = keepalive
+            _LOGGER.debug("keep_alive_interval = %d", keepalive)
+
     def _async_schedule_keep_alive(self, now: _float) -> None:
         """Start the keep alive task."""
         self._send_pending_ping = True

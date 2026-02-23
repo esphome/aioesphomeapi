@@ -127,6 +127,7 @@ message HelloResponse {
 
   // The name of the server (App.get_name())
   string name = 4;
+  uint32 server_keepalive_interval = 5;
 }
 
 // DEPRECATED in ESPHome 2026.1.0 - Password authentication is no longer supported.
