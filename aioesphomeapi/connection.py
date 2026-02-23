@@ -21,15 +21,21 @@ import aioesphomeapi.host_resolver as hr
 
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
-from .api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore  # type: ignore
+    DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
+    DST_RULE_TYPE_JULIAN_NO_LEAP as DST_RULE_TYPE_JULIAN_NO_LEAP_PB,
+    DST_RULE_TYPE_MONTH_WEEK_DAY as DST_RULE_TYPE_MONTH_WEEK_DAY_PB,
+    DST_RULE_TYPE_NONE as DST_RULE_TYPE_NONE_PB,
     AuthenticationRequest,
     AuthenticationResponse,
     DisconnectRequest,
     DisconnectResponse,
+    DSTRule as DSTRuleProto,
     GetTimeRequest,
     GetTimeResponse,
     HelloRequest,
     HelloResponse,
+    ParsedTimezone as ParsedTimezoneProto,
     PingRequest,
     PingResponse,
 )
@@ -50,6 +56,7 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .model import APIVersion, message_types_to_names
+from .posix_tz import DSTRule as DSTRuleParsed, DSTRuleType, parse_posix_tz
 from .timezone import get_timezone
 from .util import asyncio_timeout
 from .zeroconf import ZeroconfManager
@@ -157,6 +164,44 @@ def _make_hello_request(client_info: str) -> HelloRequest:
 _cached_make_hello_request = lru_cache(maxsize=16)(_make_hello_request)
 make_hello_request = _cached_make_hello_request
 
+_DST_RULE_TYPE_MAP: dict[DSTRuleType, int] = {
+    DSTRuleType.NONE: DST_RULE_TYPE_NONE_PB,
+    DSTRuleType.MONTH_WEEK_DAY: DST_RULE_TYPE_MONTH_WEEK_DAY_PB,
+    DSTRuleType.JULIAN_NO_LEAP: DST_RULE_TYPE_JULIAN_NO_LEAP_PB,
+    DSTRuleType.DAY_OF_YEAR: DST_RULE_TYPE_DAY_OF_YEAR_PB,
+}
+
+
+def _build_dst_rule_proto(rule: DSTRuleParsed) -> DSTRuleProto:
+    """Build a protobuf DSTRule from a parsed DSTRule."""
+    return DSTRuleProto(
+        time_seconds=rule.time_seconds,
+        day=rule.day,
+        type=_DST_RULE_TYPE_MAP[rule.type],
+        month=rule.month,
+        week=rule.week,
+        day_of_week=rule.day_of_week,
+    )
+
+
+def _build_parsed_tz_proto(tz_string: str) -> ParsedTimezoneProto | None:
+    """Build a protobuf ParsedTimezone from a POSIX TZ string.
+
+    Returns None if the string is empty or unparseable.
+    """
+    if not tz_string:
+        return None
+    try:
+        parsed = parse_posix_tz(tz_string)
+    except ValueError:
+        return None
+    return ParsedTimezoneProto(
+        std_offset_seconds=parsed.std_offset_seconds,
+        dst_offset_seconds=parsed.dst_offset_seconds,
+        dst_start=_build_dst_rule_proto(parsed.dst_start),
+        dst_end=_build_dst_rule_proto(parsed.dst_end),
+    )
+
 
 def handle_timeout(fut: asyncio.Future[None]) -> None:
     """Handle a timeout."""
@@ -196,6 +241,7 @@ class APIConnection:
 
     __slots__ = (
         "_addrs_info",
+        "_cached_parsed_tz",
         "_cached_timezone",
         "_debug_enabled",
         "_expected_disconnect",
@@ -267,6 +313,7 @@ class APIConnection:
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self._cached_timezone: str = ""
+        self._cached_parsed_tz: ParsedTimezoneProto | None = None
         self.connected_address: str | None = None
         self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
@@ -702,6 +749,7 @@ class APIConnection:
         # Use provided timezone from params (converted from IANA to POSIX if needed),
         # or fall back to local timezone detection
         self._cached_timezone = await get_timezone(self._params.timezone)
+        self._cached_parsed_tz = _build_parsed_tz_proto(self._cached_timezone)
         # Register internal handlers before
         # connecting the helper so we can ensure
         # we handle any messages that are received immediately
@@ -1074,6 +1122,8 @@ class APIConnection:
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
         resp.timezone = self._cached_timezone
+        if self._cached_parsed_tz is not None:
+            resp.parsed_timezone.CopyFrom(self._cached_parsed_tz)
         self.send_messages((resp,))
 
     async def disconnect(self) -> None:
