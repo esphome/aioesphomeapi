@@ -184,6 +184,7 @@ def _build_dst_rule_proto(rule: DSTRuleParsed) -> DSTRuleProto:
     )
 
 
+@lru_cache(maxsize=8)
 def _build_parsed_tz_proto(tz_string: str) -> ParsedTimezoneProto | None:
     """Build a protobuf ParsedTimezone from a POSIX TZ string.
 
@@ -241,7 +242,6 @@ class APIConnection:
 
     __slots__ = (
         "_addrs_info",
-        "_cached_parsed_tz",
         "_cached_timezone",
         "_debug_enabled",
         "_expected_disconnect",
@@ -313,7 +313,6 @@ class APIConnection:
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self._cached_timezone: str = ""
-        self._cached_parsed_tz: ParsedTimezoneProto | None = None
         self.connected_address: str | None = None
         self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
@@ -749,7 +748,6 @@ class APIConnection:
         # Use provided timezone from params (converted from IANA to POSIX if needed),
         # or fall back to local timezone detection
         self._cached_timezone = await get_timezone(self._params.timezone)
-        self._cached_parsed_tz = _build_parsed_tz_proto(self._cached_timezone)
         # Register internal handlers before
         # connecting the helper so we can ensure
         # we handle any messages that are received immediately
@@ -1122,8 +1120,9 @@ class APIConnection:
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
         resp.timezone = self._cached_timezone
-        if self._cached_parsed_tz is not None:
-            resp.parsed_timezone.CopyFrom(self._cached_parsed_tz)
+        parsed_tz = _build_parsed_tz_proto(self._cached_timezone)
+        if parsed_tz is not None:
+            resp.parsed_timezone.CopyFrom(parsed_tz)
         self.send_messages((resp,))
 
     async def disconnect(self) -> None:
