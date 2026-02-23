@@ -842,6 +842,8 @@ enum DSTRuleType {
 }
 
 message DSTRule {
+  option (source) = SOURCE_CLIENT;
+
   sint32 time_seconds = 1;
   uint32 day = 2;
   DSTRuleType type = 3;
@@ -851,6 +853,8 @@ message DSTRule {
 }
 
 message ParsedTimezone {
+  option (source) = SOURCE_CLIENT;
+
   sint32 std_offset_seconds = 1;
   sint32 dst_offset_seconds = 2;
   DSTRule dst_start = 3;
