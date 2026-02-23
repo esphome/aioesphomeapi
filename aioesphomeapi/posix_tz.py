@@ -111,11 +111,15 @@ def _parse_uint(s: str, pos: int) -> tuple[int, int]:
     """Parse an unsigned integer from string at position.
 
     Returns (value, new_position).
+    Raises ValueError if no digits are found at the given position.
     """
+    start = pos
     value = 0
     while pos < len(s) and s[pos].isdigit():
         value = value * 10 + int(s[pos])
         pos += 1
+    if pos == start:
+        raise ValueError(f"Expected digit at position {start}")
     return value, pos
 
 

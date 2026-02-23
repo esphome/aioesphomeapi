@@ -181,6 +181,12 @@ def test_parse_short_name_fails() -> None:
         parse_posix_tz("AB5")
 
 
+def test_parse_offset_no_digits_fails() -> None:
+    """Offset sign without digits should fail."""
+    with pytest.raises(ValueError):
+        parse_posix_tz("EST+")
+
+
 def test_parse_missing_offset_fails() -> None:
     with pytest.raises(ValueError):
         parse_posix_tz("EST")
@@ -397,7 +403,7 @@ def test_dst_rule_type_enum_values() -> None:
 
 def test_parsed_timezone_default() -> None:
     """Default ParsedTimezone should be UTC with no DST."""
-    tz: ParsedTimezone = ParsedTimezone()
+    tz = ParsedTimezone()
     assert tz.std_offset_seconds == 0
     assert tz.dst_offset_seconds == 0
     assert not tz.has_dst
