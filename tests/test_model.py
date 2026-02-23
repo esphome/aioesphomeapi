@@ -57,6 +57,9 @@ from aioesphomeapi.api_pb2 import (
     NumberStateResponse,
     SelectStateResponse,
     SensorStateResponse,
+    SerialProxyDataReceived as SerialProxyDataReceivedPb,
+    SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyInfo as SerialProxyInfoPb,
     ServiceArgType,
     SirenStateResponse,
     SupportsResponseType as SupportsResponseTypePb,
@@ -126,6 +129,12 @@ from aioesphomeapi.model import (
     SelectState,
     SensorInfo,
     SensorState,
+    SerialProxyDataReceived,
+    SerialProxyInfo,
+    SerialProxyModemPins,
+    SerialProxyParity,
+    SerialProxyPortType,
+    SerialProxyRequestType,
     SirenInfo,
     SirenState,
     SubDeviceInfo,
@@ -331,6 +340,9 @@ def test_api_version_ord():
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
         (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
         (WaterHeaterState, WaterHeaterStateResponse),
+        (SerialProxyInfo, SerialProxyInfoPb),
+        (SerialProxyDataReceived, SerialProxyDataReceivedPb),
+        (SerialProxyModemPins, SerialProxyGetModemPinsResponsePb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -1974,3 +1986,151 @@ def test_infrared_info_in_type_to_name() -> None:
     """Test that InfraredInfo is registered in _TYPE_TO_NAME."""
     assert InfraredInfo in _TYPE_TO_NAME
     assert _TYPE_TO_NAME[InfraredInfo] == "infrared"
+
+
+# ==================== SERIAL PROXY ====================
+
+
+def test_serial_proxy_parity_enum() -> None:
+    """Test SerialProxyParity enum values."""
+    assert SerialProxyParity.NONE == 0
+    assert SerialProxyParity.EVEN == 1
+    assert SerialProxyParity.ODD == 2
+
+    assert SerialProxyParity.convert(0) == SerialProxyParity.NONE
+    assert SerialProxyParity.convert(1) == SerialProxyParity.EVEN
+    assert SerialProxyParity.convert(2) == SerialProxyParity.ODD
+    assert SerialProxyParity.convert(-1) is None
+
+
+def test_serial_proxy_request_type_enum() -> None:
+    """Test SerialProxyRequestType enum values."""
+    assert SerialProxyRequestType.FLUSH == 0
+
+    assert SerialProxyRequestType.convert(0) == SerialProxyRequestType.FLUSH
+    assert SerialProxyRequestType.convert(-1) is None
+
+
+def test_serial_proxy_data_received_conversion() -> None:
+    """Test SerialProxyDataReceived conversion from protobuf."""
+    # Test with empty data
+    pb_msg = SerialProxyDataReceivedPb()
+    model = SerialProxyDataReceived.from_pb(pb_msg)
+    assert model.instance == 0
+    assert model.data == b""
+
+    # Test with actual data
+    pb_msg_with_data = SerialProxyDataReceivedPb(instance=2, data=b"\x01\x02\x03\x04")
+    model_with_data = SerialProxyDataReceived.from_pb(pb_msg_with_data)
+    assert model_with_data.instance == 2
+    assert model_with_data.data == b"\x01\x02\x03\x04"
+
+    # Test to_dict
+    assert model_with_data.to_dict() == {"instance": 2, "data": b"\x01\x02\x03\x04"}
+
+    # Test from_dict
+    model_from_dict = SerialProxyDataReceived.from_dict(
+        {"instance": 1, "data": b"\x05\x06\x07\x08"}
+    )
+    assert model_from_dict.instance == 1
+    assert model_from_dict.data == b"\x05\x06\x07\x08"
+
+
+def test_serial_proxy_modem_pins_conversion() -> None:
+    """Test SerialProxyModemPins conversion from protobuf."""
+    # Test with default values
+    pb_msg = SerialProxyGetModemPinsResponsePb()
+    model = SerialProxyModemPins.from_pb(pb_msg)
+    assert model.instance == 0
+    assert model.rts is False
+    assert model.dtr is False
+
+    # Test with set values
+    pb_msg_with_pins = SerialProxyGetModemPinsResponsePb(instance=1, rts=True, dtr=True)
+    model_with_pins = SerialProxyModemPins.from_pb(pb_msg_with_pins)
+    assert model_with_pins.instance == 1
+    assert model_with_pins.rts is True
+    assert model_with_pins.dtr is True
+
+    # Test to_dict
+    assert model_with_pins.to_dict() == {"instance": 1, "rts": True, "dtr": True}
+
+    # Test from_dict
+    model_from_dict = SerialProxyModemPins.from_dict(
+        {"instance": 3, "rts": False, "dtr": True}
+    )
+    assert model_from_dict.instance == 3
+    assert model_from_dict.rts is False
+    assert model_from_dict.dtr is True
+
+
+def test_serial_proxy_port_type_enum() -> None:
+    """Test SerialProxyPortType enum values."""
+    assert SerialProxyPortType.TTL == 0
+    assert SerialProxyPortType.RS232 == 1
+    assert SerialProxyPortType.RS485 == 2
+
+    assert SerialProxyPortType.convert(0) == SerialProxyPortType.TTL
+    assert SerialProxyPortType.convert(1) == SerialProxyPortType.RS232
+    assert SerialProxyPortType.convert(2) == SerialProxyPortType.RS485
+    assert SerialProxyPortType.convert(-1) is None
+
+
+def test_serial_proxy_info_conversion() -> None:
+    """Test SerialProxyInfo conversion from protobuf."""
+    # Default values
+    pb_msg = SerialProxyInfoPb()
+    model = SerialProxyInfo.from_pb(pb_msg)
+    assert model.name == ""
+    assert model.port_type == SerialProxyPortType.TTL
+
+    # With values
+    pb_msg = SerialProxyInfoPb(name="UART1", port_type=2)
+    model = SerialProxyInfo.from_pb(pb_msg)
+    assert model.name == "UART1"
+    assert model.port_type == SerialProxyPortType.RS485
+
+    # to_dict / from_dict
+    assert model.to_dict() == {"name": "UART1", "port_type": 2}
+    model_from_dict = SerialProxyInfo.from_dict({"name": "RS485 Port", "port_type": 2})
+    assert model_from_dict.name == "RS485 Port"
+    assert model_from_dict.port_type == SerialProxyPortType.RS485
+
+
+def test_device_info_serial_proxies() -> None:
+    """Test DeviceInfo has serial_proxies field."""
+    # Default value
+    info = DeviceInfo()
+    assert info.serial_proxies == []
+
+    # With serial proxy info
+    pb = DeviceInfoResponse(
+        serial_proxies=[
+            SerialProxyInfoPb(name="UART0", port_type=0),
+            SerialProxyInfoPb(name="COM1", port_type=1),
+            SerialProxyInfoPb(name="RS485", port_type=2),
+        ]
+    )
+    info = DeviceInfo.from_pb(pb)
+    assert len(info.serial_proxies) == 3
+    assert info.serial_proxies[0].name == "UART0"
+    assert info.serial_proxies[0].port_type == SerialProxyPortType.TTL
+    assert info.serial_proxies[1].name == "COM1"
+    assert info.serial_proxies[1].port_type == SerialProxyPortType.RS232
+    assert info.serial_proxies[2].name == "RS485"
+    assert info.serial_proxies[2].port_type == SerialProxyPortType.RS485
+
+    # From dict (exercises SerialProxyInfo.convert_list with dict input)
+    info_from_dict = DeviceInfo.from_dict(
+        {
+            "serial_proxies": [
+                {"name": "TTL Port", "port_type": 0},
+                {"name": "RS232 Port", "port_type": 1},
+            ]
+        }
+    )
+    assert len(info_from_dict.serial_proxies) == 2
+    assert info_from_dict.serial_proxies[0].name == "TTL Port"
+    assert info_from_dict.serial_proxies[0].port_type == SerialProxyPortType.TTL
+    assert info_from_dict.serial_proxies[1].name == "RS232 Port"
+    assert info_from_dict.serial_proxies[1].port_type == SerialProxyPortType.RS232
