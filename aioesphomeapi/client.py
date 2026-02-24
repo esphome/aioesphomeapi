@@ -92,6 +92,8 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
     ZWaveProxyRequest,
+    ZigbeeProxyFrame,
+    ZigbeeProxyRequest,
 )
 from .client_base import (
     APIClientBase,
@@ -106,6 +108,8 @@ from .client_base import (
     on_infrared_rf_receive_event,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
+    on_zigbee_proxy_frame_message,
+    on_zigbee_proxy_request_message,
     on_zwave_proxy_request_message,
 )
 from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa: F401
@@ -164,6 +168,9 @@ from .model import (
     WaterHeaterCommandField,
     WaterHeaterStateFlag,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
+    ZigbeeProxyFrame as ZigbeeProxyFrameModel,
+    ZigbeeProxyRequest as ZigbeeProxyRequestModel,
+    ZigbeeProxyRequestType,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -466,6 +473,47 @@ class APIClient(APIClientBase):
             ),
             (ZWaveProxyRequest,),
         )
+
+    def subscribe_zigbee_proxy_request(
+        self,
+        on_zigbee_proxy_request: Callable[[ZigbeeProxyRequestModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to Zigbee Proxy Request messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_zigbee_proxy_request_message,
+                on_zigbee_proxy_request,
+            ),
+            (ZigbeeProxyRequest,),
+        )
+
+    def subscribe_zigbee_proxy_frame(
+        self,
+        on_zigbee_proxy_frame: Callable[[ZigbeeProxyFrameModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to Zigbee Proxy Frame messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_zigbee_proxy_frame_message,
+                on_zigbee_proxy_frame,
+            ),
+            (ZigbeeProxyFrame,),
+        )
+
+    def send_zigbee_proxy_frame(self, data: bytes) -> None:
+        """Send a Zigbee Proxy Frame."""
+        req = ZigbeeProxyFrame()
+        req.data = data
+        self._get_connection().send_message(req)
+
+    def send_zigbee_proxy_request(
+        self, type: ZigbeeProxyRequestType, data: bytes = b""
+    ) -> None:
+        """Send a Zigbee Proxy Request."""
+        req = ZigbeeProxyRequest()
+        req.type = type
+        req.data = data
+        self._get_connection().send_message(req)
 
     def subscribe_infrared_rf_receive(
         self,
