@@ -2085,14 +2085,14 @@ def test_serial_proxy_info_conversion() -> None:
     assert model.port_type == SerialProxyPortType.TTL
 
     # With values
-    pb_msg = SerialProxyInfoPb(name="UART1", port_type=2)
+    pb_msg = SerialProxyInfoPb(name="UART1", port_type=SerialProxyPortType.RS485)
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == "UART1"
     assert model.port_type == SerialProxyPortType.RS485
 
     # to_dict / from_dict
     assert model.to_dict() == {"name": "UART1", "port_type": 2}
-    model_from_dict = SerialProxyInfo.from_dict({"name": "RS485 Port", "port_type": 2})
+    model_from_dict = SerialProxyInfo.from_dict({"name": "RS485 Port", "port_type": SerialProxyPortType.RS485})
     assert model_from_dict.name == "RS485 Port"
     assert model_from_dict.port_type == SerialProxyPortType.RS485
 
@@ -2106,9 +2106,9 @@ def test_device_info_serial_proxies() -> None:
     # With serial proxy info
     pb = DeviceInfoResponse(
         serial_proxies=[
-            SerialProxyInfoPb(name="UART0", port_type=0),
-            SerialProxyInfoPb(name="COM1", port_type=1),
-            SerialProxyInfoPb(name="RS485", port_type=2),
+            SerialProxyInfoPb(name="UART0", port_type=SerialProxyPortType.TTL),
+            SerialProxyInfoPb(name="COM1", port_type=SerialProxyPortType.RS232),
+            SerialProxyInfoPb(name="RS485", port_type=SerialProxyPortType.RS485),
         ]
     )
     info = DeviceInfo.from_pb(pb)
@@ -2124,8 +2124,8 @@ def test_device_info_serial_proxies() -> None:
     info_from_dict = DeviceInfo.from_dict(
         {
             "serial_proxies": [
-                {"name": "TTL Port", "port_type": 0},
-                {"name": "RS232 Port", "port_type": 1},
+                {"name": "TTL Port", "port_type": SerialProxyPortType.TTL},
+                {"name": "RS232 Port", "port_type": SerialProxyPortType.RS232},
             ]
         }
     )

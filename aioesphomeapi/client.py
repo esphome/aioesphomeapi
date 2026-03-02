@@ -588,9 +588,20 @@ class APIClient(APIClientBase):
         timeout: float = 10.0,
     ) -> SerialProxyGetModemPinsResponse:
         req = SerialProxyGetModemPinsRequest(instance=instance)
-        return await self._get_connection().send_message_await_response(
-            req, SerialProxyGetModemPinsResponse, timeout=timeout
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            lambda msg: (
+                type(msg) is SerialProxyGetModemPinsResponse
+                and msg.instance == instance
+            ),
+            lambda msg: (
+                type(msg) is SerialProxyGetModemPinsResponse
+                and msg.instance == instance
+            ),
+            (SerialProxyGetModemPinsResponse,),
+            timeout,
         )
+        return resp
 
     def serial_proxy_flush(
         self,

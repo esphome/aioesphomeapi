@@ -3001,12 +3001,13 @@ async def test_serial_proxy_get_modem_pins(
 
     response_pb = SerialProxyGetModemPinsResponsePb(instance=0, rts=True, dtr=False)
 
-    async def mock_send_await(req, response_type, timeout=10.0):
-        assert isinstance(req, SerialProxyGetModemPinsRequestPb)
-        assert req.instance == 0
-        return response_pb
+    async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxyGetModemPinsRequestPb)
+        assert messages[0].instance == 0
+        return [response_pb]
 
-    connection.send_message_await_response = mock_send_await
+    connection.send_messages_await_response_complex = mock_send_complex
 
     result = await client.serial_proxy_get_modem_pins(instance=0)
 
@@ -3014,6 +3015,23 @@ async def test_serial_proxy_get_modem_pins(
     assert result.instance == 0
     assert result.rts is True
     assert result.dtr is False
+
+
+async def test_serial_proxy_get_modem_pins_timeout(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_get_modem_pins propagates TimeoutError."""
+    client, connection, _transport, _protocol = api_client
+
+    async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
+        raise asyncio.TimeoutError
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    with pytest.raises(asyncio.TimeoutError):
+        await client.serial_proxy_get_modem_pins(instance=0)
 
 
 def test_on_serial_proxy_get_modem_pins_response() -> None:
