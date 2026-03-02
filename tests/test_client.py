@@ -3026,7 +3026,7 @@ async def test_serial_proxy_get_modem_pins_timeout(
     client, connection, _transport, _protocol = api_client
 
     async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
-        raise asyncio.TimeoutError
+        raise TimeoutError
 
     connection.send_messages_await_response_complex = mock_send_complex
 
