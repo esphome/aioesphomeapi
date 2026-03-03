@@ -676,6 +676,7 @@ class ClimateAction(APIIntEnum):
     IDLE = 4
     DRYING = 5
     FAN = 6
+    DEFROSTING = 7
 
 
 class ClimatePreset(APIIntEnum):
