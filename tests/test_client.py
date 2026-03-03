@@ -3070,6 +3070,56 @@ async def test_serial_proxy_flush(
     assert sent_messages[0].type == SerialProxyRequestType.FLUSH
 
 
+async def test_serial_proxy_subscribe(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_subscribe sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_subscribe(instance=2)
+
+    assert len(sent_messages) == 1
+    assert sent_messages[0].instance == 2
+    assert sent_messages[0].type == SerialProxyRequestType.SUBSCRIBE
+
+
+async def test_serial_proxy_unsubscribe(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_unsubscribe sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_unsubscribe(instance=3)
+
+    assert len(sent_messages) == 1
+    assert sent_messages[0].instance == 3
+    assert sent_messages[0].type == SerialProxyRequestType.UNSUBSCRIBE
+
+
 async def test_execute_service_with_response(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
