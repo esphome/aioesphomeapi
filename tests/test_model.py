@@ -2005,9 +2005,13 @@ def test_serial_proxy_parity_enum() -> None:
 
 def test_serial_proxy_request_type_enum() -> None:
     """Test SerialProxyRequestType enum values."""
-    assert SerialProxyRequestType.FLUSH == 0
+    assert SerialProxyRequestType.SUBSCRIBE == 0
+    assert SerialProxyRequestType.UNSUBSCRIBE == 1
+    assert SerialProxyRequestType.FLUSH == 2
 
-    assert SerialProxyRequestType.convert(0) == SerialProxyRequestType.FLUSH
+    assert SerialProxyRequestType.convert(0) == SerialProxyRequestType.SUBSCRIBE
+    assert SerialProxyRequestType.convert(1) == SerialProxyRequestType.UNSUBSCRIBE
+    assert SerialProxyRequestType.convert(2) == SerialProxyRequestType.FLUSH
     assert SerialProxyRequestType.convert(-1) is None
 
 
