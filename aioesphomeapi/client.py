@@ -603,6 +603,30 @@ class APIClient(APIClientBase):
         )
         return resp
 
+    def serial_proxy_subscribe(
+        self,
+        instance: int,
+    ) -> None:
+        """Subscribe to receive data from a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxyRequest(
+                instance=instance,
+                type=SerialProxyRequestType.SUBSCRIBE,
+            )
+        )
+
+    def serial_proxy_unsubscribe(
+        self,
+        instance: int,
+    ) -> None:
+        """Unsubscribe from a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxyRequest(
+                instance=instance,
+                type=SerialProxyRequestType.UNSUBSCRIBE,
+            )
+        )
+
     def serial_proxy_flush(
         self,
         instance: int,

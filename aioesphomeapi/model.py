@@ -1273,7 +1273,9 @@ class SerialProxyParity(APIIntEnum):
 
 
 class SerialProxyRequestType(APIIntEnum):
-    FLUSH = 0
+    SUBSCRIBE = 0
+    UNSUBSCRIBE = 1
+    FLUSH = 2
 
 
 @_frozen_dataclass_decorator
