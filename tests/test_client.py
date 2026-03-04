@@ -107,7 +107,7 @@ from aioesphomeapi.api_pb2 import (
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
-from aioesphomeapi.client_base import on_serial_proxy_get_modem_pins_response
+
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -3022,27 +3022,17 @@ async def test_serial_proxy_get_modem_pins_timeout(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test serial_proxy_get_modem_pins propagates TimeoutError."""
+    """Test serial_proxy_get_modem_pins propagates TimeoutAPIError."""
     client, connection, _transport, _protocol = api_client
 
     async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
-        raise TimeoutError
+        raise TimeoutAPIError
 
     connection.send_messages_await_response_complex = mock_send_complex
 
-    with pytest.raises(asyncio.TimeoutError):
+    with pytest.raises(TimeoutAPIError):
         await client.serial_proxy_get_modem_pins(instance=0)
 
-
-def test_on_serial_proxy_get_modem_pins_response() -> None:
-    """Test on_serial_proxy_get_modem_pins_response callback."""
-    received: list[SerialProxyModemPins] = []
-    pb_msg = SerialProxyGetModemPinsResponsePb(instance=1, rts=True, dtr=False)
-    on_serial_proxy_get_modem_pins_response(received.append, pb_msg)
-    assert len(received) == 1
-    assert received[0].instance == 1
-    assert received[0].rts is True
-    assert received[0].dtr is False
 
 
 async def test_serial_proxy_flush(
