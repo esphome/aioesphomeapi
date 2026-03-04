@@ -520,6 +520,10 @@ class APIClient(APIClientBase):
         data_size: int = 8,
     ) -> None:
         """Configure UART parameters for a serial proxy instance."""
+        if not 1 <= stop_bits <= 2:
+            raise ValueError(f"stop_bits must be 1 or 2, got {stop_bits}")
+        if not 5 <= data_size <= 8:
+            raise ValueError(f"data_size must be 5-8, got {data_size}")
         self._get_connection().send_message(
             SerialProxyConfigureRequest(
                 instance=instance,

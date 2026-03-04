@@ -2827,6 +2827,28 @@ async def test_serial_proxy_configure_defaults(
     assert sent_msg.data_size == 8
 
 
+async def test_serial_proxy_configure_invalid_stop_bits(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_configure raises ValueError for invalid stop_bits."""
+    client, _connection, _transport, _protocol = api_client
+    with pytest.raises(ValueError, match="stop_bits"):
+        client.serial_proxy_configure(instance=0, baudrate=9600, stop_bits=3)
+
+
+async def test_serial_proxy_configure_invalid_data_size(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_configure raises ValueError for invalid data_size."""
+    client, _connection, _transport, _protocol = api_client
+    with pytest.raises(ValueError, match="data_size"):
+        client.serial_proxy_configure(instance=0, baudrate=9600, data_size=9)
+
+
 async def test_serial_proxy_write(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
