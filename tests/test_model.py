@@ -2058,9 +2058,7 @@ def test_serial_proxy_modem_pins_conversion() -> None:
     assert model_with_pins.to_dict() == {"instance": 1, "line_states": 3}
 
     # Test from_dict
-    model_from_dict = SerialProxyModemPins.from_dict(
-        {"instance": 3, "line_states": 1}
-    )
+    model_from_dict = SerialProxyModemPins.from_dict({"instance": 3, "line_states": 1})
     assert model_from_dict.instance == 3
     assert model_from_dict.line_states == 1
 
