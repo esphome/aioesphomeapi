@@ -1287,8 +1287,7 @@ class SerialProxyDataReceived(APIModelBase):
 @_frozen_dataclass_decorator
 class SerialProxyModemPins(APIModelBase):
     instance: int = 0
-    rts: bool = False
-    dtr: bool = False
+    line_states: int = 0
 
 
 # ==================== INFO MAP ====================

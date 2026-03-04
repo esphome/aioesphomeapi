@@ -2046,26 +2046,23 @@ def test_serial_proxy_modem_pins_conversion() -> None:
     pb_msg = SerialProxyGetModemPinsResponsePb()
     model = SerialProxyModemPins.from_pb(pb_msg)
     assert model.instance == 0
-    assert model.rts is False
-    assert model.dtr is False
+    assert model.line_states == 0
 
     # Test with set values
-    pb_msg_with_pins = SerialProxyGetModemPinsResponsePb(instance=1, rts=True, dtr=True)
+    pb_msg_with_pins = SerialProxyGetModemPinsResponsePb(instance=1, line_states=3)
     model_with_pins = SerialProxyModemPins.from_pb(pb_msg_with_pins)
     assert model_with_pins.instance == 1
-    assert model_with_pins.rts is True
-    assert model_with_pins.dtr is True
+    assert model_with_pins.line_states == 3
 
     # Test to_dict
-    assert model_with_pins.to_dict() == {"instance": 1, "rts": True, "dtr": True}
+    assert model_with_pins.to_dict() == {"instance": 1, "line_states": 3}
 
     # Test from_dict
     model_from_dict = SerialProxyModemPins.from_dict(
-        {"instance": 3, "rts": False, "dtr": True}
+        {"instance": 3, "line_states": 1}
     )
     assert model_from_dict.instance == 3
-    assert model_from_dict.rts is False
-    assert model_from_dict.dtr is True
+    assert model_from_dict.line_states == 1
 
 
 def test_serial_proxy_port_type_enum() -> None:

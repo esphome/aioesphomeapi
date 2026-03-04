@@ -3003,13 +3003,12 @@ async def test_serial_proxy_set_modem_pins(
 
     connection.send_message = capture_send
 
-    client.serial_proxy_set_modem_pins(instance=0, rts=True, dtr=False)
+    client.serial_proxy_set_modem_pins(instance=0, line_states=1)
 
     assert len(sent_messages) == 1
     sent_msg = sent_messages[0]
     assert sent_msg.instance == 0
-    assert sent_msg.rts is True
-    assert sent_msg.dtr is False
+    assert sent_msg.line_states == 1
 
 
 async def test_serial_proxy_get_modem_pins(
@@ -3020,7 +3019,7 @@ async def test_serial_proxy_get_modem_pins(
     """Test serial_proxy_get_modem_pins returns modem pin states."""
     client, connection, _transport, _protocol = api_client
 
-    response_pb = SerialProxyGetModemPinsResponsePb(instance=0, rts=True, dtr=False)
+    response_pb = SerialProxyGetModemPinsResponsePb(instance=0, line_states=1)
 
     async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
         assert len(messages) == 1
@@ -3034,8 +3033,7 @@ async def test_serial_proxy_get_modem_pins(
 
     assert isinstance(result, SerialProxyModemPins)
     assert result.instance == 0
-    assert result.rts is True
-    assert result.dtr is False
+    assert result.line_states == 1
 
 
 async def test_serial_proxy_get_modem_pins_timeout(

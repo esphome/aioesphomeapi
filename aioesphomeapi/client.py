@@ -565,15 +565,13 @@ class APIClient(APIClientBase):
         self,
         instance: int,
         *,
-        rts: bool = False,
-        dtr: bool = False,
+        line_states: int = 0,
     ) -> None:
-        """Set modem control pin states (RTS and DTR) for a serial proxy instance."""
+        """Set modem control pin states for a serial proxy instance."""
         self._get_connection().send_message(
             SerialProxySetModemPinsRequest(
                 instance=instance,
-                rts=rts,
-                dtr=dtr,
+                line_states=line_states,
             )
         )
 
