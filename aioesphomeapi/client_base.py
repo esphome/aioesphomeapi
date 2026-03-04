@@ -220,7 +220,6 @@ def on_serial_proxy_data_received(
     on_data(SerialProxyDataReceivedModel.from_pb(msg))
 
 
-
 str_ = str
 
 

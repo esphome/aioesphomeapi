@@ -107,7 +107,6 @@ from aioesphomeapi.api_pb2 import (
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
-
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -3054,7 +3053,6 @@ async def test_serial_proxy_get_modem_pins_timeout(
 
     with pytest.raises(TimeoutAPIError):
         await client.serial_proxy_get_modem_pins(instance=0)
-
 
 
 async def test_serial_proxy_flush(
