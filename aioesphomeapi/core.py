@@ -376,6 +376,17 @@ class BluetoothGATTAPIError(APIConnectionError):
         self.error = error
 
 
+class BluetoothConnectionParamsAPIError(APIConnectionError):
+    def __init__(self, address: int, error: int) -> None:
+        super().__init__(
+            f"Error setting BLE connection parameters for "
+            f"{to_human_readable_address(address)}: "
+            f"{to_human_readable_gatt_error(error)} ({error})"
+        )
+        self.address = address
+        self.error_code = error
+
+
 MESSAGE_TYPE_TO_PROTO = {
     1: HelloRequest,
     2: HelloResponse,

@@ -111,6 +111,7 @@ from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
     APIConnectionError,
+    BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
@@ -1720,6 +1721,25 @@ async def test_bluetooth_set_connection_params_connection_drops(
         " for BluetoothSetConnectionParamsResponse: Invalid attribute length"
     )
     with pytest.raises(BluetoothConnectionDroppedError, match=msg):
+        await set_params_task
+
+
+async def test_bluetooth_set_connection_params_error(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_set_connection_params with error response."""
+    client, _connection, _transport, protocol = api_client
+    set_params_task = asyncio.create_task(
+        client.bluetooth_device_set_connection_params(1234, 6, 12, 0, 200)
+    )
+    await asyncio.sleep(0)
+    response: message.Message = BluetoothSetConnectionParamsResponse(
+        address=1234, error=13
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    with pytest.raises(BluetoothConnectionParamsAPIError):
         await set_params_task
 
 

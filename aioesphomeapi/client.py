@@ -122,6 +122,7 @@ from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa:
 from .core import (
     APIConnectionError,
     BluetoothConnectionDroppedError,
+    BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
     to_human_readable_address,
@@ -925,6 +926,8 @@ class APIClient(APIClientBase):
             api_timeout,
         )
         self._raise_for_ble_connection_change(address, response, msg_types)
+        if response.error != 0:
+            raise BluetoothConnectionParamsAPIError(address, response.error)
 
     async def bluetooth_device_disconnect(
         self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT
