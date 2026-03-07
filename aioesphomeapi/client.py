@@ -926,8 +926,9 @@ class APIClient(APIClientBase):
             api_timeout,
         )
         self._raise_for_ble_connection_change(address, response, msg_types)
-        if response.error != 0:
-            raise BluetoothConnectionParamsAPIError(address, response.error)
+        resp: BluetoothSetConnectionParamsResponse = response
+        if resp.error != 0:
+            raise BluetoothConnectionParamsAPIError(address, resp.error)
 
     async def bluetooth_device_disconnect(
         self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT
