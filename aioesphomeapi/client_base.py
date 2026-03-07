@@ -27,6 +27,7 @@ from .api_pb2 import (  # type: ignore
     CameraImageResponse,
     HomeassistantActionRequest,
     InfraredRFReceiveEvent,
+    SerialProxyDataReceived,
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
 )
@@ -41,6 +42,7 @@ from .model import (
     EntityState,
     HomeassistantServiceCall,
     InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
+    SerialProxyDataReceived as SerialProxyDataReceivedModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
@@ -209,6 +211,13 @@ def on_infrared_rf_receive_event(
     msg: InfraredRFReceiveEvent,
 ) -> None:
     on_infrared_rf_receive(InfraredRFReceiveEventModel.from_pb(msg))
+
+
+def on_serial_proxy_data_received(
+    on_data: Callable[[SerialProxyDataReceivedModel], None],
+    msg: SerialProxyDataReceived,
+) -> None:
+    on_data(SerialProxyDataReceivedModel.from_pb(msg))
 
 
 str_ = str
