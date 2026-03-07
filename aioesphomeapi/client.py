@@ -34,6 +34,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothLERawAdvertisementsResponse,
     BluetoothScannerSetModeRequest,
     BluetoothScannerStateResponse,
+    BluetoothSetConnectionParamsRequest,
+    BluetoothSetConnectionParamsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -894,6 +896,28 @@ class APIClient(APIClientBase):
                 (BluetoothDeviceClearCacheResponse,),
                 timeout,
             )
+        )
+
+    async def bluetooth_device_set_connection_params(
+        self,
+        address: int,
+        min_interval: int,
+        max_interval: int,
+        latency: int,
+        timeout: int,
+        api_timeout: float = DEFAULT_BLE_TIMEOUT,
+    ) -> None:
+        """Set BLE connection parameters on a connected device."""
+        await self._get_connection().send_message_await_response(
+            BluetoothSetConnectionParamsRequest(
+                address=address,
+                min_interval=min_interval,
+                max_interval=max_interval,
+                latency=latency,
+                timeout=timeout,
+            ),
+            BluetoothSetConnectionParamsResponse,
+            timeout=api_timeout,
         )
 
     async def bluetooth_device_disconnect(

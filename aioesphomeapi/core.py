@@ -34,6 +34,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothLERawAdvertisementsResponse,
     BluetoothScannerSetModeRequest,
     BluetoothScannerStateResponse,
+    BluetoothSetConnectionParamsRequest,
+    BluetoothSetConnectionParamsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -519,6 +521,8 @@ MESSAGE_TYPE_TO_PROTO = {
     142: SerialProxyGetModemPinsRequest,
     143: SerialProxyGetModemPinsResponse,
     144: SerialProxyRequest,
+    145: BluetoothSetConnectionParamsRequest,
+    146: BluetoothSetConnectionParamsResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
