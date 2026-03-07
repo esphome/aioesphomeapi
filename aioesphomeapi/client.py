@@ -34,6 +34,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothLERawAdvertisementsResponse,
     BluetoothScannerSetModeRequest,
     BluetoothScannerStateResponse,
+    BluetoothSetConnectionParamsRequest,
+    BluetoothSetConnectionParamsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -120,6 +122,7 @@ from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa:
 from .core import (
     APIConnectionError,
     BluetoothConnectionDroppedError,
+    BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
     to_human_readable_address,
@@ -895,6 +898,37 @@ class APIClient(APIClientBase):
                 timeout,
             )
         )
+
+    async def bluetooth_device_set_connection_params(
+        self,
+        address: int,
+        min_interval: int,
+        max_interval: int,
+        latency: int,
+        timeout: int,
+        api_timeout: float = DEFAULT_BLE_TIMEOUT,
+    ) -> None:
+        """Set BLE connection parameters on a connected device."""
+        msg_types = (BluetoothSetConnectionParamsResponse,)
+        types_with_response = (BluetoothDeviceConnectionResponse, *msg_types)
+        req = BluetoothSetConnectionParamsRequest(
+            address=address,
+            min_interval=min_interval,
+            max_interval=max_interval,
+            latency=latency,
+            timeout=timeout,
+        )
+        [response] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            partial(on_bluetooth_message_types, address, types_with_response),
+            partial(on_bluetooth_message_types, address, types_with_response),
+            types_with_response,
+            api_timeout,
+        )
+        self._raise_for_ble_connection_change(address, response, msg_types)
+        resp: BluetoothSetConnectionParamsResponse = response
+        if resp.error != 0:
+            raise BluetoothConnectionParamsAPIError(address, resp.error)
 
     async def bluetooth_device_disconnect(
         self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT

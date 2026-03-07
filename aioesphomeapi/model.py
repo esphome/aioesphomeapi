@@ -110,6 +110,7 @@ class BluetoothProxyFeature(enum.IntFlag):
     CACHE_CLEARING = 1 << 4
     RAW_ADVERTISEMENTS = 1 << 5
     FEATURE_STATE_AND_MODE = 1 << 6
+    CONNECTION_PARAMS_SETTING = 1 << 7
 
 
 class ClimateFeature(enum.IntFlag):
