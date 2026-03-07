@@ -1696,6 +1696,11 @@ async def test_bluetooth_set_connection_params(
         client.bluetooth_device_set_connection_params(1234, 6, 12, 0, 200)
     )
     await asyncio.sleep(0)
+    # Send response for wrong address first — should be ignored
+    wrong_response: message.Message = BluetoothSetConnectionParamsResponse(address=5678)
+    mock_data_received(protocol, generate_plaintext_packet(wrong_response))
+    assert not set_params_task.done()
+    # Now send correct response
     response: message.Message = BluetoothSetConnectionParamsResponse(address=1234)
     mock_data_received(protocol, generate_plaintext_packet(response))
     await set_params_task
