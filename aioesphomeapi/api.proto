@@ -58,6 +58,7 @@ service APIConnection {
   rpc subscribe_bluetooth_connections_free(SubscribeBluetoothConnectionsFreeRequest) returns (BluetoothConnectionsFreeResponse) {}
   rpc unsubscribe_bluetooth_le_advertisements(UnsubscribeBluetoothLEAdvertisementsRequest) returns (void) {}
   rpc bluetooth_scanner_set_mode(BluetoothScannerSetModeRequest) returns (void) {}
+  rpc bluetooth_set_connection_params(BluetoothSetConnectionParamsRequest) returns (BluetoothSetConnectionParamsResponse) {}
 
   rpc subscribe_voice_assistant(SubscribeVoiceAssistantRequest) returns (void) {}
   rpc voice_assistant_get_configuration(VoiceAssistantConfigurationRequest) returns (VoiceAssistantConfigurationResponse) {}
