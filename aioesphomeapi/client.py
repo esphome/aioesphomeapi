@@ -908,17 +908,23 @@ class APIClient(APIClientBase):
         api_timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> None:
         """Set BLE connection parameters on a connected device."""
-        await self._get_connection().send_message_await_response(
-            BluetoothSetConnectionParamsRequest(
-                address=address,
-                min_interval=min_interval,
-                max_interval=max_interval,
-                latency=latency,
-                timeout=timeout,
-            ),
-            BluetoothSetConnectionParamsResponse,
-            timeout=api_timeout,
+        msg_types = (BluetoothSetConnectionParamsResponse,)
+        types_with_response = (BluetoothDeviceConnectionResponse, *msg_types)
+        req = BluetoothSetConnectionParamsRequest(
+            address=address,
+            min_interval=min_interval,
+            max_interval=max_interval,
+            latency=latency,
+            timeout=timeout,
         )
+        [response] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            partial(on_bluetooth_message_types, address, types_with_response),
+            partial(on_bluetooth_message_types, address, types_with_response),
+            types_with_response,
+            api_timeout,
+        )
+        self._raise_for_ble_connection_change(address, response, msg_types)
 
     async def bluetooth_device_disconnect(
         self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT
