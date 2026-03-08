@@ -3135,11 +3135,30 @@ async def test_serial_proxy_flush(
         status=SerialProxyStatus.OK,
     )
 
-    async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
         assert len(messages) == 1
         assert isinstance(messages[0], SerialProxyRequestPb)
         assert messages[0].instance == 1
         assert messages[0].type == SerialProxyRequestType.FLUSH
+        # Verify predicate matches correct instance and type
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        # Verify predicate rejects wrong instance
+        wrong_instance = SerialProxyRequestResponsePb(
+            instance=2,
+            type=SerialProxyRequestType.FLUSH,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_instance) is False
+        assert stop(wrong_instance) is False
+        # Verify predicate rejects wrong type
+        wrong_type = SerialProxyRequestResponsePb(
+            instance=1,
+            type=SerialProxyRequestType.SUBSCRIBE,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_type) is False
+        assert stop(wrong_type) is False
         return [response_pb]
 
     connection.send_messages_await_response_complex = mock_send_complex
