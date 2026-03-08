@@ -113,6 +113,7 @@ from .api_pb2 import (  # type: ignore
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
     SerialProxyRequest,
+    SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
@@ -534,6 +535,7 @@ MESSAGE_TYPE_TO_PROTO = {
     144: SerialProxyRequest,
     145: BluetoothSetConnectionParamsRequest,
     146: BluetoothSetConnectionParamsResponse,
+    147: SerialProxyRequestResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
