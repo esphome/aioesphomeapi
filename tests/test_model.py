@@ -60,6 +60,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
     SerialProxyInfo as SerialProxyInfoPb,
+    SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     ServiceArgType,
     SirenStateResponse,
     SupportsResponseType as SupportsResponseTypePb,
@@ -134,7 +135,9 @@ from aioesphomeapi.model import (
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyPortType,
+    SerialProxyRequestResponse,
     SerialProxyRequestType,
+    SerialProxyStatus,
     SirenInfo,
     SirenState,
     SubDeviceInfo,
@@ -2135,3 +2138,64 @@ def test_device_info_serial_proxies() -> None:
     assert info_from_dict.serial_proxies[0].port_type == SerialProxyPortType.TTL
     assert info_from_dict.serial_proxies[1].name == "RS232 Port"
     assert info_from_dict.serial_proxies[1].port_type == SerialProxyPortType.RS232
+
+
+def test_serial_proxy_status_enum() -> None:
+    """Test SerialProxyStatus enum values."""
+    assert SerialProxyStatus.OK == 0
+    assert SerialProxyStatus.ASSUMED_SUCCESS == 1
+    assert SerialProxyStatus.ERROR == 2
+    assert SerialProxyStatus.TIMEOUT == 3
+    assert SerialProxyStatus.NOT_SUPPORTED == 4
+
+    assert SerialProxyStatus.convert(0) == SerialProxyStatus.OK
+    assert SerialProxyStatus.convert(4) == SerialProxyStatus.NOT_SUPPORTED
+    assert SerialProxyStatus.convert(-1) is None
+
+
+def test_serial_proxy_request_response_conversion() -> None:
+    """Test SerialProxyRequestResponse conversion from protobuf."""
+    # Default values
+    pb_msg = SerialProxyRequestResponsePb()
+    model = SerialProxyRequestResponse.from_pb(pb_msg)
+    assert model.instance == 0
+    assert model.type == SerialProxyRequestType.SUBSCRIBE
+    assert model.status == SerialProxyStatus.OK
+    assert model.error_message == ""
+
+    # Flush success
+    pb_msg = SerialProxyRequestResponsePb(
+        instance=2,
+        type=SerialProxyRequestType.FLUSH,
+        status=SerialProxyStatus.OK,
+    )
+    model = SerialProxyRequestResponse.from_pb(pb_msg)
+    assert model.instance == 2
+    assert model.type == SerialProxyRequestType.FLUSH
+    assert model.status == SerialProxyStatus.OK
+
+    # Flush error with message
+    pb_msg = SerialProxyRequestResponsePb(
+        instance=0,
+        type=SerialProxyRequestType.FLUSH,
+        status=SerialProxyStatus.ERROR,
+        error_message="TX buffer overflow",
+    )
+    model = SerialProxyRequestResponse.from_pb(pb_msg)
+    assert model.status == SerialProxyStatus.ERROR
+    assert model.error_message == "TX buffer overflow"
+
+    # to_dict / from_dict round-trip
+    assert model.to_dict() == {
+        "instance": 0,
+        "type": 2,
+        "status": 2,
+        "error_message": "TX buffer overflow",
+    }
+    model2 = SerialProxyRequestResponse.from_dict(
+        {"instance": 1, "type": 2, "status": 3, "error_message": "timeout"}
+    )
+    assert model2.instance == 1
+    assert model2.type == SerialProxyRequestType.FLUSH
+    assert model2.status == SerialProxyStatus.TIMEOUT
+    assert model2.error_message == "timeout"
