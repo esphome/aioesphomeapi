@@ -641,18 +641,16 @@ class APIClient(APIClientBase):
     ) -> SerialProxyRequestResponseModel:
         """Flush the serial port and await confirmation."""
         req = SerialProxyRequest(instance=instance, type=SerialProxyRequestType.FLUSH)
+
+        def is_flush_response(msg: SerialProxyRequestResponse) -> bool:
+            return bool(
+                msg.instance == instance and msg.type == SerialProxyRequestType.FLUSH
+            )
+
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
-            lambda msg: (
-                type(msg) is SerialProxyRequestResponse
-                and msg.instance == instance
-                and msg.type == SerialProxyRequestType.FLUSH
-            ),
-            lambda msg: (
-                type(msg) is SerialProxyRequestResponse
-                and msg.instance == instance
-                and msg.type == SerialProxyRequestType.FLUSH
-            ),
+            is_flush_response,
+            is_flush_response,
             (SerialProxyRequestResponse,),
             timeout,
         )
