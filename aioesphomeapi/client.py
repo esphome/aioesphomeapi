@@ -166,7 +166,6 @@ from .model import (
     SerialProxyParity,
     SerialProxyRequestResponse as SerialProxyRequestResponseModel,
     SerialProxyRequestType,
-    SerialProxyStatus,
     UpdateCommand,
     UserService,
     UserServiceArgType,
