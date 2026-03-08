@@ -76,6 +76,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
     SerialProxyRequest as SerialProxyRequestPb,
+    SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
@@ -147,7 +148,9 @@ from aioesphomeapi.model import (
     SerialProxyDataReceived,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyRequestResponse,
     SerialProxyRequestType,
+    SerialProxyStatus,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -3123,24 +3126,49 @@ async def test_serial_proxy_flush(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test serial_proxy_flush sends the correct request."""
+    """Test serial_proxy_flush sends the correct request and returns the response."""
     client, connection, _transport, _protocol = api_client
-    sent_messages: list[SerialProxyRequestPb] = []
 
-    original_send = connection.send_message
+    response_pb = SerialProxyRequestResponsePb(
+        instance=1,
+        type=SerialProxyRequestType.FLUSH,
+        status=SerialProxyStatus.OK,
+    )
 
-    def capture_send(msg: Any) -> None:
-        if isinstance(msg, SerialProxyRequestPb):
-            sent_messages.append(msg)
-        original_send(msg)
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxyRequestPb)
+        assert messages[0].instance == 1
+        assert messages[0].type == SerialProxyRequestType.FLUSH
+        # Verify predicate matches correct instance and type
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        # Verify predicate rejects wrong instance
+        wrong_instance = SerialProxyRequestResponsePb(
+            instance=2,
+            type=SerialProxyRequestType.FLUSH,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_instance) is False
+        assert stop(wrong_instance) is False
+        # Verify predicate rejects wrong type
+        wrong_type = SerialProxyRequestResponsePb(
+            instance=1,
+            type=SerialProxyRequestType.SUBSCRIBE,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_type) is False
+        assert stop(wrong_type) is False
+        return [response_pb]
 
-    connection.send_message = capture_send
+    connection.send_messages_await_response_complex = mock_send_complex
 
-    client.serial_proxy_flush(instance=1)
+    result = await client.serial_proxy_flush(instance=1)
 
-    assert len(sent_messages) == 1
-    assert sent_messages[0].instance == 1
-    assert sent_messages[0].type == SerialProxyRequestType.FLUSH
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.instance == 1
+    assert result.type == SerialProxyRequestType.FLUSH
+    assert result.status == SerialProxyStatus.OK
 
 
 async def test_serial_proxy_subscribe(

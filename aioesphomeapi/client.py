@@ -69,6 +69,7 @@ from .api_pb2 import (  # type: ignore
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
     SerialProxyRequest,
+    SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
@@ -163,6 +164,7 @@ from .model import (
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyRequestResponse as SerialProxyRequestResponseModel,
     SerialProxyRequestType,
     UpdateCommand,
     UserService,
@@ -632,17 +634,27 @@ class APIClient(APIClientBase):
             )
         )
 
-    def serial_proxy_flush(
+    async def serial_proxy_flush(
         self,
         instance: int,
-    ) -> None:
-        """Flush the serial port (block until all TX data is sent)."""
-        self._get_connection().send_message(
-            SerialProxyRequest(
-                instance=instance,
-                type=SerialProxyRequestType.FLUSH,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Flush the serial port and await confirmation."""
+        req = SerialProxyRequest(instance=instance, type=SerialProxyRequestType.FLUSH)
+
+        def is_flush_response(msg: SerialProxyRequestResponse) -> bool:
+            return bool(
+                msg.instance == instance and msg.type == SerialProxyRequestType.FLUSH
             )
+
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            is_flush_response,
+            is_flush_response,
+            (SerialProxyRequestResponse,),
+            timeout,
         )
+        return SerialProxyRequestResponseModel.from_pb(resp)
 
     async def _send_bluetooth_message_await_response(
         self,

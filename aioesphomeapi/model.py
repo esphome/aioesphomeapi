@@ -1279,10 +1279,31 @@ class SerialProxyRequestType(APIIntEnum):
     FLUSH = 2
 
 
+class SerialProxyStatus(APIIntEnum):
+    OK = 0
+    ASSUMED_SUCCESS = 1
+    ERROR = 2
+    TIMEOUT = 3
+    NOT_SUPPORTED = 4
+
+
 @_frozen_dataclass_decorator
 class SerialProxyDataReceived(APIModelBase):
     instance: int = 0
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class SerialProxyRequestResponse(APIModelBase):
+    instance: int = 0
+    type: SerialProxyRequestType | None = converter_field(
+        default=SerialProxyRequestType.SUBSCRIBE,
+        converter=SerialProxyRequestType.convert,
+    )
+    status: SerialProxyStatus | None = converter_field(
+        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    )
+    error_message: str = ""
 
 
 @_frozen_dataclass_decorator
