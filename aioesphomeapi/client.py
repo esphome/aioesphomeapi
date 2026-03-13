@@ -34,6 +34,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothLERawAdvertisementsResponse,
     BluetoothScannerSetModeRequest,
     BluetoothScannerStateResponse,
+    BluetoothSetConnectionParamsRequest,
+    BluetoothSetConnectionParamsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -62,6 +64,14 @@ from .api_pb2 import (  # type: ignore
     NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
+    SerialProxyConfigureRequest,
+    SerialProxyDataReceived,
+    SerialProxyGetModemPinsRequest,
+    SerialProxyGetModemPinsResponse,
+    SerialProxyRequest,
+    SerialProxyRequestResponse,
+    SerialProxySetModemPinsRequest,
+    SerialProxyWriteRequest,
     SirenCommandRequest,
     SubscribeBluetoothConnectionsFreeRequest,
     SubscribeBluetoothLEAdvertisementsRequest,
@@ -91,9 +101,9 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
-    ZWaveProxyRequest,
     ZigbeeProxyFrame,
     ZigbeeProxyRequest,
+    ZWaveProxyRequest,
 )
 from .client_base import (
     APIClientBase,
@@ -106,6 +116,7 @@ from .client_base import (
     on_bluetooth_scanner_state_response,
     on_home_assistant_action_request,
     on_infrared_rf_receive_event,
+    on_serial_proxy_data_received,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zigbee_proxy_frame_message,
@@ -116,6 +127,7 @@ from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa:
 from .core import (
     APIConnectionError,
     BluetoothConnectionDroppedError,
+    BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
     TimeoutAPIError,
     to_human_readable_address,
@@ -153,6 +165,11 @@ from .model import (
     LogLevel,
     MediaPlayerCommand,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
+    SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyModemPins,
+    SerialProxyParity,
+    SerialProxyRequestResponse as SerialProxyRequestResponseModel,
+    SerialProxyRequestType,
     UpdateCommand,
     UserService,
     UserServiceArgType,
@@ -167,10 +184,10 @@ from .model import (
     VoiceAssistantTimerEventType,
     WaterHeaterCommandField,
     WaterHeaterStateFlag,
-    ZWaveProxyRequest as ZWaveProxyRequestModel,
     ZigbeeProxyFrame as ZigbeeProxyFrameModel,
     ZigbeeProxyRequest as ZigbeeProxyRequestModel,
     ZigbeeProxyRequestType,
+    ZWaveProxyRequest as ZWaveProxyRequestModel,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -545,6 +562,148 @@ class APIClient(APIClientBase):
         req.timings.extend(timings)
         self._get_connection().send_message(req)
 
+    def serial_proxy_configure(
+        self,
+        instance: int,
+        baudrate: int,
+        *,
+        flow_control: bool = False,
+        parity: SerialProxyParity = SerialProxyParity.NONE,
+        stop_bits: int = 1,
+        data_size: int = 8,
+    ) -> None:
+        """Configure UART parameters for a serial proxy instance."""
+        if not 1 <= stop_bits <= 2:
+            raise ValueError(f"stop_bits must be 1 or 2, got {stop_bits}")
+        if not 5 <= data_size <= 8:
+            raise ValueError(f"data_size must be 5-8, got {data_size}")
+        self._get_connection().send_message(
+            SerialProxyConfigureRequest(
+                instance=instance,
+                baudrate=baudrate,
+                flow_control=flow_control,
+                parity=parity,
+                stop_bits=stop_bits,
+                data_size=data_size,
+            )
+        )
+
+    def serial_proxy_write(
+        self,
+        instance: int,
+        data: bytes,
+    ) -> None:
+        """Write data to a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxyWriteRequest(
+                instance=instance,
+                data=data,
+            )
+        )
+
+    def subscribe_serial_proxy_data(
+        self,
+        on_data: Callable[[SerialProxyDataReceivedModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to serial proxy data received messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_serial_proxy_data_received,
+                on_data,
+            ),
+            (SerialProxyDataReceived,),
+        )
+
+    def serial_proxy_set_modem_pins(
+        self,
+        instance: int,
+        *,
+        line_states: int = 0,
+    ) -> None:
+        """Set modem control pin states for a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxySetModemPinsRequest(
+                instance=instance,
+                line_states=line_states,
+            )
+        )
+
+    async def serial_proxy_get_modem_pins(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyModemPins:
+        """Get current modem control pin states for a serial proxy instance."""
+        resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
+        return SerialProxyModemPins.from_pb(resp)
+
+    async def _send_serial_proxy_get_modem_pins(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyGetModemPinsResponse:
+        req = SerialProxyGetModemPinsRequest(instance=instance)
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            lambda msg: (
+                type(msg) is SerialProxyGetModemPinsResponse
+                and msg.instance == instance
+            ),
+            lambda msg: (
+                type(msg) is SerialProxyGetModemPinsResponse
+                and msg.instance == instance
+            ),
+            (SerialProxyGetModemPinsResponse,),
+            timeout,
+        )
+        return resp
+
+    def serial_proxy_subscribe(
+        self,
+        instance: int,
+    ) -> None:
+        """Subscribe to receive data from a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxyRequest(
+                instance=instance,
+                type=SerialProxyRequestType.SUBSCRIBE,
+            )
+        )
+
+    def serial_proxy_unsubscribe(
+        self,
+        instance: int,
+    ) -> None:
+        """Unsubscribe from a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxyRequest(
+                instance=instance,
+                type=SerialProxyRequestType.UNSUBSCRIBE,
+            )
+        )
+
+    async def serial_proxy_flush(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Flush the serial port and await confirmation."""
+        req = SerialProxyRequest(instance=instance, type=SerialProxyRequestType.FLUSH)
+
+        def is_flush_response(msg: SerialProxyRequestResponse) -> bool:
+            return bool(
+                msg.instance == instance and msg.type == SerialProxyRequestType.FLUSH
+            )
+
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            is_flush_response,
+            is_flush_response,
+            (SerialProxyRequestResponse,),
+            timeout,
+        )
+        return SerialProxyRequestResponseModel.from_pb(resp)
+
     async def _send_bluetooth_message_await_response(
         self,
         address: int,
@@ -799,6 +958,37 @@ class APIClient(APIClientBase):
                 timeout,
             )
         )
+
+    async def bluetooth_device_set_connection_params(
+        self,
+        address: int,
+        min_interval: int,
+        max_interval: int,
+        latency: int,
+        timeout: int,
+        api_timeout: float = DEFAULT_BLE_TIMEOUT,
+    ) -> None:
+        """Set BLE connection parameters on a connected device."""
+        msg_types = (BluetoothSetConnectionParamsResponse,)
+        types_with_response = (BluetoothDeviceConnectionResponse, *msg_types)
+        req = BluetoothSetConnectionParamsRequest(
+            address=address,
+            min_interval=min_interval,
+            max_interval=max_interval,
+            latency=latency,
+            timeout=timeout,
+        )
+        [response] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            partial(on_bluetooth_message_types, address, types_with_response),
+            partial(on_bluetooth_message_types, address, types_with_response),
+            types_with_response,
+            api_timeout,
+        )
+        self._raise_for_ble_connection_change(address, response, msg_types)
+        resp: BluetoothSetConnectionParamsResponse = response
+        if resp.error != 0:
+            raise BluetoothConnectionParamsAPIError(address, resp.error)
 
     async def bluetooth_device_disconnect(
         self, address: int, timeout: float = DEFAULT_BLE_DISCONNECT_TIMEOUT

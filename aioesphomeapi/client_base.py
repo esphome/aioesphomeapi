@@ -27,10 +27,11 @@ from .api_pb2 import (  # type: ignore
     CameraImageResponse,
     HomeassistantActionRequest,
     InfraredRFReceiveEvent,
+    SerialProxyDataReceived,
     SubscribeHomeAssistantStateResponse,
-    ZWaveProxyRequest,
     ZigbeeProxyFrame,
     ZigbeeProxyRequest,
+    ZWaveProxyRequest,
 )
 from .connection import ConnectionParams
 from .core import APIConnectionError
@@ -43,9 +44,10 @@ from .model import (
     EntityState,
     HomeassistantServiceCall,
     InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
-    ZWaveProxyRequest as ZWaveProxyRequestModel,
+    SerialProxyDataReceived as SerialProxyDataReceivedModel,
     ZigbeeProxyFrame as ZigbeeProxyFrameModel,
     ZigbeeProxyRequest as ZigbeeProxyRequestModel,
+    ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
 from .util import build_log_name, create_eager_task
@@ -227,6 +229,13 @@ def on_infrared_rf_receive_event(
     msg: InfraredRFReceiveEvent,
 ) -> None:
     on_infrared_rf_receive(InfraredRFReceiveEventModel.from_pb(msg))
+
+
+def on_serial_proxy_data_received(
+    on_data: Callable[[SerialProxyDataReceivedModel], None],
+    msg: SerialProxyDataReceived,
+) -> None:
+    on_data(SerialProxyDataReceivedModel.from_pb(msg))
 
 
 str_ = str

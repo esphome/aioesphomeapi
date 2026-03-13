@@ -110,6 +110,7 @@ class BluetoothProxyFeature(enum.IntFlag):
     CACHE_CLEARING = 1 << 4
     RAW_ADVERTISEMENTS = 1 << 5
     FEATURE_STATE_AND_MODE = 1 << 6
+    CONNECTION_PARAMS_SETTING = 1 << 7
 
 
 class ClimateFeature(enum.IntFlag):
@@ -231,6 +232,30 @@ class SubDeviceInfo(APIModelBase):
         return ret
 
 
+class SerialProxyPortType(APIIntEnum):
+    TTL = 0
+    RS232 = 1
+    RS485 = 2
+
+
+@_frozen_dataclass_decorator
+class SerialProxyInfo(APIModelBase):
+    name: str = ""
+    port_type: SerialProxyPortType | None = converter_field(
+        default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
+    )
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[SerialProxyInfo]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(SerialProxyInfo.from_dict(x))
+            else:
+                ret.append(SerialProxyInfo.from_pb(x))
+        return ret
+
+
 @_frozen_dataclass_decorator
 class DeviceInfo(APIModelBase):
     uses_password: bool = False
@@ -264,6 +289,9 @@ class DeviceInfo(APIModelBase):
     )
     area: AreaInfo = converter_field(
         default_factory=AreaInfo, converter=AreaInfo.convert
+    )
+    serial_proxies: list[SerialProxyInfo] = converter_field(
+        default_factory=list, converter=SerialProxyInfo.convert_list
     )
 
     def bluetooth_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
@@ -1260,6 +1288,54 @@ class UpdateState(EntityState):
 @_frozen_dataclass_decorator
 class InfraredInfo(EntityInfo):
     capabilities: int = 0
+
+
+# ==================== SERIAL PROXY ====================
+
+
+class SerialProxyParity(APIIntEnum):
+    NONE = 0
+    EVEN = 1
+    ODD = 2
+
+
+class SerialProxyRequestType(APIIntEnum):
+    SUBSCRIBE = 0
+    UNSUBSCRIBE = 1
+    FLUSH = 2
+
+
+class SerialProxyStatus(APIIntEnum):
+    OK = 0
+    ASSUMED_SUCCESS = 1
+    ERROR = 2
+    TIMEOUT = 3
+    NOT_SUPPORTED = 4
+
+
+@_frozen_dataclass_decorator
+class SerialProxyDataReceived(APIModelBase):
+    instance: int = 0
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class SerialProxyRequestResponse(APIModelBase):
+    instance: int = 0
+    type: SerialProxyRequestType | None = converter_field(
+        default=SerialProxyRequestType.SUBSCRIBE,
+        converter=SerialProxyRequestType.convert,
+    )
+    status: SerialProxyStatus | None = converter_field(
+        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    )
+    error_message: str = ""
+
+
+@_frozen_dataclass_decorator
+class SerialProxyModemPins(APIModelBase):
+    instance: int = 0
+    line_states: int = 0
 
 
 # ==================== INFO MAP ====================

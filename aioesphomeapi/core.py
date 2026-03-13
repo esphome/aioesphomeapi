@@ -34,6 +34,8 @@ from .api_pb2 import (  # type: ignore
     BluetoothLERawAdvertisementsResponse,
     BluetoothScannerSetModeRequest,
     BluetoothScannerStateResponse,
+    BluetoothSetConnectionParamsRequest,
+    BluetoothSetConnectionParamsResponse,
     ButtonCommandRequest,
     CameraImageRequest,
     CameraImageResponse,
@@ -106,6 +108,14 @@ from .api_pb2 import (  # type: ignore
     SelectCommandRequest,
     SelectStateResponse,
     SensorStateResponse,
+    SerialProxyConfigureRequest,
+    SerialProxyDataReceived,
+    SerialProxyGetModemPinsRequest,
+    SerialProxyGetModemPinsResponse,
+    SerialProxyRequest,
+    SerialProxyRequestResponse,
+    SerialProxySetModemPinsRequest,
+    SerialProxyWriteRequest,
     SirenCommandRequest,
     SirenStateResponse,
     SubscribeBluetoothConnectionsFreeRequest,
@@ -141,10 +151,10 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
     WaterHeaterStateResponse,
-    ZWaveProxyFrame,
-    ZWaveProxyRequest,
     ZigbeeProxyFrame,
     ZigbeeProxyRequest,
+    ZWaveProxyFrame,
+    ZWaveProxyRequest,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -369,6 +379,17 @@ class BluetoothGATTAPIError(APIConnectionError):
         self.error = error
 
 
+class BluetoothConnectionParamsAPIError(APIConnectionError):
+    def __init__(self, address: int, error: int) -> None:
+        super().__init__(
+            f"Error setting BLE connection parameters for "
+            f"{to_human_readable_address(address)}: "
+            f"{to_human_readable_gatt_error(error)} ({error})"
+        )
+        self.address = address
+        self.error_code = error
+
+
 MESSAGE_TYPE_TO_PROTO = {
     1: HelloRequest,
     2: HelloResponse,
@@ -507,8 +528,18 @@ MESSAGE_TYPE_TO_PROTO = {
     135: ListEntitiesInfraredResponse,
     136: InfraredRFTransmitRawTimingsRequest,
     137: InfraredRFReceiveEvent,
-    138: ZigbeeProxyFrame,
-    139: ZigbeeProxyRequest,
+    138: SerialProxyConfigureRequest,
+    139: SerialProxyDataReceived,
+    140: SerialProxyWriteRequest,
+    141: SerialProxySetModemPinsRequest,
+    142: SerialProxyGetModemPinsRequest,
+    143: SerialProxyGetModemPinsResponse,
+    144: SerialProxyRequest,
+    145: BluetoothSetConnectionParamsRequest,
+    146: BluetoothSetConnectionParamsResponse,
+    147: SerialProxyRequestResponse,
+    148: ZigbeeProxyFrame,
+    149: ZigbeeProxyRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
