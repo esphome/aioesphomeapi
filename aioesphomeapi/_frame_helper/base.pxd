@@ -26,13 +26,13 @@ cdef class APIFrameHelper:
         new_pos="unsigned int",
         cstr="const unsigned char *"
     )
-    cdef bytes _read(self, int length) noexcept
+    cdef bytes _read(self, int length)
 
     @cython.locals(bytes_data=bytes)
     cdef void _add_to_buffer(self, object data) except *
 
     @cython.locals(end_of_frame_pos="unsigned int", cstr="const unsigned char *")
-    cdef void _remove_from_buffer(self) noexcept
+    cdef void _remove_from_buffer(self) except *
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
