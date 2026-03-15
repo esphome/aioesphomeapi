@@ -48,7 +48,6 @@ from .core import (
     HandshakeAPIError,
     InvalidAuthAPIError,
     PingFailedAPIError,
-    ProtocolAPIError,
     ReadFailedAPIError,
     SocketAPIError,
     SocketClosedAPIError,
@@ -67,6 +66,7 @@ MESSAGE_NUMBER_TO_PROTO: tuple[
     tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
 ] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
 
+_MESSAGE_NUMBER_TO_PROTO_LEN: int = len(MESSAGE_NUMBER_TO_PROTO)
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
 MIN_BUFFER_SIZE = 131072  # Minimum buffer size to use
@@ -1003,37 +1003,22 @@ class APIConnection:
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
-        try:
-            # MESSAGE_NUMBER_TO_PROTO is 0-indexed
-            # but the message type is 1-indexed
-            klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
-            klass, merge = klass_merge
-            msg = klass()
-            merge(msg, data)
-        except Exception as e:
-            # IndexError will be very rare so we check for it
-            # after the broad exception catch to avoid having
-            # to check the exception type twice for the common case
-            if isinstance(e, IndexError):
-                if self._debug_enabled:
-                    _LOGGER.debug(
-                        "%s: Skipping unknown message type %s",
-                        self.log_name,
-                        msg_type_proto,
-                    )
-                return
-            _LOGGER.exception(
-                "%s: Invalid protobuf message: type=%s data=%s",
-                self.log_name,
-                klass.__name__,
-                data,
-            )
-            self.report_fatal_error(
-                ProtocolAPIError(
-                    f"Invalid protobuf message: type={klass.__name__} data={data!r}: {e}"
+        #
+        # Bounds check first to avoid the overhead of try/except
+        # which forces Cython to save/restore exception state on every call.
+        if msg_type_proto < 1 or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN:
+            if self._debug_enabled:
+                _LOGGER.debug(
+                    "%s: Skipping unknown message type %s",
+                    self.log_name,
+                    msg_type_proto,
                 )
-            )
-            raise
+            return
+
+        klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
+        klass, merge = klass_merge
+        msg = klass()
+        merge(msg, data)
 
         if self._debug_enabled:
             _LOGGER.debug(
