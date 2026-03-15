@@ -72,7 +72,8 @@ cpdef void handle_complex_message(
 cdef object _handle_timeout
 cdef object _handle_complex_message
 
-cdef tuple MESSAGE_NUMBER_TO_PROTO
+cdef tuple MESSAGE_NUMBER_TO_KLASS
+cdef tuple MESSAGE_NUMBER_TO_MERGE
 
 
 @cython.dataclasses.dataclass
@@ -126,7 +127,7 @@ cdef class APIConnection:
     @cython.locals(msg_type=tuple)
     cpdef void send_messages(self, tuple messages) except *
 
-    @cython.locals(handlers=set, handlers_copy=set, klass_merge=tuple)
+    @cython.locals(handlers=set, handlers_copy=set)
     cpdef void process_packet(
         self,
         unsigned int msg_type_proto,
