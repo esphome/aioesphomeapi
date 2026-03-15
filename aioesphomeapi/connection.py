@@ -48,6 +48,7 @@ from .core import (
     HandshakeAPIError,
     InvalidAuthAPIError,
     PingFailedAPIError,
+    ProtocolAPIError,
     ReadFailedAPIError,
     SocketAPIError,
     SocketClosedAPIError,
@@ -998,6 +999,35 @@ class APIConnection:
         if self._fatal_exception is None:
             self._fatal_exception = err
 
+    def _parse_msg(
+        self,
+        merge: Callable[[message.Message, _bytes], None],
+        msg: message.Message,
+        data: _bytes,
+    ) -> None:
+        """Parse a protobuf message, logging and re-raising on failure.
+
+        This is a separate method so the try/except overhead
+        (Cython exception state save/restore) is isolated here
+        and not in process_packet.
+        """
+        try:
+            merge(msg, data)
+        except Exception as e:
+            klass_name = type(msg).__name__
+            _LOGGER.exception(
+                "%s: Invalid protobuf message: type=%s data=%s",
+                self.log_name,
+                klass_name,
+                data,
+            )
+            self.report_fatal_error(
+                ProtocolAPIError(
+                    f"Invalid protobuf message: type={klass_name} data={data!r}: {e}"
+                )
+            )
+            raise
+
     def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
         """Process an incoming packet."""
         # This method is HOT and extremely performance critical
@@ -1018,7 +1048,7 @@ class APIConnection:
         klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
         klass, merge = klass_merge
         msg = klass()
-        merge(msg, data)
+        self._parse_msg(merge, msg, data)
 
         if self._debug_enabled:
             _LOGGER.debug(

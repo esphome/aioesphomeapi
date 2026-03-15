@@ -127,6 +127,8 @@ cdef class APIConnection:
     @cython.locals(msg_type=tuple)
     cpdef void send_messages(self, tuple messages) except *
 
+    cdef void _parse_msg(self, object merge, object msg, object data) except *
+
     @cython.locals(handlers=set, handlers_copy=set, klass_merge=tuple)
     cpdef void process_packet(
         self,

@@ -1103,6 +1103,7 @@ async def test_bad_protobuf_message_drops_connection(
     )
     mock_data_received(protocol, message_with_bad_protobuf_data)
     assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert "inval" in caplog.text  # verify raw protobuf bytes are logged
     assert connection.is_connected is False
 
 
