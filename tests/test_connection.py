@@ -1088,6 +1088,8 @@ async def test_bad_protobuf_message_drops_connection(
     msg: message.Message = TextSensorStateResponse(
         key=1, state="invalid", missing_state=False
     )
+    # Register a handler so the message is not skipped before parsing
+    connection.add_message_callback(lambda _: None, (TextSensorStateResponse,))
     caplog.clear()
     caplog.set_level(logging.DEBUG)
     client.set_debug(True)

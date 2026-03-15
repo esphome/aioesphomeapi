@@ -5,6 +5,7 @@ from ._frame_helper.base cimport APIFrameHelper
 
 cdef dict MESSAGE_TYPE_TO_PROTO
 cdef dict PROTO_TO_MESSAGE_TYPE
+cdef dict PROTO_TO_MESSAGE_NUMBER
 
 cdef set OPEN_STATES
 
@@ -72,7 +73,9 @@ cpdef void handle_complex_message(
 cdef object _handle_timeout
 cdef object _handle_complex_message
 
-cdef tuple MESSAGE_NUMBER_TO_PROTO
+cdef tuple MESSAGE_NUMBER_TO_KLASS
+cdef tuple MESSAGE_NUMBER_TO_MERGE
+cdef Py_ssize_t _MESSAGE_NUMBER_TO_PROTO_LEN
 
 
 @cython.dataclasses.dataclass
@@ -99,6 +102,7 @@ cdef class APIConnection:
     cdef public object api_version
     cdef public object connection_state
     cdef public dict _message_handlers
+    cdef public list _message_handlers_by_number
     cdef public str log_name
     cdef set _read_exception_futures
     cdef object _ping_timer
@@ -126,7 +130,7 @@ cdef class APIConnection:
     @cython.locals(msg_type=tuple)
     cpdef void send_messages(self, tuple messages) except *
 
-    @cython.locals(handlers=set, handlers_copy=set, klass_merge=tuple)
+    @cython.locals(handlers=set, handlers_copy=set)
     cpdef void process_packet(
         self,
         unsigned int msg_type_proto,
@@ -149,7 +153,7 @@ cdef class APIConnection:
 
     cpdef void report_fatal_error(self, Exception err) except *
 
-    @cython.locals(handlers=set)
+    @cython.locals(handlers=set, msg_number=object)
     cdef void _add_message_callback_without_remove(
         self,
         object on_message,
@@ -158,7 +162,7 @@ cdef class APIConnection:
 
     cpdef add_message_callback(self, object on_message, tuple msg_types)
 
-    @cython.locals(handlers=set)
+    @cython.locals(handlers=set, msg_number=object)
     cpdef void _remove_message_callback(
         self,
         object on_message,

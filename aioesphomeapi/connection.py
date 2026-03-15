@@ -63,10 +63,14 @@ from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
-MESSAGE_NUMBER_TO_PROTO: tuple[
-    tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
-] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
+MESSAGE_NUMBER_TO_KLASS: tuple[Callable[[], message.Message], ...] = tuple(
+    MESSAGE_TYPE_TO_PROTO.values()
+)
+MESSAGE_NUMBER_TO_MERGE: tuple[Callable[[message.Message, bytes], None], ...] = tuple(
+    msg.MergeFromString for msg in MESSAGE_TYPE_TO_PROTO.values()
+)
 
+_MESSAGE_NUMBER_TO_PROTO_LEN: int = len(MESSAGE_NUMBER_TO_KLASS)
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
 MIN_BUFFER_SIZE = 131072  # Minimum buffer size to use
@@ -80,6 +84,10 @@ NO_PASSWORD_AUTH_REQUEST = AuthenticationRequest()
 PROTO_TO_MESSAGE_TYPE: dict[
     type[message.Message], tuple[int, Callable[[message.Message], bytes]]
 ] = {v: (k, v.SerializeToString) for k, v in MESSAGE_TYPE_TO_PROTO.items()}
+
+PROTO_TO_MESSAGE_NUMBER: dict[type, int] = {
+    proto: number for number, proto in MESSAGE_TYPE_TO_PROTO.items()
+}
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 #
@@ -254,6 +262,7 @@ class APIConnection:
         "_log_errors",
         "_loop",
         "_message_handlers",
+        "_message_handlers_by_number",
         "_params",
         "_ping_timer",
         "_pong_timer",
@@ -289,6 +298,11 @@ class APIConnection:
 
         # Message handlers currently subscribed to incoming messages
         self._message_handlers: dict[Any, set[Callable[[message.Message], None]]] = {}
+        # Fast list-indexed handler lookup by message type number
+        # Message types are 1-indexed, so index 0 is unused
+        self._message_handlers_by_number: list[
+            set[Callable[[message.Message], None]] | None
+        ] = [None] * (_MESSAGE_NUMBER_TO_PROTO_LEN + 1)
         # The friendly name to show for this connection in the logs
         self.log_name = log_name or ",".join(params.addresses)
 
@@ -858,9 +872,12 @@ class APIConnection:
         """Add a message callback without returning a remove callable."""
         for msg_type in msg_types:
             if (handlers := self._message_handlers.get(msg_type)) is None:
-                self._message_handlers[msg_type] = {on_message}
+                handlers = {on_message}
+                self._message_handlers[msg_type] = handlers
             else:
                 handlers.add(on_message)
+            if (msg_number := PROTO_TO_MESSAGE_NUMBER.get(msg_type)) is not None:
+                self._message_handlers_by_number[msg_number] = handlers
 
     def add_message_callback(
         self, on_message: Callable[[Any], None], msg_types: tuple[type[Any], ...]
@@ -876,6 +893,11 @@ class APIConnection:
         for msg_type in msg_types:
             handlers = self._message_handlers[msg_type]
             handlers.discard(on_message)
+            if (
+                not handlers
+                and (msg_number := PROTO_TO_MESSAGE_NUMBER.get(msg_type)) is not None
+            ):
+                self._message_handlers_by_number[msg_number] = None
 
     def send_message_callback_response(
         self,
@@ -1003,25 +1025,43 @@ class APIConnection:
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
+        #
+        # Bounds check first to avoid the overhead of try/except
+        # which forces Cython to save/restore exception state on every call.
+        if msg_type_proto < 1 or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN:
+            if self._debug_enabled:
+                _LOGGER.debug(
+                    "%s: Skipping unknown message type %s",
+                    self.log_name,
+                    msg_type_proto,
+                )
+            return
+
+        if self._pong_timer is not None:
+            # Any valid message from the remote cancels the pong timer
+            # as we know the connection is still alive
+            self._async_cancel_pong_timer()
+
+        if self._send_pending_ping:
+            # Any valid message from the remote cancels the pending ping
+            # since we know the connection is still alive
+            self._send_pending_ping = False
+
+        # Check for handlers BEFORE parsing the protobuf so we can
+        # skip protobuf instantiation and parsing entirely for
+        # unhandled message types. This uses direct list indexing
+        # instead of dict hash+probe since message types are
+        # contiguous integers.
+        if (handlers := self._message_handlers_by_number[msg_type_proto]) is None:
+            return
+
+        # MESSAGE_NUMBER_TO_KLASS/MESSAGE_NUMBER_TO_MERGE are 0-indexed
+        # but the message type is 1-indexed
+        klass = MESSAGE_NUMBER_TO_KLASS[msg_type_proto - 1]
+        msg = klass()
         try:
-            # MESSAGE_NUMBER_TO_PROTO is 0-indexed
-            # but the message type is 1-indexed
-            klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
-            klass, merge = klass_merge
-            msg = klass()
-            merge(msg, data)
+            MESSAGE_NUMBER_TO_MERGE[msg_type_proto - 1](msg, data)
         except Exception as e:
-            # IndexError will be very rare so we check for it
-            # after the broad exception catch to avoid having
-            # to check the exception type twice for the common case
-            if isinstance(e, IndexError):
-                if self._debug_enabled:
-                    _LOGGER.debug(
-                        "%s: Skipping unknown message type %s",
-                        self.log_name,
-                        msg_type_proto,
-                    )
-                return
             _LOGGER.exception(
                 "%s: Invalid protobuf message: type=%s data=%s",
                 self.log_name,
@@ -1030,7 +1070,8 @@ class APIConnection:
             )
             self.report_fatal_error(
                 ProtocolAPIError(
-                    f"Invalid protobuf message: type={klass.__name__} data={data!r}: {e}"
+                    f"Invalid protobuf message:"
+                    f" type={klass.__name__} data={data!r}: {e}"
                 )
             )
             raise
@@ -1046,19 +1087,6 @@ class APIConnection:
                 # so we call MessageToDict instead
                 MessageToDict(msg) if _WIN32 else msg,
             )
-
-        if self._pong_timer is not None:
-            # Any valid message from the remote cancels the pong timer
-            # as we know the connection is still alive
-            self._async_cancel_pong_timer()
-
-        if self._send_pending_ping:
-            # Any valid message from the remove cancels the pending ping
-            # since we know the connection is still alive
-            self._send_pending_ping = False
-
-        if (handlers := self._message_handlers.get(type(msg))) is None:
-            return
 
         if len(handlers) > 1:
             # Handlers are allowed to remove themselves
