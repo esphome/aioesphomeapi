@@ -20,6 +20,6 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
         val="unsigned char",
         current_pos="unsigned int"
     )
-    cdef int _read_varuint(self)
+    cdef int _read_varuint(self) noexcept
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *

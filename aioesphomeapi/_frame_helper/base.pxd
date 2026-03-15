@@ -21,6 +21,7 @@ cdef class APIFrameHelper:
 
     cpdef set_log_name(self, str log_name)
 
+    @cython.final
     @cython.locals(
         original_pos="unsigned int",
         new_pos="unsigned int",
@@ -28,14 +29,17 @@ cdef class APIFrameHelper:
     )
     cdef bytes _read(self, int length)
 
+    @cython.final
     @cython.locals(bytes_data=bytes)
     cdef void _add_to_buffer(self, object data) except *
 
+    @cython.final
     @cython.locals(end_of_frame_pos="unsigned int", cstr="const unsigned char *")
     cdef void _remove_from_buffer(self) except *
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 
+    @cython.final
     cdef void _write_bytes(self, object data, bint debug_enabled) except *
 
     cdef void _handle_error_and_close(self, Exception exc) except *
