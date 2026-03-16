@@ -472,11 +472,6 @@ def test_parse_asia_kolkata() -> None:
     assert not tz.has_dst
 
 
-# ============================================================================
-# Error handling tests for uncovered ValueError paths
-# ============================================================================
-
-
 def test_parse_dst_rule_unexpected_end() -> None:
     """Test unexpected end of string when expecting DST rule (line 135)."""
     with pytest.raises(ValueError, match="expected DST rule"):
