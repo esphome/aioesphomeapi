@@ -470,3 +470,33 @@ def test_parse_asia_kolkata() -> None:
     tz = parse_posix_tz("IST-5:30")
     assert tz.std_offset_seconds == -(5 * 3600 + 30 * 60)
     assert not tz.has_dst
+
+
+# ============================================================================
+# Error handling tests for uncovered ValueError paths
+# ============================================================================
+
+
+def test_parse_dst_rule_unexpected_end() -> None:
+    """Test unexpected end of string when expecting DST rule (line 135)."""
+    with pytest.raises(ValueError, match="expected DST rule"):
+        # Provide DST name but no rule - the comma means rules are expected
+        parse_posix_tz("EST5EDT,M3.2.0,")
+
+
+def test_parse_dst_rule_missing_dot_after_month() -> None:
+    """Test missing '.' after month in M-format rule (line 147)."""
+    with pytest.raises(ValueError, match=r"Expected '\.' after month"):
+        parse_posix_tz("EST5EDT,M3x2.0,M11.1.0")
+
+
+def test_parse_dst_rule_missing_dot_after_week() -> None:
+    """Test missing '.' after week in M-format rule (line 155)."""
+    with pytest.raises(ValueError, match=r"Expected '\.' after week"):
+        parse_posix_tz("EST5EDT,M3.2x0,M11.1.0")
+
+
+def test_parse_dst_rule_unexpected_char() -> None:
+    """Test unexpected character at start of DST rule (line 180)."""
+    with pytest.raises(ValueError, match="Expected DST rule"):
+        parse_posix_tz("EST5EDT,X3.2.0,M11.1.0")

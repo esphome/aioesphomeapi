@@ -19,12 +19,19 @@ from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
     DisconnectRequest,
+    GetTimeRequest,
+    GetTimeResponse,
     HelloResponse,
     PingRequest,
     PingResponse,
     TextSensorStateResponse,
 )
-from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
+from aioesphomeapi.connection import (
+    APIConnection,
+    ConnectionParams,
+    ConnectionState,
+    _build_parsed_tz_proto,
+)
 from aioesphomeapi.core import (
     APIConnectionCancelledError,
     APIConnectionError,
@@ -56,6 +63,65 @@ from .common import (
 )
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
+
+
+@pytest.mark.parametrize(
+    ("tz_value", "has_parsed_tz"),
+    [
+        ("", False),  # empty timezone — _build_parsed_tz_proto returns None (line 194)
+        (
+            ",,,",
+            False,
+        ),  # unparseable — parse_posix_tz raises ValueError (lines 197-198)
+        ("EST5", True),  # valid timezone — parsed_timezone should be populated
+    ],
+)
+async def test_get_time_request_timezone_handling(
+    conn_with_password: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+    tz_value: str,
+    has_parsed_tz: bool,
+) -> None:
+    """Test GetTimeRequest handler with various timezone values."""
+    event_loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    _build_parsed_tz_proto.cache_clear()
+
+    with (
+        patch.object(
+            event_loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        patch(
+            "aioesphomeapi.connection.get_timezone",
+            return_value=tz_value,
+        ),
+    ):
+        connect_task = asyncio.create_task(connect(conn_with_password, login=True))
+        await connected.wait()
+        protocol = conn_with_password._frame_helper
+
+        send_plaintext_hello(protocol)
+        send_plaintext_auth_response(protocol, False)
+        await connect_task
+
+    transport.reset_mock()
+
+    get_time_request = GetTimeRequest()
+    mock_data_received(protocol, generate_plaintext_packet(get_time_request))
+
+    # Verify a GetTimeResponse was sent
+    assert transport.writelines.call_count == 1
+    raw = b"".join(transport.writelines.call_args[0][0])
+    resp = GetTimeResponse()
+    resp.ParseFromString(raw[3:])  # skip 0x00, length varuint, type varuint
+    assert resp.timezone == tz_value
+    assert resp.HasField("parsed_timezone") == has_parsed_tz
+    conn_with_password.force_disconnect()
 
 
 async def test_connect_hello_login_with_login_false_and_password_none(
