@@ -59,9 +59,6 @@ def _skip_tz_name(s: str, pos: int) -> int:
     Returns new position after the name.
     Raises ValueError if name is invalid.
     """
-    if pos >= len(s):
-        raise ValueError("Unexpected end of string, expected timezone name")
-
     if s[pos] == "<":
         # Angle-bracket quoted name: <+07>, <-03>, <AEST>
         pos += 1  # skip '<'
