@@ -4,7 +4,7 @@ import asyncio
 from functools import partial
 from ipaddress import ip_address
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 from zeroconf import (
@@ -671,7 +671,8 @@ async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
     with patch.object(
         type(cli),
         "connected_address",
-        new_callable=lambda: property(lambda self: "192.168.1.5"),
+        new_callable=PropertyMock,
+        return_value="192.168.1.5",
     ):
         # Now trigger zeroconf while in CONNECTING state with socket connected
         rl.async_update_records(
