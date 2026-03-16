@@ -68,11 +68,8 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 @pytest.mark.parametrize(
     ("tz_value", "has_parsed_tz"),
     [
-        ("", False),  # empty timezone — _build_parsed_tz_proto returns None (line 194)
-        (
-            ",,,",
-            False,
-        ),  # unparseable — parse_posix_tz raises ValueError (lines 197-198)
+        ("", False),  # empty timezone — _build_parsed_tz_proto returns None
+        (",,,", False),  # unparseable — parse_posix_tz raises ValueError
         ("EST5", True),  # valid timezone — parsed_timezone should be populated
     ],
 )
