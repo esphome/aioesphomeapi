@@ -265,7 +265,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     def _call_connect_once(self) -> None:
         """Call the connect logic once.
 
-        Must only be called from _schedule_connect.
+        Must only be called from _schedule_connect or its scheduled timer.
         """
         if self._connect_task and not self._connect_task.done():
             if (
