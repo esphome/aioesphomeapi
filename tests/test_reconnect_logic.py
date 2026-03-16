@@ -4,7 +4,7 @@ import asyncio
 from functools import partial
 from ipaddress import ip_address
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 from zeroconf import (
@@ -536,11 +536,92 @@ async def test_reconnect_zeroconf(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
-async def test_reconnect_zeroconf_cancels_when_connecting(
+async def test_reconnect_zeroconf_cancels_connecting_no_socket(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test that reconnect logic cancels and restarts connection when zeroconf triggers during CONNECTING state."""
+    """Test that reconnect logic cancels and restarts connection when zeroconf triggers during CONNECTING state with no socket connected yet."""
+    cli = patchable_api_client
+
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+    assert cli.log_name == "mydevice @ 127.0.0.1"
+
+    with patch.object(
+        cli, "start_resolve_host", side_effect=quick_connect_fail
+    ) as mock_start_resolve_host:
+        await rl.start()
+        await asyncio.sleep(0)
+
+    assert mock_start_resolve_host.call_count == 1
+
+    # Now put the connection in CONNECTING state (no socket connected yet)
+    with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
+        patch.object(
+            cli, "start_connection", side_effect=slow_connect_fail
+        ) as mock_start_connection,
+    ):
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._accept_zeroconf_records is True
+        assert not rl._is_stopped
+
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_start_resolve_host.call_count == 1
+        assert mock_start_connection.call_count == 1
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+        assert rl._accept_zeroconf_records is True
+        assert not rl._is_stopped
+
+    caplog.clear()
+
+    # No socket connected yet - connected_address is None
+    assert cli.connected_address is None
+
+    # Now trigger zeroconf while in CONNECTING state with no socket
+    with (
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host_2,
+        patch.object(cli, "start_connection") as mock_start_connection_2,
+        patch.object(cli, "finish_connection"),
+    ):
+        rl.async_update_records(
+            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+        )
+
+        # Should see the cancellation message since no socket is connected
+        assert "Cancelling existing connect task" in caplog.text
+        assert "Triggering connect because of received mDNS record" in caplog.text
+
+        # Wait for the new connection attempt
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+        # Should have started a new connection attempt
+        assert mock_start_resolve_host_2.call_count == 1
+        assert mock_start_connection_2.call_count == 1
+
+    await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that reconnect logic does not cancel connection when zeroconf triggers during CONNECTING state with socket already connected."""
     cli = patchable_api_client
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
@@ -586,28 +667,73 @@ async def test_reconnect_zeroconf_cancels_when_connecting(
 
     caplog.clear()
 
-    # Now trigger zeroconf while in CONNECTING state
+    # Simulate socket already connected (device accepted TCP connection)
+    with patch.object(
+        type(cli),
+        "connected_address",
+        new_callable=PropertyMock,
+        return_value="192.168.1.5",
+    ):
+        # Now trigger zeroconf while in CONNECTING state with socket connected
+        rl.async_update_records(
+            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+        )
+
+        # Should NOT cancel since the device already accepted the connection
+        assert "Not cancelling existing connect task" in caplog.text
+        assert "Triggering connect because of received mDNS record" in caplog.text
+        assert "Cancelling existing connect task" not in caplog.text
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
+async def test_reconnect_zeroconf_cancels_pending_timer(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that mDNS-triggered connect cancels any pending backoff timer."""
+    cli = patchable_api_client
+
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    # After first failure, a backoff timer should be scheduled
+    assert rl._connect_timer is not None
+    timer = rl._connect_timer
+
+    # Now trigger zeroconf - the pending timer should be cancelled
     with (
-        patch.object(cli, "start_resolve_host") as mock_start_resolve_host_2,
-        patch.object(cli, "start_connection") as mock_start_connection_2,
+        patch.object(cli, "start_resolve_host") as mock_start_resolve_host,
+        patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection"),
     ):
         rl.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
 
-        # Should see the cancellation message
-        assert "Cancelling existing connect task" in caplog.text
-        assert "Triggering connect because of received mDNS record" in caplog.text
-
-        # Wait for the new connection attempt
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         await asyncio.sleep(0)
 
-        # Should have started a new connection attempt
-        assert mock_start_resolve_host_2.call_count == 1
-        assert mock_start_connection_2.call_count == 1
+        assert mock_start_resolve_host.call_count == 1
+
+    # The old timer should have been cancelled
+    assert timer.cancelled()
 
     await rl.stop()
     assert rl._is_stopped is True

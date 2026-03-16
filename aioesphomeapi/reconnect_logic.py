@@ -253,11 +253,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _schedule_connect(self, delay: float) -> None:
         """Schedule a connect attempt."""
+        self._cancel_connect_timer()
         if not delay:
             self._call_connect_once()
             return
         _LOGGER.debug("Scheduling new connect attempt in %.2f seconds", delay)
-        self._cancel_connect_timer()
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
         )
@@ -265,18 +265,27 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     def _call_connect_once(self) -> None:
         """Call the connect logic once.
 
-        Must only be called from _schedule_connect.
+        Must only be called from _schedule_connect or its scheduled timer.
         """
         if self._connect_task and not self._connect_task.done():
-            if self._connection_state != ReconnectLogicState.CONNECTING:
+            if (
+                self._connection_state != ReconnectLogicState.CONNECTING
+                or self._cli.connected_address is not None
+            ):
                 # Connection state is far enough along that we should
                 # not restart the connect task.
                 #
                 # Zeroconf triggering scenarios:
-                # - RESOLVING state: Don't cancel, the resolve task will complete immediately
-                #   since it's waiting for the same records zeroconf is delivering
-                # - CONNECTING state: Cancel and restart to use potentially updated connection info
-                # - HANDSHAKING state or later: Don't cancel, too far along in the process
+                # - RESOLVING state: Don't cancel, the resolve task will
+                #   complete immediately since it's waiting for the same
+                #   records zeroconf is delivering
+                # - CONNECTING state with socket connected: Don't cancel,
+                #   the device already accepted the TCP connection and we
+                #   would waste the established connection
+                # - CONNECTING state without socket: Cancel and restart to
+                #   use potentially updated connection info from mDNS
+                # - HANDSHAKING state or later: Don't cancel, too far along
+                #   in the process
                 _LOGGER.debug(
                     "%s: Not cancelling existing connect task as its already %s!",
                     self._cli.log_name,
