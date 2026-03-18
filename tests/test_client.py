@@ -3171,12 +3171,22 @@ async def test_serial_proxy_flush(
     assert result.status == SerialProxyStatus.OK
 
 
-async def test_serial_proxy_subscribe(
+@pytest.mark.parametrize(
+    ("method_name", "request_type", "instance"),
+    [
+        ("serial_proxy_subscribe", SerialProxyRequestType.SUBSCRIBE, 2),
+        ("serial_proxy_unsubscribe", SerialProxyRequestType.UNSUBSCRIBE, 3),
+    ],
+)
+async def test_serial_proxy_request_send(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
+    method_name: str,
+    request_type: SerialProxyRequestType,
+    instance: int,
 ) -> None:
-    """Test serial_proxy_subscribe sends the correct request."""
+    """Test serial_proxy subscribe/unsubscribe sends the correct request."""
     client, connection, _transport, _protocol = api_client
     sent_messages: list[SerialProxyRequestPb] = []
 
@@ -3189,129 +3199,82 @@ async def test_serial_proxy_subscribe(
 
     connection.send_message = capture_send
 
-    client.serial_proxy_subscribe(instance=2)
+    getattr(client, method_name)(instance=instance)
 
     assert len(sent_messages) == 1
-    assert sent_messages[0].instance == 2
-    assert sent_messages[0].type == SerialProxyRequestType.SUBSCRIBE
+    assert sent_messages[0].instance == instance
+    assert sent_messages[0].type == request_type
 
 
-async def test_serial_proxy_subscribe_await_response(
+@pytest.mark.parametrize(
+    ("method_name", "request_type", "instance", "wrong_instance"),
+    [
+        (
+            "serial_proxy_subscribe_await_response",
+            SerialProxyRequestType.SUBSCRIBE,
+            2,
+            9,
+        ),
+        (
+            "serial_proxy_unsubscribe_await_response",
+            SerialProxyRequestType.UNSUBSCRIBE,
+            3,
+            1,
+        ),
+    ],
+)
+async def test_serial_proxy_request_await_response(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
+    method_name: str,
+    request_type: SerialProxyRequestType,
+    instance: int,
+    wrong_instance: int,
 ) -> None:
-    """Test serial_proxy_subscribe_await_response returns matching response."""
+    """Test awaitable serial_proxy subscribe/unsubscribe returns matching response."""
     client, connection, _transport, _protocol = api_client
 
     response_pb = SerialProxyRequestResponsePb(
-        instance=2,
-        type=SerialProxyRequestType.SUBSCRIBE,
+        instance=instance,
+        type=request_type,
         status=SerialProxyStatus.OK,
     )
 
     async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
         assert len(messages) == 1
         assert isinstance(messages[0], SerialProxyRequestPb)
-        assert messages[0].instance == 2
-        assert messages[0].type == SerialProxyRequestType.SUBSCRIBE
+        assert messages[0].instance == instance
+        assert messages[0].type == request_type
         assert do_append(response_pb) is True
         assert stop(response_pb) is True
-        wrong_instance = SerialProxyRequestResponsePb(
-            instance=9,
-            type=SerialProxyRequestType.SUBSCRIBE,
+        mismatched_instance = SerialProxyRequestResponsePb(
+            instance=wrong_instance,
+            type=request_type,
             status=SerialProxyStatus.OK,
         )
-        assert do_append(wrong_instance) is False
-        assert stop(wrong_instance) is False
-        wrong_type = SerialProxyRequestResponsePb(
-            instance=2,
-            type=SerialProxyRequestType.FLUSH,
+        assert do_append(mismatched_instance) is False
+        assert stop(mismatched_instance) is False
+        mismatched_type = SerialProxyRequestResponsePb(
+            instance=instance,
+            type=(
+                SerialProxyRequestType.UNSUBSCRIBE
+                if request_type == SerialProxyRequestType.SUBSCRIBE
+                else SerialProxyRequestType.SUBSCRIBE
+            ),
             status=SerialProxyStatus.OK,
         )
-        assert do_append(wrong_type) is False
-        assert stop(wrong_type) is False
+        assert do_append(mismatched_type) is False
+        assert stop(mismatched_type) is False
         return [response_pb]
 
     connection.send_messages_await_response_complex = mock_send_complex
 
-    result = await client.serial_proxy_subscribe_await_response(instance=2)
+    result = await getattr(client, method_name)(instance=instance)
 
     assert isinstance(result, SerialProxyRequestResponse)
-    assert result.instance == 2
-    assert result.type == SerialProxyRequestType.SUBSCRIBE
-    assert result.status == SerialProxyStatus.OK
-
-
-async def test_serial_proxy_unsubscribe(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    """Test serial_proxy_unsubscribe sends the correct request."""
-    client, connection, _transport, _protocol = api_client
-    sent_messages: list[SerialProxyRequestPb] = []
-
-    original_send = connection.send_message
-
-    def capture_send(msg: Any) -> None:
-        if isinstance(msg, SerialProxyRequestPb):
-            sent_messages.append(msg)
-        original_send(msg)
-
-    connection.send_message = capture_send
-
-    client.serial_proxy_unsubscribe(instance=3)
-
-    assert len(sent_messages) == 1
-    assert sent_messages[0].instance == 3
-    assert sent_messages[0].type == SerialProxyRequestType.UNSUBSCRIBE
-
-
-async def test_serial_proxy_unsubscribe_await_response(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    """Test serial_proxy_unsubscribe_await_response returns matching response."""
-    client, connection, _transport, _protocol = api_client
-
-    response_pb = SerialProxyRequestResponsePb(
-        instance=3,
-        type=SerialProxyRequestType.UNSUBSCRIBE,
-        status=SerialProxyStatus.OK,
-    )
-
-    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
-        assert len(messages) == 1
-        assert isinstance(messages[0], SerialProxyRequestPb)
-        assert messages[0].instance == 3
-        assert messages[0].type == SerialProxyRequestType.UNSUBSCRIBE
-        assert do_append(response_pb) is True
-        assert stop(response_pb) is True
-        wrong_instance = SerialProxyRequestResponsePb(
-            instance=1,
-            type=SerialProxyRequestType.UNSUBSCRIBE,
-            status=SerialProxyStatus.OK,
-        )
-        assert do_append(wrong_instance) is False
-        assert stop(wrong_instance) is False
-        wrong_type = SerialProxyRequestResponsePb(
-            instance=3,
-            type=SerialProxyRequestType.SUBSCRIBE,
-            status=SerialProxyStatus.OK,
-        )
-        assert do_append(wrong_type) is False
-        assert stop(wrong_type) is False
-        return [response_pb]
-
-    connection.send_messages_await_response_complex = mock_send_complex
-
-    result = await client.serial_proxy_unsubscribe_await_response(instance=3)
-
-    assert isinstance(result, SerialProxyRequestResponse)
-    assert result.instance == 3
-    assert result.type == SerialProxyRequestType.UNSUBSCRIBE
+    assert result.instance == instance
+    assert result.type == request_type
     assert result.status == SerialProxyStatus.OK
 
 
