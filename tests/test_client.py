@@ -3196,6 +3196,53 @@ async def test_serial_proxy_subscribe(
     assert sent_messages[0].type == SerialProxyRequestType.SUBSCRIBE
 
 
+async def test_serial_proxy_subscribe_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_subscribe_await_response returns matching response."""
+    client, connection, _transport, _protocol = api_client
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=2,
+        type=SerialProxyRequestType.SUBSCRIBE,
+        status=SerialProxyStatus.OK,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxyRequestPb)
+        assert messages[0].instance == 2
+        assert messages[0].type == SerialProxyRequestType.SUBSCRIBE
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        wrong_instance = SerialProxyRequestResponsePb(
+            instance=9,
+            type=SerialProxyRequestType.SUBSCRIBE,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_instance) is False
+        assert stop(wrong_instance) is False
+        wrong_type = SerialProxyRequestResponsePb(
+            instance=2,
+            type=SerialProxyRequestType.FLUSH,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_type) is False
+        assert stop(wrong_type) is False
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_subscribe_await_response(instance=2)
+
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.instance == 2
+    assert result.type == SerialProxyRequestType.SUBSCRIBE
+    assert result.status == SerialProxyStatus.OK
+
+
 async def test_serial_proxy_unsubscribe(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -3219,6 +3266,53 @@ async def test_serial_proxy_unsubscribe(
     assert len(sent_messages) == 1
     assert sent_messages[0].instance == 3
     assert sent_messages[0].type == SerialProxyRequestType.UNSUBSCRIBE
+
+
+async def test_serial_proxy_unsubscribe_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_unsubscribe_await_response returns matching response."""
+    client, connection, _transport, _protocol = api_client
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=3,
+        type=SerialProxyRequestType.UNSUBSCRIBE,
+        status=SerialProxyStatus.OK,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxyRequestPb)
+        assert messages[0].instance == 3
+        assert messages[0].type == SerialProxyRequestType.UNSUBSCRIBE
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        wrong_instance = SerialProxyRequestResponsePb(
+            instance=1,
+            type=SerialProxyRequestType.UNSUBSCRIBE,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_instance) is False
+        assert stop(wrong_instance) is False
+        wrong_type = SerialProxyRequestResponsePb(
+            instance=3,
+            type=SerialProxyRequestType.SUBSCRIBE,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(wrong_type) is False
+        assert stop(wrong_type) is False
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_unsubscribe_await_response(instance=3)
+
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.instance == 3
+    assert result.type == SerialProxyRequestType.UNSUBSCRIBE
+    assert result.status == SerialProxyStatus.OK
 
 
 async def test_execute_service_with_response(
