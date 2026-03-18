@@ -634,27 +634,58 @@ class APIClient(APIClientBase):
             )
         )
 
+    async def _send_serial_proxy_request_await_response(
+        self,
+        instance: int,
+        request_type: SerialProxyRequestType,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Send a serial proxy request and await its matching response."""
+        req = SerialProxyRequest(instance=instance, type=request_type)
+
+        def is_matching_response(msg: SerialProxyRequestResponse) -> bool:
+            return bool(msg.instance == instance and msg.type == request_type)
+
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            is_matching_response,
+            is_matching_response,
+            (SerialProxyRequestResponse,),
+            timeout,
+        )
+        return SerialProxyRequestResponseModel.from_pb(resp)
+
+    async def serial_proxy_subscribe_await_response(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Subscribe and await confirmation from the serial proxy instance."""
+        return await self._send_serial_proxy_request_await_response(
+            instance, SerialProxyRequestType.SUBSCRIBE, timeout
+        )
+
+    async def serial_proxy_unsubscribe_await_response(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Unsubscribe and await confirmation from the serial proxy instance."""
+        return await self._send_serial_proxy_request_await_response(
+            instance, SerialProxyRequestType.UNSUBSCRIBE, timeout
+        )
+
     async def serial_proxy_flush(
         self,
         instance: int,
         timeout: float = 10.0,
     ) -> SerialProxyRequestResponseModel:
         """Flush the serial port and await confirmation."""
-        req = SerialProxyRequest(instance=instance, type=SerialProxyRequestType.FLUSH)
-
-        def is_flush_response(msg: SerialProxyRequestResponse) -> bool:
-            return bool(
-                msg.instance == instance and msg.type == SerialProxyRequestType.FLUSH
-            )
-
-        [resp] = await self._get_connection().send_messages_await_response_complex(
-            (req,),
-            is_flush_response,
-            is_flush_response,
-            (SerialProxyRequestResponse,),
+        return await self._send_serial_proxy_request_await_response(
+            instance,
+            SerialProxyRequestType.FLUSH,
             timeout,
         )
-        return SerialProxyRequestResponseModel.from_pb(resp)
 
     async def _send_bluetooth_message_await_response(
         self,
