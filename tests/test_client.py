@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Coroutine
 import contextlib
 from functools import partial
 import itertools
@@ -3172,17 +3173,17 @@ async def test_serial_proxy_flush(
 
 
 @pytest.mark.parametrize(
-    ("method_name", "request_type", "instance"),
+    ("method", "request_type", "instance"),
     [
-        ("serial_proxy_subscribe", SerialProxyRequestType.SUBSCRIBE, 2),
-        ("serial_proxy_unsubscribe", SerialProxyRequestType.UNSUBSCRIBE, 3),
+        (APIClient.serial_proxy_subscribe, SerialProxyRequestType.SUBSCRIBE, 2),
+        (APIClient.serial_proxy_unsubscribe, SerialProxyRequestType.UNSUBSCRIBE, 3),
     ],
 )
 async def test_serial_proxy_request_send(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
-    method_name: str,
+    method: Callable[..., None],
     request_type: SerialProxyRequestType,
     instance: int,
 ) -> None:
@@ -3199,7 +3200,7 @@ async def test_serial_proxy_request_send(
 
     connection.send_message = capture_send
 
-    getattr(client, method_name)(instance=instance)
+    method(client, instance=instance)
 
     assert len(sent_messages) == 1
     assert sent_messages[0].instance == instance
@@ -3207,16 +3208,16 @@ async def test_serial_proxy_request_send(
 
 
 @pytest.mark.parametrize(
-    ("method_name", "request_type", "instance", "wrong_instance"),
+    ("method", "request_type", "instance", "wrong_instance"),
     [
         (
-            "serial_proxy_subscribe_await_response",
+            APIClient.serial_proxy_subscribe_await_response,
             SerialProxyRequestType.SUBSCRIBE,
             2,
             9,
         ),
         (
-            "serial_proxy_unsubscribe_await_response",
+            APIClient.serial_proxy_unsubscribe_await_response,
             SerialProxyRequestType.UNSUBSCRIBE,
             3,
             1,
@@ -3227,7 +3228,7 @@ async def test_serial_proxy_request_await_response(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
-    method_name: str,
+    method: Callable[..., Coroutine[Any, Any, SerialProxyRequestResponse]],
     request_type: SerialProxyRequestType,
     instance: int,
     wrong_instance: int,
@@ -3270,7 +3271,7 @@ async def test_serial_proxy_request_await_response(
 
     connection.send_messages_await_response_complex = mock_send_complex
 
-    result = await getattr(client, method_name)(instance=instance)
+    result = await method(client, instance=instance)
 
     assert isinstance(result, SerialProxyRequestResponse)
     assert result.instance == instance
