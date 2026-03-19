@@ -59,6 +59,27 @@ def test_load_tzdata_invalid_key() -> None:
 
 
 @patch("aioesphomeapi.timezone.resources.files")
+def test_load_tzdata_top_level_key(mock_files) -> None:
+    """Test loading tzdata with top-level IANA key like UTC or GMT."""
+    mock_resource = MagicMock()
+    mock_resource.read_bytes.return_value = b"tzdata_content"
+    mock_files.return_value.__truediv__.return_value = mock_resource
+
+    result = _load_tzdata("UTC")
+    assert result == b"tzdata_content"
+    mock_files.assert_called_with("tzdata.zoneinfo")
+
+
+def test_load_tzdata_utc_resolves_to_utc0() -> None:
+    """Test that UTC IANA key resolves to UTC0 POSIX TZ string."""
+    tzfile = _load_tzdata("UTC")
+    if tzfile is None:
+        pytest.skip("tzdata package not available")
+    tz_string = _extract_tz_string(tzfile)
+    assert tz_string == "UTC0"
+
+
+@patch("aioesphomeapi.timezone.resources.files")
 def test_load_tzdata_file_not_found(mock_files) -> None:
     """Test loading tzdata when file doesn't exist."""
     mock_files.side_effect = FileNotFoundError()

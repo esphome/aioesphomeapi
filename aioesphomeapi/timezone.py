@@ -16,15 +16,20 @@ _LOGGER = logging.getLogger(__name__)
 
 def _load_tzdata(iana_key: str) -> bytes | None:
     """Load timezone data from tzdata package."""
+    if not iana_key:
+        return None
     try:
         package_loc, resource = iana_key.rsplit("/", 1)
     except ValueError:
-        return None
-    package = "tzdata.zoneinfo." + package_loc.replace("/", ".")
+        # Handle top-level timezone entries like "UTC", "GMT"
+        package = "tzdata.zoneinfo"
+        resource = iana_key
+    else:
+        package = "tzdata.zoneinfo." + package_loc.replace("/", ".")
 
     try:
         return (resources.files(package) / resource).read_bytes()
-    except (FileNotFoundError, ModuleNotFoundError):
+    except (FileNotFoundError, ModuleNotFoundError, IsADirectoryError):
         return None
 
 
