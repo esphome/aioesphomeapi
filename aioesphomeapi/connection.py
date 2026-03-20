@@ -98,6 +98,12 @@ DISCONNECT_CONNECT_TIMEOUT = 5.0
 # the esp device
 
 DISCONNECT_RESPONSE_TIMEOUT = 10.0
+# Timeout for the noise handshake to complete. 60s is intentionally high
+# because on ESP8266 with power_save_mode: LIGHT and weak WiFi (-70 dBm+),
+# TCP segments get dropped and retransmitted with exponential backoff.
+# The Curve25519 key exchange takes ~300ms on ESP8266, but real-world
+# handshake times of 28-30s have been observed due to retransmissions.
+# See https://github.com/esphome/esphome/issues/14999
 HANDSHAKE_TIMEOUT = 60.0
 CONNECT_REQUEST_TIMEOUT = 30.0
 
