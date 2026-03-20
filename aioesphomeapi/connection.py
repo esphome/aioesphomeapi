@@ -98,7 +98,7 @@ DISCONNECT_CONNECT_TIMEOUT = 5.0
 # the esp device
 
 DISCONNECT_RESPONSE_TIMEOUT = 10.0
-HANDSHAKE_TIMEOUT = 30.0
+HANDSHAKE_TIMEOUT = 60.0
 CONNECT_REQUEST_TIMEOUT = 30.0
 
 # The connect timeout should be the maximum time we expect the esp to take
