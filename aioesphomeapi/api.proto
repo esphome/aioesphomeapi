@@ -1915,6 +1915,7 @@ message SubscribeVoiceAssistantRequest {
 
   bool subscribe = 1;
   uint32 flags = 2;
+  uint32 device_id = 3 [(field_ifdef) = "USE_DEVICES"];
 }
 
 enum VoiceAssistantRequestFlag {
@@ -1927,6 +1928,7 @@ message VoiceAssistantAudioSettings {
   uint32 noise_suppression_level = 1;
   uint32 auto_gain = 2;
   float volume_multiplier = 3;
+  uint32 device_id = 4 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantRequest {
@@ -1939,6 +1941,7 @@ message VoiceAssistantRequest {
   uint32 flags = 3;
   VoiceAssistantAudioSettings audio_settings = 4;
   string wake_word_phrase = 5;
+  uint32 device_id = 6 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantResponse {
@@ -1948,6 +1951,7 @@ message VoiceAssistantResponse {
 
   uint32 port = 1;
   bool error = 2;
+  uint32 device_id = 3 [(field_ifdef) = "USE_DEVICES"];
 }
 
 enum VoiceAssistantEvent {
@@ -1981,6 +1985,7 @@ message VoiceAssistantEventResponse {
 
   VoiceAssistantEvent event_type = 1;
   repeated VoiceAssistantEventData data = 2;
+  uint32 device_id = 3 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantAudio {
@@ -1990,6 +1995,7 @@ message VoiceAssistantAudio {
 
   bytes data = 1 [(pointer_to_buffer) = true];
   bool end = 2;
+  uint32 device_id = 3 [(field_ifdef) = "USE_DEVICES"];
 }
 
 enum VoiceAssistantTimerEvent {
@@ -2010,6 +2016,7 @@ message VoiceAssistantTimerEventResponse {
   uint32 total_seconds = 4;
   uint32 seconds_left = 5;
   bool is_active = 6;
+  uint32 device_id = 7 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantAnnounceRequest {
@@ -2021,6 +2028,7 @@ message VoiceAssistantAnnounceRequest {
   string text = 2;
   string preannounce_media_id = 3;
   bool start_conversation = 4;
+  uint32 device_id = 5 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantAnnounceFinished {
@@ -2029,12 +2037,14 @@ message VoiceAssistantAnnounceFinished {
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
   bool success = 1;
+  uint32 device_id = 2 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantWakeWord {
   string id = 1;
   string wake_word = 2;
   repeated string trained_languages = 3;
+  uint32 device_id = 4 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantExternalWakeWord {
@@ -2045,6 +2055,7 @@ message VoiceAssistantExternalWakeWord {
   uint32 model_size = 5;
   string model_hash = 6;
   string url = 7;
+  uint32 device_id = 8 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantConfigurationRequest {
@@ -2053,6 +2064,7 @@ message VoiceAssistantConfigurationRequest {
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
   repeated VoiceAssistantExternalWakeWord external_wake_words = 1;
+  uint32 device_id = 2 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantConfigurationResponse {
@@ -2063,6 +2075,7 @@ message VoiceAssistantConfigurationResponse {
   repeated VoiceAssistantWakeWord available_wake_words = 1;
   repeated string active_wake_words = 2 [(container_pointer) = "std::vector"];
   uint32 max_active_wake_words = 3;
+  uint32 device_id = 4 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantSetConfiguration {
@@ -2071,6 +2084,7 @@ message VoiceAssistantSetConfiguration {
   option (ifdef) = "USE_VOICE_ASSISTANT";
 
   repeated string active_wake_words = 1;
+  uint32 device_id = 2 [(field_ifdef) = "USE_DEVICES"];
 }
 
 // ==================== ALARM CONTROL PANEL ====================
