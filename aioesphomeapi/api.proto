@@ -1928,7 +1928,6 @@ message VoiceAssistantAudioSettings {
   uint32 noise_suppression_level = 1;
   uint32 auto_gain = 2;
   float volume_multiplier = 3;
-  uint32 device_id = 4 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantRequest {
@@ -2044,7 +2043,6 @@ message VoiceAssistantWakeWord {
   string id = 1;
   string wake_word = 2;
   repeated string trained_languages = 3;
-  uint32 device_id = 4 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantExternalWakeWord {
@@ -2055,7 +2053,6 @@ message VoiceAssistantExternalWakeWord {
   uint32 model_size = 5;
   string model_hash = 6;
   string url = 7;
-  uint32 device_id = 8 [(field_ifdef) = "USE_DEVICES"];
 }
 
 message VoiceAssistantConfigurationRequest {
