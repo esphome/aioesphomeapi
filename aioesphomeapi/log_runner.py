@@ -39,22 +39,15 @@ async def async_run(
         """Handle a connection."""
         nonlocal dumped_config
         try:
-            if subscribe_states:
-                log_callback = _StateLogProxy(on_log)
-                cli.subscribe_logs(
-                    log_callback.on_log,
-                    log_level=log_level,
-                    dump_config=not dumped_config,
-                )
-                dumped_config = True
+            log_callback = _StateLogProxy(on_log) if subscribe_states else None
+            cli.subscribe_logs(
+                log_callback.on_log if log_callback else on_log,
+                log_level=log_level,
+                dump_config=not dumped_config,
+            )
+            dumped_config = True
+            if log_callback:
                 await _subscribe_entity_states(cli, on_log, log_callback)
-            else:
-                cli.subscribe_logs(
-                    on_log,
-                    log_level=log_level,
-                    dump_config=not dumped_config,
-                )
-                dumped_config = True
         except APIConnectionError:
             await cli.disconnect()
 
