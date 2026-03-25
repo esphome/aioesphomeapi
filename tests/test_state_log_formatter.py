@@ -8,13 +8,18 @@ from aioesphomeapi.model import (
     BinarySensorInfo,
     BinarySensorState,
     CameraState,
+    ClimateAction,
+    ClimateFanMode,
     ClimateMode,
+    ClimatePreset,
     ClimateState,
+    ClimateSwingMode,
     CoverOperation,
     CoverState,
     DateState,
     Event,
     EventInfo,
+    FanDirection,
     FanState,
     LightState,
     LockEntityState,
@@ -225,6 +230,23 @@ class TestFormatValve:
         assert result is not None
         assert "[S][valve]:   State: CLOSED" in result
 
+    def test_open(self) -> None:
+        state = ValveState(key=1, position=1.0, current_operation=ValveOperation.IDLE)
+        info = BinarySensorInfo(name="Water", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][valve]:   State: OPEN" in result
+
+    def test_partial(self) -> None:
+        state = ValveState(
+            key=1, position=0.75, current_operation=ValveOperation.IS_OPENING
+        )
+        info = BinarySensorInfo(name="Water", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][valve]:   Position: 75%" in result
+        assert "[S][valve]:   Current Operation: IS_OPENING" in result
+
 
 class TestFormatFan:
     def test_basic_on(self) -> None:
@@ -241,6 +263,21 @@ class TestFormatFan:
         info = BinarySensorInfo(name="Fan", key=1)
         result = format_state_log(state, info)
         assert result == "[S][fan]: 'Fan' >> OFF"
+
+    def test_with_oscillating_and_direction(self) -> None:
+        state = FanState(
+            key=1,
+            state=True,
+            oscillating=True,
+            direction=FanDirection.REVERSE,
+            preset_mode="turbo",
+        )
+        info = BinarySensorInfo(name="Fan", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][fan]:   Oscillating: YES" in result
+        assert "[S][fan]:   Direction: REVERSE" in result
+        assert "[S][fan]:   Preset Mode: turbo" in result
 
 
 class TestFormatLight:
@@ -268,6 +305,20 @@ class TestFormatLight:
         assert result is not None
         assert "Red: 100%, Green: 50%, Blue: 0%" in result
 
+    def test_color_temperature_and_effect(self) -> None:
+        state = LightState(
+            key=1,
+            state=True,
+            brightness=0.8,
+            color_temperature=250.0,
+            effect="Rainbow",
+        )
+        info = BinarySensorInfo(name="Strip", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][light]:   Color temperature: 250.0 mireds" in result
+        assert "[S][light]:   Effect: 'Rainbow'" in result
+
 
 class TestFormatClimate:
     def test_basic(self) -> None:
@@ -285,6 +336,29 @@ class TestFormatClimate:
         assert lines[1] == "[S][climate]:   Mode: HEAT"
         assert "[S][climate]:   Current Temperature: 20.50°C" in result
         assert "[S][climate]:   Target Temperature: 22.00°C" in result
+
+    def test_full_features(self) -> None:
+        state = ClimateState(
+            key=1,
+            mode=ClimateMode.COOL,
+            action=ClimateAction.COOLING,
+            fan_mode=ClimateFanMode.HIGH,
+            custom_fan_mode="turbo",
+            preset=ClimatePreset.BOOST,
+            custom_preset="my_preset",
+            swing_mode=ClimateSwingMode.BOTH,
+            current_temperature=25.0,
+            target_temperature=20.0,
+        )
+        info = BinarySensorInfo(name="AC", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][climate]:   Action: COOLING" in result
+        assert "[S][climate]:   Fan Mode: HIGH" in result
+        assert "[S][climate]:   Custom Fan Mode: turbo" in result
+        assert "[S][climate]:   Preset: BOOST" in result
+        assert "[S][climate]:   Custom Preset: my_preset" in result
+        assert "[S][climate]:   Swing Mode: BOTH" in result
 
 
 class TestFormatAlarm:
@@ -329,6 +403,19 @@ class TestFormatUpdate:
     def test_missing(self) -> None:
         state = UpdateState(key=1, missing_state=True)
         assert format_state_log(state, None) is None
+
+    def test_with_progress(self) -> None:
+        state = UpdateState(
+            key=1,
+            current_version="2026.3.0",
+            latest_version="2026.4.0",
+            has_progress=True,
+            progress=75.0,
+        )
+        info = BinarySensorInfo(name="Firmware", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][update]:   Progress: 75%" in result
 
 
 class TestFormatUnknownState:
