@@ -15,6 +15,10 @@ from .state_log_formatter import format_state_log
 
 _LOGGER = logging.getLogger(__name__)
 
+# Bright cyan (96) - a blue-green color between INFO (green/32) and DEBUG (cyan/36)
+_STATE_COLOR = "\033[0;96m"
+_ANSI_RESET = "\033[0m"
+
 
 async def async_run(
     cli: APIClient,
@@ -35,15 +39,22 @@ async def async_run(
         """Handle a connection."""
         nonlocal dumped_config
         try:
-            cli.subscribe_logs(
-                on_log,
-                log_level=log_level,
-                dump_config=not dumped_config,
-            )
-            dumped_config = True
-
             if subscribe_states:
-                await _subscribe_entity_states(cli, on_log)
+                log_callback = _StateLogProxy(on_log)
+                cli.subscribe_logs(
+                    log_callback.on_log,
+                    log_level=log_level,
+                    dump_config=not dumped_config,
+                )
+                dumped_config = True
+                await _subscribe_entity_states(cli, on_log, log_callback)
+            else:
+                cli.subscribe_logs(
+                    on_log,
+                    log_level=log_level,
+                    dump_config=not dumped_config,
+                )
+                dumped_config = True
         except APIConnectionError:
             await cli.disconnect()
 
@@ -68,21 +79,61 @@ async def async_run(
     return _stop
 
 
+class _StateLogProxy:
+    """Monitors firmware log messages to detect verbose logging.
+
+    If a VERBOSE-level log message is seen, synthetic state lines
+    are suppressed since the firmware is already sending them.
+    """
+
+    __slots__ = ("_on_log", "_seen_verbose")
+
+    def __init__(self, on_log: Callable[[SubscribeLogsResponse], None]) -> None:
+        self._on_log = on_log
+        self._seen_verbose = False
+
+    def on_log(self, msg: SubscribeLogsResponse) -> None:
+        if not self._seen_verbose and msg.level >= LogLevel.LOG_LEVEL_VERBOSE:
+            self._seen_verbose = True
+        self._on_log(msg)
+
+    @property
+    def seen_verbose(self) -> bool:
+        return self._seen_verbose
+
+
 async def _subscribe_entity_states(
     cli: APIClient,
     on_log: Callable[[SubscribeLogsResponse], None],
+    proxy: _StateLogProxy,
 ) -> None:
-    """Subscribe to entity states and emit synthetic log lines."""
+    """Subscribe to entity states and emit synthetic log lines.
+
+    Automatically stops emitting synthetic state lines if a VERBOSE-level
+    log message is received from the device, since that means the firmware
+    is already sending the state publish logs itself.
+
+    Skips the initial state dump on connect (first state per entity key)
+    to avoid flooding the log with all current values.
+    """
     _, entities, _ = await cli.device_info_and_list_entities()
     entity_info: dict[int, EntityInfo] = {e.key: e for e in entities}
+    seen_keys: set[tuple[int, int]] = set()
 
     def on_state(state: EntityState) -> None:
+        if proxy.seen_verbose:
+            return
+        state_id = (state.device_id, state.key)
+        if state_id not in seen_keys:
+            # Skip initial state dump on connect
+            seen_keys.add(state_id)
+            return
         info = entity_info.get(state.key)
         text = format_state_log(state, info)
         if text is not None:
             msg = SubscribeLogsResponse()
             msg.level = LogLevel.LOG_LEVEL_DEBUG
-            msg.message = text.encode("utf-8")
+            msg.message = f"{_STATE_COLOR}{text}{_ANSI_RESET}".encode()
             on_log(msg)
 
     cli.subscribe_states(on_state)
