@@ -1262,6 +1262,7 @@ class UpdateState(EntityState):
 @_frozen_dataclass_decorator
 class InfraredInfo(EntityInfo):
     capabilities: int = 0
+    receiver_frequency: int = 0
 
 
 # ==================== SERIAL PROXY ====================

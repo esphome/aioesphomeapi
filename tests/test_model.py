@@ -36,6 +36,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesDateTimeResponse,
     ListEntitiesEventResponse,
     ListEntitiesFanResponse,
+    ListEntitiesInfraredResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
@@ -1983,6 +1984,33 @@ def test_infrared_rf_receive_event_conversion() -> None:
     assert event_from_dict.key == 789
     assert event_from_dict.device_id == 3
     assert event_from_dict.timings == [1000, -2000, 3000, -4000]
+
+
+def test_infrared_info_conversion() -> None:
+    """Test InfraredInfo conversion from protobuf."""
+    pb = ListEntitiesInfraredResponse(
+        object_id="ir1",
+        key=100,
+        name="IR Transceiver",
+        capabilities=3,
+        receiver_frequency=38000,
+    )
+    info = InfraredInfo.from_pb(pb)
+    assert info.object_id == "ir1"
+    assert info.key == 100
+    assert info.name == "IR Transceiver"
+    assert info.capabilities == 3
+    assert info.receiver_frequency == 38000
+
+    # Test default (0 = unspecified)
+    pb_default = ListEntitiesInfraredResponse(
+        object_id="ir2",
+        key=101,
+        name="IR Transmitter",
+        capabilities=1,
+    )
+    info_default = InfraredInfo.from_pb(pb_default)
+    assert info_default.receiver_frequency == 0
 
 
 def test_infrared_info_in_type_to_name() -> None:
