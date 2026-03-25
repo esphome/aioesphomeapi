@@ -24,6 +24,8 @@ from aioesphomeapi.model import (
     LightState,
     LockEntityState,
     LockState,
+    MediaPlayerEntityState,
+    MediaPlayerState,
     NumberState,
     SelectState,
     SensorInfo,
@@ -371,6 +373,33 @@ class TestFormatAlarm:
             format_state_log(state, info)
             == "[S][alarm_control_panel]: 'Alarm' >> DISARMED"
         )
+
+
+class TestFormatMediaPlayer:
+    def test_playing(self) -> None:
+        state = MediaPlayerEntityState(
+            key=1, state=MediaPlayerState.PLAYING, volume=0.75
+        )
+        info = BinarySensorInfo(name="Speaker", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][media_player]: 'Speaker' >> PLAYING" in result
+        assert "[S][media_player]:   Volume: 75%" in result
+
+    def test_idle(self) -> None:
+        state = MediaPlayerEntityState(key=1, state=MediaPlayerState.IDLE)
+        info = BinarySensorInfo(name="Speaker", key=1)
+        result = format_state_log(state, info)
+        assert result == "[S][media_player]: 'Speaker' >> IDLE"
+
+    def test_muted(self) -> None:
+        state = MediaPlayerEntityState(
+            key=1, state=MediaPlayerState.PLAYING, volume=0.5, muted=True
+        )
+        info = BinarySensorInfo(name="Speaker", key=1)
+        result = format_state_log(state, info)
+        assert result is not None
+        assert "[S][media_player]:   Muted: YES" in result
 
 
 class TestFormatWaterHeater:

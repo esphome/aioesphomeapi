@@ -20,6 +20,7 @@ from .model import (
     FanState,
     LightState,
     LockEntityState,
+    MediaPlayerEntityState,
     NumberState,
     SelectState,
     SensorInfo,
@@ -229,6 +230,20 @@ def _format_alarm(
     return f"[S][alarm_control_panel]: '{name}' >> {state_str}"
 
 
+def _format_media_player(
+    state: MediaPlayerEntityState, info: EntityInfo | None
+) -> str | None:
+    name = info.name if info else "?"
+    mp_state = state.state
+    state_str = mp_state.name if mp_state is not None else "UNKNOWN"
+    parts = [f"[S][media_player]: '{name}' >> {state_str}"]
+    if state.volume:
+        parts.append(f"[S][media_player]:   Volume: {state.volume * 100.0:.0f}%")
+    if state.muted:
+        parts.append("[S][media_player]:   Muted: YES")
+    return "\n".join(parts)
+
+
 def _format_water_heater(
     state: WaterHeaterState, info: EntityInfo | None
 ) -> str | None:
@@ -282,6 +297,7 @@ _STATE_FORMATTERS: dict[type, Callable[..., str | None]] = {
     LightState: _format_light,
     ClimateState: _format_climate,
     AlarmControlPanelEntityState: _format_alarm,
+    MediaPlayerEntityState: _format_media_player,
     WaterHeaterState: _format_water_heater,
     UpdateState: _format_update,
 }
