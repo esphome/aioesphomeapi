@@ -18,7 +18,7 @@ from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.log_runner import _StateLogProxy, _subscribe_entity_states, async_run
-from aioesphomeapi.model import LogLevel, SensorInfo, SensorState
+from aioesphomeapi.model import LightInfo, LightState, LogLevel, SensorInfo, SensorState
 from aioesphomeapi.reconnect_logic import EXPECTED_DISCONNECT_COOLDOWN
 
 from .common import (
@@ -402,6 +402,42 @@ async def test_subscribe_entity_states_emits_synthetic_log_with_ansi_color() -> 
     assert "\033[0;96m" in text
     assert "\033[0m" in text
     assert messages[0].level == LogLevel.LOG_LEVEL_DEBUG
+
+
+async def test_subscribe_entity_states_multiline_ansi_color() -> None:
+    """Each line in multi-line state should get ANSI color."""
+    messages: list[SubscribeLogsResponse] = []
+    proxy = _StateLogProxy(lambda _: None)
+
+    cli = MagicMock(spec=APIClient)
+    cli.device_info_and_list_entities = AsyncMock(
+        return_value=(
+            MagicMock(),
+            [LightInfo(key=1, name="Light")],
+            [],
+        )
+    )
+    state_callback = None
+
+    def capture_subscribe(cb: object) -> None:
+        nonlocal state_callback
+        state_callback = cb
+
+    cli.subscribe_states = capture_subscribe
+
+    await _subscribe_entity_states(cli, messages.append, proxy)
+
+    # Skip initial
+    state_callback(LightState(key=1, state=True, brightness=0.5))
+    # This one emits
+    state_callback(LightState(key=1, state=True, brightness=0.8))
+    assert len(messages) == 1
+    text = messages[0].message.decode()
+    lines = text.split("\n")
+    # Each line should start with color and end with reset
+    for line in lines:
+        assert line.startswith("\033[0;96m"), f"Missing color start: {line!r}"
+        assert line.endswith("\033[0m"), f"Missing color reset: {line!r}"
 
 
 async def test_subscribe_entity_states_suppresses_after_verbose_detected() -> None:

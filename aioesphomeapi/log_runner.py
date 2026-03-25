@@ -126,7 +126,10 @@ async def _subscribe_entity_states(
         if text is not None:
             msg = SubscribeLogsResponse()
             msg.level = LogLevel.LOG_LEVEL_DEBUG
-            msg.message = f"{_STATE_COLOR}{text}{_ANSI_RESET}".encode()
+            reset_color = f"{_ANSI_RESET}\n{_STATE_COLOR}"
+            msg.message = (
+                f"{_STATE_COLOR}{reset_color.join(text.split(chr(10)))}{_ANSI_RESET}"
+            ).encode()
             on_log(msg)
 
     cli.subscribe_states(on_state)
