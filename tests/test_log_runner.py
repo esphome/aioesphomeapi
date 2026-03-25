@@ -435,3 +435,59 @@ async def test_async_run_without_subscribe_states() -> None:
     cli.device_info_and_list_entities.assert_not_called()
 
     await stop()
+
+
+async def test_async_run_disconnects_on_api_connection_error() -> None:
+    """Test that APIConnectionError during on_connect triggers disconnect."""
+    cli = MagicMock(spec=APIClient)
+    cli.subscribe_logs.side_effect = APIConnectionError("fail")
+    cli.disconnect = AsyncMock()
+
+    on_connect_callback = None
+
+    class MockReconnectLogic(ReconnectLogic):
+        def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal on_connect_callback
+            on_connect_callback = on_connect
+
+        async def start(self) -> None:
+            await on_connect_callback()
+
+        async def stop(self) -> None:
+            pass
+
+    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+        stop = await async_run(cli, lambda _: None, subscribe_states=False)
+
+    cli.disconnect.assert_called_once()
+    await stop()
+
+
+async def test_async_run_on_disconnect_logs_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that on_disconnect logs a warning."""
+    cli = MagicMock(spec=APIClient)
+    cli.disconnect = AsyncMock()
+
+    on_disconnect_callback = None
+
+    class MockReconnectLogic(ReconnectLogic):
+        def __init__(self, *, on_connect, on_disconnect, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal on_disconnect_callback
+            on_disconnect_callback = on_disconnect
+
+        async def start(self) -> None:
+            pass
+
+        async def stop(self) -> None:
+            pass
+
+    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+        stop = await async_run(cli, lambda _: None, subscribe_states=False)
+
+    assert on_disconnect_callback is not None
+    await on_disconnect_callback(expected_disconnect=True)
+    assert "Disconnected from API" in caplog.text
+
+    await stop()
