@@ -80,7 +80,12 @@ async def test_log_runner(
         ),
         patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
     ):
-        stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
+        stop = await async_run(
+            cli,
+            on_log,
+            aio_zeroconf_instance=async_zeroconf,
+            subscribe_states=False,
+        )
         await connected.wait()
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
@@ -148,7 +153,12 @@ async def test_log_runner_reconnects_on_disconnect(
         ),
         patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
     ):
-        stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
+        stop = await async_run(
+            cli,
+            on_log,
+            aio_zeroconf_instance=async_zeroconf,
+            subscribe_states=False,
+        )
         await connected.wait()
         protocol = cli._connection._frame_helper
         send_plaintext_hello(protocol)
@@ -227,7 +237,12 @@ async def test_log_runner_reconnects_on_subscribe_failure(
         with patch.object(
             loop, "create_connection", side_effect=_create_mock_transport_protocol
         ):
-            stop = await async_run(cli, on_log, aio_zeroconf_instance=async_zeroconf)
+            stop = await async_run(
+                cli,
+                on_log,
+                aio_zeroconf_instance=async_zeroconf,
+                subscribe_states=False,
+            )
             await connected.wait()
             protocol = cli._connection._frame_helper
             send_plaintext_hello(protocol)

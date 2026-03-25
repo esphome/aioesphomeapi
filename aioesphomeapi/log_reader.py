@@ -20,6 +20,11 @@ async def main(argv: list[str]) -> None:
     parser.add_argument("--password", type=str)
     parser.add_argument("--noise-psk", type=str)
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--no-states",
+        action="store_true",
+        help="Do not show entity state changes in log output.",
+    )
     parser.add_argument("address")
     args = parser.parse_args(argv[1:])
 
@@ -50,7 +55,7 @@ async def main(argv: list[str]) -> None:
         for line in parse_log_message(text, timestamp):
             print(line)
 
-    stop = await async_run(cli, on_log)
+    stop = await async_run(cli, on_log, subscribe_states=not args.no_states)
     try:
         await asyncio.Event().wait()
     finally:

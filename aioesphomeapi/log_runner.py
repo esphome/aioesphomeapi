@@ -9,8 +9,9 @@ from zeroconf.asyncio import AsyncZeroconf
 from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
 from .core import APIConnectionError
-from .model import LogLevel
+from .model import EntityInfo, EntityState, LogLevel
 from .reconnect_logic import ReconnectLogic
+from .state_log_formatter import format_state_log
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ async def async_run(
     aio_zeroconf_instance: AsyncZeroconf | None = None,
     dump_config: bool = True,
     name: str | None = None,
+    subscribe_states: bool = True,
 ) -> Callable[[], Coroutine[Any, Any, None]]:
     """Run logs until canceled.
 
@@ -39,6 +41,9 @@ async def async_run(
                 dump_config=not dumped_config,
             )
             dumped_config = True
+
+            if subscribe_states:
+                await _subscribe_entity_states(cli, on_log)
         except APIConnectionError:
             await cli.disconnect()
 
@@ -61,3 +66,23 @@ async def async_run(
         await cli.disconnect()
 
     return _stop
+
+
+async def _subscribe_entity_states(
+    cli: APIClient,
+    on_log: Callable[[SubscribeLogsResponse], None],
+) -> None:
+    """Subscribe to entity states and emit synthetic log lines."""
+    _, entities, _ = await cli.device_info_and_list_entities()
+    entity_info: dict[int, EntityInfo] = {e.key: e for e in entities}
+
+    def on_state(state: EntityState) -> None:
+        info = entity_info.get(state.key)
+        text = format_state_log(state, info)
+        if text is not None:
+            msg = SubscribeLogsResponse()
+            msg.level = LogLevel.LOG_LEVEL_DEBUG
+            msg.message = text.encode("utf-8")
+            on_log(msg)
+
+    cli.subscribe_states(on_state)
