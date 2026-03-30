@@ -364,9 +364,7 @@ def test_climate_two_point_target_temperature() -> None:
     result = format_state_log(state, info)
     assert result is not None
     assert "[S][climate]:   Current Temperature: 22.50°C" in result
-    assert (
-        "[S][climate]:   Target Temperature: Low: 21.00°C High: 24.00°C" in result
-    )
+    assert "[S][climate]:   Target Temperature: Low: 21.00°C High: 24.00°C" in result
     # Single target_temperature should NOT appear (protobuf default 0.0)
     assert "Target Temperature: 0.00°C" not in result
 
