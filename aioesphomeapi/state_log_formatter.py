@@ -73,11 +73,11 @@ def _position_lines(tag: str, position: float, operation: object) -> list[str]:
     return parts
 
 
-def _format_sensor(state: SensorState, info: EntityInfo | None) -> str | None:
+def _format_sensor(state: SensorState, info: SensorInfo | None) -> str | None:
     if state.missing_state:
         return None
     name = _name(info)
-    if info is not None and isinstance(info, SensorInfo):
+    if info is not None:
         decimals = max(0, info.accuracy_decimals)
         unit = info.unit_of_measurement
         return f"[S][sensor]: '{name}' >> {state.state:.{decimals}f} {unit}"
@@ -201,7 +201,7 @@ def _format_light(state: LightState, info: EntityInfo | None) -> str | None:
     return "\n".join(parts)
 
 
-def _format_climate(state: ClimateState, info: EntityInfo | None) -> str | None:
+def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None:
     tag = "climate"
     parts = [
         f"[S][{tag}]: '{_name(info)}' >>",
@@ -222,10 +222,7 @@ def _format_climate(state: ClimateState, info: EntityInfo | None) -> str | None:
     ct = state.current_temperature
     if not isnan(ct):
         parts.append(_detail(tag, "Current Temperature", f"{ct:.2f}°C"))
-    two_point = (
-        isinstance(info, ClimateInfo) and info.supports_two_point_target_temperature
-    )
-    if two_point:
+    if info and info.supports_two_point_target_temperature:
         ttl = state.target_temperature_low
         tth = state.target_temperature_high
         if not isnan(ttl) and not isnan(tth):
@@ -240,12 +237,10 @@ def _format_climate(state: ClimateState, info: EntityInfo | None) -> str | None:
         tt = state.target_temperature
         if not isnan(tt):
             parts.append(_detail(tag, "Target Temperature", f"{tt:.2f}°C"))
-    ch = state.current_humidity
-    if ch:
-        parts.append(_detail(tag, "Current Humidity", f"{ch:.0f}%"))
-    th = state.target_humidity
-    if th:
-        parts.append(_detail(tag, "Target Humidity", f"{th:.0f}%"))
+    if info and info.supports_current_humidity:
+        parts.append(_detail(tag, "Current Humidity", f"{state.current_humidity:.0f}%"))
+    if info and info.supports_target_humidity:
+        parts.append(_detail(tag, "Target Humidity", f"{state.target_humidity:.0f}%"))
     return "\n".join(parts)
 
 

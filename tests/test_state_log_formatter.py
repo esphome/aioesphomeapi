@@ -308,7 +308,7 @@ def test_light_color_temperature_and_effect() -> None:
 
 
 def test_climate_basic() -> None:
-    info = BinarySensorInfo(name="HVAC", key=1)
+    info = ClimateInfo(name="HVAC", key=1)
     state = ClimateState(
         key=1,
         mode=ClimateMode.HEAT,
@@ -325,7 +325,7 @@ def test_climate_basic() -> None:
 
 
 def test_climate_full_features() -> None:
-    info = BinarySensorInfo(name="AC", key=1)
+    info = ClimateInfo(name="AC", key=1)
     state = ClimateState(
         key=1,
         mode=ClimateMode.COOL,
@@ -370,7 +370,12 @@ def test_climate_two_point_target_temperature() -> None:
 
 
 def test_climate_humidity() -> None:
-    info = ClimateInfo(name="HVAC", key=1)
+    info = ClimateInfo(
+        name="HVAC",
+        key=1,
+        supports_current_humidity=True,
+        supports_target_humidity=True,
+    )
     state = ClimateState(
         key=1,
         mode=ClimateMode.HEAT,
