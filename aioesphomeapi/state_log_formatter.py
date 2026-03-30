@@ -237,9 +237,9 @@ def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None
         tt = state.target_temperature
         if not isnan(tt):
             parts.append(_detail(tag, "Target Temperature", f"{tt:.2f}°C"))
-    if info and info.supports_current_humidity:
+    if info and info.supports_current_humidity and not isnan(state.current_humidity):
         parts.append(_detail(tag, "Current Humidity", f"{state.current_humidity:.0f}%"))
-    if info and info.supports_target_humidity:
+    if info and info.supports_target_humidity and not isnan(state.target_humidity):
         parts.append(_detail(tag, "Target Humidity", f"{state.target_humidity:.0f}%"))
     return "\n".join(parts)
 
