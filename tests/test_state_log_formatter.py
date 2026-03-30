@@ -390,6 +390,25 @@ def test_climate_humidity() -> None:
     assert "[S][climate]:   Target Humidity: 50%" in result
 
 
+def test_climate_humidity_zero_values() -> None:
+    info = ClimateInfo(
+        name="HVAC",
+        key=1,
+        supports_current_humidity=True,
+        supports_target_humidity=True,
+    )
+    state = ClimateState(
+        key=1,
+        mode=ClimateMode.HEAT,
+        current_humidity=0.0,
+        target_humidity=0.0,
+    )
+    result = format_state_log(state, info)
+    assert result is not None
+    assert "[S][climate]:   Current Humidity: 0%" in result
+    assert "[S][climate]:   Target Humidity: 0%" in result
+
+
 def test_alarm_disarmed() -> None:
     info = BinarySensorInfo(name="Alarm", key=1)
     state = AlarmControlPanelEntityState(key=1, state=AlarmControlPanelState.DISARMED)
