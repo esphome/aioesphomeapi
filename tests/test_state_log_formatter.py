@@ -10,6 +10,7 @@ from aioesphomeapi.model import (
     CameraState,
     ClimateAction,
     ClimateFanMode,
+    ClimateInfo,
     ClimateMode,
     ClimatePreset,
     ClimateState,
@@ -307,7 +308,7 @@ def test_light_color_temperature_and_effect() -> None:
 
 
 def test_climate_basic() -> None:
-    info = BinarySensorInfo(name="HVAC", key=1)
+    info = ClimateInfo(name="HVAC", key=1)
     state = ClimateState(
         key=1,
         mode=ClimateMode.HEAT,
@@ -324,7 +325,7 @@ def test_climate_basic() -> None:
 
 
 def test_climate_full_features() -> None:
-    info = BinarySensorInfo(name="AC", key=1)
+    info = ClimateInfo(name="AC", key=1)
     state = ClimateState(
         key=1,
         mode=ClimateMode.COOL,
@@ -345,6 +346,67 @@ def test_climate_full_features() -> None:
     assert "[S][climate]:   Preset: BOOST" in result
     assert "[S][climate]:   Custom Preset: my_preset" in result
     assert "[S][climate]:   Swing Mode: BOTH" in result
+
+
+def test_climate_two_point_target_temperature() -> None:
+    info = ClimateInfo(
+        name="HVAC",
+        key=1,
+        supports_two_point_target_temperature=True,
+    )
+    state = ClimateState(
+        key=1,
+        mode=ClimateMode.HEAT_COOL,
+        current_temperature=22.5,
+        target_temperature_low=21.0,
+        target_temperature_high=24.0,
+    )
+    result = format_state_log(state, info)
+    assert result is not None
+    assert "[S][climate]:   Current Temperature: 22.50°C" in result
+    assert "[S][climate]:   Target Temperature: Low: 21.00°C High: 24.00°C" in result
+    # Single target_temperature should NOT appear (protobuf default 0.0)
+    assert "Target Temperature: 0.00°C" not in result
+
+
+def test_climate_humidity() -> None:
+    info = ClimateInfo(
+        name="HVAC",
+        key=1,
+        supports_current_humidity=True,
+        supports_target_humidity=True,
+    )
+    state = ClimateState(
+        key=1,
+        mode=ClimateMode.HEAT,
+        current_temperature=20.0,
+        target_temperature=22.0,
+        current_humidity=45.0,
+        target_humidity=50.0,
+    )
+    result = format_state_log(state, info)
+    assert result is not None
+    assert "[S][climate]:   Current Humidity: 45%" in result
+    assert "[S][climate]:   Target Humidity: 50%" in result
+
+
+def test_climate_humidity_zero_values() -> None:
+    info = ClimateInfo(
+        name="HVAC",
+        key=1,
+        supports_current_humidity=True,
+        supports_target_humidity=True,
+    )
+    state = ClimateState(
+        key=1,
+        mode=ClimateMode.HEAT,
+        current_humidity=0.0,
+        target_humidity=0.0,
+    )
+    result = format_state_log(state, info)
+    assert result is not None
+    assert "[S][climate]:   Current Humidity: 0%" in result
+    assert "[S][climate]:   Target Humidity: 0%" in result
 
 
 def test_alarm_disarmed() -> None:
