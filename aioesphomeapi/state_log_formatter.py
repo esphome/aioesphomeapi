@@ -10,6 +10,7 @@ from .model import (
     AlarmControlPanelEntityState,
     BinarySensorState,
     ClimateAction,
+    ClimateInfo,
     ClimatePreset,
     ClimateState,
     ClimateSwingMode,
@@ -221,9 +222,30 @@ def _format_climate(state: ClimateState, info: EntityInfo | None) -> str | None:
     ct = state.current_temperature
     if not isnan(ct):
         parts.append(_detail(tag, "Current Temperature", f"{ct:.2f}°C"))
-    tt = state.target_temperature
-    if not isnan(tt):
-        parts.append(_detail(tag, "Target Temperature", f"{tt:.2f}°C"))
+    two_point = (
+        isinstance(info, ClimateInfo) and info.supports_two_point_target_temperature
+    )
+    if two_point:
+        ttl = state.target_temperature_low
+        tth = state.target_temperature_high
+        if not isnan(ttl) and not isnan(tth):
+            parts.append(
+                _detail(
+                    tag,
+                    "Target Temperature",
+                    f"Low: {ttl:.2f}°C High: {tth:.2f}°C",
+                )
+            )
+    else:
+        tt = state.target_temperature
+        if not isnan(tt):
+            parts.append(_detail(tag, "Target Temperature", f"{tt:.2f}°C"))
+    ch = state.current_humidity
+    if ch:
+        parts.append(_detail(tag, "Current Humidity", f"{ch:.0f}%"))
+    th = state.target_humidity
+    if th:
+        parts.append(_detail(tag, "Target Humidity", f"{th:.0f}%"))
     return "\n".join(parts)
 
 
