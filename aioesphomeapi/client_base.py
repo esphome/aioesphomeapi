@@ -75,20 +75,23 @@ def on_state_msg(
     if (cls := SUBSCRIBE_STATES_RESPONSE_TYPES.get(msg_type)) is not None:
         on_state(cls.from_pb(msg))
     elif msg_type is CameraImageResponse:
-        if TYPE_CHECKING:
-            assert isinstance(msg, CameraImageResponse)
-        msg_key = msg.key
+        cam_msg: CameraImageResponse = msg
+        msg_key = cam_msg.key
         data_parts: list[bytes] | None = image_stream.get(msg_key)
         if not data_parts:
             data_parts = []
             image_stream[msg_key] = data_parts
 
-        data_parts.append(msg.data)
-        if msg.done:
+        data_parts.append(cam_msg.data)
+        if cam_msg.done:
             # Return CameraState with the merged data
             image_data = b"".join(data_parts)
             del image_stream[msg_key]
-            on_state(CameraState(key=msg.key, data=image_data, device_id=msg.device_id))  # type: ignore[call-arg]
+            on_state(
+                CameraState(
+                    key=cam_msg.key, data=image_data, device_id=cam_msg.device_id
+                )  # type: ignore[call-arg]
+            )
 
 
 def on_home_assistant_action_request(
