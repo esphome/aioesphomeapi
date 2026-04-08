@@ -38,6 +38,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesFanResponse,
     ListEntitiesInfraredResponse,
     ListEntitiesLightResponse,
+    ListEntitiesRadioFrequencyResponse,
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
@@ -115,6 +116,9 @@ from aioesphomeapi.model import (
     InfraredCapability,
     InfraredInfo,
     InfraredRFReceiveEvent,
+    RadioFrequencyCapability,
+    RadioFrequencyInfo,
+    RadioFrequencyModulation,
     LegacyCoverState,
     LightColorCapability,
     LightInfo,
@@ -2017,6 +2021,59 @@ def test_infrared_info_in_type_to_name() -> None:
     """Test that InfraredInfo is registered in _TYPE_TO_NAME."""
     assert InfraredInfo in _TYPE_TO_NAME
     assert _TYPE_TO_NAME[InfraredInfo] == "infrared"
+
+
+# ==================== RADIO FREQUENCY ====================
+
+
+def test_radio_frequency_modulation_enum() -> None:
+    """Test RadioFrequencyModulation enum values."""
+    assert RadioFrequencyModulation.OOK == 0
+
+
+def test_radio_frequency_capability_flag() -> None:
+    """Test RadioFrequencyCapability flag values."""
+    assert RadioFrequencyCapability.TRANSMITTER == 1
+    assert RadioFrequencyCapability.RECEIVER == 2
+
+
+def test_radio_frequency_info_conversion() -> None:
+    """Test RadioFrequencyInfo conversion from protobuf."""
+    pb = ListEntitiesRadioFrequencyResponse(
+        object_id="rf1",
+        key=200,
+        name="RF Transceiver",
+        capabilities=3,
+        frequency_min=433920000,
+        frequency_max=433920000,
+        supported_modulations=1,
+    )
+    info = RadioFrequencyInfo.from_pb(pb)
+    assert info.object_id == "rf1"
+    assert info.key == 200
+    assert info.name == "RF Transceiver"
+    assert info.capabilities == 3
+    assert info.frequency_min == 433920000
+    assert info.frequency_max == 433920000
+    assert info.supported_modulations == 1
+
+    # Test defaults (0 = unspecified)
+    pb_default = ListEntitiesRadioFrequencyResponse(
+        object_id="rf2",
+        key=201,
+        name="RF Transmitter",
+        capabilities=1,
+    )
+    info_default = RadioFrequencyInfo.from_pb(pb_default)
+    assert info_default.frequency_min == 0
+    assert info_default.frequency_max == 0
+    assert info_default.supported_modulations == 0
+
+
+def test_radio_frequency_info_in_type_to_name() -> None:
+    """Test that RadioFrequencyInfo is registered in _TYPE_TO_NAME."""
+    assert RadioFrequencyInfo in _TYPE_TO_NAME
+    assert _TYPE_TO_NAME[RadioFrequencyInfo] == "radio_frequency"
 
 
 # ==================== SERIAL PROXY ====================
