@@ -1282,9 +1282,15 @@ class RadioFrequencyInfo(EntityInfo):
     capabilities: int = 0
     frequency_min: int = 0  # Minimum tunable frequency in Hz (0 = unspecified; equal to frequency_max → fixed)
     frequency_max: int = 0  # Maximum tunable frequency in Hz (0 = unspecified)
-    supported_modulations: int = (
-        0  # Bitmask of supported RadioFrequencyModulation values
-    )
+    supported_modulations: int = 0  # Bitmask: bit N set means RadioFrequencyModulation(N) is supported
+
+    def supports_modulation(self, modulation: "RadioFrequencyModulation") -> bool:
+        """Return True if the given modulation type is supported.
+
+        The supported_modulations bitmask uses bit N to represent
+        RadioFrequencyModulation value N (e.g. OOK=0 → bit 0).
+        """
+        return bool(self.supported_modulations & (1 << int(modulation)))
 
 
 # ==================== SERIAL PROXY ====================

@@ -2056,6 +2056,7 @@ def test_radio_frequency_info_conversion() -> None:
     assert info.frequency_min == 433920000
     assert info.frequency_max == 433920000
     assert info.supported_modulations == 1
+    assert info.supports_modulation(RadioFrequencyModulation.OOK) is True
 
     # Test defaults (0 = unspecified)
     pb_default = ListEntitiesRadioFrequencyResponse(
@@ -2068,6 +2069,7 @@ def test_radio_frequency_info_conversion() -> None:
     assert info_default.frequency_min == 0
     assert info_default.frequency_max == 0
     assert info_default.supported_modulations == 0
+    assert info_default.supports_modulation(RadioFrequencyModulation.OOK) is False
 
 
 def test_radio_frequency_info_in_type_to_name() -> None:

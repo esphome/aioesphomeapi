@@ -2826,32 +2826,6 @@ async def test_infrared_rf_transmit_raw_timings(
     assert list(sent_msg.timings) == timings
 
 
-async def test_subscribe_radio_frequency_receive(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    """Test subscribe_radio_frequency_receive fires on InfraredRFReceiveEvent messages."""
-    client, _connection, _transport, protocol = api_client
-    test_msg = []
-
-    def on_rf_receive(msg: InfraredRFReceiveEvent) -> None:
-        test_msg.append(msg)
-
-    client.subscribe_radio_frequency_receive(on_rf_receive)
-    await asyncio.sleep(0)
-    response: message.Message = InfraredRFReceiveEventPb(
-        key=456, device_id=2, timings=[500, -500, 1000, -1000]
-    )
-    mock_data_received(protocol, generate_plaintext_packet(response))
-
-    assert len(test_msg) == 1
-    first_msg = test_msg[0]
-    assert first_msg.key == 456
-    assert first_msg.device_id == 2
-    assert first_msg.timings == [500, -500, 1000, -1000]
-
-
 async def test_radio_frequency_transmit_raw_timings(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper

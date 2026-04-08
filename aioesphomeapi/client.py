@@ -515,19 +515,6 @@ class APIClient(APIClientBase):
         req.timings.extend(timings)
         self._get_connection().send_message(req)
 
-    def subscribe_radio_frequency_receive(
-        self,
-        on_receive: Callable[[InfraredRFReceiveEventModel], None],
-    ) -> Callable[[], None]:
-        """Subscribe to Radio Frequency Receive Event messages."""
-        return self._get_connection().add_message_callback(
-            partial(
-                on_infrared_rf_receive_event,
-                on_receive,
-            ),
-            (InfraredRFReceiveEvent,),
-        )
-
     def radio_frequency_transmit_raw_timings(
         self,
         key: int,
