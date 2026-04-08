@@ -1282,7 +1282,9 @@ class RadioFrequencyInfo(EntityInfo):
     capabilities: int = 0
     frequency_min: int = 0  # Minimum tunable frequency in Hz (0 = unspecified; equal to frequency_max → fixed)
     frequency_max: int = 0  # Maximum tunable frequency in Hz (0 = unspecified)
-    supported_modulations: int = 0  # Bitmask of supported RadioFrequencyModulation values
+    supported_modulations: int = (
+        0  # Bitmask of supported RadioFrequencyModulation values
+    )
 
 
 # ==================== SERIAL PROXY ====================
