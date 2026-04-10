@@ -3823,6 +3823,73 @@ async def test_bluetooth_device_connect_future_cancelled_raises_api_error(
     assert handlers_after == handlers_before
 
 
+async def test_bluetooth_device_connect_base_exception_propagates(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test a BaseException other than CancelledError propagates and cleans up.
+
+    The ``except BaseException`` branch must still run cleanup (unsub the
+    message handler and send a disconnect) and re-raise the original
+    exception unchanged.
+    """
+    client, connection, transport, _protocol = api_client
+    states = []
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    original_create_future = client._loop.create_future
+    captured: list[asyncio.Future[None]] = []
+
+    def capturing_create_future() -> asyncio.Future[None]:
+        fut = original_create_future()
+        captured.append(fut)
+        return fut
+
+    with patch.object(client._loop, "create_future", capturing_create_future):
+        connect_task = asyncio.create_task(
+            client.bluetooth_device_connect(
+                1234,
+                on_bluetooth_connection_state,
+                timeout=10,
+                feature_flags=0,
+                has_cache=True,
+                disconnect_timeout=10,
+                address_type=1,
+            )
+        )
+        await asyncio.sleep(0)
+        assert len(transport.writelines.mock_calls) == 1
+        assert len(captured) == 1
+
+        # Inject a non-CancelledError BaseException via the future so the
+        # ``except BaseException`` branch is exercised. A custom
+        # BaseException subclass avoids pytest's special handling of
+        # ``KeyboardInterrupt`` / ``SystemExit``.
+        class _TestBaseException(BaseException):
+            pass
+
+        captured[0].set_exception(_TestBaseException("boom"))
+        with pytest.raises(_TestBaseException, match="boom"):
+            await connect_task
+        assert states == []
+
+    # Ensure the disconnect request was written as cleanup.
+    assert len(transport.writelines.mock_calls) == 2
+    req = BluetoothDeviceRequest(
+        address=1234, request_type=BluetoothDeviceRequestType.DISCONNECT
+    ).SerializeToString()
+    assert transport.writelines.mock_calls[-1] == call([b"\x00", b"\x05", b"D", req])
+
+    # Ensure the message handler was unsubscribed.
+    handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
+    assert handlers_after == handlers_before
+
+
 async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
