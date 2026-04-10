@@ -3105,6 +3105,41 @@ async def test_serial_proxy_get_modem_pins(
     assert result.line_states == 1
 
 
+async def test_serial_proxy_get_modem_pins_matches_instance(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that serial_proxy_get_modem_pins filters responses by instance.
+
+    A response for a different instance must be ignored so that an in-flight
+    request for a specific instance does not pick up an unrelated response.
+    """
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.serial_proxy_get_modem_pins(instance=1))
+    await asyncio.sleep(0)
+
+    # Send a response for a different instance; it must not satisfy the
+    # request.
+    other_instance_response: message.Message = SerialProxyGetModemPinsResponsePb(
+        instance=0, line_states=7
+    )
+    mock_data_received(protocol, generate_plaintext_packet(other_instance_response))
+    await asyncio.sleep(0)
+    assert not task.done()
+
+    # Now send the response for the requested instance.
+    matching_response: message.Message = SerialProxyGetModemPinsResponsePb(
+        instance=1, line_states=3
+    )
+    mock_data_received(protocol, generate_plaintext_packet(matching_response))
+    result = await task
+
+    assert isinstance(result, SerialProxyModemPins)
+    assert result.instance == 1
+    assert result.line_states == 3
+
+
 async def test_serial_proxy_get_modem_pins_timeout(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
