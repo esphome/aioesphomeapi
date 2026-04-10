@@ -870,6 +870,21 @@ class APIClient(APIClientBase):
                 f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
                 f" after {disconnect_timeout}s"
             ) from err
+        except asyncio.CancelledError:
+            unhandled_exception = True
+            # Distinguish an outside cancellation of our task from
+            # a cancellation of the connect_future itself. If the
+            # current task is not actually being cancelled, convert
+            # the CancelledError into an APIConnectionError so that
+            # callers (and their retry logic) can handle it as a
+            # normal connection failure instead of aborting.
+            current_task = asyncio.current_task()
+            if current_task is None or not current_task.cancelling():
+                addr = to_human_readable_address(address)
+                raise APIConnectionError(
+                    f"Connect attempt to {addr} was cancelled"
+                ) from None
+            raise
         except BaseException:
             unhandled_exception = True
             raise

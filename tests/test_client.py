@@ -3765,6 +3765,64 @@ async def test_bluetooth_device_connect_cancelled(
     assert handlers_after == handlers_before
 
 
+async def test_bluetooth_device_connect_future_cancelled_raises_api_error(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that external cancellation of the connect_future raises APIConnectionError.
+
+    When the connect_future is cancelled externally (not via a cancel of the
+    awaiting task), the CancelledError should be converted into an
+    APIConnectionError so callers can treat it as a normal connection failure
+    instead of aborting with CancelledError.
+    """
+    client, connection, transport, _protocol = api_client
+    states = []
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    original_create_future = client._loop.create_future
+    captured: list[asyncio.Future[None]] = []
+
+    def capturing_create_future() -> asyncio.Future[None]:
+        fut = original_create_future()
+        captured.append(fut)
+        return fut
+
+    with patch.object(client._loop, "create_future", capturing_create_future):
+        connect_task = asyncio.create_task(
+            client.bluetooth_device_connect(
+                1234,
+                on_bluetooth_connection_state,
+                timeout=10,
+                feature_flags=0,
+                has_cache=True,
+                disconnect_timeout=10,
+                address_type=1,
+            )
+        )
+        await asyncio.sleep(0)
+        # The connect request should be written and the future captured
+        assert len(transport.writelines.mock_calls) == 1
+        assert len(captured) == 1
+        # Cancel the connect_future directly (not the task); this simulates
+        # an external cancel of the future itself.
+        captured[0].cancel()
+        with pytest.raises(APIConnectionError, match="cancelled"):
+            await connect_task
+        assert states == []
+        # Current task was not actually cancelled.
+        assert connect_task.cancelling() == 0
+
+    # The unsub + disconnect should have run, so handlers are not leaked.
+    handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
+    assert handlers_after == handlers_before
+
+
 async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
     send = patch_send(auth_client)
 
