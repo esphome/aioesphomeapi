@@ -10,7 +10,7 @@ import logging
 import socket
 import sys
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import aiohappyeyeballs
 from async_interrupt import interrupt
@@ -668,11 +668,10 @@ class APIConnection:
                     self._params.zeroconf_manager,
                 )
         except (Exception, CancelledError) as ex:
-            # If the task was cancelled, we need to clean up the connection
-            # and raise the CancelledError as APIConnectionError
-            fatal_exc = self._wrap_fatal_connection_exception("resolving", ex)
-            self.report_fatal_error(fatal_exc)
-            raise fatal_exc
+            # Clean up the connection; re-raise the original CancelledError
+            # if the task is actually being cancelled so TaskGroup /
+            # asyncio.timeout semantics are preserved.
+            self._raise_fatal_connection_exception("resolving", ex)
         finally:
             self._set_resolve_host_future()
         self._set_connection_state(CONNECTION_STATE_HOST_RESOLVED)
@@ -703,11 +702,10 @@ class APIConnection:
             ):
                 await self._connect_socket_connect(self._addrs_info)
         except (Exception, CancelledError) as ex:
-            # If the task was cancelled, we need to clean up the connection
-            # and raise the CancelledError as APIConnectionError
-            fatal_exc = self._wrap_fatal_connection_exception("starting", ex)
-            self.report_fatal_error(fatal_exc)
-            raise fatal_exc
+            # Clean up the connection; re-raise the original CancelledError
+            # if the task is actually being cancelled so TaskGroup /
+            # asyncio.timeout semantics are preserved.
+            self._raise_fatal_connection_exception("starting", ex)
         finally:
             self._set_start_connect_future()
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
@@ -719,6 +717,26 @@ class APIConnection:
         ):
             self._start_connect_future.set_result(None)
             self._start_connect_future = None
+
+    def _raise_fatal_connection_exception(
+        self, action: str, ex: BaseException
+    ) -> NoReturn:
+        """Report a fatal connection exception and raise the appropriate error.
+
+        If the awaiting task is actually being cancelled by a parent (for
+        example, a ``TaskGroup`` or ``asyncio.timeout``), the original
+        ``CancelledError`` is re-raised so the task's cancellation state is
+        preserved. Otherwise the exception is wrapped as an
+        ``APIConnectionError`` subclass as before.
+        """
+        fatal_exc = self._wrap_fatal_connection_exception(action, ex)
+        self.report_fatal_error(fatal_exc)
+        if isinstance(ex, CancelledError) and (
+            (current_task := asyncio.current_task()) is not None
+            and current_task.cancelling() > 0
+        ):
+            raise ex
+        raise fatal_exc
 
     def _wrap_fatal_connection_exception(
         self, action: str, ex: BaseException
@@ -779,11 +797,10 @@ class APIConnection:
             ):
                 await self._do_finish_connect(login)
         except (Exception, CancelledError) as ex:
-            # If the task was cancelled, we need to clean up the connection
-            # and raise the CancelledError as APIConnectionError
-            fatal_exc = self._wrap_fatal_connection_exception("finishing", ex)
-            self.report_fatal_error(fatal_exc)
-            raise fatal_exc
+            # Clean up the connection; re-raise the original CancelledError
+            # if the task is actually being cancelled so TaskGroup /
+            # asyncio.timeout semantics are preserved.
+            self._raise_fatal_connection_exception("finishing", ex)
         finally:
             self._set_finish_connect_future()
         self._set_connection_state(CONNECTION_STATE_CONNECTED)
