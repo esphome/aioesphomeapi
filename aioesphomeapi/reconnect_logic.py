@@ -377,6 +377,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if self._connection_state != ReconnectLogicState.DISCONNECTED:
                 return
             self._tries = 0
+            # Clear any stale gate from a prior run that was stopped mid
+            # attempt after an mDNS triggered restart.
+            self._accept_zeroconf_records = True
             self._schedule_connect(0.0)
 
     async def stop(self) -> None:

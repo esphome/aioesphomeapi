@@ -696,6 +696,47 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
+async def test_start_clears_stale_zeroconf_gate(
+    patchable_api_client: APIClient,
+) -> None:
+    """A stop() while the gate is closed must not leak into the next start().
+
+    If the logic is stopped mid attempt after an mDNS triggered restart,
+    _accept_zeroconf_records is False. A subsequent start() on the same
+    instance must reopen the gate, otherwise the next run would ignore
+    mDNS records until its first real failure.
+    """
+    cli = patchable_api_client
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    # Simulate the stop-mid-attempt-with-closed-gate state directly.
+    rl._accept_zeroconf_records = False
+    await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._accept_zeroconf_records is False
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    assert rl._accept_zeroconf_records is True
+
+    await rl.stop()
+
+
 async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
