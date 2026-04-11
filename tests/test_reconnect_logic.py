@@ -617,6 +617,85 @@ async def test_reconnect_zeroconf_cancels_connecting_no_socket(
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED
 
 
+async def test_reconnect_zeroconf_only_cancels_connecting_once(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Further mDNS records during a single connect attempt must not retrigger.
+
+    Regression: previously every A / PTR record cancelled the in-flight
+    CONNECTING task and restarted from RESOLVING, thrashing the connect for
+    as long as the device kept announcing itself on mDNS.
+    """
+    cli = patchable_api_client
+
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+        on_connect_error=AsyncMock(),
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+    ):
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+        assert rl._accept_zeroconf_records is True
+
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve_2,
+        patch.object(
+            cli, "start_connection", side_effect=slow_connect_fail
+        ) as mock_connect_2,
+        patch.object(cli, "finish_connection"),
+    ):
+        caplog.clear()
+        rl.async_update_records(
+            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+        )
+        assert (
+            caplog.text.count("Triggering connect because of received mDNS record") == 1
+        )
+        assert rl._accept_zeroconf_records is False
+
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_resolve_2.call_count == 1
+        assert mock_connect_2.call_count == 1
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+
+        # Subsequent mDNS records during the same attempt must be ignored.
+        caplog.clear()
+        for _ in range(5):
+            rl.async_update_records(
+                mock_zeroconf,
+                current_time_millis(),
+                [RecordUpdate(DNS_POINTER, None)],
+            )
+        assert "Triggering connect because of received mDNS record" not in caplog.text
+        assert mock_resolve_2.call_count == 1
+        assert mock_connect_2.call_count == 1
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+    assert rl._is_stopped is True
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+
+
 async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
@@ -785,7 +864,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         assert mock_start_connection.call_count == 1
         assert mock_finish_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.HANDSHAKING
-        assert rl._accept_zeroconf_records is False
+        assert rl._accept_zeroconf_records is True
         assert not rl._is_stopped
 
     rl.async_update_records(
@@ -843,7 +922,7 @@ async def test_connect_task_not_cancelled_while_handshaking(
         assert mock_start_connection.call_count == 1
         assert mock_finish_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.HANDSHAKING
-        assert rl._accept_zeroconf_records is False
+        assert rl._accept_zeroconf_records is True
         assert not rl._is_stopped
 
     caplog.clear()
