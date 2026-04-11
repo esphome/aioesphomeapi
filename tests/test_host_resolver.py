@@ -764,13 +764,21 @@ def test_scope_id_to_int():
 async def test_async_resolve_host_parent_cancel_during_sibling_cleanup():
     """Test parent task cancellation during sibling cleanup propagates.
 
-    Reproduces the anti-pattern that ``with suppress(CancelledError):
-    await task`` can swallow a parent cancellation arriving at the same
-    yield point. After getting a result for one host the resolver
-    cancels the remaining sibling tasks for that host. If the parent
-    task is cancelled during that cleanup the cancellation must
-    propagate as ``CancelledError`` so that ``TaskGroup`` /
-    ``asyncio.timeout`` semantics are preserved.
+    Exercises the gather-based cleanup path under cancellation. After
+    getting a result for one host the resolver cancels the remaining
+    sibling tasks for that host. If the parent task is cancelled during
+    that cleanup the cancellation must propagate as ``CancelledError``
+    so that ``TaskGroup`` / ``asyncio.timeout`` semantics are preserved.
+
+    Note: this test passes against both the buggy
+    ``with suppress(CancelledError): await task`` version and the
+    ``await asyncio.gather(..., return_exceptions=True)`` fix because
+    asyncio's ``cancelling()`` machinery still propagates the
+    cancellation through later yield points even when ``suppress``
+    swallows it at the immediate await. The fix is correct per Python
+    docs ("user code that catches CancelledError must call uncancel() if
+    suppressing it") and this test exercises the new code path under
+    cancellation, but it is not a strict before/after regression test.
     """
     success_event = asyncio.Event()
     cleanup_block = asyncio.Event()
