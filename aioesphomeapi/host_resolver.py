@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from collections.abc import Coroutine
-from contextlib import suppress
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import itertools
@@ -382,21 +381,28 @@ async def _async_resolve_host(
             # We got a result for a host, cancel
             # any other tasks trying to resolve
             # it as we are done with that host
+            tasks_to_cleanup: list[asyncio.Task[list[AddrInfo]]] = []
             for host in finished_hosts:
                 for task in host_tasks.pop(host, ()):
                     resolve_task_to_host.pop(task, None)
                     _LOGGER.debug("Cancelling remaining resolution task for %s", host)
                     task.cancel()
-                    with suppress(asyncio.CancelledError):
-                        await task
+                    tasks_to_cleanup.append(task)
+            if tasks_to_cleanup:
+                # Use ``gather`` with ``return_exceptions=True`` so that
+                # ``CancelledError`` from the cancelled child tasks is not
+                # raised in this task. This avoids the anti-pattern of
+                # ``with suppress(CancelledError): await task`` which can
+                # silently swallow a parent cancellation if it arrives at
+                # the same yield point and breaks ``TaskGroup`` /
+                # ``asyncio.timeout`` semantics.
+                await asyncio.gather(*tasks_to_cleanup, return_exceptions=True)
     finally:
         # We likely get here if we get cancelled
-        # because of a timeout
-        for task in resolve_task_to_host:
-            task.cancel()
-
-        # Await all remaining tasks only after cancelling
-        # them in case we get cancelled ourselves
-        for task in resolve_task_to_host:
-            with suppress(asyncio.CancelledError):
-                await task
+        # because of a timeout. Cancel any remaining tasks and gather
+        # them with ``return_exceptions=True`` so a cancellation arriving
+        # during cleanup propagates correctly instead of being swallowed.
+        if resolve_task_to_host:
+            for task in resolve_task_to_host:
+                task.cancel()
+            await asyncio.gather(*resolve_task_to_host, return_exceptions=True)

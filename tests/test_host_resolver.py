@@ -761,6 +761,74 @@ def test_scope_id_to_int():
 
 
 @pytest.mark.asyncio
+async def test_async_resolve_host_parent_cancel_during_sibling_cleanup():
+    """Test parent task cancellation during sibling cleanup propagates.
+
+    Reproduces the anti-pattern that ``with suppress(CancelledError):
+    await task`` can swallow a parent cancellation arriving at the same
+    yield point. After getting a result for one host the resolver
+    cancels the remaining sibling tasks for that host. If the parent
+    task is cancelled during that cleanup the cancellation must
+    propagate as ``CancelledError`` so that ``TaskGroup`` /
+    ``asyncio.timeout`` semantics are preserved.
+    """
+    success_event = asyncio.Event()
+    cleanup_block = asyncio.Event()
+
+    async def fast_succeed(host: str, port: int):
+        await success_event.wait()
+        return [
+            hr.AddrInfo(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=hr.IPv4Sockaddr(address="192.168.1.100", port=port),
+            )
+        ]
+
+    async def slow_zeroconf(*args, **kwargs):
+        # Use a try/finally to delay completion of cancellation cleanup,
+        # so the parent task has a chance to be cancelled while
+        # ``_async_resolve_host`` is awaiting the cancelled child.
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await cleanup_block.wait()
+        return []
+
+    with (
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo",
+            side_effect=fast_succeed,
+        ),
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf",
+            side_effect=slow_zeroconf,
+        ),
+    ):
+        task = asyncio.create_task(
+            hr.async_resolve_host(["device.local"], 6053, timeout=30.0)
+        )
+        # Let other tasks start.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Resolve the fast path; the resolver will then attempt to
+        # cancel the slow zeroconf sibling and await it inside the
+        # ``while resolve_task_to_host:`` loop.
+        success_event.set()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Cancel the parent task while it is parked on the gather of
+        # the still-cleaning-up sibling, then unblock the sibling so it
+        # can finish.
+        assert task.cancel() is True
+        cleanup_block.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert task.cancelled()
+
+
+@pytest.mark.asyncio
 async def test_async_resolve_host_partial_success_with_timeout():
     """Test that partial resolution succeeds even if some hosts timeout."""
 
