@@ -761,6 +761,168 @@ def test_scope_id_to_int():
 
 
 @pytest.mark.asyncio
+async def test_async_resolve_host_parent_cancel_during_sibling_cleanup():
+    """Test parent task cancellation during sibling cleanup propagates.
+
+    Exercises the gather-based cleanup path under cancellation. After
+    getting a result for one host the resolver cancels the remaining
+    sibling tasks for that host. If the parent task is cancelled during
+    that cleanup the cancellation must propagate as ``CancelledError``
+    so that ``TaskGroup`` / ``asyncio.timeout`` semantics are preserved.
+
+    Note: this test passes against both the buggy
+    ``with suppress(CancelledError): await task`` version and the
+    ``await asyncio.gather(..., return_exceptions=True)`` fix because
+    asyncio's ``cancelling()`` machinery still propagates the
+    cancellation through later yield points even when ``suppress``
+    swallows it at the immediate await. The fix is correct per Python
+    docs ("user code that catches CancelledError must call uncancel() if
+    suppressing it") and this test exercises the new code path under
+    cancellation, but it is not a strict before/after regression test.
+    """
+    success_event = asyncio.Event()
+    cleanup_block = asyncio.Event()
+
+    async def fast_succeed(host: str, port: int):
+        await success_event.wait()
+        return [
+            hr.AddrInfo(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=hr.IPv4Sockaddr(address="192.168.1.100", port=port),
+            )
+        ]
+
+    async def slow_zeroconf(*args, **kwargs):
+        # Use a try/finally to delay completion of cancellation cleanup,
+        # so the parent task has a chance to be cancelled while
+        # ``_async_resolve_host`` is awaiting the cancelled child.
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await cleanup_block.wait()
+        return []
+
+    with (
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo",
+            side_effect=fast_succeed,
+        ),
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf",
+            side_effect=slow_zeroconf,
+        ),
+    ):
+        task = asyncio.create_task(
+            hr.async_resolve_host(["device.local"], 6053, timeout=30.0)
+        )
+        # Let other tasks start.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Resolve the fast path; the resolver will then attempt to
+        # cancel the slow zeroconf sibling and await it inside the
+        # ``while resolve_task_to_host:`` loop.
+        success_event.set()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Cancel the parent task while it is parked on the gather of
+        # the still-cleaning-up sibling, then unblock the sibling so it
+        # can finish.
+        assert task.cancel() is True
+        cleanup_block.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_async_resolve_host_finally_shield_drains_cleanup_on_cancel():
+    """Test the finally cleanup gather is shielded against parent cancel.
+
+    The ``finally`` block in ``_async_resolve_host`` cancels remaining
+    child tasks and awaits ``asyncio.gather(...)``. ``gather`` is
+    itself a cancellation point, so a parent-task cancellation arriving
+    here would interrupt draining the cancelled children, leaving them
+    cancelled-but-not-awaited and potentially logging
+    ``Task was destroyed but it is pending``.
+
+    The fix wraps the gather in ``asyncio.shield`` and, on
+    ``CancelledError``, finishes awaiting the cleanup before re-raising.
+    This test verifies that:
+
+    1. ``CancelledError`` still propagates to the caller.
+    2. The cleanup gather is fully drained — i.e. the slow child task's
+       ``finally`` block runs to completion (its ``cleanup_finished``
+       event is set) before the parent task ends.
+    """
+    cleanup_block = asyncio.Event()
+    cleanup_finished = asyncio.Event()
+    in_finally = asyncio.Event()
+    fast_event = asyncio.Event()
+
+    async def fast_succeed(host: str, port: int):
+        if host == "working":
+            await fast_event.wait()
+            return [
+                hr.AddrInfo(
+                    family=socket.AF_INET,
+                    type=socket.SOCK_STREAM,
+                    proto=socket.IPPROTO_TCP,
+                    sockaddr=hr.IPv4Sockaddr(address="192.168.1.100", port=port),
+                )
+            ]
+        # ``slow`` host hangs forever; we will reach the resolver's
+        # ``finally`` block via timeout/cancel, where its task is
+        # cancelled and its ``finally`` then waits for ``cleanup_block``.
+        try:
+            in_finally.set()
+            await asyncio.Event().wait()
+        finally:
+            await cleanup_block.wait()
+            cleanup_finished.set()
+
+    with patch(
+        "aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo",
+        side_effect=fast_succeed,
+    ):
+        task = asyncio.create_task(
+            hr.async_resolve_host(["working", "slow"], 6053, timeout=30.0)
+        )
+        # Let the resolver register both child tasks. We do not set
+        # ``fast_event`` so the resolver stays parked on
+        # ``asyncio.wait`` with both children pending.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await in_finally.wait()
+        # Cancel the resolver task. CancelledError is raised inside
+        # ``_async_resolve_host``'s ``try`` block at the
+        # ``await asyncio.wait`` and control jumps to the ``finally``
+        # block. The finally cancels the slow child and gathers it.
+        # Because the slow child's own finally awaits ``cleanup_block``,
+        # the resolver is now parked on ``asyncio.shield(cleanup)``.
+        assert task.cancel() is True
+        # Yield so the resolver enters the shielded gather.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Cancel the resolver task a second time to simulate a parent
+        # cancellation arriving while the shielded cleanup is running.
+        # Without ``shield`` this would interrupt the gather and leave
+        # the slow child cancelled-but-not-awaited.
+        task.cancel()
+        await asyncio.sleep(0)
+        # Now release the slow child so its finally can complete.
+        cleanup_block.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert task.cancelled()
+        # The slow child's finally block must have run to completion;
+        # if shield were missing, the gather would have been interrupted
+        # and ``cleanup_finished`` would not be set.
+        assert cleanup_finished.is_set()
+
+
+@pytest.mark.asyncio
 async def test_async_resolve_host_partial_success_with_timeout():
     """Test that partial resolution succeeds even if some hosts timeout."""
 
