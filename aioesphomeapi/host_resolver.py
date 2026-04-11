@@ -398,11 +398,21 @@ async def _async_resolve_host(
                 # ``asyncio.timeout`` semantics.
                 await asyncio.gather(*tasks_to_cleanup, return_exceptions=True)
     finally:
-        # We likely get here if we get cancelled
-        # because of a timeout. Cancel any remaining tasks and gather
-        # them with ``return_exceptions=True`` so a cancellation arriving
-        # during cleanup propagates correctly instead of being swallowed.
+        # We likely get here if we get cancelled because of a timeout.
+        # Cancel any remaining tasks and gather them with
+        # ``return_exceptions=True``. Shield the cleanup wait so that a
+        # parent-task cancellation arriving here does not interrupt
+        # draining the cancelled child tasks (which would leak them and
+        # trigger ``Task was destroyed but it is pending`` warnings); if
+        # cancellation does arrive during the shielded wait, finish
+        # awaiting the cleanup and then re-raise so the cancellation
+        # still propagates to the caller.
         if resolve_task_to_host:
             for task in resolve_task_to_host:
                 task.cancel()
-            await asyncio.gather(*resolve_task_to_host, return_exceptions=True)
+            cleanup = asyncio.gather(*resolve_task_to_host, return_exceptions=True)
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                await cleanup
+                raise
