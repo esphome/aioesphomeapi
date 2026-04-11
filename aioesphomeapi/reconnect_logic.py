@@ -140,6 +140,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._async_set_connection_state_while_locked(
                 ReconnectLogicState.DISCONNECTED
             )
+            # The previous session ended — allow the next mDNS record to
+            # kick a fresh connect attempt early.
+            self._accept_zeroconf_records = True
             await self._on_disconnect_cb(expected_disconnect)
 
         if not self._is_stopped:
@@ -161,7 +164,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         when the state is CONNECTING.
         """
         self._connection_state = state
-        self._accept_zeroconf_records = state in NOT_YET_CONNECTED_STATES
 
     def _async_log_connection_error(self, err: Exception) -> None:
         """Log connection errors."""
@@ -241,6 +243,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     async def _handle_connection_failure(self, err: Exception) -> None:
         """Handle a connection failure."""
         self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
+        # The attempt has truly ended — allow the next mDNS record to
+        # kick a fresh connect attempt early.
+        self._accept_zeroconf_records = True
         if self._on_connect_error_cb is not None:
             await self._on_connect_error_cb(err)
         self._async_log_connection_error(err)
@@ -372,6 +377,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if self._connection_state != ReconnectLogicState.DISCONNECTED:
                 return
             self._tries = 0
+            # Clear any stale gate from a prior run that was stopped mid
+            # attempt after an mDNS triggered restart.
+            self._accept_zeroconf_records = True
             self._schedule_connect(0.0)
 
     async def stop(self) -> None:
@@ -433,9 +441,14 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
         This is a mDNS record from the device and could mean it just woke up.
         """
-        # Check if already connected, no lock needed for this access and
-        # bail if either the already stopped or we haven't received device info yet
-        if not self._accept_zeroconf_records or self._is_stopped:
+        # Bail if we've been stopped, if the current attempt has already been
+        # kicked by a previous mDNS record (one-shot gate), or if we're past
+        # the point where a restart could still help (HANDSHAKING / READY).
+        if (
+            not self._accept_zeroconf_records
+            or self._is_stopped
+            or self._connection_state not in NOT_YET_CONNECTED_STATES
+        ):
             return
 
         for record_update in records:
