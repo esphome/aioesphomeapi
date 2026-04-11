@@ -888,6 +888,50 @@ async def test_connection_cancelled_during_hello(
     assert not conn.is_connected
 
 
+async def test_connection_task_cancelled_during_hello_propagates_cancel(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """Test parent task cancellation propagates as CancelledError.
+
+    When the awaiting task is actually being cancelled by a parent (for
+    example, a ``TaskGroup`` or ``asyncio.timeout``), the original
+    ``CancelledError`` must propagate to the parent so the task's cancellation
+    state is preserved. Previously the ``CancelledError`` would be swallowed
+    and converted to an ``APIConnectionCancelledError``, breaking
+    ``asyncio.timeout`` / ``TaskGroup`` semantics.
+    """
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    hello_started = asyncio.Event()
+    hello_release = asyncio.Event()
+
+    async def _slow_hello(*args, **kwargs):
+        hello_started.set()
+        await hello_release.wait()
+
+    with (
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        patch.object(conn, "_connect_hello_login", _slow_hello),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+        await hello_started.wait()
+        # Cancel the parent task while it is parked inside finish_connection.
+        assert connect_task.cancel() is True
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+        assert connect_task.cancelled()
+
+    assert not conn.is_connected
+
+
 async def test_connect_resolver_times_out(
     conn: APIConnection, aiohappyeyeballs_start_connection
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
