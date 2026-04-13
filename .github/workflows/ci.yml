@@ -45,9 +45,9 @@ jobs:
           - extension: "use_cython"
             os: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         id: python
         with:
           python-version: ${{ matrix.python-version }}
@@ -59,7 +59,7 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Restore PIP cache
-        uses: actions/cache@v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements/base.txt', 'requirements/test.txt') }}
@@ -118,7 +118,7 @@ jobs:
         run: git diff
         if: ${{ failure() && matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - name: Archive artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: genrated-proto-files
           path: aioesphomeapi/*pb2.py
@@ -126,7 +126,7 @@ jobs:
       - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2  # v6.0.0
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -134,8 +134,8 @@ jobs:
     name: Run benchmarks
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: "3.14"
           cache: 'pip' # caching pip dependencies
@@ -147,7 +147,7 @@ jobs:
             pip3 install -r requirements/base.txt -r requirements/test.txt
             pip3 install -e .
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v4
+        uses: CodSpeedHQ/action@db35df748deb45fdef0960669f57d627c1956c30  # v4.13.1
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
