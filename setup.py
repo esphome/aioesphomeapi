@@ -41,7 +41,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "44.13.3"
+VERSION = "44.14.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
