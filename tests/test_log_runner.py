@@ -441,6 +441,56 @@ async def test_async_run_with_colliding_entity_keys_across_types() -> None:
     await stop()
 
 
+async def test_async_run_warns_on_unmapped_state_type(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unmapped state type (future protobuf addition without a
+    STATE_TYPE_TO_INFO_TYPE entry) must warn rather than silently pass
+    info=None to the formatter.
+    """
+    log_messages: list[SubscribeLogsResponse] = []
+    state_callback = None
+
+    cli = MagicMock(spec=APIClient)
+    cli.device_info_and_list_entities = AsyncMock(return_value=(MagicMock(), [], []))
+
+    def capture_subscribe_states(cb: object) -> None:
+        nonlocal state_callback
+        state_callback = cb
+
+    cli.subscribe_states = capture_subscribe_states
+
+    on_connect_callback = None
+
+    class MockReconnectLogic(ReconnectLogic):
+        def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal on_connect_callback
+            on_connect_callback = on_connect
+
+        async def start(self) -> None:
+            await on_connect_callback()
+
+        async def stop(self) -> None:
+            pass
+
+    class UnmappedState(SensorState):
+        """Stand-in for a future state type with no mapping entry."""
+
+    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+        stop = await async_run(cli, log_messages.append, subscribe_states=True)
+
+    assert state_callback is not None
+
+    # Skip initial dump, then deliver an unmapped state type.
+    state_callback(UnmappedState(key=1, state=1.0))
+    caplog.clear()
+    state_callback(UnmappedState(key=1, state=2.0))
+
+    assert "No EntityInfo type mapping for state UnmappedState" in caplog.text
+
+    await stop()
+
+
 async def test_async_run_with_subscribe_states_suppresses_on_verbose() -> None:
     """Test that verbose firmware logs suppress synthetic state lines."""
     log_messages: list[SubscribeLogsResponse] = []
