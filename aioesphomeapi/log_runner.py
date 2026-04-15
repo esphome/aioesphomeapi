@@ -10,6 +10,7 @@ from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
 from .core import APIConnectionError
 from .model import EntityInfo, EntityState, LogLevel
+from .model_conversions import STATE_TYPE_TO_INFO_TYPE
 from .reconnect_logic import ReconnectLogic
 from .state_log_formatter import format_state_log
 
@@ -110,7 +111,12 @@ async def _subscribe_entity_states(
     to avoid flooding the log with all current values.
     """
     _, entities, _ = await cli.device_info_and_list_entities()
-    entity_info: dict[int, EntityInfo] = {e.key: e for e in entities}
+    # Key by (info_type, device_id, key) so that two entities of different
+    # types on the same device sharing an entity key hash (e.g. a climate
+    # and a water_heater with the same name) don't overwrite each other.
+    entity_info: dict[tuple[type[EntityInfo], int, int], EntityInfo] = {
+        (type(e), e.device_id, e.key): e for e in entities
+    }
     seen_keys: set[tuple[int, int]] = set()
 
     def on_state(state: EntityState) -> None:
@@ -121,7 +127,12 @@ async def _subscribe_entity_states(
             # Skip initial state dump on connect
             seen_keys.add(state_id)
             return
-        info = entity_info.get(state.key)
+        info_type = STATE_TYPE_TO_INFO_TYPE.get(type(state))
+        info = (
+            entity_info.get((info_type, state.device_id, state.key))
+            if info_type is not None
+            else None
+        )
         text = format_state_log(state, info)
         if text is not None:
             msg = SubscribeLogsResponse()

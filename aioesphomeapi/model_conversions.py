@@ -104,6 +104,31 @@ from .model import (
     WaterHeaterState,
 )
 
+STATE_TYPE_TO_INFO_TYPE: dict[type[EntityState], type[EntityInfo]] = {
+    AlarmControlPanelEntityState: AlarmControlPanelInfo,
+    BinarySensorState: BinarySensorInfo,
+    ClimateState: ClimateInfo,
+    CoverState: CoverInfo,
+    DateState: DateInfo,
+    DateTimeState: DateTimeInfo,
+    Event: EventInfo,
+    FanState: FanInfo,
+    LightState: LightInfo,
+    LockEntityState: LockInfo,
+    MediaPlayerEntityState: MediaPlayerInfo,
+    NumberState: NumberInfo,
+    SelectState: SelectInfo,
+    SensorState: SensorInfo,
+    SirenState: SirenInfo,
+    SwitchState: SwitchInfo,
+    TextSensorState: TextSensorInfo,
+    TextState: TextInfo,
+    TimeState: TimeInfo,
+    UpdateState: UpdateInfo,
+    ValveState: ValveInfo,
+    WaterHeaterState: WaterHeaterInfo,
+}
+
 SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
     AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
     BinarySensorStateResponse: BinarySensorState,
