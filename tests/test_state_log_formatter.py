@@ -38,6 +38,7 @@ from aioesphomeapi.model import (
     UpdateState,
     ValveOperation,
     ValveState,
+    WaterHeaterInfo,
     WaterHeaterMode,
     WaterHeaterState,
 )
@@ -407,6 +408,43 @@ def test_climate_humidity_zero_values() -> None:
     assert result is not None
     assert "[S][climate]:   Current Humidity: 0%" in result
     assert "[S][climate]:   Target Humidity: 0%" in result
+
+
+def test_climate_mismatched_info_type() -> None:
+    """A ClimateState paired with a non-ClimateInfo must not crash.
+
+    This can happen when two entities on the same device share an entity key
+    hash (e.g. a legacy climate entity and a newer water_heater entity
+    wrapping the same physical appliance in an external component). The log
+    runner builds its info lookup keyed by entity key, so the later entry
+    wins — causing the formatter to receive a state/info type mismatch.
+    """
+    info = WaterHeaterInfo(name="Tank", key=1)
+    state = ClimateState(
+        key=1,
+        mode=ClimateMode.HEAT,
+        current_temperature=20.5,
+        target_temperature=22.0,
+    )
+    result = format_state_log(state, info)  # type: ignore[arg-type]
+    assert result is not None
+    assert "[S][climate]: 'Tank' >>" in result
+    assert "[S][climate]:   Mode: HEAT" in result
+    assert "[S][climate]:   Current Temperature: 20.50°C" in result
+    assert "[S][climate]:   Target Temperature: 22.00°C" in result
+
+
+def test_sensor_mismatched_info_type() -> None:
+    """A SensorState paired with a non-SensorInfo must not crash.
+
+    Falls back to the unit-less / default-precision output path when the
+    provided info is not a SensorInfo.
+    """
+    info = BinarySensorInfo(name="Tank", key=1)
+    state = SensorState(key=1, state=42.5)
+    result = format_state_log(state, info)  # type: ignore[arg-type]
+    assert result is not None
+    assert result == "[S][sensor]: 'Tank' >> 42.5"
 
 
 def test_alarm_disarmed() -> None:

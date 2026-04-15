@@ -77,9 +77,12 @@ def _format_sensor(state: SensorState, info: SensorInfo | None) -> str | None:
     if state.missing_state:
         return None
     name = _name(info)
-    if info is not None:
-        decimals = max(0, info.accuracy_decimals)
-        unit = info.unit_of_measurement
+    # Narrow to the expected info type so a mismatched EntityInfo (e.g. from
+    # two entities sharing a key hash) can't crash on type-specific attributes.
+    sensor_info = info if isinstance(info, SensorInfo) else None
+    if sensor_info is not None:
+        decimals = max(0, sensor_info.accuracy_decimals)
+        unit = sensor_info.unit_of_measurement
         return f"[S][sensor]: '{name}' >> {state.state:.{decimals}f} {unit}"
     return f"[S][sensor]: '{name}' >> {state.state}"
 
@@ -207,6 +210,9 @@ def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None
         f"[S][{tag}]: '{_name(info)}' >>",
         _detail(tag, "Mode", _enum_name(state.mode)),
     ]
+    # Narrow to ClimateInfo so a mismatched EntityInfo (e.g. from two entities
+    # sharing a key hash) can't crash on type-specific attributes.
+    climate_info = info if isinstance(info, ClimateInfo) else None
     if state.action is not None and state.action != ClimateAction.OFF:
         parts.append(_detail(tag, "Action", state.action.name))
     if state.fan_mode is not None:
@@ -222,7 +228,7 @@ def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None
     ct = state.current_temperature
     if not isnan(ct):
         parts.append(_detail(tag, "Current Temperature", f"{ct:.2f}°C"))
-    if info and info.supports_two_point_target_temperature:
+    if climate_info and climate_info.supports_two_point_target_temperature:
         ttl = state.target_temperature_low
         tth = state.target_temperature_high
         if not isnan(ttl) and not isnan(tth):
@@ -237,9 +243,17 @@ def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None
         tt = state.target_temperature
         if not isnan(tt):
             parts.append(_detail(tag, "Target Temperature", f"{tt:.2f}°C"))
-    if info and info.supports_current_humidity and not isnan(state.current_humidity):
+    if (
+        climate_info
+        and climate_info.supports_current_humidity
+        and not isnan(state.current_humidity)
+    ):
         parts.append(_detail(tag, "Current Humidity", f"{state.current_humidity:.0f}%"))
-    if info and info.supports_target_humidity and not isnan(state.target_humidity):
+    if (
+        climate_info
+        and climate_info.supports_target_humidity
+        and not isnan(state.target_humidity)
+    ):
         parts.append(_detail(tag, "Target Humidity", f"{state.target_humidity:.0f}%"))
     return "\n".join(parts)
 
