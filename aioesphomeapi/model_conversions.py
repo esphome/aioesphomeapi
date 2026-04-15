@@ -104,31 +104,6 @@ from .model import (
     WaterHeaterState,
 )
 
-STATE_TYPE_TO_INFO_TYPE: dict[type[EntityState], type[EntityInfo]] = {
-    AlarmControlPanelEntityState: AlarmControlPanelInfo,
-    BinarySensorState: BinarySensorInfo,
-    ClimateState: ClimateInfo,
-    CoverState: CoverInfo,
-    DateState: DateInfo,
-    DateTimeState: DateTimeInfo,
-    Event: EventInfo,
-    FanState: FanInfo,
-    LightState: LightInfo,
-    LockEntityState: LockInfo,
-    MediaPlayerEntityState: MediaPlayerInfo,
-    NumberState: NumberInfo,
-    SelectState: SelectInfo,
-    SensorState: SensorInfo,
-    SirenState: SirenInfo,
-    SwitchState: SwitchInfo,
-    TextSensorState: TextSensorInfo,
-    TextState: TextInfo,
-    TimeState: TimeInfo,
-    UpdateState: UpdateInfo,
-    ValveState: ValveInfo,
-    WaterHeaterState: WaterHeaterInfo,
-}
-
 SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
     AlarmControlPanelStateResponse: AlarmControlPanelEntityState,
     BinarySensorStateResponse: BinarySensorState,
@@ -182,3 +157,25 @@ LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
     ListEntitiesValveResponse: ValveInfo,
     ListEntitiesWaterHeaterResponse: WaterHeaterInfo,
 }
+
+
+def _build_state_type_to_info_type() -> dict[type[EntityState], type[EntityInfo]]:
+    # Proto naming pairs each state response with a list-entities response by
+    # a common stem: "{X}StateResponse" or "EventResponse" on the state side,
+    # and "ListEntities{X}Response" on the info side.
+    info_by_stem: dict[str, type[EntityInfo]] = {
+        resp.__name__.removeprefix("ListEntities").removesuffix("Response"): info
+        for resp, info in LIST_ENTITIES_SERVICES_RESPONSE_TYPES.items()
+        if info is not None
+    }
+    return {
+        state_cls: info_by_stem[
+            resp.__name__.removesuffix("StateResponse").removesuffix("Response")
+        ]
+        for resp, state_cls in SUBSCRIBE_STATES_RESPONSE_TYPES.items()
+    }
+
+
+STATE_TYPE_TO_INFO_TYPE: dict[type[EntityState], type[EntityInfo]] = (
+    _build_state_type_to_info_type()
+)
