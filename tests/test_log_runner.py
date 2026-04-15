@@ -18,7 +18,17 @@ from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.log_runner import async_run
-from aioesphomeapi.model import LogLevel, SensorInfo, SensorState
+from aioesphomeapi.model import (
+    ClimateInfo,
+    ClimateMode,
+    ClimateState,
+    LogLevel,
+    SensorInfo,
+    SensorState,
+    WaterHeaterInfo,
+    WaterHeaterMode,
+    WaterHeaterState,
+)
 from aioesphomeapi.reconnect_logic import EXPECTED_DISCONNECT_COOLDOWN, ReconnectLogic
 
 from .common import (
@@ -340,6 +350,143 @@ async def test_async_run_with_subscribe_states() -> None:
     assert "[S][sensor]:" in text
     assert "'CO2' >> 421 ppm" in text
     assert "\033[0;96m" in text
+
+    await stop()
+
+
+async def test_async_run_with_colliding_entity_keys_across_types() -> None:
+    """Two entities of different types sharing a device_id+key must each
+    resolve to their own info in the log runner.
+
+    Reproducer: a climate and a water_heater on the same device with names
+    that hash to the same entity key (e.g. both named "Water Heater" in an
+    external component). The on-wire key is platform-agnostic so both
+    entities ship with the same key; the log runner must still dispatch each
+    state to the info of the matching type rather than last-write-wins.
+    """
+    log_messages: list[SubscribeLogsResponse] = []
+    state_callback = None
+
+    climate_info = ClimateInfo(
+        key=1, name="Water Heater", supports_two_point_target_temperature=False
+    )
+    water_heater_info = WaterHeaterInfo(key=1, name="Water Heater")
+
+    cli = MagicMock(spec=APIClient)
+    cli.device_info_and_list_entities = AsyncMock(
+        return_value=(MagicMock(), [climate_info, water_heater_info], [])
+    )
+
+    def capture_subscribe_states(cb: object) -> None:
+        nonlocal state_callback
+        state_callback = cb
+
+    cli.subscribe_states = capture_subscribe_states
+
+    on_connect_callback = None
+
+    class MockReconnectLogic(ReconnectLogic):
+        def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal on_connect_callback
+            on_connect_callback = on_connect
+
+        async def start(self) -> None:
+            await on_connect_callback()
+
+        async def stop(self) -> None:
+            pass
+
+    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+        stop = await async_run(cli, log_messages.append, subscribe_states=True)
+
+    assert state_callback is not None
+
+    # Each entity type gets its own initial-dump skip; the second entity's
+    # first real state must not be swallowed just because (device_id, key)
+    # was already seen for the other type.
+    state_callback(
+        ClimateState(
+            key=1,
+            mode=ClimateMode.HEAT,
+            current_temperature=20.0,
+            target_temperature=22.0,
+        )
+    )
+    state_callback(WaterHeaterState(key=1, mode=WaterHeaterMode.HEAT_PUMP))
+    assert len(log_messages) == 0
+
+    # WaterHeaterState with key=1 must resolve to WaterHeaterInfo (not the
+    # ClimateInfo that was listed first for the same key), proving ordering
+    # does not matter.
+    state_callback(WaterHeaterState(key=1, mode=WaterHeaterMode.HEAT_PUMP))
+    assert len(log_messages) == 1
+    assert "[S][water_heater]: 'Water Heater' >>" in log_messages[0].message.decode()
+
+    # ClimateState must not crash on WaterHeaterInfo-specific fields and
+    # must render as a climate line (proves the correct info was selected).
+    state_callback(
+        ClimateState(
+            key=1,
+            mode=ClimateMode.HEAT,
+            current_temperature=20.5,
+            target_temperature=22.0,
+        )
+    )
+    assert len(log_messages) == 2
+    text = log_messages[1].message.decode()
+    assert "[S][climate]: 'Water Heater' >>" in text
+    assert "Mode: HEAT" in text
+    assert "Current Temperature: 20.50" in text
+
+    await stop()
+
+
+async def test_async_run_warns_on_unmapped_state_type(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unmapped state type (future protobuf addition without a
+    STATE_TYPE_TO_INFO_TYPE entry) must warn rather than silently pass
+    info=None to the formatter.
+    """
+    log_messages: list[SubscribeLogsResponse] = []
+    state_callback = None
+
+    cli = MagicMock(spec=APIClient)
+    cli.device_info_and_list_entities = AsyncMock(return_value=(MagicMock(), [], []))
+
+    def capture_subscribe_states(cb: object) -> None:
+        nonlocal state_callback
+        state_callback = cb
+
+    cli.subscribe_states = capture_subscribe_states
+
+    on_connect_callback = None
+
+    class MockReconnectLogic(ReconnectLogic):
+        def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal on_connect_callback
+            on_connect_callback = on_connect
+
+        async def start(self) -> None:
+            await on_connect_callback()
+
+        async def stop(self) -> None:
+            pass
+
+    class UnmappedState(SensorState):
+        """Stand-in for a future state type with no mapping entry."""
+
+    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+        stop = await async_run(cli, log_messages.append, subscribe_states=True)
+
+    assert state_callback is not None
+
+    # Skip initial dump, then deliver an unmapped state type.
+    state_callback(UnmappedState(key=1, state=1.0))
+    caplog.clear()
+    state_callback(UnmappedState(key=1, state=2.0))
+
+    assert "No EntityInfo type mapping for state UnmappedState" in caplog.text
 
     await stop()
 
