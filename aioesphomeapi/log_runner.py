@@ -131,11 +131,15 @@ async def _subscribe_entity_states(
             seen_keys.add(state_id)
             return
         info_type = STATE_TYPE_TO_INFO_TYPE.get(type(state))
-        info = (
-            entity_info.get((info_type, state.device_id, state.key))
-            if info_type is not None
-            else None
-        )
+        if info_type is None:
+            _LOGGER.warning(
+                "No EntityInfo type mapping for state %s; "
+                "STATE_TYPE_TO_INFO_TYPE likely needs an entry",
+                type(state).__name__,
+            )
+            info = None
+        else:
+            info = entity_info.get((info_type, state.device_id, state.key))
         text = format_state_log(state, info)
         if text is not None:
             msg = SubscribeLogsResponse()
