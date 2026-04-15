@@ -26,6 +26,8 @@ from aioesphomeapi.model import (
     SensorInfo,
     SensorState,
     WaterHeaterInfo,
+    WaterHeaterMode,
+    WaterHeaterState,
 )
 from aioesphomeapi.reconnect_logic import EXPECTED_DISCONNECT_COOLDOWN, ReconnectLogic
 
@@ -399,7 +401,9 @@ async def test_async_run_with_colliding_entity_keys_across_types() -> None:
 
     assert state_callback is not None
 
-    # Skip initial state dump (first state per (device_id, key))
+    # Each entity type gets its own initial-dump skip; the second entity's
+    # first real state must not be swallowed just because (device_id, key)
+    # was already seen for the other type.
     state_callback(
         ClimateState(
             key=1,
@@ -408,7 +412,15 @@ async def test_async_run_with_colliding_entity_keys_across_types() -> None:
             target_temperature=22.0,
         )
     )
+    state_callback(WaterHeaterState(key=1, mode=WaterHeaterMode.HEAT_PUMP))
     assert len(log_messages) == 0
+
+    # WaterHeaterState with key=1 must resolve to WaterHeaterInfo (not the
+    # ClimateInfo that was listed first for the same key), proving ordering
+    # does not matter.
+    state_callback(WaterHeaterState(key=1, mode=WaterHeaterMode.HEAT_PUMP))
+    assert len(log_messages) == 1
+    assert "[S][water_heater]: 'Water Heater' >>" in log_messages[0].message.decode()
 
     # ClimateState must not crash on WaterHeaterInfo-specific fields and
     # must render as a climate line (proves the correct info was selected).
@@ -420,8 +432,8 @@ async def test_async_run_with_colliding_entity_keys_across_types() -> None:
             target_temperature=22.0,
         )
     )
-    assert len(log_messages) == 1
-    text = log_messages[0].message.decode()
+    assert len(log_messages) == 2
+    text = log_messages[1].message.decode()
     assert "[S][climate]: 'Water Heater' >>" in text
     assert "Mode: HEAT" in text
     assert "Current Temperature: 20.50" in text

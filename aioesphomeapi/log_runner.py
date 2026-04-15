@@ -117,12 +117,15 @@ async def _subscribe_entity_states(
     entity_info: dict[tuple[type[EntityInfo], int, int], EntityInfo] = {
         (type(e), e.device_id, e.key): e for e in entities
     }
-    seen_keys: set[tuple[int, int]] = set()
+    # Include type(state) so that two colliding entities each get their own
+    # initial-dump skip; otherwise the second entity's first real state would
+    # be swallowed as if it were the initial dump.
+    seen_keys: set[tuple[type[EntityState], int, int]] = set()
 
     def on_state(state: EntityState) -> None:
         if proxy.seen_verbose:
             return
-        state_id = (state.device_id, state.key)
+        state_id = (type(state), state.device_id, state.key)
         if state_id not in seen_keys:
             # Skip initial state dump on connect
             seen_keys.add(state_id)
