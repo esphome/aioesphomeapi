@@ -59,6 +59,7 @@ from .model import (
     BinarySensorState,
     ButtonInfo,
     CameraInfo,
+    CameraState,
     ClimateInfo,
     ClimateState,
     CoverInfo,
@@ -168,12 +169,16 @@ def _build_state_type_to_info_type() -> dict[type[EntityState], type[EntityInfo]
         for resp, info in LIST_ENTITIES_SERVICES_RESPONSE_TYPES.items()
         if info is not None
     }
-    return {
+    mapping: dict[type[EntityState], type[EntityInfo]] = {
         state_cls: info_by_stem[
             resp.__name__.removesuffix("StateResponse").removesuffix("Response")
         ]
         for resp, state_cls in SUBSCRIBE_STATES_RESPONSE_TYPES.items()
     }
+    # CameraState is derived from CameraImageResponse (not a subscribe-state
+    # response), so it won't be picked up by the loop above.
+    mapping[CameraState] = CameraInfo
+    return mapping
 
 
 STATE_TYPE_TO_INFO_TYPE: dict[type[EntityState], type[EntityInfo]] = (
