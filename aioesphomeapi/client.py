@@ -161,6 +161,7 @@ from .model import (
     LogLevel,
     MediaPlayerCommand,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
+    RadioFrequencyModulation,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
     SerialProxyModemPins,
     SerialProxyParity,
@@ -510,6 +511,25 @@ class APIClient(APIClientBase):
         req.device_id = device_id
         req.key = key
         req.carrier_frequency = carrier_frequency
+        req.repeat_count = repeat_count
+        req.timings.extend(timings)
+        self._get_connection().send_message(req)
+
+    def radio_frequency_transmit_raw_timings(
+        self,
+        key: int,
+        frequency: int,
+        timings: list[int],
+        modulation: RadioFrequencyModulation = RadioFrequencyModulation.OOK,
+        repeat_count: int = 1,
+        device_id: int = 0,
+    ) -> None:
+        """Send a radio frequency raw timings transmit request."""
+        req = InfraredRFTransmitRawTimingsRequest()
+        req.device_id = device_id
+        req.key = key
+        req.carrier_frequency = frequency
+        req.modulation = modulation
         req.repeat_count = repeat_count
         req.timings.extend(timings)
         self._get_connection().send_message(req)

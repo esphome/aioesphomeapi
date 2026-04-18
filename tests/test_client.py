@@ -145,6 +145,7 @@ from aioesphomeapi.model import (
     LightColorCapability,
     LockCommand,
     MediaPlayerCommand,
+    RadioFrequencyModulation,
     SensorInfo,
     SerialProxyDataReceived,
     SerialProxyModemPins,
@@ -2822,6 +2823,44 @@ async def test_infrared_rf_transmit_raw_timings(
     assert sent_msg.device_id == 7
     assert sent_msg.carrier_frequency == 38000
     assert sent_msg.repeat_count == 3
+    assert list(sent_msg.timings) == timings
+
+
+async def test_radio_frequency_transmit_raw_timings(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test radio_frequency_transmit_raw_timings sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[InfraredRFTransmitRawTimingsRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    timings = [500, -500, 1000, -1000, 500, -500]
+    client.radio_frequency_transmit_raw_timings(
+        key=111,
+        frequency=433920000,
+        timings=timings,
+        modulation=RadioFrequencyModulation.OOK,
+        repeat_count=2,
+        device_id=3,
+    )
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.key == 111
+    assert sent_msg.device_id == 3
+    assert sent_msg.carrier_frequency == 433920000
+    assert sent_msg.modulation == RadioFrequencyModulation.OOK
+    assert sent_msg.repeat_count == 2
     assert list(sent_msg.timings) == timings
 
 
