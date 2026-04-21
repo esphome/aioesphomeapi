@@ -336,6 +336,10 @@ class APIClientBase:
         self._params.expected_name = value
 
     @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        return self._loop
+
+    @property
     def address(self) -> str:
         return self._params.addresses[0]
 
