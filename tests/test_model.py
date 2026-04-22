@@ -2230,7 +2230,7 @@ def test_serial_proxy_request_response_conversion() -> None:
     assert model2.error_message == "timeout"
 
 
-def test_climate_info_missing_temperature_unit_defaults_to_celsius():
+def test_climate_info_missing_temperature_unit_defaults_to_celsius() -> None:
     pb = ListEntitiesClimateResponse()
     info = ClimateInfo.from_pb(pb)
     assert info.temperature_unit == TemperatureUnit.CELSIUS
