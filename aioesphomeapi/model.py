@@ -740,7 +740,7 @@ class ClimateInfo(EntityInfo):
     visual_min_humidity: float = 0
     visual_max_humidity: float = 0
     temperature_unit: TemperatureUnit | None = converter_field(
-        default=None,
+        default=TemperatureUnit.CELSIUS,
         converter=TemperatureUnit.convert,
     )
 
@@ -1194,7 +1194,7 @@ class WaterHeaterInfo(EntityInfo):
     )
     supported_features: int = 0
     temperature_unit: TemperatureUnit | None = converter_field(
-        default=None,
+        default=TemperatureUnit.CELSIUS,
         converter=TemperatureUnit.convert,
     )
 
