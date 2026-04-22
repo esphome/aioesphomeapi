@@ -145,6 +145,7 @@ from aioesphomeapi.model import (
     SupportsResponseType,
     SwitchInfo,
     SwitchState,
+    TemperatureUnit,
     TextInfo,
     TextSensorInfo,
     TextSensorState,
@@ -2227,3 +2228,57 @@ def test_serial_proxy_request_response_conversion() -> None:
     assert model2.type == SerialProxyRequestType.FLUSH
     assert model2.status == SerialProxyStatus.TIMEOUT
     assert model2.error_message == "timeout"
+
+
+def test_climate_info_missing_temperature_unit_defaults_to_celsius() -> None:
+    pb = ListEntitiesClimateResponse()
+    info = ClimateInfo.from_pb(pb)
+    assert info.temperature_unit == TemperatureUnit.CELSIUS
+
+
+def test_water_heater_info_missing_temperature_unit_defaults_to_celsius() -> None:
+    pb = ListEntitiesWaterHeaterResponse()
+    info = WaterHeaterInfo.from_pb(pb)
+    assert info.temperature_unit == TemperatureUnit.CELSIUS
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        TemperatureUnit.CELSIUS,
+        TemperatureUnit.FAHRENHEIT,
+        TemperatureUnit.KELVIN,
+    ],
+)
+def test_climate_info_temperature_unit_roundtrip(unit: TemperatureUnit) -> None:
+    pb = ListEntitiesClimateResponse(temperature_unit=unit)
+    info = ClimateInfo.from_pb(pb)
+    assert info.temperature_unit is unit
+    info2 = ClimateInfo.from_dict(info.to_dict())
+    assert info2.temperature_unit is unit
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        TemperatureUnit.CELSIUS,
+        TemperatureUnit.FAHRENHEIT,
+        TemperatureUnit.KELVIN,
+    ],
+)
+def test_water_heater_info_temperature_unit_roundtrip(unit: TemperatureUnit) -> None:
+    pb = ListEntitiesWaterHeaterResponse(temperature_unit=unit)
+    info = WaterHeaterInfo.from_pb(pb)
+    assert info.temperature_unit is unit
+    info2 = WaterHeaterInfo.from_dict(info.to_dict())
+    assert info2.temperature_unit is unit
+
+
+def test_climate_info_unknown_temperature_unit_converts_to_none() -> None:
+    info = ClimateInfo(temperature_unit=999)
+    assert info.temperature_unit is None
+
+
+def test_water_heater_info_unknown_temperature_unit_converts_to_none() -> None:
+    info = WaterHeaterInfo(temperature_unit=999)
+    assert info.temperature_unit is None
