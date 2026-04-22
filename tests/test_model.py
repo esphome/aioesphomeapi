@@ -121,6 +121,7 @@ from aioesphomeapi.model import (
     LightState,
     LockEntityState,
     LockInfo,
+    LockState,
     MediaPlayerEntityFeature,
     MediaPlayerEntityState,
     MediaPlayerInfo,
@@ -2282,3 +2283,11 @@ def test_climate_info_unknown_temperature_unit_converts_to_none() -> None:
 def test_water_heater_info_unknown_temperature_unit_converts_to_none() -> None:
     info = WaterHeaterInfo(temperature_unit=999)
     assert info.temperature_unit is None
+
+
+def test_lock_state_enum_is_dense_and_unique() -> None:
+    values = [member.value for member in LockState]
+    assert len(values) == len(set(values)), f"LockState has duplicate values: {values}"
+    assert values == list(range(len(values))), (
+        f"LockState must be contiguous from 0; got {values}"
+    )
