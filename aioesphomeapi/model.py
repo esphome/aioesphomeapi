@@ -928,6 +928,8 @@ class LockState(APIIntEnum):
     JAMMED = 3
     LOCKING = 4
     UNLOCKING = 5
+    OPENING = 6
+    OPEN = 7
 
 
 class LockCommand(APIIntEnum):
