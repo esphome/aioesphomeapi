@@ -60,6 +60,7 @@ from .model import (
     BinarySensorState,
     ButtonInfo,
     CameraInfo,
+    CameraState,
     ClimateInfo,
     ClimateState,
     CoverInfo,
@@ -160,3 +161,29 @@ LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
     ListEntitiesValveResponse: ValveInfo,
     ListEntitiesWaterHeaterResponse: WaterHeaterInfo,
 }
+
+
+def _build_state_type_to_info_type() -> dict[type[EntityState], type[EntityInfo]]:
+    # Proto naming pairs each state response with a list-entities response by
+    # a common stem: "{X}StateResponse" or "EventResponse" on the state side,
+    # and "ListEntities{X}Response" on the info side.
+    info_by_stem: dict[str, type[EntityInfo]] = {
+        resp.__name__.removeprefix("ListEntities").removesuffix("Response"): info
+        for resp, info in LIST_ENTITIES_SERVICES_RESPONSE_TYPES.items()
+        if info is not None
+    }
+    mapping: dict[type[EntityState], type[EntityInfo]] = {
+        state_cls: info_by_stem[
+            resp.__name__.removesuffix("StateResponse").removesuffix("Response")
+        ]
+        for resp, state_cls in SUBSCRIBE_STATES_RESPONSE_TYPES.items()
+    }
+    # CameraState is derived from CameraImageResponse (not a subscribe-state
+    # response), so it won't be picked up by the loop above.
+    mapping[CameraState] = CameraInfo
+    return mapping
+
+
+STATE_TYPE_TO_INFO_TYPE: dict[type[EntityState], type[EntityInfo]] = (
+    _build_state_type_to_info_type()
+)

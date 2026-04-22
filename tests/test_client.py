@@ -1563,6 +1563,7 @@ async def test_client_properties(
     assert client.port == 6052
     assert client.noise_psk is None
     assert client.api_version == APIVersion(major=1, minor=9)
+    assert client.loop is asyncio.get_running_loop()
 
 
 async def test_bluetooth_disconnect(

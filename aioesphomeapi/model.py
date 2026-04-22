@@ -701,6 +701,12 @@ class ClimatePreset(APIIntEnum):
     ACTIVITY = 7
 
 
+class TemperatureUnit(APIIntEnum):
+    CELSIUS = 0
+    FAHRENHEIT = 1
+    KELVIN = 2
+
+
 @_frozen_dataclass_decorator
 class ClimateInfo(EntityInfo):
     feature_flags: int = 0
@@ -720,6 +726,10 @@ class ClimateInfo(EntityInfo):
     )
     visual_current_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
+    )
+    temperature_unit: TemperatureUnit | None = converter_field(
+        default=TemperatureUnit.CELSIUS,
+        converter=TemperatureUnit.convert,
     )
     legacy_supports_away: bool = False
     supports_action: bool = False
@@ -923,10 +933,12 @@ class ButtonInfo(EntityInfo):
 class LockState(APIIntEnum):
     NONE = 0
     LOCKED = 1
-    UNLOCKED = 3
+    UNLOCKED = 2
     JAMMED = 3
     LOCKING = 4
     UNLOCKING = 5
+    OPENING = 6
+    OPEN = 7
 
 
 class LockCommand(APIIntEnum):
@@ -1187,7 +1199,10 @@ class WaterHeaterInfo(EntityInfo):
     target_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-
+    temperature_unit: TemperatureUnit | None = converter_field(
+        default=TemperatureUnit.CELSIUS,
+        converter=TemperatureUnit.convert,
+    )
     supported_modes: list[WaterHeaterMode] = converter_field(
         default_factory=list, converter=WaterHeaterMode.convert_list
     )
