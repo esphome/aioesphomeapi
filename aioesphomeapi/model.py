@@ -718,6 +718,10 @@ class ClimateInfo(EntityInfo):
     visual_current_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
+    temperature_unit: TemperatureUnit | None = converter_field(
+        default=TemperatureUnit.CELSIUS,
+        converter=TemperatureUnit.convert,
+    )
     legacy_supports_away: bool = False
     supports_action: bool = False
     supported_fan_modes: list[ClimateFanMode] = converter_field(
@@ -739,10 +743,6 @@ class ClimateInfo(EntityInfo):
     supports_target_humidity: bool = False
     visual_min_humidity: float = 0
     visual_max_humidity: float = 0
-    temperature_unit: TemperatureUnit | None = converter_field(
-        default=TemperatureUnit.CELSIUS,
-        converter=TemperatureUnit.convert,
-    )
 
     def supported_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 13):
@@ -1188,15 +1188,14 @@ class WaterHeaterInfo(EntityInfo):
     target_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-
-    supported_modes: list[WaterHeaterMode] = converter_field(
-        default_factory=list, converter=WaterHeaterMode.convert_list
-    )
-    supported_features: int = 0
     temperature_unit: TemperatureUnit | None = converter_field(
         default=TemperatureUnit.CELSIUS,
         converter=TemperatureUnit.convert,
     )
+    supported_modes: list[WaterHeaterMode] = converter_field(
+        default_factory=list, converter=WaterHeaterMode.convert_list
+    )
+    supported_features: int = 0
 
 
 @_frozen_dataclass_decorator
