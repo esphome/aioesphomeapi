@@ -924,7 +924,7 @@ class ButtonInfo(EntityInfo):
 class LockState(APIIntEnum):
     NONE = 0
     LOCKED = 1
-    UNLOCKED = 3
+    UNLOCKED = 2
     JAMMED = 3
     LOCKING = 4
     UNLOCKING = 5
