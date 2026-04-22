@@ -2236,7 +2236,7 @@ def test_climate_info_missing_temperature_unit_defaults_to_celsius():
     assert info.temperature_unit == TemperatureUnit.CELSIUS
 
 
-def test_water_heater_info_missing_temperature_unit_defaults_to_celsius():
+def test_water_heater_info_missing_temperature_unit_defaults_to_celsius() -> None:
     pb = ListEntitiesWaterHeaterResponse()
     info = WaterHeaterInfo.from_pb(pb)
     assert info.temperature_unit == TemperatureUnit.CELSIUS
