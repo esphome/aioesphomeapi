@@ -692,6 +692,12 @@ class ClimatePreset(APIIntEnum):
     ACTIVITY = 7
 
 
+class TemperatureUnit(APIIntEnum):
+    CELSIUS = 0
+    FAHRENHEIT = 1
+    KELVIN = 2
+
+
 @_frozen_dataclass_decorator
 class ClimateInfo(EntityInfo):
     feature_flags: int = 0
@@ -733,6 +739,13 @@ class ClimateInfo(EntityInfo):
     supports_target_humidity: bool = False
     visual_min_humidity: float = 0
     visual_max_humidity: float = 0
+    temperature_unit: TemperatureUnit = (
+        converter_field(
+            default=TemperatureUnit.CELSIUS,
+            converter=TemperatureUnit.convert,
+        )
+        or TemperatureUnit.CELSIUS
+    )
 
     def supported_feature_flags_compat(self, api_version: APIVersion) -> int:
         if api_version < APIVersion(1, 13):
@@ -1183,6 +1196,13 @@ class WaterHeaterInfo(EntityInfo):
         default_factory=list, converter=WaterHeaterMode.convert_list
     )
     supported_features: int = 0
+    temperature_unit: TemperatureUnit = (
+        converter_field(
+            default=TemperatureUnit.CELSIUS,
+            converter=TemperatureUnit.convert,
+        )
+        or TemperatureUnit.CELSIUS
+    )
 
 
 @_frozen_dataclass_decorator
