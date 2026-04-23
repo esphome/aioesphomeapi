@@ -274,7 +274,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # use plaintext; warn so the caller sees that it happened.
             _LOGGER.warning(
                 "%s: Device is using plaintext protocol; disabling "
-                "encryption for this session and retrying",
+                "encryption for this session and retrying. The device's "
+                "identity cannot be verified without encryption, so this "
+                "session may be talking to a different device.",
                 self._cli.log_name,
             )
             self._cli.clear_noise_psk()
