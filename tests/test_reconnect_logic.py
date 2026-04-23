@@ -18,7 +18,11 @@ from zeroconf import (
 from zeroconf.asyncio import AsyncZeroconf
 from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR
 
-from aioesphomeapi import APIConnectionError, RequiresEncryptionAPIError
+from aioesphomeapi import (
+    APIConnectionError,
+    EncryptionPlaintextAPIError,
+    RequiresEncryptionAPIError,
+)
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.core import APIConnectionCancelledError
@@ -1229,6 +1233,104 @@ async def test_backoff_on_encryption_error(
     assert logic._connect_timer.when() - now == pytest.approx(60, 1)
     assert logic._tries == MAXIMUM_BACKOFF_TRIES
     await logic.stop()
+
+
+@pytest.mark.asyncio
+async def test_plaintext_fallback_disabled_by_default(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """EncryptionPlaintextAPIError does not downgrade when flag is off."""
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    async_zeroconf = get_mock_async_zeroconf()
+    cli = PatchableAPIClient(
+        address="127.0.0.1",
+        port=6052,
+        password=None,
+        noise_psk="BASE64KEY",
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    async def on_connect() -> None: ...
+    async def on_disconnect(expected_disconnect: bool) -> None: ...
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        zeroconf_instance=async_zeroconf,
+        name="fake",
+    )
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(
+            cli,
+            "finish_connection",
+            side_effect=EncryptionPlaintextAPIError("plaintext"),
+        ),
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert cli.noise_psk == "BASE64KEY"
+    # Non-auth error: tries increments by 1, no max backoff.
+    assert rl._tries == 1
+    assert "disabling encryption" not in caplog.text
+    await rl.stop()
+
+
+@pytest.mark.asyncio
+async def test_plaintext_fallback_downgrades_when_enabled(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """With opt-in, plaintext protocol downgrades the PSK and resets tries."""
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    async_zeroconf = get_mock_async_zeroconf()
+    cli = PatchableAPIClient(
+        address="127.0.0.1",
+        port=6052,
+        password=None,
+        noise_psk="BASE64KEY",
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    async def on_connect() -> None: ...
+    async def on_disconnect(expected_disconnect: bool) -> None: ...
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        zeroconf_instance=async_zeroconf,
+        name="fake",
+        allow_plaintext_fallback=True,
+    )
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(
+            cli,
+            "finish_connection",
+            side_effect=EncryptionPlaintextAPIError("plaintext"),
+        ),
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert cli.noise_psk is None
+    assert rl._tries == 0
+    assert "Device is using plaintext protocol" in caplog.text
+    await rl.stop()
 
 
 @pytest.mark.asyncio

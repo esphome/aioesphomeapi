@@ -25,6 +25,15 @@ async def main(argv: list[str]) -> None:
         action="store_true",
         help="Do not show entity state changes in log output.",
     )
+    parser.add_argument(
+        "--allow-plaintext-fallback",
+        action="store_true",
+        help=(
+            "If --noise-psk is set and the device is running plaintext "
+            "firmware, downgrade to plaintext (with a warning) instead of "
+            "failing repeatedly."
+        ),
+    )
     parser.add_argument("address")
     args = parser.parse_args(argv[1:])
 
@@ -55,7 +64,12 @@ async def main(argv: list[str]) -> None:
         for line in parse_log_message(text, timestamp):
             print(line)
 
-    stop = await async_run(cli, on_log, subscribe_states=not args.no_states)
+    stop = await async_run(
+        cli,
+        on_log,
+        subscribe_states=not args.no_states,
+        allow_plaintext_fallback=args.allow_plaintext_fallback,
+    )
     try:
         await asyncio.Event().wait()
     finally:

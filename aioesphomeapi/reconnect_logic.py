@@ -17,6 +17,7 @@ from .client import APIClient
 from .core import (
     APIConnectionCancelledError,
     APIConnectionError,
+    EncryptionPlaintextAPIError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
     RequiresEncryptionAPIError,
@@ -74,12 +75,25 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         zeroconf_instance: ZeroconfInstanceType | None = None,
         name: str | None = None,
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
+        allow_plaintext_fallback: bool = False,
     ) -> None:
         """Initialize ReconnectingLogic.
 
         :param client: initialized :class:`APIClient` to reconnect for
         :param on_connect: Coroutine Function to call when connected.
         :param on_disconnect: Coroutine Function to call when disconnected.
+        :param allow_plaintext_fallback: If True and the client has a noise
+            PSK configured, downgrade to plaintext (and log a warning) when
+            the device responds with the plaintext protocol marker, instead
+            of failing repeatedly. Defaults to False so callers must opt in.
+
+            This is a security downgrade: an attacker on the network can
+            impersonate the device in plaintext and strip encryption. Only
+            enable it for connections that are read-only from the client's
+            side — e.g. the logger stream, which only receives data from
+            the device and never sends commands or secrets. Do not enable
+            it for Home Assistant or any integration that issues commands
+            to the device.
         """
         self.loop = asyncio.get_running_loop()
         self._cli = client
@@ -94,6 +108,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
+        self._allow_plaintext_fallback = allow_plaintext_fallback
         self._zeroconf_manager = client.zeroconf_manager
         if zeroconf_instance is not None:
             self._zeroconf_manager.set_instance(zeroconf_instance)
@@ -249,6 +264,22 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         if self._on_connect_error_cb is not None:
             await self._on_connect_error_cb(err)
         self._async_log_connection_error(err)
+        if (
+            self._allow_plaintext_fallback
+            and isinstance(err, EncryptionPlaintextAPIError)
+            and self._cli.noise_psk is not None
+        ):
+            # Device firmware is running plaintext but the client has a
+            # PSK configured. Downgrade so subsequent reconnect attempts
+            # use plaintext; warn so the caller sees that it happened.
+            _LOGGER.warning(
+                "%s: Device is using plaintext protocol; disabling "
+                "encryption for this session and retrying",
+                self._cli.log_name,
+            )
+            self._cli.clear_noise_psk()
+            self._tries = 0
+            return
         if isinstance(err, AUTH_EXCEPTIONS):
             # If we get an encryption or password error,
             # backoff for the maximum amount of time
