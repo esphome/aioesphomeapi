@@ -1,5 +1,5 @@
 aiohappyeyeballs>=2.6.1
-async-interrupt>=1.2.0
+async-interrupt>=1.2.2
 protobuf>=6,<8
 tzlocal>=5.0,<6
 zeroconf>=0.148.0,<2.0
