@@ -29,10 +29,21 @@ async def async_run(
     dump_config: bool = True,
     name: str | None = None,
     subscribe_states: bool = True,
+    allow_plaintext_fallback: bool = False,
 ) -> Callable[[], Coroutine[Any, Any, None]]:
     """Run logs until canceled.
 
     Returns a coroutine that can be awaited to stop the logs.
+
+    If ``allow_plaintext_fallback`` is True, the client will downgrade to
+    plaintext (and log a warning) when connecting with a PSK to a device
+    running plaintext firmware, instead of failing repeatedly. Defaults
+    to False so callers must opt in.
+
+    The logger stream is one-way (device → client), so enabling the
+    fallback here only exposes log output to an on-path attacker — no
+    commands or secrets are sent. Do not enable the equivalent flag on
+    control-plane connections (e.g. Home Assistant).
     """
     dumped_config = not dump_config
 
@@ -63,6 +74,7 @@ async def async_run(
         on_disconnect=on_disconnect,
         zeroconf_instance=aio_zeroconf_instance,
         name=name,
+        allow_plaintext_fallback=allow_plaintext_fallback,
     )
     await logic.start()
 

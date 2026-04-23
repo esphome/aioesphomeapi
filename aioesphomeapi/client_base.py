@@ -351,6 +351,16 @@ class APIClientBase:
     def noise_psk(self) -> str | None:
         return self._params.noise_psk
 
+    def clear_noise_psk(self) -> None:
+        """Clear the noise PSK so future connections use plaintext.
+
+        This is a security downgrade — callers must only invoke it after
+        explicit opt-in (e.g. ``ReconnectLogic(allow_plaintext_fallback=
+        True)`` for a one-way logger stream). Never call it for control-
+        plane clients such as Home Assistant.
+        """
+        self._params.noise_psk = None
+
     @property
     def connected_address(self) -> str | None:
         """Return the address we are currently connected to, or None if not connected."""
