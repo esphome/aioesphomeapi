@@ -83,6 +83,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
+    ListEntitiesRadioFrequencyResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
@@ -536,6 +537,7 @@ MESSAGE_TYPE_TO_PROTO = {
     145: BluetoothSetConnectionParamsRequest,
     146: BluetoothSetConnectionParamsResponse,
     147: SerialProxyRequestResponse,
+    148: ListEntitiesRadioFrequencyResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
