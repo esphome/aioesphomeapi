@@ -1807,7 +1807,7 @@ class APIClient(APIClientBase):
         handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
         handle_audio: (
             Callable[
-                [bytes],
+                [bytes, bytes | None],
                 Coroutine[Any, Any, None],
             ]
             | None
@@ -1878,7 +1878,7 @@ class APIClient(APIClientBase):
                 if audio.end:
                     self._create_background_task(handle_stop(False))
                 else:
-                    self._create_background_task(handle_audio(audio.data))
+                    self._create_background_task(handle_audio(audio.data, audio.data2))
 
             remove_callbacks.append(
                 connection.add_message_callback(

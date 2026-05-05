@@ -4237,6 +4237,7 @@ async def test_subscribe_voice_assistant_api_audio(
     stops = []
     aborts = []
     data_received = 0
+    data2_received = 0
 
     async def handle_start(
         conversation_id: str,
@@ -4253,9 +4254,11 @@ async def test_subscribe_voice_assistant_api_audio(
         else:
             stops.append(True)
 
-    async def handle_audio(data: bytes) -> None:
-        nonlocal data_received
+    async def handle_audio(data: bytes, data2: bytes | None = None) -> None:
+        nonlocal data_received, data2_received
         data_received += len(data)
+        if data2:
+            data2_received += len(data2)
 
     unsub = client.subscribe_voice_assistant(
         handle_start=handle_start, handle_stop=handle_stop, handle_audio=handle_audio
@@ -4298,10 +4301,12 @@ async def test_subscribe_voice_assistant_api_audio(
 
     response: message.Message = VoiceAssistantAudio(
         data=bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+        data2=bytes([1, 2, 3, 4, 5]),  # second audio channel
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
     assert data_received == 10
+    assert data2_received == 5
 
     response: message.Message = VoiceAssistantAudio(
         end=True,

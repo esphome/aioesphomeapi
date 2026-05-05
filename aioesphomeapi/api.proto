@@ -2025,6 +2025,7 @@ message VoiceAssistantAudio {
 
   bytes data = 1 [(pointer_to_buffer) = true];
   bool end = 2;
+  bytes data2 = 3 [(pointer_to_buffer) = true];
 }
 
 enum VoiceAssistantTimerEvent {
