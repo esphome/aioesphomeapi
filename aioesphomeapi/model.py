@@ -1384,6 +1384,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "valve": ValveInfo,
     "event": EventInfo,
     "update": UpdateInfo,
+    "water_heater": WaterHeaterInfo,
     "infrared": InfraredInfo,
     "radio_frequency": RadioFrequencyInfo,
 }
