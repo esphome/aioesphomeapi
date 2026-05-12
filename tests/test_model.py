@@ -78,6 +78,7 @@ from aioesphomeapi.api_pb2 import (
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
+    COMPONENT_TYPE_TO_INFO,
     AlarmControlPanelEntityState,
     AlarmControlPanelInfo,
     APIIntEnum,
@@ -106,6 +107,7 @@ from aioesphomeapi.model import (
     DateTimeInfo,
     DateTimeState,
     DeviceInfo,
+    EntityInfo,
     EntityState,
     Event,
     EventInfo,
@@ -2349,4 +2351,21 @@ def test_lock_state_enum_is_dense_and_unique() -> None:
     assert len(values) == len(set(values)), f"LockState has duplicate values: {values}"
     assert values == list(range(len(values))), (
         f"LockState must be contiguous from 0; got {values}"
+    )
+
+
+def test_all_entity_info_subclasses_registered() -> None:
+    """Every EntityInfo subclass must be registered in COMPONENT_TYPE_TO_INFO
+    and _TYPE_TO_NAME so external consumers (e.g. Home Assistant) and unique-id
+    generation can resolve every entity type."""
+    subclass_names = {cls.__name__ for cls in EntityInfo.__subclasses__()}
+    component_names = {cls.__name__ for cls in COMPONENT_TYPE_TO_INFO.values()}
+    type_to_name_names = {cls.__name__ for cls in _TYPE_TO_NAME}
+    assert subclass_names <= component_names, (
+        f"EntityInfo subclasses missing from COMPONENT_TYPE_TO_INFO: "
+        f"{sorted(subclass_names - component_names)}"
+    )
+    assert subclass_names <= type_to_name_names, (
+        f"EntityInfo subclasses missing from _TYPE_TO_NAME: "
+        f"{sorted(subclass_names - type_to_name_names)}"
     )
