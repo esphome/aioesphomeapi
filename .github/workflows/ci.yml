@@ -123,7 +123,7 @@ jobs:
           name: genrated-proto-files
           path: aioesphomeapi/*pb2.py
         if: ${{ failure() && matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native tests
+      - run: pytest -q -n auto --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native --ignore=tests/benchmarks tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2  # v6.0.0
@@ -147,7 +147,7 @@ jobs:
             pip3 install -r requirements/base.txt -r requirements/test.txt
             pip3 install -e .
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@c381be0bfd20e844fb45594f6aa182ffcd94545c  # v4.15.0
+        uses: CodSpeedHQ/action@3194d9a39c4d46684cb44bf7207fc56626aad8fd  # v4.15.1
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
