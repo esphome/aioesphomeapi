@@ -41,6 +41,9 @@ def singleton(
                     # On exception, remove the future so next call can retry
                     # Set exception first so waiters get it, then remove from cache
                     future.set_exception(e)
+                    # Suppress "Future exception was never retrieved" when there
+                    # are no concurrent waiters; awaiters still receive it.
+                    future.exception()
                     del _SINGLETON_CACHE[key]
                     raise
                 else:
