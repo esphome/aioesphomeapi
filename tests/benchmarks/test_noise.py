@@ -28,8 +28,14 @@ NOISE_PAYLOAD_SIZES = [0, 64, 128, 1024, 16 * 1024]
 async def _make_ready_helper(
     writes: list[bytes],
 ) -> tuple[MockAPINoiseFrameHelper, EncryptCipher]:
-    """Drive a noise frame helper through handshake, returning ready helper + a
-    paired encrypt cipher for the responder side (used for decrypt benches)."""
+    """Drive a noise frame helper through handshake.
+
+    Returns the ready helper plus the responder side's encrypt cipher. The
+    cipher is returned so encrypt-path benchmarks can exercise the underlying
+    ChaCha20Poly1305 (and framing) without having to reach into the helper's
+    private cdef state for its own encrypt cipher; either side's cipher does
+    the same work per call.
+    """
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     psk_bytes = base64.b64decode(noise_psk)
 
