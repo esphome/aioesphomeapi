@@ -2,9 +2,10 @@
 
 import asyncio
 import base64
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable
 
 import pytest
+import pytest_asyncio
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
@@ -20,6 +21,8 @@ from ..common import (
     _mock_responder_proto,
     mock_data_received,
 )
+
+NOISE_PAYLOAD_SIZES = [0, 64, 128, 1024, 16 * 1024]
 
 
 async def _make_ready_helper(
@@ -65,7 +68,20 @@ async def _make_ready_helper(
     return helper, responder_encrypt
 
 
-@pytest.mark.parametrize("payload_size", [0, 64, 128, 1024, 16 * 1024])
+@pytest_asyncio.fixture
+async def ready_noise_helper() -> AsyncIterator[
+    tuple[MockAPINoiseFrameHelper, EncryptCipher]
+]:
+    """Hand back a handshaken noise helper paired with a responder cipher."""
+    writes: list[bytes] = []
+    helper, encrypt_cipher = await _make_ready_helper(writes)
+    try:
+        yield helper, encrypt_cipher
+    finally:
+        helper.close()
+
+
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
 async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) -> None:
     """Benchmark raw noise protocol."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
@@ -134,16 +150,17 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     helper.close()
 
 
-@pytest.mark.parametrize("payload_size", [0, 64, 128, 1024, 16 * 1024])
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
 async def test_noise_encrypt_cipher(
-    benchmark: BenchmarkFixture, payload_size: int
+    benchmark: BenchmarkFixture,
+    payload_size: int,
+    ready_noise_helper: tuple[MockAPINoiseFrameHelper, EncryptCipher],
 ) -> None:
     """Benchmark raw EncryptCipher.encrypt across payload sizes.
 
     Isolates ChaCha20Poly1305 + nonce packing cost from framing overhead.
     """
-    writes: list[bytes] = []
-    helper, encrypt_cipher = await _make_ready_helper(writes)
+    _, encrypt_cipher = ready_noise_helper
     payload = b"x" * payload_size
 
     @benchmark
@@ -151,16 +168,15 @@ async def test_noise_encrypt_cipher(
         for _ in range(100):
             encrypt_cipher.encrypt(payload)
 
-    helper.close()
 
-
-@pytest.mark.parametrize("payload_size", [0, 64, 128, 1024, 16 * 1024])
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
 async def test_noise_make_packets(
-    benchmark: BenchmarkFixture, payload_size: int
+    benchmark: BenchmarkFixture,
+    payload_size: int,
+    ready_noise_helper: tuple[MockAPINoiseFrameHelper, EncryptCipher],
 ) -> None:
     """Benchmark make_noise_packets, the full encrypt + framing cost."""
-    writes: list[bytes] = []
-    helper, encrypt_cipher = await _make_ready_helper(writes)
+    _, encrypt_cipher = ready_noise_helper
     packet = (42, b"x" * payload_size)
 
     @benchmark
@@ -168,20 +184,19 @@ async def test_noise_make_packets(
         for _ in range(100):
             make_noise_packets([packet], encrypt_cipher)
 
-    helper.close()
 
-
-@pytest.mark.parametrize("payload_size", [0, 64, 128, 1024, 16 * 1024])
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
 async def test_noise_write_packets(
-    benchmark: BenchmarkFixture, payload_size: int
+    benchmark: BenchmarkFixture,
+    payload_size: int,
+    ready_noise_helper: tuple[MockAPINoiseFrameHelper, EncryptCipher],
 ) -> None:
     """Benchmark APINoiseFrameHelper.write_packets, the user-visible send path.
 
     This mirrors what happens for every command (light, switch, climate, etc.)
     sent over a noise connection.
     """
-    writes: list[bytes] = []
-    helper, _ = await _make_ready_helper(writes)
+    helper, _ = ready_noise_helper
 
     def _drop(data: Iterable[bytes]) -> None:
         """Skip the actual write so we measure only frame construction."""
@@ -193,5 +208,3 @@ async def test_noise_write_packets(
     def write_packets() -> None:
         for _ in range(100):
             helper.write_packets(packets, False)
-
-    helper.close()

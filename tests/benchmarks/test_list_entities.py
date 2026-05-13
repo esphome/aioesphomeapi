@@ -14,7 +14,6 @@ from functools import partial
 
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
-from aioesphomeapi import APIConnection
 from aioesphomeapi.api_pb2 import (
     ListEntitiesBinarySensorResponse,
     ListEntitiesClimateResponse,
@@ -22,7 +21,6 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesSensorResponse,
     ListEntitiesSwitchResponse,
 )
-from aioesphomeapi.client import APIClient
 from aioesphomeapi.model import (
     BinarySensorInfo,
     ClimateInfo,
@@ -31,17 +29,10 @@ from aioesphomeapi.model import (
     SwitchInfo,
 )
 
-
-def _make_connection() -> APIConnection:
-    client = APIClient("fake.address", 6052, None)
-    return APIConnection(client._params, lambda expected_disconnect: None, False, None)
+from .helpers import bench_process_packet, make_connection, noop
 
 
-def _noop(msg: object) -> None:
-    """No-op callback."""
-
-
-def _build_sensor_info() -> ListEntitiesSensorResponse:
+def _sensor_info() -> ListEntitiesSensorResponse:
     return ListEntitiesSensorResponse(
         object_id="living_room_temperature",
         key=12345678,
@@ -57,7 +48,7 @@ def _build_sensor_info() -> ListEntitiesSensorResponse:
     )
 
 
-def _build_binary_sensor_info() -> ListEntitiesBinarySensorResponse:
+def _binary_sensor_info() -> ListEntitiesBinarySensorResponse:
     return ListEntitiesBinarySensorResponse(
         object_id="motion_sensor",
         key=12345679,
@@ -70,7 +61,7 @@ def _build_binary_sensor_info() -> ListEntitiesBinarySensorResponse:
     )
 
 
-def _build_switch_info() -> ListEntitiesSwitchResponse:
+def _switch_info() -> ListEntitiesSwitchResponse:
     return ListEntitiesSwitchResponse(
         object_id="relay_1",
         key=12345680,
@@ -83,7 +74,7 @@ def _build_switch_info() -> ListEntitiesSwitchResponse:
     )
 
 
-def _build_light_info() -> ListEntitiesLightResponse:
+def _light_info() -> ListEntitiesLightResponse:
     return ListEntitiesLightResponse(
         object_id="rgbww_light",
         key=12345681,
@@ -102,7 +93,7 @@ def _build_light_info() -> ListEntitiesLightResponse:
     )
 
 
-def _build_climate_info() -> ListEntitiesClimateResponse:
+def _climate_info() -> ListEntitiesClimateResponse:
     return ListEntitiesClimateResponse(
         object_id="hvac",
         key=12345682,
@@ -134,57 +125,41 @@ def _build_climate_info() -> ListEntitiesClimateResponse:
 
 def test_list_entities_sensor_from_pb(benchmark: BenchmarkFixture) -> None:
     """Benchmark SensorInfo.from_pb (model construction cost only)."""
-    msg = _build_sensor_info()
-    benchmark(partial(SensorInfo.from_pb, msg))
+    benchmark(partial(SensorInfo.from_pb, _sensor_info()))
 
 
 def test_list_entities_binary_sensor_from_pb(benchmark: BenchmarkFixture) -> None:
     """Benchmark BinarySensorInfo.from_pb."""
-    msg = _build_binary_sensor_info()
-    benchmark(partial(BinarySensorInfo.from_pb, msg))
+    benchmark(partial(BinarySensorInfo.from_pb, _binary_sensor_info()))
 
 
 def test_list_entities_switch_from_pb(benchmark: BenchmarkFixture) -> None:
     """Benchmark SwitchInfo.from_pb."""
-    msg = _build_switch_info()
-    benchmark(partial(SwitchInfo.from_pb, msg))
+    benchmark(partial(SwitchInfo.from_pb, _switch_info()))
 
 
 def test_list_entities_light_from_pb(benchmark: BenchmarkFixture) -> None:
     """Benchmark LightInfo.from_pb (lists + enum convert)."""
-    msg = _build_light_info()
-    benchmark(partial(LightInfo.from_pb, msg))
+    benchmark(partial(LightInfo.from_pb, _light_info()))
 
 
 def test_list_entities_climate_from_pb(benchmark: BenchmarkFixture) -> None:
     """Benchmark ClimateInfo.from_pb (widest entity info, many list converts)."""
-    msg = _build_climate_info()
-    benchmark(partial(ClimateInfo.from_pb, msg))
+    benchmark(partial(ClimateInfo.from_pb, _climate_info()))
 
 
 async def test_list_entities_sensor_process_packet(
     benchmark: BenchmarkFixture,
 ) -> None:
-    """Benchmark process_packet for a sensor list entities response.
-
-    Covers protobuf class lookup, instantiation, parse, and handler dispatch.
-    """
-    data = _build_sensor_info().SerializeToString()
-    connection = _make_connection()
-    connection.add_message_callback(_noop, (ListEntitiesSensorResponse,))
-    process = partial(connection.process_packet, 16, data)
-    benchmark(process)
+    """Benchmark process_packet for a sensor list entities response."""
+    benchmark(bench_process_packet(_sensor_info(), 16))
 
 
 async def test_list_entities_climate_process_packet(
     benchmark: BenchmarkFixture,
 ) -> None:
     """Benchmark process_packet for a climate list entities response."""
-    data = _build_climate_info().SerializeToString()
-    connection = _make_connection()
-    connection.add_message_callback(_noop, (ListEntitiesClimateResponse,))
-    process = partial(connection.process_packet, 46, data)
-    benchmark(process)
+    benchmark(bench_process_packet(_climate_info(), 46))
 
 
 async def test_list_entities_typical_device_batch(
@@ -196,15 +171,15 @@ async def test_list_entities_typical_device_batch(
     relay, a climate component, and an RGBWW light) that emits a mix of list
     entities responses at connect time.
     """
-    sensor_msg = _build_sensor_info().SerializeToString()
-    binary_msg = _build_binary_sensor_info().SerializeToString()
-    switch_msg = _build_switch_info().SerializeToString()
-    light_msg = _build_light_info().SerializeToString()
-    climate_msg = _build_climate_info().SerializeToString()
+    sensor_msg = _sensor_info().SerializeToString()
+    binary_msg = _binary_sensor_info().SerializeToString()
+    switch_msg = _switch_info().SerializeToString()
+    light_msg = _light_info().SerializeToString()
+    climate_msg = _climate_info().SerializeToString()
 
-    connection = _make_connection()
+    connection = make_connection()
     connection.add_message_callback(
-        _noop,
+        noop,
         (
             ListEntitiesSensorResponse,
             ListEntitiesBinarySensorResponse,
@@ -213,7 +188,6 @@ async def test_list_entities_typical_device_batch(
             ListEntitiesClimateResponse,
         ),
     )
-
     process_packet = connection.process_packet
     batch = (
         (16, sensor_msg),
