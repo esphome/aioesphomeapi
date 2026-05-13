@@ -151,4 +151,4 @@ jobs:
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: pytest tests/benchmarks --codspeed
+          run: pytest tests/benchmarks --codspeed --durations=10
