@@ -1078,6 +1078,81 @@ async def test_noise_frame_helper_sanitizes_handshake_explanation() -> None:
         assert ch not in msg
 
 
+async def test_noise_frame_helper_name_check_uses_raw_value() -> None:
+    """Test sanitization can't be used to bypass the expected_name check."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # "servicetest\r\n" sanitizes to "servicetest" — but the expected_name
+    # comparison must run against the raw decoded value, so this peer should
+    # be rejected, not accepted.
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\r\n\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadNameAPIError):
+        await helper.ready_future
+
+
+async def test_noise_frame_helper_mac_check_uses_raw_value() -> None:
+    """Test sanitization can't be used to bypass the expected_mac check."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac="aabbccddeeff",
+    )
+
+    # "aabbccddeeff\n" sanitizes to "aabbccddeeff" — but the expected_mac
+    # comparison must use the raw value and reject this peer.
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0aabbccddeeff\n\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadMACAddressAPIError):
+        await helper.ready_future
+
+
+async def test_noise_frame_helper_handshake_explanation_uses_raw_value() -> None:
+    """Test sanitization can't smuggle Handshake-MAC-failure misclassification."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # "Handshake MAC failure\0extra" sanitizes to "Handshake MAC failure" but
+    # the raw value differs, so it must be classified as a generic handshake
+    # error rather than InvalidEncryptionKeyAPIError.
+    explanation = b"Handshake MAC failure\0extra"
+    error_pkt = b"\x01" + explanation
+    error_pkg_length = len(error_pkt)
+    error_header = bytes((1, (error_pkg_length >> 8) & 0xFF, error_pkg_length & 0xFF))
+    mock_data_received(helper, error_header + error_pkt)
+
+    with pytest.raises(HandshakeAPIError) as exc_info:
+        await helper.ready_future
+    # Not the dedicated InvalidEncryptionKeyAPIError, just a HandshakeAPIError.
+    assert not isinstance(exc_info.value, InvalidEncryptionKeyAPIError)
+
+
 async def test_noise_frame_helper_caps_server_name_length() -> None:
     """Test an oversized name field is truncated rather than logged in full."""
     connection, _ = _make_mock_connection()

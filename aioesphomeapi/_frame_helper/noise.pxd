@@ -20,7 +20,7 @@ cdef int _MAX_NAME_LEN
 cdef int _MAX_MAC_LEN
 cdef int _MAX_EXPLANATION_LEN
 
-cdef str _safe_label(bytes raw, int limit)
+cdef str _safe_label_str(str raw, int limit)
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
@@ -55,7 +55,9 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         server_name_i=int,
         mac_address_i=int,
         mac_address=str,
+        mac_address_raw=str,
         server_name=str,
+        server_name_raw=str,
     )
     cdef void _handle_hello(self, bytes server_hello) except *
 
