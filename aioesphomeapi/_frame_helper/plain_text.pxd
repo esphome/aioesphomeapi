@@ -6,6 +6,12 @@ from .packets cimport make_plain_text_packets
 
 cdef bint TYPE_CHECKING
 
+cdef int _MAX_VARUINT_BYTES
+cdef unsigned int _MAX_VARUINT_BITPOS
+cdef int _MAX_PLAINTEXT_FRAME_SIZE
+cdef int _VARUINT_INCOMPLETE
+cdef int _VARUINT_PROTOCOL_ERROR
+
 
 cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
