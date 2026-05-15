@@ -16,7 +16,10 @@ from aioesphomeapi._frame_helper.packets import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
     _varuint_to_bytes as varuint_to_bytes,
 )
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import (
+    MAX_PLAINTEXT_FRAME_SIZE,
+    APIPlaintextFrameHelper,
+)
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -757,6 +760,140 @@ async def test_init_plaintext_with_wrong_preamble(
 
     with pytest.raises(ProtocolAPIError):
         await task
+
+
+async def test_plaintext_frame_helper_rejects_overlong_varuint() -> None:
+    """Test a never-terminating varuint is rejected instead of growing the buffer forever."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Six bytes with the high bit always set — would otherwise be accumulated
+    # into an ever-growing bigint while the varuint is rescanned each chunk.
+    mock_data_received(helper, b"\x80\x80\x80\x80\x80\x80")
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_incomplete_preamble_waits() -> None:
+    """Test 3 continuation bytes for the preamble varuint pause parsing rather than close."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # 3 continuation bytes meets the loop guard (>= 3) but the preamble
+    # varuint is incomplete — bitpos is 21, still under the 28-bit cap.
+    # _read_varuint should return _VARUINT_INCOMPLETE; data_received must
+    # leave the connection open so the next chunk can finish the varuint.
+    mock_data_received(helper, b"\x80\x80\x80")
+
+    assert not packets
+    assert connection._fatal_exception is None
+
+
+async def test_plaintext_frame_helper_rejects_oversized_frame_length() -> None:
+    """Test a length varuint above the per-frame cap closes the connection."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Valid preamble + a length one byte over the cap + any msg_type.
+    mock_data_received(
+        helper,
+        PREAMBLE + varuint_to_bytes(MAX_PLAINTEXT_FRAME_SIZE + 1) + varuint_to_bytes(1),
+    )
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_rejects_5_byte_high_bit_varuint() -> None:
+    """Test a 5-byte varuint that would decode to a value with bit 31 set is rejected.
+
+    Regression for the Cython unsigned->signed cast trap raised in PR #1651
+    review: with `result="unsigned int"` and `cdef int` return, a value
+    >= 2**31 would otherwise come back negative and silently hit the
+    incomplete-varuint path. The 4-byte cap rejects the 5th byte at the
+    bitpos limit before any cast can happen.
+    """
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Bytes that would decode to 0xFFFFFFFF (high bit set) under a 5-byte
+    # varuint: \xff\xff\xff\xff\x0f. The 4-byte cap fires before we ever
+    # consume the 5th byte.
+    mock_data_received(helper, PREAMBLE + b"\xff\xff\xff\xff\x0f")
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_rejects_overlong_length_varuint() -> None:
+    """Test a never-terminating length varuint after a valid preamble closes the connection."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Valid 0x00 preamble, then 6 continuation bytes for the length varuint.
+    mock_data_received(helper, PREAMBLE + b"\x80\x80\x80\x80\x80\x80")
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_rejects_overlong_msg_type_varuint() -> None:
+    """Test a never-terminating msg_type varuint after a valid length closes the connection."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Valid preamble + valid 1-byte length + 6 continuation bytes for msg_type.
+    mock_data_received(
+        helper, PREAMBLE + varuint_to_bytes(0) + b"\x80\x80\x80\x80\x80\x80"
+    )
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_accepts_max_frame_length() -> None:
+    """Test a frame at the size cap is still accepted (off-by-one guard)."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    payload = b"\x42" * MAX_PLAINTEXT_FRAME_SIZE
+    mock_data_received(
+        helper,
+        PREAMBLE
+        + varuint_to_bytes(MAX_PLAINTEXT_FRAME_SIZE)
+        + varuint_to_bytes(42)
+        + payload,
+    )
+
+    assert connection._fatal_exception is None
+    assert packets == [(42, payload)]
 
 
 async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:

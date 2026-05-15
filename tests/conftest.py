@@ -18,6 +18,7 @@ from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
+from aioesphomeapi.singleton import _SINGLETON_CACHE
 
 from .common import (
     _create_mock_transport_protocol,
@@ -259,6 +260,16 @@ def long_repr_strings() -> Generator[None]:
     finally:
         arepr.maxstring = original_maxstring
         arepr.maxother = original_maxother
+
+
+@pytest.fixture(autouse=True)
+def _clear_singleton_cache() -> Generator[None]:
+    """Reset the global singleton cache so a Future from a previous test's
+    event loop can't be awaited from the current test's loop and trigger
+    'await wasn't used with future' on Python 3.14."""
+    _SINGLETON_CACHE.clear()
+    yield
+    _SINGLETON_CACHE.clear()
 
 
 @pytest.fixture(autouse=True)
