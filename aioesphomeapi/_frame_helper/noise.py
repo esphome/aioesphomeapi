@@ -44,6 +44,35 @@ NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
 
+# Caps match the firmware's actual wire-format limits:
+#   - name: ESPHOME_DEVICE_NAME_MAX_LEN = 31 (validate_hostname in core/config.py)
+#   - mac: MAC_ADDRESS_BUFFER_SIZE - 1 = 12 (lowercase hex, no separator)
+#   - explanation: 32-byte handshake-reject buffer minus the 1-byte failure code
+# A small extra margin on each lets benign forward-compat tweaks (e.g. firmware
+# bumping the max name length by a few chars) through without breaking clients.
+# MAX_* are the Python-importable forms (used by tests); _MAX_* are the cdef
+# int aliases used internally per the .pxd.
+MAX_NAME_LEN = 32
+MAX_MAC_LEN = 16
+MAX_EXPLANATION_LEN = 64
+_MAX_NAME_LEN = MAX_NAME_LEN
+_MAX_MAC_LEN = MAX_MAC_LEN
+_MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
+
+
+def _safe_label_str(raw: str, limit: int_) -> str:
+    """Strip non-printables and length-cap a peer-supplied label for log output.
+
+    Used for the unauthenticated server name, MAC address, and handshake-
+    failure explanation a peer puts on the wire before the PSK-authenticated
+    handshake completes. Callers keep the raw decoded value for protocol
+    comparisons (so a peer can't bypass `expected_name` by appending
+    `\\r\\n`) and use the sanitized value only for storage and log/error
+    formatting, where CRLF and ANSI escapes would otherwise let an on-path
+    attacker forge log lines or hijack terminals.
+    """
+    return "".join(c for c in raw if c.isprintable())[:limit]
+
 
 class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
@@ -190,11 +219,19 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Server name is encoded as a string followed by a zero byte after the chosen proto byte
         server_name_i = server_hello.find(b"\0", 1)
         if server_name_i != -1:
-            # server name found, this extension was added in 2022.2
-            server_name = server_hello[1:server_name_i].decode()
+            # server name found, this extension was added in 2022.2.
+            # Compare against the raw decoded value so a peer can't sneak
+            # past expected_name by appending non-printable bytes that the
+            # sanitizer would strip; only the value used for logs and for
+            # later self-storage gets sanitized + length-capped.
+            server_name_raw = server_hello[1:server_name_i].decode("utf-8", "replace")
+            server_name = _safe_label_str(server_name_raw, _MAX_NAME_LEN)
             self._server_name = server_name
 
-            if self._expected_name is not None and self._expected_name != server_name:
+            if (
+                self._expected_name is not None
+                and self._expected_name != server_name_raw
+            ):
                 self._handle_error_and_close(
                     BadNameAPIError(
                         f"{self._log_name}: Server sent a different name '{server_name}'",
@@ -205,10 +242,17 @@ class APINoiseFrameHelper(APIFrameHelper):
 
             mac_address_i = server_hello.find(b"\0", server_name_i + 1)
             if mac_address_i != -1:
-                # mac address found, this extension was added in 2025.4
-                mac_address = server_hello[server_name_i + 1 : mac_address_i].decode()
+                # mac address found, this extension was added in 2025.4.
+                # Same raw-vs-sanitized split as the name field above.
+                mac_address_raw = server_hello[
+                    server_name_i + 1 : mac_address_i
+                ].decode("utf-8", "replace")
+                mac_address = _safe_label_str(mac_address_raw, _MAX_MAC_LEN)
                 self._server_mac = mac_address
-                if self._expected_mac is not None and self._expected_mac != mac_address:
+                if (
+                    self._expected_mac is not None
+                    and self._expected_mac != mac_address_raw
+                ):
                     self._handle_error_and_close(
                         BadMACAddressAPIError(
                             f"{self._log_name}: Server sent a different mac '{mac_address}'",
@@ -256,8 +300,13 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _error_on_incorrect_preamble(self, msg: bytes) -> None:
         """Handle an incorrect preamble."""
-        explanation = msg[1:].decode()
-        if explanation != "Handshake MAC failure":
+        # Compare against the raw decoded value so a peer can't get itself
+        # mis-classified as InvalidEncryptionKeyAPIError by appending
+        # non-printable bytes to the canonical "Handshake MAC failure" string;
+        # only the text included in the error message gets sanitized.
+        explanation_raw = msg[1:].decode("utf-8", "replace")
+        explanation = _safe_label_str(explanation_raw, _MAX_EXPLANATION_LEN)
+        if explanation_raw != "Handshake MAC failure":
             exc = HandshakeAPIError(
                 f"{self._log_name}: Handshake failure: {explanation}"
             )
