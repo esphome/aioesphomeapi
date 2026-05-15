@@ -180,6 +180,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         self._connection_state = state
 
+    def _first_try_log_level(self) -> int:
+        """WARNING on the first attempt of a reconnect cycle, DEBUG after."""
+        return logging.WARNING if self._tries == 0 else logging.DEBUG
+
     def _async_log_connection_error(self, err: Exception) -> None:
         """Log connection errors."""
         # UnhandledAPIConnectionError is a special case in client
@@ -194,10 +198,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         elif isinstance(err, APIConnectionCancelledError):
             # APIConnectionCancelledError is harmless and should always be DEBUG
             level = logging.DEBUG
-        elif self._tries == 0:
-            level = logging.WARNING
         else:
-            level = logging.DEBUG
+            level = self._first_try_log_level()
         _LOGGER.log(
             level,
             "Can't connect to ESPHome API for %s: %s (%s)",
@@ -454,7 +456,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 async_zc.zeroconf.async_add_listener(self, None)
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.log(
-                    logging.WARNING if self._tries == 0 else logging.DEBUG,
+                    self._first_try_log_level(),
                     "Could not start zeroconf listener for %s: %s (%s); "
                     "continuing without mDNS-triggered reconnects",
                     self._cli.log_name,
