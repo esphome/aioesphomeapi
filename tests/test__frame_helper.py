@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
-from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
+from aioesphomeapi._frame_helper.noise import MAX_NAME_LEN, APINoiseFrameHelper
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
 from aioesphomeapi._frame_helper.packets import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
@@ -987,6 +987,118 @@ async def test_noise_frame_helper_wrong_protocol():
         HandshakeAPIError, match="Unknown protocol selected by client 5"
     ):
         await helper.ready_future
+
+
+async def test_noise_frame_helper_sanitizes_server_name_in_error() -> None:
+    """Test control chars in the unauthenticated server_name are stripped from logs."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # Inject CRLF + ANSI escape into the unauthenticated name field. These
+    # would otherwise land in operator-visible logs unfiltered.
+    nasty_name = b"evil\r\nFAKE LOG LINE\x1b[31m"
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01" + nasty_name + b"\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await helper.ready_future
+    msg = str(exc_info.value)
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in msg
+    # The sanitized name still survives so operators can see what happened,
+    # and the structured received_name field on the exception is sanitized too.
+    assert "evilFAKE LOG LINE[31m" in msg
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in exc_info.value.received_name
+
+
+async def test_noise_frame_helper_sanitizes_server_mac_in_error() -> None:
+    """Test control chars in the unauthenticated mac field are stripped from logs."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac="aabbccddeeff",
+    )
+
+    nasty_mac = b"112233\r\nFAKE\x1bbad"
+    hello_pkt_with_header = _make_noise_hello_pkt(
+        b"\x01servicetest\0" + nasty_mac + b"\0"
+    )
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadMACAddressAPIError) as exc_info:
+        await helper.ready_future
+    msg = str(exc_info.value)
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in msg
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in exc_info.value.received_mac
+
+
+async def test_noise_frame_helper_sanitizes_handshake_explanation() -> None:
+    """Test control chars in the handshake-failure explanation are stripped from logs."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # Get past the hello phase so the next preamble triggers
+    # _error_on_incorrect_preamble.
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    nasty_explanation = b"boom\r\nFAKE LOG\x1b[31m"
+    error_pkt = b"\x01" + nasty_explanation
+    error_pkg_length = len(error_pkt)
+    error_header = bytes((1, (error_pkg_length >> 8) & 0xFF, error_pkg_length & 0xFF))
+    mock_data_received(helper, error_header + error_pkt)
+
+    with pytest.raises(HandshakeAPIError) as exc_info:
+        await helper.ready_future
+    msg = str(exc_info.value)
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in msg
+
+
+async def test_noise_frame_helper_caps_server_name_length() -> None:
+    """Test an oversized name field is truncated rather than logged in full."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # 4 KiB of 'a' as the "name" — would otherwise end up in logs verbatim.
+    huge = b"a" * 4096
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01" + huge + b"\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await helper.ready_future
+    assert len(exc_info.value.received_name) == MAX_NAME_LEN
 
 
 async def test_init_noise_attempted_when_esp_uses_plaintext(

@@ -16,6 +16,12 @@ cdef bytes NOISE_HELLO
 cdef object InvalidTag
 cdef object ESPHOME_NOISE_BACKEND
 
+cdef int _MAX_NAME_LEN
+cdef int _MAX_MAC_LEN
+cdef int _MAX_EXPLANATION_LEN
+
+cdef str _safe_label(bytes raw, int limit)
+
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef object _noise_psk

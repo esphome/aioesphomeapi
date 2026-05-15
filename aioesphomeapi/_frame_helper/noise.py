@@ -44,6 +44,34 @@ NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
 
+# Caps match the firmware's actual wire-format limits:
+#   - name: ESPHOME_DEVICE_NAME_MAX_LEN = 31 (validate_hostname in core/config.py)
+#   - mac: MAC_ADDRESS_BUFFER_SIZE - 1 = 12 (lowercase hex, no separator)
+#   - explanation: 32-byte handshake-reject buffer minus the 1-byte failure code
+# A small extra margin on each lets benign forward-compat tweaks (e.g. firmware
+# bumping the max name length by a few chars) through without breaking clients.
+# MAX_* are the Python-importable forms (used by tests); _MAX_* are the cdef
+# int aliases used internally per the .pxd.
+MAX_NAME_LEN = 32
+MAX_MAC_LEN = 16
+MAX_EXPLANATION_LEN = 64
+_MAX_NAME_LEN = MAX_NAME_LEN
+_MAX_MAC_LEN = MAX_MAC_LEN
+_MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
+
+
+def _safe_label(raw: bytes, limit: int_) -> str:
+    """Decode and sanitize a peer-supplied label for safe inclusion in logs.
+
+    The Noise hello phase exchanges the server name, MAC address, and
+    handshake-failure explanation as raw bytes before the PSK-authenticated
+    handshake completes. An on-path attacker can put anything in those
+    fields. Strip non-printable characters (newlines, ANSI escapes, NULs,
+    bell, etc.) so they can't inject log lines, smuggle terminal escape
+    sequences into operator-visible logs, or crash a strict UTF-8 decoder.
+    """
+    return "".join(c for c in raw.decode("utf-8", "replace") if c.isprintable())[:limit]
+
 
 class APINoiseFrameHelper(APIFrameHelper):
     """Frame helper for noise encrypted connections."""
@@ -191,7 +219,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         server_name_i = server_hello.find(b"\0", 1)
         if server_name_i != -1:
             # server name found, this extension was added in 2022.2
-            server_name = server_hello[1:server_name_i].decode()
+            server_name = _safe_label(server_hello[1:server_name_i], _MAX_NAME_LEN)
             self._server_name = server_name
 
             if self._expected_name is not None and self._expected_name != server_name:
@@ -206,7 +234,9 @@ class APINoiseFrameHelper(APIFrameHelper):
             mac_address_i = server_hello.find(b"\0", server_name_i + 1)
             if mac_address_i != -1:
                 # mac address found, this extension was added in 2025.4
-                mac_address = server_hello[server_name_i + 1 : mac_address_i].decode()
+                mac_address = _safe_label(
+                    server_hello[server_name_i + 1 : mac_address_i], _MAX_MAC_LEN
+                )
                 self._server_mac = mac_address
                 if self._expected_mac is not None and self._expected_mac != mac_address:
                     self._handle_error_and_close(
@@ -256,7 +286,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _error_on_incorrect_preamble(self, msg: bytes) -> None:
         """Handle an incorrect preamble."""
-        explanation = msg[1:].decode()
+        explanation = _safe_label(msg[1:], _MAX_EXPLANATION_LEN)
         if explanation != "Handshake MAC failure":
             exc = HandshakeAPIError(
                 f"{self._log_name}: Handshake failure: {explanation}"
