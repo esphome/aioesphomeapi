@@ -62,9 +62,8 @@ production wheels ship compiled and benchmarks track that path.
 - **Method order**: public API at the top, private helpers
   (`_underscore_prefixed`) at the bottom.
 
-- **Line length**: ruff default. Python 3.11+
-  (`python_requires = ">=3.11"`, `target-version = "py311"`
-  for ruff).
+- **Line length**: ruff default. Python 3.11+ only
+  (`python_requires = ">=3.11"`).
 
 - **Imports**: ruff/isort sorted (`force-sort-within-sections`,
   `combine-as-imports`, `split-on-trailing-comma = false`).
