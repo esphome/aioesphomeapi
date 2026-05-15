@@ -62,13 +62,16 @@ production wheels ship compiled and benchmarks track that path.
 - **Method order**: public API at the top, private helpers
   (`_underscore_prefixed`) at the bottom.
 
-- **Line length**: ruff default. `python_requires = ">=3.11"`,
-  `target-version = "py311"` for ruff.
+- **Line length**: ruff default. Python 3.11+ only
+  (`python_requires = ">=3.11"`).
 
 - **Imports**: ruff/isort sorted (`force-sort-within-sections`,
   `combine-as-imports`, `split-on-trailing-comma = false`).
-  `from __future__ import annotations` at the top of every module
-  so we can use modern type syntax.
+  `from __future__ import annotations` at the top of regular
+  source modules so we can use modern type syntax. Known
+  exceptions: generated `*_pb2.py`, the re-export `__init__.py`,
+  and `_frame_helper/packets.py` (Cython needs annotations
+  evaluated at runtime).
 
 - **Generated files are excluded from lint.** `api_pb2.py` and
   `api_options_pb2.py` are ruff-excluded — never hand-edit them;
