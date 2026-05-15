@@ -779,6 +779,24 @@ async def test_plaintext_frame_helper_rejects_overlong_varuint() -> None:
     assert "varuint exceeds" in str(connection._fatal_exception)
 
 
+async def test_plaintext_frame_helper_incomplete_preamble_waits() -> None:
+    """Test 3 continuation bytes for the preamble varuint pause parsing rather than close."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # 3 continuation bytes meets the loop guard (>= 3) but the preamble
+    # varuint is incomplete — bitpos is 21, still under the 28-bit cap.
+    # _read_varuint should return _VARUINT_INCOMPLETE; data_received must
+    # leave the connection open so the next chunk can finish the varuint.
+    mock_data_received(helper, b"\x80\x80\x80")
+
+    assert not packets
+    assert connection._fatal_exception is None
+
+
 async def test_plaintext_frame_helper_rejects_oversized_frame_length() -> None:
     """Test a length varuint above the per-frame cap closes the connection."""
     connection, packets = _make_mock_connection()
