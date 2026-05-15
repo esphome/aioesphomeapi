@@ -439,15 +439,28 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """Listen for mDNS records.
 
         This listener allows us to schedule a connect as soon as a
-        received mDNS record indicates the node is up again.
+        received mDNS record indicates the node is up again. Failures
+        to start the zeroconf stack (e.g. port 5353 already bound on
+        BSD-derived systems running avahi) must not prevent the
+        connect attempt; the listener is a reconnect-speed
+        optimisation, not a requirement for connecting.
         """
         if not self._zc_listening and self.name and not self._is_ip_address:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
             self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
             self._a_name = f"{self.name}.local."
-            self._zeroconf_manager.get_async_zeroconf().zeroconf.async_add_listener(
-                self, None
-            )
+            try:
+                async_zc = self._zeroconf_manager.get_async_zeroconf()
+                async_zc.zeroconf.async_add_listener(self, None)
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.warning(
+                    "Could not start zeroconf listener for %s: %s (%s); "
+                    "continuing without mDNS-triggered reconnects",
+                    self._cli.log_name,
+                    err,
+                    type(err).__name__,
+                )
+                return
             self._zc_listening = True
 
     def _stop_zc_listen(self) -> None:

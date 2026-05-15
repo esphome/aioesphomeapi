@@ -1499,3 +1499,52 @@ async def test_resolved_log_level_changes_after_first_attempt(
     assert log_record.levelno == logging.DEBUG
 
     await logic.stop()
+
+
+@pytest.mark.asyncio
+async def test_zc_listen_failure_does_not_block_connect(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Connect must proceed when zeroconf init fails (issue #1613, BSD port 5353)."""
+    cli = patchable_api_client
+    on_connect = AsyncMock()
+    on_disconnect = AsyncMock()
+    on_connect_fail = AsyncMock()
+
+    logic = ReconnectLogic(
+        client=cli,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        on_connect_error=on_connect_fail,
+        name="mydevice",
+    )
+
+    caplog.clear()
+    with (
+        patch.object(
+            cli.zeroconf_manager,
+            "get_async_zeroconf",
+            side_effect=OSError(48, "Address already in use"),
+        ),
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
+        await logic.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    # The connection should have succeeded despite the zeroconf failure.
+    assert on_connect.call_count == 1
+    assert on_connect_fail.call_count == 0
+    assert logic._connection_state is ReconnectLogicState.READY
+    # The zeroconf failure should have been logged as a warning.
+    log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
+    assert log_record is not None, "Expected zeroconf failure warning was not logged"
+    assert log_record.levelno == logging.WARNING
+    # _zc_listening must remain False so stop() doesn't try to remove a listener
+    # we never added.
+    assert logic._zc_listening is False
+
+    await logic.stop()
