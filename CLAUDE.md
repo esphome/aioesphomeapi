@@ -167,9 +167,10 @@ or worse, the issue ships and only manifests in production wheels.
 - **`noexcept` cdef paths must be pure C.** Calling a Python
   method that can raise (e.g. `_handle_error_and_close`) from
   inside a `cdef ... noexcept` function is undefined / lossy —
-  Cython prints the exception via WriteUnraisable and silently
-  continues. Keep `noexcept` paths to sentinel returns and let
-  the caller handle Python-level work.
+  Cython reports the exception via CPython's
+  `PyErr_WriteUnraisable()` and silently continues. Keep
+  `noexcept` paths to sentinel returns and let the caller handle
+  Python-level work.
 
 - **`unsigned int` result returned through `cdef int` can flip
   sign.** A varuint decoded into `result="unsigned int"` and
