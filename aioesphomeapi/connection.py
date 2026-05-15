@@ -464,7 +464,7 @@ class APIConnection:
                 self._socket.setsockopt(
                     socket.SOL_SOCKET, socket.SO_RCVBUF, new_buffer_size
                 )
-            except OSError as err:  # noqa: PERF203
+            except OSError as err:
                 if new_buffer_size <= MIN_BUFFER_SIZE:
                     _LOGGER.warning(
                         "%s: Unable to increase the socket receive buffer size to %s; "
