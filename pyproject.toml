@@ -1,5 +1,6 @@
 [tool.ruff]
 required-version = ">=0.5.0"
+target-version = "py311"
 exclude = [
   "aioesphomeapi/api_pb2.py",
   "aioesphomeapi/api_options_pb2.py",
@@ -28,6 +29,7 @@ select = [
 ]
 
 ignore = [
+  "ASYNC109", # `timeout` parameters are part of the public async API
   "E501", # line too long
   "E721", # We want type() check for protobuf messages
   "PLR0911", # Too many return statements ({returns} > {max_returns})
