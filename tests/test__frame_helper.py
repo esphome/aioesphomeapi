@@ -16,7 +16,10 @@ from aioesphomeapi._frame_helper.packets import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
     _varuint_to_bytes as varuint_to_bytes,
 )
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import (
+    MAX_PLAINTEXT_FRAME_SIZE,
+    APIPlaintextFrameHelper,
+)
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -43,11 +46,6 @@ from .common import (
     get_mock_protocol,
     mock_data_received,
 )
-
-# Mirrored from aioesphomeapi/_frame_helper/plain_text.py — that constant is
-# cdef-typed in the .pxd so it is not importable from Python under Cython.
-_MAX_PLAINTEXT_FRAME_SIZE = 65535
-
 
 _PLAINTEXT_TESTS = [
     (PREAMBLE + varuint_to_bytes(0) + varuint_to_bytes(1), b"", 1),
@@ -792,14 +790,37 @@ async def test_plaintext_frame_helper_rejects_oversized_frame_length() -> None:
     # Valid preamble + a length one byte over the cap + any msg_type.
     mock_data_received(
         helper,
-        PREAMBLE
-        + varuint_to_bytes(_MAX_PLAINTEXT_FRAME_SIZE + 1)
-        + varuint_to_bytes(1),
+        PREAMBLE + varuint_to_bytes(MAX_PLAINTEXT_FRAME_SIZE + 1) + varuint_to_bytes(1),
     )
 
     assert not packets
     assert isinstance(connection._fatal_exception, ProtocolAPIError)
     assert "exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_rejects_5_byte_high_bit_varuint() -> None:
+    """Test a 5-byte varuint that would decode to a value with bit 31 set is rejected.
+
+    Regression for the Cython unsigned->signed cast trap raised in PR #1651
+    review: with `result="unsigned int"` and `cdef int` return, a value
+    >= 2**31 would otherwise come back negative and silently hit the
+    incomplete-varuint path. The 4-byte cap rejects the 5th byte at the
+    bitpos limit before any cast can happen.
+    """
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Bytes that would decode to 0xFFFFFFFF (high bit set) under a 5-byte
+    # varuint: \xff\xff\xff\xff\x0f. The 4-byte cap fires before we ever
+    # consume the 5th byte.
+    mock_data_received(helper, PREAMBLE + b"\xff\xff\xff\xff\x0f")
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
 
 
 async def test_plaintext_frame_helper_rejects_overlong_length_varuint() -> None:
@@ -844,11 +865,11 @@ async def test_plaintext_frame_helper_accepts_max_frame_length() -> None:
     )
     helper.connection_made(MagicMock())
 
-    payload = b"\x42" * _MAX_PLAINTEXT_FRAME_SIZE
+    payload = b"\x42" * MAX_PLAINTEXT_FRAME_SIZE
     mock_data_received(
         helper,
         PREAMBLE
-        + varuint_to_bytes(_MAX_PLAINTEXT_FRAME_SIZE)
+        + varuint_to_bytes(MAX_PLAINTEXT_FRAME_SIZE)
         + varuint_to_bytes(42)
         + payload,
     )

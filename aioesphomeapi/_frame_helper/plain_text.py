@@ -23,7 +23,10 @@ _MAX_VARUINT_BITPOS = 7 * _MAX_VARUINT_BYTES
 # Bounds the per-frame allocation a peer can request via the length varuint.
 # Matches the firmware's uint16_t wire-format max (65535), which is the same
 # absolute cap the noise path gets for free from its fixed 16-bit length header.
-_MAX_PLAINTEXT_FRAME_SIZE = 65535
+# MAX_PLAINTEXT_FRAME_SIZE is the Python-importable form (used by tests);
+# _MAX_PLAINTEXT_FRAME_SIZE is the cdef int form used internally per .pxd.
+MAX_PLAINTEXT_FRAME_SIZE = 65535
+_MAX_PLAINTEXT_FRAME_SIZE = MAX_PLAINTEXT_FRAME_SIZE
 
 # _read_varuint return sentinels (negative because varuints are non-negative).
 _VARUINT_INCOMPLETE = -1
