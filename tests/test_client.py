@@ -110,6 +110,7 @@ from aioesphomeapi.api_pb2 import (
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
+from aioesphomeapi.client_base import MAX_CAMERA_FRAME_BYTES, MAX_INFLIGHT_CAMERA_KEYS
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -578,6 +579,85 @@ async def test_subscribe_states_camera_with_device_id(auth_client: APIClient) ->
 
     await send(CameraImageResponse(key=2, data=b"data", done=True, device_id=5))
     on_state.assert_called_once_with(CameraState(key=2, data=b"testdata", device_id=5))
+
+
+async def test_subscribe_states_camera_drops_oversized_frame(
+    auth_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test camera frames exceeding the per-stream byte cap are dropped."""
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # First chunk fits under the cap.
+    await send(CameraImageResponse(key=1, data=b"a" * (MAX_CAMERA_FRAME_BYTES - 1)))
+    on_state.assert_not_called()
+
+    # Second chunk pushes us over the cap.
+    caplog.clear()
+    await send(CameraImageResponse(key=1, data=b"bb"))
+    on_state.assert_not_called()
+    assert "exceeded" in caplog.text
+
+    # Further non-done chunks for the same key are silently ignored — the
+    # peer must not be able to restart the stream once we've discarded it.
+    await send(CameraImageResponse(key=1, data=b"x"))
+    on_state.assert_not_called()
+
+    # done=True for the discarded key clears tracking but emits no frame,
+    # so a peer can't flush a truncated frame after we drop the buffer.
+    await send(CameraImageResponse(key=1, data=b"y", done=True))
+    on_state.assert_not_called()
+
+    # A new stream on the same key is accepted normally afterwards.
+    await send(CameraImageResponse(key=1, data=b"hi", done=True))
+    on_state.assert_called_once_with(CameraState(key=1, data=b"hi"))
+
+
+async def test_subscribe_states_camera_drops_when_too_many_inflight_keys(
+    auth_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test a peer rotating cam_msg.key cannot grow image_stream without bound."""
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # Fill the in-flight slots without ever sending done=True.
+    for k in range(MAX_INFLIGHT_CAMERA_KEYS):
+        await send(CameraImageResponse(key=k, data=b"chunk"))
+    on_state.assert_not_called()
+
+    # A new key beyond the cap is dropped at the warn level.
+    caplog.clear()
+    await send(CameraImageResponse(key=999, data=b"chunk", done=True))
+    on_state.assert_not_called()
+    assert "too many in-flight" in caplog.text
+
+
+async def test_subscribe_states_camera_oversized_done_chunk_does_not_tombstone(
+    auth_client: APIClient,
+) -> None:
+    """Test single-chunk oversized done=True frames don't fill image_stream with tombstones."""
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # Send MAX_INFLIGHT_CAMERA_KEYS distinct keys, each as a single oversized
+    # done=True chunk. If we left tombstones, image_stream would fill up and
+    # subsequent legitimate streams would all be dropped at the in-flight cap.
+    for k in range(MAX_INFLIGHT_CAMERA_KEYS):
+        await send(
+            CameraImageResponse(
+                key=k, data=b"x" * (MAX_CAMERA_FRAME_BYTES + 1), done=True
+            )
+        )
+    on_state.assert_not_called()
+
+    # A legitimate stream on a fresh key must still be accepted.
+    await send(CameraImageResponse(key=42, data=b"ok", done=True))
+    on_state.assert_called_once_with(CameraState(key=42, data=b"ok"))
 
 
 @pytest.mark.parametrize(

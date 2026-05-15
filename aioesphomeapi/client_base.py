@@ -64,10 +64,17 @@ _LOGGER = logging.getLogger(__name__)
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
 
+# Caps on the per-subscription camera reassembly buffer. The peer fully
+# controls cam_msg.key and cam_msg.done, so without these limits a single
+# device can stream chunks indefinitely (memory exhaustion DoS) or rotate
+# keys to allocate ~4 billion list entries.
+MAX_CAMERA_FRAME_BYTES = 8 * 1024 * 1024
+MAX_INFLIGHT_CAMERA_KEYS = 4
+
 
 def on_state_msg(
     on_state: Callable[[EntityState], None],
-    image_stream: dict[int, list[bytes]],
+    image_stream: dict[int, bytearray | None],
     msg: message.Message,
 ) -> None:
     """Handle a state message."""
@@ -77,19 +84,50 @@ def on_state_msg(
     elif msg_type is CameraImageResponse:
         cam_msg: CameraImageResponse = msg
         msg_key = cam_msg.key
-        data_parts: list[bytes] | None = image_stream.get(msg_key)
-        if not data_parts:
-            data_parts = []
-            image_stream[msg_key] = data_parts
+        buf = image_stream.get(msg_key)
+        if buf is None:
+            if msg_key in image_stream:
+                # Key was discarded earlier (oversized frame); ignore further
+                # chunks until done=True so the peer can't restart with fresh
+                # data and emit a truncated frame.
+                if cam_msg.done:
+                    del image_stream[msg_key]
+                return
+            if len(image_stream) >= MAX_INFLIGHT_CAMERA_KEYS:
+                _LOGGER.warning(
+                    "Dropping camera frame chunk for key %s: too many in-flight"
+                    " camera streams (%d)",
+                    msg_key,
+                    len(image_stream),
+                )
+                return
+            buf = bytearray()
+            image_stream[msg_key] = buf
 
-        data_parts.append(cam_msg.data)
+        # Check the new size before extending so an oversized chunk can't
+        # transiently grow the buffer past the cap (or duplicate the
+        # peer-controlled bytes into the bytearray) before we drop it.
+        if len(buf) + len(cam_msg.data) > MAX_CAMERA_FRAME_BYTES:
+            if cam_msg.done:
+                # Stream is over — clear the entry instead of leaving a
+                # tombstone, otherwise oversized done=True chunks could
+                # exhaust MAX_INFLIGHT_CAMERA_KEYS until the peer sends
+                # another done=True for the same key.
+                del image_stream[msg_key]
+            else:
+                image_stream[msg_key] = None
+            _LOGGER.warning(
+                "Dropping camera frame for key %s: exceeded %d byte limit",
+                msg_key,
+                MAX_CAMERA_FRAME_BYTES,
+            )
+            return
+        buf.extend(cam_msg.data)
         if cam_msg.done:
-            # Return CameraState with the merged data
-            image_data = b"".join(data_parts)
             del image_stream[msg_key]
             on_state(
                 CameraState(
-                    key=cam_msg.key, data=image_data, device_id=cam_msg.device_id
+                    key=cam_msg.key, data=bytes(buf), device_id=cam_msg.device_id
                 )  # type: ignore[call-arg]
             )
 

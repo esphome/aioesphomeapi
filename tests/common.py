@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 import time
 from typing import Any
@@ -31,7 +31,6 @@ from aioesphomeapi.client import ConnectionParams
 from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, SocketClosedAPIError
 from aioesphomeapi.zeroconf import ZeroconfManager
 
-UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 # We use a partial here since it is implemented in native code
 # and avoids the global lookup of UTC
