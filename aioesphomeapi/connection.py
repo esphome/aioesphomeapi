@@ -66,6 +66,7 @@ _LOGGER = logging.getLogger(__name__)
 MESSAGE_NUMBER_TO_PROTO: tuple[
     tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
 ] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
+_MESSAGE_NUMBER_TO_PROTO_LEN = len(MESSAGE_NUMBER_TO_PROTO)
 
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
@@ -1026,25 +1027,25 @@ class APIConnection:
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
+        # Bounds-check before indexing: msg_type_proto is attacker-
+        # controlled, and `MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]`
+        # would otherwise wrap (0 -> -1) into the last registered class
+        # or raise an IndexError on every out-of-range value, both of
+        # which are avoidable on a hot path.
+        if msg_type_proto < 1 or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN:
+            if self._debug_enabled:
+                _LOGGER.debug(
+                    "%s: Skipping unknown message type %s",
+                    self.log_name,
+                    msg_type_proto,
+                )
+            return
+        # MESSAGE_NUMBER_TO_PROTO is 0-indexed but the message type is 1-indexed
+        klass, merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
+        msg = klass()
         try:
-            # MESSAGE_NUMBER_TO_PROTO is 0-indexed
-            # but the message type is 1-indexed
-            klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
-            klass, merge = klass_merge
-            msg = klass()
             merge(msg, data)
         except Exception as e:
-            # IndexError will be very rare so we check for it
-            # after the broad exception catch to avoid having
-            # to check the exception type twice for the common case
-            if isinstance(e, IndexError):
-                if self._debug_enabled:
-                    _LOGGER.debug(
-                        "%s: Skipping unknown message type %s",
-                        self.log_name,
-                        msg_type_proto,
-                    )
-                return
             _LOGGER.exception(
                 "%s: Invalid protobuf message: type=%s data=%s",
                 self.log_name,

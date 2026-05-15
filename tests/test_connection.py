@@ -1184,6 +1184,28 @@ async def test_unknown_protobuf_message_type_logged(
     await asyncio.sleep(0)
 
 
+async def test_zero_protobuf_message_type_rejected(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test msg_type_proto=0 is skipped instead of wrapping to the last registered type."""
+    client, connection, _transport, protocol = api_client
+    caplog.set_level(logging.DEBUG)
+    client.set_debug(True)
+    message_with_zero_protobuf_number = (
+        b"\0" + _cached_varuint_to_bytes(0) + _cached_varuint_to_bytes(0)
+    )
+
+    mock_data_received(protocol, message_with_zero_protobuf_number)
+
+    assert "Skipping unknown message type 0" in caplog.text
+    assert connection.is_connected
+    connection.force_disconnect()
+    await asyncio.sleep(0)
+
+
 async def test_bad_protobuf_message_drops_connection(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
