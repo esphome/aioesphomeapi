@@ -209,9 +209,12 @@ or worse, the issue ships and only manifests in production wheels.
 - **CodSpeed regressions only show in the Cython build.** Pure-Python
   (`SKIP_CYTHON=1`) tests can pass while the production
   wire-format hot paths regress. Trust the CodSpeed check on PRs
-  that touch any file in `TO_CYTHONIZE`; run `REQUIRE_CYTHON=1
-  python setup.py build_ext --inplace` locally before pushing if
-  perf-sensitive code changed.
+  that touch any file in `TO_CYTHONIZE`; run the following
+  locally before pushing if perf-sensitive code changed:
+
+  ```sh
+  REQUIRE_CYTHON=1 python setup.py build_ext --inplace
+  ```
 
 ## Useful entry points
 
