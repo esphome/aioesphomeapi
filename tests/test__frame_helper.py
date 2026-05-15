@@ -1056,7 +1056,7 @@ async def test_connection_lost_closes_connection_and_logs(
 @pytest.mark.parametrize(
     ("bad_psk", "error"),
     (
-        ("dGhpc2lzbm90MzJieXRlcw==", "expected 32-bytes of base64 data"),
+        ("dGhpc2lzbm90MzJieXRlcw==", "expected base64-encoded 32-byte value"),
         ("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc", "Malformed PSK"),
     ),
 )

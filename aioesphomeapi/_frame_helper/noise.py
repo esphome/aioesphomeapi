@@ -237,7 +237,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         if len(psk_bytes) != 32:
             raise InvalidEncryptionKeyAPIError(
                 f"{self._log_name}: Malformed PSK (length={len(psk)}), "
-                "expected 32-bytes of base64 data",
+                "expected base64-encoded 32-byte value",
                 server_name,
                 server_mac,
             )
