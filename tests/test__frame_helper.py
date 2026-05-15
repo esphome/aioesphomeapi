@@ -1063,7 +1063,7 @@ async def test_connection_lost_closes_connection_and_logs(
 async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
     """Test we raise on bad psks."""
     connection, _ = _make_mock_connection()
-    with pytest.raises(InvalidEncryptionKeyAPIError, match=error):
+    with pytest.raises(InvalidEncryptionKeyAPIError, match=error) as exc_info:
         MockAPINoiseFrameHelper(
             connection=connection,
             noise_psk=bad_psk,
@@ -1072,3 +1072,5 @@ async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
             log_name="test",
             expected_mac=None,
         )
+    assert bad_psk not in str(exc_info.value)
+    assert f"length={len(bad_psk)}" in str(exc_info.value)
