@@ -147,6 +147,76 @@ through the builder. They're excluded from ruff for a reason.
   (PEP 703). New `.py` / `.pyx` paths added to `TO_CYTHONIZE`
   must stay free-threading-safe.
 
+## Cython gotchas (things that have bitten us)
+
+These are non-obvious traps in the `.py` + `.pxd` setup that work
+fine in pure-Python mode but break or silently misbehave in the
+shipped Cython wheels. Tests pass locally with `SKIP_CYTHON=1`
+fallback paths, then CI on `use_cython` builds catches the issue —
+or worse, the issue ships and only manifests in production wheels.
+
+- **`cdef`-typed module constants are not Python-importable.**
+  Declaring `cdef int _MAX_X` in `.pxd` makes Cython treat
+  `_MAX_X = 5` in the `.py` as a C int assignment; the Python
+  module dict never gets the binding. `from module import _MAX_X`
+  succeeds in pure-Python but raises `ImportError` under Cython.
+  **Pattern**: define both names — `MAX_X = 5` (Python-importable)
+  and `_MAX_X = MAX_X` (cdef-typed for hot-path comparisons).
+  Tests import the public name; production code uses either.
+
+- **`noexcept` cdef paths must be pure C.** Calling a Python
+  method that can raise (e.g. `_handle_error_and_close`) from
+  inside a `cdef ... noexcept` function is undefined / lossy —
+  Cython reports the exception via CPython's
+  `PyErr_WriteUnraisable()` and silently continues. Keep
+  `noexcept` paths to sentinel returns and let the caller handle
+  Python-level work.
+
+- **`unsigned int` result returned through `cdef int` can flip
+  sign.** A varuint decoded into `result="unsigned int"` and
+  returned via `cdef int` will come back negative for any value
+  with bit 31 set. If the caller does `if x < 0: return`, an
+  attacker-controlled large value silently hits the "incomplete"
+  / "stop processing" branch instead of being rejected. Either
+  cap the input range so decoded values stay in signed-int range,
+  or check explicit sentinel values (`x == _SENTINEL_A`) instead
+  of generic `< 0`. Issue #1642 / PR #1651 was exactly this trap.
+
+- **`except *` / `except? -N` adds per-call exception checks.**
+  Switching a hot-path `cdef ... noexcept` to `except *` or
+  `except? -3` adds a `PyErr_Occurred()` check after every call.
+  Negligible for cold paths, measurable on hot paths — CodSpeed
+  caught a ~14% regression on BLE plaintext benchmarks when this
+  was applied to `_read_varuint`. Prefer `noexcept` for hot paths
+  and route error handling through the caller.
+
+- **Module-level Python int constants force PyLong conversion in
+  hot path comparisons.** `if length > _MAX_FRAME_SIZE` compiles
+  to a Python attribute lookup + `PyLong_AsLong` per call. Adding
+  `cdef int _MAX_FRAME_SIZE` to the `.pxd` makes it a native C
+  comparison. CodSpeed caught a measurable degradation when this
+  was missed; restoring the cdef declaration recovered it.
+
+- **Sign-compare warnings in generated C are real.** `gcc/clang`
+  warns when comparing `unsigned int` with `int` because the
+  signed value is implicitly converted to unsigned for the
+  compare — a negative value becomes a huge positive. Match the
+  signedness of compared operands in the `.pxd` (e.g. if the
+  local is `unsigned int`, declare the constant as
+  `cdef unsigned int`; if the local is `int`, declare it
+  `cdef int`). The warning predicts a class of overflow bug like
+  the unsigned->signed varuint trap above.
+
+- **CodSpeed regressions only show in the Cython build.** Pure-Python
+  (`SKIP_CYTHON=1`) tests can pass while the production
+  wire-format hot paths regress. Trust the CodSpeed check on PRs
+  that touch any file in `TO_CYTHONIZE`; run the following
+  locally before pushing if perf-sensitive code changed:
+
+  ```sh
+  REQUIRE_CYTHON=1 python setup.py build_ext --inplace
+  ```
+
 ## Useful entry points
 
 | Path | What |
