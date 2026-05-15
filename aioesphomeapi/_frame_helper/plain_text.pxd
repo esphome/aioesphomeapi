@@ -19,6 +19,8 @@ cdef class APIPlaintextFrameHelper(APIFrameHelper):
 
     cdef void _error_on_incorrect_preamble(self, int preamble) except *
 
+    cdef void _close_on_oversized_varuint(self) except *
+
     @cython.locals(
         result="unsigned int",
         bitpos="unsigned int",

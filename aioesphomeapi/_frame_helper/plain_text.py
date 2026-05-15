@@ -55,10 +55,15 @@ class APIPlaintextFrameHelper(APIFrameHelper):
     def _read_varuint(self) -> _int:
         """Read a varuint from the buffer.
 
-        Returns the decoded value, or _VARUINT_INCOMPLETE if more bytes are
-        needed. If the varuint exceeds _MAX_VARUINT_BYTES the connection is
-        closed and _VARUINT_PROTOCOL_ERROR is returned, so the caller can
-        treat any negative value as "stop processing this frame".
+        Pure C path with no Python calls. Returns one of:
+          * the decoded value (>= 0), if a complete varuint was read;
+          * _VARUINT_INCOMPLETE, if the buffer ran out mid-varuint;
+          * _VARUINT_PROTOCOL_ERROR, if the varuint exceeds
+            _MAX_VARUINT_BYTES (the caller is responsible for closing the
+            connection).
+
+        Callers must check for both sentinels explicitly rather than
+        treating any negative value generically.
         """
         if TYPE_CHECKING:
             assert self._buffer is not None, "Buffer should be set"
@@ -75,34 +80,42 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             # Check after the byte read so the common 1-byte varuint path
             # (high bit unset on the first byte) skips this branch entirely.
             if bitpos >= _MAX_VARUINT_BITPOS:
-                self._handle_error_and_close(
-                    ProtocolAPIError(
-                        f"{self._log_name}: varuint exceeds "
-                        f"{_MAX_VARUINT_BYTES}-byte limit"
-                    )
-                )
                 return _VARUINT_PROTOCOL_ERROR
         return _VARUINT_INCOMPLETE
+
+    def _close_on_oversized_varuint(self) -> None:
+        """Close the connection on a varuint that exceeds the byte cap."""
+        self._handle_error_and_close(
+            ProtocolAPIError(
+                f"{self._log_name}: varuint exceeds {_MAX_VARUINT_BYTES}-byte limit"
+            )
+        )
 
     def data_received(self, data: bytes | bytearray | memoryview) -> None:
         self._add_to_buffer(data)
         # Message header is at least 3 bytes, empty length allowed
         while self._buffer_len >= 3:
             self._pos = 0
-            # _read_varuint's contract is: a non-negative decoded value, or
-            # one of the two negative sentinels (_VARUINT_INCOMPLETE /
-            # _VARUINT_PROTOCOL_ERROR). The 4-byte cap on _MAX_VARUINT_BYTES
-            # keeps decoded values in [0, 2**28 - 1], well clear of the
-            # unsigned -> signed int cast boundary (2**31), so no other
-            # negative is reachable.
+            # _read_varuint is pure C and returns either a non-negative
+            # decoded value or one of the two negative sentinels —
+            # _VARUINT_INCOMPLETE (wait for more data) or
+            # _VARUINT_PROTOCOL_ERROR (varuint too long; close the
+            # connection here since _read_varuint can't safely call into
+            # Python from a noexcept cdef path).
             preamble = self._read_varuint()
             if preamble != 0x00:
-                if preamble in (_VARUINT_INCOMPLETE, _VARUINT_PROTOCOL_ERROR):
+                if preamble == _VARUINT_PROTOCOL_ERROR:
+                    self._close_on_oversized_varuint()
+                    return
+                if preamble == _VARUINT_INCOMPLETE:
                     return
                 self._error_on_incorrect_preamble(preamble)
                 return
             length = self._read_varuint()
-            if length in (_VARUINT_INCOMPLETE, _VARUINT_PROTOCOL_ERROR):
+            if length == _VARUINT_PROTOCOL_ERROR:
+                self._close_on_oversized_varuint()
+                return
+            if length == _VARUINT_INCOMPLETE:
                 return
             if length > _MAX_PLAINTEXT_FRAME_SIZE:
                 self._handle_error_and_close(
@@ -113,7 +126,10 @@ class APIPlaintextFrameHelper(APIFrameHelper):
                 )
                 return
             msg_type = self._read_varuint()
-            if msg_type in (_VARUINT_INCOMPLETE, _VARUINT_PROTOCOL_ERROR):
+            if msg_type == _VARUINT_PROTOCOL_ERROR:
+                self._close_on_oversized_varuint()
+                return
+            if msg_type == _VARUINT_INCOMPLETE:
                 return
 
             if length == 0:
@@ -142,5 +158,5 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             )
             return
         self._handle_error_and_close(
-            ProtocolAPIError(f"{self._log_name}: Invalid preamble {preamble!r}")
+            ProtocolAPIError(f"{self._log_name}: Invalid preamble 0x{preamble:02x}")
         )
