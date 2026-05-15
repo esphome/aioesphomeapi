@@ -453,7 +453,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 async_zc = self._zeroconf_manager.get_async_zeroconf()
                 async_zc.zeroconf.async_add_listener(self, None)
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.warning(
+                _LOGGER.log(
+                    logging.WARNING if self._tries == 0 else logging.DEBUG,
                     "Could not start zeroconf listener for %s: %s (%s); "
                     "continuing without mDNS-triggered reconnects",
                     self._cli.log_name,

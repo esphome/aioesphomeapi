@@ -1539,12 +1539,55 @@ async def test_zc_listen_failure_does_not_block_connect(
     assert on_connect.call_count == 1
     assert on_connect_fail.call_count == 0
     assert logic._connection_state is ReconnectLogicState.READY
-    # The zeroconf failure should have been logged as a warning.
+    # The zeroconf failure should have been logged as a warning on the first try.
     log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
     assert log_record is not None, "Expected zeroconf failure warning was not logged"
     assert log_record.levelno == logging.WARNING
     # _zc_listening must remain False so stop() doesn't try to remove a listener
     # we never added.
     assert logic._zc_listening is False
+
+    await logic.stop()
+
+
+@pytest.mark.asyncio
+async def test_zc_listen_failure_downgrades_to_debug_after_first_try(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Repeated zeroconf init failures must not spam WARNING (Copilot review on #1652)."""
+    cli = patchable_api_client
+    logic = ReconnectLogic(
+        client=cli,
+        on_connect=AsyncMock(),
+        on_disconnect=AsyncMock(),
+        on_connect_error=AsyncMock(),
+        name="mydevice",
+    )
+
+    # Drive a non-zero _tries by failing the first resolve; this mirrors the
+    # "zeroconf keeps failing across reconnect attempts" scenario.
+    with (
+        patch.object(
+            cli.zeroconf_manager,
+            "get_async_zeroconf",
+            side_effect=OSError(48, "Address already in use"),
+        ),
+        patch.object(cli, "start_resolve_host", side_effect=APIConnectionError),
+    ):
+        await logic.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert logic._tries == 1
+
+        caplog.clear()
+        assert logic._connect_timer is not None
+        logic._connect_timer._run()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
+    assert log_record is not None, "Expected zeroconf failure log was not emitted"
+    assert log_record.levelno == logging.DEBUG
 
     await logic.stop()
