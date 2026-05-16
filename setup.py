@@ -92,6 +92,8 @@ setup_kwargs = {
 
 class OptionalBuildExt(build_ext):
     def build_extensions(self) -> None:
+        if self.parallel is None:
+            self.parallel = os.cpu_count() or 1
         with contextlib.suppress(Exception):
             super().build_extensions()
 
