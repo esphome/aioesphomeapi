@@ -1865,7 +1865,8 @@ def test_validate_connection_params_rejects_out_of_spec(
 
 def test_validate_connection_params_accepts_boundary_values() -> None:
     """Smallest and largest in-spec values are accepted."""
-    # Smallest valid: timeout * 4 > (1 + 0) * 6 → timeout >= 2; clamp to min 10.
+    # Smallest valid: timeout * 4 > (1 + 0) * 6 → timeout >= 2, but spec
+    # minimum supervision timeout is 10.
     _validate_connection_params(6, 6, 0, 10)
     # Largest valid: needs timeout * 4 > (1 + 0) * 3200 → timeout > 800.
     _validate_connection_params(6, 3200, 0, 801)
