@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 from google.protobuf import message
 import pytest
 
+from aioesphomeapi._frame_helper.noise import MAX_NAME_LEN
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
@@ -1919,6 +1920,43 @@ async def test_device_info(
     await disconnect_task
     with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_info()
+
+
+async def test_device_info_sanitizes_name(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """CRLF/ANSI bytes in DeviceInfo.name must be stripped from cached_name/log_name."""
+    client, _connection, _transport, protocol = api_client
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(
+        name="evil\r\nLOGGER WARNING forged\x1b[31m",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    device_info = await device_info_task
+    assert device_info.name == "evil\r\nLOGGER WARNING forged\x1b[31m"
+    assert client.cached_name == "evilLOGGER WARNING forged[31m"
+    assert "\r" not in client.log_name
+    assert "\n" not in client.log_name
+    assert "\x1b" not in client.log_name
+
+
+async def test_device_info_caps_oversize_name(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """An oversize DeviceInfo.name must be length-capped before storage."""
+    client, _connection, _transport, protocol = api_client
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(name="a" * 4096)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await device_info_task
+    assert client.cached_name == "a" * MAX_NAME_LEN
 
 
 async def test_bluetooth_gatt_read(
