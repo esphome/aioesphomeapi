@@ -109,7 +109,11 @@ from aioesphomeapi.api_pb2 import (
     WaterHeaterCommandRequest,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
-from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
+from aioesphomeapi.client import (
+    APIClient,
+    BluetoothConnectionDroppedError,
+    _validate_connection_params,
+)
 from aioesphomeapi.client_base import MAX_CAMERA_FRAME_BYTES, MAX_INFLIGHT_CAMERA_KEYS
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
@@ -1832,6 +1836,55 @@ async def test_bluetooth_set_connection_params_error(
     mock_data_received(protocol, generate_plaintext_packet(response))
     with pytest.raises(BluetoothConnectionParamsAPIError):
         await set_params_task
+
+
+@pytest.mark.parametrize(
+    ("args", "match"),
+    [
+        ((5, 800, 0, 300), "min_interval must be between 6 and 3200"),
+        ((3201, 3201, 0, 300), "min_interval must be between 6 and 3200"),
+        ((6, 5, 0, 300), "max_interval must be between 6 and 3200"),
+        ((6, 3201, 0, 300), "max_interval must be between 6 and 3200"),
+        ((100, 50, 0, 300), "must be >= min_interval"),
+        ((6, 800, -1, 300), "latency must be between 0 and 499"),
+        ((6, 800, 500, 3200), "latency must be between 0 and 499"),
+        ((6, 800, 0, 9), "timeout must be between 10 and 3200"),
+        ((6, 800, 0, 3201), "timeout must be between 10 and 3200"),
+        # timeout * 4 must exceed (1 + latency) * max_interval.
+        # With latency=0, max_interval=800 → boundary is timeout=200; 200 fails.
+        ((6, 800, 0, 200), "Supervision timeout must satisfy"),
+    ],
+)
+def test_validate_connection_params_rejects_out_of_spec(
+    args: tuple[int, int, int, int], match: str
+) -> None:
+    """Out-of-spec values raise ValueError naming the offending parameter."""
+    with pytest.raises(ValueError, match=match):
+        _validate_connection_params(*args)
+
+
+def test_validate_connection_params_accepts_boundary_values() -> None:
+    """Smallest and largest in-spec values are accepted."""
+    # Smallest valid: timeout * 4 > (1 + 0) * 6 → timeout >= 2, but spec
+    # minimum supervision timeout is 10.
+    _validate_connection_params(6, 6, 0, 10)
+    # Largest valid: needs timeout * 4 > (1 + 0) * 3200 → timeout > 800.
+    _validate_connection_params(6, 3200, 0, 801)
+    # Max latency with headroom on timeout.
+    _validate_connection_params(6, 6, 499, 3200)
+
+
+async def test_bluetooth_set_connection_params_validation(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Bad params raise ValueError before any frame is sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.reset_mock()
+    with pytest.raises(ValueError, match="min_interval must be between"):
+        await client.bluetooth_device_set_connection_params(1234, 0, 0, 0, 0)
+    transport.write.assert_not_called()
 
 
 async def test_device_info(
