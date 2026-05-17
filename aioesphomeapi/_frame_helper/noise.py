@@ -304,6 +304,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._handle_error_and_close(exc)
 
     def _handle_handshake(self, msg: bytes) -> None:
+        if not msg:
+            self._handle_error_and_close(
+                HandshakeAPIError(f"{self._log_name}: Handshake frame is empty")
+            )
+            return
         if msg[0] != 0:
             self._error_on_incorrect_preamble(msg)
             return
