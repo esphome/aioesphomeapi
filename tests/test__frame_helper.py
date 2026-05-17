@@ -1009,6 +1009,12 @@ async def test_noise_frame_helper_wrong_protocol():
         ("café", 32, "café"),
         # Cap counts code points, not bytes — multi-byte chars are not double-counted.
         ("é" * 100, 8, "é" * 8),
+        # 3-byte UTF-8 (CJK) passes through untouched.
+        ("日本語デバイス", 32, "日本語デバイス"),
+        # Cap counts code points on 3-byte UTF-8: 7 chars x 3 bytes = 21 bytes; limit 3 -> 3 chars.
+        ("日本語デバイス", 3, "日本語"),
+        # Mixed-width: ASCII + CJK survive, control char stripped, cap counts code points.
+        ("hi\x00日本", 4, "hi日本"),
         # Strip first, then cap: a 100-char input of only non-printables yields "".
         ("\r" * 100, 8, ""),
         # Mixed: control chars between printables get removed before the cap fires.
