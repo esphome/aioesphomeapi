@@ -28,6 +28,7 @@ from aioesphomeapi.api_pb2 import (
     TextSensorStateResponse,
 )
 from aioesphomeapi.connection import (
+    MAX_PROTOBUF_ERROR_DATA_BYTES,
     APIConnection,
     ConnectionParams,
     ConnectionState,
@@ -1305,6 +1306,46 @@ async def test_bad_protobuf_message_drops_connection(
     )
     mock_data_received(protocol, message_with_bad_protobuf_data)
     assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert f"len={len(bytes_)}" in caplog.text
+    assert connection.is_connected is False
+
+
+async def test_bad_protobuf_message_truncates_payload_in_log(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A peer that sends a large malformed payload must not flood logs.
+
+    The 'Invalid protobuf message' log entry and ProtocolAPIError text
+    are capped at MAX_PROTOBUF_ERROR_DATA_BYTES; the total length is
+    still reported separately so the operator knows the real size.
+    """
+    client, connection, _transport, protocol = api_client
+    client.set_debug(True)
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
+
+    # Build a payload well above the truncation cap. The msg_type maps to
+    # TextSensorStateResponse (27) so process_packet attempts a real parse
+    # and raises a DecodeError on the crafted garbage.
+    payload = b"\xff" * (MAX_PROTOBUF_ERROR_DATA_BYTES * 4)
+    message_with_bad_protobuf_data = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(payload))
+        + _cached_varuint_to_bytes(27)
+        + payload
+    )
+    mock_data_received(protocol, message_with_bad_protobuf_data)
+
+    assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert f"len={len(payload)}" in caplog.text
+    expected_extra = len(payload) - MAX_PROTOBUF_ERROR_DATA_BYTES
+    assert f"...(+{expected_extra} bytes)" in caplog.text
+    # Full payload escaped (`\\xff` * payload_len) must not appear — that
+    # would be the pre-truncation behavior we are guarding against.
+    assert ("\\xff" * len(payload)) not in caplog.text
     assert connection.is_connected is False
 
 
