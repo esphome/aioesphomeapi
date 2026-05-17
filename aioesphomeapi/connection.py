@@ -122,6 +122,7 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 # in the log file. The truncated prefix is plenty for debugging the
 # message shape, and the total length is still reported separately.
 MAX_PROTOBUF_ERROR_DATA_BYTES = 64
+_MAX_PROTOBUF_ERROR_DATA_BYTES = MAX_PROTOBUF_ERROR_DATA_BYTES
 
 _WIN32 = sys.platform == "win32"
 
@@ -1062,11 +1063,11 @@ class APIConnection:
             merge(msg, data)
         except Exception as e:
             data_len = len(data)
-            truncated = data[:MAX_PROTOBUF_ERROR_DATA_BYTES]
+            truncated = data[:_MAX_PROTOBUF_ERROR_DATA_BYTES]
             suffix = (
                 ""
-                if data_len <= MAX_PROTOBUF_ERROR_DATA_BYTES
-                else f"...(+{data_len - MAX_PROTOBUF_ERROR_DATA_BYTES} bytes)"
+                if data_len <= _MAX_PROTOBUF_ERROR_DATA_BYTES
+                else f"...(+{data_len - _MAX_PROTOBUF_ERROR_DATA_BYTES} bytes)"
             )
             _LOGGER.exception(
                 "%s: Invalid protobuf message: type=%s len=%d data=%r%s",
