@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 from google.protobuf import message
 import pytest
 
-from aioesphomeapi._frame_helper.noise import MAX_NAME_LEN
+from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,

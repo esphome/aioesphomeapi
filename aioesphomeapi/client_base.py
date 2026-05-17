@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any
 
 from google.protobuf import message
 
-from ._frame_helper.base import APIFrameHelper  # noqa: F401
-from ._frame_helper.noise import (
+from ._frame_helper.base import (
     MAX_NAME_LEN,
-    APINoiseFrameHelper,  # noqa: F401
+    APIFrameHelper,  # noqa: F401
     _safe_label_str,
 )
+from ._frame_helper.noise import APINoiseFrameHelper  # noqa: F401
 from ._frame_helper.plain_text import APIPlaintextFrameHelper  # noqa: F401
 from .api_pb2 import (  # type: ignore
     BluetoothConnectionsFreeResponse,
