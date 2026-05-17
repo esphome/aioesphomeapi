@@ -967,6 +967,29 @@ async def test_noise_frame_helper_empty_hello():
         await helper.ready_future
 
 
+async def test_noise_frame_helper_empty_handshake_frame():
+    """Empty handshake frame surfaces as HandshakeAPIError, not IndexError."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # 3-byte header advertising a zero-length frame, no payload bytes.
+    empty_handshake_with_header = bytes((0x01, 0x00, 0x00))
+    mock_data_received(helper, empty_handshake_with_header)
+
+    with pytest.raises(HandshakeAPIError, match="Handshake frame is empty"):
+        await helper.ready_future
+
+
 async def test_noise_frame_helper_wrong_protocol():
     """Test noise with the wrong protocol."""
     connection, _ = _make_mock_connection()
