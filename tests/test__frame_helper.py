@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
+from aioesphomeapi._frame_helper.base import safe_label_str
 from aioesphomeapi._frame_helper.noise import MAX_NAME_LEN, APINoiseFrameHelper
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
 from aioesphomeapi._frame_helper.packets import (
@@ -987,6 +988,51 @@ async def test_noise_frame_helper_wrong_protocol():
         HandshakeAPIError, match="Unknown protocol selected by client 5"
     ):
         await helper.ready_future
+
+
+@pytest.mark.parametrize(
+    ("raw", "limit", "expected"),
+    [
+        # Plain ASCII passes through untouched.
+        ("hello", 32, "hello"),
+        # Length cap applied after stripping non-printables.
+        ("abcdefghij", 4, "abcd"),
+        # Empty string round-trips as empty.
+        ("", 32, ""),
+        # CRLF, NUL, and ANSI escape are non-printable per str.isprintable.
+        ("evil\r\nFAKE\x1b[31m", 64, "evilFAKE[31m"),
+        ("\x00\x00\x00\x00", 64, ""),
+        ("a\nb\rc\td", 64, "abcd"),
+        # Tab is non-printable; space is printable.
+        ("a\tb c", 64, "ab c"),
+        # Non-ASCII printable characters survive (str.isprintable is Unicode-aware).
+        ("café", 32, "café"),
+        # Cap counts code points, not bytes — multi-byte chars are not double-counted.
+        ("é" * 100, 8, "é" * 8),
+        # 3-byte UTF-8 (CJK) passes through untouched.
+        ("日本語デバイス", 32, "日本語デバイス"),
+        # Cap counts code points on 3-byte UTF-8: 7 chars x 3 bytes = 21 bytes; limit 3 -> 3 chars.
+        ("日本語デバイス", 3, "日本語"),
+        # Mixed-width: ASCII + CJK survive, control char stripped, cap counts code points.
+        ("hi\x00日本", 4, "hi日本"),
+        # Strip first, then cap: a 100-char input of only non-printables yields "".
+        ("\r" * 100, 8, ""),
+        # Mixed: control chars between printables get removed before the cap fires.
+        ("\rhello\nworld\r", 5, "hello"),
+        # limit=0 produces an empty string regardless of input.
+        ("anything", 0, ""),
+    ],
+)
+def test_safe_label_str(raw: str, limit: int, expected: str) -> None:
+    """safe_label_str strips non-printables then length-caps to `limit` code points."""
+    assert safe_label_str(raw, limit) == expected
+
+
+def test_safe_label_str_is_idempotent() -> None:
+    """Re-sanitizing an already-sanitized string returns the same value."""
+    once = safe_label_str("evil\r\nFAKE\x1b[31m", 64)
+    twice = safe_label_str(once, 64)
+    assert once == twice == "evilFAKE[31m"
 
 
 async def test_noise_frame_helper_sanitizes_server_name_in_error() -> None:
