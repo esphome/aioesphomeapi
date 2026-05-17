@@ -19,7 +19,7 @@ from google.protobuf.json_format import MessageToDict
 
 import aioesphomeapi.host_resolver as hr
 
-from ._frame_helper.base import MAX_NAME_LEN, _safe_label_str
+from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore  # type: ignore
@@ -563,7 +563,7 @@ class APIConnection:
             _LOGGER.debug(
                 "%s: Successfully connected ('%s' API=%s.%s)",
                 self.log_name,
-                _safe_label_str(resp.server_info, MAX_NAME_LEN),
+                safe_label_str(resp.server_info, MAX_NAME_LEN),
                 resp.api_version_major,
                 resp.api_version_minor,
             )
@@ -584,7 +584,7 @@ class APIConnection:
         # storage gets sanitized + length-capped. Same pattern as
         # _frame_helper/noise.py::_handle_hello.
         if received_name_raw := resp.name:
-            received_name = _safe_label_str(received_name_raw, MAX_NAME_LEN)
+            received_name = safe_label_str(received_name_raw, MAX_NAME_LEN)
             if expected_name is not None and received_name_raw != expected_name:
                 raise BadNameAPIError(
                     f"Expected '{expected_name}' but server sent "

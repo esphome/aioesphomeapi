@@ -25,7 +25,7 @@ from .base import (
     MAX_MAC_LEN,
     MAX_NAME_LEN,
     APIFrameHelper,
-    _safe_label_str,
+    safe_label_str,
 )
 from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
 from .packets import make_noise_packets
@@ -51,7 +51,7 @@ NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
 
-# Cython resolves _MAX_* and _safe_label_str via cimport from .base
+# Cython resolves _MAX_* and safe_label_str via cimport from .base
 # (noise.pxd); these assignments are the pure-Python (SKIP_CYTHON=1) fallback
 # so callers below have a name to resolve.
 _MAX_NAME_LEN = MAX_NAME_LEN
@@ -210,7 +210,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             # sanitizer would strip; only the value used for logs and for
             # later self-storage gets sanitized + length-capped.
             server_name_raw = server_hello[1:server_name_i].decode("utf-8", "replace")
-            server_name = _safe_label_str(server_name_raw, _MAX_NAME_LEN)
+            server_name = safe_label_str(server_name_raw, _MAX_NAME_LEN)
             self._server_name = server_name
 
             if (
@@ -232,7 +232,7 @@ class APINoiseFrameHelper(APIFrameHelper):
                 mac_address_raw = server_hello[
                     server_name_i + 1 : mac_address_i
                 ].decode("utf-8", "replace")
-                mac_address = _safe_label_str(mac_address_raw, _MAX_MAC_LEN)
+                mac_address = safe_label_str(mac_address_raw, _MAX_MAC_LEN)
                 self._server_mac = mac_address
                 if (
                     self._expected_mac is not None
@@ -290,7 +290,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         # non-printable bytes to the canonical "Handshake MAC failure" string;
         # only the text included in the error message gets sanitized.
         explanation_raw = msg[1:].decode("utf-8", "replace")
-        explanation = _safe_label_str(explanation_raw, _MAX_EXPLANATION_LEN)
+        explanation = safe_label_str(explanation_raw, _MAX_EXPLANATION_LEN)
         if explanation_raw != "Handshake MAC failure":
             exc = HandshakeAPIError(
                 f"{self._log_name}: Handshake failure: {explanation}"

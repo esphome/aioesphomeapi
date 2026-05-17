@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING, Any
 
 from google.protobuf import message
 
-from ._frame_helper.base import APIFrameHelper  # noqa: F401
+from ._frame_helper.base import (  # noqa: F401
+    MAX_NAME_LEN,
+    APIFrameHelper,
+    safe_label_str,
+)
 from ._frame_helper.noise import APINoiseFrameHelper  # noqa: F401
 from ._frame_helper.plain_text import APIPlaintextFrameHelper  # noqa: F401
 from .api_pb2 import (  # type: ignore
@@ -427,7 +431,11 @@ class APIClientBase:
 
     def _set_name_from_device(self, name: str_) -> None:
         """Set the name from a DeviceInfo message."""
-        self.cached_name = str(name)  # May be Estr from esphome
+        # Sanitize peer-supplied name -- plaintext sessions are unauthenticated
+        # for the whole connection, so CRLF/ANSI bytes in DeviceInfo.name would
+        # otherwise forge log lines via "%s: ..." on self.log_name. str(...)
+        # flattens esphome's Estr subclass.
+        self.cached_name = safe_label_str(str(name), MAX_NAME_LEN)
         self._set_log_name()
 
     def set_cached_name_if_unset(self, name: str_) -> None:

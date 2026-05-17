@@ -41,7 +41,7 @@ _MAX_MAC_LEN = MAX_MAC_LEN
 _MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
 
 
-def _safe_label_str(raw: str, limit: _int) -> str:
+def safe_label_str(raw: str, limit: _int) -> str:
     """Strip non-printables and length-cap a peer-supplied label for log output."""
     return "".join(filter(str.isprintable, raw))[:limit]
 
