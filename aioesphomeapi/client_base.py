@@ -12,7 +12,7 @@ from google.protobuf import message
 from ._frame_helper.base import (  # noqa: F401
     MAX_NAME_LEN,
     APIFrameHelper,
-    _safe_label_str,
+    safe_label_str,
 )
 from ._frame_helper.noise import APINoiseFrameHelper  # noqa: F401
 from ._frame_helper.plain_text import APIPlaintextFrameHelper  # noqa: F401
@@ -435,7 +435,7 @@ class APIClientBase:
         # for the whole connection, so CRLF/ANSI bytes in DeviceInfo.name would
         # otherwise forge log lines via "%s: ..." on self.log_name. str(...)
         # flattens esphome's Estr subclass.
-        self.cached_name = _safe_label_str(str(name), MAX_NAME_LEN)
+        self.cached_name = safe_label_str(str(name), MAX_NAME_LEN)
         self._set_log_name()
 
     def set_cached_name_if_unset(self, name: str_) -> None:
