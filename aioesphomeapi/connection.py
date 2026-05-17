@@ -121,7 +121,7 @@ WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
 # noise frame of crafted garbage; with repr() escaping that balloons ~4x
 # in the log file. The truncated prefix is plenty for debugging the
 # message shape, and the total length is still reported separately.
-MAX_PROTOBUF_ERROR_DATA_BYTES = 64
+MAX_PROTOBUF_ERROR_DATA_BYTES = 255
 _MAX_PROTOBUF_ERROR_DATA_BYTES = MAX_PROTOBUF_ERROR_DATA_BYTES
 
 _WIN32 = sys.platform == "win32"
