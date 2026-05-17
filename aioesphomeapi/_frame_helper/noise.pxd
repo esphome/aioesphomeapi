@@ -1,7 +1,13 @@
 import cython
 
 from ..connection cimport APIConnection
-from .base cimport APIFrameHelper
+from .base cimport (
+    APIFrameHelper,
+    _MAX_EXPLANATION_LEN,
+    _MAX_MAC_LEN,
+    _MAX_NAME_LEN,
+    _safe_label_str,
+)
 from .noise_encryption cimport EncryptCipher, DecryptCipher
 from .packets cimport make_noise_packets
 
@@ -15,12 +21,6 @@ cdef unsigned int NOISE_STATE_CLOSED
 cdef bytes NOISE_HELLO
 cdef object InvalidTag
 cdef object ESPHOME_NOISE_BACKEND
-
-cdef int _MAX_NAME_LEN
-cdef int _MAX_MAC_LEN
-cdef int _MAX_EXPLANATION_LEN
-
-cdef str _safe_label_str(str raw, int limit)
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 

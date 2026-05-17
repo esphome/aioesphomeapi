@@ -14,6 +14,7 @@ from google.protobuf import message
 import pytest
 
 from aioesphomeapi import APIClient
+from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -35,6 +36,7 @@ from aioesphomeapi.connection import (
 from aioesphomeapi.core import (
     APIConnectionCancelledError,
     APIConnectionError,
+    BadNameAPIError,
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
@@ -765,6 +767,77 @@ async def test_connect_wrong_name(
         await connect_task
 
     assert conn.is_connected is False
+
+
+def _send_plaintext_hello_with(
+    protocol: APIPlaintextFrameHelper, *, name: str, server_info: str = "esp"
+) -> None:
+    hello_response = HelloResponse()
+    hello_response.api_version_major = 1
+    hello_response.api_version_minor = 9
+    hello_response.name = name
+    hello_response.server_info = server_info
+    protocol.data_received(generate_plaintext_packet(hello_response))
+
+
+async def test_plaintext_hello_sanitizes_mismatched_name(
+    plaintext_connect_task_expected_name: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
+
+    _send_plaintext_hello_with(protocol, name="evil\r\nINJECTED\x1b[31m")
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await connect_task
+
+    raised = exc_info.value
+    assert "\r" not in str(raised)
+    assert "\n" not in str(raised)
+    assert "\x1b" not in str(raised)
+    assert raised.received_name == "evilINJECTED[31m"
+    assert conn.is_connected is False
+
+
+async def test_plaintext_hello_caps_oversize_mismatched_name(
+    plaintext_connect_task_expected_name: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
+
+    _send_plaintext_hello_with(protocol, name="a" * 4096)
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await connect_task
+
+    assert len(exc_info.value.received_name) == MAX_NAME_LEN
+    assert conn.is_connected is False
+
+
+async def test_plaintext_hello_sanitizes_matched_name_and_server_info(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    caplog.set_level(logging.DEBUG, logger="aioesphomeapi")
+    _send_plaintext_hello_with(
+        protocol,
+        name="device\r\n42",
+        server_info="esphome\r\nLOGGER WARNING something\x1b[31m",
+    )
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+    assert conn.is_connected
+    assert conn.received_name == "device42"
+    assert "\r" not in conn.received_name
+    assert "\x1b" not in caplog.text
+    assert "\r\nLOGGER WARNING" not in caplog.text
 
 
 async def test_force_disconnect_fails(
