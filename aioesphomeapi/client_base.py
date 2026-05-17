@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Any
 
 from google.protobuf import message
 
-from ._frame_helper.base import (
+from ._frame_helper.base import (  # noqa: F401
     MAX_NAME_LEN,
-    APIFrameHelper,  # noqa: F401
+    APIFrameHelper,
     _safe_label_str,
 )
 from ._frame_helper.noise import APINoiseFrameHelper  # noqa: F401
