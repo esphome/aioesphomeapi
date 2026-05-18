@@ -990,6 +990,68 @@ async def test_noise_frame_helper_empty_handshake_frame():
         await helper.ready_future
 
 
+async def test_noise_frame_helper_handshake_invalid_tag() -> None:
+    """Handshake body with valid preamble but bogus AEAD payload surfaces as InvalidEncryptionKeyAPIError."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    await asyncio.sleep(0)  # let the task run to read the hello packet
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # preamble=0x00 (handshake), then 48 bytes of garbage that look like a
+    # valid-length NN responder reply (32-byte ephemeral pubkey + 16-byte MAC)
+    # but fail authentication. Without explicit InvalidTag handling the
+    # cryptography library exception would propagate raw to the caller.
+    bogus_handshake = b"\x00" + (b"\xff" * 48)
+    pkt_len = len(bogus_handshake)
+    handshake_pkt_with_header = (
+        bytes((0x01, (pkt_len >> 8) & 0xFF, pkt_len & 0xFF)) + bogus_handshake
+    )
+    mock_data_received(helper, handshake_pkt_with_header)
+
+    with pytest.raises(InvalidEncryptionKeyAPIError) as exc_info:
+        await helper.ready_future
+    assert exc_info.value.received_name == "servicetest"
+
+
+async def test_noise_frame_helper_handshake_other_noise_error():
+    """A non-InvalidTag noise lib exception is wrapped as HandshakeAPIError."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    await asyncio.sleep(0)
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # preamble=0x00 then a too-short body. The noise library raises
+    # NoiseInvalidMessage (not InvalidTag) when the responder reply is
+    # shorter than the protocol's e + ee size.
+    bogus_handshake = b"\x00\x01\x02"
+    pkt_len = len(bogus_handshake)
+    handshake_pkt_with_header = (
+        bytes((0x01, (pkt_len >> 8) & 0xFF, pkt_len & 0xFF)) + bogus_handshake
+    )
+    mock_data_received(helper, handshake_pkt_with_header)
+
+    with pytest.raises(HandshakeAPIError, match="Handshake failed"):
+        await helper.ready_future
+
+
 async def test_noise_frame_helper_wrong_protocol():
     """Test noise with the wrong protocol."""
     connection, _ = _make_mock_connection()
