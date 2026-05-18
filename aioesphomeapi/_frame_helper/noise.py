@@ -314,25 +314,25 @@ class APINoiseFrameHelper(APIFrameHelper):
             return
         try:
             self._proto.read_message(msg[1:])
-        except InvalidTag:
+        except InvalidTag as exc:
             # The peer's handshake response failed AEAD authentication. Either
             # the PSK doesn't match or the ciphertext was tampered with. ESPHome
             # firmware normally rejects with the dedicated preamble=0x01
             # "Handshake MAC failure" frame, so reaching this path means the
             # peer is buggy or hostile; surface the same friendly error the
             # named-failure branch raises.
-            self._handle_error_and_close(
-                InvalidEncryptionKeyAPIError(
-                    f"{self._log_name}: Invalid encryption key",
-                    self._server_name,
-                    self._server_mac,
-                )
+            err = InvalidEncryptionKeyAPIError(
+                f"{self._log_name}: Invalid encryption key",
+                self._server_name,
+                self._server_mac,
             )
+            err.__cause__ = exc
+            self._handle_error_and_close(err)
             return
         except Exception as exc:
-            self._handle_error_and_close(
-                HandshakeAPIError(f"{self._log_name}: Handshake failed: {exc}")
-            )
+            err = HandshakeAPIError(f"{self._log_name}: Handshake failed: {exc}")
+            err.__cause__ = exc
+            self._handle_error_and_close(err)
             return
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
