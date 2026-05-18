@@ -6,7 +6,6 @@ from .base cimport (
     _MAX_EXPLANATION_LEN,
     _MAX_MAC_LEN,
     _MAX_NAME_LEN,
-    safe_label_str,
 )
 from .noise_encryption cimport EncryptCipher, DecryptCipher
 from .packets cimport make_noise_packets

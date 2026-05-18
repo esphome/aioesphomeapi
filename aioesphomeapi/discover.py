@@ -11,7 +11,7 @@ import sys
 from zeroconf import IPVersion, ServiceStateChange, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
-from ._frame_helper.base import MAX_MAC_LEN, MAX_NAME_LEN, safe_label_str
+from ._sanitize import MAX_MAC_LEN, MAX_NAME_LEN, safe_label_str
 
 FORMAT = "{: <7}|{: <32}|{: <15}|{: <12}|{: <16}|{: <10}|{: <32}"
 COLUMN_NAMES = ("Status", "Name", "Address", "MAC", "Version", "Platform", "Board")

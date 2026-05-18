@@ -51,9 +51,9 @@ NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
 
-# Cython resolves _MAX_* and safe_label_str via cimport from .base
-# (noise.pxd); these assignments are the pure-Python (SKIP_CYTHON=1) fallback
-# so callers below have a name to resolve.
+# Cython resolves _MAX_* via cimport from .base (noise.pxd); these
+# assignments are the pure-Python (SKIP_CYTHON=1) fallback so callers below
+# have a name to resolve.
 _MAX_NAME_LEN = MAX_NAME_LEN
 _MAX_MAC_LEN = MAX_MAC_LEN
 _MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN

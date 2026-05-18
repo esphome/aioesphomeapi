@@ -10,8 +10,6 @@ cdef int _MAX_NAME_LEN
 cdef int _MAX_MAC_LEN
 cdef int _MAX_EXPLANATION_LEN
 
-cpdef str safe_label_str(str raw, int limit)
-
 cdef class APIFrameHelper:
 
     cdef object _loop
