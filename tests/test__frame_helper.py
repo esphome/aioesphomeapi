@@ -990,7 +990,7 @@ async def test_noise_frame_helper_empty_handshake_frame():
         await helper.ready_future
 
 
-async def test_noise_frame_helper_handshake_invalid_tag():
+async def test_noise_frame_helper_handshake_invalid_tag() -> None:
     """Handshake body with valid preamble but bogus AEAD payload surfaces as InvalidEncryptionKeyAPIError."""
     connection, _ = _make_mock_connection()
     helper = MockAPINoiseFrameHelper(
