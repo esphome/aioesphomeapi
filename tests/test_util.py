@@ -5,7 +5,12 @@ import sys
 import pytest
 
 from aioesphomeapi import util
-from aioesphomeapi.util import is_ip_address
+from aioesphomeapi.util import (
+    address_is_local,
+    build_log_name,
+    host_is_name_part,
+    is_ip_address,
+)
 
 
 @pytest.mark.parametrize(
@@ -119,3 +124,85 @@ async def test_create_eager_task_pre_312() -> None:
 )
 def test_is_ip_address(address: str | None, expected: bool) -> None:
     assert is_ip_address(address) is expected
+
+
+@pytest.mark.parametrize(
+    ("address", "expected"),
+    [
+        ("myesp", True),
+        ("MyESP", True),
+        ("a", True),
+        ("", True),
+        ("host.local", False),
+        ("192.168.1.10", False),
+        ("[::1]", False),
+        ("::1", False),
+        ("host:6053", False),
+        ("host.local:6053", False),
+    ],
+)
+def test_host_is_name_part(address: str, expected: bool) -> None:
+    assert host_is_name_part(address) is expected
+
+
+@pytest.mark.parametrize(
+    ("address", "expected"),
+    [
+        ("host.local", True),
+        ("host.local.", True),
+        ("MYHOST.LOCAL", False),
+        ("host.local.example.com", False),
+        ("host", False),
+        ("host.localdomain", False),
+        ("192.168.1.10", False),
+        ("", False),
+        (".local", True),
+        (".local.", True),
+    ],
+)
+def test_address_is_local(address: str, expected: bool) -> None:
+    assert address_is_local(address) is expected
+
+
+@pytest.mark.parametrize(
+    ("name", "addresses", "connected_address", "expected"),
+    [
+        # No name, single .local address — derive name from .local suffix.
+        (None, ["myesp.local"], None, "myesp"),
+        # No name, single name-only address — use it as the name.
+        (None, ["myesp"], None, "myesp"),
+        # Name set + .local address — address becomes preferred and starts
+        # with "name.", so just return the address.
+        ("myesp", ["myesp.local"], None, "myesp.local"),
+        # Name + IP + connected to that IP — show as "name @ ip".
+        ("myesp", ["192.168.1.10"], "192.168.1.10", "myesp @ 192.168.1.10"),
+        # No name, mixed .local + IP, connected to IP — derive name + "name @ ip".
+        (
+            None,
+            ["myesp.local", "192.168.1.10"],
+            "192.168.1.10",
+            "myesp @ 192.168.1.10",
+        ),
+        # Bare IP only, not connected — IP becomes the preferred address.
+        (None, ["192.168.1.10"], None, "192.168.1.10"),
+        # Name + .local-suffixed connected address — preferred starts with "name." so just return preferred.
+        ("myesp", ["192.168.1.10"], "myesp.local", "myesp.local"),
+        # Name equals preferred address — return just the address.
+        ("192.168.1.10", ["192.168.1.10"], "192.168.1.10", "192.168.1.10"),
+        # Multiple IPs, first one becomes preferred since none is local/name-part.
+        (None, ["10.0.0.1", "10.0.0.2"], None, "10.0.0.1"),
+        # IPv6 address.
+        (None, ["::1"], None, "::1"),
+        # Name supplied, no addresses preferred — name wins.
+        ("myesp", ["myesp"], None, "myesp"),
+        # Connected address set explicitly even though addresses contain a name-part.
+        ("myesp", ["myesp"], "192.168.1.10", "myesp @ 192.168.1.10"),
+    ],
+)
+def test_build_log_name(
+    name: str | None,
+    addresses: list[str],
+    connected_address: str | None,
+    expected: str,
+) -> None:
+    assert build_log_name(name, addresses, connected_address) == expected
