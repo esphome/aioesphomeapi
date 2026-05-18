@@ -321,18 +321,20 @@ class APINoiseFrameHelper(APIFrameHelper):
             # "Handshake MAC failure" frame, so reaching this path means the
             # peer is buggy or hostile; surface the same friendly error the
             # named-failure branch raises.
-            err = InvalidEncryptionKeyAPIError(
+            key_err = InvalidEncryptionKeyAPIError(
                 f"{self._log_name}: Invalid encryption key",
                 self._server_name,
                 self._server_mac,
             )
-            err.__cause__ = exc
-            self._handle_error_and_close(err)
+            key_err.__cause__ = exc
+            self._handle_error_and_close(key_err)
             return
         except Exception as exc:
-            err = HandshakeAPIError(f"{self._log_name}: Handshake failed: {exc}")
-            err.__cause__ = exc
-            self._handle_error_and_close(err)
+            handshake_err = HandshakeAPIError(
+                f"{self._log_name}: Handshake failed: {exc}"
+            )
+            handshake_err.__cause__ = exc
+            self._handle_error_and_close(handshake_err)
             return
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
