@@ -18,6 +18,7 @@ select = [
   "PERF", # Perflint
   "PIE", # flake8-pie
   "PL", # pylint
+  "PTH", # flake8-use-pathlib
   "UP", # pyupgrade
   "RET", # flake8-return
   "RUF", # ruff
