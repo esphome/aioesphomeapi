@@ -85,7 +85,7 @@ async def test_create_eager_task_pre_312() -> None:
 
 
 @pytest.mark.parametrize(
-    "address, expected",
+    ("address", "expected"),
     [
         # IPv4 bare and with port.
         ("192.168.1.10", True),
@@ -111,6 +111,8 @@ async def test_create_eager_task_pre_312() -> None:
         # Malformed bracketed forms.
         ("[::1", False),
         ("[notanip]", False),
+        ("[::1]junk", False),
+        ("[::1]]", False),
         # None.
         (None, False),
     ],
