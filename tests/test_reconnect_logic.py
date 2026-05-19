@@ -373,7 +373,7 @@ DNS_POINTER = DNSPointer(
 
 @pytest.mark.parametrize(
     ("record", "should_trigger_zeroconf", "expected_state_after_trigger", "log_text"),
-    (
+    [
         (
             DNS_POINTER,
             True,
@@ -416,7 +416,7 @@ DNS_POINTER = DNSPointer(
             ReconnectLogicState.READY,
             "received mDNS record",
         ),
-    ),
+    ],
 )
 async def test_reconnect_zeroconf(
     patchable_api_client: APIClient,

@@ -186,7 +186,7 @@ class DummyIntEnum(APIIntEnum):
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input", "output"),
     [
         (0, DummyIntEnum.DEFAULT),
         (1, DummyIntEnum.MY_VAL),
@@ -203,7 +203,7 @@ def test_api_int_enum_convert(input, output):
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input", "output"),
     [
         ([], []),
         ([1], [DummyIntEnum.MY_VAL]),
@@ -299,7 +299,7 @@ def test_api_version_ord():
 
 
 @pytest.mark.parametrize(
-    "model, pb",
+    ("model", "pb"),
     [
         (DeviceInfo, DeviceInfoResponse),
         (BinarySensorInfo, ListEntitiesBinarySensorResponse),
@@ -362,7 +362,7 @@ def test_basic_pb_conversions(model, pb):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (CoverState(legacy_state=LegacyCoverState.OPEN), (1, 0), False),
         (CoverState(legacy_state=LegacyCoverState.CLOSED), (1, 0), True),
@@ -376,7 +376,7 @@ def test_cover_state_legacy_state(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (
             ClimateInfo(supports_current_temperature=True),
@@ -415,7 +415,7 @@ def test_climate_info_supported_feature_flags_compat(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (ClimateInfo(legacy_supports_away=False), (1, 4), []),
         (
@@ -437,7 +437,7 @@ def test_climate_info_supported_presets_compat(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (ClimateState(unused_legacy_away=False), (1, 4), ClimatePreset.HOME),
         (ClimateState(unused_legacy_away=True), (1, 4), ClimatePreset.AWAY),
@@ -1822,7 +1822,7 @@ def test_event_entity_state_device_id():
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input", "output"),
     [
         (0, SupportsResponseType.NONE),
         (1, SupportsResponseType.OPTIONAL),

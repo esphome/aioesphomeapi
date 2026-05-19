@@ -666,7 +666,7 @@ async def test_subscribe_states_camera_oversized_done_chunk_does_not_tombstone(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1), dict(key=1)),
         (
@@ -700,7 +700,7 @@ async def test_cover_command_legacy(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1), dict(key=1)),
         (dict(key=1, position=0.5), dict(key=1, has_position=True, position=0.5)),
@@ -723,7 +723,7 @@ async def test_cover_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1), dict(key=1)),
         (dict(key=1, state=True), dict(key=1, has_state=True, state=True)),
@@ -759,7 +759,7 @@ async def test_fan_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1), dict(key=1)),
         (dict(key=1, state=True), dict(key=1, has_state=True, state=True)),
@@ -822,7 +822,7 @@ async def test_light_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1, state=False), dict(key=1, state=False)),
         (dict(key=1, state=True), dict(key=1, state=True)),
@@ -942,7 +942,7 @@ async def test_water_heater_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, preset=ClimatePreset.HOME),
@@ -965,7 +965,7 @@ async def test_climate_command_legacy(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, mode=ClimateMode.HEAT),
@@ -1020,7 +1020,7 @@ async def test_climate_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1, state=0.0), dict(key=1, state=0.0)),
         (dict(key=1, state=100.0), dict(key=1, state=100.0)),
@@ -1036,7 +1036,7 @@ async def test_number_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, year=2024, month=2, day=29),
@@ -1061,7 +1061,7 @@ async def test_date_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, hour=12, minute=30, second=30),
@@ -1086,7 +1086,7 @@ async def test_time_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, epoch_seconds=1735648230),
@@ -1108,7 +1108,7 @@ async def test_datetime_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1, command=LockCommand.LOCK), dict(key=1, command=LockCommand.LOCK)),
         (
@@ -1132,7 +1132,7 @@ async def test_lock_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1), dict(key=1)),
         (dict(key=1, position=1.0), dict(key=1, position=1.0, has_position=True)),
@@ -1150,7 +1150,7 @@ async def test_valve_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1), dict(key=1)),
         (dict(key=1, position=0.5), dict(key=1, has_position=True, position=0.5)),
@@ -1173,7 +1173,7 @@ async def test_valve_command_version_1_1(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1, state="One"), dict(key=1, state="One")),
         (dict(key=1, state="Two"), dict(key=1, state="Two")),
@@ -1189,7 +1189,7 @@ async def test_select_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, command=MediaPlayerCommand.MUTE),
@@ -1225,7 +1225,7 @@ async def test_media_player_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1), dict(key=1)),
     ],
@@ -1240,7 +1240,7 @@ async def test_button_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1, state=True), dict(key=1, state=True, has_state=True)),
         (dict(key=1, state=False), dict(key=1, state=False, has_state=True)),
@@ -1473,7 +1473,7 @@ async def test_request_image_stream(auth_client: APIClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY),
@@ -1499,7 +1499,7 @@ async def test_alarm_panel_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (dict(key=1, state="hello world"), dict(key=1, state="hello world")),
         (dict(key=1, state="goodbye"), dict(key=1, state="goodbye")),
@@ -1515,7 +1515,7 @@ async def test_text_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
             dict(key=1, command=UpdateCommand.INSTALL),
