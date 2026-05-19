@@ -99,7 +99,7 @@ if sys.platform != "win32":
 
 
 @pytest.mark.parametrize(
-    "in_bytes, pkt_data, pkt_type",
+    ("in_bytes", "pkt_data", "pkt_type"),
     _PLAINTEXT_TESTS,
 )
 async def test_plaintext_frame_helper(
@@ -132,7 +132,7 @@ async def test_plaintext_frame_helper(
 
 
 @pytest.mark.parametrize(
-    "in_bytes, pkt_data, pkt_type",
+    ("in_bytes", "pkt_data", "pkt_type"),
     _PLAINTEXT_TESTS,
 )
 async def test_plaintext_frame_helper_multiple_payloads_single_packet(
@@ -167,7 +167,7 @@ async def test_plaintext_frame_helper_multiple_payloads_single_packet(
 
 @pytest.mark.parametrize(
     "byte_type",
-    (bytes, bytearray, memoryview),
+    [bytes, bytearray, memoryview],
 )
 async def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
     """Test the plaintext frame helper with the protractor event loop.
@@ -207,7 +207,7 @@ async def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> N
 
 @pytest.mark.parametrize(
     "byte_type",
-    (bytes, bytearray, memoryview),
+    [bytes, bytearray, memoryview],
 )
 async def test_noise_protector_event_loop(byte_type: Any) -> None:
     """Test the noise frame helper with the protractor event loop.
@@ -418,7 +418,7 @@ VARUINT_TESTCASES = [
 ]
 
 
-@pytest.mark.parametrize("val, encoded", VARUINT_TESTCASES)
+@pytest.mark.parametrize(("val", "encoded"), VARUINT_TESTCASES)
 def test_varuint_to_bytes(val, encoded):
     assert varuint_to_bytes(val) == encoded
     assert cached_varuint_to_bytes(val) == encoded
@@ -1373,10 +1373,10 @@ async def test_connection_lost_closes_connection_and_logs(
 
 @pytest.mark.parametrize(
     ("bad_psk", "error"),
-    (
+    [
         ("dGhpc2lzbm90MzJieXRlcw==", "expected base64-encoded 32-byte value"),
         ("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc", "Malformed PSK"),
-    ),
+    ],
 )
 async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
     """Test we raise on bad psks."""

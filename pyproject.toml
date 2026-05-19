@@ -18,6 +18,8 @@ select = [
   "PERF", # Perflint
   "PIE", # flake8-pie
   "PL", # pylint
+  "PT006", # pytest-parametrize-names-wrong-type
+  "PT007", # pytest-parametrize-values-wrong-type
   "PTH", # flake8-use-pathlib
   "UP", # pyupgrade
   "RET", # flake8-return
