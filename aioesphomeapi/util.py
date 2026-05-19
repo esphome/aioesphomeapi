@@ -51,13 +51,24 @@ def address_is_local(address: str) -> bool:
 def is_ip_address(address: str | None) -> bool:
     """Return True if the address is an IP address.
 
-    Handles addresses with or without port (e.g., "192.168.1.1" or "192.168.1.1:6053").
-    Returns False if address is None.
+    Handles IPv4 with or without port ("192.168.1.1", "192.168.1.1:6053"),
+    bare IPv6 ("::1", "2001:db8::1") and bracketed IPv6 with optional port
+    ("[::1]", "[::1]:6053"). Returns False if address is None.
     """
     if address is None:
         return False
-    # Remove port if present
-    host = address.partition(":")[0]
+    if address.startswith("["):
+        # [ipv6] or [ipv6]:port
+        end = address.find("]")
+        if end == -1:
+            return False
+        host = address[1:end]
+    elif address.count(":") > 1:
+        # Bare IPv6 (multiple colons means it can't be host:port).
+        host = address
+    else:
+        # IPv4, hostname, or host:port — strip optional port.
+        host = address.partition(":")[0]
     try:
         ipaddress.ip_address(host)
     except ValueError:
