@@ -8,7 +8,7 @@ from aioesphomeapi import util
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input", "output"),
     [
         (0, 0),
         (float("inf"), float("inf")),
