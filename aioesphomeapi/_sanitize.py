@@ -11,6 +11,13 @@ MAX_MAC_LEN = 16
 MAX_EXPLANATION_LEN = 64
 
 
-def safe_label_str(raw: str, limit: int) -> str:
+# Alias so the `limit` annotation below isn't interpreted as a C-int type
+# declaration by Cython — the .pxd already declares `int limit` and a bare
+# `int` annotation would clash with it ("Function signature does not match
+# previous declaration"). Mirrors the same workaround in _frame_helper/base.py.
+_int = int
+
+
+def safe_label_str(raw: str, limit: _int) -> str:
     """Strip non-printables and length-cap a peer-supplied label for log output."""
     return "".join(filter(str.isprintable, raw))[:limit]
