@@ -157,7 +157,10 @@ def parse_log_message(
 
     # Fast path for single line (most common case)
     if "\n" not in text:
-        return (f"{timestamp}{text}",)
+        output = f"{timestamp}{text}"
+        if not strip_ansi_escapes and _needs_reset(text):
+            output += ANSI_RESET
+        return (output,)
 
     # Multi-line handling
     lines = text.split("\n")
