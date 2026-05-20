@@ -61,7 +61,7 @@ async def main(argv: list[str]) -> None:
     )
 
     def on_log(msg: SubscribeLogsResponse) -> None:
-        time_ = datetime.now()
+        time_ = datetime.now().astimezone()
         message: bytes = msg.message
         text = message.decode("utf8", "backslashreplace")
         nanoseconds = time_.microsecond // 1000
