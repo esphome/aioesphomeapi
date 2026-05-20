@@ -45,7 +45,7 @@ def host_is_name_part(address: str) -> bool:
 
 def address_is_local(address: str) -> bool:
     """Return True if the address is a local address."""
-    return address.removesuffix(".").endswith(".local")
+    return address.removesuffix(".").lower().endswith(".local")
 
 
 def is_ip_address(address: str | None) -> bool:

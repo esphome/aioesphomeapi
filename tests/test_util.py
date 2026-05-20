@@ -150,7 +150,8 @@ def test_host_is_name_part(address: str, expected: bool) -> None:
     [
         ("host.local", True),
         ("host.local.", True),
-        ("MYHOST.LOCAL", False),
+        ("MYHOST.LOCAL", True),
+        ("MYHOST.LOCAL.", True),
         ("host.local.example.com", False),
         ("host", False),
         ("host.localdomain", False),
