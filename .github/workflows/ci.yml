@@ -76,14 +76,10 @@ jobs:
       - name: Register problem matchers
         shell: bash
         run: |
-          echo "::add-matcher::.github/workflows/matchers/flake8.json"
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
-      - run: flake8 aioesphomeapi
-        name: Lint with flake8
-        if: ${{ matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: ruff format --check aioesphomeapi tests
         name: Check ruff formatting
         if: ${{ matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
