@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from aioesphomeapi import util
-from aioesphomeapi.util import is_ip_address
+from aioesphomeapi.util import address_is_local, is_ip_address
 
 
 @pytest.mark.parametrize(
@@ -119,3 +119,22 @@ async def test_create_eager_task_pre_312() -> None:
 )
 def test_is_ip_address(address: str | None, expected: bool) -> None:
     assert is_ip_address(address) is expected
+
+
+@pytest.mark.parametrize(
+    ("address", "expected"),
+    [
+        ("myesp.local", True),
+        ("myesp.local.", True),
+        # mDNS / DNS names are case-insensitive (RFC 6762 §16, RFC 4343).
+        ("MyESP.LOCAL", True),
+        ("myesp.Local", True),
+        ("MYESP.LOCAL.", True),
+        ("myesp", False),
+        ("myesp.localdomain", False),
+        ("host.example.com", False),
+        ("", False),
+    ],
+)
+def test_address_is_local(address: str, expected: bool) -> None:
+    assert address_is_local(address) is expected
