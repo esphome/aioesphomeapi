@@ -193,9 +193,15 @@ def parse_log_message(
             # Empty line
             result.append("")
             continue
-        if not line[0].isspace():  # If line starts with whitespace, it's a continuation
+        if not line[0].isspace():
             # This is a new log entry within the same message
-            result.append(f"{timestamp}{line}")
+            new_entry = f"{timestamp}{line}"
+            if not strip_ansi_escapes and _needs_reset(line):
+                new_entry += ANSI_RESET
+            # Re-extract prefix/color so any later continuation lines in
+            # this same message inherit from the new entry, not the original.
+            prefix, color_code, _ = _extract_prefix_and_color(line, strip_ansi_escapes)
+            result.append(new_entry)
             continue
         # Apply timestamp, color, prefix, and the continuation line
         result.append(
