@@ -88,8 +88,8 @@ def build_log_name(
         return name or addresses[0]
     if (
         name
-        and name != preferred_address
-        and not preferred_address.startswith(f"{name}.")
+        and name.lower() != preferred_address.lower()
+        and not preferred_address.lower().startswith(f"{name.lower()}.")
     ):
         return f"{name} @ {preferred_address}"
     return preferred_address
