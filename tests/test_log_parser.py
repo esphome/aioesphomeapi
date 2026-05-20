@@ -380,6 +380,61 @@ def test_color_bleeding_prevention() -> None:
     )
 
 
+def test_mid_message_new_entry_color_bleed_prevention() -> None:
+    """Color on a mid-message new entry without trailing reset must not bleed."""
+    text = (
+        "\033[0;35m[C][a:022]: First entry\033[0m\n"
+        "  Continuation of first\n"
+        "\033[0;32m[I][b:023]: Second entry without inline reset"
+    )
+    timestamp = "[09:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 3
+    assert result[0] == "[09:00:00.000]\033[0;35m[C][a:022]: First entry\033[0m"
+    assert (
+        result[1]
+        == "[09:00:00.000]\033[0;35m[C][a:022]:   Continuation of first\033[0m"
+    )
+    # Mid-message new entry: reset must be appended so color cannot bleed
+    assert (
+        result[2]
+        == "[09:00:00.000]\033[0;32m[I][b:023]: Second entry without inline reset\033[0m"
+    )
+
+
+def test_mid_message_new_entry_continuation_uses_new_prefix() -> None:
+    """Continuation following a mid-message new entry inherits the new prefix/color."""
+    text = (
+        "\033[0;35m[C][a:022]: First entry\033[0m\n"
+        "\033[0;32m[I][b:023]: Second entry\n"
+        "  continuation of second"
+    )
+    timestamp = "[09:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 3
+    assert result[0] == "[09:00:00.000]\033[0;35m[C][a:022]: First entry\033[0m"
+    # Mid-message new entry — reset added
+    assert result[1] == "[09:00:00.000]\033[0;32m[I][b:023]: Second entry\033[0m"
+    # Continuation must inherit the new entry's prefix and color, not the first's
+    assert (
+        result[2]
+        == "[09:00:00.000]\033[0;32m[I][b:023]:   continuation of second\033[0m"
+    )
+
+
+def test_mid_message_new_entry_strip_ansi() -> None:
+    """strip_ansi_escapes path keeps mid-message new entries clean."""
+    text = "\033[0;35m[C][a:022]: First entry\n\033[0;32m[I][b:023]: Second entry"
+    timestamp = "[09:00:00.000]"
+    result = parse_log_message(text, timestamp, strip_ansi_escapes=True)
+
+    assert len(result) == 2
+    assert result[0] == "[09:00:00.000][C][a:022]: First entry"
+    assert result[1] == "[09:00:00.000][I][b:023]: Second entry"
+
+
 # Tests for LogParser
 
 
