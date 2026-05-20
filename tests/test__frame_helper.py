@@ -155,7 +155,7 @@ async def test_plaintext_frame_helper_multiple_payloads_single_packet(
         # Make sure we correctly handle multiple payloads in a single packet
         mock_data_received(helper, in_bytes * 5)
 
-        for i in range(5):
+        for _ in range(5):
             pkt = packets.pop()
             type_, data = pkt
 

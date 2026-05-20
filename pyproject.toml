@@ -9,6 +9,7 @@ exclude = [
 [tool.ruff.lint]
 select = [
   "ASYNC", # async rules
+  "B", # flake8-bugbear
   "E", # pycodestyle
   "F", # pyflakes/autoflake
   "FLY", # flynt

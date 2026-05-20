@@ -138,7 +138,7 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
         )
     except OSError as err:
         _LOGGER.debug("Failed to resolve %s via getaddrinfo: %s", host, err)
-        raise ResolveAPIError(f"Error resolving {host} to IP address: {err}")
+        raise ResolveAPIError(f"Error resolving {host} to IP address: {err}") from err
 
     _LOGGER.debug("Successfully resolved %s via getaddrinfo", host)
 
