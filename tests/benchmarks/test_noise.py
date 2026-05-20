@@ -8,6 +8,12 @@ import pytest
 import pytest_asyncio
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
+from aioesphomeapi._frame_helper.base import (
+    MAX_EXPLANATION_LEN,
+    MAX_MAC_LEN,
+    MAX_NAME_LEN,
+    safe_label_str,
+)
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
 from aioesphomeapi._frame_helper.packets import make_noise_packets
 from aioesphomeapi._sanitize import (
