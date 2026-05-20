@@ -34,6 +34,15 @@ async def main(argv: list[str]) -> None:
             "failing repeatedly."
         ),
     )
+    parser.add_argument(
+        "--strip-ansi-escapes",
+        action="store_true",
+        help=(
+            "Strip ANSI escape sequences (colors, cursor moves) from log "
+            "output. Useful when piping to a file or to a terminal that "
+            "doesn't render them."
+        ),
+    )
     parser.add_argument("address")
     args = parser.parse_args(argv[1:])
 
@@ -61,7 +70,9 @@ async def main(argv: list[str]) -> None:
         )
 
         # Parse and print the log message
-        for line in parse_log_message(text, timestamp):
+        for line in parse_log_message(
+            text, timestamp, strip_ansi_escapes=args.strip_ansi_escapes
+        ):
             print(line)
 
     stop = await async_run(
