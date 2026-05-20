@@ -17,7 +17,7 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
-    from .api_pb2 import (  # type: ignore
+    from .api_pb2 import (  # type: ignore[attr-defined]
         BluetoothLEAdvertisementResponse,
         HomeassistantServiceMap,
     )
@@ -1398,7 +1398,7 @@ def _convert_homeassistant_service_map(
     if isinstance(value, dict):
         # already a dict, don't convert
         return value
-    return {v.key: v.value for v in value}  # type: ignore
+    return {v.key: v.value for v in value}  # type: ignore[union-attr]
 
 
 @_frozen_dataclass_decorator

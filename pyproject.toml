@@ -17,6 +17,7 @@ select = [
   "G", # flake8-logging-format
   "I", # isort
   "PERF", # Perflint
+  "PGH", # pygrep-hooks
   "PIE", # flake8-pie
   "PL", # pylint
   "PT006", # pytest-parametrize-names-wrong-type

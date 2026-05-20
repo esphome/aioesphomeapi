@@ -16,7 +16,7 @@ from ._frame_helper.base import (  # noqa: F401
 )
 from ._frame_helper.noise import APINoiseFrameHelper  # noqa: F401
 from ._frame_helper.plain_text import APIPlaintextFrameHelper  # noqa: F401
-from .api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothGATTErrorResponse,

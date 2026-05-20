@@ -6,7 +6,7 @@ from typing import Any
 
 from zeroconf.asyncio import AsyncZeroconf
 
-from .api_pb2 import SubscribeLogsResponse  # type: ignore
+from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 from .client import APIClient
 from .core import APIConnectionError
 from .model import EntityInfo, EntityState, LogLevel
