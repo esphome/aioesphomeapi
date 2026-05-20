@@ -352,6 +352,39 @@ def test_long_component_name_prefix() -> None:
     )
 
 
+def test_single_line_color_no_reset_bleed_prevention() -> None:
+    """Single-line text with unclosed color must get a trailing reset appended."""
+    text = "\033[0;31m[E][app:042]: Single-line entry without inline reset"
+    timestamp = "[09:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 1
+    assert (
+        result[0]
+        == "[09:00:00.000]\033[0;31m[E][app:042]: Single-line entry without inline reset\033[0m"
+    )
+
+
+def test_single_line_color_with_reset_unchanged() -> None:
+    """Single-line text that already ends with reset must not double-reset."""
+    text = "\033[0;31m[E][app:042]: Already reset\033[0m"
+    timestamp = "[09:00:00.000]"
+    result = parse_log_message(text, timestamp)
+
+    assert len(result) == 1
+    assert result[0] == f"[09:00:00.000]{text}"
+
+
+def test_single_line_strip_ansi_no_reset() -> None:
+    """strip_ansi_escapes path must not append a reset on the single-line fast path."""
+    text = "\033[0;31m[E][app:042]: Strip me"
+    timestamp = "[09:00:00.000]"
+    result = parse_log_message(text, timestamp, strip_ansi_escapes=True)
+
+    assert len(result) == 1
+    assert result[0] == "[09:00:00.000][E][app:042]: Strip me"
+
+
 def test_color_bleeding_prevention() -> None:
     """Test that color codes don't bleed to next message when first line lacks reset."""
     # This simulates the issue where first line of multi-line
