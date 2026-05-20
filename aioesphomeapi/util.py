@@ -57,27 +57,27 @@ def is_ip_address(address: str | None) -> bool:
     """
     if address is None:
         return False
+    try:
+        ipaddress.ip_address(address)
+    except ValueError:
+        pass
+    else:
+        return True
     if address.startswith("["):
-        # [ipv6] or [ipv6]:port
         end = address.find("]")
         if end == -1:
             return False
-        # Reject "[ipv6]junk" / "[ipv6]]" — only "]" terminal or ":port" allowed.
-        if end != len(address) - 1 and address[end + 1] != ":":
+        suffix = address[end + 1 :]
+        if suffix and not suffix.startswith(":"):
             return False
         host = address[1:end]
-    elif address.count(":") > 1:
-        # Bare IPv6 (multiple colons means it can't be host:port).
-        host = address
     else:
-        # IPv4, hostname, or host:port — strip optional port.
         host = address.partition(":")[0]
     try:
         ipaddress.ip_address(host)
     except ValueError:
         return False
-    else:
-        return True
+    return True
 
 
 def build_log_name(
