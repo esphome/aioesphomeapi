@@ -1,3 +1,11 @@
+"""Sanitize peer-supplied labels before logging or printing them.
+
+Shared by the noise hello / handshake-reject paths and the discover CLI;
+strips non-printable characters and length-caps the result so a hostile
+remote can't inject ANSI escapes, newlines or oversized values into the
+operator's terminal or logs.
+"""
+
 from __future__ import annotations
 
 # Caps match the firmware's actual wire-format limits:
@@ -9,6 +17,13 @@ from __future__ import annotations
 MAX_NAME_LEN = 32
 MAX_MAC_LEN = 16
 MAX_EXPLANATION_LEN = 64
+
+__all__ = (
+    "MAX_EXPLANATION_LEN",
+    "MAX_MAC_LEN",
+    "MAX_NAME_LEN",
+    "safe_label_str",
+)
 
 
 # Alias so the `limit` annotation below isn't interpreted as a C-int type
