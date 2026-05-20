@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from google.protobuf import message
 
-from .api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     AlarmControlPanelCommandRequest,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,

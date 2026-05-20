@@ -22,7 +22,7 @@ import aioesphomeapi.host_resolver as hr
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
-from .api_pb2 import (  # type: ignore  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
     DST_RULE_TYPE_JULIAN_NO_LEAP as DST_RULE_TYPE_JULIAN_NO_LEAP_PB,
     DST_RULE_TYPE_MONTH_WEEK_DAY as DST_RULE_TYPE_MONTH_WEEK_DAY_PB,

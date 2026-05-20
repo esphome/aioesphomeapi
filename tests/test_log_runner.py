@@ -12,7 +12,7 @@ from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DisconnectRequest,
     DisconnectResponse,
-    SubscribeLogsResponse,  # type: ignore
+    SubscribeLogsResponse,  # type: ignore[attr-defined]
 )
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.connection import APIConnection
