@@ -837,7 +837,7 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
             )
         ],
     )
-    services == BluetoothGATTServicesModel.from_dict(
+    services = BluetoothGATTServicesModel.from_dict(
         {
             "services": [
                 {
