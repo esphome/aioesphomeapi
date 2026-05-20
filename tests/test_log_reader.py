@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore
+from aioesphomeapi.api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 from aioesphomeapi.log_reader import main
 
 
