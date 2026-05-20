@@ -57,12 +57,6 @@ def is_ip_address(address: str | None) -> bool:
     """
     if address is None:
         return False
-    try:
-        ipaddress.ip_address(address)
-    except ValueError:
-        pass
-    else:
-        return True
     if address.startswith("["):
         end = address.find("]")
         if end == -1:
@@ -70,11 +64,11 @@ def is_ip_address(address: str | None) -> bool:
         suffix = address[end + 1 :]
         if suffix and not suffix.startswith(":"):
             return False
-        host = address[1:end]
-    else:
-        host = address.partition(":")[0]
+        address = address[1:end]
+    elif address.count(":") == 1:
+        address = address.partition(":")[0]
     try:
-        ipaddress.ip_address(host)
+        ipaddress.ip_address(address)
     except ValueError:
         return False
     return True
