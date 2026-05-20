@@ -1,6 +1,7 @@
 
 import cython
 
+from .._sanitize cimport safe_label_str
 from ..connection cimport APIConnection
 
 
