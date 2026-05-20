@@ -15,6 +15,7 @@ except ImportError:
     from distutils.core import Extension
 
 TO_CYTHONIZE = [
+    "aioesphomeapi/_sanitize.py",
     "aioesphomeapi/client_base.py",
     "aioesphomeapi/connection.py",
     "aioesphomeapi/_frame_helper/base.py",
