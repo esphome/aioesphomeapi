@@ -5,6 +5,7 @@ import sys
 import pytest
 
 from aioesphomeapi import util
+from aioesphomeapi.util import is_ip_address
 
 
 @pytest.mark.parametrize(
@@ -81,3 +82,40 @@ async def test_create_eager_task_pre_312() -> None:
     assert events == ["eager", "normal"]
     await task1
     await task2
+
+
+@pytest.mark.parametrize(
+    ("address", "expected"),
+    [
+        # IPv4 bare and with port.
+        ("192.168.1.10", True),
+        ("192.168.1.10:6053", True),
+        ("10.0.0.1", True),
+        ("255.255.255.255", True),
+        # Bare IPv6.
+        ("::1", True),
+        ("::", True),
+        ("2001:db8::1", True),
+        ("fe80::1", True),
+        ("2001:0db8:85a3:0000:0000:8a2e:0370:7334", True),
+        # Bracketed IPv6 with optional port.
+        ("[::1]", True),
+        ("[::1]:6053", True),
+        ("[2001:db8::1]:6053", True),
+        # Hostnames and other non-IP strings.
+        ("myesp", False),
+        ("myesp.local", False),
+        ("host.example.com", False),
+        ("host:6053", False),
+        ("", False),
+        # Malformed bracketed forms.
+        ("[::1", False),
+        ("[notanip]", False),
+        ("[::1]junk", False),
+        ("[::1]]", False),
+        # None.
+        (None, False),
+    ],
+)
+def test_is_ip_address(address: str | None, expected: bool) -> None:
+    assert is_ip_address(address) is expected
