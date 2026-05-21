@@ -120,11 +120,12 @@ def service_info_to_addr_info(info: AsyncServiceInfo, port: int) -> list[AddrInf
 
 
 def _remove_local_suffix(hostname: str) -> str:
-    """Remove .local or .local. suffix from hostname."""
-    if hostname.endswith(".local."):
-        return hostname.removesuffix(".local.")
-    if hostname.endswith(".local"):
-        return hostname.removesuffix(".local")
+    """Remove .local or .local. suffix from hostname (case-insensitive)."""
+    lower = hostname.lower()
+    if lower.endswith(".local."):
+        return hostname[: -len(".local.")]
+    if lower.endswith(".local"):
+        return hostname[: -len(".local")]
     return hostname
 
 
@@ -340,7 +341,7 @@ async def _async_resolve_host(
             # If the host ends with .local, also try without the suffix in parallel
             # This handles cases where mDNS resolution might fail but the hostname
             # is resolvable via regular DNS (violates RFC 6762 but improves compatibility)
-            if host.endswith((".local", ".local.")):
+            if address_is_local(host):
                 stripped = _remove_local_suffix(host)
                 # Skip getaddrinfo for purely numeric hostnames - they get
                 # misinterpreted as decimal IP addresses by the socket library
