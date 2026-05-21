@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from google.protobuf import message
 import pytest
+
+if TYPE_CHECKING:
+    from google.protobuf import message
 
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,

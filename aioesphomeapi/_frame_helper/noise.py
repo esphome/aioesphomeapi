@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import binascii
 import logging
 from typing import TYPE_CHECKING
@@ -25,6 +24,8 @@ from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCiphe
 from .packets import make_noise_packets
 
 if TYPE_CHECKING:
+    import asyncio
+
     from ..connection import APIConnection
 
 

@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Coroutine
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any
 
-from google.protobuf import message
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Coroutine
+
+    from google.protobuf import message
 
 from .api_pb2 import (  # type: ignore[attr-defined]
     AlarmControlPanelCommandRequest,

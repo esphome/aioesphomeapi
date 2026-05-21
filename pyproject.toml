@@ -33,6 +33,7 @@ select = [
   "RUF", # ruff
   "SIM", # flake8-SIM
   "SLOT", # flake8-slots
+  "TC", # flake8-type-checking
   "TID", # Tidy imports
   "TRY", # try rules
   "PERF", # performance

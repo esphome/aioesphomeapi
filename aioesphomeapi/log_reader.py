@@ -7,11 +7,14 @@ import contextlib
 from datetime import datetime
 import logging
 import sys
+from typing import TYPE_CHECKING
 
-from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 from .client import APIClient
 from .log_parser import parse_log_message
 from .log_runner import async_run
+
+if TYPE_CHECKING:
+    from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 
 
 async def main(argv: list[str]) -> None:

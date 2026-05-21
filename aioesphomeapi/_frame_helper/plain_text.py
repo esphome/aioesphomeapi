@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
 from .packets import make_plain_text_packets
+
+if TYPE_CHECKING:
+    import asyncio
 
 _int = int
 

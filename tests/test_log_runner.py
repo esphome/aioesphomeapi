@@ -3,21 +3,24 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 from functools import partial
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from google.protobuf import message
-import pytest
-
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DisconnectRequest,
     DisconnectResponse,
     SubscribeLogsResponse,  # type: ignore[attr-defined]
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.log_runner import async_run
+
+if TYPE_CHECKING:
+    from google.protobuf import message
+    import pytest
+
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+    from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.model import (
     ClimateInfo,
     ClimateMode,

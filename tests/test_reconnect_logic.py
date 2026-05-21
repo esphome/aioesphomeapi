@@ -4,6 +4,7 @@ import asyncio
 from functools import partial
 from ipaddress import ip_address
 import logging
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
@@ -23,9 +24,11 @@ from aioesphomeapi import (
     EncryptionPlaintextAPIError,
     RequiresEncryptionAPIError,
 )
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.core import APIConnectionCancelledError
+
+if TYPE_CHECKING:
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
     MAXIMUM_BACKOFF_TRIES,
     ReconnectLogic,

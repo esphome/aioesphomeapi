@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import re
+from typing import TYPE_CHECKING
 
-from aioesphomeapi.model import BluetoothGATTError
+if TYPE_CHECKING:
+    from aioesphomeapi.model import BluetoothGATTError
 
 from .api_pb2 import (  # type: ignore[attr-defined]
     AlarmControlPanelCommandRequest,

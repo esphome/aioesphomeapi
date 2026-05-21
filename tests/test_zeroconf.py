@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from zeroconf.asyncio import AsyncZeroconf
 
 from aioesphomeapi.zeroconf import ZeroconfManager
 
 from .common import get_mock_async_zeroconf
+
+if TYPE_CHECKING:
+    from zeroconf.asyncio import AsyncZeroconf
 
 
 async def test_does_not_closed_passed_in_async_instance(async_zeroconf: AsyncZeroconf):

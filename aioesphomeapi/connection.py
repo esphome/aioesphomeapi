@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import CancelledError
-from collections.abc import Callable
 from dataclasses import astuple, dataclass
 import enum
 from functools import lru_cache, partial
@@ -14,7 +13,6 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 import aiohappyeyeballs
 from async_interrupt import interrupt
-from google.protobuf import message
 from google.protobuf.json_format import MessageToDict
 
 import aioesphomeapi.host_resolver as hr
@@ -60,7 +58,13 @@ from .model import APIVersion, message_types_to_names
 from .posix_tz import DSTRule as DSTRuleParsed, DSTRuleType, parse_posix_tz
 from .timezone import get_timezone
 from .util import asyncio_timeout
-from .zeroconf import ZeroconfManager
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
+
+    from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 

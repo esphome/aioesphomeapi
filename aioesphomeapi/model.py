@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 from uuid import UUID
-
-from google.protobuf import message
 
 from .util import fix_float_single_double_conversion
 
@@ -17,6 +14,10 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from google.protobuf import message
+
     from .api_pb2 import (  # type: ignore[attr-defined]
         BluetoothLEAdvertisementResponse,
         HomeassistantServiceMap,
@@ -88,7 +89,7 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
     return cast(
-        _V,
+        "_V",
         field(metadata=metadata, **kwargs),  # pylint: disable=invalid-field-call
     )
 
@@ -538,7 +539,7 @@ class LightInfo(EntityInfo):
                 ],
             }
 
-            return cast(list[ColorMode], modes_map[key]) if key in modes_map else []
+            return cast("list[ColorMode]", modes_map[key]) if key in modes_map else []
 
         return self.supported_color_modes
 

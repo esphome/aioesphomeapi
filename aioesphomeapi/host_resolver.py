@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from collections.abc import Coroutine
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import itertools
@@ -21,6 +20,9 @@ from .util import (
     host_is_name_part,
 )
 from .zeroconf import ZeroconfManager
+
+if TYPE_CHECKING:
+    from collections.abc import Coroutine
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -147,11 +149,11 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
     for family, type_, proto, _, raw in res:
         sockaddr: IPv4Sockaddr | IPv6Sockaddr
         if family == socket.AF_INET:
-            raw = cast(tuple[str, int], raw)
+            raw = cast("tuple[str, int]", raw)
             address, port = raw
             sockaddr = IPv4Sockaddr(address=address, port=port)
         elif family == socket.AF_INET6:
-            raw = cast(tuple[str, int, int, int], raw)
+            raw = cast("tuple[str, int, int, int]", raw)
             address, port, flowinfo, scope_id = raw
             sockaddr = IPv6Sockaddr(
                 address=address, port=port, flowinfo=flowinfo, scope_id=scope_id
