@@ -199,7 +199,7 @@ def on_bluetooth_device_connection_response(
     on_bluetooth_connection_state: Callable[[bool, int, int], None],
     msg: BluetoothDeviceConnectionResponse,
 ) -> None:
-    """Handle a BluetoothDeviceConnectionResponse message.""" ""
+    """Handle a BluetoothDeviceConnectionResponse message."""
     if address == msg.address:
         on_bluetooth_connection_state(msg.connected, msg.mtu, msg.error)
         # Resolve on ANY connection state since we do not want
