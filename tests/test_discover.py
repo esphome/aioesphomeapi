@@ -43,7 +43,7 @@ def test_decode_mdns_label_or_unknown_invalid_utf8_replaces() -> None:
     # replacement character (one per invalid byte), never raises
     # UnicodeDecodeError. Pinning the actual output, not just the type, keeps
     # a future refactor from silently switching to UNKNOWN or empty string.
-    assert decode_mdns_label_or_unknown(b"\xff\xfe") == "��"
+    assert decode_mdns_label_or_unknown(b"\xff\xfe") == "\ufffd\ufffd"
 
 
 def test_decode_mdns_label_or_unknown_strips_control_chars() -> None:
