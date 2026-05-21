@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import socket
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+
+if TYPE_CHECKING:
+    from zeroconf import Zeroconf
 
 from aioesphomeapi.core import (
     APIConnectionError,

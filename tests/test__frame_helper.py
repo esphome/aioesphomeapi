@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from collections.abc import Iterable
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
 from aioesphomeapi._frame_helper.base import safe_label_str

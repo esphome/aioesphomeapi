@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from math import isnan
 from typing import TYPE_CHECKING
 
@@ -36,6 +35,8 @@ from .model import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .model import EntityInfo, EntityState
 
 

@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 import logging
 import socket
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-from google.protobuf import message
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
@@ -620,7 +623,7 @@ async def test_plaintext_connection_fails_handshake(
         **kwargs,
     ) -> tuple[asyncio.Transport, APIPlaintextFrameHelperHandshakeException]:
         protocol: APIPlaintextFrameHelperHandshakeException = create_func()
-        protocol._transport = cast(asyncio.Transport, transport)
+        protocol._transport = cast("asyncio.Transport", transport)
         protocol._writelines = transport.writelines
         protocol.ready_future.set_exception(exception)
         connected.set()

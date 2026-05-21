@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import asyncio
-from collections.abc import Callable, Iterable
 import logging
 from typing import TYPE_CHECKING, cast
 
@@ -10,6 +9,8 @@ from .._sanitize import MAX_EXPLANATION_LEN, MAX_MAC_LEN, MAX_NAME_LEN, safe_lab
 from ..core import SocketClosedAPIError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from ..connection import APIConnection
 
 _LOGGER = logging.getLogger(__name__)
@@ -153,7 +154,7 @@ class APIFrameHelper:
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""
-        self._transport = cast(asyncio.Transport, transport)
+        self._transport = cast("asyncio.Transport", transport)
         self._writelines = self._transport.writelines
 
     def _handle_error_and_close(self, exc: Exception) -> None:

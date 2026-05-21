@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine
 import contextlib
 from functools import partial
 import itertools
 import json
 import logging
 import socket
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-from google.protobuf import message
 import pytest
 
 from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
@@ -116,7 +113,6 @@ from aioesphomeapi.client import (
     _validate_connection_params,
 )
 from aioesphomeapi.client_base import MAX_CAMERA_FRAME_BYTES, MAX_INFLIGHT_CAMERA_KEYS
-from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothConnectionParamsAPIError,
@@ -184,6 +180,14 @@ from .common import (
     mock_data_received,
 )
 from .conftest import PatchableAPIClient, PatchableAPIConnection
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from google.protobuf import message
+
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+    from aioesphomeapi.connection import APIConnection
 
 
 def patch_response_complex(client: APIClient, messages):

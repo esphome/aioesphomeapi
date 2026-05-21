@@ -2,12 +2,9 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine
 import itertools
 import logging
 from typing import TYPE_CHECKING, Any
-
-from google.protobuf import message
 
 from ._frame_helper.base import (  # noqa: F401
     MAX_NAME_LEN,
@@ -54,6 +51,10 @@ from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from google.protobuf import message
+
     from .connection import APIConnection
 
 _LOGGER = logging.getLogger(__name__)

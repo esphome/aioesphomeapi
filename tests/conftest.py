@@ -3,22 +3,26 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import replace
 from functools import partial
 import reprlib
 import socket
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 import pytest_asyncio
 
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 from aioesphomeapi.singleton import _SINGLETON_CACHE
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 
 from .common import (
     _create_mock_transport_protocol,

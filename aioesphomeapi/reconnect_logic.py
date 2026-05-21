@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
 from enum import Enum
 import logging
 import time
+from typing import TYPE_CHECKING
 
 import zeroconf
 from zeroconf.const import (
@@ -13,7 +13,6 @@ from zeroconf.const import (
     _TYPE_PTR as TYPE_PTR,
 )
 
-from .client import APIClient
 from .core import (
     APIConnectionCancelledError,
     APIConnectionError,
@@ -24,7 +23,12 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_address
-from .zeroconf import ZeroconfInstanceType
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from .client import APIClient
+    from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
 

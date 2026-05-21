@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine
 import logging
-from typing import Any
-
-from zeroconf.asyncio import AsyncZeroconf
+from typing import TYPE_CHECKING, Any
 
 from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
-from .client import APIClient
 from .core import APIConnectionError
 from .model import EntityInfo, EntityState, LogLevel
 from .model_conversions import STATE_TYPE_TO_INFO_TYPE
 from .reconnect_logic import ReconnectLogic
 from .state_log_formatter import format_state_log
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from zeroconf.asyncio import AsyncZeroconf
+
+    from .client import APIClient
 
 _LOGGER = logging.getLogger(__name__)
 

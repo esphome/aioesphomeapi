@@ -6,11 +6,13 @@ from asyncio import (
     get_running_loop,
     timeout as asyncio_timeout,
 )
-from collections.abc import Coroutine
 import ipaddress
 import math
 import sys
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Coroutine
 
 _T = TypeVar("_T")
 

@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from functools import partial
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from google.protobuf import message
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from google.protobuf import message
 
 from aioesphomeapi import APIClient, APIConnection
 from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
