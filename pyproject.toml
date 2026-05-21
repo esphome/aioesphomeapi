@@ -18,6 +18,7 @@ select = [
   "G", # flake8-logging-format
   "I", # isort
   "ISC", # flake8-implicit-str-concat
+  "LOG", # flake8-logging
   "PERF", # Perflint
   "PGH", # pygrep-hooks
   "PIE", # flake8-pie
