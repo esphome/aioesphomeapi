@@ -107,16 +107,16 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
         from Cython.Build import cythonize  # noqa: PLC0415
 
         setup_kwargs.update(
-            dict(
-                ext_modules=cythonize(
+            {
+                "ext_modules": cythonize(
                     EXTENSIONS,
                     compiler_directives={
                         "language_level": "3",  # Python 3
                         "freethreading_compatible": True,  # PEP 703
                     },
                 ),
-                cmdclass=dict(build_ext=OptionalBuildExt),
-            )
+                "cmdclass": {"build_ext": OptionalBuildExt},
+            }
         )
     except Exception:
         if os.environ.get("REQUIRE_CYTHON"):
