@@ -9,7 +9,7 @@ from aioesphomeapi.util import address_is_local, build_log_name, is_ip_address
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         (0, 0),
         (float("inf"), float("inf")),
@@ -26,8 +26,8 @@ from aioesphomeapi.util import address_is_local, build_log_name, is_ip_address
         (0.0000000000000019, 0.0000000000000019),
     ],
 )
-def test_fix_float_single_double_conversion(input, output):
-    assert util.fix_float_single_double_conversion(input) == output
+def test_fix_float_single_double_conversion(input_value, output):
+    assert util.fix_float_single_double_conversion(input_value) == output
 
 
 def test_fix_float_single_double_conversion_nan():

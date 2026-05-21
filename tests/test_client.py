@@ -382,7 +382,7 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         (
             # When not cached, delegates to device_info_and_list_entities
@@ -406,11 +406,11 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
     ],
 )
 async def test_list_entities(
-    auth_client: APIClient, input: dict[str, Any], output: dict[str, Any]
+    auth_client: APIClient, input_value: dict[str, Any], output: dict[str, Any]
 ) -> None:
     # list_entities_services delegates to device_info_and_list_entities when not cached
     patch_api_version(auth_client, APIVersion(1, 14))
-    patch_response_complex(auth_client, input)
+    patch_response_complex(auth_client, input_value)
     resp = await auth_client.list_entities_services()
     assert resp == output
 
@@ -507,7 +507,7 @@ async def test_list_entities_no_object_id_fill_before_1_14(
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         (
             [
@@ -539,10 +539,10 @@ async def test_list_entities_no_object_id_fill_before_1_14(
     ],
 )
 async def test_device_info_and_list_entities(
-    auth_client: APIClient, input: list[Any], output: tuple[Any, Any, Any]
+    auth_client: APIClient, input_value: list[Any], output: tuple[Any, Any, Any]
 ) -> None:
     patch_api_version(auth_client, APIVersion(1, 14))
-    patch_response_complex(auth_client, input)
+    patch_response_complex(auth_client, input_value)
     resp = await auth_client.device_info_and_list_entities()
     assert resp == output
 
