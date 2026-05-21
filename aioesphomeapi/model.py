@@ -5,7 +5,7 @@ import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 from uuid import UUID
 
 from google.protobuf import message
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 # The default value should *always* be the Protobuf default value
 # for a field (False, 0, empty string, enum with value 0, ...)
 
-_T = TypeVar("_T", bound="APIIntEnum")
 _V = TypeVar("_V")
 
 
@@ -36,14 +35,14 @@ class APIIntEnum(enum.IntEnum):
     """Base class for int enum values in API model."""
 
     @classmethod
-    def convert(cls: type[_T], value: int) -> _T | None:
+    def convert(cls, value: int) -> Self | None:
         try:
             return cls(value)
         except ValueError:
             return None
 
     @classmethod
-    def convert_list(cls: type[_T], value: list[int]) -> list[_T]:
+    def convert_list(cls, value: list[int]) -> list[Self]:
         ret = []
         for x in value:
             with contextlib.suppress(ValueError):
@@ -71,9 +70,7 @@ class APIModelBase:
         return asdict(self)  # type: ignore[no-any-return, call-overload]
 
     @classmethod
-    def from_dict(
-        cls: type[_V], data: dict[str, Any], *, ignore_missing: bool = True
-    ) -> _V:
+    def from_dict(cls, data: dict[str, Any], *, ignore_missing: bool = True) -> Self:
         return cls(
             **{
                 f.name: data[f.name]
@@ -83,7 +80,7 @@ class APIModelBase:
         )
 
     @classmethod
-    def from_pb(cls: type[_V], data: Any) -> _V:
+    def from_pb(cls, data: Any) -> Self:
         return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
 

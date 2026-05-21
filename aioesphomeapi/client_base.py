@@ -237,7 +237,6 @@ def on_bluetooth_message_types(
         | BluetoothDeviceConnectionResponse
         | BluetoothGATTGetServicesResponse
         | BluetoothGATTGetServicesDoneResponse
-        | BluetoothGATTErrorResponse
     ),
 ) -> bool:
     """Filter Bluetooth messages of a specific type and address."""

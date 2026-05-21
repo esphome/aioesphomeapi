@@ -760,9 +760,11 @@ class APIClient(APIClientBase):
         handle: int,
         request: message.Message,
         response_type: (
-            type[BluetoothGATTNotifyResponse]
-            | type[BluetoothGATTReadResponse]
-            | type[BluetoothGATTWriteResponse]
+            type[
+                BluetoothGATTNotifyResponse
+                | BluetoothGATTReadResponse
+                | BluetoothGATTWriteResponse
+            ]
         ),
         timeout: float = 10.0,
     ) -> message.Message:
@@ -1187,9 +1189,7 @@ class APIClient(APIClientBase):
 
     async def _bluetooth_gatt_read(
         self,
-        req_type: (
-            type[BluetoothGATTReadDescriptorRequest] | type[BluetoothGATTReadRequest]
-        ),
+        req_type: (type[BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest]),
         address: int,
         handle: int,
         timeout: float,

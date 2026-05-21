@@ -26,6 +26,7 @@ select = [
   "PT006", # pytest-parametrize-names-wrong-type
   "PT007", # pytest-parametrize-values-wrong-type
   "PTH", # flake8-use-pathlib
+  "PYI", # flake8-pyi
   "UP", # pyupgrade
   "RET", # flake8-return
   "RSE", # flake8-raise
