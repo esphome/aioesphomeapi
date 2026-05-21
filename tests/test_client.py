@@ -672,24 +672,30 @@ async def test_subscribe_states_camera_oversized_done_chunk_does_not_tombstone(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
+        ({"key": 1}, {"key": 1}),
         (
-            dict(key=1, position=1.0),
-            dict(
-                key=1, has_legacy_command=True, legacy_command=LegacyCoverCommand.OPEN
-            ),
+            {"key": 1, "position": 1.0},
+            {
+                "key": 1,
+                "has_legacy_command": True,
+                "legacy_command": LegacyCoverCommand.OPEN,
+            },
         ),
         (
-            dict(key=1, position=0.0),
-            dict(
-                key=1, has_legacy_command=True, legacy_command=LegacyCoverCommand.CLOSE
-            ),
+            {"key": 1, "position": 0.0},
+            {
+                "key": 1,
+                "has_legacy_command": True,
+                "legacy_command": LegacyCoverCommand.CLOSE,
+            },
         ),
         (
-            dict(key=1, stop=True),
-            dict(
-                key=1, has_legacy_command=True, legacy_command=LegacyCoverCommand.STOP
-            ),
+            {"key": 1, "stop": True},
+            {
+                "key": 1,
+                "has_legacy_command": True,
+                "legacy_command": LegacyCoverCommand.STOP,
+            },
         ),
     ],
 )
@@ -706,13 +712,25 @@ async def test_cover_command_legacy(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, position=0.5), dict(key=1, has_position=True, position=0.5)),
-        (dict(key=1, position=0.0), dict(key=1, has_position=True, position=0.0)),
-        (dict(key=1, stop=True), dict(key=1, stop=True)),
+        ({"key": 1}, {"key": 1}),
         (
-            dict(key=1, position=1.0, tilt=0.8),
-            dict(key=1, has_position=True, position=1.0, has_tilt=True, tilt=0.8),
+            {"key": 1, "position": 0.5},
+            {"key": 1, "has_position": True, "position": 0.5},
+        ),
+        (
+            {"key": 1, "position": 0.0},
+            {"key": 1, "has_position": True, "position": 0.0},
+        ),
+        ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
+        (
+            {"key": 1, "position": 1.0, "tilt": 0.8},
+            {
+                "key": 1,
+                "has_position": True,
+                "position": 1.0,
+                "has_tilt": True,
+                "tilt": 0.8,
+            },
         ),
     ],
 )
@@ -729,27 +747,27 @@ async def test_cover_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, state=True), dict(key=1, has_state=True, state=True)),
+        ({"key": 1}, {"key": 1}),
+        ({"key": 1, "state": True}, {"key": 1, "has_state": True, "state": True}),
         (
-            dict(key=1, speed=FanSpeed.LOW),
-            dict(key=1, has_speed=True, speed=FanSpeed.LOW),
+            {"key": 1, "speed": FanSpeed.LOW},
+            {"key": 1, "has_speed": True, "speed": FanSpeed.LOW},
         ),
         (
-            dict(key=1, speed_level=10),
-            dict(key=1, has_speed_level=True, speed_level=10),
+            {"key": 1, "speed_level": 10},
+            {"key": 1, "has_speed_level": True, "speed_level": 10},
         ),
         (
-            dict(key=1, oscillating=False),
-            dict(key=1, has_oscillating=True, oscillating=False),
+            {"key": 1, "oscillating": False},
+            {"key": 1, "has_oscillating": True, "oscillating": False},
         ),
         (
-            dict(key=1, direction=FanDirection.REVERSE),
-            dict(key=1, has_direction=True, direction=FanDirection.REVERSE),
+            {"key": 1, "direction": FanDirection.REVERSE},
+            {"key": 1, "has_direction": True, "direction": FanDirection.REVERSE},
         ),
         (
-            dict(key=1, preset_mode="auto"),
-            dict(key=1, has_preset_mode=True, preset_mode="auto"),
+            {"key": 1, "preset_mode": "auto"},
+            {"key": 1, "has_preset_mode": True, "preset_mode": "auto"},
         ),
     ],
 )
@@ -765,54 +783,60 @@ async def test_fan_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, state=True), dict(key=1, has_state=True, state=True)),
-        (dict(key=1, brightness=0.8), dict(key=1, has_brightness=True, brightness=0.8)),
+        ({"key": 1}, {"key": 1}),
+        ({"key": 1, "state": True}, {"key": 1, "has_state": True, "state": True}),
         (
-            dict(key=1, rgb=(0.1, 0.5, 1.0)),
-            dict(key=1, has_rgb=True, red=0.1, green=0.5, blue=1.0),
-        ),
-        (dict(key=1, white=0.0), dict(key=1, has_white=True, white=0.0)),
-        (
-            dict(key=1, color_temperature=0.0),
-            dict(key=1, has_color_temperature=True, color_temperature=0.0),
+            {"key": 1, "brightness": 0.8},
+            {"key": 1, "has_brightness": True, "brightness": 0.8},
         ),
         (
-            dict(key=1, color_brightness=0.0),
-            dict(key=1, has_color_brightness=True, color_brightness=0.0),
+            {"key": 1, "rgb": (0.1, 0.5, 1.0)},
+            {"key": 1, "has_rgb": True, "red": 0.1, "green": 0.5, "blue": 1.0},
+        ),
+        ({"key": 1, "white": 0.0}, {"key": 1, "has_white": True, "white": 0.0}),
+        (
+            {"key": 1, "color_temperature": 0.0},
+            {"key": 1, "has_color_temperature": True, "color_temperature": 0.0},
         ),
         (
-            dict(key=1, cold_white=1.0, warm_white=2.0),
-            dict(
-                key=1,
-                has_cold_white=True,
-                cold_white=1.0,
-                has_warm_white=True,
-                warm_white=2.0,
-            ),
+            {"key": 1, "color_brightness": 0.0},
+            {"key": 1, "has_color_brightness": True, "color_brightness": 0.0},
         ),
         (
-            dict(key=1, transition_length=0.1),
-            dict(key=1, has_transition_length=True, transition_length=100),
+            {"key": 1, "cold_white": 1.0, "warm_white": 2.0},
+            {
+                "key": 1,
+                "has_cold_white": True,
+                "cold_white": 1.0,
+                "has_warm_white": True,
+                "warm_white": 2.0,
+            },
         ),
         (
-            dict(key=1, flash_length=0.1),
-            dict(key=1, has_flash_length=True, flash_length=100),
+            {"key": 1, "transition_length": 0.1},
+            {"key": 1, "has_transition_length": True, "transition_length": 100},
         ),
-        (dict(key=1, effect="special"), dict(key=1, has_effect=True, effect="special")),
         (
-            dict(
-                key=1,
-                color_mode=LightColorCapability.COLOR_TEMPERATURE,
-                color_temperature=153.0,
-            ),
-            dict(
-                key=1,
-                has_color_mode=True,
-                color_mode=LightColorCapability.COLOR_TEMPERATURE,
-                has_color_temperature=True,
-                color_temperature=153.0,
-            ),
+            {"key": 1, "flash_length": 0.1},
+            {"key": 1, "has_flash_length": True, "flash_length": 100},
+        ),
+        (
+            {"key": 1, "effect": "special"},
+            {"key": 1, "has_effect": True, "effect": "special"},
+        ),
+        (
+            {
+                "key": 1,
+                "color_mode": LightColorCapability.COLOR_TEMPERATURE,
+                "color_temperature": 153.0,
+            },
+            {
+                "key": 1,
+                "has_color_mode": True,
+                "color_mode": LightColorCapability.COLOR_TEMPERATURE,
+                "has_color_temperature": True,
+                "color_temperature": 153.0,
+            },
         ),
     ],
 )
@@ -828,8 +852,8 @@ async def test_light_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1, state=False), dict(key=1, state=False)),
-        (dict(key=1, state=True), dict(key=1, state=True)),
+        ({"key": 1, "state": False}, {"key": 1, "state": False}),
+        ({"key": 1, "state": True}, {"key": 1, "state": True}),
     ],
 )
 async def test_switch_command(
@@ -949,12 +973,12 @@ async def test_water_heater_command(
     ("cmd", "req"),
     [
         (
-            dict(key=1, preset=ClimatePreset.HOME),
-            dict(key=1, unused_has_legacy_away=True, unused_legacy_away=False),
+            {"key": 1, "preset": ClimatePreset.HOME},
+            {"key": 1, "unused_has_legacy_away": True, "unused_legacy_away": False},
         ),
         (
-            dict(key=1, preset=ClimatePreset.AWAY),
-            dict(key=1, unused_has_legacy_away=True, unused_legacy_away=True),
+            {"key": 1, "preset": ClimatePreset.AWAY},
+            {"key": 1, "unused_has_legacy_away": True, "unused_legacy_away": True},
         ),
     ],
 )
@@ -972,44 +996,52 @@ async def test_climate_command_legacy(
     ("cmd", "req"),
     [
         (
-            dict(key=1, mode=ClimateMode.HEAT),
-            dict(key=1, has_mode=True, mode=ClimateMode.HEAT),
+            {"key": 1, "mode": ClimateMode.HEAT},
+            {"key": 1, "has_mode": True, "mode": ClimateMode.HEAT},
         ),
         (
-            dict(key=1, target_temperature=21.0),
-            dict(key=1, has_target_temperature=True, target_temperature=21.0),
+            {"key": 1, "target_temperature": 21.0},
+            {"key": 1, "has_target_temperature": True, "target_temperature": 21.0},
         ),
         (
-            dict(key=1, target_temperature_low=21.0),
-            dict(key=1, has_target_temperature_low=True, target_temperature_low=21.0),
+            {"key": 1, "target_temperature_low": 21.0},
+            {
+                "key": 1,
+                "has_target_temperature_low": True,
+                "target_temperature_low": 21.0,
+            },
         ),
         (
-            dict(key=1, target_temperature_high=21.0),
-            dict(key=1, has_target_temperature_high=True, target_temperature_high=21.0),
+            {"key": 1, "target_temperature_high": 21.0},
+            {
+                "key": 1,
+                "has_target_temperature_high": True,
+                "target_temperature_high": 21.0,
+            },
         ),
         (
-            dict(key=1, fan_mode=ClimateFanMode.LOW),
-            dict(key=1, has_fan_mode=True, fan_mode=ClimateFanMode.LOW),
+            {"key": 1, "fan_mode": ClimateFanMode.LOW},
+            {"key": 1, "has_fan_mode": True, "fan_mode": ClimateFanMode.LOW},
         ),
         (
-            dict(key=1, swing_mode=ClimateSwingMode.OFF),
-            dict(key=1, has_swing_mode=True, swing_mode=ClimateSwingMode.OFF),
+            {"key": 1, "swing_mode": ClimateSwingMode.OFF},
+            {"key": 1, "has_swing_mode": True, "swing_mode": ClimateSwingMode.OFF},
         ),
         (
-            dict(key=1, custom_fan_mode="asdf"),
-            dict(key=1, has_custom_fan_mode=True, custom_fan_mode="asdf"),
+            {"key": 1, "custom_fan_mode": "asdf"},
+            {"key": 1, "has_custom_fan_mode": True, "custom_fan_mode": "asdf"},
         ),
         (
-            dict(key=1, preset=ClimatePreset.AWAY),
-            dict(key=1, has_preset=True, preset=ClimatePreset.AWAY),
+            {"key": 1, "preset": ClimatePreset.AWAY},
+            {"key": 1, "has_preset": True, "preset": ClimatePreset.AWAY},
         ),
         (
-            dict(key=1, custom_preset="asdf"),
-            dict(key=1, has_custom_preset=True, custom_preset="asdf"),
+            {"key": 1, "custom_preset": "asdf"},
+            {"key": 1, "has_custom_preset": True, "custom_preset": "asdf"},
         ),
         (
-            dict(key=1, target_humidity=60.0),
-            dict(key=1, has_target_humidity=True, target_humidity=60.0),
+            {"key": 1, "target_humidity": 60.0},
+            {"key": 1, "has_target_humidity": True, "target_humidity": 60.0},
         ),
     ],
 )
@@ -1026,8 +1058,8 @@ async def test_climate_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1, state=0.0), dict(key=1, state=0.0)),
-        (dict(key=1, state=100.0), dict(key=1, state=100.0)),
+        ({"key": 1, "state": 0.0}, {"key": 1, "state": 0.0}),
+        ({"key": 1, "state": 100.0}, {"key": 1, "state": 100.0}),
     ],
 )
 async def test_number_command(
@@ -1043,12 +1075,12 @@ async def test_number_command(
     ("cmd", "req"),
     [
         (
-            dict(key=1, year=2024, month=2, day=29),
-            dict(key=1, year=2024, month=2, day=29),
+            {"key": 1, "year": 2024, "month": 2, "day": 29},
+            {"key": 1, "year": 2024, "month": 2, "day": 29},
         ),
         (
-            dict(key=1, year=2000, month=6, day=10),
-            dict(key=1, year=2000, month=6, day=10),
+            {"key": 1, "year": 2000, "month": 6, "day": 10},
+            {"key": 1, "year": 2000, "month": 6, "day": 10},
         ),
     ],
 )
@@ -1068,12 +1100,12 @@ async def test_date_command(
     ("cmd", "req"),
     [
         (
-            dict(key=1, hour=12, minute=30, second=30),
-            dict(key=1, hour=12, minute=30, second=30),
+            {"key": 1, "hour": 12, "minute": 30, "second": 30},
+            {"key": 1, "hour": 12, "minute": 30, "second": 30},
         ),
         (
-            dict(key=1, hour=0, minute=0, second=0),
-            dict(key=1, hour=0, minute=0, second=0),
+            {"key": 1, "hour": 0, "minute": 0, "second": 0},
+            {"key": 1, "hour": 0, "minute": 0, "second": 0},
         ),
     ],
 )
@@ -1093,12 +1125,12 @@ async def test_time_command(
     ("cmd", "req"),
     [
         (
-            dict(key=1, epoch_seconds=1735648230),
-            dict(key=1, epoch_seconds=1735648230),
+            {"key": 1, "epoch_seconds": 1735648230},
+            {"key": 1, "epoch_seconds": 1735648230},
         ),
         (
-            dict(key=1, epoch_seconds=1735689600),
-            dict(key=1, epoch_seconds=1735689600),
+            {"key": 1, "epoch_seconds": 1735689600},
+            {"key": 1, "epoch_seconds": 1735689600},
         ),
     ],
 )
@@ -1114,15 +1146,21 @@ async def test_datetime_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1, command=LockCommand.LOCK), dict(key=1, command=LockCommand.LOCK)),
         (
-            dict(key=1, command=LockCommand.UNLOCK),
-            dict(key=1, command=LockCommand.UNLOCK),
+            {"key": 1, "command": LockCommand.LOCK},
+            {"key": 1, "command": LockCommand.LOCK},
         ),
-        (dict(key=1, command=LockCommand.OPEN), dict(key=1, command=LockCommand.OPEN)),
         (
-            dict(key=1, command=LockCommand.OPEN, code="1234"),
-            dict(key=1, command=LockCommand.OPEN, code="1234"),
+            {"key": 1, "command": LockCommand.UNLOCK},
+            {"key": 1, "command": LockCommand.UNLOCK},
+        ),
+        (
+            {"key": 1, "command": LockCommand.OPEN},
+            {"key": 1, "command": LockCommand.OPEN},
+        ),
+        (
+            {"key": 1, "command": LockCommand.OPEN, "code": "1234"},
+            {"key": 1, "command": LockCommand.OPEN, "code": "1234"},
         ),
     ],
 )
@@ -1138,10 +1176,16 @@ async def test_lock_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, position=1.0), dict(key=1, position=1.0, has_position=True)),
-        (dict(key=1, position=0.0), dict(key=1, position=0.0, has_position=True)),
-        (dict(key=1, stop=True), dict(key=1, stop=True)),
+        ({"key": 1}, {"key": 1}),
+        (
+            {"key": 1, "position": 1.0},
+            {"key": 1, "position": 1.0, "has_position": True},
+        ),
+        (
+            {"key": 1, "position": 0.0},
+            {"key": 1, "position": 0.0, "has_position": True},
+        ),
+        ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
     ],
 )
 async def test_valve_command(
@@ -1156,13 +1200,19 @@ async def test_valve_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, position=0.5), dict(key=1, has_position=True, position=0.5)),
-        (dict(key=1, position=0.0), dict(key=1, has_position=True, position=0.0)),
-        (dict(key=1, stop=True), dict(key=1, stop=True)),
+        ({"key": 1}, {"key": 1}),
         (
-            dict(key=1, position=1.0),
-            dict(key=1, has_position=True, position=1.0),
+            {"key": 1, "position": 0.5},
+            {"key": 1, "has_position": True, "position": 0.5},
+        ),
+        (
+            {"key": 1, "position": 0.0},
+            {"key": 1, "has_position": True, "position": 0.0},
+        ),
+        ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
+        (
+            {"key": 1, "position": 1.0},
+            {"key": 1, "has_position": True, "position": 1.0},
         ),
     ],
 )
@@ -1179,8 +1229,8 @@ async def test_valve_command_version_1_1(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1, state="One"), dict(key=1, state="One")),
-        (dict(key=1, state="Two"), dict(key=1, state="Two")),
+        ({"key": 1, "state": "One"}, {"key": 1, "state": "One"}),
+        ({"key": 1, "state": "Two"}, {"key": 1, "state": "Two"}),
     ],
 )
 async def test_select_command(
@@ -1196,26 +1246,26 @@ async def test_select_command(
     ("cmd", "req"),
     [
         (
-            dict(key=1, command=MediaPlayerCommand.MUTE),
-            dict(key=1, has_command=True, command=MediaPlayerCommand.MUTE),
+            {"key": 1, "command": MediaPlayerCommand.MUTE},
+            {"key": 1, "has_command": True, "command": MediaPlayerCommand.MUTE},
         ),
         (
-            dict(key=1, volume=1.0),
-            dict(key=1, has_volume=True, volume=1.0),
+            {"key": 1, "volume": 1.0},
+            {"key": 1, "has_volume": True, "volume": 1.0},
         ),
         (
-            dict(key=1, media_url="http://example.com"),
-            dict(key=1, has_media_url=True, media_url="http://example.com"),
+            {"key": 1, "media_url": "http://example.com"},
+            {"key": 1, "has_media_url": True, "media_url": "http://example.com"},
         ),
         (
-            dict(key=1, media_url="http://example.com", announcement=True),
-            dict(
-                key=1,
-                has_media_url=True,
-                media_url="http://example.com",
-                has_announcement=True,
-                announcement=True,
-            ),
+            {"key": 1, "media_url": "http://example.com", "announcement": True},
+            {
+                "key": 1,
+                "has_media_url": True,
+                "media_url": "http://example.com",
+                "has_announcement": True,
+                "announcement": True,
+            },
         ),
     ],
 )
@@ -1231,7 +1281,7 @@ async def test_media_player_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
+        ({"key": 1}, {"key": 1}),
     ],
 )
 async def test_button_command(
@@ -1246,24 +1296,48 @@ async def test_button_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1, state=True), dict(key=1, state=True, has_state=True)),
-        (dict(key=1, state=False), dict(key=1, state=False, has_state=True)),
-        (dict(key=1, state=None), dict(key=1, state=None, has_state=False)),
+        ({"key": 1, "state": True}, {"key": 1, "state": True, "has_state": True}),
+        ({"key": 1, "state": False}, {"key": 1, "state": False, "has_state": True}),
+        ({"key": 1, "state": None}, {"key": 1, "state": None, "has_state": False}),
         (
-            dict(key=1, state=True, tone="any"),
-            dict(key=1, state=True, has_state=True, has_tone=True, tone="any"),
+            {"key": 1, "state": True, "tone": "any"},
+            {
+                "key": 1,
+                "state": True,
+                "has_state": True,
+                "has_tone": True,
+                "tone": "any",
+            },
         ),
         (
-            dict(key=1, state=True, tone=None),
-            dict(key=1, state=True, has_state=True, has_tone=False, tone=None),
+            {"key": 1, "state": True, "tone": None},
+            {
+                "key": 1,
+                "state": True,
+                "has_state": True,
+                "has_tone": False,
+                "tone": None,
+            },
         ),
         (
-            dict(key=1, state=True, volume=5),
-            dict(key=1, state=True, has_volume=True, volume=5, has_state=True),
+            {"key": 1, "state": True, "volume": 5},
+            {
+                "key": 1,
+                "state": True,
+                "has_volume": True,
+                "volume": 5,
+                "has_state": True,
+            },
         ),
         (
-            dict(key=1, state=True, duration=5),
-            dict(key=1, state=True, has_duration=True, duration=5, has_state=True),
+            {"key": 1, "state": True, "duration": 5},
+            {
+                "key": 1,
+                "state": True,
+                "has_duration": True,
+                "duration": 5,
+                "has_state": True,
+            },
         ),
     ],
 )
@@ -1480,16 +1554,16 @@ async def test_request_image_stream(auth_client: APIClient) -> None:
     ("cmd", "req"),
     [
         (
-            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY),
-            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY, code=None),
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_AWAY},
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_AWAY, "code": None},
         ),
         (
-            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME),
-            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME, code=None),
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_HOME},
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_HOME, "code": None},
         ),
         (
-            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
-            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
+            {"key": 1, "command": AlarmControlPanelCommand.DISARM, "code": "1234"},
+            {"key": 1, "command": AlarmControlPanelCommand.DISARM, "code": "1234"},
         ),
     ],
 )
@@ -1505,8 +1579,8 @@ async def test_alarm_panel_command(
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
-        (dict(key=1, state="hello world"), dict(key=1, state="hello world")),
-        (dict(key=1, state="goodbye"), dict(key=1, state="goodbye")),
+        ({"key": 1, "state": "hello world"}, {"key": 1, "state": "hello world"}),
+        ({"key": 1, "state": "goodbye"}, {"key": 1, "state": "goodbye"}),
     ],
 )
 async def test_text_command(
@@ -1522,12 +1596,12 @@ async def test_text_command(
     ("cmd", "req"),
     [
         (
-            dict(key=1, command=UpdateCommand.INSTALL),
-            dict(key=1, command=UpdateCommand.INSTALL),
+            {"key": 1, "command": UpdateCommand.INSTALL},
+            {"key": 1, "command": UpdateCommand.INSTALL},
         ),
         (
-            dict(key=1, command=UpdateCommand.CHECK),
-            dict(key=1, command=UpdateCommand.CHECK),
+            {"key": 1, "command": UpdateCommand.CHECK},
+            {"key": 1, "command": UpdateCommand.CHECK},
         ),
     ],
 )
