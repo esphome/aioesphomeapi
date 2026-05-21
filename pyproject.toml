@@ -15,12 +15,16 @@ select = [
   "DTZ", # flake8-datetimez
   "E", # pycodestyle
   "F", # pyflakes/autoflake
+  "FA", # flake8-future-annotations
   "FLY", # flynt
   "FURB", # refurb
   "G", # flake8-logging-format
   "I", # isort
+  "ICN", # flake8-import-conventions
   "ISC", # flake8-implicit-str-concat
   "LOG", # flake8-logging
+  "N", # pep8-naming
+  "NPY", # numpy-specific rules
   "PERF", # Perflint
   "PGH", # pygrep-hooks
   "PIE", # flake8-pie
@@ -29,6 +33,7 @@ select = [
   "PT007", # pytest-parametrize-values-wrong-type
   "PTH", # flake8-use-pathlib
   "PYI", # flake8-pyi
+  "Q", # flake8-quotes
   "UP", # pyupgrade
   "RET", # flake8-return
   "RSE", # flake8-raise
@@ -39,6 +44,8 @@ select = [
   "TID", # Tidy imports
   "TRY", # try rules
   "PERF", # performance
+  "W", # pycodestyle warnings
+  "YTT", # flake8-2020
 ]
 
 ignore = [
