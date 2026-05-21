@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -24,6 +24,13 @@ from aioesphomeapi.discover import (
     decode_mdns_label_or_unknown,
     main,
 )
+
+from .common import get_mock_async_zeroconf
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from zeroconf.asyncio import AsyncZeroconf
 
 
 def test_decode_mdns_label_or_unknown_none() -> None:
@@ -92,33 +99,45 @@ def test_per_column_caps_match_format_widths() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_service_update(
-    *,
-    name: str = "esp32._esphomelib._tcp.local.",
-    state_change: ServiceStateChange = ServiceStateChange.Added,
-    properties: dict[bytes, bytes] | None = None,
-    ipv4: list[str] | None = None,
-) -> MagicMock:
-    """Drive async_service_update once with a fake AsyncServiceInfo."""
-    info = MagicMock()
-    info.properties = properties or {}
-    # The CLI passes addresses[0] through str(); plain strings round-trip fine
-    # and avoid MagicMock's special __str__ handling.
-    info.ip_addresses_by_version.return_value = list(ipv4 or [])
+class ServiceUpdateResult(NamedTuple):
+    """Result of driving async_service_update once via the fixture."""
 
-    zeroconf = MagicMock()
-    with patch(
-        "aioesphomeapi.discover.AsyncServiceInfo", return_value=info
-    ) as info_cls:
-        async_service_update(zeroconf, "_esphomelib._tcp.local.", name, state_change)
-    return info_cls
+    info: MagicMock
+    zeroconf: MagicMock
+
+
+@pytest.fixture
+def service_update_runner() -> Callable[..., ServiceUpdateResult]:
+    """Drive async_service_update once with a fake AsyncServiceInfo patched in."""
+
+    def runner(
+        *,
+        name: str = "esp32._esphomelib._tcp.local.",
+        state_change: ServiceStateChange = ServiceStateChange.Added,
+        properties: dict[bytes, bytes] | None = None,
+        ipv4: list[str] | None = None,
+    ) -> ServiceUpdateResult:
+        info = MagicMock()
+        info.properties = properties or {}
+        # The CLI passes addresses[0] through str(); plain strings round-trip
+        # fine and avoid MagicMock's special __str__ handling.
+        info.ip_addresses_by_version.return_value = list(ipv4 or [])
+        zeroconf = MagicMock()
+        with patch("aioesphomeapi.discover.AsyncServiceInfo", return_value=info):
+            async_service_update(
+                zeroconf, "_esphomelib._tcp.local.", name, state_change
+            )
+        return ServiceUpdateResult(info=info, zeroconf=zeroconf)
+
+    return runner
 
 
 def test_async_service_update_added_prints_online(
+    service_update_runner: Callable[..., ServiceUpdateResult],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """ServiceStateChange.Added prints an ONLINE row with extracted properties."""
-    _run_service_update(
+    service_update_runner(
         name="myesp._esphomelib._tcp.local.",
         state_change=ServiceStateChange.Added,
         properties={
@@ -140,30 +159,33 @@ def test_async_service_update_added_prints_online(
 
 
 def test_async_service_update_removed_prints_offline(
+    service_update_runner: Callable[..., ServiceUpdateResult],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """ServiceStateChange.Removed flips the status column to OFFLINE."""
-    _run_service_update(state_change=ServiceStateChange.Removed)
+    service_update_runner(state_change=ServiceStateChange.Removed)
     out = capsys.readouterr().out
     assert "OFFLINE" in out
     assert "ONLINE" not in out
 
 
 def test_async_service_update_missing_properties_show_unknown(
+    service_update_runner: Callable[..., ServiceUpdateResult],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Missing mDNS properties render as 'unknown' rather than empty or 'None'."""
-    _run_service_update(properties={})
+    service_update_runner(properties={})
     out = capsys.readouterr().out
     # Four UNKNOWN columns: mac, version, platform, board.
     assert out.count(UNKNOWN) == 4
 
 
 def test_async_service_update_no_ipv4_prints_empty_address(
+    service_update_runner: Callable[..., ServiceUpdateResult],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """When zeroconf returns no IPv4 addresses, the address column is empty."""
-    _run_service_update(ipv4=[])
+    service_update_runner(ipv4=[])
     out = capsys.readouterr().out
     # The FORMAT enforces fixed widths via {:<N}; the address column is left-
     # justified blank when ip_addresses_by_version returns an empty list.
@@ -173,10 +195,11 @@ def test_async_service_update_no_ipv4_prints_empty_address(
 
 
 def test_async_service_update_sanitizes_hostile_name(
+    service_update_runner: Callable[..., ServiceUpdateResult],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A peer-controlled service name with control chars is stripped before printing."""
-    _run_service_update(
+    service_update_runner(
         name="\x1b[31mevil\nname._esphomelib._tcp.local.",
         state_change=ServiceStateChange.Added,
     )
@@ -189,10 +212,11 @@ def test_async_service_update_sanitizes_hostile_name(
 
 
 def test_async_service_update_truncates_long_property_values(
+    service_update_runner: Callable[..., ServiceUpdateResult],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Each property column truncates to its FORMAT cap so columns can't widen."""
-    _run_service_update(
+    service_update_runner(
         properties={
             b"mac": b"M" * 100,
             b"version": b"V" * 100,
@@ -208,20 +232,12 @@ def test_async_service_update_truncates_long_property_values(
     assert parts[COLUMN_NAMES.index("Board")].strip() == "B" * _MAX_BOARD_DISPLAY
 
 
-def test_async_service_update_loads_from_cache_synchronously() -> None:
+def test_async_service_update_loads_from_cache_synchronously(
+    service_update_runner: Callable[..., ServiceUpdateResult],
+) -> None:
     """The callback must populate info via load_from_cache (no network I/O)."""
-    info = MagicMock()
-    info.properties = {}
-    info.ip_addresses_by_version.return_value = []
-    zeroconf = MagicMock()
-    with patch("aioesphomeapi.discover.AsyncServiceInfo", return_value=info):
-        async_service_update(
-            zeroconf,
-            "_esphomelib._tcp.local.",
-            "x._esphomelib._tcp.local.",
-            ServiceStateChange.Added,
-        )
-    info.load_from_cache.assert_called_once_with(zeroconf)
+    result = service_update_runner()
+    result.info.load_from_cache.assert_called_once_with(result.zeroconf)
 
 
 # ---------------------------------------------------------------------------
@@ -229,55 +245,65 @@ def test_async_service_update_loads_from_cache_synchronously() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def _run_discover_main(argv: list[str]) -> dict[str, Any]:
-    """Drive discover.main once and capture the major side effects."""
-    aiozc = MagicMock()
-    aiozc.zeroconf = MagicMock()
-    aiozc.async_close = AsyncMock()
-    browser = MagicMock()
-    browser.async_cancel = AsyncMock()
+@pytest.fixture
+def discover_main_runner() -> Callable[[list[str]], Awaitable[dict[str, Any]]]:
+    """Drive discover.main once with the zeroconf stack patched out."""
 
-    captures: dict[str, Any] = {}
+    async def runner(argv: list[str]) -> dict[str, Any]:
+        aiozc: AsyncZeroconf = get_mock_async_zeroconf()
+        browser = MagicMock()
+        browser.async_cancel = AsyncMock()
 
-    def fake_aiozc_cls() -> Any:
-        captures["aiozc"] = aiozc
-        return aiozc
+        captures: dict[str, Any] = {"aiozc": aiozc, "browser": browser}
 
-    def fake_browser_cls(zc: Any, service_type: str, *, handlers: list[Any]) -> Any:
-        captures["browser_zeroconf"] = zc
-        captures["browser_service_type"] = service_type
-        captures["browser_handlers"] = handlers
-        return browser
+        def fake_aiozc_cls() -> AsyncZeroconf:
+            return aiozc
 
-    async def fake_event_wait() -> None:
-        # Return immediately so main() proceeds to the finally block.
-        return None
+        def fake_browser_cls(
+            zc: Any, service_type: str, *, handlers: list[Any]
+        ) -> MagicMock:
+            captures["browser_zeroconf"] = zc
+            captures["browser_service_type"] = service_type
+            captures["browser_handlers"] = handlers
+            return browser
 
-    with (
-        patch("aioesphomeapi.discover.AsyncZeroconf", side_effect=fake_aiozc_cls),
-        patch(
-            "aioesphomeapi.discover.AsyncServiceBrowser", side_effect=fake_browser_cls
-        ),
-        patch("asyncio.Event") as mock_event_cls,
-    ):
-        mock_event_cls.return_value.wait = fake_event_wait
-        await main(["aioesphomeapi-discover", *argv])
+        async def fake_event_wait() -> None:
+            # Return immediately so main() proceeds to the finally block.
+            return None
 
-    browser.async_cancel.assert_awaited_once()
-    aiozc.async_close.assert_awaited_once()
-    return captures
+        with (
+            patch("aioesphomeapi.discover.AsyncZeroconf", side_effect=fake_aiozc_cls),
+            patch(
+                "aioesphomeapi.discover.AsyncServiceBrowser",
+                side_effect=fake_browser_cls,
+            ),
+            patch("asyncio.Event") as mock_event_cls,
+        ):
+            mock_event_cls.return_value.wait = fake_event_wait
+            await main(["aioesphomeapi-discover", *argv])
+
+        browser.async_cancel.assert_awaited_once()
+        aiozc.async_close.assert_awaited_once()
+        return captures
+
+    return runner
 
 
-async def test_main_registers_esphomelib_service_browser() -> None:
+async def test_main_registers_esphomelib_service_browser(
+    discover_main_runner: Callable[[list[str]], Awaitable[dict[str, Any]]],
+) -> None:
     """main subscribes to the _esphomelib._tcp.local. service type."""
-    captures = await _run_discover_main([])
+    captures = await discover_main_runner([])
     assert captures["browser_service_type"] == "_esphomelib._tcp.local."
     assert captures["browser_handlers"] == [async_service_update]
 
 
-async def test_main_prints_header(capsys: pytest.CaptureFixture[str]) -> None:
+async def test_main_prints_header(
+    discover_main_runner: Callable[[list[str]], Awaitable[dict[str, Any]]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """main prints the column header row and a separator before subscribing."""
-    await _run_discover_main([])
+    await discover_main_runner([])
     out = capsys.readouterr().out
     assert FORMAT.format(*COLUMN_NAMES) in out
     assert "-" * 120 in out
@@ -292,7 +318,9 @@ async def test_main_prints_header(capsys: pytest.CaptureFixture[str]) -> None:
     ],
 )
 async def test_main_configures_log_level_from_verbose_flag(
-    extra_args: list[str], expected_level: int
+    discover_main_runner: Callable[[list[str]], Awaitable[dict[str, Any]]],
+    extra_args: list[str],
+    expected_level: int,
 ) -> None:
     """main forwards INFO (default) or DEBUG (--verbose / -v) to logging.basicConfig.
 
@@ -301,22 +329,24 @@ async def test_main_configures_log_level_from_verbose_flag(
     level, which is what actually matters for the CLI's behavior.
     """
     with patch("aioesphomeapi.discover.logging.basicConfig") as mock_basic:
-        await _run_discover_main(extra_args)
+        await discover_main_runner(extra_args)
     mock_basic.assert_called_once()
     assert mock_basic.call_args.kwargs["level"] == expected_level
 
 
-async def test_main_verbose_flag_enables_zeroconf_debug() -> None:
+async def test_main_verbose_flag_enables_zeroconf_debug(
+    discover_main_runner: Callable[[list[str]], Awaitable[dict[str, Any]]],
+) -> None:
     """-v / --verbose elevates the zeroconf logger to DEBUG; default leaves it alone."""
     zc_logger = logging.getLogger("zeroconf")
     saved = zc_logger.level
     try:
         zc_logger.setLevel(logging.NOTSET)
-        await _run_discover_main([])
+        await discover_main_runner([])
         assert zc_logger.level == logging.NOTSET
 
         zc_logger.setLevel(logging.NOTSET)
-        await _run_discover_main(["--verbose"])
+        await discover_main_runner(["--verbose"])
         assert zc_logger.level == logging.DEBUG
     finally:
         zc_logger.setLevel(saved)
