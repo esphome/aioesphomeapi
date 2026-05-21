@@ -80,19 +80,21 @@ def build_log_name(
     """Return a log name for a connection."""
     preferred_address = connected_address
     for address in addresses:
-        if (not name and address_is_local(address)) or host_is_name_part(address):
+        if host_is_name_part(address):
+            name = address
+        elif not name and address_is_local(address):
             name = address.partition(".")[0]
         elif not preferred_address:
             preferred_address = address
     if not preferred_address:
         return name or addresses[0]
-    if (
-        name
-        and name.lower() != preferred_address.lower()
-        and not preferred_address.lower().startswith(f"{name.lower()}.")
-    ):
-        return f"{name} @ {preferred_address}"
-    return preferred_address
+    if not name:
+        return preferred_address
+    name_lower = name.lower()
+    preferred_lower = preferred_address.lower()
+    if name_lower == preferred_lower or preferred_lower.startswith(f"{name_lower}."):
+        return preferred_address
+    return f"{name} @ {preferred_address}"
 
 
 if sys.version_info >= (3, 12, 0):
