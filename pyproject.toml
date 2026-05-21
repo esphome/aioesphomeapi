@@ -8,6 +8,7 @@ exclude = [
 
 [tool.ruff.lint]
 select = [
+  "A", # flake8-builtins
   "ASYNC", # async rules
   "B", # flake8-bugbear
   "DTZ", # flake8-datetimez

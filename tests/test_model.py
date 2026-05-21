@@ -189,7 +189,7 @@ class DummyIntEnum(APIIntEnum):
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         (0, DummyIntEnum.DEFAULT),
         (1, DummyIntEnum.MY_VAL),
@@ -199,14 +199,14 @@ class DummyIntEnum(APIIntEnum):
         (DummyIntEnum.MY_VAL, DummyIntEnum.MY_VAL),
     ],
 )
-def test_api_int_enum_convert(input, output):
-    v = DummyIntEnum.convert(input)
+def test_api_int_enum_convert(input_value, output):
+    v = DummyIntEnum.convert(input_value)
     assert v == output
     assert v is None or isinstance(v, DummyIntEnum)
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         ([], []),
         ([1], [DummyIntEnum.MY_VAL]),
@@ -216,8 +216,8 @@ def test_api_int_enum_convert(input, output):
         ([DummyIntEnum.DEFAULT], [DummyIntEnum.DEFAULT]),
     ],
 )
-def test_api_int_enum_convert_list(input, output):
-    v = DummyIntEnum.convert_list(input)
+def test_api_int_enum_convert_list(input_value, output):
+    v = DummyIntEnum.convert_list(input_value)
     assert v == output
     assert all(isinstance(x, DummyIntEnum) for x in v)
 
@@ -1825,7 +1825,7 @@ def test_event_entity_state_device_id():
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         (0, SupportsResponseType.NONE),
         (1, SupportsResponseType.OPTIONAL),
@@ -1834,8 +1834,8 @@ def test_event_entity_state_device_id():
         (999, None),  # Unknown value
     ],
 )
-def test_supports_response_type_convert(input, output):
-    assert SupportsResponseType.convert(input) == output
+def test_supports_response_type_convert(input_value, output):
+    assert SupportsResponseType.convert(input_value) == output
 
 
 def test_supports_response_type_values():
