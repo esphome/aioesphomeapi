@@ -474,12 +474,12 @@ async def test_reconnect_zeroconf(
             connect_succeeded = True
             await asyncio.sleep(0)
         else:
-            raise APIConnectionError()
+            raise APIConnectionError
 
     async def controlled_finish_connection(*args, **kwargs):
         if connect_succeeded:
             return
-        raise APIConnectionError()
+        raise APIConnectionError
 
     # Set up mocks for the reconnection attempt
     with (

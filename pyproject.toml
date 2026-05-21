@@ -17,6 +17,7 @@ select = [
   "FURB", # refurb
   "G", # flake8-logging-format
   "I", # isort
+  "ISC", # flake8-implicit-str-concat
   "PERF", # Perflint
   "PGH", # pygrep-hooks
   "PIE", # flake8-pie
@@ -26,6 +27,7 @@ select = [
   "PTH", # flake8-use-pathlib
   "UP", # pyupgrade
   "RET", # flake8-return
+  "RSE", # flake8-raise
   "RUF", # ruff
   "SIM", # flake8-SIM
   "SLOT", # flake8-slots
