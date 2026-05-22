@@ -3934,7 +3934,9 @@ async def test_bluetooth_device_connect_without_cache_support_raises(
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
         pass
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="ESPHome device does not support REMOTE_CACHING feature"
+    ) as exc_info:
         await client.bluetooth_device_connect(
             1234,
             on_bluetooth_connection_state,
@@ -3944,9 +3946,6 @@ async def test_bluetooth_device_connect_without_cache_support_raises(
             address_type=0,
         )
 
-    assert "ESPHome device does not support REMOTE_CACHING feature" in str(
-        exc_info.value
-    )
     assert "2022.12.0 or later" in str(exc_info.value)
 
 

@@ -124,7 +124,7 @@ async def conn_with_expected_name(connection_params: ConnectionParams) -> APICon
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 async def aiohappyeyeballs_start_connection():
     with patch("aioesphomeapi.connection.aiohappyeyeballs.start_connection") as func:
         mock_socket = create_autospec(socket.socket, spec_set=True, instance=True)

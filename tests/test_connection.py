@@ -290,7 +290,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         loop.call_soon(conn._frame_helper.ready_future.set_result, None)
         conn.connection_state = ConnectionState.CONNECTED
 
-        with pytest.raises(RequiresEncryptionAPIError):
+        with pytest.raises(RequiresEncryptionAPIError):  # noqa: PT012
             task = asyncio.create_task(conn._connect_hello_login(login=True))
             await asyncio.sleep(0)
             mock_data_received(protocol, b"\x01\x00\x00")
@@ -667,7 +667,7 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (
+    with (  # noqa: PT012
         pytest.raises(raised_exception),
     ):
         await asyncio.sleep(0)
