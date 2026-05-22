@@ -305,7 +305,10 @@ class DeviceInfo(APIModelBase):
             return flags
         return self.voice_assistant_feature_flags
 
-    def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+    def zwave_proxy_feature_flags_compat(
+        self,
+        api_version: APIVersion,  # noqa: ARG002
+    ) -> int:
         return self.zwave_proxy_feature_flags
 
 

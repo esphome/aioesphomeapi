@@ -9,6 +9,7 @@ exclude = [
 [tool.ruff.lint]
 select = [
   "A", # flake8-builtins
+  "ARG", # flake8-unused-arguments
   "ASYNC", # async rules
   "B", # flake8-bugbear
   "BLE", # flake8-blind-except
@@ -68,6 +69,12 @@ ignore = [
   "TRY003", # Too many to fix - Avoid specifying long messages outside the exception class
   "TID252", # Prefer absolute imports over relative imports from parent modules
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest fixtures are routinely "unused" — they're requested for their
+# setup side effects, not their return value. The ARG family flags this
+# as noise; the rest of the family still applies to production code.
+"tests/**" = ["ARG"]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
