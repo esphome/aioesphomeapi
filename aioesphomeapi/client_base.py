@@ -298,7 +298,7 @@ class APIClientBase:
         self,
         address: str_,  # allow subclass str
         port: int,
-        password: str_ | None,
+        password: str_ | None = None,
         *,
         client_info: str_ = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,

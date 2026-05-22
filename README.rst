@@ -80,7 +80,6 @@ The sample code below will connect to the device and retrieve details.
        api = aioesphomeapi.APIClient(
            "api_test.local",
            6053,
-           password=None,  # https://github.com/esphome/aioesphomeapi/pull/1725
            noise_psk="YOUR_ENCRYPTION_KEY",  # Remove if not using encryption
        )
        await api.connect(login=True)
@@ -111,7 +110,6 @@ Subscribe to state changes of an ESPHome device.
        api = aioesphomeapi.APIClient(
            "api_test.local",
            6053,
-           password=None,  # https://github.com/esphome/aioesphomeapi/pull/1725
            noise_psk="YOUR_ENCRYPTION_KEY",  # Remove if not using encryption
        )
        await api.connect(login=True)

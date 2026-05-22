@@ -264,6 +264,19 @@ async def test_timezone_parameter() -> None:
     assert cli2._params.timezone is None
 
 
+async def test_password_defaults_to_none() -> None:
+    """Password can be omitted when using encryption or unauthenticated devices."""
+    cli = PatchableAPIClient("host", 1234)
+    assert cli._params.password is None
+
+    cli_kw = PatchableAPIClient("host", 1234, noise_psk="psk")
+    assert cli_kw._params.password is None
+    assert cli_kw._params.noise_psk == "psk"
+
+    cli_pos = PatchableAPIClient("host", 1234, "secret")
+    assert cli_pos._params.password == "secret"  # noqa: S105
+
+
 async def test_connect_backwards_compat() -> None:
     """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
     cli = PatchableAPIClient("host", 1234, None)

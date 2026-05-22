@@ -58,7 +58,7 @@ async def main(argv: list[str]) -> None:
     cli = APIClient(
         args.address,
         args.port,
-        args.password or "",
+        password=args.password or None,
         noise_psk=args.noise_psk,
         keepalive=10,
     )
