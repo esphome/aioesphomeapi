@@ -857,7 +857,7 @@ class APIClient(APIClientBase):
         """Set the Bluetooth scanner mode."""
         self._get_connection().send_message(BluetoothScannerSetModeRequest(mode=mode))
 
-    async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
+    async def bluetooth_device_connect(  # noqa: C901  # pylint: disable=too-many-locals, too-many-branches
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
@@ -1480,7 +1480,7 @@ class APIClient(APIClientBase):
             req.preset_mode = preset_mode
         self._get_connection().send_message(req)
 
-    def light_command(  # pylint: disable=too-many-branches
+    def light_command(  # noqa: C901  # pylint: disable=too-many-branches
         self,
         key: int,
         state: bool | None = None,
@@ -1543,7 +1543,7 @@ class APIClient(APIClientBase):
             SwitchCommandRequest(key=key, state=state, device_id=device_id)
         )
 
-    def climate_command(  # pylint: disable=too-many-branches
+    def climate_command(  # noqa: C901  # pylint: disable=too-many-branches
         self,
         key: int,
         mode: ClimateMode | None = None,
@@ -1857,7 +1857,7 @@ class APIClient(APIClientBase):
     def request_image_stream(self) -> None:
         self._request_image(stream=True)
 
-    def subscribe_voice_assistant(
+    def subscribe_voice_assistant(  # noqa: C901  # high-fan-in command builder with many optional features
         self,
         *,
         handle_start: Callable[

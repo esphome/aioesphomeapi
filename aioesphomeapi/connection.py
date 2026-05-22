@@ -344,7 +344,7 @@ class APIConnection:
         if self._frame_helper is not None:
             self._frame_helper.set_log_name(name)
 
-    def _cleanup(self) -> None:
+    def _cleanup(self) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         """Clean up all resources that have been allocated.
 
         Safe to call multiple times.
@@ -1039,7 +1039,7 @@ class APIConnection:
         if self._fatal_exception is None:
             self._fatal_exception = err
 
-    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
+    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         """Process an incoming packet."""
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take

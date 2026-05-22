@@ -14,6 +14,7 @@ select = [
   "B", # flake8-bugbear
   "BLE", # flake8-blind-except
   "C4", # flake8-comprehensions
+  "C90", # mccabe complexity
   "DTZ", # flake8-datetimez
   "E", # pycodestyle
   "EM", # flake8-errmsg
