@@ -47,6 +47,7 @@ select = [
   "SIM", # flake8-SIM
   "SLOT", # flake8-slots
   "T10", # flake8-debugger
+  "T20", # flake8-print
   "TC", # flake8-type-checking
   "TD", # flake8-todos
   "TID", # Tidy imports
@@ -75,6 +76,11 @@ ignore = [
 # setup side effects, not their return value. The ARG family flags this
 # as noise; the rest of the family still applies to production code.
 "tests/**" = ["ARG"]
+# CLI entry points and benchmark scripts emit to stdout by design; T20
+# would flag every line of their intended output.
+"aioesphomeapi/discover.py" = ["T20"]
+"aioesphomeapi/log_reader.py" = ["T20"]
+"bench/**" = ["T20"]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
