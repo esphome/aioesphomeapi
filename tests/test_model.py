@@ -1681,7 +1681,7 @@ def test_device_info_mock_with_areas_and_devices() -> None:
 
 # Test data for all state response types with device_id field
 STATE_RESPONSE_DEVICE_ID_TEST_DATA = [
-    # (protobuf_class, model_class, extra_fields)
+    # Each row: protobuf_class, model_class, extra_fields.
     (BinarySensorStateResponse, BinarySensorState, {"state": True}),
     (CoverStateResponse, CoverState, {"position": 0.5}),
     (FanStateResponse, FanState, {"state": True, "speed_level": 3}),

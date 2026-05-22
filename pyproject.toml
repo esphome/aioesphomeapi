@@ -15,6 +15,8 @@ select = [
   "C4", # flake8-comprehensions
   "DTZ", # flake8-datetimez
   "E", # pycodestyle
+  "ERA", # eradicate (commented-out code)
+  "EXE", # flake8-executable
   "F", # pyflakes/autoflake
   "FA", # flake8-future-annotations
   "FIX", # flake8-fixme
@@ -23,6 +25,7 @@ select = [
   "G", # flake8-logging-format
   "I", # isort
   "ICN", # flake8-import-conventions
+  "INP", # flake8-no-pep420 (implicit namespace packages)
   "ISC", # flake8-implicit-str-concat
   "LOG", # flake8-logging
   "N", # pep8-naming
