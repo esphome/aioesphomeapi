@@ -1882,7 +1882,7 @@ class APIClient(APIClientBase):
             | None
         ) = None,
     ) -> Callable[[], None]:
-        """Subscribes to voice assistant messages from the device.
+        """Subscribe to voice assistant messages from the device.
 
         handle_start: called when the devices requests a server to send audio data to.
                       This callback is asynchronous and returns the port number the server is started on.

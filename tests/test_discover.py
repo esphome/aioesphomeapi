@@ -292,7 +292,7 @@ def discover_main_runner() -> Callable[[list[str]], Awaitable[dict[str, Any]]]:
 async def test_main_registers_esphomelib_service_browser(
     discover_main_runner: Callable[[list[str]], Awaitable[dict[str, Any]]],
 ) -> None:
-    """main subscribes to the _esphomelib._tcp.local. service type."""
+    """Main subscribes to the _esphomelib._tcp.local. service type."""
     captures = await discover_main_runner([])
     assert captures["browser_service_type"] == "_esphomelib._tcp.local."
     assert captures["browser_handlers"] == [async_service_update]
@@ -302,7 +302,7 @@ async def test_main_prints_header(
     discover_main_runner: Callable[[list[str]], Awaitable[dict[str, Any]]],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """main prints the column header row and a separator before subscribing."""
+    """Main prints the column header row and a separator before subscribing."""
     await discover_main_runner([])
     out = capsys.readouterr().out
     assert FORMAT.format(*COLUMN_NAMES) in out
@@ -322,7 +322,7 @@ async def test_main_configures_log_level_from_verbose_flag(
     extra_args: list[str],
     expected_level: int,
 ) -> None:
-    """main forwards INFO (default) or DEBUG (--verbose / -v) to logging.basicConfig.
+    """Main forwards INFO (default) or DEBUG (--verbose / -v) to logging.basicConfig.
 
     pytest's caplog plugin pre-installs handlers on the root logger, which makes
     logging.basicConfig a no-op — so we assert on the call args, not the live

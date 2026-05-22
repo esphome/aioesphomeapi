@@ -344,6 +344,7 @@ def wifi_mac_to_bluetooth_mac(wifi_mac: str) -> str:
         "AA:BB:CC:DD:EE:01"
         >>> wifi_mac_to_bluetooth_mac("AA:BB:CC:DD:EE:FE")
         "AA:BB:CC:DD:EE:00"
+
     """
     # Remove colons and convert to uppercase
     clean_mac = wifi_mac.replace(":", "").upper()

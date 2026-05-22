@@ -253,12 +253,12 @@ _handle_complex_message = handle_complex_message
 
 
 class APIConnection:
-    """This class represents _one_ connection to a remote native API device.
+    """Represent _one_ connection to a remote native API device.
 
     An instance of this class may only be used once, for every new connection
     a new instance should be established.
 
-    This class should only be created from APIClient and should not be used directly.
+    Only created from APIClient — do not instantiate directly.
     """
 
     __slots__ = (
@@ -1216,7 +1216,7 @@ class APIConnection:
         self._cleanup()
 
     def force_disconnect(self) -> None:
-        """Forcefully disconnect from the API."""
+        """Disconnect from the API immediately, without graceful shutdown."""
         self._expected_disconnect = True
         if self._handshake_complete and self._frame_helper is not None:
             # Still try to tell the esp to disconnect gracefully

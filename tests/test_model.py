@@ -1363,7 +1363,7 @@ def test_media_player_supported_format_convert_list() -> None:
 
 
 def test_media_player_feature_flags_compat() -> None:
-    """Test feature flags compatibility across API versions"""
+    """Test feature flags compatibility across API versions."""
     info = MediaPlayerInfo(
         supports_pause=False,
         supported_formats=[
@@ -1743,7 +1743,6 @@ def test_state_response_device_id_default_value(proto_cls, model_cls, extra_fiel
 
 def test_entity_state_base_class_has_device_id():
     """Test that EntityState base class has device_id field."""
-
     # Check that EntityState has device_id field with default value 0
     state = EntityState(key=100)
     assert state.key == 100
@@ -2358,9 +2357,12 @@ def test_lock_state_enum_is_dense_and_unique() -> None:
 
 
 def test_all_entity_info_subclasses_registered() -> None:
-    """Every EntityInfo subclass must be registered in COMPONENT_TYPE_TO_INFO
+    """Pin EntityInfo subclass registration in lookup tables.
+
+    Every EntityInfo subclass must be registered in COMPONENT_TYPE_TO_INFO
     and _TYPE_TO_NAME so external consumers (e.g. Home Assistant) and unique-id
-    generation can resolve every entity type."""
+    generation can resolve every entity type.
+    """
     subclass_names = {cls.__name__ for cls in EntityInfo.__subclasses__()}
     component_names = {cls.__name__ for cls in COMPONENT_TYPE_TO_INFO.values()}
     type_to_name_names = {cls.__name__ for cls in _TYPE_TO_NAME}

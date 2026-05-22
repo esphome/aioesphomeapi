@@ -229,6 +229,7 @@ def parse_posix_tz(tz_string: str) -> ParsedTimezone:
 
     Raises:
         ValueError: If the string is empty or has invalid format.
+
     """
     if not tz_string:
         msg = "Empty timezone string"

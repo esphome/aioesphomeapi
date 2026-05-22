@@ -59,6 +59,7 @@ def find_log_with_message(
 
     Returns:
         LogRecord if found, None otherwise
+
     """
     for record in caplog.records:
         if message_substring in record.message:
