@@ -219,7 +219,7 @@ def patch_response_callback(client: APIClient):
     on_message = None
 
     def cancelled_on_message(_):
-        """A callback that does nothing."""
+        """Stand in for a real callback in cancellation tests."""
 
     def cancel_callable():
         nonlocal on_message
@@ -266,7 +266,6 @@ async def test_timezone_parameter() -> None:
 
 async def test_connect_backwards_compat() -> None:
     """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
-
     cli = PatchableAPIClient("host", 1234, None)
     assert cli.connected_address is None
 
@@ -286,7 +285,6 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
-
     cli = APIClient("127.0.0.1", 1234, None)
     with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
         await cli.start_resolve_host()
@@ -355,7 +353,6 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
 
 async def test_request_while_handshaking() -> None:
     """Test trying a request while handshaking raises."""
-
     cli = PatchableAPIClient("127.0.0.1", 1234, None)
     with (
         patch(

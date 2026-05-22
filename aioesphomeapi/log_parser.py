@@ -81,6 +81,7 @@ class LogParser:
 
         Args:
             strip_ansi_escapes: If True, remove all ANSI escape sequences from output
+
         """
         self.strip_ansi_escapes = strip_ansi_escapes
         self._current_prefix = ""
@@ -95,6 +96,7 @@ class LogParser:
 
         Returns:
             Formatted line ready to be printed.
+
         """
         # Strip any trailing newline if present
         line = line.rstrip("\n\r")
@@ -189,6 +191,7 @@ def parse_log_message(
         Iterable of formatted lines ready to be printed.
         For single-line logs, returns a tuple for efficiency.
         For multi-line logs, returns a list.
+
     """
     if strip_ansi_escapes:
         text = ANSI_ESCAPE.sub("", text)

@@ -15,6 +15,7 @@ select = [
   "BLE", # flake8-blind-except
   "C4", # flake8-comprehensions
   "C90", # mccabe complexity
+  "D", # pydocstyle (formatting only — D10x undocumented checks ignored below)
   "DTZ", # flake8-datetimez
   "E", # pycodestyle
   "EM", # flake8-errmsg
@@ -62,6 +63,22 @@ select = [
 
 ignore = [
   "ASYNC109", # `timeout` parameters are part of the public async API
+  # pydocstyle: enforce docstring formatting where docstrings exist, but do
+  # not require docstrings on every public symbol (CLAUDE.md prefers terse,
+  # default-to-none docstrings — see "Code style").
+  "D100", # undocumented-public-module
+  "D101", # undocumented-public-class
+  "D102", # undocumented-public-method
+  "D103", # undocumented-public-function
+  "D104", # undocumented-public-package
+  "D105", # undocumented-magic-method
+  "D106", # undocumented-public-nested-class
+  "D107", # undocumented-public-init
+  # D203 and D211 are mutually exclusive; D213 and D212 are mutually
+  # exclusive. Pick D211/D212 (no blank line before class; multi-line
+  # summary on the first line — the predominant style in this repo).
+  "D203", # incorrect-blank-line-before-class (incompatible with D211)
+  "D213", # multi-line-summary-second-line (incompatible with D212)
   "E501", # line too long
   "E721", # We want type() check for protobuf messages
   "PLR0911", # Too many return statements ({returns} > {max_returns})

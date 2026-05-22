@@ -46,7 +46,7 @@ async def test_raw_ble_plain_text_with_callback(benchmark: BenchmarkFixture) -> 
     )
 
     def on_advertisements(msgs: list[BluetoothLERawAdvertisement]):
-        """Callback for advertisements."""
+        """Handle advertisement callback."""
 
     connection.add_message_callback(
         on_advertisements,

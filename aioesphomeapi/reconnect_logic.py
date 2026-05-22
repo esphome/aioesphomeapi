@@ -395,6 +395,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _remove_stop_task(self, _fut: asyncio.Future[None]) -> None:
         """Remove the stop task from the connect loop.
+
         We need to do this because the asyncio does not hold
         a strong reference to the task, so it can be garbage
         collected unexpectedly.

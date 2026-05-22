@@ -268,9 +268,12 @@ def long_repr_strings() -> Generator[None]:
 
 @pytest.fixture(autouse=True)
 def _clear_singleton_cache() -> Generator[None]:
-    """Reset the global singleton cache so a Future from a previous test's
-    event loop can't be awaited from the current test's loop and trigger
-    'await wasn't used with future' on Python 3.14."""
+    """Reset the global singleton cache between tests.
+
+    A Future from a previous test's event loop must not be awaited from
+    the current test's loop — otherwise Python 3.14 raises
+    "await wasn't used with future".
+    """
     _SINGLETON_CACHE.clear()
     yield
     _SINGLETON_CACHE.clear()

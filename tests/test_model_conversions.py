@@ -8,7 +8,9 @@ from aioesphomeapi.model_conversions import (
 
 
 def test_state_type_to_info_type_covers_all_state_types() -> None:
-    """Every state type the client decodes must have an info type mapping,
+    """Pin info-type mapping coverage for every decoded state type.
+
+    Every state type the client decodes must have an info type mapping,
     otherwise log_runner falls back to info=None and formatting degrades.
     """
     state_types = set(SUBSCRIBE_STATES_RESPONSE_TYPES.values())
@@ -17,7 +19,9 @@ def test_state_type_to_info_type_covers_all_state_types() -> None:
 
 
 def test_state_type_to_info_type_includes_camera_state() -> None:
-    """CameraState is produced from CameraImageResponse rather than a
+    """Pin the explicit CameraState mapping for log_runner.
+
+    CameraState is produced from CameraImageResponse rather than a
     subscribe-state response, so it is not picked up by the auto-built
     mapping and must be added explicitly. Without this entry, log_runner
     warns on every camera frame.

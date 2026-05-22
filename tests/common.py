@@ -148,7 +148,7 @@ def async_fire_time_changed(
 
 
 async def connect(conn: APIConnection, login: bool = True):
-    """Wrapper for connection logic to do both parts."""
+    """Drive the connection through both resolve and finish phases."""
     await conn.start_resolve_host()
     await conn.start_connection()
     await conn.finish_connection(login=login)
@@ -159,7 +159,7 @@ async def connect_client(
     login: bool = True,
     on_stop: Callable[[bool], Awaitable[None]] | None = None,
 ) -> None:
-    """Wrapper for connection logic to do both parts."""
+    """Drive the client through both resolve and finish phases."""
     await client.start_resolve_host(on_stop=on_stop)
     await client.start_connection()
     await client.finish_connection(login=login)

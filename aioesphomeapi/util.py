@@ -18,8 +18,7 @@ _T = TypeVar("_T")
 
 
 def fix_float_single_double_conversion(value: float) -> float:
-    """Fix precision for single-precision floats and return what was probably
-    meant as a float.
+    """Restore precision of a single-precision float carried over a double.
 
     In ESPHome we work with single-precision floats internally for performance.
     But python uses double-precision floats, and when protobuf reads the message
