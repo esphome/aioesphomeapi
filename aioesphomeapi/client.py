@@ -417,7 +417,8 @@ class APIClient(APIClientBase):
                 entities.append(cls.from_pb(msg))
         # Fill in missing object_id values using cached device_info
         api_version = self.api_version
-        assert api_version is not None
+        if TYPE_CHECKING:
+            assert api_version is not None
         return _fill_object_ids_if_needed(api_version, entities, device_info), services
 
     async def device_info_and_list_entities(
@@ -471,11 +472,12 @@ class APIClient(APIClientBase):
             elif cls := response_types.get(msg_type):
                 entities.append(cls.from_pb(msg))
 
-        assert device_info is not None
+        api_version = self.api_version
+        if TYPE_CHECKING:
+            assert device_info is not None
+            assert api_version is not None
         self._cached_device_info = device_info
         # Fill in missing object_id values for entities that don't have them
-        api_version = self.api_version
-        assert api_version is not None
         return (
             device_info,
             _fill_object_ids_if_needed(api_version, entities, device_info),
@@ -1812,7 +1814,7 @@ class APIClient(APIClientBase):
                 int_type = "int_" if apiv >= APIVersion(1, 3) else "legacy_int"
                 setattr(arg, int_type, val)
             else:
-                assert arg_desc.type in map_single
+                assert arg_desc.type in map_single  # noqa: S101  # exhaustiveness check
                 setattr(arg, map_single[arg_desc.type], val)
 
             args.append(arg)
