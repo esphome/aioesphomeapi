@@ -263,7 +263,7 @@ def _finalize_resolve_results(
         return list(dict.fromkeys(all_addrs))
 
     if exceptions:
-        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
+        raise ResolveAPIError(", ".join(map(str, exceptions)))
     msg = f"Could not resolve host {hosts} - got no results from OS"
     raise ResolveAPIError(msg)
 
