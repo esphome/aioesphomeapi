@@ -241,7 +241,7 @@ def test_async_service_update_loads_from_cache_synchronously(
 
 
 # ---------------------------------------------------------------------------
-# main() / cli_entry_point
+# Tests for main() and cli_entry_point
 # ---------------------------------------------------------------------------
 
 

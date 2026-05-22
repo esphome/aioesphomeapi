@@ -501,8 +501,7 @@ class LightInfo(EntityInfo):
                 self.legacy_supports_white_value,
                 self.legacy_supports_color_temperature,
             )
-            # map legacy flags to color modes,
-            # key: (brightness, rgb, white, color_temp)
+            # Map (brightness, rgb, white, color_temp) flag tuples to color modes.
             modes_map = {
                 (False, False, False, False): [LightColorCapability.ON_OFF],
                 (True, False, False, False): [
