@@ -486,8 +486,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def async_update_records(
         self,
-        zc: zeroconf.Zeroconf,  # pylint: disable=unused-argument
-        now: float,  # pylint: disable=unused-argument
+        zc: zeroconf.Zeroconf,  # noqa: ARG002 # pylint: disable=unused-argument
+        now: float,  # noqa: ARG002 # pylint: disable=unused-argument
         records: list[zeroconf.RecordUpdate],
     ) -> None:
         """Listen to zeroconf updated mDNS records. This must be called from the eventloop.

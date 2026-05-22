@@ -444,7 +444,7 @@ class APIClient(APIClientBase):
                 has_entities_done = True
             return True
 
-        def do_stop(msg: message.Message) -> bool:
+        def do_stop(msg: message.Message) -> bool:  # noqa: ARG001
             return has_device_info and has_entities_done
 
         msgs = await self._get_connection().send_messages_await_response_complex(

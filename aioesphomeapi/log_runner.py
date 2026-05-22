@@ -67,7 +67,7 @@ async def async_run(
             await cli.disconnect()
 
     async def on_disconnect(  # pylint: disable=unused-argument
-        expected_disconnect: bool,
+        expected_disconnect: bool,  # noqa: ARG001
     ) -> None:
         _LOGGER.warning("Disconnected from API")
 
