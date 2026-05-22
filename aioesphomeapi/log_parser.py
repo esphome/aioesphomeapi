@@ -18,12 +18,8 @@ ANSI_RESET_CODES = ("\033[0m", "\x1b[0m")
 ANSI_RESET = "\033[0m"
 
 
-def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str, str]:
-    """Extract ESPHome prefix and ANSI color code from line.
-
-    Returns:
-        Tuple of (prefix, color_code, line_without_color)
-    """
+def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str]:
+    """Return the (prefix, color_code) pair found at the start of ``line``."""
     color_code = ""
     line_no_color = line
 
@@ -36,7 +32,7 @@ def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str, st
     bracket_colon = line_no_color.find("]:")
     prefix = line_no_color[: bracket_colon + 2] if bracket_colon != -1 else ""
 
-    return prefix, color_code, line_no_color
+    return prefix, color_code
 
 
 def _needs_reset(line: str) -> bool:
@@ -107,15 +103,11 @@ class LogParser:
         is_continuation = line[0].isspace()
 
         if not is_continuation:
-            # This is a new log entry - update state
-            self._current_prefix = ""
-            self._current_color_code = ""
-
-            # Extract prefix and color for potential multi-line messages
-            if line and not line[0].isspace():
-                self._current_prefix, self._current_color_code, _ = (
-                    _extract_prefix_and_color(line, self.strip_ansi_escapes)
-                )
+            # This is a new log entry - record prefix/color for any
+            # continuation lines that follow.
+            self._current_prefix, self._current_color_code = _extract_prefix_and_color(
+                line, self.strip_ansi_escapes
+            )
 
             # Format the first line
             output = f"{timestamp}{line}"
@@ -189,9 +181,7 @@ def parse_log_message(
 
     # Extract prefix if first line doesn't start with space
     if first_line and not first_line[0].isspace():
-        prefix, color_code, _ = _extract_prefix_and_color(
-            first_line, strip_ansi_escapes
-        )
+        prefix, color_code = _extract_prefix_and_color(first_line, strip_ansi_escapes)
 
     # Process subsequent lines
     for line in lines[1:]:
@@ -206,7 +196,7 @@ def parse_log_message(
                 new_entry += ANSI_RESET
             # Re-extract prefix/color so any later continuation lines in
             # this same message inherit from the new entry, not the original.
-            prefix, color_code, _ = _extract_prefix_and_color(line, strip_ansi_escapes)
+            prefix, color_code = _extract_prefix_and_color(line, strip_ansi_escapes)
             result.append(new_entry)
             continue
         # Apply timestamp, color, prefix, and the continuation line
