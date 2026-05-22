@@ -171,7 +171,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self, state: ReconnectLogicState
     ) -> None:
         """Set the connection state while holding the lock."""
-        assert self._connected_lock.locked(), "connected_lock must be locked"
+        assert self._connected_lock.locked(), "connected_lock must be locked"  # noqa: S101  # precondition
         self._async_set_connection_state_without_lock(state)
 
     def _async_set_connection_state_without_lock(

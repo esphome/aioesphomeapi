@@ -23,7 +23,7 @@ UNKNOWN = "unknown"
 # long value; deriving them from FORMAT keeps the caps in lock-step if the
 # table layout is ever retuned.
 _COLUMN_WIDTHS = tuple(int(w) for w in re.findall(r"<\s*(\d+)", FORMAT))
-assert len(_COLUMN_WIDTHS) == len(COLUMN_NAMES), (
+assert len(_COLUMN_WIDTHS) == len(COLUMN_NAMES), (  # noqa: S101  # module-load layout invariant
     "FORMAT width count must match COLUMN_NAMES; update one and the other together"
 )
 _MAX_NAME_DISPLAY = _COLUMN_WIDTHS[COLUMN_NAMES.index("Name")]

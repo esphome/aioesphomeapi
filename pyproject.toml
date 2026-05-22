@@ -45,6 +45,7 @@ select = [
   "RET", # flake8-return
   "RSE", # flake8-raise
   "RUF", # ruff
+  "S", # flake8-bandit
   "SIM", # flake8-SIM
   "SLF", # flake8-self
   "SLOT", # flake8-slots
@@ -79,13 +80,17 @@ ignore = [
 # as noise; the rest of the family still applies to production code.
 # SLF: tests and benchmarks legitimately reach into private state to
 # pin invariants and to swap out hot-path methods for measurement.
-"tests/**" = ["ARG", "SLF"]
+# S101: pytest assertions are the entire point of the test suite.
+# S106: test fixtures use literal "password" strings to exercise the
+# password-auth code paths; they are not real credentials.
+"tests/**" = ["ARG", "S101", "S106", "SLF"]
 # CLI entry points and benchmark scripts emit to stdout by design; T20
 # would flag every line of their intended output. SLF: benchmark harness
 # constructs APIConnection from APIClient internals to measure hot paths.
+# S101: benchmark sanity asserts are intentional.
 "aioesphomeapi/discover.py" = ["T20"]
 "aioesphomeapi/log_reader.py" = ["T20"]
-"bench/**" = ["T20", "SLF"]
+"bench/**" = ["S101", "SLF", "T20"]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
