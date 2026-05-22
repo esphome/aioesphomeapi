@@ -120,6 +120,54 @@ def _parse_uint(s: str, pos: int) -> tuple[int, int]:
     return value, pos
 
 
+def _parse_dst_rule_m(s: str, pos: int, rule: DSTRule) -> int:
+    """Parse an Mm.w.d body into ``rule``; return new position."""
+    rule.type = DSTRuleType.MONTH_WEEK_DAY
+    pos += 1
+
+    rule.month, pos = _parse_uint(s, pos)
+    if rule.month < 1 or rule.month > 12:
+        raise ValueError(f"Month must be 1-12, got {rule.month}")
+
+    if pos >= len(s) or s[pos] != ".":
+        raise ValueError("Expected '.' after month in M-format rule")
+    pos += 1
+
+    rule.week, pos = _parse_uint(s, pos)
+    if rule.week < 1 or rule.week > 5:
+        raise ValueError(f"Week must be 1-5, got {rule.week}")
+
+    if pos >= len(s) or s[pos] != ".":
+        raise ValueError("Expected '.' after week in M-format rule")
+    pos += 1
+
+    rule.day_of_week, pos = _parse_uint(s, pos)
+    if rule.day_of_week > 6:
+        raise ValueError(f"Day of week must be 0-6, got {rule.day_of_week}")
+    return pos
+
+
+def _parse_dst_rule_j(s: str, pos: int, rule: DSTRule) -> int:
+    """Parse a Jn body (Julian day 1-365, no Feb 29) into ``rule``; return new position."""
+    rule.type = DSTRuleType.JULIAN_NO_LEAP
+    pos += 1
+
+    rule.day, pos = _parse_uint(s, pos)
+    if rule.day < 1 or rule.day > 365:
+        raise ValueError(f"Julian day must be 1-365, got {rule.day}")
+    return pos
+
+
+def _parse_dst_rule_n(s: str, pos: int, rule: DSTRule) -> int:
+    """Parse a plain ``n`` body (day of year 0-365, counting Feb 29) into ``rule``."""
+    rule.type = DSTRuleType.DAY_OF_YEAR
+
+    rule.day, pos = _parse_uint(s, pos)
+    if rule.day > 365:
+        raise ValueError(f"Day of year must be 0-365, got {rule.day}")
+    return pos
+
+
 def _parse_dst_rule(s: str, pos: int) -> tuple[DSTRule, int]:
     """Parse a DST rule in format Mm.w.d[/time], Jn[/time], or n[/time].
 
@@ -132,47 +180,11 @@ def _parse_dst_rule(s: str, pos: int) -> tuple[DSTRule, int]:
         raise ValueError("Unexpected end of string, expected DST rule")
 
     if s[pos] in ("M", "m"):
-        # M format: Mm.w.d
-        rule.type = DSTRuleType.MONTH_WEEK_DAY
-        pos += 1
-
-        rule.month, pos = _parse_uint(s, pos)
-        if rule.month < 1 or rule.month > 12:
-            raise ValueError(f"Month must be 1-12, got {rule.month}")
-
-        if pos >= len(s) or s[pos] != ".":
-            raise ValueError("Expected '.' after month in M-format rule")
-        pos += 1
-
-        rule.week, pos = _parse_uint(s, pos)
-        if rule.week < 1 or rule.week > 5:
-            raise ValueError(f"Week must be 1-5, got {rule.week}")
-
-        if pos >= len(s) or s[pos] != ".":
-            raise ValueError("Expected '.' after week in M-format rule")
-        pos += 1
-
-        rule.day_of_week, pos = _parse_uint(s, pos)
-        if rule.day_of_week > 6:
-            raise ValueError(f"Day of week must be 0-6, got {rule.day_of_week}")
-
+        pos = _parse_dst_rule_m(s, pos, rule)
     elif s[pos] in ("J", "j"):
-        # J format: Jn (Julian day 1-365, not counting Feb 29)
-        rule.type = DSTRuleType.JULIAN_NO_LEAP
-        pos += 1
-
-        rule.day, pos = _parse_uint(s, pos)
-        if rule.day < 1 or rule.day > 365:
-            raise ValueError(f"Julian day must be 1-365, got {rule.day}")
-
+        pos = _parse_dst_rule_j(s, pos, rule)
     elif s[pos].isdigit():
-        # Plain number format: n (day 0-365, counting Feb 29)
-        rule.type = DSTRuleType.DAY_OF_YEAR
-
-        rule.day, pos = _parse_uint(s, pos)
-        if rule.day > 365:
-            raise ValueError(f"Day of year must be 0-365, got {rule.day}")
-
+        pos = _parse_dst_rule_n(s, pos, rule)
     else:
         raise ValueError(f"Expected DST rule (M, J, or digit), got '{s[pos]}'")
 
