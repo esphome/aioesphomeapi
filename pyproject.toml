@@ -46,6 +46,7 @@ select = [
   "RSE", # flake8-raise
   "RUF", # ruff
   "SIM", # flake8-SIM
+  "SLF", # flake8-self
   "SLOT", # flake8-slots
   "T10", # flake8-debugger
   "T20", # flake8-print
@@ -76,12 +77,15 @@ ignore = [
 # pytest fixtures are routinely "unused" — they're requested for their
 # setup side effects, not their return value. The ARG family flags this
 # as noise; the rest of the family still applies to production code.
-"tests/**" = ["ARG"]
+# SLF: tests and benchmarks legitimately reach into private state to
+# pin invariants and to swap out hot-path methods for measurement.
+"tests/**" = ["ARG", "SLF"]
 # CLI entry points and benchmark scripts emit to stdout by design; T20
-# would flag every line of their intended output.
+# would flag every line of their intended output. SLF: benchmark harness
+# constructs APIConnection from APIClient internals to measure hot paths.
 "aioesphomeapi/discover.py" = ["T20"]
 "aioesphomeapi/log_reader.py" = ["T20"]
-"bench/**" = ["T20"]
+"bench/**" = ["T20", "SLF"]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
