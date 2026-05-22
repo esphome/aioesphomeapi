@@ -379,7 +379,8 @@ async def test_start_connection_cannot_increase_recv_buffer(
         if args[0] == socket.SOL_SOCKET and args[1] == socket.SO_RCVBUF:
             size = args[2]
             tried_sizes.append(size)
-            raise OSError("Socket error")
+            msg = "Socket error"
+            raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True
@@ -432,7 +433,8 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
             size = args[2]
             tried_sizes.append(size)
             if size != 262144:
-                raise OSError("Socket error")
+                msg = "Socket error"
+                raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True

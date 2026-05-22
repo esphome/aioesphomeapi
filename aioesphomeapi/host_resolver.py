@@ -78,9 +78,8 @@ async def _async_zeroconf_get_service_info(
             aiozc.zeroconf, int(timeout * 1000), question_type=DNSQuestionType.QM
         )
     except Exception as exc:
-        raise ResolveAPIError(
-            f"Error resolving mDNS {short_host} via mDNS: {exc}"
-        ) from exc
+        msg = f"Error resolving mDNS {short_host} via mDNS: {exc}"
+        raise ResolveAPIError(msg) from exc
     return info
 
 
@@ -141,7 +140,8 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
         )
     except OSError as err:
         _LOGGER.debug("Failed to resolve %s via getaddrinfo: %s", host, err)
-        raise ResolveAPIError(f"Error resolving {host} to IP address: {err}") from err
+        msg = f"Error resolving {host} to IP address: {err}"
+        raise ResolveAPIError(msg) from err
 
     _LOGGER.debug("Successfully resolved %s via getaddrinfo", host)
 
@@ -281,9 +281,8 @@ async def async_resolve_host(
             except TimeoutError as err:
                 # If we already have some results, don't fail on timeout
                 if not resolve_results:
-                    raise ResolveTimeoutAPIError(
-                        f"Timeout while resolving IP address for {hosts}"
-                    ) from err
+                    msg = f"Timeout while resolving IP address for {hosts}"
+                    raise ResolveTimeoutAPIError(msg) from err
                 _LOGGER.debug(
                     "Timeout while resolving some hosts, but got results for: %s",
                     list(resolve_results.keys()),
@@ -300,7 +299,8 @@ async def async_resolve_host(
 
     if exceptions:
         raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
-    raise ResolveAPIError(f"Could not resolve host {hosts} - got no results from OS")
+    msg = f"Could not resolve host {hosts} - got no results from OS"
+    raise ResolveAPIError(msg)
 
 
 async def _async_resolve_host(

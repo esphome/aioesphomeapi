@@ -199,7 +199,8 @@ def patch_response_complex(client: APIClient, messages):
             if stop(msg):
                 break
         else:
-            raise ValueError("Response never stopped")
+            msg_0 = "Response never stopped"
+            raise ValueError(msg_0)
         return resp
 
     client._connection.send_messages_await_response_complex = patched
@@ -2433,7 +2434,8 @@ async def test_bluetooth_gatt_notify_callback_raises(
     client, connection, _transport, protocol = api_client
 
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
-        raise ValueError("Test exception in notify callback")
+        msg = "Test exception in notify callback"
+        raise ValueError(msg)
 
     notify_task = asyncio.create_task(
         client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)

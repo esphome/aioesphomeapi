@@ -350,7 +350,8 @@ def wifi_mac_to_bluetooth_mac(wifi_mac: str) -> str:
 
     # Validate MAC address format
     if len(clean_mac) != 12 or not all(c in "0123456789ABCDEF" for c in clean_mac):
-        raise ValueError(f"Invalid MAC address format: {wifi_mac}")
+        msg = f"Invalid MAC address format: {wifi_mac}"
+        raise ValueError(msg)
 
     # Extract the last octet and add 2
     last_octet = int(clean_mac[-2:], 16)

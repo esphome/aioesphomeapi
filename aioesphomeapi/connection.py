@@ -438,12 +438,10 @@ class APIConnection:
 
         if sock is None:
             if isinstance(last_exception, TimeoutError):
-                raise TimeoutAPIError(
-                    f"Timeout while connecting to {addrs}"
-                ) from last_exception
-            raise SocketAPIError(
-                f"Error connecting to {addrs}: {last_exception}"
-            ) from last_exception
+                msg = f"Timeout while connecting to {addrs}"
+                raise TimeoutAPIError(msg) from last_exception
+            msg = f"Error connecting to {addrs}: {last_exception}"
+            raise SocketAPIError(msg) from last_exception
 
         self._socket = sock
         sock.setblocking(False)
@@ -532,11 +530,11 @@ class APIConnection:
         try:
             await self._frame_helper.ready_future
         except TimeoutError as err:
-            raise TimeoutAPIError(
-                f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
-            ) from err
+            msg = f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
+            raise TimeoutAPIError(msg) from err
         except OSError as err:
-            raise HandshakeAPIError(f"Handshake failed: {err}") from err
+            msg = f"Handshake failed: {err}"
+            raise HandshakeAPIError(msg) from err
         finally:
             handshake_handle.cancel()
         self._set_connection_state(CONNECTION_STATE_HANDSHAKE_COMPLETE)
@@ -587,7 +585,8 @@ class APIConnection:
                 self.log_name,
                 api_version.major,
             )
-            raise APIConnectionError(f"Incompatible API version ({api_version}).")
+            msg = f"Incompatible API version ({api_version})."
+            raise APIConnectionError(msg)
 
         self.api_version = api_version
         expected_name = self._params.expected_name
@@ -599,9 +598,12 @@ class APIConnection:
         if received_name_raw := resp.name:
             received_name = safe_label_str(received_name_raw, MAX_NAME_LEN)
             if expected_name is not None and received_name_raw != expected_name:
-                raise BadNameAPIError(
+                msg = (
                     f"Expected '{expected_name}' but server sent "
-                    f"a different name: '{received_name}'",
+                    f"a different name: '{received_name}'"
+                )
+                raise BadNameAPIError(
+                    msg,
                     received_name,
                 )
 
@@ -674,9 +676,8 @@ class APIConnection:
         and prepares the connection for the next step.
         """
         if self.connection_state is not CONNECTION_STATE_INITIALIZED:
-            raise RuntimeError(
-                "Connection can only be used once, connection is not in init state"
-            )
+            msg = "Connection can only be used once, connection is not in init state"
+            raise RuntimeError(msg)
 
         self._resolve_host_future = self._loop.create_future()
         try:
@@ -712,9 +713,8 @@ class APIConnection:
         does not initialize the frame helper or send the hello message.
         """
         if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
-            raise RuntimeError(
-                "Connection must be in HOST_RESOLVED state to start connection"
-            )
+            msg = "Connection must be in HOST_RESOLVED state to start connection"
+            raise RuntimeError(msg)
 
         self._start_connect_future = self._loop.create_future()
         try:
@@ -808,9 +808,8 @@ class APIConnection:
         than starts the keep alive process.
         """
         if self.connection_state is not CONNECTION_STATE_SOCKET_OPENED:
-            raise RuntimeError(
-                "Connection must be in SOCKET_OPENED state to finish connection"
-            )
+            msg = "Connection must be in SOCKET_OPENED state to finish connection"
+            raise RuntimeError(msg)
         self._finish_connect_future = self._loop.create_future()
         try:
             async with interrupt(
@@ -856,9 +855,8 @@ class APIConnection:
     def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
-            raise ConnectionNotEstablishedAPIError(
-                f"Connection isn't established yet ({self.connection_state})"
-            )
+            msg = f"Connection isn't established yet ({self.connection_state})"
+            raise ConnectionNotEstablishedAPIError(msg)
 
         packets: list[tuple[int, bytes]] = [
             (msg_type[0], msg_type[1](msg))
@@ -979,9 +977,8 @@ class APIConnection:
         except TimeoutError as err:
             timeout_expired = True
             response_names = message_types_to_names(msg_types)
-            raise TimeoutAPIError(
-                f"Timeout waiting for {response_names} after {timeout}s"
-            ) from err
+            msg = f"Timeout waiting for {response_names} after {timeout}s"
+            raise TimeoutAPIError(msg) from err
         finally:
             if not timeout_expired:
                 timeout_handle.cancel()

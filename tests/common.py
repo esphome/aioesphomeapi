@@ -332,6 +332,5 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         try:
             self._writelines([header, frame])
         except (RuntimeError, ConnectionResetError, OSError) as err:
-            raise SocketClosedAPIError(
-                f"{self._log_name}: Error while writing data: {err}"
-            ) from err
+            msg = f"{self._log_name}: Error while writing data: {err}"
+            raise SocketClosedAPIError(msg) from err

@@ -451,10 +451,12 @@ class APIClientBase:
 
     def _get_connection(self) -> APIConnection:
         if self._connection is None:
-            raise APIConnectionError(f"Not connected to {self.log_name}!")
+            msg = f"Not connected to {self.log_name}!"
+            raise APIConnectionError(msg)
         if not self._connection.is_connected:
-            raise APIConnectionError(
+            msg = (
                 f"Authenticated connection not ready yet for {self.log_name}; "
                 f"current state is {self._connection.connection_state}!"
             )
+            raise APIConnectionError(msg)
         return self._connection

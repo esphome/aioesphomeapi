@@ -374,7 +374,8 @@ def test_cli_entry_point_propagates_other_exceptions() -> None:
 
     def fake_run(coro: Any) -> None:
         _close_coro(coro)
-        raise RuntimeError("boom")
+        msg = "boom"
+        raise RuntimeError(msg)
 
     with (
         patch("aioesphomeapi.discover.asyncio.run", side_effect=fake_run),
