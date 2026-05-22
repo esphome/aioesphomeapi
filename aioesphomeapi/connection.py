@@ -688,7 +688,7 @@ class APIConnection:
                     self._params.port,
                     self._params.zeroconf_manager,
                 )
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -722,7 +722,7 @@ class APIConnection:
                 self._start_connect_future, ConnectionInterruptedError, None
             ):
                 await self._connect_socket_connect(self._addrs_info)
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -817,7 +817,7 @@ class APIConnection:
                 self._finish_connect_future, ConnectionInterruptedError, None
             ):
                 await self._do_finish_connect(login)
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
