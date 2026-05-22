@@ -93,7 +93,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             )
         )
 
-    def data_received(self, data: bytes | bytearray | memoryview) -> None:
+    def data_received(self, data: bytes | bytearray | memoryview) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         self._add_to_buffer(data)
         # Message header is at least 3 bytes, empty length allowed
         while self._buffer_len >= 3:

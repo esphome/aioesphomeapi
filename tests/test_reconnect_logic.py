@@ -421,7 +421,7 @@ DNS_POINTER = DNSPointer(
         ),
     ],
 )
-async def test_reconnect_zeroconf(
+async def test_reconnect_zeroconf(  # noqa: C901  # parametrized over many record shapes; branching is the matrix
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
     record: DNSRecord,
