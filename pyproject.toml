@@ -16,6 +16,7 @@ select = [
   "E", # pycodestyle
   "F", # pyflakes/autoflake
   "FA", # flake8-future-annotations
+  "FIX", # flake8-fixme
   "FLY", # flynt
   "FURB", # refurb
   "G", # flake8-logging-format
@@ -40,7 +41,9 @@ select = [
   "RUF", # ruff
   "SIM", # flake8-SIM
   "SLOT", # flake8-slots
+  "T10", # flake8-debugger
   "TC", # flake8-type-checking
+  "TD", # flake8-todos
   "TID", # Tidy imports
   "TRY", # try rules
   "PERF", # performance
