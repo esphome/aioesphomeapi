@@ -855,8 +855,8 @@ class APIConnection:
     def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
-            msg = f"Connection isn't established yet ({self.connection_state})"
-            raise ConnectionNotEstablishedAPIError(msg)
+            error_msg = f"Connection isn't established yet ({self.connection_state})"
+            raise ConnectionNotEstablishedAPIError(error_msg)
 
         packets: list[tuple[int, bytes]] = [
             (msg_type[0], msg_type[1](msg))

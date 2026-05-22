@@ -199,8 +199,8 @@ def patch_response_complex(client: APIClient, messages):
             if stop(msg):
                 break
         else:
-            msg_0 = "Response never stopped"
-            raise ValueError(msg_0)
+            error_msg = "Response never stopped"
+            raise ValueError(error_msg)
         return resp
 
     client._connection.send_messages_await_response_complex = patched
