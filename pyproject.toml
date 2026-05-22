@@ -30,8 +30,7 @@ select = [
   "PGH", # pygrep-hooks
   "PIE", # flake8-pie
   "PL", # pylint
-  "PT006", # pytest-parametrize-names-wrong-type
-  "PT007", # pytest-parametrize-values-wrong-type
+  "PT", # flake8-pytest-style
   "PTH", # flake8-use-pathlib
   "PYI", # flake8-pyi
   "Q", # flake8-quotes
