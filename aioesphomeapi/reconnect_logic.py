@@ -222,7 +222,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             await self._cli.start_resolve_host(
                 on_stop=self._on_disconnect, log_errors=False
             )
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         self._async_set_connection_state_while_locked(ReconnectLogicState.CONNECTING)
@@ -236,7 +236,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
         try:
             await self._cli.start_connection()
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         finish_connect_time = time.perf_counter()
@@ -248,7 +248,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
         try:
             await self._cli.finish_connection(login=True)
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         self._tries = 0
@@ -458,7 +458,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             try:
                 async_zc = self._zeroconf_manager.get_async_zeroconf()
                 async_zc.zeroconf.async_add_listener(self, None)
-            except Exception as err:  # pylint: disable=broad-except
+            except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
                 _LOGGER.log(
                     self._first_try_log_level(),
                     "Could not start zeroconf listener for %s: %s (%s); "

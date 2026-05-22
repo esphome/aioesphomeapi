@@ -324,7 +324,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             key_err.__cause__ = exc
             self._handle_error_and_close(key_err)
             return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             handshake_err = HandshakeAPIError(
                 f"{self._log_name}: Handshake failed: {exc}"
             )

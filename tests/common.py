@@ -70,7 +70,7 @@ def mock_data_received(
     """Mock data received on the protocol."""
     try:
         protocol.data_received(data)
-    except Exception as err:  # pylint: disable=broad-except
+    except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
         loop = asyncio.get_running_loop()
         loop.call_soon(
             protocol.connection_lost,

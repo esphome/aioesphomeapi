@@ -253,7 +253,7 @@ async def async_resolve_host(
             had_zeroconf_instance = manager.has_instance
             try:
                 aiozc = manager.get_async_zeroconf()
-            except Exception as original_exc:
+            except Exception as original_exc:  # noqa: BLE001
                 new_exc = ResolveAPIError(
                     f"Cannot start mDNS sockets while resolving {host}: "
                     f"{original_exc}, is this a docker container "
