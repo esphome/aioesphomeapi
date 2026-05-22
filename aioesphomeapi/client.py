@@ -214,38 +214,40 @@ def _validate_connection_params(
 ) -> None:
     """Validate BLE LL_CONNECTION_UPDATE_IND parameters per the Core spec."""
     if not CONN_INTERVAL_MIN <= min_interval <= CONN_INTERVAL_MAX:
-        raise ValueError(
+        msg = (
             f"min_interval must be between {CONN_INTERVAL_MIN} and "
             f"{CONN_INTERVAL_MAX} (units of 1.25 ms), got {min_interval}"
         )
+        raise ValueError(msg)
     if not CONN_INTERVAL_MIN <= max_interval <= CONN_INTERVAL_MAX:
-        raise ValueError(
+        msg = (
             f"max_interval must be between {CONN_INTERVAL_MIN} and "
             f"{CONN_INTERVAL_MAX} (units of 1.25 ms), got {max_interval}"
         )
+        raise ValueError(msg)
     if max_interval < min_interval:
-        raise ValueError(
-            f"max_interval ({max_interval}) must be >= min_interval ({min_interval})"
-        )
+        msg = f"max_interval ({max_interval}) must be >= min_interval ({min_interval})"
+        raise ValueError(msg)
     if not 0 <= latency <= CONN_LATENCY_MAX:
-        raise ValueError(
-            f"latency must be between 0 and {CONN_LATENCY_MAX}, got {latency}"
-        )
+        msg = f"latency must be between 0 and {CONN_LATENCY_MAX}, got {latency}"
+        raise ValueError(msg)
     if not SUPERVISION_TIMEOUT_MIN <= timeout <= SUPERVISION_TIMEOUT_MAX:
-        raise ValueError(
+        msg = (
             f"timeout must be between {SUPERVISION_TIMEOUT_MIN} and "
             f"{SUPERVISION_TIMEOUT_MAX} (units of 10 ms), got {timeout}"
         )
+        raise ValueError(msg)
     # Per BLE Core spec: connSupervisionTimeout > (1 + connPeripheralLatency)
     # * connIntervalMax * 2.  Converting units gives timeout * 4 >
     # (1 + latency) * max_interval (timeout in 10 ms, max_interval in 1.25 ms).
     if timeout * 4 <= (1 + latency) * max_interval:
-        raise ValueError(
+        msg = (
             "Supervision timeout must satisfy "
             "timeout * 4 > (1 + latency) * max_interval "
             f"(got timeout={timeout}, latency={latency}, "
             f"max_interval={max_interval})"
         )
+        raise ValueError(msg)
 
 
 # API version 1.14+ may omit object_id to reduce protocol overhead
@@ -330,7 +332,8 @@ class APIClient(APIClientBase):
     ) -> None:
         """Start resolving the host."""
         if self._connection is not None:
-            raise APIConnectionError(f"Already connected to {self.log_name}!")
+            msg = f"Already connected to {self.log_name}!"
+            raise APIConnectionError(msg)
         self._connection = APIConnection(
             self._params,
             partial(self._on_stop, on_stop),
@@ -597,9 +600,11 @@ class APIClient(APIClientBase):
     ) -> None:
         """Configure UART parameters for a serial proxy instance."""
         if not 1 <= stop_bits <= 2:
-            raise ValueError(f"stop_bits must be 1 or 2, got {stop_bits}")
+            msg = f"stop_bits must be 1 or 2, got {stop_bits}"
+            raise ValueError(msg)
         if not 5 <= data_size <= 8:
-            raise ValueError(f"data_size must be 5-8, got {data_size}")
+            msg = f"data_size must be 5-8, got {data_size}"
+            raise ValueError(msg)
         self._get_connection().send_message(
             SerialProxyConfigureRequest(
                 instance=instance,
@@ -865,10 +870,11 @@ class APIClient(APIClientBase):
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
         if address_type is None:
-            raise ValueError(
+            msg = (
                 f"{self.log_name}: address_type is required for Bluetooth connection. "
                 "The connection attempt cannot proceed without a valid address_type."
             )
+            raise ValueError(msg)
 
         if has_cache:
             # REMOTE_CACHING feature with cache: requestor has services and mtu cached
@@ -878,10 +884,11 @@ class APIClient(APIClientBase):
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
         else:
             # ESPHome device does not support REMOTE_CACHING feature: old CONNECT method is no longer supported
-            raise ValueError(
+            msg = (
                 f"{self.log_name}: ESPHome device does not support REMOTE_CACHING feature. "
                 "Please update the ESPHome device to version 2022.12.0 or later."
             )
+            raise ValueError(msg)
 
         if self._debug_enabled:
             _LOGGER.debug("%s: Using connection version %s", address, request_type)
@@ -938,11 +945,12 @@ class APIClient(APIClientBase):
                     address, disconnect_timeout
                 )
             )
-            raise TimeoutAPIError(
+            msg = (
                 f"Timeout waiting for connect response while connecting to {addr} "
                 f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
                 f" after {disconnect_timeout}s"
-            ) from err
+            )
+            raise TimeoutAPIError(msg) from err
         except asyncio.CancelledError:
             unhandled_exception = True
             # Distinguish an outside cancellation of our task from
@@ -954,9 +962,8 @@ class APIClient(APIClientBase):
             current_task = asyncio.current_task()
             if current_task is None or not current_task.cancelling():
                 addr = to_human_readable_address(address)
-                raise APIConnectionError(
-                    f"Connect attempt to {addr} was cancelled"
-                ) from None
+                msg = f"Connect attempt to {addr} was cancelled"
+                raise APIConnectionError(msg) from None
             raise
         except BaseException:
             unhandled_exception = True
@@ -1102,11 +1109,12 @@ class APIClient(APIClientBase):
             return
         response_names = message_types_to_names(msg_types)
         human_readable_address = to_human_readable_address(address)
-        raise BluetoothConnectionDroppedError(
+        msg = (
             f"Peripheral {human_readable_address} changed connection status while waiting for "
             f"{response_names}: {to_human_readable_gatt_error(response.error)} "
             f"({response.error})"
         )
+        raise BluetoothConnectionDroppedError(msg)
 
     def _bluetooth_disconnect_no_wait(self, address: int) -> None:
         """Disconnect from a Bluetooth device without waiting for a response."""

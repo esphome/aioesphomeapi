@@ -15,6 +15,7 @@ select = [
   "C4", # flake8-comprehensions
   "DTZ", # flake8-datetimez
   "E", # pycodestyle
+  "EM", # flake8-errmsg
   "ERA", # eradicate (commented-out code)
   "EXE", # flake8-executable
   "F", # pyflakes/autoflake

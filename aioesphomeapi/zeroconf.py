@@ -39,7 +39,8 @@ class ZeroconfManager:
             if isinstance(zc, Zeroconf) and self._aiozc.zeroconf is zc:
                 self._aiozc = AsyncZeroconf(zc=zc)
                 return
-            raise RuntimeError("Zeroconf instance already set to a different instance")
+            msg = "Zeroconf instance already set to a different instance"
+            raise RuntimeError(msg)
         self._aiozc = zc if isinstance(zc, AsyncZeroconf) else AsyncZeroconf(zc=zc)
 
     def _create_async_zeroconf(self) -> None:

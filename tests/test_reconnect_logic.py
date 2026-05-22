@@ -464,7 +464,8 @@ async def test_reconnect_zeroconf(
         try:
             await asyncio.wait_for(resolve_event.wait(), timeout=0.1)
         except TimeoutError as err:
-            raise APIConnectionError("Resolution timed out") from err
+            msg = "Resolution timed out"
+            raise APIConnectionError(msg) from err
         else:
             return  # Resolution succeeded
 

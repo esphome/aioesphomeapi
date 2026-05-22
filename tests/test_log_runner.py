@@ -242,7 +242,8 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     def _wait_and_fail_subscribe_cli(*args, **kwargs):
         subscribed.set()
-        raise APIConnectionError("subscribed force to fail")
+        msg = "subscribed force to fail"
+        raise APIConnectionError(msg)
 
     with (
         patch.object(cli, "disconnect", partial(cli.disconnect, force=True)),
