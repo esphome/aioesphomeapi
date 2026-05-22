@@ -200,6 +200,74 @@ def host_is_local_name(host: str) -> bool:
     return host_is_name_part(host) or address_is_local(host)
 
 
+def _try_ip_address_fastpath(
+    host: str,
+    port: int,
+    resolve_results: defaultdict[str, list[AddrInfo]],
+) -> bool:
+    """Record an AddrInfo if ``host`` is an IP literal; return True when handled."""
+    try:
+        ip_addr_info = _async_ip_address_to_addrinfo(ip_address(host), port)
+    except ValueError:
+        return False
+    resolve_results[host].append(ip_addr_info)
+    return True
+
+
+def _try_zeroconf_cache(
+    host: str,
+    port: int,
+    aiozc: AsyncZeroconf,
+    resolve_results: defaultdict[str, list[AddrInfo]],
+) -> None:
+    """Populate ``resolve_results`` from the zeroconf cache if a hit is available."""
+    short_host = host.partition(".")[0]
+    service_info = _make_service_info_for_short_host(short_host)
+    if service_info.load_from_cache(aiozc.zeroconf) and (
+        addr_infos := service_info_to_addr_info(service_info, port)
+    ):
+        resolve_results[host].extend(addr_infos)
+
+
+def _ensure_aiozc(
+    zeroconf_manager: ZeroconfManager | None,
+    host: str,
+    exceptions: list[BaseException],
+) -> tuple[ZeroconfManager, bool, AsyncZeroconf | None]:
+    """Lazy-init the zeroconf manager; capture startup failures into ``exceptions``."""
+    manager = zeroconf_manager or ZeroconfManager()
+    had_instance = manager.has_instance
+    try:
+        return manager, had_instance, manager.get_async_zeroconf()
+    except Exception as original_exc:  # noqa: BLE001
+        new_exc = ResolveAPIError(
+            f"Cannot start mDNS sockets while resolving {host}: "
+            f"{original_exc}, is this a docker container "
+            "without host network mode? "
+        )
+        new_exc.__cause__ = original_exc
+        exceptions.append(new_exc)
+        return manager, had_instance, None
+
+
+def _finalize_resolve_results(
+    hosts: list[str],
+    resolve_results: defaultdict[str, list[AddrInfo]],
+    exceptions: list[BaseException],
+) -> list[AddrInfo]:
+    """Deduplicate accumulated results or raise the most informative error."""
+    # Deduplicate addresses since we may have gotten the same results from multiple sources
+    # (e.g., both "example.local" and "example" might resolve to the same IP)
+    if all_addrs := list(itertools.chain.from_iterable(resolve_results.values())):
+        # Use dict.fromkeys() to preserve order while removing duplicates
+        return list(dict.fromkeys(all_addrs))
+
+    if exceptions:
+        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
+    msg = f"Could not resolve host {hosts} - got no results from OS"
+    raise ResolveAPIError(msg)
+
+
 async def async_resolve_host(
     hosts: list[str],
     port: int,
@@ -232,15 +300,7 @@ async def async_resolve_host(
     # - If we have a zeroconf manager and the host is in the cache
     #   we can return that as well
     for host in hosts:
-        # If its an IP address, we can convert it to an AddrInfo
-        # and we are done with this host
-        try:
-            ip_addr_info = _async_ip_address_to_addrinfo(ip_address(host), port)
-        except ValueError:
-            pass
-        else:
-            if ip_addr_info:
-                resolve_results[host].append(ip_addr_info)
+        if _try_ip_address_fastpath(host, port, resolve_results):
             continue
 
         if not host_is_local_name(host):
@@ -249,26 +309,12 @@ async def async_resolve_host(
         # If its a local name, we can try to fetch it from the zeroconf cache
         if not tried_to_create_zeroconf:
             tried_to_create_zeroconf = True
-            manager = zeroconf_manager or ZeroconfManager()
-            had_zeroconf_instance = manager.has_instance
-            try:
-                aiozc = manager.get_async_zeroconf()
-            except Exception as original_exc:  # noqa: BLE001
-                new_exc = ResolveAPIError(
-                    f"Cannot start mDNS sockets while resolving {host}: "
-                    f"{original_exc}, is this a docker container "
-                    "without host network mode? "
-                )
-                new_exc.__cause__ = original_exc
-                exceptions.append(new_exc)
+            manager, had_zeroconf_instance, aiozc = _ensure_aiozc(
+                zeroconf_manager, host, exceptions
+            )
 
         if aiozc:
-            short_host = host.partition(".")[0]
-            service_info = _make_service_info_for_short_host(short_host)
-            if service_info.load_from_cache(aiozc.zeroconf) and (
-                addr_infos := service_info_to_addr_info(service_info, port)
-            ):
-                resolve_results[host].extend(addr_infos)
+            _try_zeroconf_cache(host, port, aiozc, resolve_results)
 
     try:
         if len(resolve_results) != len(hosts):
@@ -291,16 +337,78 @@ async def async_resolve_host(
         if manager and not had_zeroconf_instance:
             await asyncio.shield(create_eager_task(manager.async_close()))
 
-    # Deduplicate addresses since we may have gotten the same results from multiple sources
-    # (e.g., both "example.local" and "example" might resolve to the same IP)
-    if all_addrs := list(itertools.chain.from_iterable(resolve_results.values())):
-        # Use dict.fromkeys() to preserve order while removing duplicates
-        return list(dict.fromkeys(all_addrs))
+    return _finalize_resolve_results(hosts, resolve_results, exceptions)
 
-    if exceptions:
-        raise ResolveAPIError(" ,".join([str(exc) for exc in exceptions]))
-    msg = f"Could not resolve host {hosts} - got no results from OS"
-    raise ResolveAPIError(msg)
+
+def _make_resolution_coros(
+    host: str,
+    port: int,
+    aiozc: AsyncZeroconf | None,
+    timeout: float,
+) -> list[Coroutine[Any, Any, list[AddrInfo]]]:
+    """Build the resolution coroutines to race for a single host."""
+    coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
+    if aiozc and host_is_local_name(host):
+        short_host = host.partition(".")[0]
+        coros.append(
+            _async_resolve_short_host_zeroconf(aiozc, short_host, port, timeout=timeout)
+        )
+
+    _LOGGER.debug("Adding DNS resolution task for %s", host)
+    coros.append(_async_resolve_host_getaddrinfo(host, port))
+
+    # If the host ends with .local, also try without the suffix in parallel
+    # This handles cases where mDNS resolution might fail but the hostname
+    # is resolvable via regular DNS (violates RFC 6762 but improves compatibility)
+    if address_is_local(host):
+        stripped = _remove_local_suffix(host)
+        # Skip getaddrinfo for purely numeric hostnames - they get
+        # misinterpreted as decimal IP addresses by the socket library
+        # (e.g., "1234" becomes 0.0.4.210)
+        if not stripped.isdigit():
+            _LOGGER.debug(
+                "Also adding DNS resolution without .local suffix for %s",
+                stripped,
+            )
+            coros.append(_async_resolve_host_getaddrinfo(stripped, port))
+
+    return coros
+
+
+def _drain_done_tasks(
+    done: set[asyncio.Task[list[AddrInfo]]],
+    resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str],
+    host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]],
+    resolve_results: defaultdict[str, list[AddrInfo]],
+    exceptions: list[BaseException],
+) -> set[str]:
+    """Drain completed tasks into results/exceptions and return finished hosts."""
+    finished_hosts: set[str] = set()
+    for task in done:
+        host = resolve_task_to_host.pop(task)
+        host_tasks[host].discard(task)
+        if exc := task.exception():
+            exceptions.append(exc)
+        elif result := task.result():
+            resolve_results[host].extend(result)
+            finished_hosts.add(host)
+    return finished_hosts
+
+
+def _cancel_sibling_tasks(
+    finished_hosts: set[str],
+    host_tasks: defaultdict[str, set[asyncio.Task[list[AddrInfo]]]],
+    resolve_task_to_host: dict[asyncio.Task[list[AddrInfo]], str],
+) -> list[asyncio.Task[list[AddrInfo]]]:
+    """Cancel any still-pending tasks for hosts that already produced a result."""
+    tasks_to_cleanup: list[asyncio.Task[list[AddrInfo]]] = []
+    for host in finished_hosts:
+        for task in host_tasks.pop(host, ()):
+            resolve_task_to_host.pop(task, None)
+            _LOGGER.debug("Cancelling remaining resolution task for %s", host)
+            task.cancel()
+            tasks_to_cleanup.append(task)
+    return tasks_to_cleanup
 
 
 async def _async_resolve_host(
@@ -328,34 +436,7 @@ async def _async_resolve_host(
 
     try:
         for host in hosts:
-            coros: list[Coroutine[Any, Any, list[AddrInfo]]] = []
-            if aiozc and host_is_local_name(host):
-                short_host = host.partition(".")[0]
-                coros.append(
-                    _async_resolve_short_host_zeroconf(
-                        aiozc, short_host, port, timeout=timeout
-                    )
-                )
-
-            _LOGGER.debug("Adding DNS resolution task for %s", host)
-            coros.append(_async_resolve_host_getaddrinfo(host, port))
-
-            # If the host ends with .local, also try without the suffix in parallel
-            # This handles cases where mDNS resolution might fail but the hostname
-            # is resolvable via regular DNS (violates RFC 6762 but improves compatibility)
-            if address_is_local(host):
-                stripped = _remove_local_suffix(host)
-                # Skip getaddrinfo for purely numeric hostnames - they get
-                # misinterpreted as decimal IP addresses by the socket library
-                # (e.g., "1234" becomes 0.0.4.210)
-                if not stripped.isdigit():
-                    _LOGGER.debug(
-                        "Also adding DNS resolution without .local suffix for %s",
-                        stripped,
-                    )
-                    coros.append(_async_resolve_host_getaddrinfo(stripped, port))
-
-            for coro in coros:
+            for coro in _make_resolution_coros(host, port, aiozc, timeout):
                 task = create_eager_task(coro)
                 if task.done():
                     if exc := task.exception():
@@ -371,26 +452,15 @@ async def _async_resolve_host(
                 resolve_task_to_host,
                 return_when=asyncio.FIRST_COMPLETED,
             )
-            finished_hosts: set[str] = set()
-            for task in done:
-                host = resolve_task_to_host.pop(task)
-                host_tasks[host].discard(task)
-                if exc := task.exception():
-                    exceptions.append(exc)
-                elif result := task.result():
-                    resolve_results[host].extend(result)
-                    finished_hosts.add(host)
-
+            finished_hosts = _drain_done_tasks(
+                done, resolve_task_to_host, host_tasks, resolve_results, exceptions
+            )
             # We got a result for a host, cancel
             # any other tasks trying to resolve
             # it as we are done with that host
-            tasks_to_cleanup: list[asyncio.Task[list[AddrInfo]]] = []
-            for host in finished_hosts:
-                for task in host_tasks.pop(host, ()):
-                    resolve_task_to_host.pop(task, None)
-                    _LOGGER.debug("Cancelling remaining resolution task for %s", host)
-                    task.cancel()
-                    tasks_to_cleanup.append(task)
+            tasks_to_cleanup = _cancel_sibling_tasks(
+                finished_hosts, host_tasks, resolve_task_to_host
+            )
             if tasks_to_cleanup:
                 # Use ``gather`` with ``return_exceptions=True`` so that
                 # ``CancelledError`` from the cancelled child tasks is not
