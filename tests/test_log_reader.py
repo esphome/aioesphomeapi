@@ -118,8 +118,7 @@ async def test_apiclient_receives_address_and_default_port() -> None:
     kwargs = captures["client_args"]["kwargs"]
     assert args[0] == "192.0.2.5"
     assert args[1] == 6053
-    assert args[2] == ""  # empty password by default
-    assert kwargs == {"noise_psk": None, "keepalive": 10}
+    assert kwargs == {"password": None, "noise_psk": None, "keepalive": 10}
 
 
 async def test_apiclient_receives_custom_port_password_and_psk() -> None:
@@ -139,8 +138,7 @@ async def test_apiclient_receives_custom_port_password_and_psk() -> None:
     kwargs = captures["client_args"]["kwargs"]
     assert args[0] == "127.0.0.1"
     assert args[1] == 1234
-    assert args[2] == "secret"
-    assert kwargs == {"noise_psk": "abc=", "keepalive": 10}
+    assert kwargs == {"password": "secret", "noise_psk": "abc=", "keepalive": 10}
 
 
 async def test_on_log_decodes_invalid_utf8_without_raising() -> None:
