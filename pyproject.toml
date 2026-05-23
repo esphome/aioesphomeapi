@@ -9,6 +9,7 @@ exclude = [
 [tool.ruff.lint]
 select = [
   "A", # flake8-builtins
+  "ANN", # flake8-annotations (ANN401 ignored below — see "Code style")
   "ARG", # flake8-unused-arguments
   "ASYNC", # async rules
   "B", # flake8-bugbear
@@ -62,6 +63,12 @@ select = [
 ]
 
 ignore = [
+  # flake8-annotations: require type annotations on production functions, but
+  # allow typing.Any where it is genuinely the right type — protobuf message
+  # dispatch (send_message_await_response), the from_pb/convert/converter_field
+  # machinery that duck-types proto-or-dict input, and *args/**kwargs
+  # pass-through wrappers. These accept arbitrary inputs by design.
+  "ANN401", # any-type
   "ASYNC109", # `timeout` parameters are part of the public async API
   # pydocstyle: enforce docstring formatting where docstrings exist, but do
   # not require docstrings on every public symbol (CLAUDE.md prefers terse,
@@ -100,14 +107,17 @@ ignore = [
 # S101: pytest assertions are the entire point of the test suite.
 # S106: test fixtures use literal "password" strings to exercise the
 # password-auth code paths; they are not real credentials.
-"tests/**" = ["ARG", "S101", "S106", "SLF"]
+# ANN: test functions and fixtures need not be annotated — pytest discovers
+# them by name and the bodies are self-documenting; annotations are noise here.
+"tests/**" = ["ANN", "ARG", "S101", "S106", "SLF"]
 # CLI entry points and benchmark scripts emit to stdout by design; T20
 # would flag every line of their intended output. SLF: benchmark harness
 # constructs APIConnection from APIClient internals to measure hot paths.
-# S101: benchmark sanity asserts are intentional.
+# S101: benchmark sanity asserts are intentional. ANN: benchmark helpers are
+# throwaway timing scaffolding, not API — annotations add noise without value.
 "aioesphomeapi/discover.py" = ["T20"]
 "aioesphomeapi/log_reader.py" = ["T20"]
-"bench/**" = ["S101", "SLF", "T20"]
+"bench/**" = ["ANN", "S101", "SLF", "T20"]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
