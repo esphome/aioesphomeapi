@@ -1134,6 +1134,17 @@ class AlarmControlPanelCommand(APIIntEnum):
     TRIGGER = 6
 
 
+class AlarmControlPanelEntityFeature(enum.IntFlag):
+    """Supported features of the alarm control panel entity."""
+
+    ARM_HOME = 1 << 0
+    ARM_AWAY = 1 << 1
+    ARM_NIGHT = 1 << 2
+    TRIGGER = 1 << 3
+    ARM_CUSTOM_BYPASS = 1 << 4
+    ARM_VACATION = 1 << 5
+
+
 @_frozen_dataclass_decorator
 class AlarmControlPanelInfo(EntityInfo):
     supported_features: int = 0
