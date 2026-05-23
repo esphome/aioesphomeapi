@@ -12,6 +12,7 @@ from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,
     AreaInfo as AreaInfoProto,
     BinarySensorStateResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
@@ -93,6 +94,7 @@ from aioesphomeapi.model import (
     AreaInfo,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothConnectionsFree,
     BluetoothGATTCharacteristic as BluetoothGATTCharacteristicModel,
     BluetoothGATTDescriptor as BluetoothGATTDescriptorModel,
     BluetoothGATTService as BluetoothGATTServiceModel,
@@ -356,6 +358,7 @@ def test_api_version_ord():
         (UpdateState, UpdateStateResponse),
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
+        (BluetoothConnectionsFree, BluetoothConnectionsFreeResponse),
         (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
@@ -380,6 +383,14 @@ def test_bluetooth_scanner_state_surfaces_configured_mode() -> None:
     assert model.state is BluetoothScannerStateModel.RUNNING
     assert model.mode is BluetoothScannerModeModel.PASSIVE
     assert model.configured_mode is BluetoothScannerModeModel.ACTIVE
+
+
+def test_bluetooth_connections_free_surfaces_allocated() -> None:
+    pb = BluetoothConnectionsFreeResponse(free=2, limit=3, allocated=[10, 20])
+    model = BluetoothConnectionsFree.from_pb(pb)
+    assert model.free == 2
+    assert model.limit == 3
+    assert model.allocated == [10, 20]
 
 
 @pytest.mark.parametrize(
