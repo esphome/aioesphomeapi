@@ -67,9 +67,9 @@ async def main(argv: list[str]) -> None:
         time_ = datetime.now().astimezone()
         message: bytes = msg.message
         text = message.decode("utf8", "backslashreplace")
-        nanoseconds = time_.microsecond // 1000
+        milliseconds = time_.microsecond // 1000
         timestamp = (
-            f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}.{nanoseconds:03}]"
+            f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}.{milliseconds:03}]"
         )
 
         # Parse and print the log message
