@@ -47,7 +47,7 @@ async def _make_connected_conn(
     provide_time: bool,
     resolve_host,
     aiohappyeyeballs_start_connection,
-) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
+) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     """Set up a plaintext-connected PatchableAPIConnection with provide_time set."""
     loop = asyncio.get_running_loop()
     transport = MagicMock()
