@@ -172,6 +172,7 @@ from aioesphomeapi.model import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
     ZWaveProxyFeature,
@@ -2304,6 +2305,28 @@ def test_water_heater_info_missing_temperature_unit_defaults_to_celsius() -> Non
     pb = ListEntitiesWaterHeaterResponse()
     info = WaterHeaterInfo.from_pb(pb)
     assert info.temperature_unit == TemperatureUnit.CELSIUS
+
+
+def test_water_heater_feature_flag_values() -> None:
+    assert WaterHeaterFeature.SUPPORTS_CURRENT_TEMPERATURE == 1 << 0
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE == 1 << 1
+    assert WaterHeaterFeature.SUPPORTS_OPERATION_MODE == 1 << 2
+    assert WaterHeaterFeature.SUPPORTS_AWAY_MODE == 1 << 3
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF == 1 << 4
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE == 1 << 5
+
+
+def test_water_heater_info_two_point_supported_features_decodes() -> None:
+    flags = (
+        WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE
+        | WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE
+    )
+    pb = ListEntitiesWaterHeaterResponse(supported_features=flags)
+    info = WaterHeaterInfo.from_pb(pb)
+    decoded = WaterHeaterFeature(info.supported_features)
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF not in decoded
 
 
 @pytest.mark.parametrize(
