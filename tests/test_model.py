@@ -370,7 +370,7 @@ def test_basic_pb_conversions(model, pb):
     assert model.from_pb(pb()) == model()
 
 
-def test_bluetooth_scanner_state_surfaces_configured_mode():
+def test_bluetooth_scanner_state_surfaces_configured_mode() -> None:
     pb = BluetoothScannerStateResponse(
         state=BluetoothScannerState.BLUETOOTH_SCANNER_STATE_RUNNING,
         mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_PASSIVE,
