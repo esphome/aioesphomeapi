@@ -94,7 +94,6 @@ cdef class ConnectionParams:
     cdef public bint provide_time
 
 
-
 cdef class APIConnection:
 
     cdef ConnectionParams _params
