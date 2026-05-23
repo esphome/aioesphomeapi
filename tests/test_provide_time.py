@@ -12,11 +12,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-import pytest
-
-from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
-    GetTimeRequest,
-)
+from aioesphomeapi.api_pb2 import GetTimeRequest  # type: ignore[attr-defined]
 from aioesphomeapi.connection import APIConnection
 
 from .common import (
