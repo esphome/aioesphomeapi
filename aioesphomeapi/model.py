@@ -1134,6 +1134,17 @@ class AlarmControlPanelCommand(APIIntEnum):
     TRIGGER = 6
 
 
+class AlarmControlPanelEntityFeature(enum.IntFlag):
+    """Supported features of the alarm control panel entity."""
+
+    ARM_HOME = 1 << 0
+    ARM_AWAY = 1 << 1
+    ARM_NIGHT = 1 << 2
+    TRIGGER = 1 << 3
+    ARM_CUSTOM_BYPASS = 1 << 4
+    ARM_VACATION = 1 << 5
+
+
 @_frozen_dataclass_decorator
 class AlarmControlPanelInfo(EntityInfo):
     supported_features: int = 0
@@ -1168,6 +1179,7 @@ class WaterHeaterFeature(enum.IntFlag):
     SUPPORTS_OPERATION_MODE = 1 << 2
     SUPPORTS_AWAY_MODE = 1 << 3
     SUPPORTS_ON_OFF = 1 << 4
+    SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 5
 
 
 class WaterHeaterCommandField(enum.IntFlag):
