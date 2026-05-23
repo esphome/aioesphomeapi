@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from functools import partial
-from typing import Any
-
-from google.protobuf import message
+from typing import TYPE_CHECKING, Any
 
 from aioesphomeapi import APIConnection
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.client_base import on_state_msg
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
 
 
 def noop(msg: object) -> None:

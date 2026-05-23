@@ -3,21 +3,26 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import replace
 from functools import partial
 import reprlib
 import socket
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 import pytest_asyncio
 
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient, ConnectionParams
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
+from aioesphomeapi.singleton import _SINGLETON_CACHE
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 
 from .common import (
     _create_mock_transport_protocol,
@@ -119,7 +124,7 @@ async def conn_with_expected_name(connection_params: ConnectionParams) -> APICon
     return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 async def aiohappyeyeballs_start_connection():
     with patch("aioesphomeapi.connection.aiohappyeyeballs.start_connection") as func:
         mock_socket = create_autospec(socket.socket, spec_set=True, instance=True)
@@ -259,6 +264,19 @@ def long_repr_strings() -> Generator[None]:
     finally:
         arepr.maxstring = original_maxstring
         arepr.maxother = original_maxother
+
+
+@pytest.fixture(autouse=True)
+def _clear_singleton_cache() -> Generator[None]:
+    """Reset the global singleton cache between tests.
+
+    A Future from a previous test's event loop must not be awaited from
+    the current test's loop — otherwise Python 3.14 raises
+    "await wasn't used with future".
+    """
+    _SINGLETON_CACHE.clear()
+    yield
+    _SINGLETON_CACHE.clear()
 
 
 @pytest.fixture(autouse=True)

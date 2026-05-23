@@ -2,17 +2,18 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine
 import itertools
 import logging
 from typing import TYPE_CHECKING, Any
 
-from google.protobuf import message
-
-from ._frame_helper.base import APIFrameHelper  # noqa: F401
+from ._frame_helper.base import (  # noqa: F401
+    MAX_NAME_LEN,
+    APIFrameHelper,
+    safe_label_str,
+)
 from ._frame_helper.noise import APINoiseFrameHelper  # noqa: F401
 from ._frame_helper.plain_text import APIPlaintextFrameHelper  # noqa: F401
-from .api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceConnectionResponse,
     BluetoothGATTErrorResponse,
@@ -50,6 +51,10 @@ from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from google.protobuf import message
+
     from .connection import APIConnection
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,10 +69,17 @@ _LOGGER = logging.getLogger(__name__)
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
 
+# Caps on the per-subscription camera reassembly buffer. The peer fully
+# controls cam_msg.key and cam_msg.done, so without these limits a single
+# device can stream chunks indefinitely (memory exhaustion DoS) or rotate
+# keys to allocate ~4 billion list entries.
+MAX_CAMERA_FRAME_BYTES = 8 * 1024 * 1024
+MAX_INFLIGHT_CAMERA_KEYS = 4
+
 
 def on_state_msg(
     on_state: Callable[[EntityState], None],
-    image_stream: dict[int, list[bytes]],
+    image_stream: dict[int, bytearray | None],
     msg: message.Message,
 ) -> None:
     """Handle a state message."""
@@ -77,19 +89,50 @@ def on_state_msg(
     elif msg_type is CameraImageResponse:
         cam_msg: CameraImageResponse = msg
         msg_key = cam_msg.key
-        data_parts: list[bytes] | None = image_stream.get(msg_key)
-        if not data_parts:
-            data_parts = []
-            image_stream[msg_key] = data_parts
+        buf = image_stream.get(msg_key)
+        if buf is None:
+            if msg_key in image_stream:
+                # Key was discarded earlier (oversized frame); ignore further
+                # chunks until done=True so the peer can't restart with fresh
+                # data and emit a truncated frame.
+                if cam_msg.done:
+                    del image_stream[msg_key]
+                return
+            if len(image_stream) >= MAX_INFLIGHT_CAMERA_KEYS:
+                _LOGGER.warning(
+                    "Dropping camera frame chunk for key %s: too many in-flight"
+                    " camera streams (%d)",
+                    msg_key,
+                    len(image_stream),
+                )
+                return
+            buf = bytearray()
+            image_stream[msg_key] = buf
 
-        data_parts.append(cam_msg.data)
+        # Check the new size before extending so an oversized chunk can't
+        # transiently grow the buffer past the cap (or duplicate the
+        # peer-controlled bytes into the bytearray) before we drop it.
+        if len(buf) + len(cam_msg.data) > MAX_CAMERA_FRAME_BYTES:
+            if cam_msg.done:
+                # Stream is over — clear the entry instead of leaving a
+                # tombstone, otherwise oversized done=True chunks could
+                # exhaust MAX_INFLIGHT_CAMERA_KEYS until the peer sends
+                # another done=True for the same key.
+                del image_stream[msg_key]
+            else:
+                image_stream[msg_key] = None
+            _LOGGER.warning(
+                "Dropping camera frame for key %s: exceeded %d byte limit",
+                msg_key,
+                MAX_CAMERA_FRAME_BYTES,
+            )
+            return
+        buf.extend(cam_msg.data)
         if cam_msg.done:
-            # Return CameraState with the merged data
-            image_data = b"".join(data_parts)
             del image_stream[msg_key]
             on_state(
                 CameraState(
-                    key=cam_msg.key, data=image_data, device_id=cam_msg.device_id
+                    key=cam_msg.key, data=bytes(buf), device_id=cam_msg.device_id
                 )  # type: ignore[call-arg]
             )
 
@@ -157,7 +200,7 @@ def on_bluetooth_device_connection_response(
     on_bluetooth_connection_state: Callable[[bool, int, int], None],
     msg: BluetoothDeviceConnectionResponse,
 ) -> None:
-    """Handle a BluetoothDeviceConnectionResponse message.""" ""
+    """Handle a BluetoothDeviceConnectionResponse message."""
     if address == msg.address:
         on_bluetooth_connection_state(msg.connected, msg.mtu, msg.error)
         # Resolve on ANY connection state since we do not want
@@ -195,7 +238,6 @@ def on_bluetooth_message_types(
         | BluetoothDeviceConnectionResponse
         | BluetoothGATTGetServicesResponse
         | BluetoothGATTGetServicesDoneResponse
-        | BluetoothGATTErrorResponse
     ),
 ) -> bool:
     """Filter Bluetooth messages of a specific type and address."""
@@ -256,7 +298,7 @@ class APIClientBase:
         self,
         address: str_,  # allow subclass str
         port: int,
-        password: str_ | None,
+        password: str_ | None = None,
         *,
         client_info: str_ = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
@@ -389,7 +431,11 @@ class APIClientBase:
 
     def _set_name_from_device(self, name: str_) -> None:
         """Set the name from a DeviceInfo message."""
-        self.cached_name = str(name)  # May be Estr from esphome
+        # Sanitize peer-supplied name -- plaintext sessions are unauthenticated
+        # for the whole connection, so CRLF/ANSI bytes in DeviceInfo.name would
+        # otherwise forge log lines via "%s: ..." on self.log_name. str(...)
+        # flattens esphome's Estr subclass.
+        self.cached_name = safe_label_str(str(name), MAX_NAME_LEN)
         self._set_log_name()
 
     def set_cached_name_if_unset(self, name: str_) -> None:
@@ -405,10 +451,12 @@ class APIClientBase:
 
     def _get_connection(self) -> APIConnection:
         if self._connection is None:
-            raise APIConnectionError(f"Not connected to {self.log_name}!")
+            msg = f"Not connected to {self.log_name}!"
+            raise APIConnectionError(msg)
         if not self._connection.is_connected:
-            raise APIConnectionError(
+            msg = (
                 f"Authenticated connection not ready yet for {self.log_name}; "
                 f"current state is {self._connection.connection_state}!"
             )
+            raise APIConnectionError(msg)
         return self._connection

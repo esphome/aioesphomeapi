@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from google.protobuf import message
 import pytest
+
+if TYPE_CHECKING:
+    from google.protobuf import message
 
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,
@@ -79,6 +82,7 @@ from aioesphomeapi.api_pb2 import (
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
     COMPONENT_TYPE_TO_INFO,
+    AlarmControlPanelEntityFeature,
     AlarmControlPanelEntityState,
     AlarmControlPanelInfo,
     APIIntEnum,
@@ -169,6 +173,7 @@ from aioesphomeapi.model import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
     ZWaveProxyFeature,
@@ -186,7 +191,7 @@ class DummyIntEnum(APIIntEnum):
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input_value", "output"),
     [
         (0, DummyIntEnum.DEFAULT),
         (1, DummyIntEnum.MY_VAL),
@@ -196,14 +201,14 @@ class DummyIntEnum(APIIntEnum):
         (DummyIntEnum.MY_VAL, DummyIntEnum.MY_VAL),
     ],
 )
-def test_api_int_enum_convert(input, output):
-    v = DummyIntEnum.convert(input)
+def test_api_int_enum_convert(input_value, output):
+    v = DummyIntEnum.convert(input_value)
     assert v == output
     assert v is None or isinstance(v, DummyIntEnum)
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input_value", "output"),
     [
         ([], []),
         ([1], [DummyIntEnum.MY_VAL]),
@@ -213,8 +218,8 @@ def test_api_int_enum_convert(input, output):
         ([DummyIntEnum.DEFAULT], [DummyIntEnum.DEFAULT]),
     ],
 )
-def test_api_int_enum_convert_list(input, output):
-    v = DummyIntEnum.convert_list(input)
+def test_api_int_enum_convert_list(input_value, output):
+    v = DummyIntEnum.convert_list(input_value)
     assert v == output
     assert all(isinstance(x, DummyIntEnum) for x in v)
 
@@ -299,7 +304,7 @@ def test_api_version_ord():
 
 
 @pytest.mark.parametrize(
-    "model, pb",
+    ("model", "pb"),
     [
         (DeviceInfo, DeviceInfoResponse),
         (BinarySensorInfo, ListEntitiesBinarySensorResponse),
@@ -362,7 +367,7 @@ def test_basic_pb_conversions(model, pb):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (CoverState(legacy_state=LegacyCoverState.OPEN), (1, 0), False),
         (CoverState(legacy_state=LegacyCoverState.CLOSED), (1, 0), True),
@@ -376,7 +381,7 @@ def test_cover_state_legacy_state(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (
             ClimateInfo(supports_current_temperature=True),
@@ -415,7 +420,7 @@ def test_climate_info_supported_feature_flags_compat(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (ClimateInfo(legacy_supports_away=False), (1, 4), []),
         (
@@ -437,7 +442,7 @@ def test_climate_info_supported_presets_compat(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (ClimateState(unused_legacy_away=False), (1, 4), ClimatePreset.HOME),
         (ClimateState(unused_legacy_away=True), (1, 4), ClimatePreset.AWAY),
@@ -837,7 +842,7 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
             )
         ],
     )
-    services == BluetoothGATTServicesModel.from_dict(
+    services = BluetoothGATTServicesModel.from_dict(
         {
             "services": [
                 {
@@ -1360,7 +1365,7 @@ def test_media_player_supported_format_convert_list() -> None:
 
 
 def test_media_player_feature_flags_compat() -> None:
-    """Test feature flags compatibility across API versions"""
+    """Test feature flags compatibility across API versions."""
     info = MediaPlayerInfo(
         supports_pause=False,
         supported_formats=[
@@ -1678,7 +1683,7 @@ def test_device_info_mock_with_areas_and_devices() -> None:
 
 # Test data for all state response types with device_id field
 STATE_RESPONSE_DEVICE_ID_TEST_DATA = [
-    # (protobuf_class, model_class, extra_fields)
+    # Each row: protobuf_class, model_class, extra_fields.
     (BinarySensorStateResponse, BinarySensorState, {"state": True}),
     (CoverStateResponse, CoverState, {"position": 0.5}),
     (FanStateResponse, FanState, {"state": True, "speed_level": 3}),
@@ -1740,7 +1745,6 @@ def test_state_response_device_id_default_value(proto_cls, model_cls, extra_fiel
 
 def test_entity_state_base_class_has_device_id():
     """Test that EntityState base class has device_id field."""
-
     # Check that EntityState has device_id field with default value 0
     state = EntityState(key=100)
     assert state.key == 100
@@ -1822,7 +1826,7 @@ def test_event_entity_state_device_id():
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input_value", "output"),
     [
         (0, SupportsResponseType.NONE),
         (1, SupportsResponseType.OPTIONAL),
@@ -1831,8 +1835,8 @@ def test_event_entity_state_device_id():
         (999, None),  # Unknown value
     ],
 )
-def test_supports_response_type_convert(input, output):
-    assert SupportsResponseType.convert(input) == output
+def test_supports_response_type_convert(input_value, output):
+    assert SupportsResponseType.convert(input_value) == output
 
 
 def test_supports_response_type_values():
@@ -2304,6 +2308,49 @@ def test_water_heater_info_missing_temperature_unit_defaults_to_celsius() -> Non
     assert info.temperature_unit == TemperatureUnit.CELSIUS
 
 
+def test_water_heater_feature_flag_values() -> None:
+    assert WaterHeaterFeature.SUPPORTS_CURRENT_TEMPERATURE == 1 << 0
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE == 1 << 1
+    assert WaterHeaterFeature.SUPPORTS_OPERATION_MODE == 1 << 2
+    assert WaterHeaterFeature.SUPPORTS_AWAY_MODE == 1 << 3
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF == 1 << 4
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE == 1 << 5
+
+
+def test_water_heater_info_two_point_supported_features_decodes() -> None:
+    flags = (
+        WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE
+        | WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE
+    )
+    pb = ListEntitiesWaterHeaterResponse(supported_features=flags)
+    info = WaterHeaterInfo.from_pb(pb)
+    decoded = WaterHeaterFeature(info.supported_features)
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF not in decoded
+
+
+def test_alarm_control_panel_feature_flag_values() -> None:
+    assert AlarmControlPanelEntityFeature.ARM_HOME == 1 << 0
+    assert AlarmControlPanelEntityFeature.ARM_AWAY == 1 << 1
+    assert AlarmControlPanelEntityFeature.ARM_NIGHT == 1 << 2
+    assert AlarmControlPanelEntityFeature.TRIGGER == 1 << 3
+    assert AlarmControlPanelEntityFeature.ARM_CUSTOM_BYPASS == 1 << 4
+    assert AlarmControlPanelEntityFeature.ARM_VACATION == 1 << 5
+
+
+def test_alarm_control_panel_info_supported_features_decodes() -> None:
+    flags = (
+        AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.TRIGGER
+    )
+    pb = ListEntitiesAlarmControlPanelResponse(supported_features=flags)
+    info = AlarmControlPanelInfo.from_pb(pb)
+    decoded = AlarmControlPanelEntityFeature(info.supported_features)
+    assert AlarmControlPanelEntityFeature.ARM_AWAY in decoded
+    assert AlarmControlPanelEntityFeature.TRIGGER in decoded
+    assert AlarmControlPanelEntityFeature.ARM_HOME not in decoded
+
+
 @pytest.mark.parametrize(
     "unit",
     [
@@ -2355,9 +2402,12 @@ def test_lock_state_enum_is_dense_and_unique() -> None:
 
 
 def test_all_entity_info_subclasses_registered() -> None:
-    """Every EntityInfo subclass must be registered in COMPONENT_TYPE_TO_INFO
+    """Pin EntityInfo subclass registration in lookup tables.
+
+    Every EntityInfo subclass must be registered in COMPONENT_TYPE_TO_INFO
     and _TYPE_TO_NAME so external consumers (e.g. Home Assistant) and unique-id
-    generation can resolve every entity type."""
+    generation can resolve every entity type.
+    """
     subclass_names = {cls.__name__ for cls in EntityInfo.__subclasses__()}
     component_names = {cls.__name__ for cls in COMPONENT_TYPE_TO_INFO.values()}
     type_to_name_names = {cls.__name__ for cls in _TYPE_TO_NAME}

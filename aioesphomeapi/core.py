@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import re
+from typing import TYPE_CHECKING
 
-from aioesphomeapi.model import BluetoothGATTError
+if TYPE_CHECKING:
+    from aioesphomeapi.model import BluetoothGATTError
 
-from .api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     AlarmControlPanelCommandRequest,
     AlarmControlPanelStateResponse,
     AuthenticationRequest,
@@ -342,13 +344,15 @@ def wifi_mac_to_bluetooth_mac(wifi_mac: str) -> str:
         "AA:BB:CC:DD:EE:01"
         >>> wifi_mac_to_bluetooth_mac("AA:BB:CC:DD:EE:FE")
         "AA:BB:CC:DD:EE:00"
+
     """
     # Remove colons and convert to uppercase
     clean_mac = wifi_mac.replace(":", "").upper()
 
     # Validate MAC address format
     if len(clean_mac) != 12 or not all(c in "0123456789ABCDEF" for c in clean_mac):
-        raise ValueError(f"Invalid MAC address format: {wifi_mac}")
+        msg = f"Invalid MAC address format: {wifi_mac}"
+        raise ValueError(msg)
 
     # Extract the last octet and add 2
     last_octet = int(clean_mac[-2:], 16)

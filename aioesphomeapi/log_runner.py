@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from zeroconf.asyncio import AsyncZeroconf
-
-from .api_pb2 import SubscribeLogsResponse  # type: ignore
-from .client import APIClient
+from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 from .core import APIConnectionError
 from .model import EntityInfo, EntityState, LogLevel
 from .model_conversions import STATE_TYPE_TO_INFO_TYPE
 from .reconnect_logic import ReconnectLogic
 from .state_log_formatter import format_state_log
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from zeroconf.asyncio import AsyncZeroconf
+
+    from .client import APIClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,7 +67,7 @@ async def async_run(
             await cli.disconnect()
 
     async def on_disconnect(  # pylint: disable=unused-argument
-        expected_disconnect: bool,
+        expected_disconnect: bool,  # noqa: ARG001
     ) -> None:
         _LOGGER.warning("Disconnected from API")
 

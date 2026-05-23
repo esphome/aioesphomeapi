@@ -1,10 +1,15 @@
 
 import cython
 
+from .._sanitize cimport safe_label_str
 from ..connection cimport APIConnection
 
 
 cdef bint TYPE_CHECKING
+
+cdef int _MAX_NAME_LEN
+cdef int _MAX_MAC_LEN
+cdef int _MAX_EXPLANATION_LEN
 
 cdef class APIFrameHelper:
 

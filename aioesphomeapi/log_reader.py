@@ -7,11 +7,14 @@ import contextlib
 from datetime import datetime
 import logging
 import sys
+from typing import TYPE_CHECKING
 
-from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
 from .log_parser import parse_log_message
 from .log_runner import async_run
+
+if TYPE_CHECKING:
+    from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 
 
 async def main(argv: list[str]) -> None:
@@ -34,6 +37,15 @@ async def main(argv: list[str]) -> None:
             "failing repeatedly."
         ),
     )
+    parser.add_argument(
+        "--strip-ansi-escapes",
+        action="store_true",
+        help=(
+            "Strip ANSI escape sequences (colors, cursor moves) from log "
+            "output. Useful when piping to a file or to a terminal that "
+            "doesn't render them."
+        ),
+    )
     parser.add_argument("address")
     args = parser.parse_args(argv[1:])
 
@@ -46,13 +58,13 @@ async def main(argv: list[str]) -> None:
     cli = APIClient(
         args.address,
         args.port,
-        args.password or "",
+        password=args.password,
         noise_psk=args.noise_psk,
         keepalive=10,
     )
 
     def on_log(msg: SubscribeLogsResponse) -> None:
-        time_ = datetime.now()
+        time_ = datetime.now().astimezone()
         message: bytes = msg.message
         text = message.decode("utf8", "backslashreplace")
         milliseconds = time_.microsecond // 1000
@@ -61,7 +73,9 @@ async def main(argv: list[str]) -> None:
         )
 
         # Parse and print the log message
-        for line in parse_log_message(text, timestamp):
+        for line in parse_log_message(
+            text, timestamp, strip_ansi_escapes=args.strip_ansi_escapes
+        ):
             print(line)
 
     stop = await async_run(

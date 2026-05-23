@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import socket
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+
+if TYPE_CHECKING:
+    from zeroconf import Zeroconf
 
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -424,7 +426,8 @@ async def test_resolve_host_mdns_and_dns_fast_dns_wins(
             # Ensure async execution for stripped version
             await asyncio.sleep(0)
             return mock_getaddrinfo
-        raise OSError("Unexpected host")
+        msg = "Unexpected host"
+        raise OSError(msg)
 
     with (
         patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
@@ -610,6 +613,30 @@ def test_remove_local_suffix():
     assert hr._remove_local_suffix("example") == "example"
     assert hr._remove_local_suffix("test.example.local") == "test.example"
     assert hr._remove_local_suffix("test.example.local.") == "test.example"
+    # RFC 4343 / RFC 6762 §16: DNS / mDNS labels are case-insensitive.
+    assert hr._remove_local_suffix("example.LOCAL") == "example"
+    assert hr._remove_local_suffix("example.Local.") == "example"
+    assert hr._remove_local_suffix("EXAMPLE.local") == "EXAMPLE"
+    assert hr._remove_local_suffix("EXAMPLE.LOCAL") == "EXAMPLE"
+
+
+@patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
+async def test_resolve_host_with_uppercase_local_suffix_strips_suffix(
+    resolve_addr, resolve_zc, addr_infos
+):
+    """Test that uppercase .LOCAL hostnames also trigger the stripped fallback."""
+    resolve_addr.return_value = addr_infos
+    resolve_zc.return_value = []
+
+    ret = await hr.async_resolve_host(["example.LOCAL"], 6052)
+
+    assert resolve_addr.call_count == 2
+    resolve_addr.assert_any_call("example.LOCAL", 6052)
+    resolve_addr.assert_any_call("example", 6052)
+    assert len(ret) >= len(addr_infos)
+    for addr in addr_infos:
+        assert addr in ret
 
 
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
@@ -679,11 +706,13 @@ async def test_resolve_host_local_suffix_fallback_wins(
         call_count += 1
         if host == "example.local":
             # .local resolution fails
-            raise OSError("Name or service not known")
+            msg = "Name or service not known"
+            raise OSError(msg)
         if host == "example":
             # Stripped version succeeds
             return mock_getaddrinfo
-        raise OSError("Unexpected host")
+        msg = "Unexpected host"
+        raise OSError(msg)
 
     with (
         patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),

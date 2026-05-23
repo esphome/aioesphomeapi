@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from google.protobuf import message
 from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from google.protobuf import message
 
 from aioesphomeapi import APIClient, APIConnection
 from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
@@ -31,7 +34,6 @@ from aioesphomeapi.client import ConnectionParams
 from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, SocketClosedAPIError
 from aioesphomeapi.zeroconf import ZeroconfManager
 
-UTC = timezone.utc
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 # We use a partial here since it is implemented in native code
 # and avoids the global lookup of UTC
@@ -68,7 +70,7 @@ def mock_data_received(
     """Mock data received on the protocol."""
     try:
         protocol.data_received(data)
-    except Exception as err:  # pylint: disable=broad-except
+    except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
         loop = asyncio.get_running_loop()
         loop.call_soon(
             protocol.connection_lost,
@@ -146,7 +148,7 @@ def async_fire_time_changed(
 
 
 async def connect(conn: APIConnection, login: bool = True):
-    """Wrapper for connection logic to do both parts."""
+    """Drive the connection through both resolve and finish phases."""
     await conn.start_resolve_host()
     await conn.start_connection()
     await conn.finish_connection(login=login)
@@ -157,7 +159,7 @@ async def connect_client(
     login: bool = True,
     on_stop: Callable[[bool], Awaitable[None]] | None = None,
 ) -> None:
-    """Wrapper for connection logic to do both parts."""
+    """Drive the client through both resolve and finish phases."""
     await client.start_resolve_host(on_stop=on_stop)
     await client.start_connection()
     await client.finish_connection(login=login)
@@ -330,6 +332,5 @@ class MockAPINoiseFrameHelper(APINoiseFrameHelper):
         try:
             self._writelines([header, frame])
         except (RuntimeError, ConnectionResetError, OSError) as err:
-            raise SocketClosedAPIError(
-                f"{self._log_name}: Error while writing data: {err}"
-            ) from err
+            msg = f"{self._log_name}: Error while writing data: {err}"
+            raise SocketClosedAPIError(msg) from err
