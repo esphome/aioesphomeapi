@@ -11,18 +11,16 @@ should not override timezone settings managed by Home Assistant.
 
 from __future__ import annotations
 
-import time
 from dataclasses import replace
-from unittest.mock import MagicMock
+import time
 
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     GetTimeRequest,
     GetTimeResponse,
 )
 
-from .conftest import PatchableAPIClient, PatchableAPIConnection, mock_on_stop
 from .common import get_mock_connection_params
-
+from .conftest import PatchableAPIClient, PatchableAPIConnection, mock_on_stop
 
 # ---------------------------------------------------------------------------
 # Tests: APIClient stores the flag correctly on _params
@@ -37,7 +35,9 @@ async def test_api_client_provide_time_default() -> None:
 
 async def test_api_client_provide_time_false() -> None:
     """provide_time=False should be stored on _params."""
-    cli = PatchableAPIClient(address="127.0.0.1", port=6052, password=None, provide_time=False)
+    cli = PatchableAPIClient(
+        address="127.0.0.1", port=6052, password=None, provide_time=False
+    )
     assert cli._params.provide_time is False
 
 
