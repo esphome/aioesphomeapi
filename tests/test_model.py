@@ -934,6 +934,27 @@ def test_bluetooth_128bit_uuid_fallback() -> None:
     assert descriptor.handle == 44
 
 
+def test_bluetooth_all_zero_uuid_from_pb() -> None:
+    """All-zero GATT UUID arrives as an empty uuid array (fixed_array_skip_zero)."""
+    # Firmware omits the split uuid field entirely when the UUID is all-zero,
+    # so neither short_uuid nor the uuid array is populated on the wire.
+    pb_descriptor = BluetoothGATTDescriptor()
+    pb_descriptor.handle = 7
+
+    descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
+    assert descriptor.uuid == "00000000-0000-0000-0000-000000000000"
+    assert descriptor.handle == 7
+
+
+def test_bluetooth_all_zero_uuid_from_dict() -> None:
+    """from_dict accepts an empty uuid list as the all-zero UUID."""
+    assert BluetoothGATTDescriptorModel.from_dict(
+        {"uuid": [], "handle": 7},
+    ) == BluetoothGATTDescriptorModel(
+        uuid="00000000-0000-0000-0000-000000000000", handle=7
+    )
+
+
 def test_bluetooth_characteristic_efficient_uuids() -> None:
     """Test characteristic with mixed UUID types in descriptors."""
     pb_char = BluetoothGATTCharacteristic()
