@@ -65,7 +65,8 @@ def _skip_tz_name(s: str, pos: int) -> int:
         while pos < len(s) and s[pos] != ">":
             pos += 1
         if pos >= len(s):
-            raise ValueError("Unterminated angle-bracket timezone name")
+            msg = "Unterminated angle-bracket timezone name"
+            raise ValueError(msg)
         pos += 1  # skip '>'
         return pos
 
@@ -74,7 +75,8 @@ def _skip_tz_name(s: str, pos: int) -> int:
     while pos < len(s) and s[pos].isalpha():
         pos += 1
     if pos - start < 3:
-        raise ValueError(f"Timezone name must be at least 3 letters, got {pos - start}")
+        msg = f"Timezone name must be at least 3 letters, got {pos - start}"
+        raise ValueError(msg)
     return pos
 
 
@@ -116,8 +118,64 @@ def _parse_uint(s: str, pos: int) -> tuple[int, int]:
         value = value * 10 + int(s[pos])
         pos += 1
     if pos == start:
-        raise ValueError(f"Expected digit at position {start}")
+        msg = f"Expected digit at position {start}"
+        raise ValueError(msg)
     return value, pos
+
+
+def _parse_dst_rule_m(s: str, pos: int, rule: DSTRule) -> int:
+    """Parse an Mm.w.d body into ``rule``; return new position."""
+    rule.type = DSTRuleType.MONTH_WEEK_DAY
+    pos += 1
+
+    rule.month, pos = _parse_uint(s, pos)
+    if rule.month < 1 or rule.month > 12:
+        msg = f"Month must be 1-12, got {rule.month}"
+        raise ValueError(msg)
+
+    if pos >= len(s) or s[pos] != ".":
+        msg = "Expected '.' after month in M-format rule"
+        raise ValueError(msg)
+    pos += 1
+
+    rule.week, pos = _parse_uint(s, pos)
+    if rule.week < 1 or rule.week > 5:
+        msg = f"Week must be 1-5, got {rule.week}"
+        raise ValueError(msg)
+
+    if pos >= len(s) or s[pos] != ".":
+        msg = "Expected '.' after week in M-format rule"
+        raise ValueError(msg)
+    pos += 1
+
+    rule.day_of_week, pos = _parse_uint(s, pos)
+    if rule.day_of_week > 6:
+        msg = f"Day of week must be 0-6, got {rule.day_of_week}"
+        raise ValueError(msg)
+    return pos
+
+
+def _parse_dst_rule_j(s: str, pos: int, rule: DSTRule) -> int:
+    """Parse a Jn body (Julian day 1-365, no Feb 29) into ``rule``; return new position."""
+    rule.type = DSTRuleType.JULIAN_NO_LEAP
+    pos += 1
+
+    rule.day, pos = _parse_uint(s, pos)
+    if rule.day < 1 or rule.day > 365:
+        msg = f"Julian day must be 1-365, got {rule.day}"
+        raise ValueError(msg)
+    return pos
+
+
+def _parse_dst_rule_n(s: str, pos: int, rule: DSTRule) -> int:
+    """Parse a plain ``n`` body (day of year 0-365, counting Feb 29) into ``rule``."""
+    rule.type = DSTRuleType.DAY_OF_YEAR
+
+    rule.day, pos = _parse_uint(s, pos)
+    if rule.day > 365:
+        msg = f"Day of year must be 0-365, got {rule.day}"
+        raise ValueError(msg)
+    return pos
 
 
 def _parse_dst_rule(s: str, pos: int) -> tuple[DSTRule, int]:
@@ -129,52 +187,18 @@ def _parse_dst_rule(s: str, pos: int) -> tuple[DSTRule, int]:
     rule = DSTRule()
 
     if pos >= len(s):
-        raise ValueError("Unexpected end of string, expected DST rule")
+        msg = "Unexpected end of string, expected DST rule"
+        raise ValueError(msg)
 
     if s[pos] in ("M", "m"):
-        # M format: Mm.w.d
-        rule.type = DSTRuleType.MONTH_WEEK_DAY
-        pos += 1
-
-        rule.month, pos = _parse_uint(s, pos)
-        if rule.month < 1 or rule.month > 12:
-            raise ValueError(f"Month must be 1-12, got {rule.month}")
-
-        if pos >= len(s) or s[pos] != ".":
-            raise ValueError("Expected '.' after month in M-format rule")
-        pos += 1
-
-        rule.week, pos = _parse_uint(s, pos)
-        if rule.week < 1 or rule.week > 5:
-            raise ValueError(f"Week must be 1-5, got {rule.week}")
-
-        if pos >= len(s) or s[pos] != ".":
-            raise ValueError("Expected '.' after week in M-format rule")
-        pos += 1
-
-        rule.day_of_week, pos = _parse_uint(s, pos)
-        if rule.day_of_week > 6:
-            raise ValueError(f"Day of week must be 0-6, got {rule.day_of_week}")
-
+        pos = _parse_dst_rule_m(s, pos, rule)
     elif s[pos] in ("J", "j"):
-        # J format: Jn (Julian day 1-365, not counting Feb 29)
-        rule.type = DSTRuleType.JULIAN_NO_LEAP
-        pos += 1
-
-        rule.day, pos = _parse_uint(s, pos)
-        if rule.day < 1 or rule.day > 365:
-            raise ValueError(f"Julian day must be 1-365, got {rule.day}")
-
+        pos = _parse_dst_rule_j(s, pos, rule)
     elif s[pos].isdigit():
-        # Plain number format: n (day 0-365, counting Feb 29)
-        rule.type = DSTRuleType.DAY_OF_YEAR
-
-        rule.day, pos = _parse_uint(s, pos)
-        if rule.day > 365:
-            raise ValueError(f"Day of year must be 0-365, got {rule.day}")
-
+        pos = _parse_dst_rule_n(s, pos, rule)
     else:
-        raise ValueError(f"Expected DST rule (M, J, or digit), got '{s[pos]}'")
+        msg = f"Expected DST rule (M, J, or digit), got '{s[pos]}'"
+        raise ValueError(msg)
 
     # Parse optional /time suffix
     rule.time_seconds = 2 * 3600  # Default 02:00
@@ -205,9 +229,11 @@ def parse_posix_tz(tz_string: str) -> ParsedTimezone:
 
     Raises:
         ValueError: If the string is empty or has invalid format.
+
     """
     if not tz_string:
-        raise ValueError("Empty timezone string")
+        msg = "Empty timezone string"
+        raise ValueError(msg)
 
     result = ParsedTimezone()
     pos = 0
@@ -219,7 +245,8 @@ def parse_posix_tz(tz_string: str) -> ParsedTimezone:
     if pos >= len(tz_string) or (
         not tz_string[pos].isdigit() and tz_string[pos] != "+" and tz_string[pos] != "-"
     ):
-        raise ValueError("Expected offset after timezone name")
+        msg = "Expected offset after timezone name"
+        raise ValueError(msg)
     result.std_offset_seconds, pos = _parse_offset(tz_string, pos)
 
     # Check for DST name
@@ -228,7 +255,8 @@ def parse_posix_tz(tz_string: str) -> ParsedTimezone:
 
     # If next char is comma, there's no DST name but there are rules (invalid)
     if tz_string[pos] == ",":
-        raise ValueError("Comma after standard offset without DST name")
+        msg = "Comma after standard offset without DST name"
+        raise ValueError(msg)
 
     # Check if there's something that looks like a DST name start
     if not tz_string[pos].isalpha() and tz_string[pos] != "<":
@@ -256,7 +284,8 @@ def parse_posix_tz(tz_string: str) -> ParsedTimezone:
 
     # Second rule is required per POSIX
     if pos >= len(tz_string) or tz_string[pos] != ",":
-        raise ValueError("Expected comma before second DST rule")
+        msg = "Expected comma before second DST rule"
+        raise ValueError(msg)
     pos += 1
     result.dst_end, pos = _parse_dst_rule(tz_string, pos)
 

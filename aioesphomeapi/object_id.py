@@ -71,6 +71,7 @@ def _get_name_for_object_id(
 
     Returns:
         The name to use for object_id computation
+
     """
     if entity.name:
         return entity.name
@@ -104,6 +105,7 @@ def compute_entity_object_id(
 
     Returns:
         The computed object_id string
+
     """
     name_for_id = _get_name_for_object_id(entity, device_info, device_id_to_name)
     return compute_object_id(name_for_id)
@@ -124,6 +126,7 @@ def fill_missing_object_ids(
 
     Returns:
         A new list of entities with object_id filled in where missing
+
     """
     # Build device_id -> name lookup from sub-devices
     device_id_to_name = {d.device_id: d.name for d in device_info.devices}

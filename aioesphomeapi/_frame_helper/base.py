@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import asyncio
-from collections.abc import Callable, Iterable
 import logging
 from typing import TYPE_CHECKING, cast
 
+from .._sanitize import MAX_EXPLANATION_LEN, MAX_MAC_LEN, MAX_NAME_LEN, safe_label_str
 from ..core import SocketClosedAPIError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from ..connection import APIConnection
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,6 +25,22 @@ SOCKET_ERRORS = (
 
 _int = int
 _bytes = bytes
+
+
+# _MAX_* are the cdef int aliases declared in base.pxd for hot-path C
+# comparisons; the Python-importable MAX_* names live in aioesphomeapi._sanitize
+# and are re-exported here so existing `from .base import MAX_NAME_LEN` callers
+# keep working unchanged.
+_MAX_NAME_LEN = MAX_NAME_LEN
+_MAX_MAC_LEN = MAX_MAC_LEN
+_MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
+
+__all__ = (
+    "MAX_EXPLANATION_LEN",
+    "MAX_MAC_LEN",
+    "MAX_NAME_LEN",
+    "safe_label_str",
+)
 
 
 class APIFrameHelper:
@@ -136,7 +154,7 @@ class APIFrameHelper:
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle a new connection."""
-        self._transport = cast(asyncio.Transport, transport)
+        self._transport = cast("asyncio.Transport", transport)
         self._writelines = self._transport.writelines
 
     def _handle_error_and_close(self, exc: Exception) -> None:

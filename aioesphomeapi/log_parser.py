@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # Pre-compiled regex for ANSI escape sequences
 ANSI_ESCAPE = re.compile(
@@ -15,12 +18,8 @@ ANSI_RESET_CODES = ("\033[0m", "\x1b[0m")
 ANSI_RESET = "\033[0m"
 
 
-def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str, str]:
-    """Extract ESPHome prefix and ANSI color code from line.
-
-    Returns:
-        Tuple of (prefix, color_code, line_without_color)
-    """
+def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str]:
+    """Return the (prefix, color_code) pair found at the start of ``line``."""
     color_code = ""
     line_no_color = line
 
@@ -33,7 +32,7 @@ def _extract_prefix_and_color(line: str, strip_ansi: bool) -> tuple[str, str, st
     bracket_colon = line_no_color.find("]:")
     prefix = line_no_color[: bracket_colon + 2] if bracket_colon != -1 else ""
 
-    return prefix, color_code, line_no_color
+    return prefix, color_code
 
 
 def _needs_reset(line: str) -> bool:
@@ -62,6 +61,14 @@ def _format_continuation_line(
     return f"{timestamp}{line_content}"
 
 
+def _format_entry_line(timestamp: str, line: str, strip_ansi: bool) -> str:
+    """Format a top-level log entry line, appending ANSI reset when needed."""
+    output = f"{timestamp}{line}"
+    if not strip_ansi and _needs_reset(line):
+        output += ANSI_RESET
+    return output
+
+
 class LogParser:
     """Stateful parser for processing log messages one line at a time.
 
@@ -74,6 +81,7 @@ class LogParser:
 
         Args:
             strip_ansi_escapes: If True, remove all ANSI escape sequences from output
+
         """
         self.strip_ansi_escapes = strip_ansi_escapes
         self._current_prefix = ""
@@ -88,6 +96,7 @@ class LogParser:
 
         Returns:
             Formatted line ready to be printed.
+
         """
         # Strip any trailing newline if present
         line = line.rstrip("\n\r")
@@ -104,15 +113,11 @@ class LogParser:
         is_continuation = line[0].isspace()
 
         if not is_continuation:
-            # This is a new log entry - update state
-            self._current_prefix = ""
-            self._current_color_code = ""
-
-            # Extract prefix and color for potential multi-line messages
-            if line and not line[0].isspace():
-                self._current_prefix, self._current_color_code, _ = (
-                    _extract_prefix_and_color(line, self.strip_ansi_escapes)
-                )
+            # This is a new log entry - record prefix/color for any
+            # continuation lines that follow.
+            self._current_prefix, self._current_color_code = _extract_prefix_and_color(
+                line, self.strip_ansi_escapes
+            )
 
             # Format the first line
             output = f"{timestamp}{line}"
@@ -136,6 +141,42 @@ class LogParser:
         )
 
 
+def _parse_multiline(text: str, timestamp: str, strip_ansi_escapes: bool) -> list[str]:
+    """Format a multi-line log message, tracking prefix/color across lines."""
+    lines = text.split("\n")
+
+    # Remove trailing empty line or ANSI reset codes
+    if lines and (lines[-1] == "" or lines[-1] in ANSI_RESET_CODES):
+        lines.pop()
+
+    first_line = lines[0]
+    result: list[str] = [_format_entry_line(timestamp, first_line, strip_ansi_escapes)]
+
+    # Extract prefix if first line doesn't start with space
+    prefix = ""
+    color_code = ""
+    if first_line and not first_line[0].isspace():
+        prefix, color_code = _extract_prefix_and_color(first_line, strip_ansi_escapes)
+
+    for line in lines[1:]:
+        if not line.strip():
+            result.append("")
+            continue
+        if not line[0].isspace():
+            # New log entry within the same message — re-extract prefix/color
+            # so later continuation lines inherit from this entry.
+            result.append(_format_entry_line(timestamp, line, strip_ansi_escapes))
+            prefix, color_code = _extract_prefix_and_color(line, strip_ansi_escapes)
+            continue
+        result.append(
+            _format_continuation_line(
+                timestamp, prefix, line, color_code, strip_ansi_escapes
+            )
+        )
+
+    return result
+
+
 def parse_log_message(
     text: str, timestamp: str, *, strip_ansi_escapes: bool = False
 ) -> Iterable[str]:
@@ -150,58 +191,13 @@ def parse_log_message(
         Iterable of formatted lines ready to be printed.
         For single-line logs, returns a tuple for efficiency.
         For multi-line logs, returns a list.
+
     """
-    # Strip ANSI escapes if requested
     if strip_ansi_escapes:
         text = ANSI_ESCAPE.sub("", text)
 
     # Fast path for single line (most common case)
     if "\n" not in text:
-        return (f"{timestamp}{text}",)
+        return (_format_entry_line(timestamp, text, strip_ansi_escapes),)
 
-    # Multi-line handling
-    lines = text.split("\n")
-
-    # Remove trailing empty line or ANSI reset codes
-    if lines and (lines[-1] == "" or lines[-1] in ANSI_RESET_CODES):
-        lines.pop()
-    result: list[str] = []
-
-    # Process the first line
-    first_line_output = f"{timestamp}{lines[0]}"
-
-    # Check if first line has color but no reset at end (to prevent bleeding)
-    if not strip_ansi_escapes and _needs_reset(lines[0]):
-        first_line_output += ANSI_RESET
-
-    result.append(first_line_output)
-
-    # Extract prefix and color from the first line
-    first_line = lines[0]
-    prefix = ""
-    color_code = ""
-
-    # Extract prefix if first line doesn't start with space
-    if first_line and not first_line[0].isspace():
-        prefix, color_code, _ = _extract_prefix_and_color(
-            first_line, strip_ansi_escapes
-        )
-
-    # Process subsequent lines
-    for line in lines[1:]:
-        if not line.strip():  # Only process non-empty lines
-            # Empty line
-            result.append("")
-            continue
-        if not line[0].isspace():  # If line starts with whitespace, it's a continuation
-            # This is a new log entry within the same message
-            result.append(f"{timestamp}{line}")
-            continue
-        # Apply timestamp, color, prefix, and the continuation line
-        result.append(
-            _format_continuation_line(
-                timestamp, prefix, line, color_code, strip_ansi_escapes
-            )
-        )
-
-    return result
+    return _parse_multiline(text, timestamp, strip_ansi_escapes)

@@ -3,21 +3,24 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 from functools import partial
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from google.protobuf import message
-import pytest
-
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DisconnectRequest,
     DisconnectResponse,
-    SubscribeLogsResponse,  # type: ignore
+    SubscribeLogsResponse,  # type: ignore[attr-defined]
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import APIConnectionError
 from aioesphomeapi.log_runner import async_run
+
+if TYPE_CHECKING:
+    from google.protobuf import message
+    import pytest
+
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+    from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.model import (
     ClimateInfo,
     ClimateMode,
@@ -239,7 +242,8 @@ async def test_log_runner_reconnects_on_subscribe_failure(
 
     def _wait_and_fail_subscribe_cli(*args, **kwargs):
         subscribed.set()
-        raise APIConnectionError("subscribed force to fail")
+        msg = "subscribed force to fail"
+        raise APIConnectionError(msg)
 
     with (
         patch.object(cli, "disconnect", partial(cli.disconnect, force=True)),
@@ -355,7 +359,9 @@ async def test_async_run_with_subscribe_states() -> None:
 
 
 async def test_async_run_with_colliding_entity_keys_across_types() -> None:
-    """Two entities of different types sharing a device_id+key must each
+    """Resolve colliding-key entities to their own info per platform.
+
+    Two entities of different types sharing a device_id+key must each
     resolve to their own info in the log runner.
 
     Reproducer: a climate and a water_heater on the same device with names
@@ -444,7 +450,9 @@ async def test_async_run_with_colliding_entity_keys_across_types() -> None:
 async def test_async_run_warns_on_unmapped_state_type(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """An unmapped state type (future protobuf addition without a
+    """Warn rather than silently pass info=None for unmapped state types.
+
+    An unmapped state type (future protobuf addition without a
     STATE_TYPE_TO_INFO_TYPE entry) must warn rather than silently pass
     info=None to the formatter.
     """

@@ -80,6 +80,7 @@ def iana_to_posix_tz(iana_key: str) -> str:
     Returns:
         POSIX TZ string like 'CST6CDT,M3.2.0,M11.1.0'
         Returns empty string if conversion fails.
+
     """
     if (tzfile := _load_tzdata(iana_key)) is None:
         # Not an IANA key, return empty string
@@ -112,6 +113,7 @@ async def get_timezone(iana_key: str | None) -> str:
     Returns:
         POSIX TZ string like 'CST6CDT,M3.2.0,M11.1.0'
         Returns empty string if timezone cannot be determined.
+
     """
     if iana_key:
 

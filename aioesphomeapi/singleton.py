@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine
 import functools
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
 
 T = TypeVar("T")
 
@@ -57,9 +59,9 @@ def singleton(
             if isinstance(obj_or_future, asyncio.Future):
                 # Another call is already in progress, wait for it
                 # This will either return the result or raise the exception
-                return cast(T, await obj_or_future)
+                return cast("T", await obj_or_future)
 
-            return cast(T, obj_or_future)
+            return cast("T", obj_or_future)
 
         return async_wrapped
 

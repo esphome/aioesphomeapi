@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from math import isnan
 from typing import TYPE_CHECKING
 
@@ -36,6 +35,8 @@ from .model import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .model import EntityInfo, EntityState
 
 
@@ -201,12 +202,8 @@ def _format_light(state: LightState, info: EntityInfo | None) -> str | None:
     return "\n".join(parts)
 
 
-def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None:
-    tag = "climate"
-    parts = [
-        f"[S][{tag}]: '{_name(info)}' >>",
-        _detail(tag, "Mode", _enum_name(state.mode)),
-    ]
+def _climate_mode_lines(tag: str, state: ClimateState) -> list[str]:
+    parts: list[str] = []
     if state.action is not None and state.action != ClimateAction.OFF:
         parts.append(_detail(tag, "Action", state.action.name))
     if state.fan_mode is not None:
@@ -219,6 +216,13 @@ def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None
         parts.append(_detail(tag, "Custom Preset", state.custom_preset))
     if state.swing_mode is not None and state.swing_mode != ClimateSwingMode.OFF:
         parts.append(_detail(tag, "Swing Mode", state.swing_mode.name))
+    return parts
+
+
+def _climate_temperature_lines(
+    tag: str, state: ClimateState, info: ClimateInfo | None
+) -> list[str]:
+    parts: list[str] = []
     ct = state.current_temperature
     if not isnan(ct):
         parts.append(_detail(tag, "Current Temperature", f"{ct:.2f}°C"))
@@ -237,10 +241,29 @@ def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None
         tt = state.target_temperature
         if not isnan(tt):
             parts.append(_detail(tag, "Target Temperature", f"{tt:.2f}°C"))
+    return parts
+
+
+def _climate_humidity_lines(
+    tag: str, state: ClimateState, info: ClimateInfo | None
+) -> list[str]:
+    parts: list[str] = []
     if info and info.supports_current_humidity and not isnan(state.current_humidity):
         parts.append(_detail(tag, "Current Humidity", f"{state.current_humidity:.0f}%"))
     if info and info.supports_target_humidity and not isnan(state.target_humidity):
         parts.append(_detail(tag, "Target Humidity", f"{state.target_humidity:.0f}%"))
+    return parts
+
+
+def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None:
+    tag = "climate"
+    parts = [
+        f"[S][{tag}]: '{_name(info)}' >>",
+        _detail(tag, "Mode", _enum_name(state.mode)),
+    ]
+    parts.extend(_climate_mode_lines(tag, state))
+    parts.extend(_climate_temperature_lines(tag, state, info))
+    parts.extend(_climate_humidity_lines(tag, state, info))
     return "\n".join(parts)
 
 

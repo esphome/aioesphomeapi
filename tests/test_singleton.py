@@ -120,7 +120,8 @@ async def test_singleton_with_exception() -> None:
     async def failing_function() -> None:
         nonlocal call_count
         call_count += 1
-        raise ValueError("Test error")
+        msg = "Test error"
+        raise ValueError(msg)
 
     # First call should raise the exception
     with pytest.raises(ValueError, match="Test error"):
@@ -165,7 +166,8 @@ async def test_singleton_exception_with_waiters() -> None:
         nonlocal call_count
         call_count += 1
         await event.wait()
-        raise ValueError("First call fails")
+        msg = "First call fails"
+        raise ValueError(msg)
 
     # Start two tasks simultaneously
     task1 = asyncio.create_task(failing_function())

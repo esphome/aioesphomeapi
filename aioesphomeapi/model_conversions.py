@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     AlarmControlPanelStateResponse,
     BinarySensorStateResponse,
     ClimateStateResponse,
