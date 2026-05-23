@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 from aioesphomeapi.api_pb2 import GetTimeRequest  # type: ignore[attr-defined]
-from aioesphomeapi.connection import APIConnection
 
 from .common import (
     _create_mock_transport_protocol,
@@ -27,6 +26,7 @@ from .conftest import PatchableAPIClient, PatchableAPIConnection, mock_on_stop
 
 if TYPE_CHECKING:
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+    from aioesphomeapi.connection import APIConnection
 
 
 async def test_api_client_provide_time_default() -> None:
