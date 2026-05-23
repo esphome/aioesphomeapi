@@ -16,6 +16,8 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTService as BluetoothGATTServicePb,
+    BluetoothScannerMode,
+    BluetoothScannerState,
     BluetoothScannerStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
@@ -96,6 +98,8 @@ from aioesphomeapi.model import (
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothGATTServices as BluetoothGATTServicesModel,
     BluetoothProxyFeature,
+    BluetoothScannerMode as BluetoothScannerModeModel,
+    BluetoothScannerState as BluetoothScannerStateModel,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ButtonInfo,
     CameraInfo,
@@ -364,6 +368,18 @@ def test_api_version_ord():
 )
 def test_basic_pb_conversions(model, pb):
     assert model.from_pb(pb()) == model()
+
+
+def test_bluetooth_scanner_state_surfaces_configured_mode() -> None:
+    pb = BluetoothScannerStateResponse(
+        state=BluetoothScannerState.BLUETOOTH_SCANNER_STATE_RUNNING,
+        mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_PASSIVE,
+        configured_mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_ACTIVE,
+    )
+    model = BluetoothScannerStateResponseModel.from_pb(pb)
+    assert model.state is BluetoothScannerStateModel.RUNNING
+    assert model.mode is BluetoothScannerModeModel.PASSIVE
+    assert model.configured_mode is BluetoothScannerModeModel.ACTIVE
 
 
 @pytest.mark.parametrize(

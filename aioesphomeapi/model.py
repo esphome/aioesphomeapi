@@ -1829,6 +1829,9 @@ class BluetoothScannerStateResponse(APIModelBase):
     mode: BluetoothScannerMode | None = converter_field(
         default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
     )
+    configured_mode: BluetoothScannerMode | None = converter_field(
+        default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
+    )
 
 
 class VoiceAssistantCommandFlag(enum.IntFlag):
