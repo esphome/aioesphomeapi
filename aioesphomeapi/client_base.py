@@ -334,6 +334,8 @@ class APIClientBase:
         :param timezone: Optional IANA timezone name to send to ESPHome devices.
             If not provided, the system timezone will be detected automatically.
             Example: 'America/Chicago' or 'Europe/London'
+        :param provide_time: If True, the client will respond to a server
+            request for the current time and timezone.
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
