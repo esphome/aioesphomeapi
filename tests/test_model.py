@@ -82,6 +82,7 @@ from aioesphomeapi.api_pb2 import (
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
     COMPONENT_TYPE_TO_INFO,
+    AlarmControlPanelEntityFeature,
     AlarmControlPanelEntityState,
     AlarmControlPanelInfo,
     APIIntEnum,
@@ -172,6 +173,7 @@ from aioesphomeapi.model import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
     ZWaveProxyFeature,
@@ -2304,6 +2306,49 @@ def test_water_heater_info_missing_temperature_unit_defaults_to_celsius() -> Non
     pb = ListEntitiesWaterHeaterResponse()
     info = WaterHeaterInfo.from_pb(pb)
     assert info.temperature_unit == TemperatureUnit.CELSIUS
+
+
+def test_water_heater_feature_flag_values() -> None:
+    assert WaterHeaterFeature.SUPPORTS_CURRENT_TEMPERATURE == 1 << 0
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE == 1 << 1
+    assert WaterHeaterFeature.SUPPORTS_OPERATION_MODE == 1 << 2
+    assert WaterHeaterFeature.SUPPORTS_AWAY_MODE == 1 << 3
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF == 1 << 4
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE == 1 << 5
+
+
+def test_water_heater_info_two_point_supported_features_decodes() -> None:
+    flags = (
+        WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE
+        | WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE
+    )
+    pb = ListEntitiesWaterHeaterResponse(supported_features=flags)
+    info = WaterHeaterInfo.from_pb(pb)
+    decoded = WaterHeaterFeature(info.supported_features)
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF not in decoded
+
+
+def test_alarm_control_panel_feature_flag_values() -> None:
+    assert AlarmControlPanelEntityFeature.ARM_HOME == 1 << 0
+    assert AlarmControlPanelEntityFeature.ARM_AWAY == 1 << 1
+    assert AlarmControlPanelEntityFeature.ARM_NIGHT == 1 << 2
+    assert AlarmControlPanelEntityFeature.TRIGGER == 1 << 3
+    assert AlarmControlPanelEntityFeature.ARM_CUSTOM_BYPASS == 1 << 4
+    assert AlarmControlPanelEntityFeature.ARM_VACATION == 1 << 5
+
+
+def test_alarm_control_panel_info_supported_features_decodes() -> None:
+    flags = (
+        AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.TRIGGER
+    )
+    pb = ListEntitiesAlarmControlPanelResponse(supported_features=flags)
+    info = AlarmControlPanelInfo.from_pb(pb)
+    decoded = AlarmControlPanelEntityFeature(info.supported_features)
+    assert AlarmControlPanelEntityFeature.ARM_AWAY in decoded
+    assert AlarmControlPanelEntityFeature.TRIGGER in decoded
+    assert AlarmControlPanelEntityFeature.ARM_HOME not in decoded
 
 
 @pytest.mark.parametrize(

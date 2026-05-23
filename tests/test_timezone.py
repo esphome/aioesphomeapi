@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aioesphomeapi.posix_tz import parse_posix_tz
 from aioesphomeapi.singleton import _SINGLETON_CACHE
 from aioesphomeapi.timezone import (
     _extract_tz_string,
@@ -77,6 +78,19 @@ def test_load_tzdata_utc_resolves_to_utc0() -> None:
         pytest.skip("tzdata package not available")
     tz_string = _extract_tz_string(tzfile)
     assert tz_string == "UTC0"
+
+
+def test_iana_to_posix_tz_uses_bundled_tzdata() -> None:
+    """Real IANA conversion works because tzdata is a declared dependency."""
+    # No skip: a missing tzdata package is a packaging bug, not an
+    # environment quirk. UTC0 is stable across every tzdata release.
+    assert iana_to_posix_tz("UTC") == "UTC0"
+
+    chicago = iana_to_posix_tz("America/Chicago")
+    assert chicago, "tzdata package missing — America/Chicago did not resolve"
+    parsed = parse_posix_tz(chicago)
+    assert parsed.std_offset_seconds == 6 * 3600
+    assert parsed.has_dst
 
 
 @patch("aioesphomeapi.timezone.resources.files")
