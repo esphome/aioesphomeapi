@@ -487,3 +487,34 @@ def test_mac_suffix_malformed_mac_address() -> None:
 
     # Malformed MAC should not cause issues, falls back to device name
     assert result[0].object_id == "device-12345"
+
+
+def test_unknown_device_id_falls_back_to_friendly_name() -> None:
+    """An entity referencing an absent sub-device must not raise KeyError."""
+    device_info = DeviceInfo(
+        name="main-device",
+        friendly_name="Main Device",
+        mac_address="AA:BB:CC:DD:EE:FF",
+        devices=[SubDeviceInfo(device_id=1, name="Sub One")],
+    )
+    # device_id=99 is not present in device_info.devices (firmware/version skew)
+    entities: list[SensorInfo] = [SensorInfo(name="", device_id=99, object_id="")]
+
+    result = fill_missing_object_ids(entities, device_info)
+
+    assert result[0].object_id == "main_device"
+
+
+def test_unknown_device_id_falls_back_to_device_name() -> None:
+    """Unknown sub-device with no friendly_name falls back to device name."""
+    device_info = DeviceInfo(
+        name="bare-device",
+        friendly_name="",
+        mac_address="not-a-mac",
+        devices=[SubDeviceInfo(device_id=1, name="Sub One")],
+    )
+    entities: list[SensorInfo] = [SensorInfo(name="", device_id=42, object_id="")]
+
+    result = fill_missing_object_ids(entities, device_info)
+
+    assert result[0].object_id == "bare-device"

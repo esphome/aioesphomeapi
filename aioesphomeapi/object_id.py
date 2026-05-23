@@ -76,7 +76,12 @@ def _get_name_for_object_id(
     if entity.name:
         return entity.name
     if entity.device_id != 0:
-        return device_id_to_name[entity.device_id]
+        sub_device_name = device_id_to_name.get(entity.device_id)
+        if sub_device_name is not None:
+            return sub_device_name
+        # device_id references a sub-device absent from device_info.devices
+        # (firmware/version skew): fall through to main-device naming rather
+        # than raising KeyError and aborting the whole entity list.
     # If friendly_name is set, always use it
     if device_info.friendly_name:
         return device_info.friendly_name
