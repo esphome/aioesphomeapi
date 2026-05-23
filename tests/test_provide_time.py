@@ -17,6 +17,7 @@ from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
 from .common import get_mock_connection_params
 from .conftest import PatchableAPIClient, PatchableAPIConnection, mock_on_stop
 
+
 async def test_api_client_provide_time_default() -> None:
     """provide_time should default to True."""
     cli = PatchableAPIClient(address="127.0.0.1", port=6052, password=None)
