@@ -41,7 +41,9 @@ async def test_api_client_provide_time_default() -> None:
 
 async def test_api_client_provide_time_false() -> None:
     """provide_time=False should be stored on _params."""
-    cli = PatchableAPIClient(address="127.0.0.1", port=6052, password=None, provide_time=False)
+    cli = PatchableAPIClient(
+        address="127.0.0.1", port=6052, password=None, provide_time=False
+    )
     assert cli._params.provide_time is False
 
 
@@ -118,4 +120,3 @@ async def test_get_time_response_not_sent_when_provide_time_false(
         transport.writelines.assert_not_called()
     finally:
         conn.force_disconnect()
-
