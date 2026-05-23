@@ -1168,6 +1168,7 @@ class WaterHeaterFeature(enum.IntFlag):
     SUPPORTS_OPERATION_MODE = 1 << 2
     SUPPORTS_AWAY_MODE = 1 << 3
     SUPPORTS_ON_OFF = 1 << 4
+    SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 5
 
 
 class WaterHeaterCommandField(enum.IntFlag):
