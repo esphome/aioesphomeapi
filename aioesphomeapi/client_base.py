@@ -308,6 +308,7 @@ class APIClientBase:
         addresses: list[str_] | None = None,
         expected_mac: str_ | None = None,
         timezone: str_ | None = None,
+        provide_time: bool = True,
     ) -> None:
         """Create a client, this object is shared across sessions.
 
@@ -349,6 +350,7 @@ class APIClientBase:
             expected_name=_stringify_or_none(expected_name) or None,
             expected_mac=_stringify_or_none(expected_mac) or None,
             timezone=_stringify_or_none(timezone) or None,
+            provide_time=provide_time,
         )
         self._connection: APIConnection | None = None
         self._cached_device_info: DeviceInfo | None = None

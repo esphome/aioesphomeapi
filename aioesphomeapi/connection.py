@@ -151,6 +151,7 @@ class ConnectionParams:
     expected_name: str | None
     expected_mac: str | None
     timezone: str | None = None
+    provide_time: bool = True
 
 
 class ConnectionState(enum.Enum):
@@ -1140,9 +1141,10 @@ class APIConnection:
         self._add_message_callback_without_remove(
             self._handle_ping_request_internal, (PingRequest,)
         )
-        self._add_message_callback_without_remove(
-            self._handle_get_time_request_internal, (GetTimeRequest,)
-        )
+        if self._params.provide_time:
+            self._add_message_callback_without_remove(
+                self._handle_get_time_request_internal, (GetTimeRequest,)
+            )
         self._add_message_callback_without_remove(
             self._handle_login_response, (AuthenticationResponse,)
         )
