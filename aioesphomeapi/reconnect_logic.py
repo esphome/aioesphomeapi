@@ -454,8 +454,12 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         if not self._zc_listening and self.name and not self._is_ip_address:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
-            self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
-            self._a_name = f"{self.name}.local."
+            # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
+            # Lowercase the match keys here and the incoming records below
+            # so a device advertising mixed-case labels still triggers the
+            # fast reconnect instead of falling back to exponential backoff.
+            self._ptr_alias = f"{self.name}._esphomelib._tcp.local.".lower()
+            self._a_name = f"{self.name}.local.".lower()
             try:
                 async_zc = self._zeroconf_manager.get_async_zeroconf()
                 async_zc.zeroconf.async_add_listener(self, None)
@@ -509,10 +513,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # We only consider A, AAAA, and PTR records and match using the alias name
             new_record = record_update.new
             if not (
-                (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)  # type: ignore[attr-defined]
+                (
+                    new_record.type == TYPE_PTR
+                    and new_record.alias.lower() == self._ptr_alias  # type: ignore[attr-defined]
+                )
                 or (
                     new_record.type in ADDRESS_RECORD_TYPES
-                    and new_record.name == self._a_name
+                    and new_record.name.lower() == self._a_name
                 )
             ):
                 continue
