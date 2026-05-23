@@ -61,6 +61,7 @@ def get_mock_connection_params() -> ConnectionParams:
         expected_name=None,
         expected_mac=None,
         timezone=None,
+        provide_time=True
     )
 
 
