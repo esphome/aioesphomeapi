@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Coroutine
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any
 
-from google.protobuf import message
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Coroutine
 
-from .api_pb2 import (  # type: ignore
+    from google.protobuf import message
+
+from .api_pb2 import (  # type: ignore[attr-defined]
     AlarmControlPanelCommandRequest,
     BluetoothConnectionsFreeResponse,
     BluetoothDeviceClearCacheResponse,
@@ -197,6 +199,57 @@ DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
 DEFAULT_EXECUTE_SERVICE_TIMEOUT = 30.0
 
+# BLE Core spec ranges for the LL_CONNECTION_UPDATE_IND parameters.
+# Out-of-range values can be silently dropped by the controller or rejected
+# by the peer with no useful error, so validate before round-tripping to the ESP.
+CONN_INTERVAL_MIN = 6  # 7.5 ms in units of 1.25 ms
+CONN_INTERVAL_MAX = 3200  # 4 s in units of 1.25 ms
+CONN_LATENCY_MAX = 499
+SUPERVISION_TIMEOUT_MIN = 10  # 100 ms in units of 10 ms
+SUPERVISION_TIMEOUT_MAX = 3200  # 32 s in units of 10 ms
+
+
+def _validate_connection_params(
+    min_interval: int, max_interval: int, latency: int, timeout: int
+) -> None:
+    """Validate BLE LL_CONNECTION_UPDATE_IND parameters per the Core spec."""
+    if not CONN_INTERVAL_MIN <= min_interval <= CONN_INTERVAL_MAX:
+        msg = (
+            f"min_interval must be between {CONN_INTERVAL_MIN} and "
+            f"{CONN_INTERVAL_MAX} (units of 1.25 ms), got {min_interval}"
+        )
+        raise ValueError(msg)
+    if not CONN_INTERVAL_MIN <= max_interval <= CONN_INTERVAL_MAX:
+        msg = (
+            f"max_interval must be between {CONN_INTERVAL_MIN} and "
+            f"{CONN_INTERVAL_MAX} (units of 1.25 ms), got {max_interval}"
+        )
+        raise ValueError(msg)
+    if max_interval < min_interval:
+        msg = f"max_interval ({max_interval}) must be >= min_interval ({min_interval})"
+        raise ValueError(msg)
+    if not 0 <= latency <= CONN_LATENCY_MAX:
+        msg = f"latency must be between 0 and {CONN_LATENCY_MAX}, got {latency}"
+        raise ValueError(msg)
+    if not SUPERVISION_TIMEOUT_MIN <= timeout <= SUPERVISION_TIMEOUT_MAX:
+        msg = (
+            f"timeout must be between {SUPERVISION_TIMEOUT_MIN} and "
+            f"{SUPERVISION_TIMEOUT_MAX} (units of 10 ms), got {timeout}"
+        )
+        raise ValueError(msg)
+    # Per BLE Core spec: connSupervisionTimeout > (1 + connPeripheralLatency)
+    # * connIntervalMax * 2.  Converting units gives timeout * 4 >
+    # (1 + latency) * max_interval (timeout in 10 ms, max_interval in 1.25 ms).
+    if timeout * 4 <= (1 + latency) * max_interval:
+        msg = (
+            "Supervision timeout must satisfy "
+            "timeout * 4 > (1 + latency) * max_interval "
+            f"(got timeout={timeout}, latency={latency}, "
+            f"max_interval={max_interval})"
+        )
+        raise ValueError(msg)
+
+
 # API version 1.14+ may omit object_id to reduce protocol overhead
 MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
 
@@ -279,7 +332,8 @@ class APIClient(APIClientBase):
     ) -> None:
         """Start resolving the host."""
         if self._connection is not None:
-            raise APIConnectionError(f"Already connected to {self.log_name}!")
+            msg = f"Already connected to {self.log_name}!"
+            raise APIConnectionError(msg)
         self._connection = APIConnection(
             self._params,
             partial(self._on_stop, on_stop),
@@ -363,7 +417,8 @@ class APIClient(APIClientBase):
                 entities.append(cls.from_pb(msg))
         # Fill in missing object_id values using cached device_info
         api_version = self.api_version
-        assert api_version is not None
+        if TYPE_CHECKING:
+            assert api_version is not None
         return _fill_object_ids_if_needed(api_version, entities, device_info), services
 
     async def device_info_and_list_entities(
@@ -390,7 +445,7 @@ class APIClient(APIClientBase):
                 has_entities_done = True
             return True
 
-        def do_stop(msg: message.Message) -> bool:
+        def do_stop(msg: message.Message) -> bool:  # noqa: ARG001
             return has_device_info and has_entities_done
 
         msgs = await self._get_connection().send_messages_await_response_complex(
@@ -417,11 +472,12 @@ class APIClient(APIClientBase):
             elif cls := response_types.get(msg_type):
                 entities.append(cls.from_pb(msg))
 
-        assert device_info is not None
+        api_version = self.api_version
+        if TYPE_CHECKING:
+            assert device_info is not None
+            assert api_version is not None
         self._cached_device_info = device_info
         # Fill in missing object_id values for entities that don't have them
-        api_version = self.api_version
-        assert api_version is not None
         return (
             device_info,
             _fill_object_ids_if_needed(api_version, entities, device_info),
@@ -546,9 +602,11 @@ class APIClient(APIClientBase):
     ) -> None:
         """Configure UART parameters for a serial proxy instance."""
         if not 1 <= stop_bits <= 2:
-            raise ValueError(f"stop_bits must be 1 or 2, got {stop_bits}")
+            msg = f"stop_bits must be 1 or 2, got {stop_bits}"
+            raise ValueError(msg)
         if not 5 <= data_size <= 8:
-            raise ValueError(f"data_size must be 5-8, got {data_size}")
+            msg = f"data_size must be 5-8, got {data_size}"
+            raise ValueError(msg)
         self._get_connection().send_message(
             SerialProxyConfigureRequest(
                 instance=instance,
@@ -711,9 +769,11 @@ class APIClient(APIClientBase):
         handle: int,
         request: message.Message,
         response_type: (
-            type[BluetoothGATTNotifyResponse]
-            | type[BluetoothGATTReadResponse]
-            | type[BluetoothGATTWriteResponse]
+            type[
+                BluetoothGATTNotifyResponse
+                | BluetoothGATTReadResponse
+                | BluetoothGATTWriteResponse
+            ]
         ),
         timeout: float = 10.0,
     ) -> message.Message:
@@ -799,7 +859,7 @@ class APIClient(APIClientBase):
         """Set the Bluetooth scanner mode."""
         self._get_connection().send_message(BluetoothScannerSetModeRequest(mode=mode))
 
-    async def bluetooth_device_connect(  # pylint: disable=too-many-locals, too-many-branches
+    async def bluetooth_device_connect(  # noqa: C901  # pylint: disable=too-many-locals, too-many-branches
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
@@ -812,10 +872,11 @@ class APIClient(APIClientBase):
         connect_future: asyncio.Future[None] = self._loop.create_future()
 
         if address_type is None:
-            raise ValueError(
+            msg = (
                 f"{self.log_name}: address_type is required for Bluetooth connection. "
                 "The connection attempt cannot proceed without a valid address_type."
             )
+            raise ValueError(msg)
 
         if has_cache:
             # REMOTE_CACHING feature with cache: requestor has services and mtu cached
@@ -825,10 +886,11 @@ class APIClient(APIClientBase):
             request_type = BluetoothDeviceRequestType.CONNECT_V3_WITHOUT_CACHE
         else:
             # ESPHome device does not support REMOTE_CACHING feature: old CONNECT method is no longer supported
-            raise ValueError(
+            msg = (
                 f"{self.log_name}: ESPHome device does not support REMOTE_CACHING feature. "
                 "Please update the ESPHome device to version 2022.12.0 or later."
             )
+            raise ValueError(msg)
 
         if self._debug_enabled:
             _LOGGER.debug("%s: Using connection version %s", address, request_type)
@@ -885,11 +947,12 @@ class APIClient(APIClientBase):
                     address, disconnect_timeout
                 )
             )
-            raise TimeoutAPIError(
+            msg = (
                 f"Timeout waiting for connect response while connecting to {addr} "
                 f"after {timeout}s, disconnect timed out: {disconnect_timed_out}, "
                 f" after {disconnect_timeout}s"
-            ) from err
+            )
+            raise TimeoutAPIError(msg) from err
         except asyncio.CancelledError:
             unhandled_exception = True
             # Distinguish an outside cancellation of our task from
@@ -901,9 +964,8 @@ class APIClient(APIClientBase):
             current_task = asyncio.current_task()
             if current_task is None or not current_task.cancelling():
                 addr = to_human_readable_address(address)
-                raise APIConnectionError(
-                    f"Connect attempt to {addr} was cancelled"
-                ) from None
+                msg = f"Connect attempt to {addr} was cancelled"
+                raise APIConnectionError(msg) from None
             raise
         except BaseException:
             unhandled_exception = True
@@ -985,6 +1047,7 @@ class APIClient(APIClientBase):
         api_timeout: float = DEFAULT_BLE_TIMEOUT,
     ) -> None:
         """Set BLE connection parameters on a connected device."""
+        _validate_connection_params(min_interval, max_interval, latency, timeout)
         msg_types = (BluetoothSetConnectionParamsResponse,)
         types_with_response = (BluetoothDeviceConnectionResponse, *msg_types)
         req = BluetoothSetConnectionParamsRequest(
@@ -1048,11 +1111,12 @@ class APIClient(APIClientBase):
             return
         response_names = message_types_to_names(msg_types)
         human_readable_address = to_human_readable_address(address)
-        raise BluetoothConnectionDroppedError(
+        msg = (
             f"Peripheral {human_readable_address} changed connection status while waiting for "
             f"{response_names}: {to_human_readable_gatt_error(response.error)} "
             f"({response.error})"
         )
+        raise BluetoothConnectionDroppedError(msg)
 
     def _bluetooth_disconnect_no_wait(self, address: int) -> None:
         """Disconnect from a Bluetooth device without waiting for a response."""
@@ -1137,9 +1201,7 @@ class APIClient(APIClientBase):
 
     async def _bluetooth_gatt_read(
         self,
-        req_type: (
-            type[BluetoothGATTReadDescriptorRequest] | type[BluetoothGATTReadRequest]
-        ),
+        req_type: (type[BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest]),
         address: int,
         handle: int,
         timeout: float,
@@ -1420,7 +1482,7 @@ class APIClient(APIClientBase):
             req.preset_mode = preset_mode
         self._get_connection().send_message(req)
 
-    def light_command(  # pylint: disable=too-many-branches
+    def light_command(  # noqa: C901  # pylint: disable=too-many-branches
         self,
         key: int,
         state: bool | None = None,
@@ -1483,7 +1545,7 @@ class APIClient(APIClientBase):
             SwitchCommandRequest(key=key, state=state, device_id=device_id)
         )
 
-    def climate_command(  # pylint: disable=too-many-branches
+    def climate_command(  # noqa: C901  # pylint: disable=too-many-branches
         self,
         key: int,
         mode: ClimateMode | None = None,
@@ -1752,7 +1814,7 @@ class APIClient(APIClientBase):
                 int_type = "int_" if apiv >= APIVersion(1, 3) else "legacy_int"
                 setattr(arg, int_type, val)
             else:
-                assert arg_desc.type in map_single
+                assert arg_desc.type in map_single  # noqa: S101  # exhaustiveness check
                 setattr(arg, map_single[arg_desc.type], val)
 
             args.append(arg)
@@ -1797,7 +1859,7 @@ class APIClient(APIClientBase):
     def request_image_stream(self) -> None:
         self._request_image(stream=True)
 
-    def subscribe_voice_assistant(
+    def subscribe_voice_assistant(  # noqa: C901  # high-fan-in command builder with many optional features
         self,
         *,
         handle_start: Callable[
@@ -1820,7 +1882,7 @@ class APIClient(APIClientBase):
             | None
         ) = None,
     ) -> Callable[[], None]:
-        """Subscribes to voice assistant messages from the device.
+        """Subscribe to voice assistant messages from the device.
 
         handle_start: called when the devices requests a server to send audio data to.
                       This callback is asynchronous and returns the port number the server is started on.

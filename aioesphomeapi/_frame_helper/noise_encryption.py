@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from functools import partial
 from struct import Struct
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
 from noise.backends.default import DefaultNoiseBackend
 from noise.backends.default.ciphers import ChaCha20Cipher, CryptographyCipher
-from noise.state import CipherState
+
+if TYPE_CHECKING:
+    from noise.state import CipherState
 
 _bytes = bytes
 _int = int

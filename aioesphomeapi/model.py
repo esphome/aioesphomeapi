@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 from uuid import UUID
-
-from google.protobuf import message
 
 from .util import fix_float_single_double_conversion
 
@@ -17,7 +14,11 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
-    from .api_pb2 import (  # type: ignore
+    from collections.abc import Callable, Iterable
+
+    from google.protobuf import message
+
+    from .api_pb2 import (  # type: ignore[attr-defined]
         BluetoothLEAdvertisementResponse,
         HomeassistantServiceMap,
     )
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
 # The default value should *always* be the Protobuf default value
 # for a field (False, 0, empty string, enum with value 0, ...)
 
-_T = TypeVar("_T", bound="APIIntEnum")
 _V = TypeVar("_V")
 
 
@@ -36,14 +36,14 @@ class APIIntEnum(enum.IntEnum):
     """Base class for int enum values in API model."""
 
     @classmethod
-    def convert(cls: type[_T], value: int) -> _T | None:
+    def convert(cls, value: int) -> Self | None:
         try:
             return cls(value)
         except ValueError:
             return None
 
     @classmethod
-    def convert_list(cls: type[_T], value: list[int]) -> list[_T]:
+    def convert_list(cls, value: list[int]) -> list[Self]:
         ret = []
         for x in value:
             with contextlib.suppress(ValueError):
@@ -71,9 +71,7 @@ class APIModelBase:
         return asdict(self)  # type: ignore[no-any-return, call-overload]
 
     @classmethod
-    def from_dict(
-        cls: type[_V], data: dict[str, Any], *, ignore_missing: bool = True
-    ) -> _V:
+    def from_dict(cls, data: dict[str, Any], *, ignore_missing: bool = True) -> Self:
         return cls(
             **{
                 f.name: data[f.name]
@@ -83,7 +81,7 @@ class APIModelBase:
         )
 
     @classmethod
-    def from_pb(cls: type[_V], data: Any) -> _V:
+    def from_pb(cls, data: Any) -> Self:
         return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
 
@@ -91,7 +89,7 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
     return cast(
-        _V,
+        "_V",
         field(metadata=metadata, **kwargs),  # pylint: disable=invalid-field-call
     )
 
@@ -307,7 +305,10 @@ class DeviceInfo(APIModelBase):
             return flags
         return self.voice_assistant_feature_flags
 
-    def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+    def zwave_proxy_feature_flags_compat(
+        self,
+        api_version: APIVersion,  # noqa: ARG002
+    ) -> int:
         return self.zwave_proxy_feature_flags
 
 
@@ -503,8 +504,7 @@ class LightInfo(EntityInfo):
                 self.legacy_supports_white_value,
                 self.legacy_supports_color_temperature,
             )
-            # map legacy flags to color modes,
-            # key: (brightness, rgb, white, color_temp)
+            # Map (brightness, rgb, white, color_temp) flag tuples to color modes.
             modes_map = {
                 (False, False, False, False): [LightColorCapability.ON_OFF],
                 (True, False, False, False): [
@@ -541,7 +541,7 @@ class LightInfo(EntityInfo):
                 ],
             }
 
-            return cast(list[ColorMode], modes_map[key]) if key in modes_map else []
+            return cast("list[ColorMode]", modes_map[key]) if key in modes_map else []
 
         return self.supported_color_modes
 
@@ -1134,6 +1134,17 @@ class AlarmControlPanelCommand(APIIntEnum):
     TRIGGER = 6
 
 
+class AlarmControlPanelEntityFeature(enum.IntFlag):
+    """Supported features of the alarm control panel entity."""
+
+    ARM_HOME = 1 << 0
+    ARM_AWAY = 1 << 1
+    ARM_NIGHT = 1 << 2
+    TRIGGER = 1 << 3
+    ARM_CUSTOM_BYPASS = 1 << 4
+    ARM_VACATION = 1 << 5
+
+
 @_frozen_dataclass_decorator
 class AlarmControlPanelInfo(EntityInfo):
     supported_features: int = 0
@@ -1168,6 +1179,7 @@ class WaterHeaterFeature(enum.IntFlag):
     SUPPORTS_OPERATION_MODE = 1 << 2
     SUPPORTS_AWAY_MODE = 1 << 3
     SUPPORTS_ON_OFF = 1 << 4
+    SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 5
 
 
 class WaterHeaterCommandField(enum.IntFlag):
@@ -1398,7 +1410,7 @@ def _convert_homeassistant_service_map(
     if isinstance(value, dict):
         # already a dict, don't convert
         return value
-    return {v.key: v.value for v in value}  # type: ignore
+    return {v.key: v.value for v in value}  # type: ignore[union-attr]
 
 
 @_frozen_dataclass_decorator

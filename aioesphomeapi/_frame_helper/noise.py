@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import binascii
 import logging
 from typing import TYPE_CHECKING
@@ -8,6 +7,7 @@ from typing import TYPE_CHECKING
 from cryptography.exceptions import InvalidTag
 from noise.connection import NoiseConnection
 
+from .._sanitize import MAX_EXPLANATION_LEN, MAX_MAC_LEN, MAX_NAME_LEN, safe_label_str
 from ..core import (
     APIConnectionError,
     BadMACAddressAPIError,
@@ -24,6 +24,8 @@ from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCiphe
 from .packets import make_noise_packets
 
 if TYPE_CHECKING:
+    import asyncio
+
     from ..connection import APIConnection
 
 
@@ -43,6 +45,13 @@ NOISE_STATE_CLOSED = 4
 NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
+
+# Cython resolves _MAX_* via cimport from .base and safe_label_str via cimport
+# from .._sanitize (noise.pxd); these assignments are the pure-Python
+# (SKIP_CYTHON=1) fallback so callers below have a name to resolve.
+_MAX_NAME_LEN = MAX_NAME_LEN
+_MAX_MAC_LEN = MAX_MAC_LEN
+_MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
 
 
 class APINoiseFrameHelper(APIFrameHelper):
@@ -190,11 +199,19 @@ class APINoiseFrameHelper(APIFrameHelper):
         # Server name is encoded as a string followed by a zero byte after the chosen proto byte
         server_name_i = server_hello.find(b"\0", 1)
         if server_name_i != -1:
-            # server name found, this extension was added in 2022.2
-            server_name = server_hello[1:server_name_i].decode()
+            # server name found, this extension was added in 2022.2.
+            # Compare against the raw decoded value so a peer can't sneak
+            # past expected_name by appending non-printable bytes that the
+            # sanitizer would strip; only the value used for logs and for
+            # later self-storage gets sanitized + length-capped.
+            server_name_raw = server_hello[1:server_name_i].decode("utf-8", "replace")
+            server_name = safe_label_str(server_name_raw, _MAX_NAME_LEN)
             self._server_name = server_name
 
-            if self._expected_name is not None and self._expected_name != server_name:
+            if (
+                self._expected_name is not None
+                and self._expected_name != server_name_raw
+            ):
                 self._handle_error_and_close(
                     BadNameAPIError(
                         f"{self._log_name}: Server sent a different name '{server_name}'",
@@ -205,10 +222,17 @@ class APINoiseFrameHelper(APIFrameHelper):
 
             mac_address_i = server_hello.find(b"\0", server_name_i + 1)
             if mac_address_i != -1:
-                # mac address found, this extension was added in 2025.4
-                mac_address = server_hello[server_name_i + 1 : mac_address_i].decode()
+                # mac address found, this extension was added in 2025.4.
+                # Same raw-vs-sanitized split as the name field above.
+                mac_address_raw = server_hello[
+                    server_name_i + 1 : mac_address_i
+                ].decode("utf-8", "replace")
+                mac_address = safe_label_str(mac_address_raw, _MAX_MAC_LEN)
                 self._server_mac = mac_address
-                if self._expected_mac is not None and self._expected_mac != mac_address:
+                if (
+                    self._expected_mac is not None
+                    and self._expected_mac != mac_address_raw
+                ):
                     self._handle_error_and_close(
                         BadMACAddressAPIError(
                             f"{self._log_name}: Server sent a different mac '{mac_address}'",
@@ -227,17 +251,23 @@ class APINoiseFrameHelper(APIFrameHelper):
         server_mac = self._server_mac
         try:
             psk_bytes = binascii.a2b_base64(psk)
-        except ValueError:
+        except ValueError as err:
+            msg = (
+                f"{self._log_name}: Malformed PSK (length={len(psk)}), "
+                "expected base64-encoded 32-byte value"
+            )
             raise InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Malformed PSK `{psk}`, expected "
-                "base64-encoded value",
+                msg,
                 server_name,
                 server_mac,
-            )
+            ) from err
         if len(psk_bytes) != 32:
+            msg = (
+                f"{self._log_name}: Malformed PSK (length={len(psk)}), "
+                "expected base64-encoded 32-byte value"
+            )
             raise InvalidEncryptionKeyAPIError(
-                f"{self._log_name}:Malformed PSK `{psk}`, expected"
-                f" 32-bytes of base64 data",
+                msg,
                 server_name,
                 server_mac,
             )
@@ -256,8 +286,13 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _error_on_incorrect_preamble(self, msg: bytes) -> None:
         """Handle an incorrect preamble."""
-        explanation = msg[1:].decode()
-        if explanation != "Handshake MAC failure":
+        # Compare against the raw decoded value so a peer can't get itself
+        # mis-classified as InvalidEncryptionKeyAPIError by appending
+        # non-printable bytes to the canonical "Handshake MAC failure" string;
+        # only the text included in the error message gets sanitized.
+        explanation_raw = msg[1:].decode("utf-8", "replace")
+        explanation = safe_label_str(explanation_raw, _MAX_EXPLANATION_LEN)
+        if explanation_raw != "Handshake MAC failure":
             exc = HandshakeAPIError(
                 f"{self._log_name}: Handshake failure: {explanation}"
             )
@@ -270,10 +305,38 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._handle_error_and_close(exc)
 
     def _handle_handshake(self, msg: bytes) -> None:
+        if not msg:
+            self._handle_error_and_close(
+                HandshakeAPIError(f"{self._log_name}: Handshake frame is empty")
+            )
+            return
         if msg[0] != 0:
             self._error_on_incorrect_preamble(msg)
             return
-        self._proto.read_message(msg[1:])
+        try:
+            self._proto.read_message(msg[1:])
+        except InvalidTag as exc:
+            # The peer's handshake response failed AEAD authentication. Either
+            # the PSK doesn't match or the ciphertext was tampered with. ESPHome
+            # firmware normally rejects with the dedicated preamble=0x01
+            # "Handshake MAC failure" frame, so reaching this path means the
+            # peer is buggy or hostile; surface the same friendly error the
+            # named-failure branch raises.
+            key_err = InvalidEncryptionKeyAPIError(
+                f"{self._log_name}: Invalid encryption key",
+                self._server_name,
+                self._server_mac,
+            )
+            key_err.__cause__ = exc
+            self._handle_error_and_close(key_err)
+            return
+        except Exception as exc:  # noqa: BLE001
+            handshake_err = HandshakeAPIError(
+                f"{self._log_name}: Handshake failed: {exc}"
+            )
+            handshake_err.__cause__ = exc
+            self._handle_error_and_close(handshake_err)
+            return
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
         self._decrypt_cipher = DecryptCipher(noise_protocol.cipher_state_decrypt)  # pylint: disable=no-member
@@ -334,6 +397,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         payload = msg_cstr[4:msg_length]
         self._connection.process_packet(msg_type, payload)
 
-    def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
+    def _handle_closed(self, frame: bytes) -> None:  # noqa: ARG002 # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))

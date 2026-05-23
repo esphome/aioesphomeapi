@@ -8,7 +8,7 @@ root_dir = Path(__file__).absolute().parent.parent
 os.chdir(root_dir)
 
 check_call(
-    [
+    [  # noqa: S607  # protoc resolved from PATH by design for this dev script
         "protoc",
         "--python_out=aioesphomeapi",
         "-I",

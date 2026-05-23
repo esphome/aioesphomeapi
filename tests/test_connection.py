@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 import logging
 import socket
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-from google.protobuf import message
 import pytest
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
+
 from aioesphomeapi import APIClient
+from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -27,6 +31,7 @@ from aioesphomeapi.api_pb2 import (
     TextSensorStateResponse,
 )
 from aioesphomeapi.connection import (
+    MAX_PROTOBUF_ERROR_DATA_BYTES,
     APIConnection,
     ConnectionParams,
     ConnectionState,
@@ -35,6 +40,7 @@ from aioesphomeapi.connection import (
 from aioesphomeapi.core import (
     APIConnectionCancelledError,
     APIConnectionError,
+    BadNameAPIError,
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
@@ -284,7 +290,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         loop.call_soon(conn._frame_helper.ready_future.set_result, None)
         conn.connection_state = ConnectionState.CONNECTED
 
-        with pytest.raises(RequiresEncryptionAPIError):
+        with pytest.raises(RequiresEncryptionAPIError):  # noqa: PT012
             task = asyncio.create_task(conn._connect_hello_login(login=True))
             await asyncio.sleep(0)
             mock_data_received(protocol, b"\x01\x00\x00")
@@ -373,7 +379,8 @@ async def test_start_connection_cannot_increase_recv_buffer(
         if args[0] == socket.SOL_SOCKET and args[1] == socket.SO_RCVBUF:
             size = args[2]
             tried_sizes.append(size)
-            raise OSError("Socket error")
+            msg = "Socket error"
+            raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True
@@ -426,7 +433,8 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
             size = args[2]
             tried_sizes.append(size)
             if size != 262144:
-                raise OSError("Socket error")
+                msg = "Socket error"
+                raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True
@@ -617,7 +625,7 @@ async def test_plaintext_connection_fails_handshake(
         **kwargs,
     ) -> tuple[asyncio.Transport, APIPlaintextFrameHelperHandshakeException]:
         protocol: APIPlaintextFrameHelperHandshakeException = create_func()
-        protocol._transport = cast(asyncio.Transport, transport)
+        protocol._transport = cast("asyncio.Transport", transport)
         protocol._writelines = transport.writelines
         protocol.ready_future.set_exception(exception)
         connected.set()
@@ -661,7 +669,7 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (
+    with (  # noqa: PT012
         pytest.raises(raised_exception),
     ):
         await asyncio.sleep(0)
@@ -765,6 +773,77 @@ async def test_connect_wrong_name(
         await connect_task
 
     assert conn.is_connected is False
+
+
+def _send_plaintext_hello_with(
+    protocol: APIPlaintextFrameHelper, *, name: str, server_info: str = "esp"
+) -> None:
+    hello_response = HelloResponse()
+    hello_response.api_version_major = 1
+    hello_response.api_version_minor = 9
+    hello_response.name = name
+    hello_response.server_info = server_info
+    protocol.data_received(generate_plaintext_packet(hello_response))
+
+
+async def test_plaintext_hello_sanitizes_mismatched_name(
+    plaintext_connect_task_expected_name: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
+
+    _send_plaintext_hello_with(protocol, name="evil\r\nINJECTED\x1b[31m")
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await connect_task
+
+    raised = exc_info.value
+    assert "\r" not in str(raised)
+    assert "\n" not in str(raised)
+    assert "\x1b" not in str(raised)
+    assert raised.received_name == "evilINJECTED[31m"
+    assert conn.is_connected is False
+
+
+async def test_plaintext_hello_caps_oversize_mismatched_name(
+    plaintext_connect_task_expected_name: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
+
+    _send_plaintext_hello_with(protocol, name="a" * 4096)
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await connect_task
+
+    assert len(exc_info.value.received_name) == MAX_NAME_LEN
+    assert conn.is_connected is False
+
+
+async def test_plaintext_hello_sanitizes_matched_name_and_server_info(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    caplog.set_level(logging.DEBUG, logger="aioesphomeapi")
+    _send_plaintext_hello_with(
+        protocol,
+        name="device\r\n42",
+        server_info="esphome\r\nLOGGER WARNING something\x1b[31m",
+    )
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+    assert conn.is_connected
+    assert conn.received_name == "device42"
+    assert "\r" not in conn.received_name
+    assert "\x1b" not in caplog.text
+    assert "\r\nLOGGER WARNING" not in caplog.text
 
 
 async def test_force_disconnect_fails(
@@ -1184,6 +1263,28 @@ async def test_unknown_protobuf_message_type_logged(
     await asyncio.sleep(0)
 
 
+async def test_zero_protobuf_message_type_rejected(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test msg_type_proto=0 is skipped instead of wrapping to the last registered type."""
+    client, connection, _transport, protocol = api_client
+    caplog.set_level(logging.DEBUG)
+    client.set_debug(True)
+    message_with_zero_protobuf_number = (
+        b"\0" + _cached_varuint_to_bytes(0) + _cached_varuint_to_bytes(0)
+    )
+
+    mock_data_received(protocol, message_with_zero_protobuf_number)
+
+    assert "Skipping unknown message type 0" in caplog.text
+    assert connection.is_connected
+    connection.force_disconnect()
+    await asyncio.sleep(0)
+
+
 async def test_bad_protobuf_message_drops_connection(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1210,6 +1311,46 @@ async def test_bad_protobuf_message_drops_connection(
     )
     mock_data_received(protocol, message_with_bad_protobuf_data)
     assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert f"len={len(bytes_)}" in caplog.text
+    assert connection.is_connected is False
+
+
+async def test_bad_protobuf_message_truncates_payload_in_log(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A peer that sends a large malformed payload must not flood logs.
+
+    The 'Invalid protobuf message' log entry and ProtocolAPIError text
+    are capped at MAX_PROTOBUF_ERROR_DATA_BYTES; the total length is
+    still reported separately so the operator knows the real size.
+    """
+    client, connection, _transport, protocol = api_client
+    client.set_debug(True)
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
+
+    # Build a payload well above the truncation cap. The msg_type maps to
+    # TextSensorStateResponse (27) so process_packet attempts a real parse
+    # and raises a DecodeError on the crafted garbage.
+    payload = b"\xff" * (MAX_PROTOBUF_ERROR_DATA_BYTES * 4)
+    message_with_bad_protobuf_data = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(payload))
+        + _cached_varuint_to_bytes(27)
+        + payload
+    )
+    mock_data_received(protocol, message_with_bad_protobuf_data)
+
+    assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert f"len={len(payload)}" in caplog.text
+    expected_extra = len(payload) - MAX_PROTOBUF_ERROR_DATA_BYTES
+    assert f"...(+{expected_extra} bytes)" in caplog.text
+    # Full payload escaped (`\\xff` * payload_len) must not appear — that
+    # would be the pre-truncation behavior we are guarding against.
+    assert ("\\xff" * len(payload)) not in caplog.text
     assert connection.is_connected is False
 
 

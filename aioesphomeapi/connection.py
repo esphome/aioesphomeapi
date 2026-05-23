@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import CancelledError
-from collections.abc import Callable
 from dataclasses import astuple, dataclass
 import enum
 from functools import lru_cache, partial
@@ -14,14 +13,14 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 import aiohappyeyeballs
 from async_interrupt import interrupt
-from google.protobuf import message
 from google.protobuf.json_format import MessageToDict
 
 import aioesphomeapi.host_resolver as hr
 
+from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
-from .api_pb2 import (  # type: ignore  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
     DST_RULE_TYPE_JULIAN_NO_LEAP as DST_RULE_TYPE_JULIAN_NO_LEAP_PB,
     DST_RULE_TYPE_MONTH_WEEK_DAY as DST_RULE_TYPE_MONTH_WEEK_DAY_PB,
@@ -59,13 +58,20 @@ from .model import APIVersion, message_types_to_names
 from .posix_tz import DSTRule as DSTRuleParsed, DSTRuleType, parse_posix_tz
 from .timezone import get_timezone
 from .util import asyncio_timeout
-from .zeroconf import ZeroconfManager
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
+
+    from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
 MESSAGE_NUMBER_TO_PROTO: tuple[
     tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
 ] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
+_MESSAGE_NUMBER_TO_PROTO_LEN = len(MESSAGE_NUMBER_TO_PROTO)
 
 
 PREFERRED_BUFFER_SIZE = 2097152  # Set buffer limit to 2MB
@@ -112,6 +118,15 @@ CONNECT_REQUEST_TIMEOUT = 30.0
 TCP_CONNECT_TIMEOUT = 60.0
 
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
+
+# Cap on how many bytes of the offending peer payload we embed in the
+# "Invalid protobuf message" log entry and ProtocolAPIError text. A peer
+# can send up to MAX_PLAINTEXT_FRAME_SIZE (65535 bytes) or a 16-bit-length
+# noise frame of crafted garbage; with repr() escaping that balloons ~4x
+# in the log file. The truncated prefix is plenty for debugging the
+# message shape, and the total length is still reported separately.
+MAX_PROTOBUF_ERROR_DATA_BYTES = 255
+_MAX_PROTOBUF_ERROR_DATA_BYTES = MAX_PROTOBUF_ERROR_DATA_BYTES
 
 _WIN32 = sys.platform == "win32"
 
@@ -238,12 +253,12 @@ _handle_complex_message = handle_complex_message
 
 
 class APIConnection:
-    """This class represents _one_ connection to a remote native API device.
+    """Represent _one_ connection to a remote native API device.
 
     An instance of this class may only be used once, for every new connection
     a new instance should be established.
 
-    This class should only be created from APIClient and should not be used directly.
+    Only created from APIClient — do not instantiate directly.
     """
 
     __slots__ = (
@@ -329,7 +344,7 @@ class APIConnection:
         if self._frame_helper is not None:
             self._frame_helper.set_log_name(name)
 
-    def _cleanup(self) -> None:
+    def _cleanup(self) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         """Clean up all resources that have been allocated.
 
         Safe to call multiple times.
@@ -423,12 +438,10 @@ class APIConnection:
 
         if sock is None:
             if isinstance(last_exception, TimeoutError):
-                raise TimeoutAPIError(
-                    f"Timeout while connecting to {addrs}"
-                ) from last_exception
-            raise SocketAPIError(
-                f"Error connecting to {addrs}: {last_exception}"
-            ) from last_exception
+                msg = f"Timeout while connecting to {addrs}"
+                raise TimeoutAPIError(msg) from last_exception
+            msg = f"Error connecting to {addrs}: {last_exception}"
+            raise SocketAPIError(msg) from last_exception
 
         self._socket = sock
         sock.setblocking(False)
@@ -463,7 +476,7 @@ class APIConnection:
                 self._socket.setsockopt(
                     socket.SOL_SOCKET, socket.SO_RCVBUF, new_buffer_size
                 )
-            except OSError as err:  # noqa: PERF203
+            except OSError as err:
                 if new_buffer_size <= MIN_BUFFER_SIZE:
                     _LOGGER.warning(
                         "%s: Unable to increase the socket receive buffer size to %s; "
@@ -517,11 +530,11 @@ class APIConnection:
         try:
             await self._frame_helper.ready_future
         except TimeoutError as err:
-            raise TimeoutAPIError(
-                f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
-            ) from err
+            msg = f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
+            raise TimeoutAPIError(msg) from err
         except OSError as err:
-            raise HandshakeAPIError(f"Handshake failed: {err}") from err
+            msg = f"Handshake failed: {err}"
+            raise HandshakeAPIError(msg) from err
         finally:
             handshake_handle.cancel()
         self._set_connection_state(CONNECTION_STATE_HANDSHAKE_COMPLETE)
@@ -561,7 +574,7 @@ class APIConnection:
             _LOGGER.debug(
                 "%s: Successfully connected ('%s' API=%s.%s)",
                 self.log_name,
-                resp.server_info,
+                safe_label_str(resp.server_info, MAX_NAME_LEN),
                 resp.api_version_major,
                 resp.api_version_minor,
             )
@@ -572,15 +585,25 @@ class APIConnection:
                 self.log_name,
                 api_version.major,
             )
-            raise APIConnectionError(f"Incompatible API version ({api_version}).")
+            msg = f"Incompatible API version ({api_version})."
+            raise APIConnectionError(msg)
 
         self.api_version = api_version
         expected_name = self._params.expected_name
-        if received_name := resp.name:
-            if expected_name is not None and received_name != expected_name:
-                raise BadNameAPIError(
+        # Compare against the raw decoded value so a peer can't sneak past
+        # expected_name by appending non-printable bytes that the sanitizer
+        # would strip; only the value used for logs and for later self-
+        # storage gets sanitized + length-capped. Same pattern as
+        # _frame_helper/noise.py::_handle_hello.
+        if received_name_raw := resp.name:
+            received_name = safe_label_str(received_name_raw, MAX_NAME_LEN)
+            if expected_name is not None and received_name_raw != expected_name:
+                msg = (
                     f"Expected '{expected_name}' but server sent "
-                    f"a different name: '{received_name}'",
+                    f"a different name: '{received_name}'"
+                )
+                raise BadNameAPIError(
+                    msg,
                     received_name,
                 )
 
@@ -653,9 +676,8 @@ class APIConnection:
         and prepares the connection for the next step.
         """
         if self.connection_state is not CONNECTION_STATE_INITIALIZED:
-            raise RuntimeError(
-                "Connection can only be used once, connection is not in init state"
-            )
+            msg = "Connection can only be used once, connection is not in init state"
+            raise RuntimeError(msg)
 
         self._resolve_host_future = self._loop.create_future()
         try:
@@ -667,7 +689,7 @@ class APIConnection:
                     self._params.port,
                     self._params.zeroconf_manager,
                 )
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -691,9 +713,8 @@ class APIConnection:
         does not initialize the frame helper or send the hello message.
         """
         if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
-            raise RuntimeError(
-                "Connection must be in HOST_RESOLVED state to start connection"
-            )
+            msg = "Connection must be in HOST_RESOLVED state to start connection"
+            raise RuntimeError(msg)
 
         self._start_connect_future = self._loop.create_future()
         try:
@@ -701,7 +722,7 @@ class APIConnection:
                 self._start_connect_future, ConnectionInterruptedError, None
             ):
                 await self._connect_socket_connect(self._addrs_info)
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -787,16 +808,15 @@ class APIConnection:
         than starts the keep alive process.
         """
         if self.connection_state is not CONNECTION_STATE_SOCKET_OPENED:
-            raise RuntimeError(
-                "Connection must be in SOCKET_OPENED state to finish connection"
-            )
+            msg = "Connection must be in SOCKET_OPENED state to finish connection"
+            raise RuntimeError(msg)
         self._finish_connect_future = self._loop.create_future()
         try:
             async with interrupt(
                 self._finish_connect_future, ConnectionInterruptedError, None
             ):
                 await self._do_finish_connect(login)
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -835,9 +855,8 @@ class APIConnection:
     def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
-            raise ConnectionNotEstablishedAPIError(
-                f"Connection isn't established yet ({self.connection_state})"
-            )
+            error_msg = f"Connection isn't established yet ({self.connection_state})"
+            raise ConnectionNotEstablishedAPIError(error_msg)
 
         packets: list[tuple[int, bytes]] = [
             (msg_type[0], msg_type[1](msg))
@@ -958,9 +977,8 @@ class APIConnection:
         except TimeoutError as err:
             timeout_expired = True
             response_names = message_types_to_names(msg_types)
-            raise TimeoutAPIError(
-                f"Timeout waiting for {response_names} after {timeout}s"
-            ) from err
+            msg = f"Timeout waiting for {response_names} after {timeout}s"
+            raise TimeoutAPIError(msg) from err
         finally:
             if not timeout_expired:
                 timeout_handle.cancel()
@@ -1021,39 +1039,49 @@ class APIConnection:
         if self._fatal_exception is None:
             self._fatal_exception = err
 
-    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
+    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         """Process an incoming packet."""
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
         # extra care when modifying this method.
+        # Bounds-check before indexing: msg_type_proto is attacker-
+        # controlled, and `MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]`
+        # would otherwise wrap (0 -> -1) into the last registered class
+        # or raise an IndexError on every out-of-range value, both of
+        # which are avoidable on a hot path.
+        if msg_type_proto < 1 or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN:
+            if self._debug_enabled:
+                _LOGGER.debug(
+                    "%s: Skipping unknown message type %s",
+                    self.log_name,
+                    msg_type_proto,
+                )
+            return
+        # MESSAGE_NUMBER_TO_PROTO is 0-indexed but the message type is 1-indexed
+        klass, merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
+        msg = klass()
         try:
-            # MESSAGE_NUMBER_TO_PROTO is 0-indexed
-            # but the message type is 1-indexed
-            klass_merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
-            klass, merge = klass_merge
-            msg = klass()
             merge(msg, data)
         except Exception as e:
-            # IndexError will be very rare so we check for it
-            # after the broad exception catch to avoid having
-            # to check the exception type twice for the common case
-            if isinstance(e, IndexError):
-                if self._debug_enabled:
-                    _LOGGER.debug(
-                        "%s: Skipping unknown message type %s",
-                        self.log_name,
-                        msg_type_proto,
-                    )
-                return
+            data_len = len(data)
+            truncated = data[:_MAX_PROTOBUF_ERROR_DATA_BYTES]
+            suffix = (
+                ""
+                if data_len <= _MAX_PROTOBUF_ERROR_DATA_BYTES
+                else f"...(+{data_len - _MAX_PROTOBUF_ERROR_DATA_BYTES} bytes)"
+            )
             _LOGGER.exception(
-                "%s: Invalid protobuf message: type=%s data=%s",
+                "%s: Invalid protobuf message: type=%s len=%d data=%r%s",
                 self.log_name,
                 klass.__name__,
-                data,
+                data_len,
+                truncated,
+                suffix,
             )
             self.report_fatal_error(
                 ProtocolAPIError(
-                    f"Invalid protobuf message: type={klass.__name__} data={data!r}: {e}"
+                    f"Invalid protobuf message: type={klass.__name__} "
+                    f"len={data_len} data={truncated!r}{suffix}: {e}"
                 )
             )
             raise
@@ -1188,7 +1216,7 @@ class APIConnection:
         self._cleanup()
 
     def force_disconnect(self) -> None:
-        """Forcefully disconnect from the API."""
+        """Disconnect from the API immediately, without graceful shutdown."""
         self._expected_disconnect = True
         if self._handshake_complete and self._frame_helper is not None:
             # Still try to tell the esp to disconnect gracefully

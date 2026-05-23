@@ -5,7 +5,8 @@ set -euxo pipefail
 
 black --safe aioesphomeapi tests
 pylint aioesphomeapi
-flake8 aioesphomeapi
+ruff check aioesphomeapi tests
+ruff format --check aioesphomeapi tests
 isort aioesphomeapi tests
 mypy aioesphomeapi
 pytest tests
