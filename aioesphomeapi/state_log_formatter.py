@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from math import isnan
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,7 @@ from .model import (
     ClimateSwingMode,
     CoverState,
     DateState,
+    DateTimeState,
     Event,
     FanDirection,
     FanState,
@@ -25,6 +27,7 @@ from .model import (
     SelectState,
     SensorInfo,
     SensorState,
+    SirenState,
     SwitchState,
     TextSensorState,
     TextState,
@@ -97,6 +100,10 @@ def _format_switch(state: SwitchState, info: EntityInfo | None) -> str | None:
     return _header("switch", info, _on_off(state.state))
 
 
+def _format_siren(state: SirenState, info: EntityInfo | None) -> str | None:
+    return _header("siren", info, _on_off(state.state))
+
+
 def _format_text_sensor(state: TextSensorState, info: EntityInfo | None) -> str | None:
     if state.missing_state:
         return None
@@ -141,6 +148,20 @@ def _format_time(state: TimeState, info: EntityInfo | None) -> str | None:
     return _header(
         "datetime", info, f"{state.hour:02d}:{state.minute:02d}:{state.second:02d}"
     )
+
+
+def _format_datetime(state: DateTimeState, info: EntityInfo | None) -> str | None:
+    if state.missing_state:
+        return None
+    try:
+        # epoch_seconds is device-supplied; an out-of-range value must not
+        # crash the log viewer, so fall back to the raw epoch on failure.
+        value = datetime.fromtimestamp(state.epoch_seconds, tz=UTC).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    except (OverflowError, OSError, ValueError):
+        value = str(state.epoch_seconds)
+    return _header("datetime", info, value)
 
 
 def _format_cover(state: CoverState, info: EntityInfo | None) -> str | None:
@@ -322,6 +343,7 @@ _STATE_FORMATTERS: dict[type, Callable[..., str | None]] = {
     SensorState: _format_sensor,
     BinarySensorState: _format_binary_sensor,
     SwitchState: _format_switch,
+    SirenState: _format_siren,
     TextSensorState: _format_text_sensor,
     NumberState: _format_number,
     SelectState: _format_select,
@@ -330,6 +352,7 @@ _STATE_FORMATTERS: dict[type, Callable[..., str | None]] = {
     TextState: _format_text,
     DateState: _format_date,
     TimeState: _format_time,
+    DateTimeState: _format_datetime,
     CoverState: _format_cover,
     ValveState: _format_valve,
     FanState: _format_fan,

@@ -18,6 +18,7 @@ from aioesphomeapi.model import (
     CoverOperation,
     CoverState,
     DateState,
+    DateTimeState,
     Event,
     EventInfo,
     FanDirection,
@@ -31,6 +32,7 @@ from aioesphomeapi.model import (
     SelectState,
     SensorInfo,
     SensorState,
+    SirenState,
     SwitchState,
     TextSensorState,
     TextState,
@@ -97,6 +99,41 @@ def test_switch_off() -> None:
     info = BinarySensorInfo(name="Relay", key=1)
     state = SwitchState(key=1, state=False)
     assert format_state_log(state, info) == "[S][switch]: 'Relay' >> OFF"
+
+
+def test_siren_on() -> None:
+    info = BinarySensorInfo(name="Alarm", key=1)
+    state = SirenState(key=1, state=True)
+    assert format_state_log(state, info) == "[S][siren]: 'Alarm' >> ON"
+
+
+def test_siren_off() -> None:
+    info = BinarySensorInfo(name="Alarm", key=1)
+    state = SirenState(key=1, state=False)
+    assert format_state_log(state, info) == "[S][siren]: 'Alarm' >> OFF"
+
+
+def test_datetime_basic() -> None:
+    info = BinarySensorInfo(name="Next Run", key=1)
+    state = DateTimeState(key=1, epoch_seconds=1_700_000_000)
+    assert (
+        format_state_log(state, info)
+        == "[S][datetime]: 'Next Run' >> 2023-11-14 22:13:20"
+    )
+
+
+def test_datetime_missing() -> None:
+    state = DateTimeState(key=1, missing_state=True)
+    assert format_state_log(state, None) is None
+
+
+def test_datetime_out_of_range_falls_back_to_epoch() -> None:
+    info = BinarySensorInfo(name="Next Run", key=1)
+    state = DateTimeState(key=1, epoch_seconds=10**18)
+    assert (
+        format_state_log(state, info)
+        == "[S][datetime]: 'Next Run' >> 1000000000000000000"
+    )
 
 
 def test_text_sensor_basic() -> None:
