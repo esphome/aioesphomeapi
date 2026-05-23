@@ -1,12 +1,7 @@
 """Tests for the provide_time flag on APIClient / ConnectionParams.
 
 When provide_time=True (the default) the connection registers a handler
-for GetTimeRequest and responds with the current epoch time, keeping the
-device's clock in sync with the client.
-
-When provide_time=False the handler is not registered, leaving the
-device's clock untouched — useful for ESPHome's own log runner which
-should not override timezone settings managed by Home Assistant.
+device's clock in sync with the client, otherwise ignores time requests.
 """
 
 from __future__ import annotations
@@ -22,11 +17,6 @@ from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
 from .common import get_mock_connection_params
 from .conftest import PatchableAPIClient, PatchableAPIConnection, mock_on_stop
 
-# ---------------------------------------------------------------------------
-# Tests: APIClient stores the flag correctly on _params
-# ---------------------------------------------------------------------------
-
-
 async def test_api_client_provide_time_default() -> None:
     """provide_time should default to True."""
     cli = PatchableAPIClient(address="127.0.0.1", port=6052, password=None)
@@ -39,11 +29,6 @@ async def test_api_client_provide_time_false() -> None:
         address="127.0.0.1", port=6052, password=None, provide_time=False
     )
     assert cli._params.provide_time is False
-
-
-# ---------------------------------------------------------------------------
-# Tests: _register_internal_message_handlers respects the flag
-# ---------------------------------------------------------------------------
 
 
 async def test_get_time_handler_registered_when_provide_time_true() -> None:
@@ -80,11 +65,6 @@ async def test_get_time_handler_not_registered_when_provide_time_false() -> None
     assert GetTimeRequest not in registered_types, (
         "GetTimeRequest handler must not be registered when provide_time=False"
     )
-
-
-# ---------------------------------------------------------------------------
-# Tests: the time response handler sends a plausible epoch value
-# ---------------------------------------------------------------------------
 
 
 async def test_handle_get_time_request_sends_response() -> None:
