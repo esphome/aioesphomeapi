@@ -94,7 +94,7 @@ async def test_handle_get_time_request_sends_response() -> None:
     conn._handshake_complete = True
 
     sent_messages: list = []
-    conn.send_messages = lambda msgs: sent_messages.extend(msgs)  # type: ignore[method-assign]
+    conn.send_messages = sent_messages.extend  # type: ignore[method-assign]
 
     before = int(time.time())
     conn._handle_get_time_request_internal(GetTimeRequest())
@@ -106,4 +106,3 @@ async def test_handle_get_time_request_sends_response() -> None:
     assert before <= response.epoch_seconds <= after + 1, (
         f"epoch_seconds {response.epoch_seconds} not in expected range [{before}, {after}]"
     )
-
