@@ -1788,6 +1788,7 @@ class ESPHomeBluetoothGATTServices:
 class BluetoothConnectionsFree(APIModelBase):
     free: int = 0
     limit: int = 0
+    allocated: list[int] = converter_field(default_factory=list, converter=list)
 
 
 @_frozen_dataclass_decorator
