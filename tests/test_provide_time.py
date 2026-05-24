@@ -10,7 +10,7 @@ import asyncio
 from dataclasses import replace
 from functools import partial
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     GetTimeRequest,
@@ -50,7 +50,7 @@ async def _make_connected_conn(
     provide_time: bool,
     resolve_host,
     aiohappyeyeballs_start_connection,
-) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
+) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     """Set up a plaintext-connected PatchableAPIConnection with provide_time set."""
     loop = asyncio.get_running_loop()
     transport = MagicMock()
@@ -67,7 +67,7 @@ async def _make_connected_conn(
 
 
 def patch_create_connection(loop, transport, connected):
-    return __import__("unittest.mock", fromlist=["patch"]).patch.object(
+    return patch.object(
         loop,
         "create_connection",
         side_effect=partial(_create_mock_transport_protocol, transport, connected),
