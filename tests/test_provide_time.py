@@ -12,7 +12,10 @@ from functools import partial
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-from aioesphomeapi.api_pb2 import GetTimeRequest  # type: ignore[attr-defined]
+from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
+    GetTimeRequest,
+    GetTimeResponse,
+)
 
 from .common import (
     _create_mock_transport_protocol,
@@ -37,9 +40,7 @@ async def test_api_client_provide_time_default() -> None:
 
 async def test_api_client_provide_time_false() -> None:
     """provide_time=False should be stored on _params."""
-    cli = PatchableAPIClient(
-        address="127.0.0.1", port=6052, password=None, provide_time=False
-    )
+    cli = PatchableAPIClient(address="127.0.0.1", port=6052, password=None, provide_time=False)
     assert cli._params.provide_time is False
 
 
@@ -47,7 +48,7 @@ async def _make_connected_conn(
     provide_time: bool,
     resolve_host,
     aiohappyeyeballs_start_connection,
-) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
+) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task]:
     """Set up a plaintext-connected PatchableAPIConnection with provide_time set."""
     loop = asyncio.get_running_loop()
     transport = MagicMock()
@@ -88,8 +89,14 @@ async def test_get_time_response_sent_when_provide_time_true(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
 
-        assert transport.write.called or transport.writelines.called, (
-            "Expected transport.write to be called with a GetTimeResponse"
+        assert transport.writelines.call_count == 1, (
+            "Expected exactly one frame to be written (the GetTimeResponse)"
+        )
+        raw = b"".join(transport.writelines.call_args[0][0])
+        resp = GetTimeResponse()
+        resp.ParseFromString(raw[3:])  # strip 3-byte plaintext frame header
+        assert resp.epoch_seconds > 0, (
+            f"Expected a valid epoch_seconds in GetTimeResponse, got {resp.epoch_seconds}"
         )
     finally:
         conn.force_disconnect()
