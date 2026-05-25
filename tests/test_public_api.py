@@ -24,14 +24,25 @@ def _model_public_defined_names() -> set[str]:
     return {n for n in names if not n.startswith("_")}
 
 
+# Public-named but intentionally internal: defined in model.py yet kept out of
+# __all__ so ``from .model import *`` does not re-export them. Real consumers
+# reach them via explicit imports, which __all__ does not gate.
+_NOT_EXPORTED = {
+    "COMPONENT_TYPE_TO_INFO",
+    "cached_fields",
+    "converter_field",
+    "message_types_to_names",
+}
+
+
 def test_model_all_matches_defined_names() -> None:
     """__all__ stays in sync with the module's own public definitions.
 
-    Guards both directions: a new public class added to model.py must be
-    added to __all__ (else it silently stops being re-exported), and no
-    imported name may be listed.
+    A new public class added to model.py must be added to __all__ (else it
+    silently stops being re-exported) or listed in _NOT_EXPORTED, and no
+    imported name may appear in __all__.
     """
-    assert set(model.__all__) == _model_public_defined_names()
+    assert set(model.__all__) == _model_public_defined_names() - _NOT_EXPORTED
 
 
 def test_stdlib_imports_not_leaked_into_public_api() -> None:
