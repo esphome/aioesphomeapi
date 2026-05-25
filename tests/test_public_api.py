@@ -11,7 +11,8 @@ from aioesphomeapi import model
 
 def _model_public_defined_names() -> set[str]:
     """Public top-level names defined (not imported) in model.py."""
-    tree = ast.parse(Path(model.__file__).read_text())
+    path = Path(model.__file__)
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     names: set[str] = set()
     for node in tree.body:
         if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -69,6 +70,6 @@ def test_representative_model_classes_stay_exported() -> None:
         assert hasattr(aioesphomeapi, name)
 
 
-def test_fix_float_helper_remains_public() -> None:
-    """The float-normalization helper stays reachable at the package root."""
-    assert hasattr(aioesphomeapi, "fix_float_single_double_conversion")
+def test_fix_float_helper_not_public() -> None:
+    """The float-normalization helper is not exported at the package root."""
+    assert not hasattr(aioesphomeapi, "fix_float_single_double_conversion")
