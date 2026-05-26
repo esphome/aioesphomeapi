@@ -182,7 +182,7 @@ from .common import (
 from .conftest import PatchableAPIClient, PatchableAPIConnection
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
+    from collections.abc import Awaitable, Callable, Coroutine
 
     from google.protobuf import message
 
@@ -4223,6 +4223,193 @@ async def test_bluetooth_device_connect_base_exception_propagates(
     # Ensure the message handler was unsubscribed.
     handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
     assert handlers_after == handlers_before
+
+
+async def test_bluetooth_device_connect_cleanup_contract(  # noqa: C901
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Pin the per-branch cleanup contract for ``bluetooth_device_connect``.
+
+    Each outcome (success, timeout, task-cancelled, future-cancelled,
+    base-exception) must call ``unsub`` and ``_bluetooth_disconnect_no_wait``
+    exactly the documented number of times and leave no leaked message
+    handlers or pending timeout handles.
+    """
+    client, connection, _transport, protocol = api_client
+
+    async def _run_branch(
+        trigger: Callable[
+            [asyncio.Task[Callable[[], None]], asyncio.Future[None]],
+            Awaitable[None],
+        ],
+        *,
+        timeout: float,
+        disconnect_timeout: float,
+        expected_unsub_calls: int,
+        expected_disconnect_calls: int,
+        expected_exception: type[BaseException] | None,
+    ) -> None:
+        handlers_before = len(
+            list(itertools.chain(*connection._message_handlers.values()))
+        )
+
+        original_callback = client._get_connection().send_message_callback_response
+        unsub_calls = 0
+
+        def counting_send_message_callback_response(
+            *args: Any, **kwargs: Any
+        ) -> Callable[[], None]:
+            real_unsub = original_callback(*args, **kwargs)
+
+            def counted_unsub() -> None:
+                nonlocal unsub_calls
+                unsub_calls += 1
+                real_unsub()
+
+            return counted_unsub
+
+        original_create_future = client._loop.create_future
+        captured: list[asyncio.Future[None]] = []
+
+        def capturing_create_future() -> asyncio.Future[None]:
+            fut = original_create_future()
+            captured.append(fut)
+            return fut
+
+        with (
+            patch.object(
+                client._get_connection(),
+                "send_message_callback_response",
+                counting_send_message_callback_response,
+            ),
+            patch.object(client._loop, "create_future", capturing_create_future),
+            patch.object(
+                client,
+                "_bluetooth_disconnect_no_wait",
+                wraps=client._bluetooth_disconnect_no_wait,
+            ) as disconnect_no_wait,
+        ):
+            connect_task = asyncio.create_task(
+                client.bluetooth_device_connect(
+                    1234,
+                    lambda connected, mtu, error: None,
+                    timeout=timeout,
+                    feature_flags=BluetoothProxyFeature.REMOTE_CACHING,
+                    has_cache=False,
+                    disconnect_timeout=disconnect_timeout,
+                    address_type=1,
+                )
+            )
+            await asyncio.sleep(0)
+            assert len(captured) == 1
+
+            if expected_exception is None:
+                await trigger(connect_task, captured[0])
+                cancel = await connect_task
+                # Success path: caller still owns unsub.
+                cancel()
+            else:
+                await trigger(connect_task, captured[0])
+                with pytest.raises(expected_exception):
+                    await connect_task
+
+        assert unsub_calls == expected_unsub_calls, (
+            f"expected {expected_unsub_calls} unsub calls, got {unsub_calls}"
+        )
+        assert disconnect_no_wait.call_count == expected_disconnect_calls, (
+            f"expected {expected_disconnect_calls} "
+            f"_bluetooth_disconnect_no_wait calls, got {disconnect_no_wait.call_count}"
+        )
+        handlers_after = len(
+            list(itertools.chain(*connection._message_handlers.values()))
+        )
+        assert handlers_after == handlers_before, (
+            "message handler leak — cleanup did not unsub"
+        )
+
+    async def _success(
+        _task: asyncio.Task[Callable[[], None]], _fut: asyncio.Future[None]
+    ) -> None:
+        mock_data_received(
+            protocol,
+            generate_plaintext_packet(
+                BluetoothDeviceConnectionResponse(
+                    address=1234, connected=True, mtu=23, error=0
+                )
+            ),
+        )
+
+    async def _timeout(
+        _task: asyncio.Task[Callable[[], None]], _fut: asyncio.Future[None]
+    ) -> None:
+        for _ in range(4):
+            await asyncio.sleep(0)
+
+    async def _task_cancel(
+        task: asyncio.Task[Callable[[], None]], _fut: asyncio.Future[None]
+    ) -> None:
+        task.cancel()
+
+    async def _future_cancel(
+        _task: asyncio.Task[Callable[[], None]], fut: asyncio.Future[None]
+    ) -> None:
+        fut.cancel()
+
+    class _Boom(BaseException):
+        pass
+
+    async def _base_exception(
+        _task: asyncio.Task[Callable[[], None]], fut: asyncio.Future[None]
+    ) -> None:
+        fut.set_exception(_Boom("boom"))
+
+    # Success: handler stays subscribed (caller cleans up via returned unsub).
+    await _run_branch(
+        _success,
+        timeout=1,
+        disconnect_timeout=1,
+        expected_unsub_calls=1,  # one from the test's final cancel() call
+        expected_disconnect_calls=0,
+        expected_exception=None,
+    )
+    # Timeout: unsub once, disconnect via guarded path (NOT _no_wait).
+    await _run_branch(
+        _timeout,
+        timeout=0,
+        disconnect_timeout=0,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=0,
+        expected_exception=TimeoutAPIError,
+    )
+    # Task cancel: unsub + disconnect_no_wait once each, CancelledError propagates.
+    await _run_branch(
+        _task_cancel,
+        timeout=10,
+        disconnect_timeout=10,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=1,
+        expected_exception=asyncio.CancelledError,
+    )
+    # External future cancel: same cleanup, but converted to APIConnectionError.
+    await _run_branch(
+        _future_cancel,
+        timeout=10,
+        disconnect_timeout=10,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=1,
+        expected_exception=APIConnectionError,
+    )
+    # BaseException (non-Cancelled): same cleanup, original exception propagates.
+    await _run_branch(
+        _base_exception,
+        timeout=10,
+        disconnect_timeout=10,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=1,
+        expected_exception=_Boom,
+    )
 
 
 async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
