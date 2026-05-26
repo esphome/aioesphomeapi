@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from functools import cache
+from functools import cache, lru_cache
 from importlib import resources
 import logging
 
@@ -71,7 +71,7 @@ def _get_local_timezone() -> str:
         return ""
 
 
-@cache
+@lru_cache(maxsize=64)
 def iana_to_posix_tz(iana_key: str) -> str:
     """Convert IANA timezone key to POSIX TZ string.
 
