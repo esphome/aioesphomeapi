@@ -71,6 +71,7 @@ def _get_local_timezone() -> str:
         return ""
 
 
+@cache
 def iana_to_posix_tz(iana_key: str) -> str:
     """Convert IANA timezone key to POSIX TZ string.
 
@@ -115,12 +116,7 @@ async def get_timezone(iana_key: str | None) -> str:
         Returns empty string if timezone cannot be determined.
 
     """
-    if iana_key:
-
-        @singleton(f"get_timezone_{iana_key}")
-        async def _get_iana_timezone() -> str:
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(None, iana_to_posix_tz, iana_key)
-
-        return await _get_iana_timezone()
-    return await get_local_timezone()
+    if not iana_key:
+        return await get_local_timezone()
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, iana_to_posix_tz, iana_key)

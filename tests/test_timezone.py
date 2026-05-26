@@ -23,9 +23,11 @@ def clear_caches() -> None:
     """Clear caches before and after each test."""
     _SINGLETON_CACHE.clear()
     _get_local_timezone.cache_clear()
+    iana_to_posix_tz.cache_clear()
     yield
     _SINGLETON_CACHE.clear()
     _get_local_timezone.cache_clear()
+    iana_to_posix_tz.cache_clear()
 
 
 def test_extract_tz_string_valid() -> None:
@@ -246,7 +248,25 @@ def test_iana_to_posix_tz_success(mock_extract, mock_load) -> None:
     result2 = iana_to_posix_tz("America/Chicago")
     assert result2 == "CST6CDT,M3.2.0,M11.1.0"
 
-    assert mock_load.call_count == 2
+    assert mock_load.call_count == 1
+
+
+def test_iana_to_posix_tz_caches_per_key() -> None:
+    """lru_cache pins one result per IANA key, distinct keys decode separately."""
+    with (
+        patch("aioesphomeapi.timezone._load_tzdata") as mock_load,
+        patch("aioesphomeapi.timezone._extract_tz_string") as mock_extract,
+    ):
+        mock_load.return_value = b"tzdata"
+        mock_extract.side_effect = lambda _tzdata: "TZ-FOR-LAST-KEY"
+
+        iana_to_posix_tz("America/Chicago")
+        iana_to_posix_tz("America/Chicago")
+        iana_to_posix_tz("Europe/London")
+        iana_to_posix_tz("Europe/London")
+
+        assert mock_load.call_count == 2
+        assert mock_extract.call_count == 2
 
 
 @patch("aioesphomeapi.timezone._load_tzdata")
@@ -301,27 +321,64 @@ async def test_get_timezone_with_empty_key() -> None:
 
 
 async def test_get_timezone_caching() -> None:
-    """Test that get_timezone properly caches IANA timezone conversions."""
+    """Repeated calls per key share one decode; distinct keys each decode once."""
+    with (
+        patch("aioesphomeapi.timezone._load_tzdata") as mock_load,
+        patch("aioesphomeapi.timezone._extract_tz_string") as mock_extract,
+    ):
+        mock_load.return_value = b"tzdata"
+        mock_extract.return_value = "CST6CDT,M3.2.0,M11.1.0"
+
+        assert await get_timezone("America/Chicago") == "CST6CDT,M3.2.0,M11.1.0"
+        assert await get_timezone("America/Chicago") == "CST6CDT,M3.2.0,M11.1.0"
+        assert mock_load.call_count == 1
+
+        assert await get_timezone("Europe/London") == "CST6CDT,M3.2.0,M11.1.0"
+        assert mock_load.call_count == 2
+
+
+async def test_get_timezone_runs_in_executor() -> None:
+    """IANA conversion is dispatched to the loop's default executor (non-blocking)."""
+    loop = asyncio.get_running_loop()
+    seen: list[object] = []
+
+    real_run_in_executor = loop.run_in_executor
+
+    def spy(executor, func, *args):
+        seen.append((executor, func, args))
+        return real_run_in_executor(executor, func, *args)
+
+    with (
+        patch.object(loop, "run_in_executor", side_effect=spy),
+        patch("aioesphomeapi.timezone._load_tzdata", return_value=None),
+    ):
+        await get_timezone("America/Chicago")
+
+    assert len(seen) == 1
+    executor, func, args = seen[0]
+    assert executor is None
+    assert func is iana_to_posix_tz
+    assert args == ("America/Chicago",)
+
+
+async def test_get_timezone_concurrent_calls_share_cache() -> None:
+    """Concurrent get_timezone calls with the same IANA key share the cached result."""
     call_count = 0
 
-    def mock_convert(key: str) -> str:
+    def slow_load(_iana_key: str) -> bytes:
         nonlocal call_count
         call_count += 1
-        return "CST6CDT,M3.2.0,M11.1.0"
+        time.sleep(0.01)
+        return b"tzdata\nCST6CDT,M3.2.0,M11.1.0\n"
 
-    with patch("aioesphomeapi.timezone.iana_to_posix_tz", mock_convert):
-        # First call
-        result1 = await get_timezone("America/Chicago")
-        assert result1 == "CST6CDT,M3.2.0,M11.1.0"
+    with patch("aioesphomeapi.timezone._load_tzdata", side_effect=slow_load):
+        results = await asyncio.gather(
+            get_timezone("America/Chicago"),
+            get_timezone("America/Chicago"),
+            get_timezone("America/Chicago"),
+        )
 
-        # Second call with same key - should be cached
-        result2 = await get_timezone("America/Chicago")
-        assert result2 == "CST6CDT,M3.2.0,M11.1.0"
-
-        # Should only be called once due to singleton caching
-        assert call_count == 1
-
-        # Different timezone should trigger another call
-        result3 = await get_timezone("Europe/London")
-        assert result3 == "CST6CDT,M3.2.0,M11.1.0"  # Mock returns same value
-        assert call_count == 2
+    assert results == ["CST6CDT,M3.2.0,M11.1.0"] * 3
+    # First completer populates lru_cache; later calls (started before the
+    # cache was warm) re-run the decode but produce identical output.
+    assert 1 <= call_count <= 3
