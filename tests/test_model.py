@@ -78,6 +78,8 @@ from aioesphomeapi.api_pb2 import (
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
+    VoiceAssistantWakeWord as VoiceAssistantWakeWordPb,
     WaterHeaterStateResponse,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
@@ -138,6 +140,7 @@ from aioesphomeapi.model import (
     MediaPlayerEntityFeature,
     MediaPlayerEntityState,
     MediaPlayerInfo,
+    MediaPlayerSupportedFormat as MediaPlayerSupportedFormatModel,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     NumberInfo,
     NumberState,
@@ -177,6 +180,7 @@ from aioesphomeapi.model import (
     ValveInfo,
     ValveState,
     VoiceAssistantConfigurationResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
     WaterHeaterFeature,
@@ -2447,6 +2451,113 @@ def test_lock_state_enum_is_dense_and_unique() -> None:
     assert values == list(range(len(values))), (
         f"LockState must be contiguous from 0; got {values}"
     )
+
+
+_GATT_UUID_PB = [0x12345678AABBCCDD, 0x1122334455667788]
+_GATT_UUID_STR = "12345678-aabb-ccdd-1122-334455667788"
+
+
+@pytest.mark.parametrize(
+    ("model_cls", "pb_factory", "dict_input"),
+    [
+        (
+            AreaInfo,
+            lambda: AreaInfoProto(area_id=7, name="Hall"),
+            {"area_id": 7, "name": "Hall"},
+        ),
+        (
+            SubDeviceInfo,
+            lambda: SubDeviceInfoProto(device_id=42, name="Sub", area_id=1),
+            {"device_id": 42, "name": "Sub", "area_id": 1},
+        ),
+        (
+            SerialProxyInfo,
+            lambda: SerialProxyInfoPb(name="UART", port_type=SerialProxyPortType.RS232),
+            {"name": "UART", "port_type": SerialProxyPortType.RS232},
+        ),
+        (
+            MediaPlayerSupportedFormatModel,
+            lambda: MediaPlayerSupportedFormat(
+                format="flac",
+                sample_rate=48000,
+                num_channels=2,
+                purpose=1,
+                sample_bytes=2,
+            ),
+            {
+                "format": "flac",
+                "sample_rate": 48000,
+                "num_channels": 2,
+                "purpose": 1,
+                "sample_bytes": 2,
+            },
+        ),
+        (
+            UserServiceArg,
+            lambda: ListEntitiesServicesArgument(
+                name="arg", type=ServiceArgType.SERVICE_ARG_TYPE_INT
+            ),
+            {"name": "arg", "type": UserServiceArgType.INT},
+        ),
+        (
+            BluetoothGATTDescriptorModel,
+            lambda: BluetoothGATTDescriptor(uuid=_GATT_UUID_PB, handle=5),
+            {"uuid": _GATT_UUID_STR, "handle": 5},
+        ),
+        (
+            BluetoothGATTCharacteristicModel,
+            lambda: BluetoothGATTCharacteristic(
+                uuid=_GATT_UUID_PB, handle=6, properties=2
+            ),
+            {"uuid": _GATT_UUID_STR, "handle": 6, "properties": 2},
+        ),
+        (
+            BluetoothGATTServiceModel,
+            lambda: BluetoothGATTServicePb(uuid=_GATT_UUID_PB, handle=7),
+            {"uuid": _GATT_UUID_STR, "handle": 7},
+        ),
+        (
+            VoiceAssistantWakeWord,
+            lambda: VoiceAssistantWakeWordPb(
+                id="1", wake_word="okay nabu", trained_languages=["en"]
+            ),
+            {"id": "1", "wake_word": "okay nabu", "trained_languages": ["en"]},
+        ),
+        (
+            VoiceAssistantExternalWakeWord,
+            lambda: VoiceAssistantExternalWakeWordPb(
+                id="2",
+                wake_word="hello",
+                trained_languages=["en"],
+                model_type="micro",
+                model_size=512,
+                model_hash="abc",
+                url="https://example.com/m.bin",
+            ),
+            {
+                "id": "2",
+                "wake_word": "hello",
+                "trained_languages": ["en"],
+                "model_type": "micro",
+                "model_size": 512,
+                "model_hash": "abc",
+                "url": "https://example.com/m.bin",
+            },
+        ),
+    ],
+)
+def test_convert_list_dispatch_parity(model_cls, pb_factory, dict_input) -> None:
+    """Pin that convert_list dispatches dicts to from_dict and pbs to from_pb."""
+    assert model_cls.convert_list([]) == []
+
+    expected = model_cls.from_dict(dict(dict_input))
+    pb_result = model_cls.convert_list([pb_factory()])
+    dict_result = model_cls.convert_list([dict(dict_input)])
+    mixed_result = model_cls.convert_list([pb_factory(), dict(dict_input)])
+
+    assert pb_result == [expected]
+    assert dict_result == [expected]
+    assert mixed_result == [expected, expected]
 
 
 def test_all_entity_info_subclasses_registered() -> None:
