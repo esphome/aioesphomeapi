@@ -28,7 +28,6 @@ def _model_public_defined_names() -> set[str]:
 # __all__ so ``from .model import *`` does not re-export them. Real consumers
 # reach them via explicit imports, which __all__ does not gate.
 _NOT_EXPORTED = {
-    "COMPONENT_TYPE_TO_INFO",
     "cached_fields",
     "converter_field",
     "message_types_to_names",
@@ -70,6 +69,7 @@ def test_representative_model_classes_stay_exported() -> None:
     """Re-exported model classes remain importable from the top-level package."""
     for name in (
         "APIVersion",
+        "COMPONENT_TYPE_TO_INFO",
         "DeviceInfo",
         "EntityInfo",
         "ClimateInfo",
