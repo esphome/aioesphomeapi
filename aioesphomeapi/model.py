@@ -84,6 +84,12 @@ class APIModelBase:
     def from_pb(cls, data: Any) -> Self:
         return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
 
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[Self]:
+        return [
+            cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x) for x in value
+        ]
+
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
@@ -186,16 +192,6 @@ class AreaInfo(APIModelBase):
     name: str = ""
 
     @classmethod
-    def convert_list(cls, value: list[Any]) -> list[AreaInfo]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(AreaInfo.from_dict(x))
-            else:
-                ret.append(AreaInfo.from_pb(x))
-        return ret
-
-    @classmethod
     def convert(cls, value: Any) -> AreaInfo:
         if isinstance(value, dict):
             return cls.from_dict(value)
@@ -207,16 +203,6 @@ class SubDeviceInfo(APIModelBase):
     device_id: int = 0
     name: str = ""
     area_id: int = 0
-
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[SubDeviceInfo]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(SubDeviceInfo.from_dict(x))
-            else:
-                ret.append(SubDeviceInfo.from_pb(x))
-        return ret
 
 
 class SerialProxyPortType(APIIntEnum):
@@ -231,16 +217,6 @@ class SerialProxyInfo(APIModelBase):
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
     )
-
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[SerialProxyInfo]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(SerialProxyInfo.from_dict(x))
-            else:
-                ret.append(SerialProxyInfo.from_pb(x))
-        return ret
 
 
 @_frozen_dataclass_decorator
@@ -1061,16 +1037,6 @@ class MediaPlayerSupportedFormat(APIModelBase):
     )
     sample_bytes: int = 0
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[MediaPlayerSupportedFormat]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(MediaPlayerSupportedFormat.from_dict(x))
-            else:
-                ret.append(MediaPlayerSupportedFormat.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
@@ -1668,16 +1634,6 @@ class BluetoothGATTDescriptor(APIModelBase):
             data["uuid"] = _join_split_uuid(data["uuid"])
         return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTDescriptor]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class BluetoothGATTCharacteristic(APIModelBase):
@@ -1713,16 +1669,6 @@ class BluetoothGATTCharacteristic(APIModelBase):
             data["uuid"] = _join_split_uuid(data["uuid"])
         return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTCharacteristic]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class BluetoothGATTService(APIModelBase):
@@ -1756,16 +1702,6 @@ class BluetoothGATTService(APIModelBase):
             data = data.copy()
             data["uuid"] = _join_split_uuid(data["uuid"])
         return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
-
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTService]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
-        return ret
 
 
 @_frozen_dataclass_decorator
@@ -1877,16 +1813,6 @@ class VoiceAssistantWakeWord(APIModelBase):
     wake_word: str
     trained_languages: list[str]
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantWakeWord]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(VoiceAssistantWakeWord.from_dict(x))
-            else:
-                ret.append(VoiceAssistantWakeWord.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class VoiceAssistantExternalWakeWord(APIModelBase):
@@ -1897,16 +1823,6 @@ class VoiceAssistantExternalWakeWord(APIModelBase):
     model_size: int
     model_hash: str
     url: str
-
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantExternalWakeWord]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(VoiceAssistantExternalWakeWord.from_dict(x))
-            else:
-                ret.append(VoiceAssistantExternalWakeWord.from_pb(x))
-        return ret
 
 
 @_frozen_dataclass_decorator
