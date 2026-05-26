@@ -1307,6 +1307,89 @@ def test_bluetooth_gatt_from_pb_already_model() -> None:
     assert result is service  # Should return the same instance
 
 
+_GATT_PARITY_CASES = [
+    pytest.param(
+        BluetoothGATTDescriptorModel,
+        BluetoothGATTDescriptor,
+        id="descriptor",
+    ),
+    pytest.param(
+        BluetoothGATTCharacteristicModel,
+        BluetoothGATTCharacteristic,
+        id="characteristic",
+    ),
+    pytest.param(
+        BluetoothGATTServiceModel,
+        BluetoothGATTServicePb,
+        id="service",
+    ),
+]
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_dict_split_uuid_parity(model_cls, pb_cls) -> None:
+    result = model_cls.from_dict({"uuid": [1, 2], "handle": 9})
+    assert result.uuid == "00000000-0000-0001-0000-000000000002"
+    assert result.handle == 9
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_dict_empty_uuid_parity(model_cls, pb_cls) -> None:
+    result = model_cls.from_dict({"uuid": [], "handle": 0})
+    assert result.uuid == "00000000-0000-0000-0000-000000000000"
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_dict_string_uuid_passthrough(model_cls, pb_cls) -> None:
+    uuid_str = "12345678-9abc-def0-1122-334455667788"
+    result = model_cls.from_dict({"uuid": uuid_str, "handle": 1})
+    assert result.uuid == uuid_str
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_dict_does_not_mutate_input(model_cls, pb_cls) -> None:
+    original = {"uuid": [1, 2], "handle": 9}
+    snapshot = {"uuid": [1, 2], "handle": 9}
+    model_cls.from_dict(original)
+    assert original == snapshot
+    assert original["uuid"] is snapshot["uuid"] or original["uuid"] == snapshot["uuid"]
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_pb_short_uuid_parity(model_cls, pb_cls) -> None:
+    pb = pb_cls()
+    pb.short_uuid = 0x2902
+    pb.handle = 7
+    result = model_cls.from_pb(pb)
+    assert result.uuid == "00002902-0000-1000-8000-00805f9b34fb"
+    assert result.handle == 7
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_pb_split_uuid_parity(model_cls, pb_cls) -> None:
+    pb = pb_cls()
+    pb.uuid.extend([0x123456789ABCDEF0, 0x1122334455667788])
+    pb.handle = 5
+    result = model_cls.from_pb(pb)
+    assert result.uuid == "12345678-9abc-def0-1122-334455667788"
+    assert result.handle == 5
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_pb_empty_uuid_parity(model_cls, pb_cls) -> None:
+    pb = pb_cls()
+    pb.handle = 3
+    result = model_cls.from_pb(pb)
+    assert result.uuid == "00000000-0000-0000-0000-000000000000"
+    assert result.handle == 3
+
+
+@pytest.mark.parametrize(("model_cls", "pb_cls"), _GATT_PARITY_CASES)
+def test_gatt_from_pb_returns_model_instance_unchanged(model_cls, pb_cls) -> None:
+    instance = model_cls(uuid="00002a00-0000-1000-8000-00805f9b34fb", handle=1)
+    assert model_cls.from_pb(instance) is instance
+
+
 def test_area_info_convert_list() -> None:
     """Test list conversion for AreaInfo."""
     device_info = DeviceInfo(
