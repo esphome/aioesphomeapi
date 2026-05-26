@@ -859,7 +859,7 @@ class APIClient(APIClientBase):
         """Set the Bluetooth scanner mode."""
         self._get_connection().send_message(BluetoothScannerSetModeRequest(mode=mode))
 
-    async def bluetooth_device_connect(  # noqa: C901  # pylint: disable=too-many-locals, too-many-branches
+    async def bluetooth_device_connect(  # noqa: C901  # pylint: disable=too-many-locals
         self,
         address: int,
         on_bluetooth_connection_state: Callable[[bool, int, int], None],
@@ -923,22 +923,16 @@ class APIClient(APIClientBase):
         timeout_handle = loop.call_at(
             loop.time() + timeout, handle_timeout, connect_future
         )
-        timeout_expired = False
-        connect_ok = False
-        unhandled_exception = False
         try:
             await connect_future
-            connect_ok = True
         except TimeoutError as err:
-            # If the timeout expires, make sure
-            # to unsub before calling _bluetooth_device_disconnect_guard_timeout
-            # so that the disconnect message is not propagated back to the caller
-            # since we are going to raise a TimeoutAPIError.
+            # Unsub before disconnecting so the disconnect message is not
+            # propagated back to the caller — we are going to raise a
+            # TimeoutAPIError instead.
             unsub()
-            timeout_expired = True
-            # Disconnect before raising the exception to ensure
-            # the slot is recovered before the timeout is raised
-            # to avoid race were we run out even though we have a slot.
+            # Disconnect before raising the exception so the slot is
+            # recovered before the timeout is raised, avoiding a race
+            # where we run out of slots even though we have one.
             addr = to_human_readable_address(address)
             if self._debug_enabled:
                 _LOGGER.debug("%s: Connecting timed out, waiting for disconnect", addr)
@@ -954,13 +948,14 @@ class APIClient(APIClientBase):
             )
             raise TimeoutAPIError(msg) from err
         except asyncio.CancelledError:
-            unhandled_exception = True
-            # Distinguish an outside cancellation of our task from
-            # a cancellation of the connect_future itself. If the
-            # current task is not actually being cancelled, convert
-            # the CancelledError into an APIConnectionError so that
-            # callers (and their retry logic) can handle it as a
-            # normal connection failure instead of aborting.
+            unsub()
+            self._bluetooth_disconnect_no_wait(address)
+            # Distinguish an outside cancellation of our task from a
+            # cancellation of the connect_future itself. If the current
+            # task is not actually being cancelled, convert the
+            # CancelledError into an APIConnectionError so callers (and
+            # their retry logic) can treat it as a normal connection
+            # failure instead of aborting.
             current_task = asyncio.current_task()
             if current_task is None or not current_task.cancelling():
                 addr = to_human_readable_address(address)
@@ -968,17 +963,11 @@ class APIClient(APIClientBase):
                 raise APIConnectionError(msg) from None
             raise
         except BaseException:
-            unhandled_exception = True
+            unsub()
+            self._bluetooth_disconnect_no_wait(address)
             raise
         finally:
-            if unhandled_exception or (not connect_ok and not timeout_expired):
-                unsub()
-            if not timeout_expired:
-                timeout_handle.cancel()
-            if unhandled_exception:
-                # Make sure to disconnect if we had an unhandled exception
-                # as otherwise the connection will be left open.
-                self._bluetooth_disconnect_no_wait(address)
+            timeout_handle.cancel()
 
         return unsub
 
