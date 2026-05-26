@@ -4282,6 +4282,21 @@ async def test_bluetooth_device_connect_cleanup_contract(  # noqa: C901
         timeout_handle_cancel_calls = 0
         bluetooth_timeout_wrapped = False
 
+        class _CountingTimerHandle:
+            # asyncio.TimerHandle.cancel is a read-only C attribute on
+            # CPython, so we proxy the handle instead of monkey-patching
+            # the method on the instance.
+            def __init__(self, handle: asyncio.TimerHandle) -> None:
+                self._handle = handle
+
+            def cancel(self) -> None:
+                nonlocal timeout_handle_cancel_calls
+                timeout_handle_cancel_calls += 1
+                self._handle.cancel()
+
+            def __getattr__(self, name: str) -> Any:
+                return getattr(self._handle, name)
+
         def capturing_call_at(
             when: float, callback: Callable[..., Any], *args: Any
         ) -> asyncio.TimerHandle:
@@ -4292,14 +4307,7 @@ async def test_bluetooth_device_connect_cleanup_contract(  # noqa: C901
             # internals (e.g. sleeps) must not skew the cancel counter.
             if not bluetooth_timeout_wrapped:
                 bluetooth_timeout_wrapped = True
-                original_cancel = handle.cancel
-
-                def counted_cancel() -> None:
-                    nonlocal timeout_handle_cancel_calls
-                    timeout_handle_cancel_calls += 1
-                    original_cancel()
-
-                handle.cancel = counted_cancel  # type: ignore[method-assign]
+                return _CountingTimerHandle(handle)  # type: ignore[return-value]
             return handle
 
         with (
