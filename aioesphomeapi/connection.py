@@ -1121,7 +1121,19 @@ class APIConnection:
             # type.
             handlers_copy = handlers.copy()
             for handler in handlers_copy:
-                handler(msg)
+                # Isolate user-callback exceptions so a buggy
+                # handler does not propagate through asyncio's
+                # data_received path and tear the whole session
+                # down. See issue #1755.
+                try:
+                    handler(msg)
+                except Exception:
+                    _LOGGER.exception(
+                        "%s: Unexpected error in message handler %r for %s",
+                        self.log_name,
+                        handler,
+                        type(msg).__name__,
+                    )
             return
 
         # Most common case, only one handler:
@@ -1130,7 +1142,15 @@ class APIConnection:
         # only one handler because Cython will
         # poorly optimize next(iter(handlers))
         for handler in handlers:
-            handler(msg)
+            try:
+                handler(msg)
+            except Exception:
+                _LOGGER.exception(
+                    "%s: Unexpected error in message handler %r for %s",
+                    self.log_name,
+                    handler,
+                    type(msg).__name__,
+                )
             break
 
     def _register_internal_message_handlers(self) -> None:

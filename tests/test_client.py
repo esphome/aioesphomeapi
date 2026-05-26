@@ -2468,9 +2468,9 @@ async def test_bluetooth_gatt_notify_callback_raises(
     await asyncio.sleep(0)
 
     # Verify the exception was caught and logged
-    assert "Unexpected error in Bluetooth GATT notify callback" in caplog.text
+    assert "Unexpected error in message handler" in caplog.text
     assert "ValueError: Test exception in notify callback" in caplog.text
-    assert "address 1234, handle 1" in caplog.text
+    assert "BluetoothGATTNotifyDataResponse" in caplog.text
 
     # Verify the connection is still alive
     assert connection.is_connected

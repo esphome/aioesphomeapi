@@ -1742,3 +1742,59 @@ def test_cleanup_debug_message_without_error(
     # Should not contain "(error:" part
     assert "Cleaning up connection to test-device" in caplog.text
     assert "(error:" not in caplog.text
+
+
+async def test_handler_exception_does_not_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A user callback that raises must not tear the session down (issue #1755)."""
+    _client, connection, _transport, protocol = api_client
+    caplog.set_level(logging.ERROR)
+
+    def boom(_msg: message.Message) -> None:
+        err = "simulated bug in user callback"
+        raise RuntimeError(err)
+
+    remove = connection.add_message_callback(boom, (PingResponse,))
+    try:
+        mock_data_received(protocol, generate_plaintext_packet(PingResponse()))
+        await asyncio.sleep(0)
+        assert connection.is_connected
+        assert "simulated bug in user callback" in caplog.text
+        assert "Unexpected error in message handler" in caplog.text
+    finally:
+        remove()
+
+
+async def test_handler_exception_does_not_skip_siblings(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """When one handler raises, other handlers for the same message still run."""
+    _client, connection, _transport, protocol = api_client
+    caplog.set_level(logging.ERROR)
+    seen: list[message.Message] = []
+
+    def boom(_msg: message.Message) -> None:
+        err = "first handler bug"
+        raise RuntimeError(err)
+
+    def ok(msg: message.Message) -> None:
+        seen.append(msg)
+
+    remove_boom = connection.add_message_callback(boom, (PingResponse,))
+    remove_ok = connection.add_message_callback(ok, (PingResponse,))
+    try:
+        mock_data_received(protocol, generate_plaintext_packet(PingResponse()))
+        await asyncio.sleep(0)
+        assert connection.is_connected
+        assert len(seen) == 1
+        assert "first handler bug" in caplog.text
+    finally:
+        remove_boom()
+        remove_ok()
