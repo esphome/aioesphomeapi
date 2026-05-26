@@ -4278,6 +4278,30 @@ async def test_bluetooth_device_connect_cleanup_contract(  # noqa: C901
             captured.append(fut)
             return fut
 
+        original_call_at = client._loop.call_at
+        timeout_handle_cancel_calls = 0
+        bluetooth_timeout_wrapped = False
+
+        def capturing_call_at(
+            when: float, callback: Callable[..., Any], *args: Any
+        ) -> asyncio.TimerHandle:
+            nonlocal bluetooth_timeout_wrapped
+            handle = original_call_at(when, callback, *args)
+            # Only wrap the first call_at — it is the bluetooth_device_connect
+            # timeout handle. Later call_at usage by unrelated asyncio
+            # internals (e.g. sleeps) must not skew the cancel counter.
+            if not bluetooth_timeout_wrapped:
+                bluetooth_timeout_wrapped = True
+                original_cancel = handle.cancel
+
+                def counted_cancel() -> None:
+                    nonlocal timeout_handle_cancel_calls
+                    timeout_handle_cancel_calls += 1
+                    original_cancel()
+
+                handle.cancel = counted_cancel  # type: ignore[method-assign]
+            return handle
+
         with (
             patch.object(
                 client._get_connection(),
@@ -4285,6 +4309,7 @@ async def test_bluetooth_device_connect_cleanup_contract(  # noqa: C901
                 counting_send_message_callback_response,
             ),
             patch.object(client._loop, "create_future", capturing_create_future),
+            patch.object(client._loop, "call_at", capturing_call_at),
             patch.object(
                 client,
                 "_bluetooth_disconnect_no_wait",
@@ -4327,6 +4352,10 @@ async def test_bluetooth_device_connect_cleanup_contract(  # noqa: C901
         )
         assert handlers_after == handlers_before, (
             "message handler leak — cleanup did not unsub"
+        )
+        assert timeout_handle_cancel_calls == 1, (
+            f"expected timeout handle cancel() called exactly once, "
+            f"got {timeout_handle_cancel_calls}"
         )
 
     async def _success(
