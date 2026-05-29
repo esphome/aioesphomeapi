@@ -138,7 +138,7 @@ jobs:
             uv pip install --system -r requirements/base.txt -r requirements/test.txt
             uv pip install --system -e .
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@3194d9a39c4d46684cb44bf7207fc56626aad8fd  # v4.15.1
+        uses: CodSpeedHQ/action@9d332c4d90b43981c3e55ae8e38e68709996240f  # v4.17.0
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
