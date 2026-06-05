@@ -1,5 +1,5 @@
 pylint==4.0.5
-ruff==0.15.15
+ruff==0.15.16
 isort==8.0.1
 mypy==2.1.0
 types-protobuf==7.34.1.20260518
