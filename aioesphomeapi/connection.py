@@ -27,6 +27,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_NONE as DST_RULE_TYPE_NONE_PB,
     AuthenticationRequest,
     AuthenticationResponse,
+    DisconnectReason,
     DisconnectRequest,
     DisconnectResponse,
     DSTRule as DSTRuleProto,
@@ -287,6 +288,7 @@ class APIConnection:
         "api_version",
         "connected_address",
         "connection_state",
+        "disconnect_reason",
         "is_connected",
         "log_name",
         "on_stop",
@@ -328,6 +330,10 @@ class APIConnection:
         self._finish_connect_future: asyncio.Future[None] | None = None
         self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
+        # Reason reported by the device if it requested the disconnect. Defaults to
+        # UNSPECIFIED; set from a server-initiated DisconnectRequest (e.g. when an
+        # EN18031 provisioning window closes).
+        self.disconnect_reason: int = DisconnectReason.DISCONNECT_REASON_UNSPECIFIED
         self._send_pending_ping = False
         self._loop = asyncio.get_running_loop()
         self.is_connected = False
@@ -1169,14 +1175,19 @@ class APIConnection:
             self._handle_login_response, (AuthenticationResponse,)
         )
 
-    def _handle_disconnect_request_internal(  # pylint: disable=unused-argument
-        self, _msg: DisconnectRequest
-    ) -> None:
+    def _handle_disconnect_request_internal(self, msg: DisconnectRequest) -> None:
         """Handle a DisconnectRequest."""
         # Set _expected_disconnect to True before sending
         # the response if for some reason sending the response
         # fails we will still mark the disconnect as expected
         self._expected_disconnect = True
+        if msg.reason != DisconnectReason.DISCONNECT_REASON_UNSPECIFIED:
+            self.disconnect_reason = msg.reason
+            _LOGGER.info(
+                "%s: Device requested disconnect, reason: %s",
+                self.log_name,
+                DisconnectReason.Name(msg.reason),
+            )
         self.send_messages(DISCONNECT_RESPONSE_MESSAGES)
         self._cleanup()
 

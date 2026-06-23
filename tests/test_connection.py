@@ -22,6 +22,7 @@ from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
+    DisconnectReason,
     DisconnectRequest,
     GetTimeRequest,
     GetTimeResponse,
@@ -1132,6 +1133,57 @@ async def test_disconnect_success_case(
     await asyncio.sleep(0)
     assert expected_disconnect is True
     assert not client._connection
+
+
+async def test_disconnect_request_with_reason(
+    connection_params: ConnectionParams,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """A DisconnectRequest carrying a reason is parsed onto the connection."""
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    client = APIClient(
+        address="mydevice.local",
+        port=6052,
+        password=None,
+    )
+
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect_client(client, login=False))
+        await connected.wait()
+        protocol = client._connection._frame_helper
+        send_plaintext_hello(protocol)
+        await connect_task
+        transport.reset_mock()
+
+    send_plaintext_hello(protocol)
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+    # Keep a reference; the connection is cleared once the disconnect is handled.
+    connection = client._connection
+    assert (
+        connection.disconnect_reason == DisconnectReason.DISCONNECT_REASON_UNSPECIFIED
+    )
+
+    disconnect_request = DisconnectRequest(
+        reason=DisconnectReason.DISCONNECT_REASON_PROVISIONING_CLOSED
+    )
+    mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
+
+    # Wait one loop iteration for the disconnect to be processed
+    await asyncio.sleep(0)
+    assert not client._connection
+    assert (
+        connection.disconnect_reason
+        == DisconnectReason.DISCONNECT_REASON_PROVISIONING_CLOSED
+    )
 
 
 async def test_ping_disconnects_after_no_responses(
