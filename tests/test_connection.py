@@ -1186,6 +1186,55 @@ async def test_disconnect_request_with_reason(
     )
 
 
+async def test_disconnect_request_with_unknown_reason(
+    connection_params: ConnectionParams,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """An unknown reason (from a newer device) must not abort the handler.
+
+    proto3 enums are open, so a future firmware may send a reason value this
+    client does not know. The raw value is stored and the disconnect is still
+    acknowledged and cleaned up (the name lookup must not raise).
+    """
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    client = APIClient(
+        address="mydevice.local",
+        port=6052,
+        password=None,
+    )
+
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect_client(client, login=False))
+        await connected.wait()
+        protocol = client._connection._frame_helper
+        send_plaintext_hello(protocol)
+        await connect_task
+        transport.reset_mock()
+
+    send_plaintext_hello(protocol)
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+    connection = client._connection
+
+    unknown_reason = 9999
+    assert unknown_reason not in DisconnectReason.values()
+    disconnect_request = DisconnectRequest(reason=unknown_reason)
+    mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
+
+    await asyncio.sleep(0)
+    # Handler ran to completion: connection cleaned up and raw reason stored.
+    assert not client._connection
+    assert connection.disconnect_reason == unknown_reason
+
+
 async def test_ping_disconnects_after_no_responses(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task

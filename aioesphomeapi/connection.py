@@ -1183,10 +1183,19 @@ class APIConnection:
         self._expected_disconnect = True
         if msg.reason != DisconnectReason.DISCONNECT_REASON_UNSPECIFIED:
             self.disconnect_reason = msg.reason
+            # Use the enum name when known; fall back to the raw integer for a
+            # reason a newer device may send that this client does not know about.
+            # DisconnectReason.Name() raises ValueError on unknown values, which
+            # would otherwise abort the handler before the response/cleanup below.
+            reason_name = (
+                DisconnectReason.Name(msg.reason)
+                if msg.reason in DisconnectReason.values()
+                else msg.reason
+            )
             _LOGGER.info(
                 "%s: Device requested disconnect, reason: %s",
                 self.log_name,
-                DisconnectReason.Name(msg.reason),
+                reason_name,
             )
         self.send_messages(DISCONNECT_RESPONSE_MESSAGES)
         self._cleanup()
