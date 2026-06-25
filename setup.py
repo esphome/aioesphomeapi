@@ -42,7 +42,7 @@ with (here / "README.rst").open(encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "45.4.0"
+VERSION = "45.4.1"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
