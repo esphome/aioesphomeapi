@@ -579,6 +579,9 @@ def test_build_unique_id(model: type[EntityInfo]) -> None:
         build_unique_id("mac", utf8, version=3)
         == f"mac/0/{_TYPE_TO_NAME[type(obj)]}/温度传感器"
     )
+    # Unsupported versions raise instead of silently picking a format
+    with pytest.raises(ValueError, match="Unsupported unique id version"):
+        build_unique_id("mac", obj, version=4)
 
 
 @pytest.mark.parametrize(

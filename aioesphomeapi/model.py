@@ -1988,8 +1988,13 @@ def build_unique_id(
     if version == 2:
         # Version 2: use name directly to avoid mangling/collisions
         return f"{formatted_mac}-{entity_type}-{entity_info.name}"
-    # Version 3: slash separated with sub-device id and unmangled name
-    return f"{formatted_mac}/{entity_info.device_id}/{entity_type}/{entity_info.name}"
+    if version == 3:
+        # Version 3: slash separated with sub-device id and unmangled name
+        return (
+            f"{formatted_mac}/{entity_info.device_id}/{entity_type}/{entity_info.name}"
+        )
+    msg = f"Unsupported unique id version: {version}"
+    raise ValueError(msg)
 
 
 def build_device_unique_id(
