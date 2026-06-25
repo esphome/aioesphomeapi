@@ -1971,13 +1971,46 @@ def build_unique_id(
     device names can change or be duplicated across devices. For ESPHome
     entity names within a single device (identified by MAC), they ARE stable
     unique identifiers explicitly chosen by the user in their configuration.
+
+    **Version 3:** Slash separated, includes the sub-device id and the
+    unmangled entity name.
+
+        Format: `{mac}/{device_id}/{entity_type}/{name}`
+        Example: `aabbccddeeff/0/sensor/Temperature Sensor`
+
+    The main device uses `device_id` 0. Including the sub-device id namespaces
+    entities so two sub-devices can share an entity name without colliding,
+    while the unmangled name keeps UTF-8 names distinct.
     """
-    # <mac>-<entity type>-<object_id or name>
     entity_type = _TYPE_TO_NAME[type(entity_info)]
     if version == 1:
         return f"{formatted_mac}-{entity_type}-{entity_info.object_id}"
-    # Version 2: use name directly to avoid mangling/collisions
-    return f"{formatted_mac}-{entity_type}-{entity_info.name}"
+    if version == 2:
+        # Version 2: use name directly to avoid mangling/collisions
+        return f"{formatted_mac}-{entity_type}-{entity_info.name}"
+    if version == 3:
+        # Version 3: slash separated with sub-device id and unmangled name
+        return (
+            f"{formatted_mac}/{entity_info.device_id}/{entity_type}/{entity_info.name}"
+        )
+    msg = f"Unsupported unique id version: {version}"
+    raise ValueError(msg)
+
+
+def build_device_unique_id(
+    formatted_mac: str, entity_info: EntityInfo, *, version: int = 3
+) -> str:
+    """Build a device-aware unique id for an entity.
+
+    Version 3 already encodes the sub-device id in the unique id, so the
+    result of build_unique_id is returned unchanged. For the legacy versions
+    1 and 2 the sub-device id is appended as `@{device_id}` so that entities
+    belonging to a sub-device migrate correctly when they move between devices.
+    """
+    base_unique_id = build_unique_id(formatted_mac, entity_info, version=version)
+    if version != 3 and entity_info.device_id:
+        return f"{base_unique_id}@{entity_info.device_id}"
+    return base_unique_id
 
 
 def message_types_to_names(msg_types: Iterable[type[message.Message]]) -> str:
@@ -2138,5 +2171,6 @@ __all__ = (
     "ZWaveProxyFrame",
     "ZWaveProxyRequest",
     "ZWaveProxyRequestType",
+    "build_device_unique_id",
     "build_unique_id",
 )
