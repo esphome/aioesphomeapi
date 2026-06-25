@@ -73,6 +73,9 @@ _LOGGER = logging.getLogger(__name__)
 # which are only needed for encrypted connections; importing them is deferred
 # until the first noise connection so plaintext-only callers never pay for them.
 _NOISE_FRAME_HELPER_MODULE = "aioesphomeapi._frame_helper.noise"
+# Serializes the cold import so concurrent encrypted connections do not each
+# spawn an executor thread racing to import the same noise stack.
+_noise_import_lock = asyncio.Lock()
 
 
 def _import_noise_frame_helper() -> Any:
@@ -88,9 +91,12 @@ async def _async_load_noise_frame_helper(loop: asyncio.AbstractEventLoop) -> Any
     I/O; running it in the executor keeps the event loop unblocked. Once the module
     is in sys.modules the import is a cheap dict lookup, so it is bound inline.
     """
-    if _NOISE_FRAME_HELPER_MODULE not in sys.modules:
+    if _NOISE_FRAME_HELPER_MODULE in sys.modules:
+        return _import_noise_frame_helper()
+    async with _noise_import_lock:
+        if _NOISE_FRAME_HELPER_MODULE in sys.modules:
+            return _import_noise_frame_helper()
         return await loop.run_in_executor(None, _import_noise_frame_helper)
-    return _import_noise_frame_helper()
 
 
 MESSAGE_NUMBER_TO_PROTO: tuple[
