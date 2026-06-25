@@ -68,7 +68,6 @@ jobs:
         env:
           CIBW_SKIP: cp36-* cp37-* cp38-* cp39-* cp310-* pp* ${{ matrix.musl == 'musllinux' && '*manylinux*' || '*musllinux*' }}
           CIBW_BEFORE_ALL_LINUX: apt-get install -y gcc || yum install -y gcc || apk add gcc
-          CIBW_ENABLE: cpython-freethreading
           REQUIRE_CYTHON: 1
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
