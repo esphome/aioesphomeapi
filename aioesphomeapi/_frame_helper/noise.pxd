@@ -9,9 +9,20 @@ from .base cimport (
     _MAX_NAME_LEN,
 )
 from .noise_encryption cimport EncryptCipher, DecryptCipher
-from .packets cimport make_noise_packets
 
 cdef bint TYPE_CHECKING
+
+
+@cython.locals(
+    type_="unsigned int",
+    data=bytes,
+    data_header=bytes,
+    packet=tuple,
+    data_len=Py_ssize_t,
+    frame=bytes,
+    frame_len=Py_ssize_t,
+)
+cpdef list make_noise_packets(list packets, EncryptCipher encrypt_cipher) except *
 
 cdef unsigned int NOISE_STATE_HELLO
 cdef unsigned int NOISE_STATE_HANDSHAKE

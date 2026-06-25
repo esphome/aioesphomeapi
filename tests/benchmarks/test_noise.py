@@ -14,8 +14,8 @@ from aioesphomeapi._frame_helper.base import (
     MAX_NAME_LEN,
     safe_label_str,
 )
+from aioesphomeapi._frame_helper.noise import make_noise_packets
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
-from aioesphomeapi._frame_helper.packets import make_noise_packets
 
 from ..common import (
     MockAPINoiseFrameHelper,

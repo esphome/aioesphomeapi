@@ -18,7 +18,6 @@ from google.protobuf.json_format import MessageToDict
 import aioesphomeapi.host_resolver as hr
 
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
-from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
@@ -65,9 +64,34 @@ if TYPE_CHECKING:
 
     from google.protobuf import message
 
+    from ._frame_helper.noise import APINoiseFrameHelper
     from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
+
+# The noise frame helper pulls in cryptography and the noise protocol stack,
+# which are only needed for encrypted connections; importing them is deferred
+# until the first noise connection so plaintext-only callers never pay for them.
+_NOISE_FRAME_HELPER_MODULE = "aioesphomeapi._frame_helper.noise"
+
+
+def _import_noise_frame_helper() -> Any:
+    from ._frame_helper.noise import APINoiseFrameHelper  # noqa: PLC0415
+
+    return APINoiseFrameHelper
+
+
+async def _async_load_noise_frame_helper(loop: asyncio.AbstractEventLoop) -> Any:
+    """Load the noise frame helper, importing off the loop on the first cold import.
+
+    The import pulls in cryptography and the noise stack, which does blocking file
+    I/O; running it in the executor keeps the event loop unblocked. Once the module
+    is in sys.modules the import is a cheap dict lookup, so it is bound inline.
+    """
+    if _NOISE_FRAME_HELPER_MODULE not in sys.modules:
+        return await loop.run_in_executor(None, _import_noise_frame_helper)
+    return _import_noise_frame_helper()
+
 
 MESSAGE_NUMBER_TO_PROTO: tuple[
     tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
@@ -514,8 +538,9 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
-            _, fh = await self._loop.create_connection(  # type: ignore[type-var]
-                lambda: APINoiseFrameHelper(
+            noise_frame_helper = await _async_load_noise_frame_helper(self._loop)
+            _, fh = await self._loop.create_connection(
+                lambda: noise_frame_helper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
                     expected_mac=self._params.expected_mac,
