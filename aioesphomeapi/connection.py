@@ -72,15 +72,18 @@ _LOGGER = logging.getLogger(__name__)
 # The noise frame helper pulls in cryptography and the noise protocol stack,
 # which are only needed for encrypted connections; importing them is deferred
 # until the first noise connection so plaintext-only callers never pay for them.
-_NOISE_FRAME_HELPER_MODULE = "aioesphomeapi._frame_helper.noise"
+# The resolved class is cached here, set only after the import fully completes.
+_noise_frame_helper_cls: Any = None
 # Serializes the cold import so concurrent encrypted connections do not each
 # spawn an executor thread racing to import the same noise stack.
 _noise_import_lock = asyncio.Lock()
 
 
 def _import_noise_frame_helper() -> Any:
+    global _noise_frame_helper_cls  # noqa: PLW0603
     from ._frame_helper.noise import APINoiseFrameHelper  # noqa: PLC0415
 
+    _noise_frame_helper_cls = APINoiseFrameHelper
     return APINoiseFrameHelper
 
 
@@ -88,14 +91,17 @@ async def _async_load_noise_frame_helper(loop: asyncio.AbstractEventLoop) -> Any
     """Load the noise frame helper, importing off the loop on the first cold import.
 
     The import pulls in cryptography and the noise stack, which does blocking file
-    I/O; running it in the executor keeps the event loop unblocked. Once the module
-    is in sys.modules the import is a cheap dict lookup, so it is bound inline.
+    I/O; running it in the executor keeps the event loop unblocked. The resolved
+    class is cached once the import fully completes, so warm connections skip the
+    import entirely and a task racing the first cold import waits on the lock
+    instead of re-running the import on the loop thread.
     """
-    if _NOISE_FRAME_HELPER_MODULE in sys.modules:
-        return _import_noise_frame_helper()
+    if (cls := _noise_frame_helper_cls) is not None:
+        return cls
     async with _noise_import_lock:
-        if _NOISE_FRAME_HELPER_MODULE in sys.modules:
-            return _import_noise_frame_helper()
+        # Another task may have completed the import while we waited.
+        if (cls := _noise_frame_helper_cls) is not None:
+            return cls
         return await loop.run_in_executor(None, _import_noise_frame_helper)
 
 

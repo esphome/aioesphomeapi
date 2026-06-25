@@ -24,9 +24,15 @@ DEFERRED_MODULES = (
 
 
 @pytest.fixture(autouse=True)
-def _fresh_noise_import_lock():
-    """Give each test a lock bound to its own event loop."""
+def _reset_noise_loader():
+    """Start each test cold with a lock bound to its own event loop."""
+    orig_cls = connection_module._noise_frame_helper_cls
+    orig_lock = connection_module._noise_import_lock
+    connection_module._noise_frame_helper_cls = None
     connection_module._noise_import_lock = asyncio.Lock()
+    yield
+    connection_module._noise_frame_helper_cls = orig_cls
+    connection_module._noise_import_lock = orig_lock
 
 
 def test_import_does_not_load_noise_stack() -> None:
@@ -45,8 +51,17 @@ def test_import_does_not_load_noise_stack() -> None:
     assert result.stdout.strip() == "", f"unexpectedly loaded: {result.stdout.strip()}"
 
 
-async def test_load_noise_frame_helper_inline_when_already_imported() -> None:
-    """A warm import binds inline without hopping to the executor."""
+def test_import_noise_frame_helper_caches_class() -> None:
+    """The import helper resolves and caches the class only on completion."""
+    assert connection_module._noise_frame_helper_cls is None
+    cls = connection_module._import_noise_frame_helper()
+    assert cls is APINoiseFrameHelper
+    assert connection_module._noise_frame_helper_cls is APINoiseFrameHelper
+
+
+async def test_load_noise_frame_helper_returns_cached_without_import() -> None:
+    """A warm load returns the cached class without touching the executor."""
+    connection_module._noise_frame_helper_cls = APINoiseFrameHelper
     loop = asyncio.get_running_loop()
     with patch.object(loop, "run_in_executor") as mock_executor:
         cls = await connection_module._async_load_noise_frame_helper(loop)
@@ -55,11 +70,8 @@ async def test_load_noise_frame_helper_inline_when_already_imported() -> None:
     mock_executor.assert_not_called()
 
 
-async def test_load_noise_frame_helper_uses_executor_when_cold(monkeypatch) -> None:
+async def test_load_noise_frame_helper_uses_executor_when_cold() -> None:
     """A cold import is run in the executor so it never blocks the loop."""
-    monkeypatch.delitem(
-        sys.modules, connection_module._NOISE_FRAME_HELPER_MODULE, raising=False
-    )
     loop = asyncio.get_running_loop()
     future = loop.create_future()
     future.set_result(APINoiseFrameHelper)
@@ -72,12 +84,8 @@ async def test_load_noise_frame_helper_uses_executor_when_cold(monkeypatch) -> N
     )
 
 
-async def test_concurrent_cold_loads_import_once(monkeypatch) -> None:
+async def test_concurrent_cold_loads_import_once() -> None:
     """Concurrent cold loads import the noise stack once, not once per task."""
-    noise_module = sys.modules[connection_module._NOISE_FRAME_HELPER_MODULE]
-    monkeypatch.delitem(
-        sys.modules, connection_module._NOISE_FRAME_HELPER_MODULE, raising=False
-    )
     loop = asyncio.get_running_loop()
     import_started = asyncio.Event()
     release = asyncio.Event()
@@ -86,7 +94,7 @@ async def test_concurrent_cold_loads_import_once(monkeypatch) -> None:
     async def _slow_import() -> type[APINoiseFrameHelper]:
         import_started.set()
         await release.wait()
-        sys.modules[connection_module._NOISE_FRAME_HELPER_MODULE] = noise_module
+        connection_module._noise_frame_helper_cls = APINoiseFrameHelper
         return APINoiseFrameHelper
 
     def _fake_executor(_executor, func) -> asyncio.Future:
