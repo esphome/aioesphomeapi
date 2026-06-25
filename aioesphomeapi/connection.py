@@ -72,18 +72,20 @@ _LOGGER = logging.getLogger(__name__)
 # The noise frame helper pulls in cryptography and the noise protocol stack,
 # which are only needed for encrypted connections; importing them is deferred
 # until the first noise connection so plaintext-only callers never pay for them.
-# The resolved class is cached here, set only after the import fully completes.
-_noise_frame_helper_cls: type[APINoiseFrameHelper] | None = None
-# Serializes the cold import so concurrent encrypted connections do not each
-# spawn an executor thread racing to import the same noise stack.
-_noise_import_lock = asyncio.Lock()
+# State lives in module-level containers mutated in place (no global rebinding):
+# the resolved class is cached once after a successful import, and a per-loop
+# lock serializes the cold import so concurrent connections do not each spawn an
+# executor thread. Keying the lock by loop avoids the cross-loop binding error a
+# single shared lock would raise if a later connection ran on a different loop.
+_noise_frame_helper_cache: list[type[APINoiseFrameHelper]] = []
+_noise_import_locks: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
 
 
 def _import_noise_frame_helper() -> type[APINoiseFrameHelper]:
-    global _noise_frame_helper_cls  # noqa: PLW0603
     from ._frame_helper.noise import APINoiseFrameHelper  # noqa: PLC0415
 
-    _noise_frame_helper_cls = APINoiseFrameHelper
+    if not _noise_frame_helper_cache:
+        _noise_frame_helper_cache.append(APINoiseFrameHelper)
     return APINoiseFrameHelper
 
 
@@ -98,12 +100,15 @@ async def _async_load_noise_frame_helper(
     import entirely and a task racing the first cold import waits on the lock
     instead of re-running the import on the loop thread.
     """
-    if (cls := _noise_frame_helper_cls) is not None:
-        return cls
-    async with _noise_import_lock:
+    if _noise_frame_helper_cache:
+        return _noise_frame_helper_cache[0]
+    lock = _noise_import_locks.get(loop)
+    if lock is None:
+        lock = _noise_import_locks[loop] = asyncio.Lock()
+    async with lock:
         # Another task may have completed the import while we waited.
-        if (cls := _noise_frame_helper_cls) is not None:
-            return cls
+        if _noise_frame_helper_cache:
+            return _noise_frame_helper_cache[0]
         return await loop.run_in_executor(None, _import_noise_frame_helper)
 
 

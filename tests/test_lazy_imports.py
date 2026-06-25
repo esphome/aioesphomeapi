@@ -25,14 +25,14 @@ DEFERRED_MODULES = (
 
 @pytest.fixture(autouse=True)
 def _reset_noise_loader():
-    """Start each test cold with a lock bound to its own event loop."""
-    orig_cls = connection_module._noise_frame_helper_cls
-    orig_lock = connection_module._noise_import_lock
-    connection_module._noise_frame_helper_cls = None
-    connection_module._noise_import_lock = asyncio.Lock()
+    """Start each test cold; the loader creates a lock for the test loop."""
+    orig_cache = connection_module._noise_frame_helper_cache
+    orig_locks = connection_module._noise_import_locks
+    connection_module._noise_frame_helper_cache = []
+    connection_module._noise_import_locks = {}
     yield
-    connection_module._noise_frame_helper_cls = orig_cls
-    connection_module._noise_import_lock = orig_lock
+    connection_module._noise_frame_helper_cache = orig_cache
+    connection_module._noise_import_locks = orig_locks
 
 
 def test_import_does_not_load_noise_stack() -> None:
@@ -53,15 +53,15 @@ def test_import_does_not_load_noise_stack() -> None:
 
 def test_import_noise_frame_helper_caches_class() -> None:
     """The import helper resolves and caches the class only on completion."""
-    assert connection_module._noise_frame_helper_cls is None
+    assert connection_module._noise_frame_helper_cache == []
     cls = connection_module._import_noise_frame_helper()
     assert cls is APINoiseFrameHelper
-    assert connection_module._noise_frame_helper_cls is APINoiseFrameHelper
+    assert connection_module._noise_frame_helper_cache == [APINoiseFrameHelper]
 
 
 async def test_load_noise_frame_helper_returns_cached_without_import() -> None:
     """A warm load returns the cached class without touching the executor."""
-    connection_module._noise_frame_helper_cls = APINoiseFrameHelper
+    connection_module._noise_frame_helper_cache.append(APINoiseFrameHelper)
     loop = asyncio.get_running_loop()
     with patch.object(loop, "run_in_executor") as mock_executor:
         cls = await connection_module._async_load_noise_frame_helper(loop)
@@ -94,7 +94,7 @@ async def test_concurrent_cold_loads_import_once() -> None:
     async def _slow_import() -> type[APINoiseFrameHelper]:
         import_started.set()
         await release.wait()
-        connection_module._noise_frame_helper_cls = APINoiseFrameHelper
+        connection_module._noise_frame_helper_cache.append(APINoiseFrameHelper)
         return APINoiseFrameHelper
 
     def _fake_executor(_executor, func) -> asyncio.Future:
