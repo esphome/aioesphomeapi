@@ -73,13 +73,13 @@ _LOGGER = logging.getLogger(__name__)
 # which are only needed for encrypted connections; importing them is deferred
 # until the first noise connection so plaintext-only callers never pay for them.
 # The resolved class is cached here, set only after the import fully completes.
-_noise_frame_helper_cls: Any = None
+_noise_frame_helper_cls: type[APINoiseFrameHelper] | None = None
 # Serializes the cold import so concurrent encrypted connections do not each
 # spawn an executor thread racing to import the same noise stack.
 _noise_import_lock = asyncio.Lock()
 
 
-def _import_noise_frame_helper() -> Any:
+def _import_noise_frame_helper() -> type[APINoiseFrameHelper]:
     global _noise_frame_helper_cls  # noqa: PLW0603
     from ._frame_helper.noise import APINoiseFrameHelper  # noqa: PLC0415
 
@@ -87,7 +87,9 @@ def _import_noise_frame_helper() -> Any:
     return APINoiseFrameHelper
 
 
-async def _async_load_noise_frame_helper(loop: asyncio.AbstractEventLoop) -> Any:
+async def _async_load_noise_frame_helper(
+    loop: asyncio.AbstractEventLoop,
+) -> type[APINoiseFrameHelper]:
     """Load the noise frame helper, importing off the loop on the first cold import.
 
     The import pulls in cryptography and the noise stack, which does blocking file
@@ -551,7 +553,7 @@ class APIConnection:
             )
         else:
             noise_frame_helper = await _async_load_noise_frame_helper(self._loop)
-            _, fh = await self._loop.create_connection(
+            _, fh = await self._loop.create_connection(  # type: ignore[type-var]
                 lambda: noise_frame_helper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
