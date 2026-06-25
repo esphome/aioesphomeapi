@@ -190,6 +190,7 @@ from aioesphomeapi.model import (
     ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestType,
+    build_device_unique_id,
     build_unique_id,
     converter_field,
 )
@@ -550,7 +551,7 @@ def test_user_service_conversion():
         WaterHeaterInfo,
     ],
 )
-def test_build_unique_id(model):
+def test_build_unique_id(model: type[EntityInfo]) -> None:
     obj = model(object_id="id", name="My Sensor")
     # Version 1 (default): uses object_id
     assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
@@ -561,6 +562,46 @@ def test_build_unique_id(model):
     assert (
         build_unique_id("mac", obj, version=2)
         == f"mac-{_TYPE_TO_NAME[type(obj)]}-My Sensor"
+    )
+    # Version 3: slash separated with sub-device id and unmangled name
+    assert (
+        build_unique_id("mac", obj, version=3)
+        == f"mac/0/{_TYPE_TO_NAME[type(obj)]}/My Sensor"
+    )
+    sub_device = model(object_id="id", name="My Sensor", device_id=5)
+    assert (
+        build_unique_id("mac", sub_device, version=3)
+        == f"mac/5/{_TYPE_TO_NAME[type(obj)]}/My Sensor"
+    )
+    # Version 3: UTF-8 names are preserved instead of mangled to underscores
+    utf8 = model(object_id="___", name="温度传感器")
+    assert (
+        build_unique_id("mac", utf8, version=3)
+        == f"mac/0/{_TYPE_TO_NAME[type(obj)]}/温度传感器"
+    )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        BinarySensorInfo,
+        SensorInfo,
+        SwitchInfo,
+    ],
+)
+def test_build_device_unique_id(model: type[EntityInfo]) -> None:
+    entity_type = _TYPE_TO_NAME[model]
+    main = model(object_id="id", name="My Sensor")
+    sub = model(object_id="id", name="My Sensor", device_id=5)
+    # Version 3 (default): sub-device id is part of the slash format, no @ suffix
+    assert build_device_unique_id("mac", main) == f"mac/0/{entity_type}/My Sensor"
+    assert build_device_unique_id("mac", sub) == f"mac/5/{entity_type}/My Sensor"
+    # Legacy versions append @device_id for sub-devices to match existing ids
+    assert build_device_unique_id("mac", main, version=1) == f"mac-{entity_type}-id"
+    assert build_device_unique_id("mac", sub, version=1) == f"mac-{entity_type}-id@5"
+    assert (
+        build_device_unique_id("mac", sub, version=2)
+        == f"mac-{entity_type}-My Sensor@5"
     )
 
 

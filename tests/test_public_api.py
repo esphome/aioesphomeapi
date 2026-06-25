@@ -76,6 +76,7 @@ def test_representative_model_classes_stay_exported() -> None:
         "MediaPlayerInfo",
         "BluetoothGATTService",
         "UserService",
+        "build_device_unique_id",
         "build_unique_id",
     ):
         assert hasattr(aioesphomeapi, name)
