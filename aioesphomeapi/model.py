@@ -1982,7 +1982,6 @@ def build_unique_id(
     entities so two sub-devices can share an entity name without colliding,
     while the unmangled name keeps UTF-8 names distinct.
     """
-    # <mac>-<entity type>-<object_id or name>
     entity_type = _TYPE_TO_NAME[type(entity_info)]
     if version == 1:
         return f"{formatted_mac}-{entity_type}-{entity_info.object_id}"
