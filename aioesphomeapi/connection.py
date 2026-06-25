@@ -18,7 +18,6 @@ from google.protobuf.json_format import MessageToDict
 import aioesphomeapi.host_resolver as hr
 
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
-from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
@@ -65,9 +64,53 @@ if TYPE_CHECKING:
 
     from google.protobuf import message
 
+    from ._frame_helper.noise import APINoiseFrameHelper
     from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
+
+# The noise frame helper pulls in cryptography and the noise protocol stack,
+# which are only needed for encrypted connections; importing them is deferred
+# until the first noise connection so plaintext-only callers never pay for them.
+# State lives in module-level containers mutated in place (no global rebinding):
+# the resolved class is cached once after a successful import, and a per-loop
+# lock serializes the cold import so concurrent connections do not each spawn an
+# executor thread. Keying the lock by loop avoids the cross-loop binding error a
+# single shared lock would raise if a later connection ran on a different loop.
+_noise_frame_helper_cache: list[type[APINoiseFrameHelper]] = []
+_noise_import_locks: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
+
+
+def _import_noise_frame_helper() -> type[APINoiseFrameHelper]:
+    from ._frame_helper.noise import APINoiseFrameHelper  # noqa: PLC0415
+
+    if not _noise_frame_helper_cache:
+        _noise_frame_helper_cache.append(APINoiseFrameHelper)
+    return APINoiseFrameHelper
+
+
+async def _async_load_noise_frame_helper(
+    loop: asyncio.AbstractEventLoop,
+) -> type[APINoiseFrameHelper]:
+    """Load the noise frame helper, importing off the loop on the first cold import.
+
+    The import pulls in cryptography and the noise stack, which does blocking file
+    I/O; running it in the executor keeps the event loop unblocked. The resolved
+    class is cached once the import fully completes, so warm connections skip the
+    import entirely and a task racing the first cold import waits on the lock
+    instead of re-running the import on the loop thread.
+    """
+    if _noise_frame_helper_cache:
+        return _noise_frame_helper_cache[0]
+    lock = _noise_import_locks.get(loop)
+    if lock is None:
+        lock = _noise_import_locks[loop] = asyncio.Lock()
+    async with lock:
+        # Another task may have completed the import while we waited.
+        if _noise_frame_helper_cache:
+            return _noise_frame_helper_cache[0]
+        return await loop.run_in_executor(None, _import_noise_frame_helper)
+
 
 MESSAGE_NUMBER_TO_PROTO: tuple[
     tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
@@ -514,8 +557,9 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
+            noise_frame_helper = await _async_load_noise_frame_helper(self._loop)
             _, fh = await self._loop.create_connection(  # type: ignore[type-var]
-                lambda: APINoiseFrameHelper(
+                lambda: noise_frame_helper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
                     expected_mac=self._params.expected_mac,

@@ -15,7 +15,7 @@ import pytest
 import pytest_asyncio
 
 from aioesphomeapi.client import APIClient, ConnectionParams
-from aioesphomeapi.connection import APIConnection
+from aioesphomeapi.connection import APIConnection, _import_noise_frame_helper
 from aioesphomeapi.host_resolver import AddrInfo, IPv4Sockaddr
 from aioesphomeapi.singleton import _SINGLETON_CACHE
 
@@ -112,6 +112,9 @@ async def conn_with_password(connection_params: ConnectionParams) -> APIConnecti
 
 @pytest.fixture
 async def noise_conn(connection_params: ConnectionParams) -> APIConnection:
+    # Pre-resolve the noise frame helper so connection setup takes the warm
+    # inline path; the cold executor import is covered in test_lazy_imports.
+    _import_noise_frame_helper()
     connection_params = replace(
         connection_params, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     )

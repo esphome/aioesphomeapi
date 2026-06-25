@@ -21,7 +21,6 @@ from ..core import (
 )
 from .base import _LOGGER, APIFrameHelper
 from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
-from .packets import make_noise_packets
 
 if TYPE_CHECKING:
     import asyncio
@@ -52,6 +51,31 @@ int_ = int
 _MAX_NAME_LEN = MAX_NAME_LEN
 _MAX_MAC_LEN = MAX_MAC_LEN
 _MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
+
+
+def make_noise_packets(
+    packets: list[tuple[int, bytes]], encrypt_cipher: EncryptCipher
+) -> list[bytes]:
+    """Make a list of noise packet."""
+    out: list[bytes] = []
+    for packet in packets:
+        type_: int = packet[0]
+        data: bytes = packet[1]
+        data_len = len(data)
+        data_header = bytes(
+            (
+                (type_ >> 8) & 0xFF,
+                type_ & 0xFF,
+                (data_len >> 8) & 0xFF,
+                data_len & 0xFF,
+            )
+        )
+        frame = encrypt_cipher.encrypt(data_header + data)
+        frame_len = len(frame)
+        header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
+        out.append(header)
+        out.append(frame)
+    return out
 
 
 class APINoiseFrameHelper(APIFrameHelper):
