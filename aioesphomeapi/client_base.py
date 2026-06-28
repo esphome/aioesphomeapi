@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import Callable, Coroutine
 import itertools
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from google.protobuf import message
 
@@ -35,7 +35,7 @@ from .api_pb2 import (  # type: ignore
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
 )
-from .connection import ConnectionParams
+from .connection import BLEConnectionParams, ZCConnectionParams
 from .core import APIConnectionError
 from .model import (
     APIVersion,
@@ -300,6 +300,7 @@ class APIClientBase:
         port: int,
         password: str_ | None,
         *,
+        connection_type: Literal["tcp", "ble"] = "tcp",
         client_info: str_ = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
         zeroconf_instance: ZeroconfInstanceType | None = None,
@@ -335,21 +336,32 @@ class APIClientBase:
             Example: 'America/Chicago' or 'Europe/London'
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
-        self._params = ConnectionParams(
-            addresses=[str(addr) for addr in addresses]
-            if addresses
-            else [str(address)],
-            port=port,
-            password=password,
-            client_info=client_info,
-            keepalive=keepalive,
-            zeroconf_manager=ZeroconfManager(zeroconf_instance),
-            # treat empty '' psk string as missing (like password)
-            noise_psk=_stringify_or_none(noise_psk) or None,
-            expected_name=_stringify_or_none(expected_name) or None,
-            expected_mac=_stringify_or_none(expected_mac) or None,
-            timezone=_stringify_or_none(timezone) or None,
-        )
+        if connection_type == "tcp":
+            self._params = ZCConnectionParams(
+                addresses=addresses if addresses else [address],
+                port=port,
+                password=password,
+                client_info=client_info,
+                keepalive=keepalive,
+                zeroconf_manager=ZeroconfManager(zeroconf_instance),
+                # treat empty '' psk string as missing (like password)
+                noise_psk=_stringify_or_none(noise_psk) or None,
+                expected_name=_stringify_or_none(expected_name) or None,
+                expected_mac=_stringify_or_none(expected_mac) or None,
+                timezone=_stringify_or_none(timezone) or None,
+            )
+        elif connection_type == "ble":
+            self._params = BLEConnectionParams(
+                address=address.replace(":", "").lower(),
+                password=password,
+                client_info=client_info,
+                keepalive=keepalive,
+                zeroconf_manager=ZeroconfManager(zeroconf_instance),
+                # treat empty '' psk string as missing (like password)
+                noise_psk=_stringify_or_none(noise_psk) or None,
+                expected_name=_stringify_or_none(expected_name) or None,
+                timezone=_stringify_or_none(timezone) or None,
+            )
         self._connection: APIConnection | None = None
         self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
@@ -423,7 +435,7 @@ class APIClientBase:
             connected_address = self._connection.connected_address
         self.log_name = build_log_name(
             self.cached_name,
-            self._params.addresses,
+            self._params.address,
             connected_address,
         )
         if self._connection is not None:

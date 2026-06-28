@@ -51,6 +51,16 @@ class IPv6Sockaddr(Sockaddr):
 
 
 @dataclass(frozen=True)
+class L2CAPSockaddr(Sockaddr):
+    """Bluetooth L2CAP socket address."""
+
+    address: str
+    psm: int
+    cid: int = 0
+    address_type: int = 2
+
+
+@dataclass(frozen=True)
 class AddrInfo:
     family: int
     type: int
