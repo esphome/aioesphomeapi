@@ -31,8 +31,8 @@ if TYPE_CHECKING:
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
     MAXIMUM_BACKOFF_TRIES,
-    ReconnectLogic,
     ReconnectLogicState,
+    ZCReconnectLogic,
 )
 
 from .common import (
@@ -90,7 +90,7 @@ async def test_reconnect_logic_name_from_host():
     async def on_connect() -> None:
         pass
 
-    ReconnectLogic(
+    ZCReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -113,7 +113,7 @@ async def test_reconnect_logic_name_from_host_and_set():
     async def on_connect() -> None:
         pass
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -138,7 +138,7 @@ async def test_reconnect_logic_name_from_address():
     async def on_connect() -> None:
         pass
 
-    ReconnectLogic(
+    ZCReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -161,7 +161,7 @@ async def test_reconnect_logic_name_from_name():
     async def on_connect() -> None:
         pass
 
-    ReconnectLogic(
+    ZCReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -185,7 +185,7 @@ async def test_reconnect_logic_name_from_cli_address():
     async def on_connect() -> None:
         pass
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -215,7 +215,7 @@ async def test_reconnect_logic_state(patchable_api_client: APIClient):
         nonlocal on_connect_called
         on_connect_fail_called.append(connect_exception)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -292,7 +292,7 @@ async def test_reconnect_retry(
         nonlocal on_connect_called
         on_connect_fail_called.append(connect_exception)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=on_disconnect,
         on_connect=on_connect,
@@ -465,7 +465,7 @@ async def test_reconnect_zeroconf(  # noqa: C901  # parametrized over many recor
     cli = patchable_api_client
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -580,7 +580,7 @@ async def test_reconnect_zeroconf_cancels_connecting_no_socket(
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -666,7 +666,7 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -744,7 +744,7 @@ async def test_start_clears_stale_zeroconf_gate(
     cli = patchable_api_client
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -781,7 +781,7 @@ async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -854,7 +854,7 @@ async def test_reconnect_zeroconf_cancels_pending_timer(
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -904,7 +904,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
 
     mock_zeroconf = MagicMock(spec=Zeroconf)
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -963,7 +963,7 @@ async def test_connect_task_not_cancelled_while_handshaking(
     """Test that reconnect logic will not cancel an in progress handshake."""
     cli = patchable_api_client
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -1024,7 +1024,7 @@ async def test_connect_aborts_if_stopped(
     """Test that reconnect logic will abort connecting if stopped."""
     cli = patchable_api_client
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -1057,9 +1057,9 @@ async def test_connect_aborts_if_stopped(
 
 
 async def test_reconnect_logic_stop_callback(patchable_api_client: APIClient):
-    """Test that the stop_callback stops the ReconnectLogic."""
+    """Test that the stop_callback stops the ZCReconnectLogic."""
     cli = patchable_api_client
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -1089,7 +1089,7 @@ async def test_reconnect_logic_stop_callback_waits_for_handshake(
 ):
     """Test that the stop_callback waits for a handshake."""
     cli = patchable_api_client
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
@@ -1154,7 +1154,7 @@ async def test_handling_unexpected_disconnect(aiohappyeyeballs_start_connection)
     async def on_connect() -> None:
         connected.set()
 
-    logic = ReconnectLogic(
+    logic = ZCReconnectLogic(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
@@ -1234,7 +1234,7 @@ async def test_backoff_on_encryption_error(
     async def on_connect() -> None:
         connected.set()
 
-    logic = ReconnectLogic(
+    logic = ZCReconnectLogic(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
@@ -1287,7 +1287,7 @@ async def test_plaintext_fallback_disabled_by_default(
     async def on_connect() -> None: ...
     async def on_disconnect(expected_disconnect: bool) -> None: ...
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
@@ -1336,7 +1336,7 @@ async def test_plaintext_fallback_downgrades_when_enabled(
     async def on_connect() -> None: ...
     async def on_disconnect(expected_disconnect: bool) -> None: ...
 
-    rl = ReconnectLogic(
+    rl = ZCReconnectLogic(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
@@ -1378,7 +1378,7 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
         side_effect=Exception("Should not create zeroconf instance for IP addresses"),
     ):
         # Test with IP address as name - should not raise
-        logic_with_ip = ReconnectLogic(
+        logic_with_ip = ZCReconnectLogic(
             client=cli,
             on_connect=AsyncMock(),
             on_disconnect=AsyncMock(),
@@ -1391,7 +1391,7 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
         await logic_with_ip.stop()
 
         # Test with IP:port as name - should not raise
-        logic_with_ip_port = ReconnectLogic(
+        logic_with_ip_port = ZCReconnectLogic(
             client=cli,
             on_connect=AsyncMock(),
             on_disconnect=AsyncMock(),
@@ -1408,7 +1408,7 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
     with patch.object(
         cli.zeroconf_manager, "get_async_zeroconf", return_value=async_zeroconf
     ) as mock_get_zc:
-        logic_with_name = ReconnectLogic(
+        logic_with_name = ZCReconnectLogic(
             client=cli,
             on_connect=AsyncMock(),
             on_disconnect=AsyncMock(),
@@ -1434,7 +1434,7 @@ async def test_connection_cancelled_error_logged_at_debug_level(
     on_disconnect = AsyncMock()
     on_connect_fail = AsyncMock()
 
-    logic = ReconnectLogic(
+    logic = ZCReconnectLogic(
         client=patchable_api_client,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
@@ -1477,7 +1477,7 @@ async def test_resolved_log_level_changes_after_first_attempt(
     on_disconnect = AsyncMock()
     on_connect_fail = AsyncMock()
 
-    logic = ReconnectLogic(
+    logic = ZCReconnectLogic(
         client=patchable_api_client,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
@@ -1543,7 +1543,7 @@ async def test_zc_listen_failure_does_not_block_connect(
     on_disconnect = AsyncMock()
     on_connect_fail = AsyncMock()
 
-    logic = ReconnectLogic(
+    logic = ZCReconnectLogic(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,
@@ -1588,7 +1588,7 @@ async def test_zc_listen_failure_downgrades_to_debug_after_first_try(
 ) -> None:
     """Repeated zeroconf init failures must not spam WARNING (Copilot review on #1652)."""
     cli = patchable_api_client
-    logic = ReconnectLogic(
+    logic = ZCReconnectLogic(
         client=cli,
         on_connect=AsyncMock(),
         on_disconnect=AsyncMock(),

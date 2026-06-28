@@ -121,7 +121,12 @@ from .client_base import (
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
 )
-from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa: F401
+from .connection import (
+    BLEAPIConnection,
+    IPAPIConnection,
+    IPConnectionParams,
+    handle_timeout,
+)
 from .core import (
     APIConnectionError,
     BluetoothConnectionDroppedError,
@@ -334,14 +339,23 @@ class APIClient(APIClientBase):
         if self._connection is not None:
             msg = f"Already connected to {self.log_name}!"
             raise APIConnectionError(msg)
-        self._connection = APIConnection(
-            self._params,
-            partial(self._on_stop, on_stop),
-            self._debug_enabled,
-            self.log_name,
-            log_errors=log_errors,
-        )
-        await self._execute_connection_coro(self._connection.start_resolve_host())
+        if isinstance(self._params, IPConnectionParams):
+            self._connection = IPAPIConnection(
+                self._params,
+                partial(self._on_stop, on_stop),
+                self._debug_enabled,
+                self.log_name,
+                log_errors=log_errors,
+            )
+            await self._execute_connection_coro(self._connection.start_resolve_host())
+        else:
+            self._connection = BLEAPIConnection(
+                self._params,
+                partial(self._on_stop, on_stop),
+                self._debug_enabled,
+                self.log_name,
+                log_errors=log_errors,
+            )
 
     async def start_connection(self) -> None:
         """Start connecting to the device."""

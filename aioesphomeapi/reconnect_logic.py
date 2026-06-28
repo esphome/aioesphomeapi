@@ -60,7 +60,7 @@ AUTH_EXCEPTIONS = (
 )
 
 
-class ReconnectLogic(zeroconf.RecordUpdateListener):
+class ReconnectLogic:
     """Reconnectiong logic handler for ESPHome config entries.
 
     Contains two reconnect strategies:
@@ -76,7 +76,6 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         client: APIClient,
         on_connect: Callable[[], Awaitable[None]],
         on_disconnect: Callable[[bool], Awaitable[None]],
-        zeroconf_instance: ZeroconfInstanceType | None = None,
         name: str | None = None,
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
         allow_plaintext_fallback: bool = False,
@@ -113,17 +112,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
         self._allow_plaintext_fallback = allow_plaintext_fallback
-        self._zeroconf_manager = client.zeroconf_manager
-        if zeroconf_instance is not None:
-            self._zeroconf_manager.set_instance(zeroconf_instance)
-        self._ptr_alias: str | None = None
-        self._a_name: str | None = None
         # Flag to check if the device is connected
         self._connection_state = ReconnectLogicState.DISCONNECTED
-        self._accept_zeroconf_records: bool = True
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
-        self._zc_listening = False
         # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
         # Event for tracking when logic should stop
@@ -244,7 +236,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         _LOGGER.info(
             "Successfully connected to %s in %0.3fs", self._cli.log_name, connect_time
         )
-        self._stop_zc_listen()
+        self._stop_listen()
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
         try:
             await self._cli.finish_connection(login=True)
@@ -295,7 +287,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         else:
             self._tries += 1
 
-    def _schedule_connect(self, delay: float) -> None:
+    def _schedule_connect(self, delay: float = 0.0) -> None:
         """Schedule a connect attempt."""
         self._cancel_connect_timer()
         if not delay:
@@ -381,7 +373,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 or self._is_stopped
             ):
                 return
-            self._start_zc_listen()
+            self._start_listen()
             if await self._try_connect():
                 return
             tries = min(self._tries, 10)  # prevent OverflowError
@@ -420,7 +412,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # Clear any stale gate from a prior run that was stopped mid
             # attempt after an mDNS triggered restart.
             self._accept_zeroconf_records = True
-            self._schedule_connect(0.0)
+            self._schedule_connect()
 
     async def stop(self) -> None:
         """Stop the connecting logic background task. Does not disconnect the client."""
@@ -435,14 +427,50 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._is_stopped = True
             # Cancel again while holding the lock
             self._cancel_connect("Stopping")
-            self._stop_zc_listen()
+            self._stop_listen()
             self._async_set_connection_state_while_locked(
                 ReconnectLogicState.DISCONNECTED
             )
 
-        await self._zeroconf_manager.async_close()
+    def _start_listen(self) -> None:
+        pass
 
-    def _start_zc_listen(self) -> None:
+    def _stop_listen(self) -> None:
+        pass
+
+
+class ZCReconnectLogic(ReconnectLogic, zeroconf.RecordUpdateListener):
+    def __init__(
+        self,
+        *,
+        client: APIClient,
+        on_connect: Callable[[], Awaitable[None]],
+        on_disconnect: Callable[[bool], Awaitable[None]],
+        name: str | None = None,
+        on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
+        allow_plaintext_fallback: bool = False,
+        zeroconf_instance: ZeroconfInstanceType | None = None,
+    ) -> None:
+        self._zeroconf_manager = client.zeroconf_manager
+        if zeroconf_instance is not None:
+            self._zeroconf_manager.set_instance(zeroconf_instance)
+
+        self._ptr_alias: str | None = None
+        self._a_name: str | None = None
+
+        self._accept_zeroconf_records: bool = True
+        self._zc_listening = False
+
+        super().__init__(
+            client=client,
+            on_connect=on_connect,
+            on_disconnect=on_disconnect,
+            name=name,
+            on_connect_error=on_connect_error,
+            allow_plaintext_fallback=allow_plaintext_fallback,
+        )
+
+    def _start_listen(self) -> None:
         """Listen for mDNS records.
 
         This listener allows us to schedule a connect as soon as a
@@ -475,7 +503,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
                 return
             self._zc_listening = True
 
-    def _stop_zc_listen(self) -> None:
+    def _zc_listen(self) -> None:
         """Stop listening for zeroconf updates."""
         if self._zc_listening:
             _LOGGER.debug("Removing zeroconf listener for %s", self.name)
@@ -486,8 +514,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _connect_from_zeroconf(self) -> None:
         """Connect from zeroconf."""
-        self._stop_zc_listen()
-        self._schedule_connect(0.0)
+        self._zc_listen()
+        self._schedule_connect()
 
     def async_update_records(
         self,
@@ -538,3 +566,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._connect_from_zeroconf()
             self._accept_zeroconf_records = False
             return
+
+    async def stop(self) -> None:
+        await super().stop()
+        await self._zeroconf_manager.async_close()

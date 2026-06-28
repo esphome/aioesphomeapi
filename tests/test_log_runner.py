@@ -32,7 +32,7 @@ from aioesphomeapi.model import (
     WaterHeaterMode,
     WaterHeaterState,
 )
-from aioesphomeapi.reconnect_logic import EXPECTED_DISCONNECT_COOLDOWN, ReconnectLogic
+from aioesphomeapi.reconnect_logic import EXPECTED_DISCONNECT_COOLDOWN, ZCReconnectLogic
 
 from .common import (
     Estr,
@@ -320,7 +320,7 @@ async def test_async_run_with_subscribe_states() -> None:
 
     on_connect_callback = None
 
-    class MockReconnectLogic(ReconnectLogic):
+    class MockReconnectLogic(ZCReconnectLogic):
         def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal on_connect_callback
             on_connect_callback = on_connect
@@ -331,7 +331,7 @@ async def test_async_run_with_subscribe_states() -> None:
         async def stop(self) -> None:
             pass
 
-    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+    with patch("aioesphomeapi.log_runner.ZCReconnectLogic", MockReconnectLogic):
         stop = await async_run(
             cli,
             log_messages.append,
@@ -391,7 +391,7 @@ async def test_async_run_with_colliding_entity_keys_across_types() -> None:
 
     on_connect_callback = None
 
-    class MockReconnectLogic(ReconnectLogic):
+    class MockReconnectLogic(ZCReconnectLogic):
         def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal on_connect_callback
             on_connect_callback = on_connect
@@ -402,7 +402,7 @@ async def test_async_run_with_colliding_entity_keys_across_types() -> None:
         async def stop(self) -> None:
             pass
 
-    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+    with patch("aioesphomeapi.log_runner.ZCReconnectLogic", MockReconnectLogic):
         stop = await async_run(cli, log_messages.append, subscribe_states=True)
 
     assert state_callback is not None
@@ -470,7 +470,7 @@ async def test_async_run_warns_on_unmapped_state_type(
 
     on_connect_callback = None
 
-    class MockReconnectLogic(ReconnectLogic):
+    class MockReconnectLogic(ZCReconnectLogic):
         def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal on_connect_callback
             on_connect_callback = on_connect
@@ -484,7 +484,7 @@ async def test_async_run_warns_on_unmapped_state_type(
     class UnmappedState(SensorState):
         """Stand-in for a future state type with no mapping entry."""
 
-    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+    with patch("aioesphomeapi.log_runner.ZCReconnectLogic", MockReconnectLogic):
         stop = await async_run(cli, log_messages.append, subscribe_states=True)
 
     assert state_callback is not None
@@ -524,7 +524,7 @@ async def test_async_run_with_subscribe_states_suppresses_on_verbose() -> None:
 
     on_connect_callback = None
 
-    class MockReconnectLogic(ReconnectLogic):
+    class MockReconnectLogic(ZCReconnectLogic):
         def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal on_connect_callback
             on_connect_callback = on_connect
@@ -535,7 +535,7 @@ async def test_async_run_with_subscribe_states_suppresses_on_verbose() -> None:
         async def stop(self) -> None:
             pass
 
-    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+    with patch("aioesphomeapi.log_runner.ZCReconnectLogic", MockReconnectLogic):
         stop = await async_run(cli, log_messages.append, subscribe_states=True)
 
     assert state_callback is not None
@@ -568,7 +568,7 @@ async def test_async_run_without_subscribe_states() -> None:
 
     on_connect_callback = None
 
-    class MockReconnectLogic(ReconnectLogic):
+    class MockReconnectLogic(ZCReconnectLogic):
         def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal on_connect_callback
             on_connect_callback = on_connect
@@ -579,7 +579,7 @@ async def test_async_run_without_subscribe_states() -> None:
         async def stop(self) -> None:
             pass
 
-    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+    with patch("aioesphomeapi.log_runner.ZCReconnectLogic", MockReconnectLogic):
         stop = await async_run(cli, log_messages.append, subscribe_states=False)
 
     # subscribe_logs called with raw callback
@@ -600,7 +600,7 @@ async def test_async_run_disconnects_on_api_connection_error() -> None:
 
     on_connect_callback = None
 
-    class MockReconnectLogic(ReconnectLogic):
+    class MockReconnectLogic(ZCReconnectLogic):
         def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal on_connect_callback
             on_connect_callback = on_connect
@@ -611,7 +611,7 @@ async def test_async_run_disconnects_on_api_connection_error() -> None:
         async def stop(self) -> None:
             pass
 
-    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+    with patch("aioesphomeapi.log_runner.ZCReconnectLogic", MockReconnectLogic):
         stop = await async_run(cli, lambda _: None, subscribe_states=False)
 
     cli.disconnect.assert_called_once()
@@ -627,7 +627,7 @@ async def test_async_run_on_disconnect_logs_warning(
 
     on_disconnect_callback = None
 
-    class MockReconnectLogic(ReconnectLogic):
+    class MockReconnectLogic(ZCReconnectLogic):
         def __init__(self, *, on_connect, on_disconnect, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal on_disconnect_callback
             on_disconnect_callback = on_disconnect
@@ -638,7 +638,7 @@ async def test_async_run_on_disconnect_logs_warning(
         async def stop(self) -> None:
             pass
 
-    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+    with patch("aioesphomeapi.log_runner.ZCReconnectLogic", MockReconnectLogic):
         stop = await async_run(cli, lambda _: None, subscribe_states=False)
 
     assert on_disconnect_callback is not None

@@ -1,6 +1,6 @@
 import timeit
 
-from aioesphomeapi import APIConnection
+from aioesphomeapi import IPAPIConnection
 from aioesphomeapi._frame_helper import APIPlaintextFrameHelper
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi.api_pb2 import (
@@ -33,7 +33,7 @@ data = (
 )
 
 
-class MockConnection(APIConnection):
+class MockConnection(IPAPIConnection):
     def __init__(self, *args, **kwargs):
         pass
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from ._frame_helper.base import (  # noqa: F401
     MAX_NAME_LEN,
@@ -31,7 +31,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
 )
-from .connection import ConnectionParams
+from .connection import BLEConnectionParams, IPConnectionParams
 from .core import APIConnectionError
 from .model import (
     APIVersion,
@@ -289,9 +289,11 @@ class APIClientBase:
     def __init__(
         self,
         address: str_,  # allow subclass str
-        port: int,
+        port: int | None = None,
         password: str_ | None = None,
         *,
+        transport: Literal["ip", "ble"] = "ip",
+        ble_address_type: Literal["public", "random"] | None = None,
         client_info: str_ = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
         zeroconf_instance: ZeroconfInstanceType | None = None,
@@ -330,22 +332,44 @@ class APIClientBase:
             request for the current time and timezone.
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
-        self._params = ConnectionParams(
-            addresses=[str(addr) for addr in addresses]
-            if addresses
-            else [str(address)],
-            port=port,
-            password=password,
-            client_info=client_info,
-            keepalive=keepalive,
-            zeroconf_manager=ZeroconfManager(zeroconf_instance),
-            # treat empty '' psk string as missing (like password)
-            noise_psk=_stringify_or_none(noise_psk) or None,
-            expected_name=_stringify_or_none(expected_name) or None,
-            expected_mac=_stringify_or_none(expected_mac) or None,
-            timezone=_stringify_or_none(timezone) or None,
-            provide_time=provide_time,
-        )
+        self._params: IPConnectionParams | BLEConnectionParams
+        if transport == "ip":
+            if port is None:
+                msg = "port must be provided for IP connections"
+                raise ValueError(msg)
+            self._params = IPConnectionParams(
+                addresses=[str(addr) for addr in addresses]
+                if addresses
+                else [str(address)],
+                port=port,
+                password=password,
+                client_info=client_info,
+                keepalive=keepalive,
+                zeroconf_manager=ZeroconfManager(zeroconf_instance),
+                # treat empty '' psk string as missing (like password)
+                noise_psk=_stringify_or_none(noise_psk) or None,
+                expected_name=_stringify_or_none(expected_name) or None,
+                expected_mac=_stringify_or_none(expected_mac) or None,
+                timezone=_stringify_or_none(timezone) or None,
+                provide_time=provide_time,
+            )
+        elif transport == "ble":
+            address = address.replace(":", "").lower()
+            if ble_address_type is None:
+                msg = "ble_address_type must be provided for BLE connections"
+                raise ValueError(msg)
+            self._params = BLEConnectionParams(
+                addresses=[address],
+                address_type=ble_address_type,
+                password=password,
+                client_info=client_info,
+                keepalive=keepalive,
+                # treat empty '' psk string as missing (like password)
+                noise_psk=_stringify_or_none(noise_psk) or None,
+                expected_name=_stringify_or_none(expected_name) or None,
+                timezone=_stringify_or_none(timezone) or None,
+                provide_time=provide_time,
+            )
         self._connection: APIConnection | None = None
         self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
@@ -363,6 +387,11 @@ class APIClientBase:
 
     @property
     def zeroconf_manager(self) -> ZeroconfManager:
+        if not isinstance(self._params, IPConnectionParams):
+            msg = (
+                "Zeroconf manager is only available for connections using IP transport"
+            )
+            raise TypeError(msg)
         return self._params.zeroconf_manager
 
     @property
@@ -383,6 +412,9 @@ class APIClientBase:
 
     @property
     def port(self) -> int:
+        if not isinstance(self._params, IPConnectionParams):
+            msg = "Port is only available for connections using IP transport"
+            raise TypeError(msg)
         return self._params.port
 
     @property
