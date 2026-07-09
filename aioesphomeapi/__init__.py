@@ -9,6 +9,7 @@ from .connection import APIConnection, ConnectionParams
 from .core import (
     ESPHOME_GATT_ERRORS,
     MESSAGE_TYPE_TO_PROTO,
+    ZERO_NOISE_PSK,
     APIConnectionError,
     BadMACAddressAPIError,
     BadNameAPIError,

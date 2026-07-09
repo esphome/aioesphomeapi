@@ -1,8 +1,19 @@
 from __future__ import annotations
 
+import base64
+
 import pytest
 
-from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, wifi_mac_to_bluetooth_mac
+from aioesphomeapi.core import (
+    MESSAGE_TYPE_TO_PROTO,
+    ZERO_NOISE_PSK,
+    wifi_mac_to_bluetooth_mac,
+)
+
+
+def test_zero_noise_psk_is_all_zero_bytes():
+    """Test that ZERO_NOISE_PSK decodes to exactly 32 zero bytes."""
+    assert base64.b64decode(ZERO_NOISE_PSK) == bytes(32)
 
 
 def test_order_and_no_missing_numbers_in_message_type_to_proto():

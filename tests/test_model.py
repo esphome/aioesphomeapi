@@ -683,6 +683,19 @@ def test_zwave_backcompat_for_device_info(
     assert info.zwave_home_id == home_id
 
 
+def test_device_info_api_encryption_provisionable() -> None:
+    """Test DeviceInfo api_encryption_provisionable conversion from protobuf."""
+    assert (
+        DeviceInfo.from_pb(DeviceInfoResponse()).api_encryption_provisionable is False
+    )
+    pb_response = DeviceInfoResponse(
+        api_encryption_supported=True, api_encryption_provisionable=True
+    )
+    info = DeviceInfo.from_pb(pb_response)
+    assert info.api_encryption_supported is True
+    assert info.api_encryption_provisionable is True
+
+
 def test_zwave_proxy_frame_conversion() -> None:
     """Test ZWaveProxyFrame conversion from protobuf."""
     # Test with empty data

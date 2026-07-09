@@ -2084,7 +2084,13 @@ class APIClient(APIClientBase):
         self,
         key: bytes,
     ) -> bool:
-        """Set the noise encryption key."""
+        """Set the noise encryption key.
+
+        For initial provisioning of an unprovisioned device
+        (device_info.api_encryption_provisionable is True), connect with
+        noise_psk=ZERO_NOISE_PSK so the key is not sent in plaintext.
+        Sending an empty key clears the stored key.
+        """
         req = NoiseEncryptionSetKeyRequest(key=key)
         resp = await self._get_connection().send_message_await_response(
             req, NoiseEncryptionSetKeyResponse
