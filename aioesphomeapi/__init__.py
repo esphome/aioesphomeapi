@@ -23,7 +23,6 @@ from .core import (
     RequiresEncryptionAPIError,
     ResolveAPIError,
     SocketAPIError,
-    SocketClosedAPIError,
     wifi_mac_to_bluetooth_mac,
 )
 from .log_parser import LogParser, parse_log_message
