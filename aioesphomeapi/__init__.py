@@ -9,6 +9,7 @@ from .connection import APIConnection, ConnectionParams
 from .core import (
     ESPHOME_GATT_ERRORS,
     MESSAGE_TYPE_TO_PROTO,
+    ZERO_NOISE_PSK,
     APIConnectionError,
     BadMACAddressAPIError,
     BadNameAPIError,
@@ -22,6 +23,7 @@ from .core import (
     RequiresEncryptionAPIError,
     ResolveAPIError,
     SocketAPIError,
+    SocketClosedAPIError,
     wifi_mac_to_bluetooth_mac,
 )
 from .log_parser import LogParser, parse_log_message

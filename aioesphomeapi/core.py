@@ -160,6 +160,13 @@ from .api_pb2 import (  # type: ignore[attr-defined]
 
 TWO_CHAR = re.compile(r".{2}")
 
+# Base64 of 32 zero bytes: the well-known PSK that unprovisioned devices
+# (encryption supported, no key set) accept for Noise handshakes so the real
+# encryption key can be provisioned without being sent in plaintext. The
+# ephemeral X25519 exchange protects against passive sniffing only; a publicly
+# known PSK provides no authentication against an active MITM.
+ZERO_NOISE_PSK = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
 # Taken from esp_gatt_status_t in esp_gatt_defs.h
 ESPHOME_GATT_ERRORS = {
     -1: "Not connected",  # Custom ESPHome error
