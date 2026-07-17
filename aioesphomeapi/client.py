@@ -381,6 +381,13 @@ class APIClient(APIClientBase):
         else:
             await self._connection.disconnect()
 
+    @property
+    def cached_device_has_deep_sleep(self) -> bool | None:
+        """has_deep_sleep from this session's cached device_info, or None if not fetched."""
+        if (info := self._cached_device_info) is None:
+            return None
+        return info.has_deep_sleep
+
     async def device_info(self) -> DeviceInfo:
         resp = await self._get_connection().send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse

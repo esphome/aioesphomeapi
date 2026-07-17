@@ -36,6 +36,10 @@ ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
+MAXIMUM_BACKOFF = 60.0
+# Deep-sleep devices are only awake for a short window; a lost boot-announce must
+# not leave a reconnect waiting out the full backoff past that window.
+DEEP_SLEEP_MAXIMUM_BACKOFF = 15.0
 
 
 class ReconnectLogicState(Enum):
@@ -109,6 +113,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self.name = client.address.partition(".")[0]
         if self.name:
             self._cli.set_cached_name_if_unset(self.name)
+        # Populated from DeviceInfo.has_deep_sleep after each successful connect
+        # (see _try_connect); caps the reconnect backoff so a short awake window
+        # is not missed. A consumer may also set it directly.
+        self.deep_sleep: bool = False
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
@@ -259,6 +267,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         await self._on_connect_cb()
+        # Remember deep-sleep from the device_info the connect callback just
+        # fetched; the client clears its cache on disconnect, so capture it now
+        # while connected. Persists on this long-lived object to cap the next
+        # reconnect's backoff, and self-heals if the device's config changes.
+        # None means device_info was not fetched, so leave any override intact.
+        if (has_deep_sleep := self._cli.cached_device_has_deep_sleep) is not None:
+            self.deep_sleep = has_deep_sleep
         return True
 
     async def _handle_connection_failure(self, err: Exception) -> None:
@@ -385,7 +400,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if await self._try_connect():
                 return
             tries = min(self._tries, 10)  # prevent OverflowError
-            wait_time = round(min(1.8**tries, 60.0))
+            max_backoff = (
+                DEEP_SLEEP_MAXIMUM_BACKOFF if self.deep_sleep else MAXIMUM_BACKOFF
+            )
+            wait_time = round(min(1.8**tries, max_backoff))
             if tries == 1:
                 _LOGGER.info(
                     "Trying to connect to %s in the background", self._cli.log_name
