@@ -21,6 +21,7 @@ from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR
 
 from aioesphomeapi import (
     APIConnectionError,
+    DeviceInfo,
     EncryptionPlaintextAPIError,
     RequiresEncryptionAPIError,
 )
@@ -405,6 +406,44 @@ async def test_deep_sleep_caps_reconnect_backoff(
 
     assert rl._connect_timer is not None
     assert rl._connect_timer.when() - now == pytest.approx(expected_wait, abs=1)
+    await rl.stop()
+
+
+@pytest.mark.parametrize("has_deep_sleep", [True, False])
+async def test_deep_sleep_self_populates_from_device_info(
+    patchable_api_client: APIClient,
+    has_deep_sleep: bool,
+) -> None:
+    """The flag is read from the connect callback's device_info, so it self-heals on reconnect."""
+    cli = patchable_api_client
+
+    async def on_connect() -> None:
+        # Stand in for the consumer fetching device_info during on_connect,
+        # which is what populates the client's cache.
+        cli._cached_device_info = DeviceInfo(has_deep_sleep=has_deep_sleep)
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        pass
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_connect=on_connect,
+        on_disconnect=on_disconnect,
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+    assert rl.deep_sleep is False
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert rl.deep_sleep is has_deep_sleep
     await rl.stop()
 
 

@@ -381,6 +381,11 @@ class APIClient(APIClientBase):
         else:
             await self._connection.disconnect()
 
+    @property
+    def cached_device_info(self) -> DeviceInfo | None:
+        """DeviceInfo from this session's last fetch, or None before one / after disconnect."""
+        return self._cached_device_info
+
     async def device_info(self) -> DeviceInfo:
         resp = await self._get_connection().send_message_await_response(
             DeviceInfoRequest(), DeviceInfoResponse

@@ -113,8 +113,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self.name = client.address.partition(".")[0]
         if self.name:
             self._cli.set_cached_name_if_unset(self.name)
-        # Set by the consumer once known (from DeviceInfo.has_deep_sleep); caps the
-        # reconnect backoff so a short awake window is not missed.
+        # Populated from DeviceInfo.has_deep_sleep after each successful connect
+        # (see _try_connect); caps the reconnect backoff so a short awake window
+        # is not missed. A consumer may also set it directly.
         self.deep_sleep: bool = False
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
@@ -266,6 +267,12 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         await self._on_connect_cb()
+        # Remember deep-sleep from the device_info the connect callback just
+        # fetched; the client clears its cache on disconnect, so capture it now
+        # while connected. Persists on this long-lived object to cap the next
+        # reconnect's backoff, and self-heals if the device's config changes.
+        if (info := self._cli.cached_device_info) is not None:
+            self.deep_sleep = info.has_deep_sleep
         return True
 
     async def _handle_connection_failure(self, err: Exception) -> None:
