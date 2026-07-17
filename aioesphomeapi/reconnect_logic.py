@@ -36,6 +36,10 @@ ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
+MAXIMUM_BACKOFF = 60.0
+# Deep-sleep devices are only awake for a short window; a lost boot-announce must
+# not leave a reconnect waiting out the full backoff past that window.
+DEEP_SLEEP_MAXIMUM_BACKOFF = 15.0
 
 
 class ReconnectLogicState(Enum):
@@ -109,6 +113,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self.name = client.address.partition(".")[0]
         if self.name:
             self._cli.set_cached_name_if_unset(self.name)
+        # Set by the consumer once known (from DeviceInfo.has_deep_sleep); caps the
+        # reconnect backoff so a short awake window is not missed.
+        self.deep_sleep: bool = False
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
@@ -385,7 +392,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if await self._try_connect():
                 return
             tries = min(self._tries, 10)  # prevent OverflowError
-            wait_time = round(min(1.8**tries, 60.0))
+            max_backoff = (
+                DEEP_SLEEP_MAXIMUM_BACKOFF if self.deep_sleep else MAXIMUM_BACKOFF
+            )
+            wait_time = round(min(1.8**tries, max_backoff))
             if tries == 1:
                 _LOGGER.info(
                     "Trying to connect to %s in the background", self._cli.log_name
