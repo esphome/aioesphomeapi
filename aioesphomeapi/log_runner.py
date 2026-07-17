@@ -33,6 +33,7 @@ async def async_run(
     name: str | None = None,
     subscribe_states: bool = True,
     allow_plaintext_fallback: bool = False,
+    deep_sleep: bool = False,
 ) -> Callable[[], Coroutine[Any, Any, None]]:
     """Run logs until canceled.
 
@@ -42,6 +43,10 @@ async def async_run(
     plaintext (and log a warning) when connecting with a PSK to a device
     running plaintext firmware, instead of failing repeatedly. Defaults
     to False so callers must opt in.
+
+    Set ``deep_sleep`` when the device is known to deep sleep (e.g. from
+    the caller's YAML config) so the reconnect backoff is capped and a
+    short awake window is not missed while waiting to reconnect.
 
     The logger stream is one-way (device → client), so enabling the
     fallback here only exposes log output to an on-path attacker — no
@@ -79,6 +84,7 @@ async def async_run(
         name=name,
         allow_plaintext_fallback=allow_plaintext_fallback,
     )
+    logic.deep_sleep = deep_sleep
     await logic.start()
 
     async def _stop() -> None:
