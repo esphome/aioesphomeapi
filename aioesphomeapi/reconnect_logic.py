@@ -271,8 +271,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         # fetched; the client clears its cache on disconnect, so capture it now
         # while connected. Persists on this long-lived object to cap the next
         # reconnect's backoff, and self-heals if the device's config changes.
-        if (info := self._cli.cached_device_info) is not None:
-            self.deep_sleep = info.has_deep_sleep
+        # None means device_info was not fetched, so leave any override intact.
+        if (has_deep_sleep := self._cli.cached_device_has_deep_sleep) is not None:
+            self.deep_sleep = has_deep_sleep
         return True
 
     async def _handle_connection_failure(self, err: Exception) -> None:
