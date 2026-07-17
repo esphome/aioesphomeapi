@@ -6,6 +6,8 @@ from functools import partial
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from aioesphomeapi.api_pb2 import (
     DisconnectRequest,
     DisconnectResponse,
@@ -17,7 +19,6 @@ from aioesphomeapi.log_runner import async_run
 
 if TYPE_CHECKING:
     from google.protobuf import message
-    import pytest
 
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
     from aioesphomeapi.connection import APIConnection
@@ -116,6 +117,35 @@ async def test_log_runner(
     disconnect_response = DisconnectResponse()
     mock_data_received(protocol, generate_plaintext_packet(disconnect_response))
     await stop_task
+
+
+@pytest.mark.parametrize("deep_sleep", [True, False])
+async def test_async_run_seeds_deep_sleep(deep_sleep: bool) -> None:
+    """async_run seeds ReconnectLogic.deep_sleep so the caller can cap the backoff."""
+    async_zeroconf = get_mock_async_zeroconf()
+    cli = APIClient(
+        address=Estr("127.0.0.1"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=Estr("fake"),
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+    seen: list[bool] = []
+
+    async def _start(self: ReconnectLogic) -> None:
+        seen.append(self.deep_sleep)
+
+    with patch.object(ReconnectLogic, "start", _start):
+        stop = await async_run(
+            cli,
+            lambda msg: None,
+            aio_zeroconf_instance=async_zeroconf,
+            subscribe_states=False,
+            deep_sleep=deep_sleep,
+        )
+    await stop()
+    assert seen == [deep_sleep]
 
 
 async def test_log_runner_reconnects_on_disconnect(
