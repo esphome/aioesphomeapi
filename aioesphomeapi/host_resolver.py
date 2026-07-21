@@ -146,6 +146,7 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
     _LOGGER.debug("Successfully resolved %s via getaddrinfo", host)
 
     addrs: list[AddrInfo] = []
+    skipped_unspecified = False
     for family, type_, proto, _, raw in res:
         sockaddr: IPv4Sockaddr | IPv6Sockaddr
         if family == socket.AF_INET:
@@ -162,9 +163,24 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
             # Unknown family
             continue
 
+        # DNS sinkholes answer with unspecified addresses (0.0.0.0 / ::);
+        # connecting to them is never useful, so treat them as a miss
+        if ip_address(address).is_unspecified:
+            _LOGGER.debug(
+                "Ignoring unspecified address %s for %s from getaddrinfo",
+                address,
+                host,
+            )
+            skipped_unspecified = True
+            continue
+
         addrs.append(
             AddrInfo(family=family, type=type_, proto=proto, sockaddr=sockaddr)
         )
+
+    if not addrs and skipped_unspecified:
+        msg = f"getaddrinfo for {host} returned only unspecified addresses"
+        raise ResolveAPIError(msg)
     return addrs
 
 
