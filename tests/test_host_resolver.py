@@ -160,6 +160,69 @@ async def test_resolve_host_getaddrinfo(addr_infos):
         assert ret == addr_infos
 
 
+async def test_resolve_host_getaddrinfo_filters_unspecified(addr_infos):
+    """Unspecified addresses from sinkhole DNS answers are dropped."""
+    event_loop = asyncio.get_running_loop()
+    with patch.object(event_loop, "getaddrinfo") as mock:
+        mock.return_value = [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon1",
+                ("0.0.0.0", 6052),  # noqa: S104
+            ),
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon1",
+                ("10.0.0.42", 6052),
+            ),
+            (
+                socket.AF_INET6,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon2",
+                ("::", 6052, 0, 0),
+            ),
+            (
+                socket.AF_INET6,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon2",
+                ("2001:db8:85a3::8a2e:370:7334", 6052, 0, 0),
+            ),
+        ]
+        ret = await hr._async_resolve_host_getaddrinfo("example.com", 6052)
+
+        assert ret == addr_infos
+
+
+async def test_resolve_host_getaddrinfo_all_unspecified():
+    """An all-unspecified getaddrinfo answer raises ResolveAPIError."""
+    event_loop = asyncio.get_running_loop()
+    with patch.object(event_loop, "getaddrinfo") as mock:
+        mock.return_value = [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon1",
+                ("0.0.0.0", 6052),  # noqa: S104
+            ),
+            (
+                socket.AF_INET6,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon2",
+                ("::", 6052, 0, 0),
+            ),
+        ]
+        with pytest.raises(ResolveAPIError, match="only unspecified addresses"):
+            await hr._async_resolve_host_getaddrinfo("example.com", 6052)
+
+
 async def test_resolve_host_getaddrinfo_oserror():
     event_loop = asyncio.get_running_loop()
     with patch.object(event_loop, "getaddrinfo") as mock:
