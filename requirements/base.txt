@@ -5,6 +5,6 @@ tzdata>=2026.2
 tzlocal>=5.3.1,<6
 zeroconf>=0.150.0,<2.0
 chacha20poly1305-reuseable>=0.13.2
-cryptography>=48.0.0
+cryptography>=49.0.0
 cryptography<49.0.0; platform_system == "Darwin" and platform_machine == "x86_64"
 noiseprotocol>=0.3.1,<1.0
