@@ -7,7 +7,7 @@ from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 from .core import APIConnectionError
 from .model import EntityInfo, EntityState, LogLevel
 from .model_conversions import STATE_TYPE_TO_INFO_TYPE
-from .reconnect_logic import ReconnectLogic
+from .reconnect_logic import ZCReconnectLogic
 from .state_log_formatter import format_state_log
 
 if TYPE_CHECKING:
@@ -76,7 +76,7 @@ async def async_run(
     ) -> None:
         _LOGGER.warning("Disconnected from API")
 
-    logic = ReconnectLogic(
+    logic = ZCReconnectLogic(
         client=cli,
         on_connect=on_connect,
         on_disconnect=on_disconnect,

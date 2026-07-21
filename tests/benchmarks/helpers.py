@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from aioesphomeapi import APIConnection
+from aioesphomeapi import IPAPIConnection
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.client_base import on_state_msg
 
@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from google.protobuf import message
+
+    from aioesphomeapi import APIConnection
 
 
 def noop(msg: object) -> None:
@@ -22,7 +24,9 @@ def noop(msg: object) -> None:
 def make_connection() -> APIConnection:
     """Build an APIConnection suitable for benchmarking process_packet."""
     client = APIClient("fake.address", 6052, None)
-    return APIConnection(client._params, lambda expected_disconnect: None, False, None)
+    return IPAPIConnection(
+        client._params, lambda expected_disconnect: None, False, None
+    )
 
 
 def bench_process_packet(
