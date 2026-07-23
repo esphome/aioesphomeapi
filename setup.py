@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
 """aioesphomeapi setup script."""
 
 import contextlib
 from distutils.command.build_ext import build_ext
 import os
+from pathlib import Path
 from typing import Any
 
 from setuptools import find_packages, setup
@@ -14,6 +14,7 @@ except ImportError:
     from distutils.core import Extension
 
 TO_CYTHONIZE = [
+    "aioesphomeapi/_sanitize.py",
     "aioesphomeapi/client_base.py",
     "aioesphomeapi/connection.py",
     "aioesphomeapi/_frame_helper/base.py",
@@ -35,13 +36,13 @@ EXTENSIONS = [
 ]
 
 
-here = os.path.abspath(os.path.dirname(__file__))
+here = Path(__file__).parent.resolve()
 
-with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
+with (here / "README.rst").open(encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "44.5.1"
+VERSION = "45.7.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -59,7 +60,7 @@ GITHUB_URL = f"https://github.com/{GITHUB_PATH}"
 
 DOWNLOAD_URL = f"{GITHUB_URL}/archive/{VERSION}.zip"
 
-with open(os.path.join(here, "requirements/base.txt")) as requirements_txt:
+with (here / "requirements" / "base.txt").open() as requirements_txt:
     REQUIRES = requirements_txt.read().splitlines()
 
 pkgs = find_packages(exclude=["tests", "tests.*"])
@@ -92,6 +93,8 @@ setup_kwargs = {
 
 class OptionalBuildExt(build_ext):
     def build_extensions(self) -> None:
+        if self.parallel is None:
+            self.parallel = os.cpu_count() or 1
         with contextlib.suppress(Exception):
             super().build_extensions()
 
@@ -103,16 +106,16 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
         from Cython.Build import cythonize  # noqa: PLC0415
 
         setup_kwargs.update(
-            dict(
-                ext_modules=cythonize(
+            {
+                "ext_modules": cythonize(
                     EXTENSIONS,
                     compiler_directives={
                         "language_level": "3",  # Python 3
                         "freethreading_compatible": True,  # PEP 703
                     },
                 ),
-                cmdclass=dict(build_ext=OptionalBuildExt),
-            )
+                "cmdclass": {"build_ext": OptionalBuildExt},
+            }
         )
     except Exception:
         if os.environ.get("REQUIRE_CYTHON"):

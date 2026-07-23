@@ -16,6 +16,8 @@ cdef bint _WIN32
 
 cdef object WRITE_EXCEPTIONS
 
+cdef int _MAX_PROTOBUF_ERROR_DATA_BYTES
+
 cdef object DISCONNECT_REQUEST_MESSAGE
 cdef tuple DISCONNECT_RESPONSE_MESSAGES
 cdef tuple PING_REQUEST_MESSAGES
@@ -73,6 +75,7 @@ cdef object _handle_timeout
 cdef object _handle_complex_message
 
 cdef tuple MESSAGE_NUMBER_TO_PROTO
+cdef Py_ssize_t _MESSAGE_NUMBER_TO_PROTO_LEN
 
 
 @cython.dataclasses.dataclass
@@ -88,6 +91,7 @@ cdef class ConnectionParams:
     cdef public object expected_name
     cdef public object expected_mac
     cdef public object timezone
+    cdef public bint provide_time
 
 
 cdef class APIConnection:
@@ -117,6 +121,7 @@ cdef class APIConnection:
     cdef bint _debug_enabled
     cdef public str received_name
     cdef public str connected_address
+    cdef public object disconnect_reason
     cdef str _cached_timezone
     cdef list _addrs_info
     cdef bint _log_errors

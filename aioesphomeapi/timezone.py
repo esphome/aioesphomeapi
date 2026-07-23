@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from functools import cache
+from functools import cache, lru_cache
 from importlib import resources
 import logging
 
@@ -16,15 +16,20 @@ _LOGGER = logging.getLogger(__name__)
 
 def _load_tzdata(iana_key: str) -> bytes | None:
     """Load timezone data from tzdata package."""
+    if not iana_key:
+        return None
     try:
         package_loc, resource = iana_key.rsplit("/", 1)
     except ValueError:
-        return None
-    package = "tzdata.zoneinfo." + package_loc.replace("/", ".")
+        # Handle top-level timezone entries like "UTC", "GMT"
+        package = "tzdata.zoneinfo"
+        resource = iana_key
+    else:
+        package = "tzdata.zoneinfo." + package_loc.replace("/", ".")
 
     try:
         return (resources.files(package) / resource).read_bytes()
-    except (FileNotFoundError, ModuleNotFoundError):
+    except (FileNotFoundError, ModuleNotFoundError, IsADirectoryError):
         return None
 
 
@@ -66,6 +71,7 @@ def _get_local_timezone() -> str:
         return ""
 
 
+@lru_cache(maxsize=64)
 def iana_to_posix_tz(iana_key: str) -> str:
     """Convert IANA timezone key to POSIX TZ string.
 
@@ -75,6 +81,7 @@ def iana_to_posix_tz(iana_key: str) -> str:
     Returns:
         POSIX TZ string like 'CST6CDT,M3.2.0,M11.1.0'
         Returns empty string if conversion fails.
+
     """
     if (tzfile := _load_tzdata(iana_key)) is None:
         # Not an IANA key, return empty string
@@ -107,13 +114,9 @@ async def get_timezone(iana_key: str | None) -> str:
     Returns:
         POSIX TZ string like 'CST6CDT,M3.2.0,M11.1.0'
         Returns empty string if timezone cannot be determined.
+
     """
-    if iana_key:
-
-        @singleton(f"get_timezone_{iana_key}")
-        async def _get_iana_timezone() -> str:
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(None, iana_to_posix_tz, iana_key)
-
-        return await _get_iana_timezone()
-    return await get_local_timezone()
+    if not iana_key:
+        return await get_local_timezone()
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, iana_to_posix_tz, iana_key)

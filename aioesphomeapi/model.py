@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 from uuid import UUID
-
-from google.protobuf import message
 
 from .util import fix_float_single_double_conversion
 
@@ -17,7 +14,11 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
-    from .api_pb2 import (  # type: ignore
+    from collections.abc import Callable, Iterable
+
+    from google.protobuf import message
+
+    from .api_pb2 import (  # type: ignore[attr-defined]
         BluetoothLEAdvertisementResponse,
         HomeassistantServiceMap,
     )
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
 # The default value should *always* be the Protobuf default value
 # for a field (False, 0, empty string, enum with value 0, ...)
 
-_T = TypeVar("_T", bound="APIIntEnum")
 _V = TypeVar("_V")
 
 
@@ -36,14 +36,14 @@ class APIIntEnum(enum.IntEnum):
     """Base class for int enum values in API model."""
 
     @classmethod
-    def convert(cls: type[_T], value: int) -> _T | None:
+    def convert(cls, value: int) -> Self | None:
         try:
             return cls(value)
         except ValueError:
             return None
 
     @classmethod
-    def convert_list(cls: type[_T], value: list[int]) -> list[_T]:
+    def convert_list(cls, value: list[int]) -> list[Self]:
         ret = []
         for x in value:
             with contextlib.suppress(ValueError):
@@ -71,9 +71,7 @@ class APIModelBase:
         return asdict(self)  # type: ignore[no-any-return, call-overload]
 
     @classmethod
-    def from_dict(
-        cls: type[_V], data: dict[str, Any], *, ignore_missing: bool = True
-    ) -> _V:
+    def from_dict(cls, data: dict[str, Any], *, ignore_missing: bool = True) -> Self:
         return cls(
             **{
                 f.name: data[f.name]
@@ -83,15 +81,21 @@ class APIModelBase:
         )
 
     @classmethod
-    def from_pb(cls: type[_V], data: Any) -> _V:
+    def from_pb(cls, data: Any) -> Self:
         return cls(**{f.name: getattr(data, f.name) for f in cached_fields(cls)})  # type: ignore[arg-type]
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[Self]:
+        return [
+            cls.from_dict(x) if isinstance(x, dict) else cls.from_pb(x) for x in value
+        ]
 
 
 def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
     metadata = kwargs.pop("metadata", {})
     metadata["converter"] = converter
     return cast(
-        _V,
+        "_V",
         field(metadata=metadata, **kwargs),  # pylint: disable=invalid-field-call
     )
 
@@ -133,6 +137,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     TIMERS = 1 << 3
     ANNOUNCE = 1 << 4
     START_CONVERSATION = 1 << 5
+    MULTI_CHANNEL_AUDIO = 1 << 6
 
 
 class ZWaveProxyFeature(enum.IntFlag):
@@ -189,6 +194,15 @@ class InfraredRFReceiveEvent(APIModelBase):
     timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call
 
 
+class RadioFrequencyModulation(enum.IntEnum):
+    OOK = 0
+
+
+class RadioFrequencyCapability(enum.IntFlag):
+    TRANSMITTER = 1 << 0
+    RECEIVER = 1 << 1
+
+
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
@@ -197,16 +211,6 @@ class VoiceAssistantSubscriptionFlag(enum.IntFlag):
 class AreaInfo(APIModelBase):
     area_id: int = 0
     name: str = ""
-
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[AreaInfo]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(AreaInfo.from_dict(x))
-            else:
-                ret.append(AreaInfo.from_pb(x))
-        return ret
 
     @classmethod
     def convert(cls, value: Any) -> AreaInfo:
@@ -221,16 +225,6 @@ class SubDeviceInfo(APIModelBase):
     name: str = ""
     area_id: int = 0
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[SubDeviceInfo]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(SubDeviceInfo.from_dict(x))
-            else:
-                ret.append(SubDeviceInfo.from_pb(x))
-        return ret
-
 
 class SerialProxyPortType(APIIntEnum):
     TTL = 0
@@ -244,16 +238,6 @@ class SerialProxyInfo(APIModelBase):
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
     )
-
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[SerialProxyInfo]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(SerialProxyInfo.from_dict(x))
-            else:
-                ret.append(SerialProxyInfo.from_pb(x))
-        return ret
 
 
 @_frozen_dataclass_decorator
@@ -281,6 +265,7 @@ class DeviceInfo(APIModelBase):
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
+    api_encryption_provisionable: bool = False
     devices: list[SubDeviceInfo] = converter_field(
         default_factory=list, converter=SubDeviceInfo.convert_list
     )
@@ -320,7 +305,10 @@ class DeviceInfo(APIModelBase):
             return flags
         return self.voice_assistant_feature_flags
 
-    def zwave_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+    def zwave_proxy_feature_flags_compat(
+        self,
+        api_version: APIVersion,  # noqa: ARG002
+    ) -> int:
         return self.zwave_proxy_feature_flags
 
     def zigbee_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
@@ -519,8 +507,7 @@ class LightInfo(EntityInfo):
                 self.legacy_supports_white_value,
                 self.legacy_supports_color_temperature,
             )
-            # map legacy flags to color modes,
-            # key: (brightness, rgb, white, color_temp)
+            # Map (brightness, rgb, white, color_temp) flag tuples to color modes.
             modes_map = {
                 (False, False, False, False): [LightColorCapability.ON_OFF],
                 (True, False, False, False): [
@@ -557,7 +544,7 @@ class LightInfo(EntityInfo):
                 ],
             }
 
-            return cast(list[ColorMode], modes_map[key]) if key in modes_map else []
+            return cast("list[ColorMode]", modes_map[key]) if key in modes_map else []
 
         return self.supported_color_modes
 
@@ -718,6 +705,12 @@ class ClimatePreset(APIIntEnum):
     ACTIVITY = 7
 
 
+class TemperatureUnit(APIIntEnum):
+    CELSIUS = 0
+    FAHRENHEIT = 1
+    KELVIN = 2
+
+
 @_frozen_dataclass_decorator
 class ClimateInfo(EntityInfo):
     feature_flags: int = 0
@@ -737,6 +730,10 @@ class ClimateInfo(EntityInfo):
     )
     visual_current_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
+    )
+    temperature_unit: TemperatureUnit | None = converter_field(
+        default=TemperatureUnit.CELSIUS,
+        converter=TemperatureUnit.convert,
     )
     legacy_supports_away: bool = False
     supports_action: bool = False
@@ -940,10 +937,12 @@ class ButtonInfo(EntityInfo):
 class LockState(APIIntEnum):
     NONE = 0
     LOCKED = 1
-    UNLOCKED = 3
+    UNLOCKED = 2
     JAMMED = 3
     LOCKING = 4
     UNLOCKING = 5
+    OPENING = 6
+    OPEN = 7
 
 
 class LockCommand(APIIntEnum):
@@ -1065,16 +1064,6 @@ class MediaPlayerSupportedFormat(APIModelBase):
     )
     sample_bytes: int = 0
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[MediaPlayerSupportedFormat]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(MediaPlayerSupportedFormat.from_dict(x))
-            else:
-                ret.append(MediaPlayerSupportedFormat.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class MediaPlayerInfo(EntityInfo):
@@ -1138,6 +1127,17 @@ class AlarmControlPanelCommand(APIIntEnum):
     TRIGGER = 6
 
 
+class AlarmControlPanelEntityFeature(enum.IntFlag):
+    """Supported features of the alarm control panel entity."""
+
+    ARM_HOME = 1 << 0
+    ARM_AWAY = 1 << 1
+    ARM_NIGHT = 1 << 2
+    TRIGGER = 1 << 3
+    ARM_CUSTOM_BYPASS = 1 << 4
+    ARM_VACATION = 1 << 5
+
+
 @_frozen_dataclass_decorator
 class AlarmControlPanelInfo(EntityInfo):
     supported_features: int = 0
@@ -1172,6 +1172,7 @@ class WaterHeaterFeature(enum.IntFlag):
     SUPPORTS_OPERATION_MODE = 1 << 2
     SUPPORTS_AWAY_MODE = 1 << 3
     SUPPORTS_ON_OFF = 1 << 4
+    SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 5
 
 
 class WaterHeaterCommandField(enum.IntFlag):
@@ -1204,7 +1205,10 @@ class WaterHeaterInfo(EntityInfo):
     target_temperature_step: float = converter_field(
         default=0.0, converter=fix_float_single_double_conversion
     )
-
+    temperature_unit: TemperatureUnit | None = converter_field(
+        default=TemperatureUnit.CELSIUS,
+        converter=TemperatureUnit.convert,
+    )
     supported_modes: list[WaterHeaterMode] = converter_field(
         default_factory=list, converter=WaterHeaterMode.convert_list
     )
@@ -1288,6 +1292,28 @@ class UpdateState(EntityState):
 @_frozen_dataclass_decorator
 class InfraredInfo(EntityInfo):
     capabilities: int = 0
+    receiver_frequency: int = 0
+
+
+# ==================== RADIO FREQUENCY ====================
+
+
+@_frozen_dataclass_decorator
+class RadioFrequencyInfo(EntityInfo):
+    capabilities: int = 0
+    frequency_min: int = 0  # Minimum tunable frequency in Hz (0 = unspecified; equal to frequency_max → fixed)
+    frequency_max: int = 0  # Maximum tunable frequency in Hz (0 = unspecified)
+    supported_modulations: int = (
+        0  # Bitmask: bit N set means RadioFrequencyModulation(N) is supported
+    )
+
+    def supports_modulation(self, modulation: RadioFrequencyModulation) -> bool:
+        """Return True if the given modulation type is supported.
+
+        The supported_modulations bitmask uses bit N to represent
+        RadioFrequencyModulation value N (e.g. OOK=0 → bit 0).
+        """
+        return bool(self.supported_modulations & (1 << int(modulation)))
 
 
 # ==================== SERIAL PROXY ====================
@@ -1364,7 +1390,9 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "valve": ValveInfo,
     "event": EventInfo,
     "update": UpdateInfo,
+    "water_heater": WaterHeaterInfo,
     "infrared": InfraredInfo,
+    "radio_frequency": RadioFrequencyInfo,
 }
 
 
@@ -1375,7 +1403,7 @@ def _convert_homeassistant_service_map(
     if isinstance(value, dict):
         # already a dict, don't convert
         return value
-    return {v.key: v.value for v in value}  # type: ignore
+    return {v.key: v.value for v in value}  # type: ignore[union-attr]
 
 
 @_frozen_dataclass_decorator
@@ -1471,7 +1499,12 @@ class ExecuteServiceResponse(APIModelBase):
 
 def _join_split_uuid(value: list[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return _join_split_uuid_high_low(value[0], value[1])
+    # The firmware omits the whole split-uuid array when the UUID is all-zero
+    # (fixed_array_skip_zero in api.proto), so a short array means the missing
+    # words are zero.
+    high = value[0] if len(value) > 0 else 0
+    low = value[1] if len(value) > 1 else 0
+    return _join_split_uuid_high_low(high, low)
 
 
 @lru_cache(maxsize=256)
@@ -1628,16 +1661,6 @@ class BluetoothGATTDescriptor(APIModelBase):
             data["uuid"] = _join_split_uuid(data["uuid"])
         return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTDescriptor]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class BluetoothGATTCharacteristic(APIModelBase):
@@ -1673,16 +1696,6 @@ class BluetoothGATTCharacteristic(APIModelBase):
             data["uuid"] = _join_split_uuid(data["uuid"])
         return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTCharacteristic]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class BluetoothGATTService(APIModelBase):
@@ -1717,16 +1730,6 @@ class BluetoothGATTService(APIModelBase):
             data["uuid"] = _join_split_uuid(data["uuid"])
         return APIModelBase.from_dict.__func__(cls, data, ignore_missing=ignore_missing)  # type: ignore[attr-defined, no-any-return]
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[BluetoothGATTService]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(cls.from_dict(x))
-            else:
-                ret.append(cls.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class BluetoothGATTServices(APIModelBase):
@@ -1748,6 +1751,7 @@ class ESPHomeBluetoothGATTServices:
 class BluetoothConnectionsFree(APIModelBase):
     free: int = 0
     limit: int = 0
+    allocated: list[int] = converter_field(default_factory=list, converter=list)
 
 
 @_frozen_dataclass_decorator
@@ -1789,6 +1793,9 @@ class BluetoothScannerStateResponse(APIModelBase):
     mode: BluetoothScannerMode | None = converter_field(
         default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
     )
+    configured_mode: BluetoothScannerMode | None = converter_field(
+        default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
+    )
 
 
 class VoiceAssistantCommandFlag(enum.IntFlag):
@@ -1819,6 +1826,7 @@ class VoiceAssistantCommand(APIModelBase):
 class VoiceAssistantAudioData(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
     end: bool = False
+    data2: bytes | None = None
 
 
 @_frozen_dataclass_decorator
@@ -1832,16 +1840,6 @@ class VoiceAssistantWakeWord(APIModelBase):
     wake_word: str
     trained_languages: list[str]
 
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantWakeWord]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(VoiceAssistantWakeWord.from_dict(x))
-            else:
-                ret.append(VoiceAssistantWakeWord.from_pb(x))
-        return ret
-
 
 @_frozen_dataclass_decorator
 class VoiceAssistantExternalWakeWord(APIModelBase):
@@ -1852,16 +1850,6 @@ class VoiceAssistantExternalWakeWord(APIModelBase):
     model_size: int
     model_hash: str
     url: str
-
-    @classmethod
-    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantExternalWakeWord]:
-        ret = []
-        for x in value:
-            if isinstance(x, dict):
-                ret.append(VoiceAssistantExternalWakeWord.from_dict(x))
-            else:
-                ret.append(VoiceAssistantExternalWakeWord.from_pb(x))
-        return ret
 
 
 @_frozen_dataclass_decorator
@@ -1958,6 +1946,7 @@ _TYPE_TO_NAME = {
     UpdateInfo: "update",
     WaterHeaterInfo: "water_heater",
     InfraredInfo: "infrared",
+    RadioFrequencyInfo: "radio_frequency",
 }
 
 
@@ -2009,14 +1998,210 @@ def build_unique_id(
     device names can change or be duplicated across devices. For ESPHome
     entity names within a single device (identified by MAC), they ARE stable
     unique identifiers explicitly chosen by the user in their configuration.
+
+    **Version 3:** Slash separated, includes the sub-device id and the
+    unmangled entity name.
+
+        Format: `{mac}/{device_id}/{entity_type}/{name}`
+        Example: `aabbccddeeff/0/sensor/Temperature Sensor`
+
+    The main device uses `device_id` 0. Including the sub-device id namespaces
+    entities so two sub-devices can share an entity name without colliding,
+    while the unmangled name keeps UTF-8 names distinct.
     """
-    # <mac>-<entity type>-<object_id or name>
     entity_type = _TYPE_TO_NAME[type(entity_info)]
     if version == 1:
         return f"{formatted_mac}-{entity_type}-{entity_info.object_id}"
-    # Version 2: use name directly to avoid mangling/collisions
-    return f"{formatted_mac}-{entity_type}-{entity_info.name}"
+    if version == 2:
+        # Version 2: use name directly to avoid mangling/collisions
+        return f"{formatted_mac}-{entity_type}-{entity_info.name}"
+    if version == 3:
+        # Version 3: slash separated with sub-device id and unmangled name
+        return (
+            f"{formatted_mac}/{entity_info.device_id}/{entity_type}/{entity_info.name}"
+        )
+    msg = f"Unsupported unique id version: {version}"
+    raise ValueError(msg)
+
+
+def build_device_unique_id(
+    formatted_mac: str, entity_info: EntityInfo, *, version: int = 3
+) -> str:
+    """Build a device-aware unique id for an entity.
+
+    Version 3 already encodes the sub-device id in the unique id, so the
+    result of build_unique_id is returned unchanged. For the legacy versions
+    1 and 2 the sub-device id is appended as `@{device_id}` so that entities
+    belonging to a sub-device migrate correctly when they move between devices.
+    """
+    base_unique_id = build_unique_id(formatted_mac, entity_info, version=version)
+    if version != 3 and entity_info.device_id:
+        return f"{base_unique_id}@{entity_info.device_id}"
+    return base_unique_id
 
 
 def message_types_to_names(msg_types: Iterable[type[message.Message]]) -> str:
     return ", ".join(t.__name__ for t in msg_types)
+
+
+__all__ = (
+    "COMPONENT_TYPE_TO_INFO",
+    "APIIntEnum",
+    "APIModelBase",
+    "APIVersion",
+    "AlarmControlPanelCommand",
+    "AlarmControlPanelEntityFeature",
+    "AlarmControlPanelEntityState",
+    "AlarmControlPanelInfo",
+    "AlarmControlPanelState",
+    "AreaInfo",
+    "BinarySensorInfo",
+    "BinarySensorState",
+    "BluetoothConnectionsFree",
+    "BluetoothDeviceClearCache",
+    "BluetoothDeviceConnection",
+    "BluetoothDevicePairing",
+    "BluetoothDeviceRequestType",
+    "BluetoothDeviceUnpairing",
+    "BluetoothGATTCharacteristic",
+    "BluetoothGATTDescriptor",
+    "BluetoothGATTError",
+    "BluetoothGATTRead",
+    "BluetoothGATTService",
+    "BluetoothGATTServices",
+    "BluetoothLEAdvertisement",
+    "BluetoothProxyFeature",
+    "BluetoothProxySubscriptionFlag",
+    "BluetoothScannerMode",
+    "BluetoothScannerState",
+    "BluetoothScannerStateResponse",
+    "ButtonInfo",
+    "CameraInfo",
+    "CameraState",
+    "ClimateAction",
+    "ClimateFanMode",
+    "ClimateFeature",
+    "ClimateInfo",
+    "ClimateMode",
+    "ClimatePreset",
+    "ClimateState",
+    "ClimateSwingMode",
+    "ColorMode",
+    "CommandProtoMessage",
+    "CoverInfo",
+    "CoverOperation",
+    "CoverState",
+    "DateInfo",
+    "DateState",
+    "DateTimeInfo",
+    "DateTimeState",
+    "DeviceInfo",
+    "ESPHomeBluetoothGATTServices",
+    "EntityCategory",
+    "EntityInfo",
+    "EntityState",
+    "Event",
+    "EventInfo",
+    "ExecuteServiceResponse",
+    "FanDirection",
+    "FanInfo",
+    "FanSpeed",
+    "FanState",
+    "HomeassistantActionResponse",
+    "HomeassistantServiceCall",
+    "InfraredCapability",
+    "InfraredInfo",
+    "InfraredRFReceiveEvent",
+    "LastResetType",
+    "LegacyCoverCommand",
+    "LegacyCoverState",
+    "LightColorCapability",
+    "LightInfo",
+    "LightState",
+    "LockCommand",
+    "LockEntityState",
+    "LockInfo",
+    "LockState",
+    "LogLevel",
+    "MediaPlayerCommand",
+    "MediaPlayerEntityFeature",
+    "MediaPlayerEntityState",
+    "MediaPlayerFormatPurpose",
+    "MediaPlayerInfo",
+    "MediaPlayerState",
+    "MediaPlayerSupportedFormat",
+    "NoiseEncryptionSetKeyRequest",
+    "NoiseEncryptionSetKeyResponse",
+    "NumberInfo",
+    "NumberMode",
+    "NumberState",
+    "RadioFrequencyCapability",
+    "RadioFrequencyInfo",
+    "RadioFrequencyModulation",
+    "SelectInfo",
+    "SelectState",
+    "SensorInfo",
+    "SensorState",
+    "SensorStateClass",
+    "SerialProxyDataReceived",
+    "SerialProxyInfo",
+    "SerialProxyModemPins",
+    "SerialProxyParity",
+    "SerialProxyPortType",
+    "SerialProxyRequestResponse",
+    "SerialProxyRequestType",
+    "SerialProxyStatus",
+    "SirenInfo",
+    "SirenState",
+    "SubDeviceInfo",
+    "SupportsResponseType",
+    "SwitchInfo",
+    "SwitchState",
+    "TemperatureUnit",
+    "TextInfo",
+    "TextMode",
+    "TextSensorInfo",
+    "TextSensorState",
+    "TextState",
+    "TimeInfo",
+    "TimeState",
+    "UpdateCommand",
+    "UpdateInfo",
+    "UpdateState",
+    "UserService",
+    "UserServiceArg",
+    "UserServiceArgType",
+    "ValveInfo",
+    "ValveOperation",
+    "ValveState",
+    "VoiceAssistantAnnounceFinished",
+    "VoiceAssistantAudioData",
+    "VoiceAssistantAudioSettings",
+    "VoiceAssistantCommand",
+    "VoiceAssistantCommandFlag",
+    "VoiceAssistantConfigurationRequest",
+    "VoiceAssistantConfigurationResponse",
+    "VoiceAssistantEventType",
+    "VoiceAssistantExternalWakeWord",
+    "VoiceAssistantFeature",
+    "VoiceAssistantSetConfiguration",
+    "VoiceAssistantSubscriptionFlag",
+    "VoiceAssistantTimerEventType",
+    "VoiceAssistantWakeWord",
+    "WaterHeaterCommandField",
+    "WaterHeaterFeature",
+    "WaterHeaterInfo",
+    "WaterHeaterMode",
+    "WaterHeaterState",
+    "WaterHeaterStateFlag",
+    "ZWaveProxyFeature",
+    "ZWaveProxyFrame",
+    "ZWaveProxyRequest",
+    "ZWaveProxyRequestType",
+    "ZigbeeProxyFeature",
+    "ZigbeeProxyFrame",
+    "ZigbeeProxyRequest",
+    "ZigbeeProxyRequestType",
+    "build_device_unique_id",
+    "build_unique_id",
+)

@@ -7,13 +7,12 @@ import itertools
 import json
 import logging
 import socket
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-from google.protobuf import message
 import pytest
 
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
     BinarySensorStateResponse,
@@ -108,8 +107,12 @@ from aioesphomeapi.api_pb2 import (
     WaterHeaterCommandRequest,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
-from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
-from aioesphomeapi.connection import APIConnection
+from aioesphomeapi.client import (
+    APIClient,
+    BluetoothConnectionDroppedError,
+    _validate_connection_params,
+)
+from aioesphomeapi.client_base import MAX_CAMERA_FRAME_BYTES, MAX_INFLIGHT_CAMERA_KEYS
 from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothConnectionParamsAPIError,
@@ -144,6 +147,7 @@ from aioesphomeapi.model import (
     LightColorCapability,
     LockCommand,
     MediaPlayerCommand,
+    RadioFrequencyModulation,
     SensorInfo,
     SerialProxyDataReceived,
     SerialProxyModemPins,
@@ -177,6 +181,14 @@ from .common import (
 )
 from .conftest import PatchableAPIClient, PatchableAPIConnection
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Coroutine
+
+    from google.protobuf import message
+
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+    from aioesphomeapi.connection import APIConnection
+
 
 def patch_response_complex(client: APIClient, messages):
     async def patched(req, app, stop, msg_types, timeout):
@@ -187,7 +199,8 @@ def patch_response_complex(client: APIClient, messages):
             if stop(msg):
                 break
         else:
-            raise ValueError("Response never stopped")
+            error_msg = "Response never stopped"
+            raise ValueError(error_msg)
         return resp
 
     client._connection.send_messages_await_response_complex = patched
@@ -206,7 +219,7 @@ def patch_response_callback(client: APIClient):
     on_message = None
 
     def cancelled_on_message(_):
-        """A callback that does nothing."""
+        """Stand in for a real callback in cancellation tests."""
 
     def cancel_callable():
         nonlocal on_message
@@ -251,9 +264,21 @@ async def test_timezone_parameter() -> None:
     assert cli2._params.timezone is None
 
 
+async def test_password_defaults_to_none() -> None:
+    """Password can be omitted when using encryption or unauthenticated devices."""
+    cli = PatchableAPIClient("host", 1234)
+    assert cli._params.password is None
+
+    cli_kw = PatchableAPIClient("host", 1234, noise_psk="psk")
+    assert cli_kw._params.password is None
+    assert cli_kw._params.noise_psk == "psk"
+
+    cli_pos = PatchableAPIClient("host", 1234, "secret")
+    assert cli_pos._params.password == "secret"  # noqa: S105
+
+
 async def test_connect_backwards_compat() -> None:
     """Verify connect is a thin wrapper around start_resolve_host, start_connection and finish_connection."""
-
     cli = PatchableAPIClient("host", 1234, None)
     assert cli.connected_address is None
 
@@ -273,7 +298,6 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
     aiohappyeyeballs_start_connection,
 ) -> None:
     """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
-
     cli = APIClient("127.0.0.1", 1234, None)
     with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
         await cli.start_resolve_host()
@@ -342,7 +366,6 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
 
 async def test_request_while_handshaking() -> None:
     """Test trying a request while handshaking raises."""
-
     cli = PatchableAPIClient("127.0.0.1", 1234, None)
     with (
         patch(
@@ -370,7 +393,7 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         (
             # When not cached, delegates to device_info_and_list_entities
@@ -394,11 +417,11 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
     ],
 )
 async def test_list_entities(
-    auth_client: APIClient, input: dict[str, Any], output: dict[str, Any]
+    auth_client: APIClient, input_value: dict[str, Any], output: dict[str, Any]
 ) -> None:
     # list_entities_services delegates to device_info_and_list_entities when not cached
     patch_api_version(auth_client, APIVersion(1, 14))
-    patch_response_complex(auth_client, input)
+    patch_response_complex(auth_client, input_value)
     resp = await auth_client.list_entities_services()
     assert resp == output
 
@@ -495,7 +518,7 @@ async def test_list_entities_no_object_id_fill_before_1_14(
 
 
 @pytest.mark.parametrize(
-    ("input", "output"),
+    ("input_value", "output"),
     [
         (
             [
@@ -527,10 +550,10 @@ async def test_list_entities_no_object_id_fill_before_1_14(
     ],
 )
 async def test_device_info_and_list_entities(
-    auth_client: APIClient, input: list[Any], output: tuple[Any, Any, Any]
+    auth_client: APIClient, input_value: list[Any], output: tuple[Any, Any, Any]
 ) -> None:
     patch_api_version(auth_client, APIVersion(1, 14))
-    patch_response_complex(auth_client, input)
+    patch_response_complex(auth_client, input_value)
     resp = await auth_client.device_info_and_list_entities()
     assert resp == output
 
@@ -578,27 +601,112 @@ async def test_subscribe_states_camera_with_device_id(auth_client: APIClient) ->
     on_state.assert_called_once_with(CameraState(key=2, data=b"testdata", device_id=5))
 
 
+async def test_subscribe_states_camera_drops_oversized_frame(
+    auth_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test camera frames exceeding the per-stream byte cap are dropped."""
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # First chunk fits under the cap.
+    await send(CameraImageResponse(key=1, data=b"a" * (MAX_CAMERA_FRAME_BYTES - 1)))
+    on_state.assert_not_called()
+
+    # Second chunk pushes us over the cap.
+    caplog.clear()
+    await send(CameraImageResponse(key=1, data=b"bb"))
+    on_state.assert_not_called()
+    assert "exceeded" in caplog.text
+
+    # Further non-done chunks for the same key are silently ignored — the
+    # peer must not be able to restart the stream once we've discarded it.
+    await send(CameraImageResponse(key=1, data=b"x"))
+    on_state.assert_not_called()
+
+    # done=True for the discarded key clears tracking but emits no frame,
+    # so a peer can't flush a truncated frame after we drop the buffer.
+    await send(CameraImageResponse(key=1, data=b"y", done=True))
+    on_state.assert_not_called()
+
+    # A new stream on the same key is accepted normally afterwards.
+    await send(CameraImageResponse(key=1, data=b"hi", done=True))
+    on_state.assert_called_once_with(CameraState(key=1, data=b"hi"))
+
+
+async def test_subscribe_states_camera_drops_when_too_many_inflight_keys(
+    auth_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test a peer rotating cam_msg.key cannot grow image_stream without bound."""
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # Fill the in-flight slots without ever sending done=True.
+    for k in range(MAX_INFLIGHT_CAMERA_KEYS):
+        await send(CameraImageResponse(key=k, data=b"chunk"))
+    on_state.assert_not_called()
+
+    # A new key beyond the cap is dropped at the warn level.
+    caplog.clear()
+    await send(CameraImageResponse(key=999, data=b"chunk", done=True))
+    on_state.assert_not_called()
+    assert "too many in-flight" in caplog.text
+
+
+async def test_subscribe_states_camera_oversized_done_chunk_does_not_tombstone(
+    auth_client: APIClient,
+) -> None:
+    """Test single-chunk oversized done=True frames don't fill image_stream with tombstones."""
+    send = patch_response_callback(auth_client)
+    on_state = MagicMock()
+    auth_client.subscribe_states(on_state)
+
+    # Send MAX_INFLIGHT_CAMERA_KEYS distinct keys, each as a single oversized
+    # done=True chunk. If we left tombstones, image_stream would fill up and
+    # subsequent legitimate streams would all be dropped at the in-flight cap.
+    for k in range(MAX_INFLIGHT_CAMERA_KEYS):
+        await send(
+            CameraImageResponse(
+                key=k, data=b"x" * (MAX_CAMERA_FRAME_BYTES + 1), done=True
+            )
+        )
+    on_state.assert_not_called()
+
+    # A legitimate stream on a fresh key must still be accepted.
+    await send(CameraImageResponse(key=42, data=b"ok", done=True))
+    on_state.assert_called_once_with(CameraState(key=42, data=b"ok"))
+
+
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
+        ({"key": 1}, {"key": 1}),
         (
-            dict(key=1, position=1.0),
-            dict(
-                key=1, has_legacy_command=True, legacy_command=LegacyCoverCommand.OPEN
-            ),
+            {"key": 1, "position": 1.0},
+            {
+                "key": 1,
+                "has_legacy_command": True,
+                "legacy_command": LegacyCoverCommand.OPEN,
+            },
         ),
         (
-            dict(key=1, position=0.0),
-            dict(
-                key=1, has_legacy_command=True, legacy_command=LegacyCoverCommand.CLOSE
-            ),
+            {"key": 1, "position": 0.0},
+            {
+                "key": 1,
+                "has_legacy_command": True,
+                "legacy_command": LegacyCoverCommand.CLOSE,
+            },
         ),
         (
-            dict(key=1, stop=True),
-            dict(
-                key=1, has_legacy_command=True, legacy_command=LegacyCoverCommand.STOP
-            ),
+            {"key": 1, "stop": True},
+            {
+                "key": 1,
+                "has_legacy_command": True,
+                "legacy_command": LegacyCoverCommand.STOP,
+            },
         ),
     ],
 )
@@ -613,15 +721,27 @@ async def test_cover_command_legacy(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, position=0.5), dict(key=1, has_position=True, position=0.5)),
-        (dict(key=1, position=0.0), dict(key=1, has_position=True, position=0.0)),
-        (dict(key=1, stop=True), dict(key=1, stop=True)),
+        ({"key": 1}, {"key": 1}),
         (
-            dict(key=1, position=1.0, tilt=0.8),
-            dict(key=1, has_position=True, position=1.0, has_tilt=True, tilt=0.8),
+            {"key": 1, "position": 0.5},
+            {"key": 1, "has_position": True, "position": 0.5},
+        ),
+        (
+            {"key": 1, "position": 0.0},
+            {"key": 1, "has_position": True, "position": 0.0},
+        ),
+        ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
+        (
+            {"key": 1, "position": 1.0, "tilt": 0.8},
+            {
+                "key": 1,
+                "has_position": True,
+                "position": 1.0,
+                "has_tilt": True,
+                "tilt": 0.8,
+            },
         ),
     ],
 )
@@ -636,29 +756,29 @@ async def test_cover_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, state=True), dict(key=1, has_state=True, state=True)),
+        ({"key": 1}, {"key": 1}),
+        ({"key": 1, "state": True}, {"key": 1, "has_state": True, "state": True}),
         (
-            dict(key=1, speed=FanSpeed.LOW),
-            dict(key=1, has_speed=True, speed=FanSpeed.LOW),
+            {"key": 1, "speed": FanSpeed.LOW},
+            {"key": 1, "has_speed": True, "speed": FanSpeed.LOW},
         ),
         (
-            dict(key=1, speed_level=10),
-            dict(key=1, has_speed_level=True, speed_level=10),
+            {"key": 1, "speed_level": 10},
+            {"key": 1, "has_speed_level": True, "speed_level": 10},
         ),
         (
-            dict(key=1, oscillating=False),
-            dict(key=1, has_oscillating=True, oscillating=False),
+            {"key": 1, "oscillating": False},
+            {"key": 1, "has_oscillating": True, "oscillating": False},
         ),
         (
-            dict(key=1, direction=FanDirection.REVERSE),
-            dict(key=1, has_direction=True, direction=FanDirection.REVERSE),
+            {"key": 1, "direction": FanDirection.REVERSE},
+            {"key": 1, "has_direction": True, "direction": FanDirection.REVERSE},
         ),
         (
-            dict(key=1, preset_mode="auto"),
-            dict(key=1, has_preset_mode=True, preset_mode="auto"),
+            {"key": 1, "preset_mode": "auto"},
+            {"key": 1, "has_preset_mode": True, "preset_mode": "auto"},
         ),
     ],
 )
@@ -672,56 +792,62 @@ async def test_fan_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, state=True), dict(key=1, has_state=True, state=True)),
-        (dict(key=1, brightness=0.8), dict(key=1, has_brightness=True, brightness=0.8)),
+        ({"key": 1}, {"key": 1}),
+        ({"key": 1, "state": True}, {"key": 1, "has_state": True, "state": True}),
         (
-            dict(key=1, rgb=(0.1, 0.5, 1.0)),
-            dict(key=1, has_rgb=True, red=0.1, green=0.5, blue=1.0),
-        ),
-        (dict(key=1, white=0.0), dict(key=1, has_white=True, white=0.0)),
-        (
-            dict(key=1, color_temperature=0.0),
-            dict(key=1, has_color_temperature=True, color_temperature=0.0),
+            {"key": 1, "brightness": 0.8},
+            {"key": 1, "has_brightness": True, "brightness": 0.8},
         ),
         (
-            dict(key=1, color_brightness=0.0),
-            dict(key=1, has_color_brightness=True, color_brightness=0.0),
+            {"key": 1, "rgb": (0.1, 0.5, 1.0)},
+            {"key": 1, "has_rgb": True, "red": 0.1, "green": 0.5, "blue": 1.0},
+        ),
+        ({"key": 1, "white": 0.0}, {"key": 1, "has_white": True, "white": 0.0}),
+        (
+            {"key": 1, "color_temperature": 0.0},
+            {"key": 1, "has_color_temperature": True, "color_temperature": 0.0},
         ),
         (
-            dict(key=1, cold_white=1.0, warm_white=2.0),
-            dict(
-                key=1,
-                has_cold_white=True,
-                cold_white=1.0,
-                has_warm_white=True,
-                warm_white=2.0,
-            ),
+            {"key": 1, "color_brightness": 0.0},
+            {"key": 1, "has_color_brightness": True, "color_brightness": 0.0},
         ),
         (
-            dict(key=1, transition_length=0.1),
-            dict(key=1, has_transition_length=True, transition_length=100),
+            {"key": 1, "cold_white": 1.0, "warm_white": 2.0},
+            {
+                "key": 1,
+                "has_cold_white": True,
+                "cold_white": 1.0,
+                "has_warm_white": True,
+                "warm_white": 2.0,
+            },
         ),
         (
-            dict(key=1, flash_length=0.1),
-            dict(key=1, has_flash_length=True, flash_length=100),
+            {"key": 1, "transition_length": 0.1},
+            {"key": 1, "has_transition_length": True, "transition_length": 100},
         ),
-        (dict(key=1, effect="special"), dict(key=1, has_effect=True, effect="special")),
         (
-            dict(
-                key=1,
-                color_mode=LightColorCapability.COLOR_TEMPERATURE,
-                color_temperature=153.0,
-            ),
-            dict(
-                key=1,
-                has_color_mode=True,
-                color_mode=LightColorCapability.COLOR_TEMPERATURE,
-                has_color_temperature=True,
-                color_temperature=153.0,
-            ),
+            {"key": 1, "flash_length": 0.1},
+            {"key": 1, "has_flash_length": True, "flash_length": 100},
+        ),
+        (
+            {"key": 1, "effect": "special"},
+            {"key": 1, "has_effect": True, "effect": "special"},
+        ),
+        (
+            {
+                "key": 1,
+                "color_mode": LightColorCapability.COLOR_TEMPERATURE,
+                "color_temperature": 153.0,
+            },
+            {
+                "key": 1,
+                "has_color_mode": True,
+                "color_mode": LightColorCapability.COLOR_TEMPERATURE,
+                "has_color_temperature": True,
+                "color_temperature": 153.0,
+            },
         ),
     ],
 )
@@ -735,10 +861,10 @@ async def test_light_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1, state=False), dict(key=1, state=False)),
-        (dict(key=1, state=True), dict(key=1, state=True)),
+        ({"key": 1, "state": False}, {"key": 1, "state": False}),
+        ({"key": 1, "state": True}, {"key": 1, "state": True}),
     ],
 )
 async def test_switch_command(
@@ -855,15 +981,15 @@ async def test_water_heater_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, preset=ClimatePreset.HOME),
-            dict(key=1, unused_has_legacy_away=True, unused_legacy_away=False),
+            {"key": 1, "preset": ClimatePreset.HOME},
+            {"key": 1, "unused_has_legacy_away": True, "unused_legacy_away": False},
         ),
         (
-            dict(key=1, preset=ClimatePreset.AWAY),
-            dict(key=1, unused_has_legacy_away=True, unused_legacy_away=True),
+            {"key": 1, "preset": ClimatePreset.AWAY},
+            {"key": 1, "unused_has_legacy_away": True, "unused_legacy_away": True},
         ),
     ],
 )
@@ -878,47 +1004,55 @@ async def test_climate_command_legacy(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, mode=ClimateMode.HEAT),
-            dict(key=1, has_mode=True, mode=ClimateMode.HEAT),
+            {"key": 1, "mode": ClimateMode.HEAT},
+            {"key": 1, "has_mode": True, "mode": ClimateMode.HEAT},
         ),
         (
-            dict(key=1, target_temperature=21.0),
-            dict(key=1, has_target_temperature=True, target_temperature=21.0),
+            {"key": 1, "target_temperature": 21.0},
+            {"key": 1, "has_target_temperature": True, "target_temperature": 21.0},
         ),
         (
-            dict(key=1, target_temperature_low=21.0),
-            dict(key=1, has_target_temperature_low=True, target_temperature_low=21.0),
+            {"key": 1, "target_temperature_low": 21.0},
+            {
+                "key": 1,
+                "has_target_temperature_low": True,
+                "target_temperature_low": 21.0,
+            },
         ),
         (
-            dict(key=1, target_temperature_high=21.0),
-            dict(key=1, has_target_temperature_high=True, target_temperature_high=21.0),
+            {"key": 1, "target_temperature_high": 21.0},
+            {
+                "key": 1,
+                "has_target_temperature_high": True,
+                "target_temperature_high": 21.0,
+            },
         ),
         (
-            dict(key=1, fan_mode=ClimateFanMode.LOW),
-            dict(key=1, has_fan_mode=True, fan_mode=ClimateFanMode.LOW),
+            {"key": 1, "fan_mode": ClimateFanMode.LOW},
+            {"key": 1, "has_fan_mode": True, "fan_mode": ClimateFanMode.LOW},
         ),
         (
-            dict(key=1, swing_mode=ClimateSwingMode.OFF),
-            dict(key=1, has_swing_mode=True, swing_mode=ClimateSwingMode.OFF),
+            {"key": 1, "swing_mode": ClimateSwingMode.OFF},
+            {"key": 1, "has_swing_mode": True, "swing_mode": ClimateSwingMode.OFF},
         ),
         (
-            dict(key=1, custom_fan_mode="asdf"),
-            dict(key=1, has_custom_fan_mode=True, custom_fan_mode="asdf"),
+            {"key": 1, "custom_fan_mode": "asdf"},
+            {"key": 1, "has_custom_fan_mode": True, "custom_fan_mode": "asdf"},
         ),
         (
-            dict(key=1, preset=ClimatePreset.AWAY),
-            dict(key=1, has_preset=True, preset=ClimatePreset.AWAY),
+            {"key": 1, "preset": ClimatePreset.AWAY},
+            {"key": 1, "has_preset": True, "preset": ClimatePreset.AWAY},
         ),
         (
-            dict(key=1, custom_preset="asdf"),
-            dict(key=1, has_custom_preset=True, custom_preset="asdf"),
+            {"key": 1, "custom_preset": "asdf"},
+            {"key": 1, "has_custom_preset": True, "custom_preset": "asdf"},
         ),
         (
-            dict(key=1, target_humidity=60.0),
-            dict(key=1, has_target_humidity=True, target_humidity=60.0),
+            {"key": 1, "target_humidity": 60.0},
+            {"key": 1, "has_target_humidity": True, "target_humidity": 60.0},
         ),
     ],
 )
@@ -933,10 +1067,10 @@ async def test_climate_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1, state=0.0), dict(key=1, state=0.0)),
-        (dict(key=1, state=100.0), dict(key=1, state=100.0)),
+        ({"key": 1, "state": 0.0}, {"key": 1, "state": 0.0}),
+        ({"key": 1, "state": 100.0}, {"key": 1, "state": 100.0}),
     ],
 )
 async def test_number_command(
@@ -949,15 +1083,15 @@ async def test_number_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, year=2024, month=2, day=29),
-            dict(key=1, year=2024, month=2, day=29),
+            {"key": 1, "year": 2024, "month": 2, "day": 29},
+            {"key": 1, "year": 2024, "month": 2, "day": 29},
         ),
         (
-            dict(key=1, year=2000, month=6, day=10),
-            dict(key=1, year=2000, month=6, day=10),
+            {"key": 1, "year": 2000, "month": 6, "day": 10},
+            {"key": 1, "year": 2000, "month": 6, "day": 10},
         ),
     ],
 )
@@ -974,15 +1108,15 @@ async def test_date_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, hour=12, minute=30, second=30),
-            dict(key=1, hour=12, minute=30, second=30),
+            {"key": 1, "hour": 12, "minute": 30, "second": 30},
+            {"key": 1, "hour": 12, "minute": 30, "second": 30},
         ),
         (
-            dict(key=1, hour=0, minute=0, second=0),
-            dict(key=1, hour=0, minute=0, second=0),
+            {"key": 1, "hour": 0, "minute": 0, "second": 0},
+            {"key": 1, "hour": 0, "minute": 0, "second": 0},
         ),
     ],
 )
@@ -999,15 +1133,15 @@ async def test_time_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, epoch_seconds=1735648230),
-            dict(key=1, epoch_seconds=1735648230),
+            {"key": 1, "epoch_seconds": 1735648230},
+            {"key": 1, "epoch_seconds": 1735648230},
         ),
         (
-            dict(key=1, epoch_seconds=1735689600),
-            dict(key=1, epoch_seconds=1735689600),
+            {"key": 1, "epoch_seconds": 1735689600},
+            {"key": 1, "epoch_seconds": 1735689600},
         ),
     ],
 )
@@ -1021,17 +1155,23 @@ async def test_datetime_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1, command=LockCommand.LOCK), dict(key=1, command=LockCommand.LOCK)),
         (
-            dict(key=1, command=LockCommand.UNLOCK),
-            dict(key=1, command=LockCommand.UNLOCK),
+            {"key": 1, "command": LockCommand.LOCK},
+            {"key": 1, "command": LockCommand.LOCK},
         ),
-        (dict(key=1, command=LockCommand.OPEN), dict(key=1, command=LockCommand.OPEN)),
         (
-            dict(key=1, command=LockCommand.OPEN, code="1234"),
-            dict(key=1, command=LockCommand.OPEN, code="1234"),
+            {"key": 1, "command": LockCommand.UNLOCK},
+            {"key": 1, "command": LockCommand.UNLOCK},
+        ),
+        (
+            {"key": 1, "command": LockCommand.OPEN},
+            {"key": 1, "command": LockCommand.OPEN},
+        ),
+        (
+            {"key": 1, "command": LockCommand.OPEN, "code": "1234"},
+            {"key": 1, "command": LockCommand.OPEN, "code": "1234"},
         ),
     ],
 )
@@ -1045,12 +1185,18 @@ async def test_lock_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, position=1.0), dict(key=1, position=1.0, has_position=True)),
-        (dict(key=1, position=0.0), dict(key=1, position=0.0, has_position=True)),
-        (dict(key=1, stop=True), dict(key=1, stop=True)),
+        ({"key": 1}, {"key": 1}),
+        (
+            {"key": 1, "position": 1.0},
+            {"key": 1, "position": 1.0, "has_position": True},
+        ),
+        (
+            {"key": 1, "position": 0.0},
+            {"key": 1, "position": 0.0, "has_position": True},
+        ),
+        ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
     ],
 )
 async def test_valve_command(
@@ -1063,15 +1209,21 @@ async def test_valve_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
-        (dict(key=1, position=0.5), dict(key=1, has_position=True, position=0.5)),
-        (dict(key=1, position=0.0), dict(key=1, has_position=True, position=0.0)),
-        (dict(key=1, stop=True), dict(key=1, stop=True)),
+        ({"key": 1}, {"key": 1}),
         (
-            dict(key=1, position=1.0),
-            dict(key=1, has_position=True, position=1.0),
+            {"key": 1, "position": 0.5},
+            {"key": 1, "has_position": True, "position": 0.5},
+        ),
+        (
+            {"key": 1, "position": 0.0},
+            {"key": 1, "has_position": True, "position": 0.0},
+        ),
+        ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
+        (
+            {"key": 1, "position": 1.0},
+            {"key": 1, "has_position": True, "position": 1.0},
         ),
     ],
 )
@@ -1086,10 +1238,10 @@ async def test_valve_command_version_1_1(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1, state="One"), dict(key=1, state="One")),
-        (dict(key=1, state="Two"), dict(key=1, state="Two")),
+        ({"key": 1, "state": "One"}, {"key": 1, "state": "One"}),
+        ({"key": 1, "state": "Two"}, {"key": 1, "state": "Two"}),
     ],
 )
 async def test_select_command(
@@ -1102,29 +1254,29 @@ async def test_select_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, command=MediaPlayerCommand.MUTE),
-            dict(key=1, has_command=True, command=MediaPlayerCommand.MUTE),
+            {"key": 1, "command": MediaPlayerCommand.MUTE},
+            {"key": 1, "has_command": True, "command": MediaPlayerCommand.MUTE},
         ),
         (
-            dict(key=1, volume=1.0),
-            dict(key=1, has_volume=True, volume=1.0),
+            {"key": 1, "volume": 1.0},
+            {"key": 1, "has_volume": True, "volume": 1.0},
         ),
         (
-            dict(key=1, media_url="http://example.com"),
-            dict(key=1, has_media_url=True, media_url="http://example.com"),
+            {"key": 1, "media_url": "http://example.com"},
+            {"key": 1, "has_media_url": True, "media_url": "http://example.com"},
         ),
         (
-            dict(key=1, media_url="http://example.com", announcement=True),
-            dict(
-                key=1,
-                has_media_url=True,
-                media_url="http://example.com",
-                has_announcement=True,
-                announcement=True,
-            ),
+            {"key": 1, "media_url": "http://example.com", "announcement": True},
+            {
+                "key": 1,
+                "has_media_url": True,
+                "media_url": "http://example.com",
+                "has_announcement": True,
+                "announcement": True,
+            },
         ),
     ],
 )
@@ -1138,9 +1290,9 @@ async def test_media_player_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1), dict(key=1)),
+        ({"key": 1}, {"key": 1}),
     ],
 )
 async def test_button_command(
@@ -1153,26 +1305,50 @@ async def test_button_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1, state=True), dict(key=1, state=True, has_state=True)),
-        (dict(key=1, state=False), dict(key=1, state=False, has_state=True)),
-        (dict(key=1, state=None), dict(key=1, state=None, has_state=False)),
+        ({"key": 1, "state": True}, {"key": 1, "state": True, "has_state": True}),
+        ({"key": 1, "state": False}, {"key": 1, "state": False, "has_state": True}),
+        ({"key": 1, "state": None}, {"key": 1, "state": None, "has_state": False}),
         (
-            dict(key=1, state=True, tone="any"),
-            dict(key=1, state=True, has_state=True, has_tone=True, tone="any"),
+            {"key": 1, "state": True, "tone": "any"},
+            {
+                "key": 1,
+                "state": True,
+                "has_state": True,
+                "has_tone": True,
+                "tone": "any",
+            },
         ),
         (
-            dict(key=1, state=True, tone=None),
-            dict(key=1, state=True, has_state=True, has_tone=False, tone=None),
+            {"key": 1, "state": True, "tone": None},
+            {
+                "key": 1,
+                "state": True,
+                "has_state": True,
+                "has_tone": False,
+                "tone": None,
+            },
         ),
         (
-            dict(key=1, state=True, volume=5),
-            dict(key=1, state=True, has_volume=True, volume=5, has_state=True),
+            {"key": 1, "state": True, "volume": 5},
+            {
+                "key": 1,
+                "state": True,
+                "has_volume": True,
+                "volume": 5,
+                "has_state": True,
+            },
         ),
         (
-            dict(key=1, state=True, duration=5),
-            dict(key=1, state=True, has_duration=True, duration=5, has_state=True),
+            {"key": 1, "state": True, "duration": 5},
+            {
+                "key": 1,
+                "state": True,
+                "has_duration": True,
+                "duration": 5,
+                "has_state": True,
+            },
         ),
     ],
 )
@@ -1386,19 +1562,19 @@ async def test_request_image_stream(auth_client: APIClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY),
-            dict(key=1, command=AlarmControlPanelCommand.ARM_AWAY, code=None),
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_AWAY},
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_AWAY, "code": None},
         ),
         (
-            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME),
-            dict(key=1, command=AlarmControlPanelCommand.ARM_HOME, code=None),
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_HOME},
+            {"key": 1, "command": AlarmControlPanelCommand.ARM_HOME, "code": None},
         ),
         (
-            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
-            dict(key=1, command=AlarmControlPanelCommand.DISARM, code="1234"),
+            {"key": 1, "command": AlarmControlPanelCommand.DISARM, "code": "1234"},
+            {"key": 1, "command": AlarmControlPanelCommand.DISARM, "code": "1234"},
         ),
     ],
 )
@@ -1412,10 +1588,10 @@ async def test_alarm_panel_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
-        (dict(key=1, state="hello world"), dict(key=1, state="hello world")),
-        (dict(key=1, state="goodbye"), dict(key=1, state="goodbye")),
+        ({"key": 1, "state": "hello world"}, {"key": 1, "state": "hello world"}),
+        ({"key": 1, "state": "goodbye"}, {"key": 1, "state": "goodbye"}),
     ],
 )
 async def test_text_command(
@@ -1428,15 +1604,15 @@ async def test_text_command(
 
 
 @pytest.mark.parametrize(
-    "cmd, req",
+    ("cmd", "req"),
     [
         (
-            dict(key=1, command=UpdateCommand.INSTALL),
-            dict(key=1, command=UpdateCommand.INSTALL),
+            {"key": 1, "command": UpdateCommand.INSTALL},
+            {"key": 1, "command": UpdateCommand.INSTALL},
         ),
         (
-            dict(key=1, command=UpdateCommand.CHECK),
-            dict(key=1, command=UpdateCommand.CHECK),
+            {"key": 1, "command": UpdateCommand.CHECK},
+            {"key": 1, "command": UpdateCommand.CHECK},
         ),
     ],
 )
@@ -1561,6 +1737,7 @@ async def test_client_properties(
     assert client.port == 6052
     assert client.noise_psk is None
     assert client.api_version == APIVersion(major=1, minor=9)
+    assert client.loop is asyncio.get_running_loop()
 
 
 async def test_bluetooth_disconnect(
@@ -1751,6 +1928,55 @@ async def test_bluetooth_set_connection_params_error(
         await set_params_task
 
 
+@pytest.mark.parametrize(
+    ("args", "match"),
+    [
+        ((5, 800, 0, 300), "min_interval must be between 6 and 3200"),
+        ((3201, 3201, 0, 300), "min_interval must be between 6 and 3200"),
+        ((6, 5, 0, 300), "max_interval must be between 6 and 3200"),
+        ((6, 3201, 0, 300), "max_interval must be between 6 and 3200"),
+        ((100, 50, 0, 300), "must be >= min_interval"),
+        ((6, 800, -1, 300), "latency must be between 0 and 499"),
+        ((6, 800, 500, 3200), "latency must be between 0 and 499"),
+        ((6, 800, 0, 9), "timeout must be between 10 and 3200"),
+        ((6, 800, 0, 3201), "timeout must be between 10 and 3200"),
+        # timeout * 4 must exceed (1 + latency) * max_interval.
+        # With latency=0, max_interval=800 → boundary is timeout=200; 200 fails.
+        ((6, 800, 0, 200), "Supervision timeout must satisfy"),
+    ],
+)
+def test_validate_connection_params_rejects_out_of_spec(
+    args: tuple[int, int, int, int], match: str
+) -> None:
+    """Out-of-spec values raise ValueError naming the offending parameter."""
+    with pytest.raises(ValueError, match=match):
+        _validate_connection_params(*args)
+
+
+def test_validate_connection_params_accepts_boundary_values() -> None:
+    """Smallest and largest in-spec values are accepted."""
+    # Smallest valid: timeout * 4 > (1 + 0) * 6 → timeout >= 2, but spec
+    # minimum supervision timeout is 10.
+    _validate_connection_params(6, 6, 0, 10)
+    # Largest valid: needs timeout * 4 > (1 + 0) * 3200 → timeout > 800.
+    _validate_connection_params(6, 3200, 0, 801)
+    # Max latency with headroom on timeout.
+    _validate_connection_params(6, 6, 499, 3200)
+
+
+async def test_bluetooth_set_connection_params_validation(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Bad params raise ValueError before any frame is sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.reset_mock()
+    with pytest.raises(ValueError, match="min_interval must be between"):
+        await client.bluetooth_device_set_connection_params(1234, 0, 0, 0, 0)
+    transport.write.assert_not_called()
+
+
 async def test_device_info(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1783,6 +2009,43 @@ async def test_device_info(
     await disconnect_task
     with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_info()
+
+
+async def test_device_info_sanitizes_name(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """CRLF/ANSI bytes in DeviceInfo.name must be stripped from cached_name/log_name."""
+    client, _connection, _transport, protocol = api_client
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(
+        name="evil\r\nLOGGER WARNING forged\x1b[31m",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    device_info = await device_info_task
+    assert device_info.name == "evil\r\nLOGGER WARNING forged\x1b[31m"
+    assert client.cached_name == "evilLOGGER WARNING forged[31m"
+    assert "\r" not in client.log_name
+    assert "\n" not in client.log_name
+    assert "\x1b" not in client.log_name
+
+
+async def test_device_info_caps_oversize_name(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """An oversize DeviceInfo.name must be length-capped before storage."""
+    client, _connection, _transport, protocol = api_client
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(name="a" * 4096)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await device_info_task
+    assert client.cached_name == "a" * MAX_NAME_LEN
 
 
 async def test_bluetooth_gatt_read(
@@ -2181,7 +2444,8 @@ async def test_bluetooth_gatt_notify_callback_raises(
     client, connection, _transport, protocol = api_client
 
     def on_bluetooth_gatt_notify(handle: int, data: bytearray) -> None:
-        raise ValueError("Test exception in notify callback")
+        msg = "Test exception in notify callback"
+        raise ValueError(msg)
 
     notify_task = asyncio.create_task(
         client.bluetooth_gatt_start_notify(1234, 1, on_bluetooth_gatt_notify)
@@ -2204,9 +2468,9 @@ async def test_bluetooth_gatt_notify_callback_raises(
     await asyncio.sleep(0)
 
     # Verify the exception was caught and logged
-    assert "Unexpected error in Bluetooth GATT notify callback" in caplog.text
+    assert "Unexpected error in message handler" in caplog.text
     assert "ValueError: Test exception in notify callback" in caplog.text
-    assert "address 1234, handle 1" in caplog.text
+    assert "BluetoothGATTNotifyDataResponse" in caplog.text
 
     # Verify the connection is still alive
     assert connection.is_connected
@@ -2824,6 +3088,44 @@ async def test_infrared_rf_transmit_raw_timings(
     assert list(sent_msg.timings) == timings
 
 
+async def test_radio_frequency_transmit_raw_timings(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test radio_frequency_transmit_raw_timings sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[InfraredRFTransmitRawTimingsRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    timings = [500, -500, 1000, -1000, 500, -500]
+    client.radio_frequency_transmit_raw_timings(
+        key=111,
+        frequency=433920000,
+        timings=timings,
+        modulation=RadioFrequencyModulation.OOK,
+        repeat_count=2,
+        device_id=3,
+    )
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.key == 111
+    assert sent_msg.device_id == 3
+    assert sent_msg.carrier_frequency == 433920000
+    assert sent_msg.modulation == RadioFrequencyModulation.OOK
+    assert sent_msg.repeat_count == 2
+    assert list(sent_msg.timings) == timings
+
+
 # ==================== SERIAL PROXY ====================
 
 
@@ -3104,6 +3406,41 @@ async def test_serial_proxy_get_modem_pins(
     assert result.line_states == 1
 
 
+async def test_serial_proxy_get_modem_pins_matches_instance(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that serial_proxy_get_modem_pins filters responses by instance.
+
+    A response for a different instance must be ignored so that an in-flight
+    request for a specific instance does not pick up an unrelated response.
+    """
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.serial_proxy_get_modem_pins(instance=1))
+    await asyncio.sleep(0)
+
+    # Send a response for a different instance; it must not satisfy the
+    # request.
+    other_instance_response: message.Message = SerialProxyGetModemPinsResponsePb(
+        instance=0, line_states=7
+    )
+    mock_data_received(protocol, generate_plaintext_packet(other_instance_response))
+    await asyncio.sleep(0)
+    assert not task.done()
+
+    # Now send the response for the requested instance.
+    matching_response: message.Message = SerialProxyGetModemPinsResponsePb(
+        instance=1, line_states=3
+    )
+    mock_data_received(protocol, generate_plaintext_packet(matching_response))
+    result = await task
+
+    assert isinstance(result, SerialProxyModemPins)
+    assert result.instance == 1
+    assert result.line_states == 3
+
+
 async def test_serial_proxy_get_modem_pins_timeout(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -3171,12 +3508,22 @@ async def test_serial_proxy_flush(
     assert result.status == SerialProxyStatus.OK
 
 
-async def test_serial_proxy_subscribe(
+@pytest.mark.parametrize(
+    ("method", "request_type", "instance"),
+    [
+        (APIClient.serial_proxy_subscribe, SerialProxyRequestType.SUBSCRIBE, 2),
+        (APIClient.serial_proxy_unsubscribe, SerialProxyRequestType.UNSUBSCRIBE, 3),
+    ],
+)
+async def test_serial_proxy_request_send(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
+    method: Callable[..., None],
+    request_type: SerialProxyRequestType,
+    instance: int,
 ) -> None:
-    """Test serial_proxy_subscribe sends the correct request."""
+    """Test serial_proxy subscribe/unsubscribe sends the correct request."""
     client, connection, _transport, _protocol = api_client
     sent_messages: list[SerialProxyRequestPb] = []
 
@@ -3189,36 +3536,83 @@ async def test_serial_proxy_subscribe(
 
     connection.send_message = capture_send
 
-    client.serial_proxy_subscribe(instance=2)
+    method(client, instance=instance)
 
     assert len(sent_messages) == 1
-    assert sent_messages[0].instance == 2
-    assert sent_messages[0].type == SerialProxyRequestType.SUBSCRIBE
+    assert sent_messages[0].instance == instance
+    assert sent_messages[0].type == request_type
 
 
-async def test_serial_proxy_unsubscribe(
+@pytest.mark.parametrize(
+    ("method", "request_type", "instance", "wrong_instance"),
+    [
+        (
+            APIClient.serial_proxy_subscribe_await_response,
+            SerialProxyRequestType.SUBSCRIBE,
+            2,
+            9,
+        ),
+        (
+            APIClient.serial_proxy_unsubscribe_await_response,
+            SerialProxyRequestType.UNSUBSCRIBE,
+            3,
+            1,
+        ),
+    ],
+)
+async def test_serial_proxy_request_await_response(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
+    method: Callable[..., Coroutine[Any, Any, SerialProxyRequestResponse]],
+    request_type: SerialProxyRequestType,
+    instance: int,
+    wrong_instance: int,
 ) -> None:
-    """Test serial_proxy_unsubscribe sends the correct request."""
+    """Test awaitable serial_proxy subscribe/unsubscribe returns matching response."""
     client, connection, _transport, _protocol = api_client
-    sent_messages: list[SerialProxyRequestPb] = []
 
-    original_send = connection.send_message
+    response_pb = SerialProxyRequestResponsePb(
+        instance=instance,
+        type=request_type,
+        status=SerialProxyStatus.OK,
+    )
 
-    def capture_send(msg: Any) -> None:
-        if isinstance(msg, SerialProxyRequestPb):
-            sent_messages.append(msg)
-        original_send(msg)
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxyRequestPb)
+        assert messages[0].instance == instance
+        assert messages[0].type == request_type
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        mismatched_instance = SerialProxyRequestResponsePb(
+            instance=wrong_instance,
+            type=request_type,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(mismatched_instance) is False
+        assert stop(mismatched_instance) is False
+        mismatched_type = SerialProxyRequestResponsePb(
+            instance=instance,
+            type=(
+                SerialProxyRequestType.UNSUBSCRIBE
+                if request_type == SerialProxyRequestType.SUBSCRIBE
+                else SerialProxyRequestType.SUBSCRIBE
+            ),
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(mismatched_type) is False
+        assert stop(mismatched_type) is False
+        return [response_pb]
 
-    connection.send_message = capture_send
+    connection.send_messages_await_response_complex = mock_send_complex
 
-    client.serial_proxy_unsubscribe(instance=3)
+    result = await method(client, instance=instance)
 
-    assert len(sent_messages) == 1
-    assert sent_messages[0].instance == 3
-    assert sent_messages[0].type == SerialProxyRequestType.UNSUBSCRIBE
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.instance == instance
+    assert result.type == request_type
+    assert result.status == SerialProxyStatus.OK
 
 
 async def test_execute_service_with_response(
@@ -3552,7 +3946,9 @@ async def test_bluetooth_device_connect_without_cache_support_raises(
     def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
         pass
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="ESPHome device does not support REMOTE_CACHING feature"
+    ) as exc_info:
         await client.bluetooth_device_connect(
             1234,
             on_bluetooth_connection_state,
@@ -3562,9 +3958,6 @@ async def test_bluetooth_device_connect_without_cache_support_raises(
             address_type=0,
         )
 
-    assert "ESPHome device does not support REMOTE_CACHING feature" in str(
-        exc_info.value
-    )
     assert "2022.12.0 or later" in str(exc_info.value)
 
 
@@ -3705,6 +4098,318 @@ async def test_bluetooth_device_connect_cancelled(
     handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
     # Make sure we do not leak message handlers
     assert handlers_after == handlers_before
+
+
+async def test_bluetooth_device_connect_future_cancelled_raises_api_error(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that external cancellation of the connect_future raises APIConnectionError.
+
+    When the connect_future is cancelled externally (not via a cancel of the
+    awaiting task), the CancelledError should be converted into an
+    APIConnectionError so callers can treat it as a normal connection failure
+    instead of aborting with CancelledError.
+    """
+    client, connection, transport, _protocol = api_client
+    states = []
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    original_create_future = client._loop.create_future
+    captured: list[asyncio.Future[None]] = []
+
+    def capturing_create_future() -> asyncio.Future[None]:
+        fut = original_create_future()
+        captured.append(fut)
+        return fut
+
+    with patch.object(client._loop, "create_future", capturing_create_future):
+        connect_task = asyncio.create_task(
+            client.bluetooth_device_connect(
+                1234,
+                on_bluetooth_connection_state,
+                timeout=10,
+                feature_flags=0,
+                has_cache=True,
+                disconnect_timeout=10,
+                address_type=1,
+            )
+        )
+        await asyncio.sleep(0)
+        # The connect request should be written and the future captured
+        assert len(transport.writelines.mock_calls) == 1
+        assert len(captured) == 1
+        # Cancel the connect_future directly (not the task); this simulates
+        # an external cancel of the future itself.
+        captured[0].cancel()
+        with pytest.raises(APIConnectionError, match="cancelled"):
+            await connect_task
+        assert states == []
+        # Current task was not actually cancelled.
+        assert connect_task.cancelling() == 0
+
+    # The unsub + disconnect should have run, so handlers are not leaked.
+    handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
+    assert handlers_after == handlers_before
+
+
+async def test_bluetooth_device_connect_base_exception_propagates(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test a BaseException other than CancelledError propagates and cleans up.
+
+    The ``except BaseException`` branch must still run cleanup (unsub the
+    message handler and send a disconnect) and re-raise the original
+    exception unchanged.
+    """
+    client, connection, transport, _protocol = api_client
+    states = []
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    original_create_future = client._loop.create_future
+    captured: list[asyncio.Future[None]] = []
+
+    def capturing_create_future() -> asyncio.Future[None]:
+        fut = original_create_future()
+        captured.append(fut)
+        return fut
+
+    with patch.object(client._loop, "create_future", capturing_create_future):
+        connect_task = asyncio.create_task(
+            client.bluetooth_device_connect(
+                1234,
+                on_bluetooth_connection_state,
+                timeout=10,
+                feature_flags=0,
+                has_cache=True,
+                disconnect_timeout=10,
+                address_type=1,
+            )
+        )
+        await asyncio.sleep(0)
+        assert len(transport.writelines.mock_calls) == 1
+        assert len(captured) == 1
+
+        # Inject a non-CancelledError BaseException via the future so the
+        # ``except BaseException`` branch is exercised. A custom
+        # BaseException subclass avoids pytest's special handling of
+        # ``KeyboardInterrupt`` / ``SystemExit``.
+        class _TestBaseException(BaseException):
+            pass
+
+        captured[0].set_exception(_TestBaseException("boom"))
+        with pytest.raises(_TestBaseException, match="boom"):
+            await connect_task
+        assert states == []
+
+    # Ensure the disconnect request was written as cleanup.
+    assert len(transport.writelines.mock_calls) == 2
+    req = BluetoothDeviceRequest(
+        address=1234, request_type=BluetoothDeviceRequestType.DISCONNECT
+    ).SerializeToString()
+    assert transport.writelines.mock_calls[-1] == call([b"\x00", b"\x05", b"D", req])
+
+    # Ensure the message handler was unsubscribed.
+    handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
+    assert handlers_after == handlers_before
+
+
+async def test_bluetooth_device_connect_cleanup_contract(  # noqa: C901
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Pin the per-branch cleanup contract for ``bluetooth_device_connect``.
+
+    Each outcome (success, timeout, task-cancelled, future-cancelled,
+    base-exception) must call ``unsub`` and ``_bluetooth_disconnect_no_wait``
+    exactly the documented number of times and leave no leaked message
+    handlers or pending timeout handles.
+    """
+    client, connection, _transport, protocol = api_client
+
+    async def _run_branch(
+        trigger: Callable[
+            [asyncio.Task[Callable[[], None]], asyncio.Future[None]],
+            Awaitable[None],
+        ],
+        *,
+        timeout: float,
+        disconnect_timeout: float,
+        expected_unsub_calls: int,
+        expected_disconnect_calls: int,
+        expected_exception: type[BaseException] | None,
+    ) -> None:
+        handlers_before = len(
+            list(itertools.chain(*connection._message_handlers.values()))
+        )
+
+        original_callback = client._get_connection().send_message_callback_response
+        unsub_calls = 0
+
+        def counting_send_message_callback_response(
+            *args: Any, **kwargs: Any
+        ) -> Callable[[], None]:
+            real_unsub = original_callback(*args, **kwargs)
+
+            def counted_unsub() -> None:
+                nonlocal unsub_calls
+                unsub_calls += 1
+                real_unsub()
+
+            return counted_unsub
+
+        original_create_future = client._loop.create_future
+        captured: list[asyncio.Future[None]] = []
+
+        def capturing_create_future() -> asyncio.Future[None]:
+            fut = original_create_future()
+            captured.append(fut)
+            return fut
+
+        with (
+            patch.object(
+                client._get_connection(),
+                "send_message_callback_response",
+                counting_send_message_callback_response,
+            ),
+            patch.object(client._loop, "create_future", capturing_create_future),
+            patch.object(
+                client,
+                "_bluetooth_disconnect_no_wait",
+                wraps=client._bluetooth_disconnect_no_wait,
+            ) as disconnect_no_wait,
+        ):
+            connect_task = asyncio.create_task(
+                client.bluetooth_device_connect(
+                    1234,
+                    lambda connected, mtu, error: None,
+                    timeout=timeout,
+                    feature_flags=BluetoothProxyFeature.REMOTE_CACHING,
+                    has_cache=False,
+                    disconnect_timeout=disconnect_timeout,
+                    address_type=1,
+                )
+            )
+            await asyncio.sleep(0)
+            assert len(captured) == 1
+
+            if expected_exception is None:
+                await trigger(connect_task, captured[0])
+                cancel = await connect_task
+                # Success path: caller still owns unsub.
+                cancel()
+            else:
+                await trigger(connect_task, captured[0])
+                with pytest.raises(expected_exception):
+                    await connect_task
+
+        assert unsub_calls == expected_unsub_calls, (
+            f"expected {expected_unsub_calls} unsub calls, got {unsub_calls}"
+        )
+        assert disconnect_no_wait.call_count == expected_disconnect_calls, (
+            f"expected {expected_disconnect_calls} "
+            f"_bluetooth_disconnect_no_wait calls, got {disconnect_no_wait.call_count}"
+        )
+        handlers_after = len(
+            list(itertools.chain(*connection._message_handlers.values()))
+        )
+        assert handlers_after == handlers_before, (
+            "message handler leak — cleanup did not unsub"
+        )
+
+    async def _success(
+        _task: asyncio.Task[Callable[[], None]], _fut: asyncio.Future[None]
+    ) -> None:
+        mock_data_received(
+            protocol,
+            generate_plaintext_packet(
+                BluetoothDeviceConnectionResponse(
+                    address=1234, connected=True, mtu=23, error=0
+                )
+            ),
+        )
+
+    async def _timeout(
+        _task: asyncio.Task[Callable[[], None]], _fut: asyncio.Future[None]
+    ) -> None:
+        for _ in range(4):
+            await asyncio.sleep(0)
+
+    async def _task_cancel(
+        task: asyncio.Task[Callable[[], None]], _fut: asyncio.Future[None]
+    ) -> None:
+        task.cancel()
+
+    async def _future_cancel(
+        _task: asyncio.Task[Callable[[], None]], fut: asyncio.Future[None]
+    ) -> None:
+        fut.cancel()
+
+    class _Boom(BaseException):
+        pass
+
+    async def _base_exception(
+        _task: asyncio.Task[Callable[[], None]], fut: asyncio.Future[None]
+    ) -> None:
+        fut.set_exception(_Boom("boom"))
+
+    # Success: handler stays subscribed (caller cleans up via returned unsub).
+    await _run_branch(
+        _success,
+        timeout=1,
+        disconnect_timeout=1,
+        expected_unsub_calls=1,  # one from the test's final cancel() call
+        expected_disconnect_calls=0,
+        expected_exception=None,
+    )
+    # Timeout: unsub once, disconnect via guarded path (NOT _no_wait).
+    await _run_branch(
+        _timeout,
+        timeout=0,
+        disconnect_timeout=0,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=0,
+        expected_exception=TimeoutAPIError,
+    )
+    # Task cancel: unsub + disconnect_no_wait once each, CancelledError propagates.
+    await _run_branch(
+        _task_cancel,
+        timeout=10,
+        disconnect_timeout=10,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=1,
+        expected_exception=asyncio.CancelledError,
+    )
+    # External future cancel: same cleanup, but converted to APIConnectionError.
+    await _run_branch(
+        _future_cancel,
+        timeout=10,
+        disconnect_timeout=10,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=1,
+        expected_exception=APIConnectionError,
+    )
+    # BaseException (non-Cancelled): same cleanup, original exception propagates.
+    await _run_branch(
+        _base_exception,
+        timeout=10,
+        disconnect_timeout=10,
+        expected_unsub_calls=1,
+        expected_disconnect_calls=1,
+        expected_exception=_Boom,
+    )
 
 
 async def test_send_voice_assistant_event(auth_client: APIClient) -> None:
@@ -3979,6 +4684,7 @@ async def test_subscribe_voice_assistant_api_audio(
     stops = []
     aborts = []
     data_received = 0
+    data2_received = 0
 
     async def handle_start(
         conversation_id: str,
@@ -3995,9 +4701,11 @@ async def test_subscribe_voice_assistant_api_audio(
         else:
             stops.append(True)
 
-    async def handle_audio(data: bytes) -> None:
-        nonlocal data_received
+    async def handle_audio(data: bytes, data2: bytes | None = None) -> None:
+        nonlocal data_received, data2_received
         data_received += len(data)
+        if data2:
+            data2_received += len(data2)
 
     unsub = client.subscribe_voice_assistant(
         handle_start=handle_start, handle_stop=handle_stop, handle_audio=handle_audio
@@ -4040,10 +4748,12 @@ async def test_subscribe_voice_assistant_api_audio(
 
     response: message.Message = VoiceAssistantAudio(
         data=bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+        data2=bytes([1, 2, 3, 4, 5]),  # second audio channel
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await asyncio.sleep(0)
     assert data_received == 10
+    assert data2_received == 5
 
     response: message.Message = VoiceAssistantAudio(
         end=True,

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import re
+from typing import TYPE_CHECKING
 
-from aioesphomeapi.model import BluetoothGATTError
+if TYPE_CHECKING:
+    from aioesphomeapi.model import BluetoothGATTError
 
-from .api_pb2 import (  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     AlarmControlPanelCommandRequest,
     AlarmControlPanelStateResponse,
     AuthenticationRequest,
@@ -83,6 +85,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
+    ListEntitiesRadioFrequencyResponse,
     ListEntitiesRequest,
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
@@ -158,6 +161,17 @@ from .api_pb2 import (  # type: ignore
 )
 
 TWO_CHAR = re.compile(r".{2}")
+
+# Base64 of 32 zero bytes: the well-known PSK that unprovisioned devices
+# (encryption supported, no key set) accept for Noise handshakes so the real
+# encryption key can be provisioned without being sent in plaintext. The
+# ephemeral X25519 exchange protects against passive sniffing only; a publicly
+# known PSK provides no authentication against an active MITM.
+# Not to be confused with Home Assistant's probe key, which is base64 of
+# thirty-two ASCII "0" characters (0x30 bytes, "MDAw...DA="), a deliberately
+# wrong key used only to elicit the server hello; this constant is the only
+# value unprovisioned devices accept.
+ZERO_NOISE_PSK = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 # Taken from esp_gatt_status_t in esp_gatt_defs.h
 ESPHOME_GATT_ERRORS = {
@@ -343,13 +357,15 @@ def wifi_mac_to_bluetooth_mac(wifi_mac: str) -> str:
         "AA:BB:CC:DD:EE:01"
         >>> wifi_mac_to_bluetooth_mac("AA:BB:CC:DD:EE:FE")
         "AA:BB:CC:DD:EE:00"
+
     """
     # Remove colons and convert to uppercase
     clean_mac = wifi_mac.replace(":", "").upper()
 
     # Validate MAC address format
     if len(clean_mac) != 12 or not all(c in "0123456789ABCDEF" for c in clean_mac):
-        raise ValueError(f"Invalid MAC address format: {wifi_mac}")
+        msg = f"Invalid MAC address format: {wifi_mac}"
+        raise ValueError(msg)
 
     # Extract the last octet and add 2
     last_octet = int(clean_mac[-2:], 16)
@@ -538,8 +554,9 @@ MESSAGE_TYPE_TO_PROTO = {
     145: BluetoothSetConnectionParamsRequest,
     146: BluetoothSetConnectionParamsResponse,
     147: SerialProxyRequestResponse,
-    148: ZigbeeProxyFrame,
-    149: ZigbeeProxyRequest,
+    148: ListEntitiesRadioFrequencyResponse,
+    149: ZigbeeProxyFrame,
+    150: ZigbeeProxyRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

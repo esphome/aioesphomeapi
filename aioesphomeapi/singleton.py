@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine
 import functools
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
 
 T = TypeVar("T")
 
@@ -41,6 +43,9 @@ def singleton(
                     # On exception, remove the future so next call can retry
                     # Set exception first so waiters get it, then remove from cache
                     future.set_exception(e)
+                    # Suppress "Future exception was never retrieved" when there
+                    # are no concurrent waiters; awaiters still receive it.
+                    future.exception()
                     del _SINGLETON_CACHE[key]
                     raise
                 else:
@@ -54,9 +59,9 @@ def singleton(
             if isinstance(obj_or_future, asyncio.Future):
                 # Another call is already in progress, wait for it
                 # This will either return the result or raise the exception
-                return cast(T, await obj_or_future)
+                return cast("T", await obj_or_future)
 
-            return cast(T, obj_or_future)
+            return cast("T", obj_or_future)
 
         return async_wrapped
 

@@ -7,11 +7,14 @@ import contextlib
 from datetime import datetime
 import logging
 import sys
+from typing import TYPE_CHECKING
 
-from .api_pb2 import SubscribeLogsResponse  # type: ignore
 from .client import APIClient
 from .log_parser import parse_log_message
 from .log_runner import async_run
+
+if TYPE_CHECKING:
+    from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 
 
 async def main(argv: list[str]) -> None:
@@ -20,6 +23,29 @@ async def main(argv: list[str]) -> None:
     parser.add_argument("--password", type=str)
     parser.add_argument("--noise-psk", type=str)
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--no-states",
+        action="store_true",
+        help="Do not show entity state changes in log output.",
+    )
+    parser.add_argument(
+        "--allow-plaintext-fallback",
+        action="store_true",
+        help=(
+            "If --noise-psk is set and the device is running plaintext "
+            "firmware, downgrade to plaintext (with a warning) instead of "
+            "failing repeatedly."
+        ),
+    )
+    parser.add_argument(
+        "--strip-ansi-escapes",
+        action="store_true",
+        help=(
+            "Strip ANSI escape sequences (colors, cursor moves) from log "
+            "output. Useful when piping to a file or to a terminal that "
+            "doesn't render them."
+        ),
+    )
     parser.add_argument("address")
     args = parser.parse_args(argv[1:])
 
@@ -32,25 +58,32 @@ async def main(argv: list[str]) -> None:
     cli = APIClient(
         args.address,
         args.port,
-        args.password or "",
+        password=args.password,
         noise_psk=args.noise_psk,
         keepalive=10,
     )
 
     def on_log(msg: SubscribeLogsResponse) -> None:
-        time_ = datetime.now()
+        time_ = datetime.now().astimezone()
         message: bytes = msg.message
         text = message.decode("utf8", "backslashreplace")
-        nanoseconds = time_.microsecond // 1000
+        milliseconds = time_.microsecond // 1000
         timestamp = (
-            f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}.{nanoseconds:03}]"
+            f"[{time_.hour:02}:{time_.minute:02}:{time_.second:02}.{milliseconds:03}]"
         )
 
         # Parse and print the log message
-        for line in parse_log_message(text, timestamp):
+        for line in parse_log_message(
+            text, timestamp, strip_ansi_escapes=args.strip_ansi_escapes
+        ):
             print(line)
 
-    stop = await async_run(cli, on_log)
+    stop = await async_run(
+        cli,
+        on_log,
+        subscribe_states=not args.no_states,
+        allow_plaintext_fallback=args.allow_plaintext_fallback,
+    )
     try:
         await asyncio.Event().wait()
     finally:

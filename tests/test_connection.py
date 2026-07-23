@@ -1,33 +1,47 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 import logging
 import socket
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-from google.protobuf import message
 import pytest
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
+
 from aioesphomeapi import APIClient
+from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     DeviceInfoResponse,
+    DisconnectReason,
     DisconnectRequest,
+    GetTimeRequest,
+    GetTimeResponse,
     HelloResponse,
     PingRequest,
     PingResponse,
     TextSensorStateResponse,
 )
-from aioesphomeapi.connection import APIConnection, ConnectionParams, ConnectionState
+from aioesphomeapi.connection import (
+    MAX_PROTOBUF_ERROR_DATA_BYTES,
+    APIConnection,
+    ConnectionParams,
+    ConnectionState,
+    _build_parsed_tz_proto,
+)
 from aioesphomeapi.core import (
     APIConnectionCancelledError,
     APIConnectionError,
+    BadNameAPIError,
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
@@ -56,6 +70,62 @@ from .common import (
 )
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
+
+
+@pytest.mark.parametrize(
+    ("tz_value", "has_parsed_tz"),
+    [
+        ("", False),  # empty timezone — _build_parsed_tz_proto returns None
+        (",,,", False),  # unparseable — parse_posix_tz raises ValueError
+        ("EST5", True),  # valid timezone — parsed_timezone should be populated
+    ],
+)
+async def test_get_time_request_timezone_handling(
+    conn_with_password: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+    tz_value: str,
+    has_parsed_tz: bool,
+) -> None:
+    """Test GetTimeRequest handler with various timezone values."""
+    event_loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    _build_parsed_tz_proto.cache_clear()
+
+    with (
+        patch.object(
+            event_loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        patch(
+            "aioesphomeapi.connection.get_timezone",
+            return_value=tz_value,
+        ),
+    ):
+        connect_task = asyncio.create_task(connect(conn_with_password, login=True))
+        await connected.wait()
+        protocol = conn_with_password._frame_helper
+
+        send_plaintext_hello(protocol)
+        send_plaintext_auth_response(protocol, False)
+        await connect_task
+
+    transport.reset_mock()
+
+    get_time_request = GetTimeRequest()
+    mock_data_received(protocol, generate_plaintext_packet(get_time_request))
+
+    # Verify a GetTimeResponse was sent
+    assert transport.writelines.call_count == 1
+    raw = b"".join(transport.writelines.call_args[0][0])
+    resp = GetTimeResponse()
+    resp.ParseFromString(raw[3:])  # skip 0x00, length varuint, type varuint
+    assert resp.timezone == tz_value
+    assert resp.HasField("parsed_timezone") == has_parsed_tz
+    conn_with_password.force_disconnect()
 
 
 async def test_connect_hello_login_with_login_false_and_password_none(
@@ -221,7 +291,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         loop.call_soon(conn._frame_helper.ready_future.set_result, None)
         conn.connection_state = ConnectionState.CONNECTED
 
-        with pytest.raises(RequiresEncryptionAPIError):
+        with pytest.raises(RequiresEncryptionAPIError):  # noqa: PT012
             task = asyncio.create_task(conn._connect_hello_login(login=True))
             await asyncio.sleep(0)
             mock_data_received(protocol, b"\x01\x00\x00")
@@ -310,7 +380,8 @@ async def test_start_connection_cannot_increase_recv_buffer(
         if args[0] == socket.SOL_SOCKET and args[1] == socket.SO_RCVBUF:
             size = args[2]
             tried_sizes.append(size)
-            raise OSError("Socket error")
+            msg = "Socket error"
+            raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True
@@ -363,7 +434,8 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
             size = args[2]
             tried_sizes.append(size)
             if size != 262144:
-                raise OSError("Socket error")
+                msg = "Socket error"
+                raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True
@@ -554,7 +626,7 @@ async def test_plaintext_connection_fails_handshake(
         **kwargs,
     ) -> tuple[asyncio.Transport, APIPlaintextFrameHelperHandshakeException]:
         protocol: APIPlaintextFrameHelperHandshakeException = create_func()
-        protocol._transport = cast(asyncio.Transport, transport)
+        protocol._transport = cast("asyncio.Transport", transport)
         protocol._writelines = transport.writelines
         protocol.ready_future.set_exception(exception)
         connected.set()
@@ -598,7 +670,7 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (
+    with (  # noqa: PT012
         pytest.raises(raised_exception),
     ):
         await asyncio.sleep(0)
@@ -702,6 +774,77 @@ async def test_connect_wrong_name(
         await connect_task
 
     assert conn.is_connected is False
+
+
+def _send_plaintext_hello_with(
+    protocol: APIPlaintextFrameHelper, *, name: str, server_info: str = "esp"
+) -> None:
+    hello_response = HelloResponse()
+    hello_response.api_version_major = 1
+    hello_response.api_version_minor = 9
+    hello_response.name = name
+    hello_response.server_info = server_info
+    protocol.data_received(generate_plaintext_packet(hello_response))
+
+
+async def test_plaintext_hello_sanitizes_mismatched_name(
+    plaintext_connect_task_expected_name: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
+
+    _send_plaintext_hello_with(protocol, name="evil\r\nINJECTED\x1b[31m")
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await connect_task
+
+    raised = exc_info.value
+    assert "\r" not in str(raised)
+    assert "\n" not in str(raised)
+    assert "\x1b" not in str(raised)
+    assert raised.received_name == "evilINJECTED[31m"
+    assert conn.is_connected is False
+
+
+async def test_plaintext_hello_caps_oversize_mismatched_name(
+    plaintext_connect_task_expected_name: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_expected_name
+
+    _send_plaintext_hello_with(protocol, name="a" * 4096)
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await connect_task
+
+    assert len(exc_info.value.received_name) == MAX_NAME_LEN
+    assert conn.is_connected is False
+
+
+async def test_plaintext_hello_sanitizes_matched_name_and_server_info(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    conn, _transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    caplog.set_level(logging.DEBUG, logger="aioesphomeapi")
+    _send_plaintext_hello_with(
+        protocol,
+        name="device\r\n42",
+        server_info="esphome\r\nLOGGER WARNING something\x1b[31m",
+    )
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+    assert conn.is_connected
+    assert conn.received_name == "device42"
+    assert "\r" not in conn.received_name
+    assert "\x1b" not in caplog.text
+    assert "\r\nLOGGER WARNING" not in caplog.text
 
 
 async def test_force_disconnect_fails(
@@ -821,6 +964,50 @@ async def test_connection_cancelled_during_hello(
 
     with pytest.raises(raised_exception, match="original message"):
         await connect_task
+
+    assert not conn.is_connected
+
+
+async def test_connection_task_cancelled_during_hello_propagates_cancel(
+    conn: APIConnection,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """Test parent task cancellation propagates as CancelledError.
+
+    When the awaiting task is actually being cancelled by a parent (for
+    example, a ``TaskGroup`` or ``asyncio.timeout``), the original
+    ``CancelledError`` must propagate to the parent so the task's cancellation
+    state is preserved. Previously the ``CancelledError`` would be swallowed
+    and converted to an ``APIConnectionCancelledError``, breaking
+    ``asyncio.timeout`` / ``TaskGroup`` semantics.
+    """
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    hello_started = asyncio.Event()
+    hello_release = asyncio.Event()
+
+    async def _slow_hello(*args, **kwargs):
+        hello_started.set()
+        await hello_release.wait()
+
+    with (
+        patch.object(
+            loop,
+            "create_connection",
+            side_effect=partial(_create_mock_transport_protocol, transport, connected),
+        ),
+        patch.object(conn, "_connect_hello_login", _slow_hello),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+        await hello_started.wait()
+        # Cancel the parent task while it is parked inside finish_connection.
+        assert connect_task.cancel() is True
+        with pytest.raises(asyncio.CancelledError):
+            await connect_task
+        assert connect_task.cancelled()
 
     assert not conn.is_connected
 
@@ -946,6 +1133,106 @@ async def test_disconnect_success_case(
     await asyncio.sleep(0)
     assert expected_disconnect is True
     assert not client._connection
+
+
+async def test_disconnect_request_with_reason(
+    connection_params: ConnectionParams,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """A DisconnectRequest carrying a reason is parsed onto the connection."""
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    client = APIClient(
+        address="mydevice.local",
+        port=6052,
+        password=None,
+    )
+
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect_client(client, login=False))
+        await connected.wait()
+        protocol = client._connection._frame_helper
+        send_plaintext_hello(protocol)
+        await connect_task
+        transport.reset_mock()
+
+    send_plaintext_hello(protocol)
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+    # Keep a reference; the connection is cleared once the disconnect is handled.
+    connection = client._connection
+    assert (
+        connection.disconnect_reason == DisconnectReason.DISCONNECT_REASON_UNSPECIFIED
+    )
+
+    disconnect_request = DisconnectRequest(
+        reason=DisconnectReason.DISCONNECT_REASON_PROVISIONING_CLOSED
+    )
+    mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
+
+    # Wait one loop iteration for the disconnect to be processed
+    await asyncio.sleep(0)
+    assert not client._connection
+    assert (
+        connection.disconnect_reason
+        == DisconnectReason.DISCONNECT_REASON_PROVISIONING_CLOSED
+    )
+
+
+async def test_disconnect_request_with_unknown_reason(
+    connection_params: ConnectionParams,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """An unknown reason (from a newer device) must not abort the handler.
+
+    proto3 enums are open, so a future firmware may send a reason value this
+    client does not know. The raw value is stored and the disconnect is still
+    acknowledged and cleaned up (the name lookup must not raise).
+    """
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    client = APIClient(
+        address="mydevice.local",
+        port=6052,
+        password=None,
+    )
+
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect_client(client, login=False))
+        await connected.wait()
+        protocol = client._connection._frame_helper
+        send_plaintext_hello(protocol)
+        await connect_task
+        transport.reset_mock()
+
+    send_plaintext_hello(protocol)
+    send_plaintext_auth_response(protocol, False)
+
+    await connect_task
+    connection = client._connection
+
+    unknown_reason = 9999
+    assert unknown_reason not in DisconnectReason.values()
+    disconnect_request = DisconnectRequest(reason=unknown_reason)
+    mock_data_received(protocol, generate_plaintext_packet(disconnect_request))
+
+    await asyncio.sleep(0)
+    # Handler ran to completion: connection cleaned up and raw reason stored.
+    assert not client._connection
+    assert connection.disconnect_reason == unknown_reason
 
 
 async def test_ping_disconnects_after_no_responses(
@@ -1077,6 +1364,28 @@ async def test_unknown_protobuf_message_type_logged(
     await asyncio.sleep(0)
 
 
+async def test_zero_protobuf_message_type_rejected(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test msg_type_proto=0 is skipped instead of wrapping to the last registered type."""
+    client, connection, _transport, protocol = api_client
+    caplog.set_level(logging.DEBUG)
+    client.set_debug(True)
+    message_with_zero_protobuf_number = (
+        b"\0" + _cached_varuint_to_bytes(0) + _cached_varuint_to_bytes(0)
+    )
+
+    mock_data_received(protocol, message_with_zero_protobuf_number)
+
+    assert "Skipping unknown message type 0" in caplog.text
+    assert connection.is_connected
+    connection.force_disconnect()
+    await asyncio.sleep(0)
+
+
 async def test_bad_protobuf_message_drops_connection(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1103,6 +1412,46 @@ async def test_bad_protobuf_message_drops_connection(
     )
     mock_data_received(protocol, message_with_bad_protobuf_data)
     assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert f"len={len(bytes_)}" in caplog.text
+    assert connection.is_connected is False
+
+
+async def test_bad_protobuf_message_truncates_payload_in_log(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A peer that sends a large malformed payload must not flood logs.
+
+    The 'Invalid protobuf message' log entry and ProtocolAPIError text
+    are capped at MAX_PROTOBUF_ERROR_DATA_BYTES; the total length is
+    still reported separately so the operator knows the real size.
+    """
+    client, connection, _transport, protocol = api_client
+    client.set_debug(True)
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
+
+    # Build a payload well above the truncation cap. The msg_type maps to
+    # TextSensorStateResponse (27) so process_packet attempts a real parse
+    # and raises a DecodeError on the crafted garbage.
+    payload = b"\xff" * (MAX_PROTOBUF_ERROR_DATA_BYTES * 4)
+    message_with_bad_protobuf_data = (
+        b"\0"
+        + _cached_varuint_to_bytes(len(payload))
+        + _cached_varuint_to_bytes(27)
+        + payload
+    )
+    mock_data_received(protocol, message_with_bad_protobuf_data)
+
+    assert "Invalid protobuf message: type=TextSensorStateResponse" in caplog.text
+    assert f"len={len(payload)}" in caplog.text
+    expected_extra = len(payload) - MAX_PROTOBUF_ERROR_DATA_BYTES
+    assert f"...(+{expected_extra} bytes)" in caplog.text
+    # Full payload escaped (`\\xff` * payload_len) must not appear — that
+    # would be the pre-truncation behavior we are guarding against.
+    assert ("\\xff" * len(payload)) not in caplog.text
     assert connection.is_connected is False
 
 
@@ -1494,3 +1843,59 @@ def test_cleanup_debug_message_without_error(
     # Should not contain "(error:" part
     assert "Cleaning up connection to test-device" in caplog.text
     assert "(error:" not in caplog.text
+
+
+async def test_handler_exception_does_not_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A user callback that raises must not tear the session down (issue #1755)."""
+    _client, connection, _transport, protocol = api_client
+    caplog.set_level(logging.ERROR)
+
+    def boom(_msg: message.Message) -> None:
+        err = "simulated bug in user callback"
+        raise RuntimeError(err)
+
+    remove = connection.add_message_callback(boom, (PingResponse,))
+    try:
+        mock_data_received(protocol, generate_plaintext_packet(PingResponse()))
+        await asyncio.sleep(0)
+        assert connection.is_connected
+        assert "simulated bug in user callback" in caplog.text
+        assert "Unexpected error in message handler" in caplog.text
+    finally:
+        remove()
+
+
+async def test_handler_exception_does_not_skip_siblings(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """When one handler raises, other handlers for the same message still run."""
+    _client, connection, _transport, protocol = api_client
+    caplog.set_level(logging.ERROR)
+    seen: list[message.Message] = []
+
+    def boom(_msg: message.Message) -> None:
+        err = "first handler bug"
+        raise RuntimeError(err)
+
+    def ok(msg: message.Message) -> None:
+        seen.append(msg)
+
+    remove_boom = connection.add_message_callback(boom, (PingResponse,))
+    remove_ok = connection.add_message_callback(ok, (PingResponse,))
+    try:
+        mock_data_received(protocol, generate_plaintext_packet(PingResponse()))
+        await asyncio.sleep(0)
+        assert connection.is_connected
+        assert len(seen) == 1
+        assert "first handler bug" in caplog.text
+    finally:
+        remove_boom()
+        remove_ok()

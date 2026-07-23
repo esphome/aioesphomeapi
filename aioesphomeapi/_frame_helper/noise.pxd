@@ -1,11 +1,28 @@
 import cython
 
+from .._sanitize cimport safe_label_str
 from ..connection cimport APIConnection
-from .base cimport APIFrameHelper
+from .base cimport (
+    APIFrameHelper,
+    _MAX_EXPLANATION_LEN,
+    _MAX_MAC_LEN,
+    _MAX_NAME_LEN,
+)
 from .noise_encryption cimport EncryptCipher, DecryptCipher
-from .packets cimport make_noise_packets
 
 cdef bint TYPE_CHECKING
+
+
+@cython.locals(
+    type_="unsigned int",
+    data=bytes,
+    data_header=bytes,
+    packet=tuple,
+    data_len=Py_ssize_t,
+    frame=bytes,
+    frame_len=Py_ssize_t,
+)
+cpdef list make_noise_packets(list packets, EncryptCipher encrypt_cipher) except *
 
 cdef unsigned int NOISE_STATE_HELLO
 cdef unsigned int NOISE_STATE_HANDSHAKE
@@ -49,7 +66,9 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
         server_name_i=int,
         mac_address_i=int,
         mac_address=str,
+        mac_address_raw=str,
         server_name=str,
+        server_name_raw=str,
     )
     cdef void _handle_hello(self, bytes server_hello) except *
 

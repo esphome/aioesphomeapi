@@ -172,33 +172,35 @@ def test_parse_max_negative_offset_12_hours() -> None:
 
 
 def test_parse_empty_string_fails() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Empty timezone string"):
         parse_posix_tz("")
 
 
 def test_parse_short_name_fails() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Timezone name must be at least 3 letters"):
         parse_posix_tz("AB5")
 
 
 def test_parse_offset_no_digits_fails() -> None:
     """Offset sign without digits should fail."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Expected digit at position"):
         parse_posix_tz("EST+")
 
 
 def test_parse_missing_offset_fails() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Expected offset after timezone name"):
         parse_posix_tz("EST")
 
 
 def test_parse_unterminated_bracket_fails() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unterminated angle-bracket timezone name"):
         parse_posix_tz("<+07-7")
 
 
 def test_parse_comma_without_dst_name_fails() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Comma after standard offset without DST name"
+    ):
         parse_posix_tz("EST5,M3.2.0,M11.1.0")
 
 
@@ -234,12 +236,12 @@ def test_parse_plain_day_number() -> None:
 
 
 def test_parse_j_format_invalid_day_zero() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Julian day must be 1-365"):
         parse_posix_tz("EST5EDT,J0,J305")
 
 
 def test_parse_j_format_invalid_day_366() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Julian day must be 1-365"):
         parse_posix_tz("EST5EDT,J366,J305")
 
 
@@ -252,7 +254,7 @@ def test_parse_plain_day_with_time() -> None:
 
 
 def test_parse_plain_day_invalid_366() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Day of year must be 0-365"):
         parse_posix_tz("EST5EDT,366,304")
 
 
@@ -293,42 +295,42 @@ def test_parse_transition_time_hours_minutes_seconds() -> None:
 
 
 def test_parse_m_format_invalid_month_13() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Month must be 1-12"):
         parse_posix_tz("EST5EDT,M13.1.0,M11.1.0")
 
 
 def test_parse_m_format_invalid_month_0() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Month must be 1-12"):
         parse_posix_tz("EST5EDT,M0.1.0,M11.1.0")
 
 
 def test_parse_m_format_invalid_week_6() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Week must be 1-5"):
         parse_posix_tz("EST5EDT,M3.6.0,M11.1.0")
 
 
 def test_parse_m_format_invalid_week_0() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Week must be 1-5"):
         parse_posix_tz("EST5EDT,M3.0.0,M11.1.0")
 
 
 def test_parse_m_format_invalid_day_of_week_7() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Day of week must be 0-6"):
         parse_posix_tz("EST5EDT,M3.2.7,M11.1.0")
 
 
 def test_parse_missing_end_rule() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Expected comma before second DST rule"):
         parse_posix_tz("EST5EDT,M3.2.0")
 
 
 def test_parse_missing_end_rule_j_format() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Expected comma before second DST rule"):
         parse_posix_tz("EST5EDT,J60")
 
 
 def test_parse_missing_end_rule_plain_day() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Expected comma before second DST rule"):
         parse_posix_tz("EST5EDT,60")
 
 
@@ -470,3 +472,28 @@ def test_parse_asia_kolkata() -> None:
     tz = parse_posix_tz("IST-5:30")
     assert tz.std_offset_seconds == -(5 * 3600 + 30 * 60)
     assert not tz.has_dst
+
+
+def test_parse_dst_rule_unexpected_end() -> None:
+    """Test unexpected end of string when expecting DST rule (line 135)."""
+    with pytest.raises(ValueError, match="expected DST rule"):
+        # Provide DST name but no rule - the comma means rules are expected
+        parse_posix_tz("EST5EDT,M3.2.0,")
+
+
+def test_parse_dst_rule_missing_dot_after_month() -> None:
+    """Test missing '.' after month in M-format rule (line 147)."""
+    with pytest.raises(ValueError, match=r"Expected '\.' after month"):
+        parse_posix_tz("EST5EDT,M3x2.0,M11.1.0")
+
+
+def test_parse_dst_rule_missing_dot_after_week() -> None:
+    """Test missing '.' after week in M-format rule (line 155)."""
+    with pytest.raises(ValueError, match=r"Expected '\.' after week"):
+        parse_posix_tz("EST5EDT,M3.2x0,M11.1.0")
+
+
+def test_parse_dst_rule_unexpected_char() -> None:
+    """Test unexpected character at start of DST rule (line 180)."""
+    with pytest.raises(ValueError, match="Expected DST rule"):
+        parse_posix_tz("EST5EDT,X3.2.0,M11.1.0")

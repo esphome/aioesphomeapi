@@ -45,53 +45,41 @@ jobs:
           - extension: "use_cython"
             os: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         id: python
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - name: Get pip cache dir
-        id: pip-cache
-        shell: bash
-        run: |
-          echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-      - name: Restore PIP cache
-        uses: actions/cache@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
         with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-${{ hashFiles('requirements/base.txt', 'requirements/test.txt') }}
-          restore-keys: |
-            pip-${{ steps.python.outputs.python-version }}-${{ matrix.extension }}-
+          enable-cache: true
       - name: Set up Python environment (no cython)
         if: ${{ matrix.extension == 'skip_cython' }}
         env:
           SKIP_CYTHON: 1
         shell: bash
         run: |
-          pip3 install -r requirements/base.txt -r requirements/test.txt
-          pip3 install -e .
+          uv pip install --system -r requirements/base.txt -r requirements/test.txt
+          uv pip install --system -e .
       - name: Set up Python environment (cython)
         if: ${{ matrix.extension == 'use_cython' }}
         env:
           REQUIRE_CYTHON: 1
         shell: bash
         run: |
-          pip3 install -r requirements/base.txt -r requirements/test.txt
-          pip3 install -e .
+          uv pip install --system -r requirements/base.txt -r requirements/test.txt
+          uv pip install --system -e .
       - name: Register problem matchers
         shell: bash
         run: |
-          echo "::add-matcher::.github/workflows/matchers/flake8.json"
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
-      - run: flake8 aioesphomeapi
-        name: Lint with flake8
-        if: ${{ matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - run: ruff format --check aioesphomeapi tests
         name: Check ruff formatting
         if: ${{ matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
@@ -118,15 +106,15 @@ jobs:
         run: git diff
         if: ${{ failure() && matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
       - name: Archive artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: genrated-proto-files
           path: aioesphomeapi/*pb2.py
         if: ${{ failure() && matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - run: pytest -vv --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native tests
+      - run: pytest -q -n auto --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native --ignore=tests/benchmarks tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -134,21 +122,24 @@ jobs:
     name: Run benchmarks
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.14"
-          cache: 'pip' # caching pip dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
+        with:
+          enable-cache: true
       - name: Set up Python environment (cython)
         env:
             REQUIRE_CYTHON: 1
         shell: bash
         run: |
-            pip3 install -r requirements/base.txt -r requirements/test.txt
-            pip3 install -e .
+            uv pip install --system -r requirements/base.txt -r requirements/test.txt
+            uv pip install --system -e .
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v4
+        uses: CodSpeedHQ/action@f99becdce5e5d51fd556489ebef684f4ecfd6286  # v4.18.5
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: pytest tests/benchmarks --codspeed
+          run: pytest tests/benchmarks --codspeed --durations=10

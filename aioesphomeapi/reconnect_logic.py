@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
 from enum import Enum
 import logging
 import time
+from typing import TYPE_CHECKING
 
 import zeroconf
 from zeroconf.const import (
@@ -13,17 +13,22 @@ from zeroconf.const import (
     _TYPE_PTR as TYPE_PTR,
 )
 
-from .client import APIClient
 from .core import (
     APIConnectionCancelledError,
     APIConnectionError,
+    EncryptionPlaintextAPIError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
     RequiresEncryptionAPIError,
     UnhandledAPIConnectionError,
 )
 from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_address
-from .zeroconf import ZeroconfInstanceType
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from .client import APIClient
+    from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +36,10 @@ ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
 MAXIMUM_BACKOFF_TRIES = 100
+MAXIMUM_BACKOFF = 60.0
+# Deep-sleep devices are only awake for a short window; a lost boot-announce must
+# not leave a reconnect waiting out the full backoff past that window.
+DEEP_SLEEP_MAXIMUM_BACKOFF = 15.0
 
 
 class ReconnectLogicState(Enum):
@@ -74,12 +83,25 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         zeroconf_instance: ZeroconfInstanceType | None = None,
         name: str | None = None,
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
+        allow_plaintext_fallback: bool = False,
     ) -> None:
         """Initialize ReconnectingLogic.
 
         :param client: initialized :class:`APIClient` to reconnect for
         :param on_connect: Coroutine Function to call when connected.
         :param on_disconnect: Coroutine Function to call when disconnected.
+        :param allow_plaintext_fallback: If True and the client has a noise
+            PSK configured, downgrade to plaintext (and log a warning) when
+            the device responds with the plaintext protocol marker, instead
+            of failing repeatedly. Defaults to False so callers must opt in.
+
+            This is a security downgrade: an attacker on the network can
+            impersonate the device in plaintext and strip encryption. Only
+            enable it for connections that are read-only from the client's
+            side — e.g. the logger stream, which only receives data from
+            the device and never sends commands or secrets. Do not enable
+            it for Home Assistant or any integration that issues commands
+            to the device.
         """
         self.loop = asyncio.get_running_loop()
         self._cli = client
@@ -91,9 +113,17 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self.name = client.address.partition(".")[0]
         if self.name:
             self._cli.set_cached_name_if_unset(self.name)
+        # Caps the reconnect backoff so a short awake window is not missed. A
+        # consumer may seed it before the first connect as a bootstrap hint
+        # (e.g. from persisted DeviceInfo, so a restart caps from the first
+        # attempt); each successful connect then refreshes it from the fetched
+        # DeviceInfo.has_deep_sleep (see _try_connect), so device_info wins and
+        # it self-heals.
+        self.deep_sleep: bool = False
         self._on_connect_cb = on_connect
         self._on_disconnect_cb = on_disconnect
         self._on_connect_error_cb = on_connect_error
+        self._allow_plaintext_fallback = allow_plaintext_fallback
         self._zeroconf_manager = client.zeroconf_manager
         if zeroconf_instance is not None:
             self._zeroconf_manager.set_instance(zeroconf_instance)
@@ -140,6 +170,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._async_set_connection_state_while_locked(
                 ReconnectLogicState.DISCONNECTED
             )
+            # The previous session ended — allow the next mDNS record to
+            # kick a fresh connect attempt early.
+            self._accept_zeroconf_records = True
             await self._on_disconnect_cb(expected_disconnect)
 
         if not self._is_stopped:
@@ -149,7 +182,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self, state: ReconnectLogicState
     ) -> None:
         """Set the connection state while holding the lock."""
-        assert self._connected_lock.locked(), "connected_lock must be locked"
+        assert self._connected_lock.locked(), "connected_lock must be locked"  # noqa: S101  # precondition
         self._async_set_connection_state_without_lock(state)
 
     def _async_set_connection_state_without_lock(
@@ -161,7 +194,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         when the state is CONNECTING.
         """
         self._connection_state = state
-        self._accept_zeroconf_records = state in NOT_YET_CONNECTED_STATES
+
+    def _first_try_log_level(self) -> int:
+        """WARNING on the first attempt of a reconnect cycle, DEBUG after."""
+        return logging.WARNING if self._tries == 0 else logging.DEBUG
 
     def _async_log_connection_error(self, err: Exception) -> None:
         """Log connection errors."""
@@ -177,10 +213,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         elif isinstance(err, APIConnectionCancelledError):
             # APIConnectionCancelledError is harmless and should always be DEBUG
             level = logging.DEBUG
-        elif self._tries == 0:
-            level = logging.WARNING
         else:
-            level = logging.DEBUG
+            level = self._first_try_log_level()
         _LOGGER.log(
             level,
             "Can't connect to ESPHome API for %s: %s (%s)",
@@ -199,7 +233,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             await self._cli.start_resolve_host(
                 on_stop=self._on_disconnect, log_errors=False
             )
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         self._async_set_connection_state_while_locked(ReconnectLogicState.CONNECTING)
@@ -213,7 +247,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
         try:
             await self._cli.start_connection()
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         finish_connect_time = time.perf_counter()
@@ -225,7 +259,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
         try:
             await self._cli.finish_connection(login=True)
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         self._tries = 0
@@ -236,14 +270,42 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         await self._on_connect_cb()
+        # Remember deep-sleep from the device_info the connect callback just
+        # fetched; the client clears its cache on disconnect, so capture it now
+        # while connected. Persists on this long-lived object to cap the next
+        # reconnect's backoff, and self-heals if the device's config changes.
+        # None means device_info was not fetched, so leave any override intact.
+        if (has_deep_sleep := self._cli.cached_device_has_deep_sleep) is not None:
+            self.deep_sleep = has_deep_sleep
         return True
 
     async def _handle_connection_failure(self, err: Exception) -> None:
         """Handle a connection failure."""
         self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
+        # The attempt has truly ended — allow the next mDNS record to
+        # kick a fresh connect attempt early.
+        self._accept_zeroconf_records = True
         if self._on_connect_error_cb is not None:
             await self._on_connect_error_cb(err)
         self._async_log_connection_error(err)
+        if (
+            self._allow_plaintext_fallback
+            and isinstance(err, EncryptionPlaintextAPIError)
+            and self._cli.noise_psk is not None
+        ):
+            # Device firmware is running plaintext but the client has a
+            # PSK configured. Downgrade so subsequent reconnect attempts
+            # use plaintext; warn so the caller sees that it happened.
+            _LOGGER.warning(
+                "%s: Device is using plaintext protocol; disabling "
+                "encryption for this session and retrying. The device's "
+                "identity cannot be verified without encryption, so this "
+                "session may be talking to a different device.",
+                self._cli.log_name,
+            )
+            self._cli.clear_noise_psk()
+            self._tries = 0
+            return
         if isinstance(err, AUTH_EXCEPTIONS):
             # If we get an encryption or password error,
             # backoff for the maximum amount of time
@@ -253,11 +315,11 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _schedule_connect(self, delay: float) -> None:
         """Schedule a connect attempt."""
+        self._cancel_connect_timer()
         if not delay:
             self._call_connect_once()
             return
         _LOGGER.debug("Scheduling new connect attempt in %.2f seconds", delay)
-        self._cancel_connect_timer()
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
         )
@@ -265,18 +327,27 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
     def _call_connect_once(self) -> None:
         """Call the connect logic once.
 
-        Must only be called from _schedule_connect.
+        Must only be called from _schedule_connect or its scheduled timer.
         """
         if self._connect_task and not self._connect_task.done():
-            if self._connection_state != ReconnectLogicState.CONNECTING:
+            if (
+                self._connection_state != ReconnectLogicState.CONNECTING
+                or self._cli.connected_address is not None
+            ):
                 # Connection state is far enough along that we should
                 # not restart the connect task.
                 #
                 # Zeroconf triggering scenarios:
-                # - RESOLVING state: Don't cancel, the resolve task will complete immediately
-                #   since it's waiting for the same records zeroconf is delivering
-                # - CONNECTING state: Cancel and restart to use potentially updated connection info
-                # - HANDSHAKING state or later: Don't cancel, too far along in the process
+                # - RESOLVING state: Don't cancel, the resolve task will
+                #   complete immediately since it's waiting for the same
+                #   records zeroconf is delivering
+                # - CONNECTING state with socket connected: Don't cancel,
+                #   the device already accepted the TCP connection and we
+                #   would waste the established connection
+                # - CONNECTING state without socket: Cancel and restart to
+                #   use potentially updated connection info from mDNS
+                # - HANDSHAKING state or later: Don't cancel, too far along
+                #   in the process
                 _LOGGER.debug(
                     "%s: Not cancelling existing connect task as its already %s!",
                     self._cli.log_name,
@@ -332,7 +403,10 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if await self._try_connect():
                 return
             tries = min(self._tries, 10)  # prevent OverflowError
-            wait_time = round(min(1.8**tries, 60.0))
+            max_backoff = (
+                DEEP_SLEEP_MAXIMUM_BACKOFF if self.deep_sleep else MAXIMUM_BACKOFF
+            )
+            wait_time = round(min(1.8**tries, max_backoff))
             if tries == 1:
                 _LOGGER.info(
                     "Trying to connect to %s in the background", self._cli.log_name
@@ -342,6 +416,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _remove_stop_task(self, _fut: asyncio.Future[None]) -> None:
         """Remove the stop task from the connect loop.
+
         We need to do this because the asyncio does not hold
         a strong reference to the task, so it can be garbage
         collected unexpectedly.
@@ -363,6 +438,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             if self._connection_state != ReconnectLogicState.DISCONNECTED:
                 return
             self._tries = 0
+            # Clear any stale gate from a prior run that was stopped mid
+            # attempt after an mDNS triggered restart.
+            self._accept_zeroconf_records = True
             self._schedule_connect(0.0)
 
     async def stop(self) -> None:
@@ -389,15 +467,33 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """Listen for mDNS records.
 
         This listener allows us to schedule a connect as soon as a
-        received mDNS record indicates the node is up again.
+        received mDNS record indicates the node is up again. Failures
+        to start the zeroconf stack (e.g. port 5353 already bound on
+        BSD-derived systems running avahi) must not prevent the
+        connect attempt; the listener is a reconnect-speed
+        optimisation, not a requirement for connecting.
         """
         if not self._zc_listening and self.name and not self._is_ip_address:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
-            self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
-            self._a_name = f"{self.name}.local."
-            self._zeroconf_manager.get_async_zeroconf().zeroconf.async_add_listener(
-                self, None
-            )
+            # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
+            # Lowercase the match keys here and the incoming records below
+            # so a device advertising mixed-case labels still triggers the
+            # fast reconnect instead of falling back to exponential backoff.
+            self._ptr_alias = f"{self.name}._esphomelib._tcp.local.".lower()
+            self._a_name = f"{self.name}.local.".lower()
+            try:
+                async_zc = self._zeroconf_manager.get_async_zeroconf()
+                async_zc.zeroconf.async_add_listener(self, None)
+            except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
+                _LOGGER.log(
+                    self._first_try_log_level(),
+                    "Could not start zeroconf listener for %s: %s (%s); "
+                    "continuing without mDNS-triggered reconnects",
+                    self._cli.log_name,
+                    err,
+                    type(err).__name__,
+                )
+                return
             self._zc_listening = True
 
     def _stop_zc_listen(self) -> None:
@@ -416,27 +512,35 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def async_update_records(
         self,
-        zc: zeroconf.Zeroconf,  # pylint: disable=unused-argument
-        now: float,  # pylint: disable=unused-argument
+        zc: zeroconf.Zeroconf,  # noqa: ARG002 # pylint: disable=unused-argument
+        now: float,  # noqa: ARG002 # pylint: disable=unused-argument
         records: list[zeroconf.RecordUpdate],
     ) -> None:
         """Listen to zeroconf updated mDNS records. This must be called from the eventloop.
 
         This is a mDNS record from the device and could mean it just woke up.
         """
-        # Check if already connected, no lock needed for this access and
-        # bail if either the already stopped or we haven't received device info yet
-        if not self._accept_zeroconf_records or self._is_stopped:
+        # Bail if we've been stopped, if the current attempt has already been
+        # kicked by a previous mDNS record (one-shot gate), or if we're past
+        # the point where a restart could still help (HANDSHAKING / READY).
+        if (
+            not self._accept_zeroconf_records
+            or self._is_stopped
+            or self._connection_state not in NOT_YET_CONNECTED_STATES
+        ):
             return
 
         for record_update in records:
             # We only consider A, AAAA, and PTR records and match using the alias name
             new_record = record_update.new
             if not (
-                (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)  # type: ignore[attr-defined]
+                (
+                    new_record.type == TYPE_PTR
+                    and new_record.alias.lower() == self._ptr_alias  # type: ignore[attr-defined]
+                )
                 or (
                     new_record.type in ADDRESS_RECORD_TYPES
-                    and new_record.name == self._a_name
+                    and new_record.name.lower() == self._a_name
                 )
             ):
                 continue

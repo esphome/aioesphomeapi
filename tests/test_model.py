@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from google.protobuf import message
 import pytest
+
+if TYPE_CHECKING:
+    from google.protobuf import message
 
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,
     AreaInfo as AreaInfoProto,
     BinarySensorStateResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTService as BluetoothGATTServicePb,
+    BluetoothScannerMode,
+    BluetoothScannerState,
     BluetoothScannerStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
@@ -36,10 +42,12 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesDateTimeResponse,
     ListEntitiesEventResponse,
     ListEntitiesFanResponse,
+    ListEntitiesInfraredResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
     ListEntitiesNumberResponse,
+    ListEntitiesRadioFrequencyResponse,
     ListEntitiesSelectResponse,
     ListEntitiesSensorResponse,
     ListEntitiesServicesArgument,
@@ -70,12 +78,16 @@ from aioesphomeapi.api_pb2 import (
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
+    VoiceAssistantWakeWord as VoiceAssistantWakeWordPb,
     WaterHeaterStateResponse,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
+    COMPONENT_TYPE_TO_INFO,
+    AlarmControlPanelEntityFeature,
     AlarmControlPanelEntityState,
     AlarmControlPanelInfo,
     APIIntEnum,
@@ -84,11 +96,14 @@ from aioesphomeapi.model import (
     AreaInfo,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothConnectionsFree,
     BluetoothGATTCharacteristic as BluetoothGATTCharacteristicModel,
     BluetoothGATTDescriptor as BluetoothGATTDescriptorModel,
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothGATTServices as BluetoothGATTServicesModel,
     BluetoothProxyFeature,
+    BluetoothScannerMode as BluetoothScannerModeModel,
+    BluetoothScannerState as BluetoothScannerStateModel,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ButtonInfo,
     CameraInfo,
@@ -104,6 +119,7 @@ from aioesphomeapi.model import (
     DateTimeInfo,
     DateTimeState,
     DeviceInfo,
+    EntityInfo,
     EntityState,
     Event,
     EventInfo,
@@ -120,12 +136,17 @@ from aioesphomeapi.model import (
     LightState,
     LockEntityState,
     LockInfo,
+    LockState,
     MediaPlayerEntityFeature,
     MediaPlayerEntityState,
     MediaPlayerInfo,
+    MediaPlayerSupportedFormat as MediaPlayerSupportedFormatModel,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     NumberInfo,
     NumberState,
+    RadioFrequencyCapability,
+    RadioFrequencyInfo,
+    RadioFrequencyModulation,
     SelectInfo,
     SelectState,
     SensorInfo,
@@ -144,6 +165,7 @@ from aioesphomeapi.model import (
     SupportsResponseType,
     SwitchInfo,
     SwitchState,
+    TemperatureUnit,
     TextInfo,
     TextSensorInfo,
     TextSensorState,
@@ -158,14 +180,17 @@ from aioesphomeapi.model import (
     ValveInfo,
     ValveState,
     VoiceAssistantConfigurationResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestType,
+    build_device_unique_id,
     build_unique_id,
     converter_field,
 )
@@ -177,7 +202,7 @@ class DummyIntEnum(APIIntEnum):
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input_value", "output"),
     [
         (0, DummyIntEnum.DEFAULT),
         (1, DummyIntEnum.MY_VAL),
@@ -187,14 +212,14 @@ class DummyIntEnum(APIIntEnum):
         (DummyIntEnum.MY_VAL, DummyIntEnum.MY_VAL),
     ],
 )
-def test_api_int_enum_convert(input, output):
-    v = DummyIntEnum.convert(input)
+def test_api_int_enum_convert(input_value, output):
+    v = DummyIntEnum.convert(input_value)
     assert v == output
     assert v is None or isinstance(v, DummyIntEnum)
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input_value", "output"),
     [
         ([], []),
         ([1], [DummyIntEnum.MY_VAL]),
@@ -204,8 +229,8 @@ def test_api_int_enum_convert(input, output):
         ([DummyIntEnum.DEFAULT], [DummyIntEnum.DEFAULT]),
     ],
 )
-def test_api_int_enum_convert_list(input, output):
-    v = DummyIntEnum.convert_list(input)
+def test_api_int_enum_convert_list(input_value, output):
+    v = DummyIntEnum.convert_list(input_value)
     assert v == output
     assert all(isinstance(x, DummyIntEnum) for x in v)
 
@@ -290,7 +315,7 @@ def test_api_version_ord():
 
 
 @pytest.mark.parametrize(
-    "model, pb",
+    ("model", "pb"),
     [
         (DeviceInfo, DeviceInfoResponse),
         (BinarySensorInfo, ListEntitiesBinarySensorResponse),
@@ -338,6 +363,7 @@ def test_api_version_ord():
         (UpdateState, UpdateStateResponse),
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
+        (BluetoothConnectionsFree, BluetoothConnectionsFreeResponse),
         (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
@@ -352,8 +378,28 @@ def test_basic_pb_conversions(model, pb):
     assert model.from_pb(pb()) == model()
 
 
+def test_bluetooth_scanner_state_surfaces_configured_mode() -> None:
+    pb = BluetoothScannerStateResponse(
+        state=BluetoothScannerState.BLUETOOTH_SCANNER_STATE_RUNNING,
+        mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_PASSIVE,
+        configured_mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_ACTIVE,
+    )
+    model = BluetoothScannerStateResponseModel.from_pb(pb)
+    assert model.state is BluetoothScannerStateModel.RUNNING
+    assert model.mode is BluetoothScannerModeModel.PASSIVE
+    assert model.configured_mode is BluetoothScannerModeModel.ACTIVE
+
+
+def test_bluetooth_connections_free_surfaces_allocated() -> None:
+    pb = BluetoothConnectionsFreeResponse(free=2, limit=3, allocated=[10, 20])
+    model = BluetoothConnectionsFree.from_pb(pb)
+    assert model.free == 2
+    assert model.limit == 3
+    assert model.allocated == [10, 20]
+
+
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (CoverState(legacy_state=LegacyCoverState.OPEN), (1, 0), False),
         (CoverState(legacy_state=LegacyCoverState.CLOSED), (1, 0), True),
@@ -367,7 +413,7 @@ def test_cover_state_legacy_state(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (
             ClimateInfo(supports_current_temperature=True),
@@ -406,7 +452,7 @@ def test_climate_info_supported_feature_flags_compat(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (ClimateInfo(legacy_supports_away=False), (1, 4), []),
         (
@@ -428,7 +474,7 @@ def test_climate_info_supported_presets_compat(state, version, out):
 
 
 @pytest.mark.parametrize(
-    "state, version, out",
+    ("state", "version", "out"),
     [
         (ClimateState(unused_legacy_away=False), (1, 4), ClimatePreset.HOME),
         (ClimateState(unused_legacy_away=True), (1, 4), ClimatePreset.AWAY),
@@ -505,7 +551,7 @@ def test_user_service_conversion():
         WaterHeaterInfo,
     ],
 )
-def test_build_unique_id(model):
+def test_build_unique_id(model: type[EntityInfo]) -> None:
     obj = model(object_id="id", name="My Sensor")
     # Version 1 (default): uses object_id
     assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
@@ -516,6 +562,49 @@ def test_build_unique_id(model):
     assert (
         build_unique_id("mac", obj, version=2)
         == f"mac-{_TYPE_TO_NAME[type(obj)]}-My Sensor"
+    )
+    # Version 3: slash separated with sub-device id and unmangled name
+    assert (
+        build_unique_id("mac", obj, version=3)
+        == f"mac/0/{_TYPE_TO_NAME[type(obj)]}/My Sensor"
+    )
+    sub_device = model(object_id="id", name="My Sensor", device_id=5)
+    assert (
+        build_unique_id("mac", sub_device, version=3)
+        == f"mac/5/{_TYPE_TO_NAME[type(obj)]}/My Sensor"
+    )
+    # Version 3: UTF-8 names are preserved instead of mangled to underscores
+    utf8 = model(object_id="___", name="温度传感器")
+    assert (
+        build_unique_id("mac", utf8, version=3)
+        == f"mac/0/{_TYPE_TO_NAME[type(obj)]}/温度传感器"
+    )
+    # Unsupported versions raise instead of silently picking a format
+    with pytest.raises(ValueError, match="Unsupported unique id version"):
+        build_unique_id("mac", obj, version=4)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        BinarySensorInfo,
+        SensorInfo,
+        SwitchInfo,
+    ],
+)
+def test_build_device_unique_id(model: type[EntityInfo]) -> None:
+    entity_type = _TYPE_TO_NAME[model]
+    main = model(object_id="id", name="My Sensor")
+    sub = model(object_id="id", name="My Sensor", device_id=5)
+    # Version 3 (default): sub-device id is part of the slash format, no @ suffix
+    assert build_device_unique_id("mac", main) == f"mac/0/{entity_type}/My Sensor"
+    assert build_device_unique_id("mac", sub) == f"mac/5/{entity_type}/My Sensor"
+    # Legacy versions append @device_id for sub-devices to match existing ids
+    assert build_device_unique_id("mac", main, version=1) == f"mac-{entity_type}-id"
+    assert build_device_unique_id("mac", sub, version=1) == f"mac-{entity_type}-id@5"
+    assert (
+        build_device_unique_id("mac", sub, version=2)
+        == f"mac-{entity_type}-My Sensor@5"
     )
 
 
@@ -592,6 +681,19 @@ def test_zwave_backcompat_for_device_info(
     info = DeviceInfo(zwave_proxy_feature_flags=flags, zwave_home_id=home_id)
     assert info.zwave_proxy_feature_flags_compat(APIVersion(1, 9)) == flags
     assert info.zwave_home_id == home_id
+
+
+def test_device_info_api_encryption_provisionable() -> None:
+    """Test DeviceInfo api_encryption_provisionable conversion from protobuf."""
+    assert (
+        DeviceInfo.from_pb(DeviceInfoResponse()).api_encryption_provisionable is False
+    )
+    pb_response = DeviceInfoResponse(
+        api_encryption_supported=True, api_encryption_provisionable=True
+    )
+    info = DeviceInfo.from_pb(pb_response)
+    assert info.api_encryption_supported is True
+    assert info.api_encryption_provisionable is True
 
 
 def test_zwave_proxy_frame_conversion() -> None:
@@ -828,7 +930,7 @@ async def test_bluetooth_gatt_services_from_dict() -> None:
             )
         ],
     )
-    services == BluetoothGATTServicesModel.from_dict(
+    services = BluetoothGATTServicesModel.from_dict(
         {
             "services": [
                 {
@@ -918,6 +1020,27 @@ def test_bluetooth_128bit_uuid_fallback() -> None:
     descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
     assert descriptor.uuid == "12345678-9abc-def0-1122-334455667788"
     assert descriptor.handle == 44
+
+
+def test_bluetooth_all_zero_uuid_from_pb() -> None:
+    """All-zero GATT UUID arrives as an empty uuid array (fixed_array_skip_zero)."""
+    # Firmware omits the split uuid field entirely when the UUID is all-zero,
+    # so neither short_uuid nor the uuid array is populated on the wire.
+    pb_descriptor = BluetoothGATTDescriptor()
+    pb_descriptor.handle = 7
+
+    descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
+    assert descriptor.uuid == "00000000-0000-0000-0000-000000000000"
+    assert descriptor.handle == 7
+
+
+def test_bluetooth_all_zero_uuid_from_dict() -> None:
+    """from_dict accepts an empty uuid list as the all-zero UUID."""
+    assert BluetoothGATTDescriptorModel.from_dict(
+        {"uuid": [], "handle": 7},
+    ) == BluetoothGATTDescriptorModel(
+        uuid="00000000-0000-0000-0000-000000000000", handle=7
+    )
 
 
 def test_bluetooth_characteristic_efficient_uuids() -> None:
@@ -1351,7 +1474,7 @@ def test_media_player_supported_format_convert_list() -> None:
 
 
 def test_media_player_feature_flags_compat() -> None:
-    """Test feature flags compatibility across API versions"""
+    """Test feature flags compatibility across API versions."""
     info = MediaPlayerInfo(
         supports_pause=False,
         supported_formats=[
@@ -1669,7 +1792,7 @@ def test_device_info_mock_with_areas_and_devices() -> None:
 
 # Test data for all state response types with device_id field
 STATE_RESPONSE_DEVICE_ID_TEST_DATA = [
-    # (protobuf_class, model_class, extra_fields)
+    # Each row: protobuf_class, model_class, extra_fields.
     (BinarySensorStateResponse, BinarySensorState, {"state": True}),
     (CoverStateResponse, CoverState, {"position": 0.5}),
     (FanStateResponse, FanState, {"state": True, "speed_level": 3}),
@@ -1731,7 +1854,6 @@ def test_state_response_device_id_default_value(proto_cls, model_cls, extra_fiel
 
 def test_entity_state_base_class_has_device_id():
     """Test that EntityState base class has device_id field."""
-
     # Check that EntityState has device_id field with default value 0
     state = EntityState(key=100)
     assert state.key == 100
@@ -1813,7 +1935,7 @@ def test_event_entity_state_device_id():
 
 
 @pytest.mark.parametrize(
-    "input, output",
+    ("input_value", "output"),
     [
         (0, SupportsResponseType.NONE),
         (1, SupportsResponseType.OPTIONAL),
@@ -1822,8 +1944,8 @@ def test_event_entity_state_device_id():
         (999, None),  # Unknown value
     ],
 )
-def test_supports_response_type_convert(input, output):
-    assert SupportsResponseType.convert(input) == output
+def test_supports_response_type_convert(input_value, output):
+    assert SupportsResponseType.convert(input_value) == output
 
 
 def test_supports_response_type_values():
@@ -1985,10 +2107,92 @@ def test_infrared_rf_receive_event_conversion() -> None:
     assert event_from_dict.timings == [1000, -2000, 3000, -4000]
 
 
+def test_infrared_info_conversion() -> None:
+    """Test InfraredInfo conversion from protobuf."""
+    pb = ListEntitiesInfraredResponse(
+        object_id="ir1",
+        key=100,
+        name="IR Transceiver",
+        capabilities=3,
+        receiver_frequency=38000,
+    )
+    info = InfraredInfo.from_pb(pb)
+    assert info.object_id == "ir1"
+    assert info.key == 100
+    assert info.name == "IR Transceiver"
+    assert info.capabilities == 3
+    assert info.receiver_frequency == 38000
+
+    # Test default (0 = unspecified)
+    pb_default = ListEntitiesInfraredResponse(
+        object_id="ir2",
+        key=101,
+        name="IR Transmitter",
+        capabilities=1,
+    )
+    info_default = InfraredInfo.from_pb(pb_default)
+    assert info_default.receiver_frequency == 0
+
+
 def test_infrared_info_in_type_to_name() -> None:
     """Test that InfraredInfo is registered in _TYPE_TO_NAME."""
     assert InfraredInfo in _TYPE_TO_NAME
     assert _TYPE_TO_NAME[InfraredInfo] == "infrared"
+
+
+# ==================== RADIO FREQUENCY ====================
+
+
+def test_radio_frequency_modulation_enum() -> None:
+    """Test RadioFrequencyModulation enum values."""
+    assert RadioFrequencyModulation.OOK == 0
+
+
+def test_radio_frequency_capability_flag() -> None:
+    """Test RadioFrequencyCapability flag values."""
+    assert RadioFrequencyCapability.TRANSMITTER == 1
+    assert RadioFrequencyCapability.RECEIVER == 2
+
+
+def test_radio_frequency_info_conversion() -> None:
+    """Test RadioFrequencyInfo conversion from protobuf."""
+    pb = ListEntitiesRadioFrequencyResponse(
+        object_id="rf1",
+        key=200,
+        name="RF Transceiver",
+        capabilities=3,
+        frequency_min=433920000,
+        frequency_max=433920000,
+        supported_modulations=1,
+    )
+    info = RadioFrequencyInfo.from_pb(pb)
+    assert info.object_id == "rf1"
+    assert info.key == 200
+    assert info.name == "RF Transceiver"
+    assert info.capabilities == 3
+    assert info.frequency_min == 433920000
+    assert info.frequency_max == 433920000
+    assert info.supported_modulations == 1
+    assert info.supports_modulation(RadioFrequencyModulation.OOK) is True
+
+    # Test defaults (0 = unspecified)
+    pb_default = ListEntitiesRadioFrequencyResponse(
+        object_id="rf2",
+        key=201,
+        name="RF Transmitter",
+        capabilities=1,
+    )
+    info_default = RadioFrequencyInfo.from_pb(pb_default)
+    assert info_default.frequency_min == 0
+    assert info_default.frequency_max == 0
+    assert info_default.supported_modulations == 0
+    assert info_default.supports_modulation(RadioFrequencyModulation.OOK) is False
+
+
+def test_radio_frequency_info_in_type_to_name() -> None:
+    """Test that RadioFrequencyInfo is registered in _TYPE_TO_NAME."""
+    assert RadioFrequencyInfo in _TYPE_TO_NAME
+    assert _TYPE_TO_NAME[RadioFrequencyInfo] == "radio_frequency"
 
 
 # ==================== SERIAL PROXY ====================
@@ -2199,3 +2403,235 @@ def test_serial_proxy_request_response_conversion() -> None:
     assert model2.type == SerialProxyRequestType.FLUSH
     assert model2.status == SerialProxyStatus.TIMEOUT
     assert model2.error_message == "timeout"
+
+
+def test_climate_info_missing_temperature_unit_defaults_to_celsius() -> None:
+    pb = ListEntitiesClimateResponse()
+    info = ClimateInfo.from_pb(pb)
+    assert info.temperature_unit == TemperatureUnit.CELSIUS
+
+
+def test_water_heater_info_missing_temperature_unit_defaults_to_celsius() -> None:
+    pb = ListEntitiesWaterHeaterResponse()
+    info = WaterHeaterInfo.from_pb(pb)
+    assert info.temperature_unit == TemperatureUnit.CELSIUS
+
+
+def test_water_heater_feature_flag_values() -> None:
+    assert WaterHeaterFeature.SUPPORTS_CURRENT_TEMPERATURE == 1 << 0
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE == 1 << 1
+    assert WaterHeaterFeature.SUPPORTS_OPERATION_MODE == 1 << 2
+    assert WaterHeaterFeature.SUPPORTS_AWAY_MODE == 1 << 3
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF == 1 << 4
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE == 1 << 5
+
+
+def test_water_heater_info_two_point_supported_features_decodes() -> None:
+    flags = (
+        WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE
+        | WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE
+    )
+    pb = ListEntitiesWaterHeaterResponse(supported_features=flags)
+    info = WaterHeaterInfo.from_pb(pb)
+    decoded = WaterHeaterFeature(info.supported_features)
+    assert WaterHeaterFeature.SUPPORTS_TWO_POINT_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_TARGET_TEMPERATURE in decoded
+    assert WaterHeaterFeature.SUPPORTS_ON_OFF not in decoded
+
+
+def test_alarm_control_panel_feature_flag_values() -> None:
+    assert AlarmControlPanelEntityFeature.ARM_HOME == 1 << 0
+    assert AlarmControlPanelEntityFeature.ARM_AWAY == 1 << 1
+    assert AlarmControlPanelEntityFeature.ARM_NIGHT == 1 << 2
+    assert AlarmControlPanelEntityFeature.TRIGGER == 1 << 3
+    assert AlarmControlPanelEntityFeature.ARM_CUSTOM_BYPASS == 1 << 4
+    assert AlarmControlPanelEntityFeature.ARM_VACATION == 1 << 5
+
+
+def test_alarm_control_panel_info_supported_features_decodes() -> None:
+    flags = (
+        AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.TRIGGER
+    )
+    pb = ListEntitiesAlarmControlPanelResponse(supported_features=flags)
+    info = AlarmControlPanelInfo.from_pb(pb)
+    decoded = AlarmControlPanelEntityFeature(info.supported_features)
+    assert AlarmControlPanelEntityFeature.ARM_AWAY in decoded
+    assert AlarmControlPanelEntityFeature.TRIGGER in decoded
+    assert AlarmControlPanelEntityFeature.ARM_HOME not in decoded
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        TemperatureUnit.CELSIUS,
+        TemperatureUnit.FAHRENHEIT,
+        TemperatureUnit.KELVIN,
+    ],
+)
+def test_climate_info_temperature_unit_roundtrip(unit: TemperatureUnit) -> None:
+    pb = ListEntitiesClimateResponse(temperature_unit=unit)
+    info = ClimateInfo.from_pb(pb)
+    assert info.temperature_unit is unit
+    info2 = ClimateInfo.from_dict(info.to_dict())
+    assert info2.temperature_unit is unit
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        TemperatureUnit.CELSIUS,
+        TemperatureUnit.FAHRENHEIT,
+        TemperatureUnit.KELVIN,
+    ],
+)
+def test_water_heater_info_temperature_unit_roundtrip(unit: TemperatureUnit) -> None:
+    pb = ListEntitiesWaterHeaterResponse(temperature_unit=unit)
+    info = WaterHeaterInfo.from_pb(pb)
+    assert info.temperature_unit is unit
+    info2 = WaterHeaterInfo.from_dict(info.to_dict())
+    assert info2.temperature_unit is unit
+
+
+def test_climate_info_unknown_temperature_unit_converts_to_none() -> None:
+    info = ClimateInfo(temperature_unit=999)
+    assert info.temperature_unit is None
+
+
+def test_water_heater_info_unknown_temperature_unit_converts_to_none() -> None:
+    info = WaterHeaterInfo(temperature_unit=999)
+    assert info.temperature_unit is None
+
+
+def test_lock_state_enum_is_dense_and_unique() -> None:
+    values = [member.value for member in LockState]
+    assert len(values) == len(set(values)), f"LockState has duplicate values: {values}"
+    assert values == list(range(len(values))), (
+        f"LockState must be contiguous from 0; got {values}"
+    )
+
+
+_GATT_UUID_PB = [0x12345678AABBCCDD, 0x1122334455667788]
+_GATT_UUID_STR = "12345678-aabb-ccdd-1122-334455667788"
+
+
+@pytest.mark.parametrize(
+    ("model_cls", "pb_factory", "dict_input"),
+    [
+        (
+            AreaInfo,
+            lambda: AreaInfoProto(area_id=7, name="Hall"),
+            {"area_id": 7, "name": "Hall"},
+        ),
+        (
+            SubDeviceInfo,
+            lambda: SubDeviceInfoProto(device_id=42, name="Sub", area_id=1),
+            {"device_id": 42, "name": "Sub", "area_id": 1},
+        ),
+        (
+            SerialProxyInfo,
+            lambda: SerialProxyInfoPb(name="UART", port_type=SerialProxyPortType.RS232),
+            {"name": "UART", "port_type": SerialProxyPortType.RS232},
+        ),
+        (
+            MediaPlayerSupportedFormatModel,
+            lambda: MediaPlayerSupportedFormat(
+                format="flac",
+                sample_rate=48000,
+                num_channels=2,
+                purpose=1,
+                sample_bytes=2,
+            ),
+            {
+                "format": "flac",
+                "sample_rate": 48000,
+                "num_channels": 2,
+                "purpose": 1,
+                "sample_bytes": 2,
+            },
+        ),
+        (
+            UserServiceArg,
+            lambda: ListEntitiesServicesArgument(
+                name="arg", type=ServiceArgType.SERVICE_ARG_TYPE_INT
+            ),
+            {"name": "arg", "type": UserServiceArgType.INT},
+        ),
+        (
+            BluetoothGATTDescriptorModel,
+            lambda: BluetoothGATTDescriptor(uuid=_GATT_UUID_PB, handle=5),
+            {"uuid": _GATT_UUID_STR, "handle": 5},
+        ),
+        (
+            BluetoothGATTCharacteristicModel,
+            lambda: BluetoothGATTCharacteristic(
+                uuid=_GATT_UUID_PB, handle=6, properties=2
+            ),
+            {"uuid": _GATT_UUID_STR, "handle": 6, "properties": 2},
+        ),
+        (
+            BluetoothGATTServiceModel,
+            lambda: BluetoothGATTServicePb(uuid=_GATT_UUID_PB, handle=7),
+            {"uuid": _GATT_UUID_STR, "handle": 7},
+        ),
+        (
+            VoiceAssistantWakeWord,
+            lambda: VoiceAssistantWakeWordPb(
+                id="1", wake_word="okay nabu", trained_languages=["en"]
+            ),
+            {"id": "1", "wake_word": "okay nabu", "trained_languages": ["en"]},
+        ),
+        (
+            VoiceAssistantExternalWakeWord,
+            lambda: VoiceAssistantExternalWakeWordPb(
+                id="2",
+                wake_word="hello",
+                trained_languages=["en"],
+                model_type="micro",
+                model_size=512,
+                model_hash="abc",
+                url="https://example.com/m.bin",
+            ),
+            {
+                "id": "2",
+                "wake_word": "hello",
+                "trained_languages": ["en"],
+                "model_type": "micro",
+                "model_size": 512,
+                "model_hash": "abc",
+                "url": "https://example.com/m.bin",
+            },
+        ),
+    ],
+)
+def test_convert_list_dispatch_parity(model_cls, pb_factory, dict_input) -> None:
+    """Pin that convert_list dispatches dicts to from_dict and pbs to from_pb."""
+    assert model_cls.convert_list([]) == []
+
+    expected = model_cls.from_dict(dict(dict_input))
+    pb_result = model_cls.convert_list([pb_factory()])
+    dict_result = model_cls.convert_list([dict(dict_input)])
+    mixed_result = model_cls.convert_list([pb_factory(), dict(dict_input)])
+
+    assert pb_result == [expected]
+    assert dict_result == [expected]
+    assert mixed_result == [expected, expected]
+
+
+def test_all_entity_info_subclasses_registered() -> None:
+    """Pin EntityInfo subclass registration in lookup tables.
+
+    Every EntityInfo subclass must be registered in COMPONENT_TYPE_TO_INFO
+    and _TYPE_TO_NAME so external consumers (e.g. Home Assistant) and unique-id
+    generation can resolve every entity type.
+    """
+    subclass_names = {cls.__name__ for cls in EntityInfo.__subclasses__()}
+    component_names = {cls.__name__ for cls in COMPONENT_TYPE_TO_INFO.values()}
+    type_to_name_names = {cls.__name__ for cls in _TYPE_TO_NAME}
+    assert subclass_names <= component_names, (
+        f"EntityInfo subclasses missing from COMPONENT_TYPE_TO_INFO: "
+        f"{sorted(subclass_names - component_names)}"
+    )
+    assert subclass_names <= type_to_name_names, (
+        f"EntityInfo subclasses missing from _TYPE_TO_NAME: "
+        f"{sorted(subclass_names - type_to_name_names)}"
+    )

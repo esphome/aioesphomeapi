@@ -2,11 +2,19 @@
 
 import asyncio
 import base64
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable
 
 import pytest
+import pytest_asyncio
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
+from aioesphomeapi._frame_helper.base import (
+    MAX_EXPLANATION_LEN,
+    MAX_MAC_LEN,
+    MAX_NAME_LEN,
+    safe_label_str,
+)
+from aioesphomeapi._frame_helper.noise import make_noise_packets
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
 
 from ..common import (
@@ -20,8 +28,72 @@ from ..common import (
     mock_data_received,
 )
 
+NOISE_PAYLOAD_SIZES = [0, 64, 128, 1024, 16 * 1024]
 
-@pytest.mark.parametrize("payload_size", [0, 64, 128, 1024, 16 * 1024])
+
+async def _make_ready_helper(
+    writes: list[bytes],
+) -> tuple[MockAPINoiseFrameHelper, EncryptCipher]:
+    """Drive a noise frame helper through handshake.
+
+    Returns the ready helper plus the responder side's encrypt cipher. The
+    cipher is returned so encrypt-path benchmarks can exercise the underlying
+    ChaCha20Poly1305 (and framing) without having to reach into the helper's
+    private cdef state for its own encrypt cipher; either side's cipher does
+    the same work per call.
+    """
+    noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+    psk_bytes = base64.b64decode(noise_psk)
+
+    def _writelines(data: Iterable[bytes]) -> None:
+        writes.append(b"".join(data))
+
+    connection, _packets = _make_mock_connection()
+
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk=noise_psk,
+        expected_name="servicetest",
+        expected_mac=None,
+        client_info="my client",
+        log_name="test",
+        writer=_writelines,
+    )
+
+    proto = _mock_responder_proto(psk_bytes)
+
+    await asyncio.sleep(0)
+    assert len(writes) == 1
+    handshake_pkt = writes.pop()
+    encrypted_payload = _extract_encrypted_payload_from_handshake(handshake_pkt)
+    assert proto.read_message(encrypted_payload) == b""
+
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    handshake_with_header = _make_noise_handshake_pkt(proto)
+    mock_data_received(helper, handshake_with_header)
+
+    await helper.ready_future
+
+    responder_encrypt = EncryptCipher(proto.noise_protocol.cipher_state_encrypt)
+    return helper, responder_encrypt
+
+
+@pytest_asyncio.fixture
+async def ready_noise_helper() -> AsyncIterator[
+    tuple[MockAPINoiseFrameHelper, EncryptCipher]
+]:
+    """Hand back a handshaken noise helper paired with a responder cipher."""
+    writes: list[bytes] = []
+    helper, encrypt_cipher = await _make_ready_helper(writes)
+    try:
+        yield helper, encrypt_cipher
+    finally:
+        helper.close()
+
+
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
 async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) -> None:
     """Benchmark raw noise protocol."""
     noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
@@ -88,3 +160,150 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
             helper.data_received(_make_encrypted_packet(encrypt_cipher, 42, payload))
 
     helper.close()
+
+
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
+async def test_noise_encrypt_cipher(
+    benchmark: BenchmarkFixture,
+    payload_size: int,
+    ready_noise_helper: tuple[MockAPINoiseFrameHelper, EncryptCipher],
+) -> None:
+    """Benchmark raw EncryptCipher.encrypt across payload sizes.
+
+    Isolates ChaCha20Poly1305 + nonce packing cost from framing overhead.
+    """
+    _, encrypt_cipher = ready_noise_helper
+    payload = b"x" * payload_size
+
+    @benchmark
+    def encrypt_packets() -> None:
+        for _ in range(100):
+            encrypt_cipher.encrypt(payload)
+
+
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
+async def test_noise_make_packets(
+    benchmark: BenchmarkFixture,
+    payload_size: int,
+    ready_noise_helper: tuple[MockAPINoiseFrameHelper, EncryptCipher],
+) -> None:
+    """Benchmark make_noise_packets, the full encrypt + framing cost."""
+    _, encrypt_cipher = ready_noise_helper
+    packet = (42, b"x" * payload_size)
+
+    @benchmark
+    def build_noise_packets() -> None:
+        for _ in range(100):
+            make_noise_packets([packet], encrypt_cipher)
+
+
+@pytest.mark.parametrize("payload_size", NOISE_PAYLOAD_SIZES)
+async def test_noise_write_packets(
+    benchmark: BenchmarkFixture,
+    payload_size: int,
+    ready_noise_helper: tuple[MockAPINoiseFrameHelper, EncryptCipher],
+) -> None:
+    """Benchmark APINoiseFrameHelper.write_packets, the user-visible send path.
+
+    This mirrors what happens for every command (light, switch, climate, etc.)
+    sent over a noise connection.
+    """
+    helper, _ = ready_noise_helper
+
+    def _drop(data: Iterable[bytes]) -> None:
+        """Skip the actual write so we measure only frame construction."""
+
+    helper._writelines = _drop
+    packets: list[tuple[int, bytes]] = [(42, b"x" * payload_size)]
+
+    @benchmark
+    def write_packets() -> None:
+        for _ in range(100):
+            helper.write_packets(packets, False)
+
+
+async def test_noise_hello_parse(benchmark: BenchmarkFixture) -> None:
+    """Benchmark the noise hello parse path (name + mac sanitize)."""
+    noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+
+    def _drop(data: Iterable[bytes]) -> None:
+        """Skip the actual write so we measure only the parse path."""
+
+    hello_pkt = _make_noise_hello_pkt(b"\x01servicetest\0aabbccddeeff\0")
+
+    @benchmark
+    def parse_hello_packets() -> None:
+        for _ in range(20):
+            connection, _ = _make_mock_connection()
+            helper = MockAPINoiseFrameHelper(
+                connection=connection,
+                noise_psk=noise_psk,
+                expected_name=None,
+                expected_mac=None,
+                client_info="my client",
+                log_name="test",
+                writer=_drop,
+            )
+            mock_data_received(helper, hello_pkt)
+            helper.close()
+
+
+async def test_noise_handshake_reject_parse(benchmark: BenchmarkFixture) -> None:
+    """Benchmark the handshake-reject parse path (explanation sanitize)."""
+    noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+
+    def _drop(data: Iterable[bytes]) -> None:
+        """Skip the actual write so we measure only the parse path."""
+
+    hello_pkt = _make_noise_hello_pkt(b"\x01servicetest\0aabbccddeeff\0")
+
+    # Inner first byte != 0x00 routes _handle_handshake into
+    # _error_on_incorrect_preamble.
+    explanation = b"boom\r\nFAKE LOG\x1b[31mreason text"
+    reject_inner = b"\x01" + explanation
+    reject_header = bytes(
+        (0x01, (len(reject_inner) >> 8) & 0xFF, len(reject_inner) & 0xFF)
+    )
+    reject_frame = reject_header + reject_inner
+
+    @benchmark
+    def parse_reject_packets() -> None:
+        for _ in range(20):
+            connection, _ = _make_mock_connection()
+            helper = MockAPINoiseFrameHelper(
+                connection=connection,
+                noise_psk=noise_psk,
+                expected_name=None,
+                expected_mac=None,
+                client_info="my client",
+                log_name="test",
+                writer=_drop,
+            )
+            mock_data_received(helper, hello_pkt)
+            mock_data_received(helper, reject_frame)
+            helper.close()
+
+
+_SAFE_LABEL_CASES = [
+    ("name", "servicetest", MAX_NAME_LEN),
+    ("name_noisy", "service\r\ntest\x1b[31m", MAX_NAME_LEN),
+    ("mac", "aabbccddeeff", MAX_MAC_LEN),
+    ("explanation", "Handshake MAC failure", MAX_EXPLANATION_LEN),
+    ("explanation_noisy", "Handshake\r\nMAC\x1b[31m failure", MAX_EXPLANATION_LEN),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "raw", "limit"),
+    _SAFE_LABEL_CASES,
+    ids=[case[0] for case in _SAFE_LABEL_CASES],
+)
+def test_safe_label_str_throughput(
+    benchmark: BenchmarkFixture, label: str, raw: str, limit: int
+) -> None:
+    """Throughput benchmark for `safe_label_str` (printable filter + cap)."""
+
+    @benchmark
+    def run_safe_label_str() -> None:
+        for _ in range(1000):
+            safe_label_str(raw, limit)

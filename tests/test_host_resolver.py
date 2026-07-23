@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import socket
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+
+if TYPE_CHECKING:
+    from zeroconf import Zeroconf
 
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -156,6 +158,69 @@ async def test_resolve_host_getaddrinfo(addr_infos):
         ret = await hr._async_resolve_host_getaddrinfo("example.com", 6052)
 
         assert ret == addr_infos
+
+
+async def test_resolve_host_getaddrinfo_filters_unspecified(addr_infos):
+    """Unspecified addresses from sinkhole DNS answers are dropped."""
+    event_loop = asyncio.get_running_loop()
+    with patch.object(event_loop, "getaddrinfo") as mock:
+        mock.return_value = [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon1",
+                ("0.0.0.0", 6052),  # noqa: S104
+            ),
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon1",
+                ("10.0.0.42", 6052),
+            ),
+            (
+                socket.AF_INET6,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon2",
+                ("::", 6052, 0, 0),
+            ),
+            (
+                socket.AF_INET6,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon2",
+                ("2001:db8:85a3::8a2e:370:7334", 6052, 0, 0),
+            ),
+        ]
+        ret = await hr._async_resolve_host_getaddrinfo("example.com", 6052)
+
+        assert ret == addr_infos
+
+
+async def test_resolve_host_getaddrinfo_all_unspecified():
+    """An all-unspecified getaddrinfo answer raises ResolveAPIError."""
+    event_loop = asyncio.get_running_loop()
+    with patch.object(event_loop, "getaddrinfo") as mock:
+        mock.return_value = [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon1",
+                ("0.0.0.0", 6052),  # noqa: S104
+            ),
+            (
+                socket.AF_INET6,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "canon2",
+                ("::", 6052, 0, 0),
+            ),
+        ]
+        with pytest.raises(ResolveAPIError, match="only unspecified addresses"):
+            await hr._async_resolve_host_getaddrinfo("example.com", 6052)
 
 
 async def test_resolve_host_getaddrinfo_oserror():
@@ -424,7 +489,8 @@ async def test_resolve_host_mdns_and_dns_fast_dns_wins(
             # Ensure async execution for stripped version
             await asyncio.sleep(0)
             return mock_getaddrinfo
-        raise OSError("Unexpected host")
+        msg = "Unexpected host"
+        raise OSError(msg)
 
     with (
         patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
@@ -610,6 +676,30 @@ def test_remove_local_suffix():
     assert hr._remove_local_suffix("example") == "example"
     assert hr._remove_local_suffix("test.example.local") == "test.example"
     assert hr._remove_local_suffix("test.example.local.") == "test.example"
+    # RFC 4343 / RFC 6762 §16: DNS / mDNS labels are case-insensitive.
+    assert hr._remove_local_suffix("example.LOCAL") == "example"
+    assert hr._remove_local_suffix("example.Local.") == "example"
+    assert hr._remove_local_suffix("EXAMPLE.local") == "EXAMPLE"
+    assert hr._remove_local_suffix("EXAMPLE.LOCAL") == "EXAMPLE"
+
+
+@patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
+@patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
+async def test_resolve_host_with_uppercase_local_suffix_strips_suffix(
+    resolve_addr, resolve_zc, addr_infos
+):
+    """Test that uppercase .LOCAL hostnames also trigger the stripped fallback."""
+    resolve_addr.return_value = addr_infos
+    resolve_zc.return_value = []
+
+    ret = await hr.async_resolve_host(["example.LOCAL"], 6052)
+
+    assert resolve_addr.call_count == 2
+    resolve_addr.assert_any_call("example.LOCAL", 6052)
+    resolve_addr.assert_any_call("example", 6052)
+    assert len(ret) >= len(addr_infos)
+    for addr in addr_infos:
+        assert addr in ret
 
 
 @patch("aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf")
@@ -679,11 +769,13 @@ async def test_resolve_host_local_suffix_fallback_wins(
         call_count += 1
         if host == "example.local":
             # .local resolution fails
-            raise OSError("Name or service not known")
+            msg = "Name or service not known"
+            raise OSError(msg)
         if host == "example":
             # Stripped version succeeds
             return mock_getaddrinfo
-        raise OSError("Unexpected host")
+        msg = "Unexpected host"
+        raise OSError(msg)
 
     with (
         patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
@@ -758,6 +850,168 @@ def test_scope_id_to_int():
     assert hr._scope_id_to_int("123") == 123
     assert hr._scope_id_to_int(socket.if_indextoname(1)) == 1
     assert hr._scope_id_to_int(None) == 0
+
+
+@pytest.mark.asyncio
+async def test_async_resolve_host_parent_cancel_during_sibling_cleanup():
+    """Test parent task cancellation during sibling cleanup propagates.
+
+    Exercises the gather-based cleanup path under cancellation. After
+    getting a result for one host the resolver cancels the remaining
+    sibling tasks for that host. If the parent task is cancelled during
+    that cleanup the cancellation must propagate as ``CancelledError``
+    so that ``TaskGroup`` / ``asyncio.timeout`` semantics are preserved.
+
+    Note: this test passes against both the buggy
+    ``with suppress(CancelledError): await task`` version and the
+    ``await asyncio.gather(..., return_exceptions=True)`` fix because
+    asyncio's ``cancelling()`` machinery still propagates the
+    cancellation through later yield points even when ``suppress``
+    swallows it at the immediate await. The fix is correct per Python
+    docs ("user code that catches CancelledError must call uncancel() if
+    suppressing it") and this test exercises the new code path under
+    cancellation, but it is not a strict before/after regression test.
+    """
+    success_event = asyncio.Event()
+    cleanup_block = asyncio.Event()
+
+    async def fast_succeed(host: str, port: int):
+        await success_event.wait()
+        return [
+            hr.AddrInfo(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+                sockaddr=hr.IPv4Sockaddr(address="192.168.1.100", port=port),
+            )
+        ]
+
+    async def slow_zeroconf(*args, **kwargs):
+        # Use a try/finally to delay completion of cancellation cleanup,
+        # so the parent task has a chance to be cancelled while
+        # ``_async_resolve_host`` is awaiting the cancelled child.
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await cleanup_block.wait()
+        return []
+
+    with (
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo",
+            side_effect=fast_succeed,
+        ),
+        patch(
+            "aioesphomeapi.host_resolver._async_resolve_short_host_zeroconf",
+            side_effect=slow_zeroconf,
+        ),
+    ):
+        task = asyncio.create_task(
+            hr.async_resolve_host(["device.local"], 6053, timeout=30.0)
+        )
+        # Let other tasks start.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Resolve the fast path; the resolver will then attempt to
+        # cancel the slow zeroconf sibling and await it inside the
+        # ``while resolve_task_to_host:`` loop.
+        success_event.set()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Cancel the parent task while it is parked on the gather of
+        # the still-cleaning-up sibling, then unblock the sibling so it
+        # can finish.
+        assert task.cancel() is True
+        cleanup_block.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_async_resolve_host_finally_shield_drains_cleanup_on_cancel():
+    """Test the finally cleanup gather is shielded against parent cancel.
+
+    The ``finally`` block in ``_async_resolve_host`` cancels remaining
+    child tasks and awaits ``asyncio.gather(...)``. ``gather`` is
+    itself a cancellation point, so a parent-task cancellation arriving
+    here would interrupt draining the cancelled children, leaving them
+    cancelled-but-not-awaited and potentially logging
+    ``Task was destroyed but it is pending``.
+
+    The fix wraps the gather in ``asyncio.shield`` and, on
+    ``CancelledError``, finishes awaiting the cleanup before re-raising.
+    This test verifies that:
+
+    1. ``CancelledError`` still propagates to the caller.
+    2. The cleanup gather is fully drained — i.e. the slow child task's
+       ``finally`` block runs to completion (its ``cleanup_finished``
+       event is set) before the parent task ends.
+    """
+    cleanup_block = asyncio.Event()
+    cleanup_finished = asyncio.Event()
+    in_finally = asyncio.Event()
+    fast_event = asyncio.Event()
+
+    async def fast_succeed(host: str, port: int):
+        if host == "working":
+            await fast_event.wait()
+            return [
+                hr.AddrInfo(
+                    family=socket.AF_INET,
+                    type=socket.SOCK_STREAM,
+                    proto=socket.IPPROTO_TCP,
+                    sockaddr=hr.IPv4Sockaddr(address="192.168.1.100", port=port),
+                )
+            ]
+        # ``slow`` host hangs forever; we will reach the resolver's
+        # ``finally`` block via timeout/cancel, where its task is
+        # cancelled and its ``finally`` then waits for ``cleanup_block``.
+        try:
+            in_finally.set()
+            await asyncio.Event().wait()
+        finally:
+            await cleanup_block.wait()
+            cleanup_finished.set()
+
+    with patch(
+        "aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo",
+        side_effect=fast_succeed,
+    ):
+        task = asyncio.create_task(
+            hr.async_resolve_host(["working", "slow"], 6053, timeout=30.0)
+        )
+        # Let the resolver register both child tasks. We do not set
+        # ``fast_event`` so the resolver stays parked on
+        # ``asyncio.wait`` with both children pending.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await in_finally.wait()
+        # Cancel the resolver task. CancelledError is raised inside
+        # ``_async_resolve_host``'s ``try`` block at the
+        # ``await asyncio.wait`` and control jumps to the ``finally``
+        # block. The finally cancels the slow child and gathers it.
+        # Because the slow child's own finally awaits ``cleanup_block``,
+        # the resolver is now parked on ``asyncio.shield(cleanup)``.
+        assert task.cancel() is True
+        # Yield so the resolver enters the shielded gather.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Cancel the resolver task a second time to simulate a parent
+        # cancellation arriving while the shielded cleanup is running.
+        # Without ``shield`` this would interrupt the gather and leave
+        # the slow child cancelled-but-not-awaited.
+        task.cancel()
+        await asyncio.sleep(0)
+        # Now release the slow child so its finally can complete.
+        cleanup_block.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert task.cancelled()
+        # The slow child's finally block must have run to completion;
+        # if shield were missing, the gather would have been interrupted
+        # and ``cleanup_finished`` would not be set.
+        assert cleanup_finished.is_set()
 
 
 @pytest.mark.asyncio

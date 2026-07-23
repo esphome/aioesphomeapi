@@ -6,18 +6,19 @@ from asyncio import (
     get_running_loop,
     timeout as asyncio_timeout,
 )
-from collections.abc import Coroutine
 import ipaddress
 import math
 import sys
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Coroutine
 
 _T = TypeVar("_T")
 
 
 def fix_float_single_double_conversion(value: float) -> float:
-    """Fix precision for single-precision floats and return what was probably
-    meant as a float.
+    """Restore precision of a single-precision float carried over a double.
 
     In ESPHome we work with single-precision floats internally for performance.
     But python uses double-precision floats, and when protobuf reads the message
@@ -45,25 +46,33 @@ def host_is_name_part(address: str) -> bool:
 
 def address_is_local(address: str) -> bool:
     """Return True if the address is a local address."""
-    return address.removesuffix(".").endswith(".local")
+    return address.removesuffix(".").lower().endswith(".local")
 
 
 def is_ip_address(address: str | None) -> bool:
     """Return True if the address is an IP address.
 
-    Handles addresses with or without port (e.g., "192.168.1.1" or "192.168.1.1:6053").
-    Returns False if address is None.
+    Handles IPv4 with or without port ("192.168.1.1", "192.168.1.1:6053"),
+    bare IPv6 ("::1", "2001:db8::1") and bracketed IPv6 with optional port
+    ("[::1]", "[::1]:6053"). Returns False if address is None.
     """
     if address is None:
         return False
-    # Remove port if present
-    host = address.partition(":")[0]
+    if address.startswith("["):
+        end = address.find("]")
+        if end == -1:
+            return False
+        suffix = address[end + 1 :]
+        if suffix and not suffix.startswith(":"):
+            return False
+        address = address[1:end]
+    elif address.count(":") == 1:
+        address = address.partition(":")[0]
     try:
-        ipaddress.ip_address(host)
+        ipaddress.ip_address(address)
     except ValueError:
         return False
-    else:
-        return True
+    return True
 
 
 def build_log_name(
@@ -80,8 +89,8 @@ def build_log_name(
         return name or addresses[0]
     if (
         name
-        and name != preferred_address
-        and not preferred_address.startswith(f"{name}.")
+        and name.lower() != preferred_address.lower()
+        and not preferred_address.lower().startswith(f"{name.lower()}.")
     ):
         return f"{name} @ {preferred_address}"
     return preferred_address
