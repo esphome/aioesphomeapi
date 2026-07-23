@@ -182,6 +182,33 @@ class ZigbeeProxyRequest(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
+@_frozen_dataclass_decorator
+class ZigbeeNetworkInfo(APIModelBase):
+    """Parsed payload of a NETWORK_INFO ZigbeeProxyRequest.
+
+    The device packs it little-endian: ieee(8) + extended_pan_id(8) + pan_id(2) + channel(1).
+    """
+
+    ieee_address: int = 0
+    extended_pan_id: int = 0
+    pan_id: int = 0
+    channel: int = 0
+
+    @classmethod
+    def from_payload(cls, data: bytes) -> ZigbeeNetworkInfo:
+        if len(data) < 19:
+            msg = f"Zigbee network info payload too short: {len(data)} bytes (expected 19)"
+            raise ValueError(msg)
+        return cls.from_dict(
+            {
+                "ieee_address": int.from_bytes(data[0:8], "little"),
+                "extended_pan_id": int.from_bytes(data[8:16], "little"),
+                "pan_id": int.from_bytes(data[16:18], "little"),
+                "channel": data[18],
+            }
+        )
+
+
 class InfraredCapability(enum.IntFlag):
     TRANSMITTER = 1 << 0
     RECEIVER = 1 << 1
@@ -311,7 +338,10 @@ class DeviceInfo(APIModelBase):
     ) -> int:
         return self.zwave_proxy_feature_flags
 
-    def zigbee_proxy_feature_flags_compat(self, api_version: APIVersion) -> int:
+    def zigbee_proxy_feature_flags_compat(
+        self,
+        api_version: APIVersion,  # noqa: ARG002
+    ) -> int:
         return self.zigbee_proxy_feature_flags
 
 
@@ -2198,6 +2228,7 @@ __all__ = (
     "ZWaveProxyFrame",
     "ZWaveProxyRequest",
     "ZWaveProxyRequestType",
+    "ZigbeeNetworkInfo",
     "ZigbeeProxyFeature",
     "ZigbeeProxyFrame",
     "ZigbeeProxyRequest",
