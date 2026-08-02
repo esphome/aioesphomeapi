@@ -2161,18 +2161,15 @@ async def test_device_capabilities_compat_empty_device_info(
 
 
 async def test_device_capabilities_compat_no_api_version() -> None:
-    """With no connection (api_version is None), compat still takes the legacy path."""
+    """With no connection, compat raises rather than guessing a device version."""
     client = APIClient(address="mydevice.local", port=6052, password=None)
     assert client.api_version is None
     device_info = DeviceInfo(
-        legacy_bluetooth_proxy_version=1,
+        bluetooth_proxy_feature_flags=3,
         bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
     )
-    caps = await client.device_capabilities_compat(device_info)
-    assert caps.bluetooth_proxy == BluetoothProxyCapabilities(
-        feature_flags=BluetoothProxyFeature.PASSIVE_SCAN,
-        mac_address="AA:BB:CC:DD:EE:FF",
-    )
+    with pytest.raises(APIConnectionError, match="Not connected"):
+        await client.device_capabilities_compat(device_info)
 
 
 async def test_device_info_sanitizes_name(

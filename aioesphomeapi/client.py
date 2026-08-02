@@ -414,27 +414,25 @@ class APIClient(APIClientBase):
     ) -> DeviceCapabilitiesModel:
         """Fetch capabilities, synthesising them from device_info below API 1.15."""
         api_version = self.api_version
-        if api_version is not None and api_version >= APIVersion(1, 15):
+        if api_version is None or api_version >= APIVersion(1, 15):
+            # Without a device version there is no way to interpret device_info,
+            # so defer to the RPC and let it raise the usual not-connected error
+            # rather than guessing a version and mistranslating the flags.
             return await self.device_capabilities()
-        # Pre-1.15 devices carry the same values on DeviceInfoResponse. An unknown
-        # api_version means we never completed a handshake, so assume the old shape.
-        legacy_version = api_version or APIVersion(0, 0)
         return DeviceCapabilitiesModel(  # type: ignore[call-arg]
             bluetooth_proxy=BluetoothProxyCapabilitiesModel(  # type: ignore[call-arg]
                 feature_flags=device_info.bluetooth_proxy_feature_flags_compat(
-                    legacy_version
+                    api_version
                 ),
                 mac_address=device_info.bluetooth_mac_address,
             ),
             voice_assistant=VoiceAssistantCapabilitiesModel(  # type: ignore[call-arg]
                 feature_flags=device_info.voice_assistant_feature_flags_compat(
-                    legacy_version
+                    api_version
                 )
             ),
             zwave_proxy=ZWaveProxyCapabilitiesModel(  # type: ignore[call-arg]
-                feature_flags=device_info.zwave_proxy_feature_flags_compat(
-                    legacy_version
-                ),
+                feature_flags=device_info.zwave_proxy_feature_flags_compat(api_version),
                 home_id=device_info.zwave_home_id,
             ),
             serial_proxies=device_info.serial_proxies,
