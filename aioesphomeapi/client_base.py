@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import itertools
 import logging
 from typing import TYPE_CHECKING, Any
@@ -38,6 +39,7 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     CameraState,
+    ConnectionClosedEvent,
     DeviceInfo,
     EntityState,
     HomeassistantServiceCall,
@@ -278,6 +280,7 @@ class APIClientBase:
         "_cached_device_info",
         "_call_id_counter",
         "_connection",
+        "_connection_closed_callbacks",
         "_debug_enabled",
         "_loop",
         "_notify_callbacks",
@@ -347,6 +350,9 @@ class APIClientBase:
             provide_time=provide_time,
         )
         self._connection: APIConnection | None = None
+        self._connection_closed_callbacks: list[
+            Callable[[ConnectionClosedEvent], None]
+        ] = []
         self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
@@ -412,6 +418,24 @@ class APIClientBase:
             return None
         return self._connection.api_version
 
+    @property
+    def is_connected(self) -> bool:
+        """Return if there is a fully established connection to the device."""
+        return self._connection is not None and self._connection.is_connected
+
+    def add_connection_closed_callback(
+        self, callback: Callable[[ConnectionClosedEvent], None]
+    ) -> Callable[[], None]:
+        """Register a callback for when an established connection closes.
+
+        The subscription survives reconnects; the returned callable removes it.
+        Connect attempts that never reached the connected state do not call it,
+        and a connection that closed before registering is not replayed — check
+        is_connected afterwards.
+        """
+        self._connection_closed_callbacks.append(callback)
+        return partial(self._remove_connection_closed_callback, callback)
+
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
         connected_address: str | None = None
@@ -438,6 +462,25 @@ class APIClientBase:
         """Set the cached name of the device if not set."""
         if not self.cached_name:
             self._set_name_from_device(name)
+
+    def _remove_connection_closed_callback(
+        self, callback: Callable[[ConnectionClosedEvent], None]
+    ) -> None:
+        self._connection_closed_callbacks.remove(callback)
+
+    def _fire_connection_closed_callbacks(self, event: ConnectionClosedEvent) -> None:
+        """Call every connection closed callback, isolating failures."""
+        # Iterate a copy: unsubscribing from inside the callback is expected.
+        for callback in self._connection_closed_callbacks.copy():
+            try:
+                callback(event)
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
+                _LOGGER.warning(
+                    "%s: Unexpected error in connection closed callback %s",
+                    self.log_name,
+                    callback,
+                    exc_info=True,
+                )
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""
