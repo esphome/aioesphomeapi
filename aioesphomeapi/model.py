@@ -106,6 +106,22 @@ class APIVersion(APIModelBase):
     minor: int = 0
 
 
+class DisconnectReason(APIIntEnum):
+    UNSPECIFIED = 0
+    PROVISIONING_CLOSED = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectionClosedEvent:
+    """Why a connection closed, passed to connection closed callbacks."""
+
+    expected_disconnect: bool = False
+    # Only set when the device requested the disconnect. None for a reason this
+    # version of the client does not know about.
+    reason: DisconnectReason | None = DisconnectReason.UNSPECIFIED
+    error: Exception | None = None
+
+
 class BluetoothProxyFeature(enum.IntFlag):
     PASSIVE_SCAN = 1 << 0
     ACTIVE_CONNECTIONS = 1 << 1
@@ -2062,6 +2078,7 @@ __all__ = (
     "ClimateSwingMode",
     "ColorMode",
     "CommandProtoMessage",
+    "ConnectionClosedEvent",
     "CoverInfo",
     "CoverOperation",
     "CoverState",
@@ -2070,6 +2087,7 @@ __all__ = (
     "DateTimeInfo",
     "DateTimeState",
     "DeviceInfo",
+    "DisconnectReason",
     "ESPHomeBluetoothGATTServices",
     "EntityCategory",
     "EntityInfo",
