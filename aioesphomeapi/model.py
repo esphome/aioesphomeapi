@@ -289,6 +289,60 @@ class DeviceInfo(APIModelBase):
         return self.zwave_proxy_feature_flags
 
 
+@_frozen_dataclass_decorator
+class BluetoothProxyCapabilities(APIModelBase):
+    feature_flags: int = 0
+    mac_address: str = ""
+
+    @classmethod
+    def convert(cls, value: Any) -> BluetoothProxyCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantCapabilities(APIModelBase):
+    feature_flags: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> VoiceAssistantCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyCapabilities(APIModelBase):
+    feature_flags: int = 0
+    home_id: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> ZWaveProxyCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class DeviceCapabilities(APIModelBase):
+    bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
+        default_factory=BluetoothProxyCapabilities,
+        converter=BluetoothProxyCapabilities.convert,
+    )
+    voice_assistant: VoiceAssistantCapabilities = converter_field(
+        default_factory=VoiceAssistantCapabilities,
+        converter=VoiceAssistantCapabilities.convert,
+    )
+    zwave_proxy: ZWaveProxyCapabilities = converter_field(
+        default_factory=ZWaveProxyCapabilities,
+        converter=ZWaveProxyCapabilities.convert,
+    )
+    serial_proxies: list[SerialProxyInfo] = converter_field(
+        default_factory=list, converter=SerialProxyInfo.convert_list
+    )
+
+
 class EntityCategory(APIIntEnum):
     NONE = 0
     CONFIG = 1
@@ -2044,6 +2098,7 @@ __all__ = (
     "BluetoothGATTService",
     "BluetoothGATTServices",
     "BluetoothLEAdvertisement",
+    "BluetoothProxyCapabilities",
     "BluetoothProxyFeature",
     "BluetoothProxySubscriptionFlag",
     "BluetoothScannerMode",
@@ -2069,6 +2124,7 @@ __all__ = (
     "DateState",
     "DateTimeInfo",
     "DateTimeState",
+    "DeviceCapabilities",
     "DeviceInfo",
     "ESPHomeBluetoothGATTServices",
     "EntityCategory",
@@ -2151,6 +2207,7 @@ __all__ = (
     "VoiceAssistantAnnounceFinished",
     "VoiceAssistantAudioData",
     "VoiceAssistantAudioSettings",
+    "VoiceAssistantCapabilities",
     "VoiceAssistantCommand",
     "VoiceAssistantCommandFlag",
     "VoiceAssistantConfigurationRequest",
@@ -2168,6 +2225,7 @@ __all__ = (
     "WaterHeaterMode",
     "WaterHeaterState",
     "WaterHeaterStateFlag",
+    "ZWaveProxyCapabilities",
     "ZWaveProxyFeature",
     "ZWaveProxyFrame",
     "ZWaveProxyRequest",

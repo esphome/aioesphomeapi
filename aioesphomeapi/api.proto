@@ -19,6 +19,7 @@ service APIConnection {
   rpc device_info (DeviceInfoRequest) returns (DeviceInfoResponse) {
     option (needs_authentication) = false;
   }
+  rpc device_capabilities (DeviceCapabilitiesRequest) returns (DeviceCapabilitiesResponse) {}
   rpc list_entities (ListEntitiesRequest) returns (void) {}
   rpc subscribe_states (SubscribeStatesRequest) returns (void) {}
   rpc subscribe_logs (SubscribeLogsRequest) returns (void) {}
@@ -315,6 +316,63 @@ message DeviceInfoResponse {
   // all-zeros PSK, so the api encryption key can be provisioned without being
   // sent in plaintext (protects against passive sniffing, not active MITM)
   bool api_encryption_provisionable = 26 [(field_ifdef) = "USE_API_NOISE"];
+}
+
+// ==================== DEVICE CAPABILITIES ====================
+
+// Asks the device which optional features it supports.
+//
+// This message exists so that DeviceInfoResponse does not have to keep growing
+// a flat list of feature flags. DeviceInfoResponse is served before
+// authentication, so it is limited to identity information. Capabilities are
+// only served on an authenticated connection (encrypted as well, when
+// encryption is configured).
+//
+// Clients that see api_version >= 1.15 should read these values from
+// DeviceCapabilitiesResponse and ignore the matching DeviceInfoResponse fields.
+// Older clients keep reading DeviceInfoResponse, which still carries the same
+// values, so this is not a breaking change.
+message DeviceCapabilitiesRequest {
+  option (id) = 149;
+  option (source) = SOURCE_CLIENT;
+  // Empty
+}
+
+// Each feature gets its own sub-message so that it can gain fields over time
+// without crowding the top-level field numbering.
+//
+// Note: a sub-message whose fields are all at their default value is not sent
+// at all, so the presence of a sub-message is not a reliable test for "this
+// feature is compiled in". Clients should test a value inside it, for example
+// a non-zero feature_flags, exactly as they do today with DeviceInfoResponse.
+
+message BluetoothProxyCapabilities {
+  // Bitmask of the features this proxy supports
+  uint32 feature_flags = 1;
+  // The Bluetooth mac address of the device. For example "AC:BC:32:89:0E:AA"
+  string mac_address = 2 [(max_data_length) = 17, (force) = true];
+}
+
+message VoiceAssistantCapabilities {
+  // Bitmask of the features this voice assistant supports
+  uint32 feature_flags = 1;
+}
+
+message ZWaveProxyCapabilities {
+  // Bitmask of the features this proxy supports
+  uint32 feature_flags = 1;
+  uint32 home_id = 2;
+}
+
+message DeviceCapabilitiesResponse {
+  option (id) = 150;
+  option (source) = SOURCE_SERVER;
+
+  BluetoothProxyCapabilities bluetooth_proxy = 1 [(field_ifdef) = "USE_BLUETOOTH_PROXY"];
+  VoiceAssistantCapabilities voice_assistant = 2 [(field_ifdef) = "USE_VOICE_ASSISTANT"];
+  ZWaveProxyCapabilities zwave_proxy = 3 [(field_ifdef) = "USE_ZWAVE_PROXY"];
+  repeated SerialProxyInfo serial_proxies = 4
+      [(field_ifdef) = "USE_SERIAL_PROXY", (fixed_array_size_define) = "SERIAL_PROXY_COUNT"];
 }
 
 message ListEntitiesRequest {
