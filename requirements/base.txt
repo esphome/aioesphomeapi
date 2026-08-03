@@ -1,6 +1,6 @@
 aiohappyeyeballs>=2.6.2
 async-interrupt>=1.2.2
-protobuf>=6,<8
+protobuf>=7.35.1,<8
 tzdata>=2026.2
 tzlocal>=5.3.1,<6
 zeroconf>=0.150.0,<2.0
