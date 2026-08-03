@@ -474,7 +474,7 @@ class APIClientBase:
         for callback in self._connection_closed_callbacks.copy():
             try:
                 callback(event)
-            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except
                 _LOGGER.warning(
                     "%s: Unexpected error in connection closed callback %s",
                     self.log_name,
