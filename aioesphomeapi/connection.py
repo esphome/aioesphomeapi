@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import CancelledError
+import ctypes
+import ctypes.util
 from dataclasses import astuple, dataclass
 import enum
 from functools import lru_cache, partial
 import logging
+import os
 import socket
 import sys
 import time
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, Literal, NoReturn
 
 import aiohappyeyeballs
 from async_interrupt import interrupt
@@ -186,16 +189,30 @@ class ConnectionInterruptedError(Exception):
 @dataclass
 class ConnectionParams:
     addresses: list[str]
-    port: int
     password: str | None
     client_info: str
     keepalive: float
-    zeroconf_manager: ZeroconfManager
     noise_psk: str | None
     expected_name: str | None
+    timezone: str | None
+    provide_time: bool
+
+
+@dataclass
+class IPConnectionParams(ConnectionParams):
+    port: int
+    zeroconf_manager: ZeroconfManager
     expected_mac: str | None
-    timezone: str | None = None
-    provide_time: bool = True
+
+
+@dataclass
+class BLEConnectionParams(ConnectionParams):
+    address_type: Literal["public", "random"] = "public"
+
+    def __post_init__(self) -> None:
+        if len(self.addresses) != 1:
+            msg = "BLEConnectionParams must have at exactly one address"
+            raise ValueError(msg)
 
 
 class ConnectionState(enum.Enum):
@@ -385,7 +402,6 @@ class APIConnection:
         self.received_name: str = ""
         self._cached_timezone: str = ""
         self.connected_address: str | None = None
-        self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
 
     def set_log_name(self, name: str) -> None:
@@ -422,7 +438,6 @@ class APIConnection:
                 fut.set_exception(new_exc)
         self._read_exception_futures.clear()
 
-        self._set_resolve_host_future()
         self._set_start_connect_future()
         self._set_finish_connect_future()
 
@@ -448,98 +463,8 @@ class APIConnection:
         """Enable or disable debug logging."""
         self._debug_enabled = enable
 
-    async def _connect_socket_connect(self, addrs: list[hr.AddrInfo]) -> None:
-        """Step 2 in connect process: connect the socket."""
-        if self._debug_enabled:
-            _LOGGER.debug(
-                "%s: Connecting to %s",
-                self.log_name,
-                ", ".join(str(addr.sockaddr) for addr in addrs),
-            )
-
-        addr_infos: list[aiohappyeyeballs.AddrInfoType] = [
-            (
-                addr.family,
-                addr.type,
-                addr.proto,
-                "",
-                astuple(addr.sockaddr),
-            )
-            for addr in addrs
-        ]
-        last_exception: Exception | None = None
-        sock: socket.socket | None = None
-        interleave = 1
-        while addr_infos:
-            try:
-                async with asyncio_timeout(TCP_CONNECT_TIMEOUT):
-                    # Devices are likely on the local network so we
-                    # only use a 100ms happy eyeballs delay
-                    sock = await aiohappyeyeballs.start_connection(
-                        addr_infos,
-                        happy_eyeballs_delay=0.1,
-                        interleave=interleave,
-                        loop=self._loop,
-                    )
-                    break
-            except (OSError, TimeoutError) as err:
-                last_exception = err
-                aiohappyeyeballs.pop_addr_infos_interleave(addr_infos, interleave)
-
-        if sock is None:
-            if isinstance(last_exception, TimeoutError):
-                msg = f"Timeout while connecting to {addrs}"
-                raise TimeoutAPIError(msg) from last_exception
-            msg = f"Error connecting to {addrs}: {last_exception}"
-            raise SocketAPIError(msg) from last_exception
-
-        self._socket = sock
-        sock.setblocking(False)
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        try:
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)  # type: ignore[attr-defined, unused-ignore]
-        except (AttributeError, OSError):  # On FreeBSD this may throw OSError
-            _LOGGER.debug(
-                "%s: TCP_QUICKACK not supported",
-                self.log_name,
-            )
-        self._increase_recv_buffer_size()
-        self.connected_address = sock.getpeername()[0]
-
-        if self._debug_enabled:
-            _LOGGER.debug(
-                "%s: Opened socket to %s:%s",
-                self.log_name,
-                self.connected_address,
-                self._params.port,
-            )
-
-    def _increase_recv_buffer_size(self) -> None:
-        """Increase the recv buffer size."""
-        if TYPE_CHECKING:
-            assert self._socket is not None
-        new_buffer_size = PREFERRED_BUFFER_SIZE
-        while True:
-            # Try to reduce the pressure on ESPHome device as it measures
-            # ram in bytes and we measure ram in megabytes.
-            try:
-                self._socket.setsockopt(
-                    socket.SOL_SOCKET, socket.SO_RCVBUF, new_buffer_size
-                )
-            except OSError as err:
-                if new_buffer_size <= MIN_BUFFER_SIZE:
-                    _LOGGER.warning(
-                        "%s: Unable to increase the socket receive buffer size to %s; "
-                        "The connection may unstable if the ESPHome device sends "
-                        "data at volume (ex. a Bluetooth proxy or camera): %s",
-                        self.log_name,
-                        new_buffer_size,
-                        err,
-                    )
-                    return
-                new_buffer_size //= 2
-            else:
-                return
+    async def _connect_socket_connect(self) -> None:
+        raise NotImplementedError
 
     async def _connect_init_frame_helper(self) -> None:
         """Step 3 in connect process: initialize the frame helper and init read loop."""
@@ -562,7 +487,9 @@ class APIConnection:
                 lambda: noise_frame_helper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
-                    expected_mac=self._params.expected_mac,
+                    expected_mac=self._params.expected_mac
+                    if isinstance(self._params, IPConnectionParams)
+                    else None,
                     connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,
@@ -720,59 +647,18 @@ class APIConnection:
             )
         )
 
-    async def start_resolve_host(self) -> None:
-        """Start the host resolution process.
-
-        This part of the process resolves the hostnames to IP addresses
-        and prepares the connection for the next step.
-        """
-        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
-            msg = "Connection can only be used once, connection is not in init state"
-            raise RuntimeError(msg)
-
-        self._resolve_host_future = self._loop.create_future()
-        try:
-            async with interrupt(
-                self._resolve_host_future, ConnectionInterruptedError, None
-            ):
-                self._addrs_info = await hr.async_resolve_host(
-                    self._params.addresses,
-                    self._params.port,
-                    self._params.zeroconf_manager,
-                )
-        except (Exception, CancelledError) as ex:  # noqa: BLE001
-            # Clean up the connection; re-raise the original CancelledError
-            # if the task is actually being cancelled so TaskGroup /
-            # asyncio.timeout semantics are preserved.
-            self._raise_fatal_connection_exception("resolving", ex)
-        finally:
-            self._set_resolve_host_future()
-        self._set_connection_state(CONNECTION_STATE_HOST_RESOLVED)
-
-    def _set_resolve_host_future(self) -> None:
-        if (
-            self._resolve_host_future is not None
-            and not self._resolve_host_future.done()
-        ):
-            self._resolve_host_future.set_result(None)
-            self._resolve_host_future = None
-
     async def start_connection(self) -> None:
         """Start the connection process.
 
         This part of the process establishes the socket connection but
         does not initialize the frame helper or send the hello message.
         """
-        if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
-            msg = "Connection must be in HOST_RESOLVED state to start connection"
-            raise RuntimeError(msg)
-
         self._start_connect_future = self._loop.create_future()
         try:
             async with interrupt(
                 self._start_connect_future, ConnectionInterruptedError, None
             ):
-                await self._connect_socket_connect(self._addrs_info)
+                await self._connect_socket_connect()
         except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
@@ -1317,3 +1203,332 @@ class APIConnection:
                 )
 
         self._cleanup()
+
+
+class IPAPIConnection(APIConnection):
+    _params: IPConnectionParams
+
+    def __init__(
+        self,
+        params: IPConnectionParams,
+        on_stop: Callable[[bool], None] | None,
+        debug_enabled: bool,
+        log_name: str | None,
+        log_errors: bool = True,
+    ) -> None:
+        log_name = log_name or ",".join(params.addresses)
+        super().__init__(params, on_stop, debug_enabled, log_name, log_errors)
+        self._addrs_info: list[hr.AddrInfo] = []
+
+    async def start_connection(self) -> None:
+        if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
+            msg = "Connection must be in HOST_RESOLVED state to start connection"
+            raise RuntimeError(msg)
+        await super().start_connection()
+
+    async def start_resolve_host(self) -> None:
+        """Start the host resolution process.
+
+        This part of the process resolves the hostnames to IP addresses
+        and prepares the connection for the next step.
+        """
+        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+            msg = "Connection can only be used once, connection is not in init state"
+            raise RuntimeError(msg)
+
+        self._resolve_host_future = self._loop.create_future()
+        try:
+            async with interrupt(
+                self._resolve_host_future, ConnectionInterruptedError, None
+            ):
+                self._addrs_info = await hr.async_resolve_host(
+                    self._params.addresses,
+                    self._params.port,
+                    self._params.zeroconf_manager,
+                )
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
+            # Clean up the connection; re-raise the original CancelledError
+            # if the task is actually being cancelled so TaskGroup /
+            # asyncio.timeout semantics are preserved.
+            self._raise_fatal_connection_exception("resolving", ex)
+        finally:
+            self._set_resolve_host_future()
+        self._set_connection_state(CONNECTION_STATE_HOST_RESOLVED)
+
+    def _set_resolve_host_future(self) -> None:
+        if (
+            self._resolve_host_future is not None
+            and not self._resolve_host_future.done()
+        ):
+            self._resolve_host_future.set_result(None)
+            self._resolve_host_future = None
+
+    async def _connect_socket_connect(self) -> None:
+        """Step 2 in connect process: connect the socket."""
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Connecting to %s",
+                self.log_name,
+                ", ".join(str(addr.sockaddr) for addr in self._addrs_info),
+            )
+
+        addr_infos: list[aiohappyeyeballs.AddrInfoType] = [
+            (
+                addr.family,
+                addr.type,
+                addr.proto,
+                "",
+                astuple(addr.sockaddr),
+            )
+            for addr in self._addrs_info
+        ]
+        last_exception: Exception | None = None
+        sock: socket.socket | None = None
+        interleave = 1
+        while addr_infos:
+            try:
+                async with asyncio_timeout(TCP_CONNECT_TIMEOUT):
+                    # Devices are likely on the local network so we
+                    # only use a 100ms happy eyeballs delay
+                    sock = await aiohappyeyeballs.start_connection(
+                        addr_infos,
+                        happy_eyeballs_delay=0.1,
+                        interleave=interleave,
+                        loop=self._loop,
+                    )
+                    break
+            except (OSError, TimeoutError) as err:
+                last_exception = err
+                aiohappyeyeballs.pop_addr_infos_interleave(addr_infos, interleave)
+
+        if sock is None:
+            if isinstance(last_exception, TimeoutError):
+                msg = f"Timeout while connecting to {self._addrs_info}"
+                raise TimeoutAPIError(msg) from last_exception
+            msg = f"Error connecting to {self._addrs_info}: {last_exception}"
+            raise SocketAPIError(msg) from last_exception
+
+        self._socket = sock
+        sock.setblocking(False)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)  # type: ignore[attr-defined, unused-ignore]
+        except (AttributeError, OSError):  # On FreeBSD this may throw OSError
+            _LOGGER.debug(
+                "%s: TCP_QUICKACK not supported",
+                self.log_name,
+            )
+        self._increase_recv_buffer_size()
+        self.connected_address = sock.getpeername()[0]
+
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Opened socket to %s:%s",
+                self.log_name,
+                self.connected_address,
+                self._params.port,
+            )
+
+    def _increase_recv_buffer_size(self) -> None:
+        """Increase the recv buffer size."""
+        if TYPE_CHECKING:
+            assert self._socket is not None
+        new_buffer_size = PREFERRED_BUFFER_SIZE
+        while True:
+            # Try to reduce the pressure on ESPHome device as it measures
+            # ram in bytes and we measure ram in megabytes.
+            try:
+                self._socket.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_RCVBUF, new_buffer_size
+                )
+            except OSError as err:
+                if new_buffer_size <= MIN_BUFFER_SIZE:
+                    _LOGGER.warning(
+                        "%s: Unable to increase the socket receive buffer size to %s; "
+                        "The connection may unstable if the ESPHome device sends "
+                        "data at volume (ex. a Bluetooth proxy or camera): %s",
+                        self.log_name,
+                        new_buffer_size,
+                        err,
+                    )
+                    return
+                new_buffer_size //= 2
+            else:
+                return
+
+    def _cleanup(self) -> None:
+        super()._cleanup()
+        self._set_resolve_host_future()
+
+
+class L2CAPSocket(socket.socket):
+    libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+
+    AF_BLUETOOTH = 31
+    BTPROTO_L2CAP = 0
+    SOL_BLUETOOTH = 274
+    BT_SNDMTU = 12
+
+    class SockAddrL2(ctypes.Structure):
+        _fields_ = [
+            ("l2_family", ctypes.c_ushort),
+            ("l2_psm", ctypes.c_ushort),
+            ("l2_bdaddr", ctypes.c_uint8 * 6),
+            ("l2_cid", ctypes.c_ushort),
+            ("l2_bdaddr_type", ctypes.c_uint8),
+        ]
+
+    def __init__(self) -> None:
+        fd = L2CAPSocket._check_ret(
+            L2CAPSocket.libc.socket(
+                L2CAPSocket.AF_BLUETOOTH,
+                socket.SOCK_SEQPACKET,
+                L2CAPSocket.BTPROTO_L2CAP,
+            )
+        )
+        self._mtu = 128
+        # asyncio expects the socket to be SOCK_STREAM, but L2CAP is actually SOCK_SEQPACKET.
+        # This works because we fragment the packets in the send method.
+        super().__init__(fileno=fd, type=socket.SOCK_STREAM)
+
+    def bind(self) -> None:  # type: ignore[override]
+        sa = L2CAPSocket.SockAddrL2()
+        sa.l2_family = L2CAPSocket.AF_BLUETOOTH
+        sa.l2_psm = 0
+        sa.l2_bdaddr = (ctypes.c_uint8 * 6)(0, 0, 0, 0, 0, 0)  # BDADDR_ANY
+        sa.l2_cid = 0
+        sa.l2_bdaddr_type = 1
+
+        L2CAPSocket._check_ret(
+            L2CAPSocket.libc.bind(
+                self.fileno(),
+                ctypes.byref(sa),
+                ctypes.sizeof(sa),
+            )
+        )
+
+    def connect(self, addr: str, psm: int, cid: int = 0, addr_type: int = 0) -> None:  # type: ignore[override]
+        sa = L2CAPSocket.SockAddrL2()
+        sa.l2_family = L2CAPSocket.AF_BLUETOOTH
+        sa.l2_psm = psm
+        sa.l2_bdaddr = L2CAPSocket._bdaddr(addr)
+        sa.l2_cid = cid
+        sa.l2_bdaddr_type = addr_type
+
+        L2CAPSocket._check_ret(
+            L2CAPSocket.libc.connect(
+                self.fileno(),
+                ctypes.byref(sa),
+                ctypes.sizeof(sa),
+            )
+        )
+        self._mtu = self.getsockopt(
+            L2CAPSocket.SOL_BLUETOOTH,
+            L2CAPSocket.BT_SNDMTU,
+        )
+
+    @staticmethod
+    def _check_ret(ret: int) -> int:
+        if ret < 0:
+            err = ctypes.get_errno()
+            raise OSError(err, os.strerror(err))
+        return ret
+
+    @staticmethod
+    def _bdaddr(addr: str) -> ctypes.Array[ctypes.c_uint8]:
+        """Convert "AA:BB:CC:DD:EE:FF" into Bluetooth byte order."""
+        parts = bytes.fromhex(addr.replace(":", ""))
+        return (ctypes.c_uint8 * 6)(*reversed(parts))
+
+    def send(self, data: bytes | bytearray | memoryview, flags: int = 0) -> int:  # type: ignore[override]
+        # truncate data to MTU size to avoid "Message too long" error.
+        # Sender will send the rest of the data in the next packet(s).
+        if len(data) > self._mtu:
+            data = data[: self._mtu]
+        return super().send(data, flags)
+
+
+class BLEAPIConnection(APIConnection):
+    _params: BLEConnectionParams
+
+    def __init__(
+        self,
+        params: BLEConnectionParams,
+        on_stop: Callable[[bool], None] | None,
+        debug_enabled: bool,
+        log_name: str | None,
+        log_errors: bool = True,
+    ) -> None:
+        super().__init__(params, on_stop, debug_enabled, log_name, log_errors)
+
+    @staticmethod
+    async def _wait_socket_connected(sock: L2CAPSocket) -> None:
+        """Wait for the socket to be connected."""
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+
+        def writable() -> None:
+            err = sock.getsockopt(
+                socket.SOL_SOCKET,
+                socket.SO_ERROR,
+            )
+
+            loop.remove_writer(sock.fileno())
+
+            if err != 0:
+                fut.set_exception(OSError(err, os.strerror(err)))
+            else:
+                fut.set_result(None)
+
+        loop.add_writer(sock.fileno(), writable)
+        await fut
+
+    async def _connect_socket_connect(self) -> None:
+        """Step 2 in connect process: connect the socket."""
+        addr = self._params.addresses[0]
+        addr_type = 1 if self._params.address_type == "public" else 2
+
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Connecting to %s",
+                self.log_name,
+                addr,
+            )
+
+        try:
+            async with asyncio_timeout(TCP_CONNECT_TIMEOUT):
+                sock = L2CAPSocket()
+                try:
+                    sock.setblocking(False)
+                    sock.bind()
+
+                    try:
+                        sock.connect(addr=addr, psm=0x80, addr_type=addr_type)
+                    except BlockingIOError:
+                        pass
+                    except OSError as e:
+                        if e.errno != 115:  # EINPROGRESS
+                            raise
+
+                    await BLEAPIConnection._wait_socket_connected(sock)
+                except:
+                    sock.close()
+                    raise
+
+            self._socket = sock
+
+        except TimeoutError as e:
+            msg = f"Timeout while connecting to {addr}"
+            raise TimeoutAPIError(msg) from e
+        except BaseException as e:
+            msg = f"Error connecting to {addr}: {e}"
+            raise SocketAPIError(msg) from e
+
+        self.connected_address = addr  # self._socket.getpeername()[0]
+
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Opened socket to %s",
+                self.log_name,
+                self.connected_address,
+            )

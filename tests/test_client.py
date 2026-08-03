@@ -176,7 +176,6 @@ from .common import (
     Estr,
     generate_plaintext_packet,
     generate_split_plaintext_packet,
-    get_mock_zeroconf,
     mock_data_received,
 )
 from .conftest import PatchableAPIClient, PatchableAPIConnection
@@ -299,7 +298,7 @@ async def test_finish_connection_wraps_exceptions_as_unhandled_api_error(
 ) -> None:
     """Verify finish_connect re-wraps exceptions as UnhandledAPIError."""
     cli = APIClient("127.0.0.1", 1234, None)
-    with patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection):
+    with patch("aioesphomeapi.client.IPAPIConnection", PatchableAPIConnection):
         await cli.start_resolve_host()
         await cli.start_connection()
 
@@ -345,7 +344,7 @@ async def test_connection_released_if_connecting_is_cancelled() -> None:
         return mock_socket
 
     with (
-        patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection),
+        patch("aioesphomeapi.client.IPAPIConnection", PatchableAPIConnection),
         patch(
             "aioesphomeapi.connection.aiohappyeyeballs.start_connection",
             _start_connection_without_delay,
@@ -1656,7 +1655,6 @@ async def test_noise_psk_handles_subclassed_string():
         client=cli,
         on_disconnect=AsyncMock(),
         on_connect=AsyncMock(),
-        zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
     assert rl._connection_state is ReconnectLogicState.DISCONNECTED

@@ -6,8 +6,6 @@ from ._frame_helper.base cimport APIFrameHelper
 cdef dict MESSAGE_TYPE_TO_PROTO
 cdef dict PROTO_TO_MESSAGE_TYPE
 
-cdef set OPEN_STATES
-
 cdef float KEEP_ALIVE_TIMEOUT_RATIO
 cdef object HANDSHAKE_TIMEOUT
 
@@ -39,7 +37,7 @@ cdef object partial
 
 cdef object hr
 
-cdef object CONNECT_AND_SETUP_TIMEOUT, CONNECT_REQUEST_TIMEOUT
+cdef object CONNECT_REQUEST_TIMEOUT
 
 cdef object APIConnectionError
 cdef object BadNameAPIError
@@ -82,16 +80,27 @@ cdef Py_ssize_t _MESSAGE_NUMBER_TO_PROTO_LEN
 cdef class ConnectionParams:
 
     cdef public list addresses
-    cdef public object port
     cdef public object password
     cdef public object client_info
     cdef public object keepalive
-    cdef public object zeroconf_manager
     cdef public object noise_psk
     cdef public object expected_name
-    cdef public object expected_mac
     cdef public object timezone
     cdef public bint provide_time
+
+
+@cython.dataclasses.dataclass
+cdef class IPConnectionParams(ConnectionParams):
+    cdef public int port
+    cdef public object zeroconf_manager
+    cdef public object expected_mac
+
+
+@cython.dataclasses.dataclass
+cdef class BLEConnectionParams(ConnectionParams):
+    cdef public object address_type
+
+    cpdef void __post_init__(self)
 
 
 cdef class APIConnection:
@@ -142,8 +151,6 @@ cdef class APIConnection:
 
     cdef void _async_schedule_keep_alive(self, object now) except *
 
-    cdef void _cleanup(self) except *
-
     cpdef set_log_name(self, str name)
 
     cdef _make_auth_request(self)
@@ -180,8 +187,16 @@ cdef class APIConnection:
 
     cdef void _register_internal_message_handlers(self) except *
 
-    cdef void _increase_recv_buffer_size(self) except *
-
     cdef void _set_start_connect_future(self) except *
 
     cdef void _set_finish_connect_future(self) except *
+
+
+cdef class IPAPIConnection(APIConnection):
+
+    cpdef void _set_resolve_host_future(self) except *
+    cdef void _increase_recv_buffer_size(self) except *
+
+
+cdef class BLEAPIConnection(APIConnection):
+    pass

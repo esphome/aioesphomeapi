@@ -5,7 +5,14 @@ from .api_pb2 import (  # type: ignore[attr-defined]
 )
 from .ble_defs import ESP_CONNECTION_ERROR_DESCRIPTION, BLEConnectionError
 from .client import APIClient
-from .connection import APIConnection, ConnectionParams
+from .connection import (
+    APIConnection,
+    BLEAPIConnection,
+    BLEConnectionParams,
+    ConnectionParams,
+    IPAPIConnection,
+    IPConnectionParams,
+)
 from .core import (
     ESPHOME_GATT_ERRORS,
     MESSAGE_TYPE_TO_PROTO,

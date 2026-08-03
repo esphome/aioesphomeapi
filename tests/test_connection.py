@@ -36,6 +36,7 @@ from aioesphomeapi.connection import (
     APIConnection,
     ConnectionParams,
     ConnectionState,
+    IPAPIConnection,
     _build_parsed_tz_proto,
 )
 from aioesphomeapi.core import (
@@ -1612,7 +1613,7 @@ async def test_report_fatal_error_with_log_errors_false(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that report_fatal_error doesn't log when log_errors=False."""
-    conn = APIConnection(connection_params, None, False, None, log_errors=False)
+    conn = IPAPIConnection(connection_params, None, False, None, log_errors=False)
 
     with caplog.at_level(logging.DEBUG):
         # Report a regular connection error
