@@ -205,6 +205,12 @@ class SubDeviceInfo(APIModelBase):
     area_id: int = 0
 
 
+@_frozen_dataclass_decorator
+class DeviceState(APIModelBase):
+    device_id: int = 0
+    available: bool = False
+
+
 class SerialProxyPortType(APIIntEnum):
     TTL = 0
     RS232 = 1
@@ -2070,6 +2076,7 @@ __all__ = (
     "DateTimeInfo",
     "DateTimeState",
     "DeviceInfo",
+    "DeviceState",
     "ESPHomeBluetoothGATTServices",
     "EntityCategory",
     "EntityInfo",

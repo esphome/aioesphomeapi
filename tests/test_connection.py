@@ -37,6 +37,7 @@ from aioesphomeapi.connection import (
     ConnectionParams,
     ConnectionState,
     _build_parsed_tz_proto,
+    _make_hello_request,
 )
 from aioesphomeapi.core import (
     APIConnectionCancelledError,
@@ -70,6 +71,12 @@ from .common import (
 )
 
 KEEP_ALIVE_TIMEOUT_RATIO = 4.5
+
+
+def test_make_hello_request_api_version() -> None:
+    request = _make_hello_request("test client")
+    assert request.api_version_major == 1
+    assert request.api_version_minor == 15
 
 
 @pytest.mark.parametrize(
