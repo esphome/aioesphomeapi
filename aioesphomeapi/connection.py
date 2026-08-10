@@ -841,17 +841,15 @@ class APIConnection:
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
-        # Resolve the timezone in an executor without serializing it in
-        # front of the network round trips; _handle_get_time_request_internal
-        # defers its response while the task is still pending.
-        # Use provided timezone from params (converted from IANA to POSIX if needed),
-        # or fall back to local timezone detection
-        timezone_task = create_eager_task(get_timezone(self._params.timezone))
-        if timezone_task.done():
-            self._cached_timezone = timezone_task.result()
-        else:
-            self._timezone_task = timezone_task
-            timezone_task.add_done_callback(self._set_cached_timezone)
+        # Only needed to answer GetTimeRequest; runs as its own task so it
+        # never delays the handshake.
+        if self._params.provide_time:
+            timezone_task = create_eager_task(get_timezone(self._params.timezone))
+            if timezone_task.done():
+                self._set_cached_timezone(timezone_task)
+            else:
+                self._timezone_task = timezone_task
+                timezone_task.add_done_callback(self._set_cached_timezone)
         # Register internal handlers before
         # connecting the helper so we can ensure
         # we handle any messages that are received immediately
@@ -1269,10 +1267,16 @@ class APIConnection:
 
     def _set_cached_timezone(self, task: asyncio.Task[str]) -> None:
         self._timezone_task = None
-        if not task.cancelled():
-            self._cached_timezone = task.result()
+        if task.cancelled():
+            return
+        if (exc := task.exception()) is not None:
+            _LOGGER.warning("%s: Timezone resolution failed: %s", self.log_name, exc)
+            return
+        self._cached_timezone = task.result()
 
     def _send_get_time_response_when_ready(self, _task: asyncio.Task[str]) -> None:
+        # _cleanup clears _handshake_complete, so this also drops the
+        # response when the connection closed while the timezone resolved.
         if self._handshake_complete:
             self._send_get_time_response()
 

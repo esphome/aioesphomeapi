@@ -9,8 +9,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import replace
 from functools import partial
-from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     GetTimeRequest,
@@ -28,6 +28,8 @@ from .common import (
 from .conftest import PatchableAPIClient, PatchableAPIConnection, mock_on_stop
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
     from aioesphomeapi.connection import APIConnection
 
@@ -46,10 +48,19 @@ async def test_api_client_provide_time_false() -> None:
     assert cli._params.provide_time is False
 
 
+async def _drain_loop_until(condition: Callable[[], bool], max_ticks: int = 25) -> None:
+    """Spin the event loop until condition() holds, bounded by max_ticks."""
+    for _ in range(max_ticks):
+        if condition():
+            return
+        await asyncio.sleep(0)
+
+
 async def _make_connected_conn(
     provide_time: bool,
     resolve_host,
     aiohappyeyeballs_start_connection,
+    get_timezone_patch: Any = None,
 ) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
     """Set up a plaintext-connected PatchableAPIConnection with provide_time set."""
     loop = asyncio.get_running_loop()
@@ -58,9 +69,11 @@ async def _make_connected_conn(
     params = replace(get_mock_connection_params(), provide_time=provide_time)
     conn = PatchableAPIConnection(params, mock_on_stop, True, None)
 
+    if get_timezone_patch is None:
+        get_timezone_patch = AsyncMock(return_value="UTC0")
     with (
         patch_create_connection(loop, transport, connected),
-        patch("aioesphomeapi.connection.get_timezone", return_value="UTC0"),
+        patch("aioesphomeapi.connection.get_timezone", get_timezone_patch),
     ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
@@ -135,28 +148,18 @@ async def test_get_time_response_deferred_until_timezone_resolved(
     aiohappyeyeballs_start_connection,
 ) -> None:
     """A GetTimeRequest received before the timezone resolves is answered after."""
-    loop = asyncio.get_running_loop()
-    transport = MagicMock()
-    connected = asyncio.Event()
     release = asyncio.Event()
 
     async def slow_get_timezone(_tz: str | None) -> str:
         await release.wait()
         return "UTC0"
 
-    params = replace(get_mock_connection_params(), provide_time=True)
-    conn = PatchableAPIConnection(params, mock_on_stop, True, None)
-
-    with (
-        patch_create_connection(loop, transport, connected),
-        patch("aioesphomeapi.connection.get_timezone", slow_get_timezone),
-    ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
-        await connected.wait()
-        send_plaintext_hello(conn._frame_helper)
-        await connect_task
-
-    protocol = conn._frame_helper
+    conn, transport, protocol = await _make_connected_conn(
+        provide_time=True,
+        resolve_host=resolve_host,
+        aiohappyeyeballs_start_connection=aiohappyeyeballs_start_connection,
+        get_timezone_patch=slow_get_timezone,
+    )
     try:
         transport.reset_mock()
         mock_data_received(protocol, generate_plaintext_packet(GetTimeRequest()))
@@ -164,8 +167,7 @@ async def test_get_time_response_deferred_until_timezone_resolved(
         transport.writelines.assert_not_called()
 
         release.set()
-        for _ in range(5):
-            await asyncio.sleep(0)
+        await _drain_loop_until(lambda: transport.writelines.call_count == 1)
 
         assert transport.writelines.call_count == 1
         raw = b"".join(transport.writelines.call_args[0][0])
@@ -181,28 +183,18 @@ async def test_get_time_request_between_timezone_task_done_and_callback(
     aiohappyeyeballs_start_connection,
 ) -> None:
     """A GetTimeRequest still gets a timezone when the task is done but its callback has not run."""
-    loop = asyncio.get_running_loop()
-    transport = MagicMock()
-    connected = asyncio.Event()
     release = asyncio.Event()
 
     async def slow_get_timezone(_tz: str | None) -> str:
         await release.wait()
         return "UTC0"
 
-    params = replace(get_mock_connection_params(), provide_time=True)
-    conn = PatchableAPIConnection(params, mock_on_stop, True, None)
-
-    with (
-        patch_create_connection(loop, transport, connected),
-        patch("aioesphomeapi.connection.get_timezone", slow_get_timezone),
-    ):
-        connect_task = asyncio.create_task(connect(conn, login=False))
-        await connected.wait()
-        send_plaintext_hello(conn._frame_helper)
-        await connect_task
-
-    protocol = conn._frame_helper
+    conn, transport, protocol = await _make_connected_conn(
+        provide_time=True,
+        resolve_host=resolve_host,
+        aiohappyeyeballs_start_connection=aiohappyeyeballs_start_connection,
+        get_timezone_patch=slow_get_timezone,
+    )
     try:
         transport.reset_mock()
         release.set()
@@ -215,14 +207,72 @@ async def test_get_time_request_between_timezone_task_done_and_callback(
         mock_data_received(protocol, generate_plaintext_packet(GetTimeRequest()))
         transport.writelines.assert_not_called()
 
-        for _ in range(3):
-            await asyncio.sleep(0)
+        await _drain_loop_until(lambda: transport.writelines.call_count == 1)
 
         assert transport.writelines.call_count == 1
         raw = b"".join(transport.writelines.call_args[0][0])
         resp = GetTimeResponse()
         resp.ParseFromString(raw[3:])  # strip 3-byte plaintext frame header
         assert resp.timezone == "UTC0"
+        assert conn._timezone_task is None
+    finally:
+        conn.force_disconnect()
+
+
+async def test_get_time_response_empty_timezone_when_resolution_fails(
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+    caplog,
+) -> None:
+    """A failing timezone task logs a warning and the response carries no timezone."""
+    release = asyncio.Event()
+
+    async def failing_get_timezone(_tz: str | None) -> str:
+        await release.wait()
+        err = "tz boom"
+        raise ValueError(err)
+
+    conn, transport, protocol = await _make_connected_conn(
+        provide_time=True,
+        resolve_host=resolve_host,
+        aiohappyeyeballs_start_connection=aiohappyeyeballs_start_connection,
+        get_timezone_patch=failing_get_timezone,
+    )
+    try:
+        transport.reset_mock()
+        mock_data_received(protocol, generate_plaintext_packet(GetTimeRequest()))
+        await asyncio.sleep(0)
+        transport.writelines.assert_not_called()
+
+        release.set()
+        await _drain_loop_until(lambda: transport.writelines.call_count == 1)
+
+        assert transport.writelines.call_count == 1
+        raw = b"".join(transport.writelines.call_args[0][0])
+        resp = GetTimeResponse()
+        resp.ParseFromString(raw[3:])  # strip 3-byte plaintext frame header
+        assert resp.timezone == ""
+        assert resp.epoch_seconds > 0
+        assert "Timezone resolution failed" in caplog.text
+        assert conn._timezone_task is None
+    finally:
+        conn.force_disconnect()
+
+
+async def test_timezone_not_resolved_when_provide_time_false(
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """No timezone task is created when provide_time=False."""
+    tz_mock = AsyncMock(return_value="UTC0")
+    conn, _transport, _protocol = await _make_connected_conn(
+        provide_time=False,
+        resolve_host=resolve_host,
+        aiohappyeyeballs_start_connection=aiohappyeyeballs_start_connection,
+        get_timezone_patch=tz_mock,
+    )
+    try:
+        assert tz_mock.call_count == 0
         assert conn._timezone_task is None
     finally:
         conn.force_disconnect()
