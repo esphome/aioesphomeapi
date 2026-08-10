@@ -58,7 +58,10 @@ async def _make_connected_conn(
     params = replace(get_mock_connection_params(), provide_time=provide_time)
     conn = PatchableAPIConnection(params, mock_on_stop, True, None)
 
-    with patch_create_connection(loop, transport, connected):
+    with (
+        patch_create_connection(loop, transport, connected),
+        patch("aioesphomeapi.connection.get_timezone", return_value="UTC0"),
+    ):
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
         send_plaintext_hello(conn._frame_helper)
@@ -123,5 +126,103 @@ async def test_get_time_response_not_sent_when_provide_time_false(
 
         transport.write.assert_not_called()
         transport.writelines.assert_not_called()
+    finally:
+        conn.force_disconnect()
+
+
+async def test_get_time_response_deferred_until_timezone_resolved(
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """A GetTimeRequest received before the timezone resolves is answered after."""
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    release = asyncio.Event()
+
+    async def slow_get_timezone(_tz: str | None) -> str:
+        await release.wait()
+        return "UTC0"
+
+    params = replace(get_mock_connection_params(), provide_time=True)
+    conn = PatchableAPIConnection(params, mock_on_stop, True, None)
+
+    with (
+        patch_create_connection(loop, transport, connected),
+        patch("aioesphomeapi.connection.get_timezone", slow_get_timezone),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+        send_plaintext_hello(conn._frame_helper)
+        await connect_task
+
+    protocol = conn._frame_helper
+    try:
+        transport.reset_mock()
+        mock_data_received(protocol, generate_plaintext_packet(GetTimeRequest()))
+        await asyncio.sleep(0)
+        transport.writelines.assert_not_called()
+
+        release.set()
+        for _ in range(5):
+            await asyncio.sleep(0)
+
+        assert transport.writelines.call_count == 1
+        raw = b"".join(transport.writelines.call_args[0][0])
+        resp = GetTimeResponse()
+        resp.ParseFromString(raw[3:])  # strip 3-byte plaintext frame header
+        assert resp.timezone == "UTC0"
+    finally:
+        conn.force_disconnect()
+
+
+async def test_get_time_request_between_timezone_task_done_and_callback(
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """A GetTimeRequest still gets a timezone when the task is done but its callback has not run."""
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    release = asyncio.Event()
+
+    async def slow_get_timezone(_tz: str | None) -> str:
+        await release.wait()
+        return "UTC0"
+
+    params = replace(get_mock_connection_params(), provide_time=True)
+    conn = PatchableAPIConnection(params, mock_on_stop, True, None)
+
+    with (
+        patch_create_connection(loop, transport, connected),
+        patch("aioesphomeapi.connection.get_timezone", slow_get_timezone),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+        send_plaintext_hello(conn._frame_helper)
+        await connect_task
+
+    protocol = conn._frame_helper
+    try:
+        transport.reset_mock()
+        release.set()
+        # One tick: the timezone task completes, but _set_cached_timezone is
+        # still queued for the next callback batch.
+        await asyncio.sleep(0)
+        assert conn._timezone_task is not None
+        assert conn._timezone_task.done()
+
+        mock_data_received(protocol, generate_plaintext_packet(GetTimeRequest()))
+        transport.writelines.assert_not_called()
+
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+        assert transport.writelines.call_count == 1
+        raw = b"".join(transport.writelines.call_args[0][0])
+        resp = GetTimeResponse()
+        resp.ParseFromString(raw[3:])  # strip 3-byte plaintext frame header
+        assert resp.timezone == "UTC0"
+        assert conn._timezone_task is None
     finally:
         conn.force_disconnect()
