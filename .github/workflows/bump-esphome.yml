@@ -145,5 +145,5 @@ jobs:
             gh pr edit "$existing" --repo esphome/esphome --title "$title" --body-file pr_body.md
           else
             gh pr create --repo esphome/esphome --base dev --head bump-aioesphomeapi \
-              --draft --title "$title" --body-file pr_body.md
+              --title "$title" --body-file pr_body.md
           fi
