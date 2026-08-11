@@ -12,6 +12,9 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: bump-esphome
+
 jobs:
   bump-esphome:
     runs-on: ubuntu-latest
@@ -34,7 +37,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           for _ in $(seq 1 90); do
-            if curl -sfo /dev/null "https://pypi.org/pypi/aioesphomeapi/$VERSION/json"; then
+            if curl -sfo /dev/null --connect-timeout 10 --max-time 30 "https://pypi.org/pypi/aioesphomeapi/$VERSION/json"; then
               exit 0
             fi
             sleep 30
@@ -77,6 +80,11 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          if [[ "$(printf '%s\n' "$old" "$VERSION" | sort -V | tail -n1)" != "$VERSION" ]]; then
+            echo "requirements.txt pins aioesphomeapi==$old which is newer than $VERSION, skipping"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           sed -i "s/^aioesphomeapi==.*/aioesphomeapi==$VERSION/" requirements.txt
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "old=$old" >> "$GITHUB_OUTPUT"
@@ -94,14 +102,16 @@ jobs:
           old = os.environ["OLD"]
           new = os.environ["VERSION"]
           template = Path("esphome/.github/PULL_REQUEST_TEMPLATE.md").read_text()
+          placeholder = "<!-- Quick description and explanation of changes -->"
+          checkbox = "- [ ] Other"
+          if placeholder not in template or checkbox not in template:
+              raise SystemExit("PR template changed, expected placeholders not found")
           description = (
               f"Bump aioesphomeapi from {old} to {new}, release notes: "
               f"https://github.com/esphome/aioesphomeapi/releases/tag/v{new}"
           )
-          body = template.replace(
-              "<!-- Quick description and explanation of changes -->", description, 1
-          )
-          body = body.replace("- [ ] Other", "- [x] Other", 1)
+          body = template.replace(placeholder, description, 1)
+          body = body.replace(checkbox, "- [x] Other", 1)
           Path("pr_body.md").write_text(body)
           EOF
 
@@ -129,7 +139,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           title="Bump aioesphomeapi from $OLD to $VERSION"
-          existing=$(gh pr list --repo esphome/esphome --head bump-aioesphomeapi --state open --json number --jq '.[].number')
+          existing=$(gh pr list --repo esphome/esphome --base dev --head bump-aioesphomeapi --state open --json number --jq '.[0].number // empty')
           if [[ -n "$existing" ]]; then
             gh pr edit "$existing" --repo esphome/esphome --title "$title" --body-file pr_body.md
           else
