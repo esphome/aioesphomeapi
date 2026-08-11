@@ -45,6 +45,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     CoverCommandRequest,
     DateCommandRequest,
     DateTimeCommandRequest,
+    DeviceCapabilitiesRequest,
+    DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
     ExecuteServiceArgument,
@@ -141,6 +143,7 @@ from .model import (
     BluetoothGATTError,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
+    BluetoothProxyCapabilities as BluetoothProxyCapabilitiesModel,
     BluetoothProxyFeature,
     BluetoothProxySubscriptionFlag,
     BluetoothScannerMode,
@@ -149,6 +152,7 @@ from .model import (
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
     EntityInfo,
     EntityState,
@@ -175,6 +179,7 @@ from .model import (
     VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioData,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
+    VoiceAssistantCapabilities as VoiceAssistantCapabilitiesModel,
     VoiceAssistantCommand,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
@@ -183,6 +188,7 @@ from .model import (
     VoiceAssistantTimerEventType,
     WaterHeaterCommandField,
     WaterHeaterStateFlag,
+    ZWaveProxyCapabilities as ZWaveProxyCapabilitiesModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
     message_types_to_names,
 )
@@ -396,6 +402,41 @@ class APIClient(APIClientBase):
         self._set_name_from_device(info.name)
         self._cached_device_info = info
         return info
+
+    async def device_capabilities(self) -> DeviceCapabilitiesModel:
+        resp = await self._get_connection().send_message_await_response(
+            DeviceCapabilitiesRequest(), DeviceCapabilitiesResponse
+        )
+        return DeviceCapabilitiesModel.from_pb(resp)
+
+    async def device_capabilities_compat(
+        self, device_info: DeviceInfo
+    ) -> DeviceCapabilitiesModel:
+        """Fetch capabilities, synthesising them from device_info below API 1.15."""
+        api_version = self.api_version
+        if api_version is None or api_version >= APIVersion(1, 15):
+            # Without a device version there is no way to interpret device_info,
+            # so defer to the RPC and let it raise the usual not-connected error
+            # rather than guessing a version and mistranslating the flags.
+            return await self.device_capabilities()
+        return DeviceCapabilitiesModel(  # type: ignore[call-arg]
+            bluetooth_proxy=BluetoothProxyCapabilitiesModel(  # type: ignore[call-arg]
+                feature_flags=device_info.bluetooth_proxy_feature_flags_compat(
+                    api_version
+                ),
+                mac_address=device_info.bluetooth_mac_address,
+            ),
+            voice_assistant=VoiceAssistantCapabilitiesModel(  # type: ignore[call-arg]
+                feature_flags=device_info.voice_assistant_feature_flags_compat(
+                    api_version
+                )
+            ),
+            zwave_proxy=ZWaveProxyCapabilitiesModel(  # type: ignore[call-arg]
+                feature_flags=device_info.zwave_proxy_feature_flags_compat(api_version),
+                home_id=device_info.zwave_home_id,
+            ),
+            serial_proxies=device_info.serial_proxies,
+        )
 
     async def list_entities_services(
         self,

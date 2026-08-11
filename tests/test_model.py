@@ -17,6 +17,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTService as BluetoothGATTServicePb,
+    BluetoothProxyCapabilities as BluetoothProxyCapabilitiesPb,
     BluetoothScannerMode,
     BluetoothScannerState,
     BluetoothScannerStateResponse,
@@ -24,6 +25,7 @@ from aioesphomeapi.api_pb2 import (
     CoverStateResponse,
     DateStateResponse,
     DateTimeStateResponse,
+    DeviceCapabilitiesResponse,
     DeviceInfo as SubDeviceInfoProto,
     DeviceInfoResponse,
     EventResponse,
@@ -78,9 +80,11 @@ from aioesphomeapi.api_pb2 import (
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    VoiceAssistantCapabilities as VoiceAssistantCapabilitiesPb,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
     VoiceAssistantWakeWord as VoiceAssistantWakeWordPb,
     WaterHeaterStateResponse,
+    ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
@@ -101,6 +105,7 @@ from aioesphomeapi.model import (
     BluetoothGATTDescriptor as BluetoothGATTDescriptorModel,
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothGATTServices as BluetoothGATTServicesModel,
+    BluetoothProxyCapabilities,
     BluetoothProxyFeature,
     BluetoothScannerMode as BluetoothScannerModeModel,
     BluetoothScannerState as BluetoothScannerStateModel,
@@ -118,6 +123,7 @@ from aioesphomeapi.model import (
     DateState,
     DateTimeInfo,
     DateTimeState,
+    DeviceCapabilities,
     DeviceInfo,
     EntityInfo,
     EntityState,
@@ -179,6 +185,7 @@ from aioesphomeapi.model import (
     UserServiceArgType,
     ValveInfo,
     ValveState,
+    VoiceAssistantCapabilities,
     VoiceAssistantConfigurationResponse,
     VoiceAssistantExternalWakeWord,
     VoiceAssistantFeature,
@@ -186,6 +193,7 @@ from aioesphomeapi.model import (
     WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
+    ZWaveProxyCapabilities,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
@@ -372,6 +380,10 @@ def test_api_version_ord():
         (SerialProxyInfo, SerialProxyInfoPb),
         (SerialProxyDataReceived, SerialProxyDataReceivedPb),
         (SerialProxyModemPins, SerialProxyGetModemPinsResponsePb),
+        (DeviceCapabilities, DeviceCapabilitiesResponse),
+        (BluetoothProxyCapabilities, BluetoothProxyCapabilitiesPb),
+        (VoiceAssistantCapabilities, VoiceAssistantCapabilitiesPb),
+        (ZWaveProxyCapabilities, ZWaveProxyCapabilitiesPb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -2635,3 +2647,82 @@ def test_all_entity_info_subclasses_registered() -> None:
         f"EntityInfo subclasses missing from _TYPE_TO_NAME: "
         f"{sorted(subclass_names - type_to_name_names)}"
     )
+
+
+def test_device_capabilities_from_pb_fully_populated() -> None:
+    """Pin DeviceCapabilities.from_pb decoding every nested field."""
+    pb = DeviceCapabilitiesResponse(
+        bluetooth_proxy=BluetoothProxyCapabilitiesPb(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilitiesPb(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=7, home_id=1234),
+        serial_proxies=[
+            SerialProxyInfoPb(name="RS485 Port", port_type=SerialProxyPortType.RS485),
+            SerialProxyInfoPb(name="RS232 Port", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+    caps = DeviceCapabilities.from_pb(pb)
+    assert caps.bluetooth_proxy.feature_flags == 3
+    assert caps.bluetooth_proxy.mac_address == "AA:BB:CC:DD:EE:FF"
+    assert caps.voice_assistant.feature_flags == 5
+    assert caps.zwave_proxy.feature_flags == 7
+    assert caps.zwave_proxy.home_id == 1234
+    assert len(caps.serial_proxies) == 2
+    assert caps.serial_proxies[0].name == "RS485 Port"
+    assert caps.serial_proxies[0].port_type == SerialProxyPortType.RS485
+    assert caps.serial_proxies[1].name == "RS232 Port"
+    assert caps.serial_proxies[1].port_type == SerialProxyPortType.RS232
+
+
+def test_device_capabilities_from_pb_empty() -> None:
+    """An unset DeviceCapabilitiesResponse decodes to default sub-models, not None."""
+    caps = DeviceCapabilities.from_pb(DeviceCapabilitiesResponse())
+    assert caps.bluetooth_proxy == BluetoothProxyCapabilities()
+    assert caps.voice_assistant == VoiceAssistantCapabilities()
+    assert caps.zwave_proxy == ZWaveProxyCapabilities()
+    assert caps.serial_proxies == []
+
+
+def test_device_capabilities_from_pb_partial() -> None:
+    """Only the set sub-message is populated; the others stay default."""
+    pb = DeviceCapabilitiesResponse(
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=1, home_id=99)
+    )
+    caps = DeviceCapabilities.from_pb(pb)
+    assert caps.bluetooth_proxy == BluetoothProxyCapabilities()
+    assert caps.voice_assistant == VoiceAssistantCapabilities()
+    assert caps.zwave_proxy == ZWaveProxyCapabilities(feature_flags=1, home_id=99)
+
+
+def test_device_capabilities_convert_dict_branch() -> None:
+    """Exercise the dict branch of every capabilities convert classmethod."""
+    assert BluetoothProxyCapabilities.convert(
+        {"feature_flags": 1, "mac_address": "11:22:33:44:55:66"}
+    ) == BluetoothProxyCapabilities(feature_flags=1, mac_address="11:22:33:44:55:66")
+    assert VoiceAssistantCapabilities.convert(
+        {"feature_flags": 2}
+    ) == VoiceAssistantCapabilities(feature_flags=2)
+    assert ZWaveProxyCapabilities.convert(
+        {"feature_flags": 4, "home_id": 42}
+    ) == ZWaveProxyCapabilities(feature_flags=4, home_id=42)
+
+    caps = DeviceCapabilities.from_dict(
+        {
+            "bluetooth_proxy": {
+                "feature_flags": 1,
+                "mac_address": "11:22:33:44:55:66",
+            },
+            "voice_assistant": {"feature_flags": 2},
+            "zwave_proxy": {"feature_flags": 4, "home_id": 42},
+            "serial_proxies": [{"name": "UART0", "port_type": 0}],
+        }
+    )
+    assert caps.bluetooth_proxy == BluetoothProxyCapabilities(
+        feature_flags=1, mac_address="11:22:33:44:55:66"
+    )
+    assert caps.voice_assistant == VoiceAssistantCapabilities(feature_flags=2)
+    assert caps.zwave_proxy == ZWaveProxyCapabilities(feature_flags=4, home_id=42)
+    assert caps.serial_proxies == [
+        SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL)
+    ]
