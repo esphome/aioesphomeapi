@@ -1,0 +1,138 @@
+name: Bump aioesphomeapi in esphome
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "aioesphomeapi version to bump to (without v prefix)"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  bump-esphome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine version
+        id: version
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ -n "$INPUT_VERSION" ]]; then
+            version="$INPUT_VERSION"
+          else
+            version="${TAG_NAME#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for PyPI to index the release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          for _ in $(seq 1 90); do
+            if curl -sfo /dev/null "https://pypi.org/pypi/aioesphomeapi/$VERSION/json"; then
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "aioesphomeapi $VERSION never appeared on PyPI" >&2
+          exit 1
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.ESPHOME_GITHUB_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ESPHOME_GITHUB_APP_PRIVATE_KEY }}
+          owner: esphome
+          repositories: esphome
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout esphome/esphome
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: esphome/esphome
+          ref: dev
+          token: ${{ steps.app-token.outputs.token }}
+          path: esphome
+
+      - name: Update requirements.txt pin
+        id: bump
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        working-directory: esphome
+        run: |
+          old=$(sed -n 's/^aioesphomeapi==\([0-9a-zrcb.]*\).*/\1/p' requirements.txt)
+          if [[ -z "$old" ]]; then
+            echo "aioesphomeapi pin not found in requirements.txt" >&2
+            exit 1
+          fi
+          if [[ "$old" == "$VERSION" ]]; then
+            echo "requirements.txt already pins aioesphomeapi==$VERSION"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sed -i "s/^aioesphomeapi==.*/aioesphomeapi==$VERSION/" requirements.txt
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "old=$old" >> "$GITHUB_OUTPUT"
+
+      - name: Build PR body from template
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          OLD: ${{ steps.bump.outputs.old }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          from pathlib import Path
+
+          old = os.environ["OLD"]
+          new = os.environ["VERSION"]
+          template = Path("esphome/.github/PULL_REQUEST_TEMPLATE.md").read_text()
+          description = (
+              f"Bump aioesphomeapi from {old} to {new}, release notes: "
+              f"https://github.com/esphome/aioesphomeapi/releases/tag/v{new}"
+          )
+          body = template.replace(
+              "<!-- Quick description and explanation of changes -->", description, 1
+          )
+          body = body.replace("- [ ] Other", "- [x] Other", 1)
+          Path("pr_body.md").write_text(body)
+          EOF
+
+      - name: Commit and push
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          OLD: ${{ steps.bump.outputs.old }}
+          VERSION: ${{ steps.version.outputs.version }}
+        working-directory: esphome
+        run: |
+          bot_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${bot_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git checkout -b bump-aioesphomeapi
+          git commit -am "Bump aioesphomeapi from $OLD to $VERSION"
+          git push --force origin bump-aioesphomeapi
+
+      - name: Open draft PR
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OLD: ${{ steps.bump.outputs.old }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          title="Bump aioesphomeapi from $OLD to $VERSION"
+          existing=$(gh pr list --repo esphome/esphome --head bump-aioesphomeapi --state open --json number --jq '.[].number')
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" --repo esphome/esphome --title "$title" --body-file pr_body.md
+          else
+            gh pr create --repo esphome/esphome --base dev --head bump-aioesphomeapi \
+              --draft --title "$title" --body-file pr_body.md
+          fi
