@@ -1,8 +1,7 @@
 name: Bump aioesphomeapi in esphome
 
 on:
-  release:
-    types: [published]
+  workflow_call:
   workflow_dispatch:
     inputs:
       version:
@@ -19,7 +18,7 @@ jobs:
   bump-esphome:
     if: github.repository == 'esphome/aioesphomeapi' && (github.event_name == 'workflow_dispatch' || !github.event.release.prerelease)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
       - name: Determine version
         id: version
@@ -38,11 +37,11 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          for _ in $(seq 1 90); do
+          for _ in $(seq 1 20); do
             if curl -sfo /dev/null --connect-timeout 10 --max-time 30 "https://pypi.org/pypi/aioesphomeapi/$VERSION/json"; then
               exit 0
             fi
-            sleep 30
+            sleep 15
           done
           echo "aioesphomeapi $VERSION never appeared on PyPI" >&2
           exit 1
@@ -146,5 +145,5 @@ jobs:
             gh pr edit "$existing" --repo esphome/esphome --title "$title" --body-file pr_body.md
           else
             gh pr create --repo esphome/esphome --base dev --head bump-aioesphomeapi \
-              --draft --title "$title" --body-file pr_body.md
+              --title "$title" --body-file pr_body.md
           fi
