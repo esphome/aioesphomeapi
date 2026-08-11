@@ -17,7 +17,9 @@ concurrency:
 
 jobs:
   bump-esphome:
+    if: github.repository == 'esphome/aioesphomeapi' && (github.event_name == 'workflow_dispatch' || !github.event.release.prerelease)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Determine version
         id: version
@@ -85,7 +87,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          sed -i "s/^aioesphomeapi==.*/aioesphomeapi==$VERSION/" requirements.txt
+          sed -i -E "s/^aioesphomeapi==[^[:space:];#]+/aioesphomeapi==$VERSION/" requirements.txt
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "old=$old" >> "$GITHUB_OUTPUT"
 
