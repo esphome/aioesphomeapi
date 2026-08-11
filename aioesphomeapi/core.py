@@ -51,6 +51,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DateTimeStateResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
+    DeviceStateResponse,
     DisconnectRequest,
     DisconnectResponse,
     EventResponse,
@@ -553,6 +554,7 @@ MESSAGE_TYPE_TO_PROTO = {
     146: BluetoothSetConnectionParamsResponse,
     147: SerialProxyRequestResponse,
     148: ListEntitiesRadioFrequencyResponse,
+    149: DeviceStateResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

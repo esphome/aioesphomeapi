@@ -49,6 +49,7 @@ from aioesphomeapi.api_pb2 import (
     DateCommandRequest,
     DateTimeCommandRequest,
     DeviceInfoResponse,
+    DeviceStateResponse,
     DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
@@ -137,6 +138,7 @@ from aioesphomeapi.model import (
     ClimatePreset,
     ClimateSwingMode,
     DeviceInfo,
+    DeviceState,
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
@@ -566,6 +568,27 @@ async def test_subscribe_states(auth_client: APIClient) -> None:
 
     await send(BinarySensorStateResponse())
     on_state.assert_called_once_with(BinarySensorState())
+
+
+async def test_subscribe_states_device_state_callback(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    auth_client, _connection, _transport, protocol = api_client
+    on_state = MagicMock()
+    on_device_state = MagicMock()
+    auth_client.subscribe_states(
+        on_state,
+        on_device_state=on_device_state,
+    )
+
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(DeviceStateResponse(device_id=7, available=True)),
+    )
+    on_state.assert_not_called()
+    on_device_state.assert_called_once_with(DeviceState(device_id=7, available=True))
 
 
 async def test_subscribe_states_camera(auth_client: APIClient) -> None:
@@ -2955,6 +2978,7 @@ async def test_subscribe_home_assistant_states_and_services(
     on_service_call = MagicMock()
     on_state_sub = MagicMock()
     on_state_request = MagicMock()
+    on_device_state = MagicMock()
 
     # Call the unified subscription method
     client.subscribe_home_assistant_states_and_services(
@@ -2962,6 +2986,7 @@ async def test_subscribe_home_assistant_states_and_services(
         on_service_call=on_service_call,
         on_state_sub=on_state_sub,
         on_state_request=on_state_request,
+        on_device_state=on_device_state,
     )
 
     # Verify that all three subscription messages were sent in a single call
@@ -2978,6 +3003,10 @@ async def test_subscribe_home_assistant_states_and_services(
     response: message.Message = BinarySensorStateResponse(key=1, state=True)
     mock_data_received(protocol, generate_plaintext_packet(response))
     on_state.assert_called_once()
+
+    device_state_msg = DeviceStateResponse(device_id=7, available=False)
+    mock_data_received(protocol, generate_plaintext_packet(device_state_msg))
+    on_device_state.assert_called_once_with(DeviceState(device_id=7, available=False))
 
     # Test service call
     on_state.reset_mock()
