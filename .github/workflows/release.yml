@@ -105,3 +105,12 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+
+  bump_esphome:
+    name: Bump aioesphomeapi in esphome
+    needs: [upload_pypi]
+    concurrency:
+      group: bump-esphome
+    permissions: {}
+    secrets: inherit
+    uses: ./.github/workflows/bump-esphome.yml
