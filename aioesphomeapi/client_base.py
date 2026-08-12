@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import itertools
 import logging
 from typing import TYPE_CHECKING, Any
@@ -274,6 +275,7 @@ class APIClientBase:
     """Base client for ESPHome API clients."""
 
     __slots__ = (
+        "_addresses_changed_callbacks",
         "_background_tasks",
         "_cached_device_info",
         "_call_id_counter",
@@ -350,6 +352,7 @@ class APIClientBase:
         self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
@@ -398,6 +401,39 @@ class APIClientBase:
         plane clients such as Home Assistant.
         """
         self._params.noise_psk = None
+
+    def add_addresses(self, addresses: list[str_]) -> bool:
+        """Append new addresses to try on future connection attempts.
+
+        Addresses already known are ignored; order is preserved. If any
+        address is new, the addresses-changed callbacks are fired so
+        consumers (e.g. ReconnectLogic) can act on them right away.
+
+        Must be called from the event loop. Returns True if at least one
+        address was new.
+        """
+        params_addresses = self._params.addresses
+        added = False
+        for addr in addresses:
+            if (addr_str := str(addr)) not in params_addresses:
+                params_addresses.append(addr_str)
+                added = True
+        if added:
+            self._set_log_name()
+            for callback in self._addresses_changed_callbacks.copy():
+                callback()
+        return added
+
+    def register_addresses_changed_callback(
+        self, callback: Callable[[], None]
+    ) -> Callable[[], None]:
+        """Register a callback fired when add_addresses adds a new address.
+
+        Must be called from the event loop. Returns a callable that
+        unregisters the callback.
+        """
+        self._addresses_changed_callbacks.append(callback)
+        return partial(self._addresses_changed_callbacks.remove, callback)
 
     @property
     def connected_address(self) -> str | None:

@@ -1736,6 +1736,47 @@ async def test_addresses_parameter_handles_subclassed_string() -> None:
     assert cli._params.addresses[2] == "10.0.0.1"
 
 
+async def test_add_addresses() -> None:
+    """Test appending addresses after construction."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    assert cli._params.addresses == ["192.168.1.100"]
+
+    assert cli.add_addresses(["192.168.1.101", "192.168.1.100"]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101"]
+    assert cli.log_name == "192.168.1.100"
+
+    # Subclassed strings are converted, duplicates ignored
+    assert cli.add_addresses([Estr("192.168.1.101"), Estr("10.0.0.1")]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101", "10.0.0.1"]
+    assert all(type(addr) is str for addr in cli._params.addresses)
+
+
+async def test_add_addresses_fires_callbacks() -> None:
+    """Test the addresses-changed callbacks fire only on real additions."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    callback.assert_not_called()
+
+    assert cli.add_addresses(["192.168.1.101"]) is True
+    callback.assert_called_once_with()
+
+    unsub()
+    assert cli.add_addresses(["10.0.0.1"]) is True
+    callback.assert_called_once_with()
+
+
 async def test_client_properties(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper

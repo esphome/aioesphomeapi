@@ -676,3 +676,52 @@ async def test_async_run_on_disconnect_logs_warning(
     assert "Disconnected from API" in caplog.text
 
     await stop()
+
+
+async def test_log_runner_add_addresses_triggers_immediate_attempt() -> None:
+    """add_addresses on the client kicks the runner's internal ReconnectLogic.
+
+    This is the flow the esphome CLI uses to feed MQTT-discovered addresses
+    in while the runner is already retrying the directly-known addresses.
+    """
+    async_zeroconf = get_mock_async_zeroconf()
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    cli = PatchableAPIClient(
+        address=Estr("10.0.0.1"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=Estr("fake"),
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    with patch.object(
+        cli, "start_resolve_host", side_effect=APIConnectionError
+    ) as mock_resolve:
+        stop = await async_run(
+            cli,
+            lambda msg: None,
+            aio_zeroconf_instance=async_zeroconf,
+            subscribe_states=False,
+        )
+        await asyncio.sleep(0)
+        assert mock_resolve.call_count == 1
+
+    # First attempt failed; the runner is waiting out its backoff timer.
+    # Feeding a new address must trigger an attempt right away that sees
+    # the full address list.
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve_2,
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
+        assert cli.add_addresses(["127.0.0.1"]) is True
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_resolve_2.call_count == 1
+        assert cli._params.addresses == ["10.0.0.1", "127.0.0.1"]
+
+    await stop()
