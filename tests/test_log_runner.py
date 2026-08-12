@@ -785,4 +785,7 @@ async def test_log_runner_on_connect_callback(
 
     on_connect.assert_called_once_with()
 
-    await stop()
+    stop_task = asyncio.create_task(stop())
+    await asyncio.sleep(0)
+    mock_data_received(protocol, generate_plaintext_packet(DisconnectResponse()))
+    await stop_task
