@@ -150,6 +150,11 @@ class ZWaveProxyRequestType(APIIntEnum):
     HOME_ID_CHANGE = 2
 
 
+class ZWaveProxyStatus(APIIntEnum):
+    OK = 0
+    IN_USE = 1
+
+
 @_frozen_dataclass_decorator
 class ZWaveProxyFrame(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
@@ -159,6 +164,17 @@ class ZWaveProxyFrame(APIModelBase):
 class ZWaveProxyRequest(APIModelBase):
     type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyRequestResponse(APIModelBase):
+    type: ZWaveProxyRequestType | None = converter_field(
+        default=ZWaveProxyRequestType.SUBSCRIBE,
+        converter=ZWaveProxyRequestType.convert,
+    )
+    status: ZWaveProxyStatus | None = converter_field(
+        default=ZWaveProxyStatus.OK, converter=ZWaveProxyStatus.convert
+    )
 
 
 class InfraredCapability(enum.IntFlag):
@@ -1357,6 +1373,8 @@ class SerialProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
     FLUSH = 2
+    CONFIGURE = 3
+    SET_MODEM_PINS = 4
 
 
 class SerialProxyStatus(APIIntEnum):
@@ -1365,6 +1383,8 @@ class SerialProxyStatus(APIIntEnum):
     ERROR = 2
     TIMEOUT = 3
     NOT_SUPPORTED = 4
+    PORT_IN_USE = 5
+    INVALID_ARGUMENT = 6
 
 
 @_frozen_dataclass_decorator
@@ -2229,7 +2249,9 @@ __all__ = (
     "ZWaveProxyFeature",
     "ZWaveProxyFrame",
     "ZWaveProxyRequest",
+    "ZWaveProxyRequestResponse",
     "ZWaveProxyRequestType",
+    "ZWaveProxyStatus",
     "build_device_unique_id",
     "build_unique_id",
 )
