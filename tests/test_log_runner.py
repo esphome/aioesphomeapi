@@ -721,3 +721,68 @@ async def test_log_runner_add_addresses_triggers_immediate_attempt() -> None:
         assert cli._params.addresses == ["10.0.0.1", "127.0.0.1"]
 
     await stop()
+
+
+async def test_log_runner_on_connect_callback(
+    conn: APIConnection,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """The optional on_connect callback fires once the log subscription is up."""
+    loop = asyncio.get_running_loop()
+    protocol: APIPlaintextFrameHelper | None = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    async_zeroconf = get_mock_async_zeroconf()
+
+    cli = PatchableAPIClient(
+        address=Estr("127.0.0.1"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=Estr("fake"),
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    subscribed = asyncio.Event()
+    original_subscribe_logs = cli.subscribe_logs
+
+    def _wait_subscribe_cli(*args, **kwargs):
+        original_subscribe_logs(*args, **kwargs)
+        subscribed.set()
+
+    on_connect = MagicMock()
+
+    with (
+        patch.object(
+            loop, "create_connection", side_effect=_create_mock_transport_protocol
+        ),
+        patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
+    ):
+        stop = await async_run(
+            cli,
+            lambda msg: None,
+            aio_zeroconf_instance=async_zeroconf,
+            subscribe_states=False,
+            on_connect=on_connect,
+        )
+        on_connect.assert_not_called()
+        await connected.wait()
+        protocol = cli._connection._frame_helper
+        send_plaintext_hello(protocol)
+        send_plaintext_auth_response(protocol, False)
+        await subscribed.wait()
+
+    on_connect.assert_called_once_with()
+
+    await stop()

@@ -34,6 +34,7 @@ async def async_run(
     subscribe_states: bool = True,
     allow_plaintext_fallback: bool = False,
     deep_sleep: bool = False,
+    on_connect: Callable[[], None] | None = None,
 ) -> Callable[[], Coroutine[Any, Any, None]]:
     """Run logs until canceled.
 
@@ -48,14 +49,20 @@ async def async_run(
     the caller's YAML config) so the reconnect backoff is capped and a
     short awake window is not missed while waiting to reconnect.
 
+    ``on_connect`` is called after each successful connection, once the
+    log subscription is in place. Callers can use it to stop side channels
+    that only matter while disconnected (e.g. an out-of-band address
+    discovery feeding ``cli.add_addresses``).
+
     The logger stream is one-way (device → client), so enabling the
     fallback here only exposes log output to an on-path attacker — no
     commands or secrets are sent. Do not enable the equivalent flag on
     control-plane connections (e.g. Home Assistant).
     """
     dumped_config = not dump_config
+    on_connect_callback = on_connect
 
-    async def on_connect() -> None:
+    async def on_connect_() -> None:
         """Handle a connection."""
         nonlocal dumped_config
         try:
@@ -66,6 +73,8 @@ async def async_run(
                 dump_config=not dumped_config,
             )
             dumped_config = True
+            if on_connect_callback is not None:
+                on_connect_callback()
             if log_callback:
                 await _subscribe_entity_states(cli, on_log, log_callback)
         except APIConnectionError:
@@ -78,7 +87,7 @@ async def async_run(
 
     logic = ReconnectLogic(
         client=cli,
-        on_connect=on_connect,
+        on_connect=on_connect_,
         on_disconnect=on_disconnect,
         zeroconf_instance=aio_zeroconf_instance,
         name=name,
