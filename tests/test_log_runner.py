@@ -793,3 +793,45 @@ async def test_log_runner_on_connect_callback(
     await asyncio.sleep(0)
     mock_data_received(protocol, generate_plaintext_packet(DisconnectResponse()))
     await stop_task
+
+
+@pytest.mark.parametrize("callback_raises", [False, True])
+async def test_log_runner_on_connect_callback_keeps_state_subscription(
+    caplog: pytest.LogCaptureFixture,
+    callback_raises: bool,
+) -> None:
+    """The state subscription runs after the on_connect callback either way."""
+    cli = MagicMock(spec=APIClient)
+    cli.device_info_and_list_entities = AsyncMock(return_value=(MagicMock(), [], []))
+
+    on_connect_callback = None
+
+    class MockReconnectLogic(ReconnectLogic):
+        def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal on_connect_callback
+            on_connect_callback = on_connect
+
+        async def start(self) -> None:
+            await on_connect_callback()
+
+        async def stop(self) -> None:
+            pass
+
+    on_connect = MagicMock(
+        side_effect=RuntimeError("callback blew up") if callback_raises else None
+    )
+
+    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+        stop = await async_run(
+            cli,
+            lambda msg: None,
+            subscribe_states=True,
+            on_connect=on_connect,
+        )
+
+    on_connect.assert_called_once_with()
+    # The entity-state subscription must run even when the callback raised
+    cli.device_info_and_list_entities.assert_awaited_once()
+    assert ("Error in on_connect callback" in caplog.text) is callback_raises
+
+    await stop()

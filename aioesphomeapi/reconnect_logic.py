@@ -458,6 +458,9 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             self._async_set_connection_state_without_lock(
                 ReconnectLogicState.DISCONNECTED
             )
+        # The gate is one mDNS kick per attempt; this starts a new attempt,
+        # so don't leave it spent from the previous one.
+        self._accept_zeroconf_records = True
         self._schedule_connect(0.0)
 
     async def start(self) -> None:

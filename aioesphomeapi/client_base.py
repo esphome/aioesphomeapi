@@ -69,6 +69,10 @@ _LOGGER = logging.getLogger(__name__)
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
 
+# RFC 1035 caps a full domain name at 253 characters; anything longer in an
+# out-of-band discovered address is garbage and gets truncated for safety.
+MAX_ADDRESS_LEN = 253
+
 # Caps on the per-subscription camera reassembly buffer. The peer fully
 # controls cam_msg.key and cam_msg.done, so without these limits a single
 # device can stream chunks indefinitely (memory exhaustion DoS) or rotate
@@ -409,6 +413,11 @@ class APIClientBase:
         address is new, the addresses-changed callbacks are fired so
         consumers (e.g. ReconnectLogic) can act on them right away.
 
+        Addresses are expected to come from out-of-band discovery (e.g. an
+        MQTT broker lookup), so they are sanitized before they can reach
+        log output via ``log_name``; a legitimate IP or hostname passes
+        through unchanged.
+
         Must be called from the event loop. Returns True if at least one
         address was new.
         """
@@ -418,7 +427,8 @@ class APIClientBase:
         params_addresses = self._params.addresses
         added = False
         for addr in addresses:
-            if (addr_str := str(addr)) not in params_addresses:
+            addr_str = safe_label_str(str(addr), MAX_ADDRESS_LEN)
+            if addr_str not in params_addresses:
                 params_addresses.append(addr_str)
                 added = True
         if added:
@@ -433,10 +443,15 @@ class APIClientBase:
         """Register a callback fired when add_addresses adds a new address.
 
         Must be called from the event loop. Returns a callable that
-        unregisters the callback.
+        unregisters the callback; calling it more than once is a no-op.
         """
         self._addresses_changed_callbacks.append(callback)
-        return partial(self._addresses_changed_callbacks.remove, callback)
+        return partial(self._remove_addresses_changed_callback, callback)
+
+    def _remove_addresses_changed_callback(self, callback: Callable[[], None]) -> None:
+        """Remove an addresses-changed callback, tolerating a double call."""
+        if callback in self._addresses_changed_callbacks:
+            self._addresses_changed_callbacks.remove(callback)
 
     @property
     def connected_address(self) -> str | None:

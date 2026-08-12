@@ -5605,3 +5605,35 @@ async def test_add_addresses_rejects_bare_string() -> None:
     with pytest.raises(TypeError, match="not a string"):
         cli.add_addresses("10.0.0.1")  # type: ignore[arg-type]
     assert cli._params.addresses == ["192.168.1.100"]
+
+
+async def test_add_addresses_unsubscribe_is_idempotent() -> None:
+    """Calling the returned unsubscribe callable twice is a no-op."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+    unsub()
+    unsub()
+    assert cli._addresses_changed_callbacks == []
+
+
+async def test_add_addresses_sanitizes_discovered_strings() -> None:
+    """Out-of-band discovered addresses are sanitized before reaching log_name."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert cli.add_addresses(["10.0.0.1\n2026-08-12 ERROR forged line"]) is True
+    assert cli._params.addresses == [
+        "192.168.1.100",
+        "10.0.0.12026-08-12 ERROR forged line",
+    ]
+    assert "\n" not in cli.log_name
+    # Over-long garbage is truncated to the maximum legal FQDN length
+    assert cli.add_addresses(["a" * 300]) is True
+    assert cli._params.addresses[-1] == "a" * 253
