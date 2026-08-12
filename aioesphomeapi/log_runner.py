@@ -81,7 +81,6 @@ async def async_run(
                     on_connect()
                 except Exception:
                     # A caller bug must not cost the state subscription
-                    # or escape the connect task unretrieved
                     _LOGGER.exception("Error in on_connect callback")
             if log_callback:
                 await _subscribe_entity_states(cli, on_log, log_callback)

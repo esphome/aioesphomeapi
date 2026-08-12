@@ -5621,19 +5621,47 @@ async def test_add_addresses_unsubscribe_is_idempotent() -> None:
     assert cli._addresses_changed_callbacks == []
 
 
-async def test_add_addresses_sanitizes_discovered_strings() -> None:
-    """Out-of-band discovered addresses are sanitized before reaching log_name."""
+async def test_add_addresses_rejects_invalid_discovered_strings(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Garbage from out-of-band discovery is skipped, not rewritten and dialed."""
     cli = APIClient(
         address="192.168.1.100",
         port=6052,
         password=None,
     )
-    assert cli.add_addresses(["10.0.0.1\n2026-08-12 ERROR forged line"]) is True
-    assert cli._params.addresses == [
-        "192.168.1.100",
-        "10.0.0.12026-08-12 ERROR forged line",
-    ]
+    assert (
+        cli.add_addresses(
+            [
+                "10.0.0.1\n2026-08-12 ERROR forged line",  # log injection
+                "",  # empty
+                "   ",  # whitespace only
+                "a" * 300,  # over the maximum legal FQDN length
+            ]
+        )
+        is False
+    )
+    assert cli._params.addresses == ["192.168.1.100"]
     assert "\n" not in cli.log_name
-    # Over-long garbage is truncated to the maximum legal FQDN length
-    assert cli.add_addresses(["a" * 300]) is True
-    assert cli._params.addresses[-1] == "a" * 253
+    assert caplog.text.count("Ignoring invalid discovered address") == 4
+
+    # A valid address mixed in with garbage still lands
+    assert cli.add_addresses(["\x1b[31mforged\x1b[0m", "10.0.0.2"]) is True
+    assert cli._params.addresses == ["192.168.1.100", "10.0.0.2"]
+
+
+async def test_add_addresses_raising_callback_does_not_starve_others() -> None:
+    """One buggy subscriber cannot skip later callbacks or the return value."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    first = MagicMock(side_effect=RuntimeError("consumer bug"))
+    second = MagicMock()
+    cli.register_addresses_changed_callback(first)
+    cli.register_addresses_changed_callback(second)
+
+    assert cli.add_addresses(["10.0.0.2"]) is True
+    first.assert_called_once_with()
+    second.assert_called_once_with()

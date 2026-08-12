@@ -69,8 +69,7 @@ _LOGGER = logging.getLogger(__name__)
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
 
-# RFC 1035 caps a full domain name at 253 characters; anything longer in an
-# out-of-band discovered address is garbage and gets truncated for safety.
+# RFC 1035 maximum FQDN length; longer discovered addresses are rejected
 MAX_ADDRESS_LEN = 253
 
 # Caps on the per-subscription camera reassembly buffer. The peer fully
@@ -413,10 +412,9 @@ class APIClientBase:
         address is new, the addresses-changed callbacks are fired so
         consumers (e.g. ReconnectLogic) can act on them right away.
 
-        Addresses are expected to come from out-of-band discovery (e.g. an
-        MQTT broker lookup), so they are sanitized before they can reach
-        log output via ``log_name``; a legitimate IP or hostname passes
-        through unchanged.
+        Addresses come from out-of-band discovery (e.g. an MQTT broker
+        lookup); anything empty, over-long, or non-printable (a log
+        injection risk via ``log_name``) is skipped with a warning.
 
         Must be called from the event loop. Returns True if at least one
         address was new.
@@ -427,14 +425,28 @@ class APIClientBase:
         params_addresses = self._params.addresses
         added = False
         for addr in addresses:
-            addr_str = safe_label_str(str(addr), MAX_ADDRESS_LEN)
+            addr_str = str(addr)
+            if (
+                not addr_str.strip()
+                or len(addr_str) > MAX_ADDRESS_LEN
+                or safe_label_str(addr_str, MAX_ADDRESS_LEN) != addr_str
+            ):
+                # repr-escaped and truncated: the garbage must not forge log lines
+                _LOGGER.warning(
+                    "Ignoring invalid discovered address: %s", repr(addr_str)[:100]
+                )
+                continue
             if addr_str not in params_addresses:
                 params_addresses.append(addr_str)
                 added = True
         if added:
             self._set_log_name()
             for callback in self._addresses_changed_callbacks.copy():
-                callback()
+                try:
+                    callback()
+                except Exception:
+                    # One buggy subscriber must not starve the rest
+                    _LOGGER.exception("Error in addresses-changed callback")
         return added
 
     def register_addresses_changed_callback(
