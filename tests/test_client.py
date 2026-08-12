@@ -5637,17 +5637,22 @@ async def test_add_addresses_rejects_invalid_discovered_strings(
                 "",  # empty
                 "   ",  # whitespace only
                 "a" * 300,  # over the maximum legal FQDN length
+                "10.0.0.5 extra",  # interior whitespace
+                None,  # JSON null from a broken broker payload
+                49,  # non-string element
             ]
         )
         is False
     )
     assert cli._params.addresses == ["192.168.1.100"]
     assert "\n" not in cli.log_name
-    assert caplog.text.count("Ignoring invalid discovered address") == 4
+    assert caplog.text.count("Ignoring invalid discovered address") == 7
 
-    # A valid address mixed in with garbage still lands
-    assert cli.add_addresses(["\x1b[31mforged\x1b[0m", "10.0.0.2"]) is True
+    # A valid address mixed in with garbage still lands, and padding is
+    # normalized so it dedups against the canonical form
+    assert cli.add_addresses(["\x1b[31mforged\x1b[0m", "  10.0.0.2  "]) is True
     assert cli._params.addresses == ["192.168.1.100", "10.0.0.2"]
+    assert cli.add_addresses(["10.0.0.2"]) is False
 
 
 async def test_add_addresses_raising_callback_does_not_starve_others() -> None:

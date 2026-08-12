@@ -425,15 +425,18 @@ class APIClientBase:
         params_addresses = self._params.addresses
         added = False
         for addr in addresses:
-            addr_str = str(addr)
+            # str() only normalizes str subclasses (e.g. Estr); anything
+            # else (a JSON null, an int) is bad discovery data
+            addr_str = str(addr).strip() if isinstance(addr, str) else ""
             if (
-                not addr_str.strip()
+                not addr_str
+                or " " in addr_str
                 or len(addr_str) > MAX_ADDRESS_LEN
                 or safe_label_str(addr_str, MAX_ADDRESS_LEN) != addr_str
             ):
                 # repr-escaped and truncated: the garbage must not forge log lines
                 _LOGGER.warning(
-                    "Ignoring invalid discovered address: %s", repr(addr_str)[:100]
+                    "Ignoring invalid discovered address: %s", repr(addr)[:100]
                 )
                 continue
             if addr_str not in params_addresses:
