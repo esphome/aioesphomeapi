@@ -1,7 +1,7 @@
 from functools import partial
 import timeit
 
-from aioesphomeapi import APIConnection
+from aioesphomeapi import IPAPIConnection
 from aioesphomeapi.api_pb2 import (
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
@@ -13,7 +13,7 @@ from aioesphomeapi.client_base import on_ble_raw_advertisement_response
 # cythonize -X language_level=3 -a -i aioesphomeapi/connection.py
 
 
-class MockConnection(APIConnection):
+class MockConnection(IPAPIConnection):
     pass
 
 

@@ -11,12 +11,16 @@ from noise.connection import NoiseConnection  # type: ignore[import-untyped]
 from zeroconf import Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
+from aioesphomeapi import IPAPIConnection, IPConnectionParams
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from google.protobuf import message
 
-from aioesphomeapi import APIClient, APIConnection
+    from aioesphomeapi import APIClient, APIConnection
+
+
 from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
 from aioesphomeapi._frame_helper.noise_encryption import (
     ESPHOME_NOISE_BACKEND,
@@ -30,7 +34,6 @@ from aioesphomeapi.api_pb2 import (
     PingRequest,
     PingResponse,
 )
-from aioesphomeapi.client import ConnectionParams
 from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO, SocketClosedAPIError
 from aioesphomeapi.zeroconf import ZeroconfManager
 
@@ -49,8 +52,8 @@ NOISE_HELLO = b"\x01\x00\x00"
 KEEP_ALIVE_INTERVAL = 15.0
 
 
-def get_mock_connection_params() -> ConnectionParams:
-    return ConnectionParams(
+def get_mock_connection_params() -> IPConnectionParams:
+    return IPConnectionParams(
         addresses=["fake.address"],
         port=6052,
         password=None,
@@ -297,7 +300,7 @@ def _make_mock_connection() -> tuple[APIConnection, list[tuple[int, bytes]]]:
     """Make a mock connection."""
     packets: list[tuple[int, bytes]] = []
 
-    class MockConnection(APIConnection):
+    class MockConnection(IPAPIConnection):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             """Swallow args."""
             super().__init__(

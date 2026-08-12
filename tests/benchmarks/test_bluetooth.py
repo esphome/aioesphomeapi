@@ -4,7 +4,7 @@ from functools import partial
 
 from pytest_codspeed import BenchmarkFixture  # type: ignore[import-untyped]
 
-from aioesphomeapi import APIConnection
+from aioesphomeapi import IPAPIConnection
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
@@ -17,7 +17,7 @@ from aioesphomeapi.client import APIClient
 async def test_raw_ble_plain_text_with_callback(benchmark: BenchmarkFixture) -> None:
     """Benchmark raw BLE plaintext with callback."""
 
-    class MockConnection(APIConnection):
+    class MockConnection(IPAPIConnection):
         pass
 
     client = APIClient("fake.address", 6052, None)
@@ -81,7 +81,7 @@ async def test_raw_ble_plain_text(benchmark: BenchmarkFixture) -> None:
         + data
     )
 
-    class MockConnection(APIConnection):
+    class MockConnection(IPAPIConnection):
         def __init__(self, *args, **kwargs):
             """Initialize the connection."""
 
@@ -127,7 +127,7 @@ async def test_raw_ble_plain_text_different_advs(benchmark: BenchmarkFixture) ->
         + data
     )
 
-    class MockConnection(APIConnection):
+    class MockConnection(IPAPIConnection):
         def __init__(self, *args, **kwargs):
             """Initialize the connection."""
 
@@ -175,7 +175,7 @@ async def test_multiple_ble_adv_messages_single_read(
         + data
     )
 
-    class MockConnection(APIConnection):
+    class MockConnection(IPAPIConnection):
         def __init__(self, *args, **kwargs):
             """Initialize the connection."""
 
