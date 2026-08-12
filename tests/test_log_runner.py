@@ -725,6 +725,7 @@ async def test_log_runner_add_addresses_triggers_immediate_attempt() -> None:
 
 async def test_log_runner_on_connect_callback(
     conn: APIConnection,
+    caplog: pytest.LogCaptureFixture,
     aiohappyeyeballs_start_connection,
 ) -> None:
     """The optional on_connect callback fires once the log subscription is up."""
@@ -761,7 +762,9 @@ async def test_log_runner_on_connect_callback(
         original_subscribe_logs(*args, **kwargs)
         subscribed.set()
 
-    on_connect = MagicMock()
+    # A raising callback must be contained: the connection must still come
+    # up and the error must be logged rather than escaping the connect task
+    on_connect = MagicMock(side_effect=RuntimeError("callback blew up"))
 
     with (
         patch.object(
@@ -784,6 +787,7 @@ async def test_log_runner_on_connect_callback(
         await subscribed.wait()
 
     on_connect.assert_called_once_with()
+    assert "Error in on_connect callback" in caplog.text
 
     stop_task = asyncio.create_task(stop())
     await asyncio.sleep(0)

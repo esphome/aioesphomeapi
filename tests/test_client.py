@@ -5593,3 +5593,15 @@ async def test_device_id_in_commands(
     # Verify key and device_id match
     assert actual_request.key == expected_request.key
     assert actual_request.device_id == expected_request.device_id
+
+
+async def test_add_addresses_rejects_bare_string() -> None:
+    """A bare string must not be iterated into single characters."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    with pytest.raises(TypeError, match="not a string"):
+        cli.add_addresses("10.0.0.1")  # type: ignore[arg-type]
+    assert cli._params.addresses == ["192.168.1.100"]

@@ -51,7 +51,7 @@ from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
+    from collections.abc import Callable, Coroutine, Iterable
 
     from google.protobuf import message
 
@@ -402,7 +402,7 @@ class APIClientBase:
         """
         self._params.noise_psk = None
 
-    def add_addresses(self, addresses: list[str_]) -> bool:
+    def add_addresses(self, addresses: Iterable[str_]) -> bool:
         """Append new addresses to try on future connection attempts.
 
         Addresses already known are ignored; order is preserved. If any
@@ -412,6 +412,9 @@ class APIClientBase:
         Must be called from the event loop. Returns True if at least one
         address was new.
         """
+        if isinstance(addresses, str):
+            msg = "addresses must be an iterable of strings, not a string"
+            raise TypeError(msg)
         params_addresses = self._params.addresses
         added = False
         for addr in addresses:

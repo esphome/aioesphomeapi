@@ -52,7 +52,11 @@ async def async_run(
     ``on_connect`` is called after each successful connection, once the
     log subscription is in place. Callers can use it to stop side channels
     that only matter while disconnected (e.g. an out-of-band address
-    discovery feeding ``cli.add_addresses``).
+    discovery feeding ``cli.add_addresses``). It deliberately fires before
+    the entity-state subscription, which costs a device round-trip that
+    the caller's cleanup should not have to wait on. An exception it
+    raises is logged and contained so it cannot cost the state
+    subscription or the connect flow.
 
     The logger stream is one-way (device → client), so enabling the
     fallback here only exposes log output to an on-path attacker — no
@@ -60,7 +64,6 @@ async def async_run(
     control-plane connections (e.g. Home Assistant).
     """
     dumped_config = not dump_config
-    on_connect_callback = on_connect
 
     async def on_connect_() -> None:
         """Handle a connection."""
@@ -73,8 +76,13 @@ async def async_run(
                 dump_config=not dumped_config,
             )
             dumped_config = True
-            if on_connect_callback is not None:
-                on_connect_callback()
+            if on_connect is not None:
+                try:
+                    on_connect()
+                except Exception:
+                    # A caller bug must not cost the state subscription
+                    # or escape the connect task unretrieved
+                    _LOGGER.exception("Error in on_connect callback")
             if log_callback:
                 await _subscribe_entity_states(cli, on_log, log_callback)
         except APIConnectionError:
