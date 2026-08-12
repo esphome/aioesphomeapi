@@ -1736,6 +1736,47 @@ async def test_addresses_parameter_handles_subclassed_string() -> None:
     assert cli._params.addresses[2] == "10.0.0.1"
 
 
+async def test_add_addresses() -> None:
+    """Test appending addresses after construction."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    assert cli._params.addresses == ["192.168.1.100"]
+
+    assert cli.add_addresses(["192.168.1.101", "192.168.1.100"]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101"]
+    assert cli.log_name == "192.168.1.100"
+
+    # Subclassed strings are converted, duplicates ignored
+    assert cli.add_addresses([Estr("192.168.1.101"), Estr("10.0.0.1")]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101", "10.0.0.1"]
+    assert all(type(addr) is str for addr in cli._params.addresses)
+
+
+async def test_add_addresses_fires_callbacks() -> None:
+    """Test the addresses-changed callbacks fire only on real additions."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    callback.assert_not_called()
+
+    assert cli.add_addresses(["192.168.1.101"]) is True
+    callback.assert_called_once_with()
+
+    unsub()
+    assert cli.add_addresses(["10.0.0.1"]) is True
+    callback.assert_called_once_with()
+
+
 async def test_client_properties(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -5552,3 +5593,80 @@ async def test_device_id_in_commands(
     # Verify key and device_id match
     assert actual_request.key == expected_request.key
     assert actual_request.device_id == expected_request.device_id
+
+
+async def test_add_addresses_rejects_bare_string() -> None:
+    """A bare string must not be iterated into single characters."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    with pytest.raises(TypeError, match="not a string"):
+        cli.add_addresses("10.0.0.1")  # type: ignore[arg-type]
+    assert cli._params.addresses == ["192.168.1.100"]
+
+
+async def test_add_addresses_unsubscribe_is_idempotent() -> None:
+    """Calling the returned unsubscribe callable twice is a no-op."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+    unsub()
+    unsub()
+    assert cli._addresses_changed_callbacks == []
+
+
+async def test_add_addresses_rejects_invalid_discovered_strings(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Garbage from out-of-band discovery is skipped, not rewritten and dialed."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert (
+        cli.add_addresses(
+            [
+                "10.0.0.1\n2026-08-12 ERROR forged line",  # log injection
+                "",  # empty
+                "   ",  # whitespace only
+                "a" * 300,  # over the maximum legal FQDN length
+                "10.0.0.5 extra",  # interior whitespace
+                None,  # JSON null from a broken broker payload
+                49,  # non-string element
+            ]
+        )
+        is False
+    )
+    assert cli._params.addresses == ["192.168.1.100"]
+    assert "\n" not in cli.log_name
+    assert caplog.text.count("Ignoring invalid discovered address") == 7
+
+    # A valid address mixed in with garbage still lands, and padding is
+    # normalized so it dedups against the canonical form
+    assert cli.add_addresses(["\x1b[31mforged\x1b[0m", "  10.0.0.2  "]) is True
+    assert cli._params.addresses == ["192.168.1.100", "10.0.0.2"]
+    assert cli.add_addresses(["10.0.0.2"]) is False
+
+
+async def test_add_addresses_raising_callback_does_not_starve_others() -> None:
+    """One buggy subscriber cannot skip later callbacks or the return value."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    first = MagicMock(side_effect=RuntimeError("consumer bug"))
+    second = MagicMock()
+    cli.register_addresses_changed_callback(first)
+    cli.register_addresses_changed_callback(second)
+
+    assert cli.add_addresses(["10.0.0.2"]) is True
+    first.assert_called_once_with()
+    second.assert_called_once_with()

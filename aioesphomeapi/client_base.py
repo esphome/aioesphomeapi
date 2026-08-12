@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import itertools
 import logging
 from typing import TYPE_CHECKING, Any
@@ -50,7 +51,7 @@ from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
+    from collections.abc import Callable, Coroutine, Iterable
 
     from google.protobuf import message
 
@@ -67,6 +68,9 @@ _LOGGER = logging.getLogger(__name__)
 # maximum time a device can take to respond when its behind + the WiFi
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
+
+# RFC 1035 maximum FQDN length; longer discovered addresses are rejected
+MAX_ADDRESS_LEN = 253
 
 # Caps on the per-subscription camera reassembly buffer. The peer fully
 # controls cam_msg.key and cam_msg.done, so without these limits a single
@@ -274,6 +278,7 @@ class APIClientBase:
     """Base client for ESPHome API clients."""
 
     __slots__ = (
+        "_addresses_changed_callbacks",
         "_background_tasks",
         "_cached_device_info",
         "_call_id_counter",
@@ -350,6 +355,7 @@ class APIClientBase:
         self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
@@ -398,6 +404,69 @@ class APIClientBase:
         plane clients such as Home Assistant.
         """
         self._params.noise_psk = None
+
+    def add_addresses(self, addresses: Iterable[str_]) -> bool:
+        """Append new addresses to try on future connection attempts.
+
+        Addresses already known are ignored; order is preserved. If any
+        address is new, the addresses-changed callbacks are fired so
+        consumers (e.g. ReconnectLogic) can act on them right away.
+
+        Addresses come from out-of-band discovery (e.g. an MQTT broker
+        lookup); anything empty, over-long, or non-printable (a log
+        injection risk via ``log_name``) is skipped with a warning.
+
+        Must be called from the event loop. Returns True if at least one
+        address was new.
+        """
+        if isinstance(addresses, str):
+            msg = "addresses must be an iterable of strings, not a string"
+            raise TypeError(msg)
+        params_addresses = self._params.addresses
+        added = False
+        for addr in addresses:
+            # str() only normalizes str subclasses (e.g. Estr); anything
+            # else (a JSON null, an int) is bad discovery data
+            addr_str = str(addr).strip() if isinstance(addr, str) else ""
+            if (
+                not addr_str
+                or " " in addr_str
+                or len(addr_str) > MAX_ADDRESS_LEN
+                or safe_label_str(addr_str, MAX_ADDRESS_LEN) != addr_str
+            ):
+                # repr-escaped and truncated: the garbage must not forge log lines
+                _LOGGER.warning(
+                    "Ignoring invalid discovered address: %s", repr(addr)[:100]
+                )
+                continue
+            if addr_str not in params_addresses:
+                params_addresses.append(addr_str)
+                added = True
+        if added:
+            self._set_log_name()
+            for callback in self._addresses_changed_callbacks.copy():
+                try:
+                    callback()
+                except Exception:
+                    # One buggy subscriber must not starve the rest
+                    _LOGGER.exception("Error in addresses-changed callback")
+        return added
+
+    def register_addresses_changed_callback(
+        self, callback: Callable[[], None]
+    ) -> Callable[[], None]:
+        """Register a callback fired when add_addresses adds a new address.
+
+        Must be called from the event loop. Returns a callable that
+        unregisters the callback; calling it more than once is a no-op.
+        """
+        self._addresses_changed_callbacks.append(callback)
+        return partial(self._remove_addresses_changed_callback, callback)
+
+    def _remove_addresses_changed_callback(self, callback: Callable[[], None]) -> None:
+        """Remove an addresses-changed callback, tolerating a double call."""
+        if callback in self._addresses_changed_callbacks:
+            self._addresses_changed_callbacks.remove(callback)
 
     @property
     def connected_address(self) -> str | None:

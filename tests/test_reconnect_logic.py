@@ -1703,3 +1703,167 @@ async def test_zc_listen_failure_downgrades_to_debug_after_first_try(
     assert log_record.levelno == logging.DEBUG
 
     await logic.stop()
+
+
+async def test_addresses_changed_callback_lifecycle(
+    patchable_api_client: APIClient,
+) -> None:
+    """The addresses-changed callback registers on start and unregisters on stop."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+    assert cli._addresses_changed_callbacks == []
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    assert cli._addresses_changed_callbacks == [rl._on_addresses_changed]
+
+    await rl.stop()
+    assert cli._addresses_changed_callbacks == []
+
+    # add_addresses after stop must not schedule anything
+    assert rl._connect_timer is None
+    cli.add_addresses(["10.0.0.2"])
+    assert rl._connect_timer is None
+    assert rl._connect_task is None
+
+
+async def test_add_addresses_kicks_backoff_timer(
+    patchable_api_client: APIClient,
+) -> None:
+    """New addresses trigger an immediate attempt instead of waiting out backoff."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    # First attempt failed; we are DISCONNECTED waiting on the backoff timer
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._connect_timer is not None
+
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve,
+        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+    ):
+        assert cli.add_addresses(["10.0.0.2"]) is True
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_resolve.call_count == 1
+        assert cli._params.addresses == ["127.0.0.1", "10.0.0.2"]
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+
+
+@pytest.mark.parametrize(
+    ("stall_in_resolve", "expected_log"),
+    [
+        (False, "Cancelling existing connect task"),
+        (True, "Cancelling resolve to try newly added addresses"),
+    ],
+)
+async def test_add_addresses_cancels_stalled_attempt(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+    stall_in_resolve: bool,
+    expected_log: str,
+) -> None:
+    """New addresses cancel an attempt stuck before a socket is established."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+
+    if stall_in_resolve:
+        with patch.object(cli, "start_resolve_host", side_effect=slow_connect_fail):
+            await rl.start()
+            await asyncio.sleep(0)
+        assert rl._connection_state is ReconnectLogicState.RESOLVING
+    else:
+        with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+            await rl.start()
+            await asyncio.sleep(0)
+        with (
+            patch.object(cli, "start_resolve_host"),
+            patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+        ):
+            assert rl._connect_timer is not None
+            rl._connect_timer._run()
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+
+    assert cli.connected_address is None
+    caplog.clear()
+
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve_2,
+        patch.object(
+            cli, "start_connection", side_effect=slow_connect_fail
+        ) as mock_connect_2,
+    ):
+        assert cli.add_addresses(["10.0.0.2"]) is True
+        assert expected_log in caplog.text
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_resolve_2.call_count == 1
+        assert mock_connect_2.call_count == 1
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+
+
+async def test_add_addresses_ignored_when_ready(
+    patchable_api_client: APIClient,
+) -> None:
+    """New addresses while READY must not disturb the live connection."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert rl._connection_state is ReconnectLogicState.READY
+
+    assert cli.add_addresses(["10.0.0.2"]) is True
+    assert rl._connect_timer is None
+    assert rl._connection_state is ReconnectLogicState.READY
+
+    await rl.stop()

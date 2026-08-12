@@ -141,6 +141,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._connect_task: asyncio.Task[None] | None = None
         self._connect_timer: asyncio.TimerHandle | None = None
         self._stop_task: asyncio.Task[None] | None = None
+        self._unsub_addresses_changed: Callable[[], None] | None = None
 
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
         """Log and issue callbacks when disconnecting."""
@@ -191,7 +192,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """Set the connection state without holding the lock.
 
         This should only be used for setting the state to DISCONNECTED
-        when the state is CONNECTING.
+        after cancelling an attempt that has not yet established a
+        socket (RESOLVING, or CONNECTING before the socket connected).
         """
         self._connection_state = state
 
@@ -431,6 +433,36 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
         self._stop_task.add_done_callback(self._remove_stop_task)
 
+    def _on_addresses_changed(self) -> None:
+        """Handle new candidate addresses appearing on the client.
+
+        Try to connect with them right away instead of waiting out the
+        backoff timer. _call_connect_once owns the restart policy for an
+        in-flight attempt; only the RESOLVING case is handled here.
+        """
+        if self._is_stopped or self._connection_state not in NOT_YET_CONNECTED_STATES:
+            # HANDSHAKING / READY: too far along to benefit; a later
+            # attempt re-reads the address list anyway.
+            return
+        if self._connection_state is ReconnectLogicState.RESOLVING:
+            # _call_connect_once won't restart a RESOLVING attempt (correct
+            # for the mDNS kick, whose records are what the resolver is
+            # waiting for); here the resolver may be pinned on a dead
+            # hostname for its full timeout while the new addresses are
+            # typically IP literals that resolve instantly, so cancel it.
+            _LOGGER.debug(
+                "%s: Cancelling resolve to try newly added addresses",
+                self._cli.log_name,
+            )
+            self._cancel_connect_task("New addresses available")
+            self._async_set_connection_state_without_lock(
+                ReconnectLogicState.DISCONNECTED
+            )
+        # Re-arm the one-kick-per-attempt mDNS gate for the attempt this
+        # schedules; harmless if _call_connect_once declines.
+        self._accept_zeroconf_records = True
+        self._schedule_connect(0.0)
+
     async def start(self) -> None:
         """Start the connecting logic background task."""
         async with self._connected_lock:
@@ -441,10 +473,19 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # Clear any stale gate from a prior run that was stopped mid
             # attempt after an mDNS triggered restart.
             self._accept_zeroconf_records = True
+            if self._unsub_addresses_changed is None:
+                self._unsub_addresses_changed = (
+                    self._cli.register_addresses_changed_callback(
+                        self._on_addresses_changed
+                    )
+                )
             self._schedule_connect(0.0)
 
     async def stop(self) -> None:
         """Stop the connecting logic background task. Does not disconnect the client."""
+        if self._unsub_addresses_changed is not None:
+            self._unsub_addresses_changed()
+            self._unsub_addresses_changed = None
         if self._connection_state in NOT_YET_CONNECTED_STATES:
             # If we are still establishing a connection, we can safely
             # cancel the connect task here, otherwise we need to wait
