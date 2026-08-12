@@ -1785,15 +1785,7 @@ async def test_add_addresses_cancels_stalled_attempt(
     stall_in_resolve: bool,
     expected_log: str,
 ) -> None:
-    """New addresses cancel an attempt stuck before a socket is established.
-
-    The CONNECTING-without-socket restart is _call_connect_once's existing
-    policy; the RESOLVING cancel is specific to the address kick. Unlike the
-    mDNS kick, which leaves a RESOLVING attempt alone because the resolver
-    is waiting for the very records zeroconf is delivering, new addresses
-    must interrupt a resolve that may be pinned on a dead hostname for its
-    full timeout.
-    """
+    """New addresses cancel an attempt stuck before a socket is established."""
     cli = patchable_api_client
 
     rl = ReconnectLogic(

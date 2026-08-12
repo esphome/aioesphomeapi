@@ -679,11 +679,7 @@ async def test_async_run_on_disconnect_logs_warning(
 
 
 async def test_log_runner_add_addresses_triggers_immediate_attempt() -> None:
-    """add_addresses on the client kicks the runner's internal ReconnectLogic.
-
-    This is the flow the esphome CLI uses to feed MQTT-discovered addresses
-    in while the runner is already retrying the directly-known addresses.
-    """
+    """add_addresses on the client kicks the runner's internal ReconnectLogic."""
     async_zeroconf = get_mock_async_zeroconf()
 
     class PatchableAPIClient(APIClient):
