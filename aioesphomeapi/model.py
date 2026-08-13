@@ -1536,8 +1536,13 @@ def _join_split_uuid(value: list[int]) -> str:
 
 @lru_cache(maxsize=256)
 def _join_split_uuid_high_low(high: int, low: int) -> str:
-    # Same output as str(UUID(int=...)) without importing the uuid module
-    h = f"{(high << 64) | low:032x}"
+    # Same output and range check as str(UUID(int=...)) without
+    # importing the uuid module
+    value = (high << 64) | low
+    if not 0 <= value < 1 << 128:
+        msg = "int is out of range (need a 128-bit value)"
+        raise ValueError(msg)
+    h = f"{value:032x}"
     return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:]}"
 
 

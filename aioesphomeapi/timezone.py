@@ -29,8 +29,8 @@ _tz_modules_loaded = False
 def _load_tz_modules() -> None:
     """Import tzlocal/importlib.resources; blocking, so run off the event loop."""
     global resources, tzlocal, _tz_modules_loaded  # noqa: PLW0603
-    if _tz_modules_loaded:
-        return
+    # Callers are behind lru_cache so this is cold; always taking the lock
+    # keeps the flag and module stores ordered on free-threaded builds.
     with _import_lock:
         if not _tz_modules_loaded:
             from importlib import resources  # noqa: PLC0415
