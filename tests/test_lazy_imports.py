@@ -35,11 +35,19 @@ def _reset_noise_loader():
     connection_module._noise_import_locks = orig_locks
 
 
-def test_import_does_not_load_noise_stack() -> None:
-    """Importing the package must not pull in the noise/cryptography stack."""
+# Modules that must only load when timezone handling (provide_time) runs.
+TZ_DEFERRED_MODULES = (
+    "uuid",
+    "tzlocal",
+    "zoneinfo",
+    "importlib.resources",
+)
+
+
+def _assert_modules_not_loaded_on_import(modules: tuple[str, ...]) -> None:
     script = (
         "import sys, aioesphomeapi\n"
-        f"loaded = [m for m in {DEFERRED_MODULES!r} if m in sys.modules]\n"
+        f"loaded = [m for m in {modules!r} if m in sys.modules]\n"
         "print(','.join(loaded))\n"
     )
     result = subprocess.run(  # noqa: S603
@@ -49,6 +57,16 @@ def test_import_does_not_load_noise_stack() -> None:
         check=True,
     )
     assert result.stdout.strip() == "", f"unexpectedly loaded: {result.stdout.strip()}"
+
+
+def test_import_does_not_load_noise_stack() -> None:
+    """Importing the package must not pull in the noise/cryptography stack."""
+    _assert_modules_not_loaded_on_import(DEFERRED_MODULES)
+
+
+def test_import_does_not_load_tz_or_uuid_modules() -> None:
+    """Importing the package must not pull in uuid or the timezone stack."""
+    _assert_modules_not_loaded_on_import(TZ_DEFERRED_MODULES)
 
 
 def test_import_noise_frame_helper_caches_class() -> None:

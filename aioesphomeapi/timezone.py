@@ -27,7 +27,7 @@ _tz_modules_loaded = False
 
 
 def _load_tz_modules() -> None:
-    """Import tzlocal/importlib.resources; call only from executor threads."""
+    """Import tzlocal/importlib.resources; blocking, so run off the event loop."""
     global resources, tzlocal, _tz_modules_loaded  # noqa: PLW0603
     if _tz_modules_loaded:
         return
