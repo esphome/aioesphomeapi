@@ -35,11 +35,20 @@ def _reset_noise_loader():
     connection_module._noise_import_locks = orig_locks
 
 
-def test_import_does_not_load_noise_stack() -> None:
-    """Importing the package must not pull in the noise/cryptography stack."""
+# Modules that must not load on package import: the timezone stack loads
+# only when provide_time timezone handling runs; uuid is no longer used.
+TZ_DEFERRED_MODULES = (
+    "uuid",
+    "tzlocal",
+    "zoneinfo",
+    "importlib.resources",
+)
+
+
+def _assert_modules_not_loaded_on_import(modules: tuple[str, ...]) -> None:
     script = (
         "import sys, aioesphomeapi\n"
-        f"loaded = [m for m in {DEFERRED_MODULES!r} if m in sys.modules]\n"
+        f"loaded = [m for m in {modules!r} if m in sys.modules]\n"
         "print(','.join(loaded))\n"
     )
     result = subprocess.run(  # noqa: S603
@@ -49,6 +58,32 @@ def test_import_does_not_load_noise_stack() -> None:
         check=True,
     )
     assert result.stdout.strip() == "", f"unexpectedly loaded: {result.stdout.strip()}"
+
+
+def test_import_does_not_load_noise_stack() -> None:
+    """Importing the package must not pull in the noise/cryptography stack."""
+    _assert_modules_not_loaded_on_import(DEFERRED_MODULES)
+
+
+def test_import_does_not_load_tz_or_uuid_modules() -> None:
+    """Importing the package must not pull in uuid or the timezone stack."""
+    _assert_modules_not_loaded_on_import(TZ_DEFERRED_MODULES)
+
+
+def test_explicit_timezone_does_not_load_tzlocal() -> None:
+    """Resolving an explicit IANA key must not pull in tzlocal."""
+    script = (
+        "import sys\n"
+        "from aioesphomeapi.timezone import iana_to_posix_tz\n"
+        "assert iana_to_posix_tz('America/Chicago')\n"
+        "assert 'tzlocal' not in sys.modules\n"
+    )
+    subprocess.run(  # noqa: S603
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
 
 
 def test_import_noise_frame_helper_caches_class() -> None:
