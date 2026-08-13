@@ -5,7 +5,6 @@ from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
-from uuid import UUID
 
 from .util import fix_float_single_double_conversion
 
@@ -1537,7 +1536,9 @@ def _join_split_uuid(value: list[int]) -> str:
 
 @lru_cache(maxsize=256)
 def _join_split_uuid_high_low(high: int, low: int) -> str:
-    return str(UUID(int=(high << 64) | low))
+    # Same output as str(UUID(int=...)) without importing the uuid module
+    h = f"{(high << 64) | low:032x}"
+    return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:]}"
 
 
 @lru_cache(maxsize=256)

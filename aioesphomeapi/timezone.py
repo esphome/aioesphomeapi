@@ -4,20 +4,47 @@ from __future__ import annotations
 
 import asyncio
 from functools import cache, lru_cache
-from importlib import resources
 import logging
-
-import tzlocal
+import threading
+from typing import TYPE_CHECKING
 
 from .singleton import singleton
 
+if TYPE_CHECKING:
+    from importlib import resources
+
+    import tzlocal
+else:
+    resources = None
+    tzlocal = None
+
 _LOGGER = logging.getLogger(__name__)
+
+# Guards the lazy imports below; a module-level lock is per-interpreter,
+# matching the per-interpreter sys.modules the imports populate.
+_import_lock = threading.Lock()
+_tz_modules_loaded = False
+
+
+def _load_tz_modules() -> None:
+    """Import tzlocal/importlib.resources; call only from executor threads."""
+    global resources, tzlocal, _tz_modules_loaded  # noqa: PLW0603
+    if _tz_modules_loaded:
+        return
+    with _import_lock:
+        if not _tz_modules_loaded:
+            from importlib import resources  # noqa: PLC0415
+
+            import tzlocal  # noqa: PLC0415
+
+            _tz_modules_loaded = True
 
 
 def _load_tzdata(iana_key: str) -> bytes | None:
     """Load timezone data from tzdata package."""
     if not iana_key:
         return None
+    _load_tz_modules()
     try:
         package_loc, resource = iana_key.rsplit("/", 1)
     except ValueError:
@@ -52,6 +79,7 @@ def _get_local_timezone() -> str:
     This function is cached since the timezone doesn't change during runtime.
     This matches the implementation in ESPHome's time component.
     """
+    _load_tz_modules()
     try:
         # Use tzlocal to get the IANA timezone key, same as ESPHome
         iana_key: str | None = tzlocal.get_localzone_name()
