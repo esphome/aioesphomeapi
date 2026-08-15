@@ -2272,9 +2272,21 @@ def test_serial_proxy_modem_pins_conversion() -> None:
     model_with_pins = SerialProxyModemPins.from_pb(pb_msg_with_pins)
     assert model_with_pins.instance == 1
     assert model_with_pins.line_states == 3
+    assert model_with_pins.status == SerialProxyStatus.OK
+
+    # Test with error status
+    pb_msg_error = SerialProxyGetModemPinsResponsePb(
+        instance=9, status=SerialProxyStatus.INVALID_ARGUMENT
+    )
+    model_error = SerialProxyModemPins.from_pb(pb_msg_error)
+    assert model_error.status == SerialProxyStatus.INVALID_ARGUMENT
 
     # Test to_dict
-    assert model_with_pins.to_dict() == {"instance": 1, "line_states": 3}
+    assert model_with_pins.to_dict() == {
+        "instance": 1,
+        "line_states": 3,
+        "status": SerialProxyStatus.OK,
+    }
 
     # Test from_dict
     model_from_dict = SerialProxyModemPins.from_dict({"instance": 3, "line_states": 1})
@@ -2303,13 +2315,20 @@ def test_serial_proxy_info_conversion() -> None:
     assert model.port_type == SerialProxyPortType.TTL
 
     # With values
-    pb_msg = SerialProxyInfoPb(name="UART1", port_type=SerialProxyPortType.RS485)
+    pb_msg = SerialProxyInfoPb(
+        name="UART1", port_type=SerialProxyPortType.RS485, configured_line_states=3
+    )
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == "UART1"
     assert model.port_type == SerialProxyPortType.RS485
+    assert model.configured_line_states == 3
 
     # to_dict / from_dict
-    assert model.to_dict() == {"name": "UART1", "port_type": 2}
+    assert model.to_dict() == {
+        "name": "UART1",
+        "port_type": 2,
+        "configured_line_states": 3,
+    }
     model_from_dict = SerialProxyInfo.from_dict(
         {"name": "RS485 Port", "port_type": SerialProxyPortType.RS485}
     )
