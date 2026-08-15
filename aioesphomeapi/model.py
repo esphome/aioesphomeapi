@@ -234,6 +234,7 @@ class SerialProxyInfo(APIModelBase):
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
     )
+    configured_line_states: int = 0
 
 
 @_frozen_dataclass_decorator
@@ -1411,6 +1412,9 @@ class SerialProxyRequestResponse(APIModelBase):
 class SerialProxyModemPins(APIModelBase):
     instance: int = 0
     line_states: int = 0
+    status: SerialProxyStatus | None = converter_field(
+        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    )
 
 
 # ==================== INFO MAP ====================
