@@ -153,6 +153,7 @@ class ZWaveProxyRequestType(APIIntEnum):
 class ZWaveProxyStatus(APIIntEnum):
     OK = 0
     IN_USE = 1
+    NOT_SUPPORTED = 2
 
 
 @_frozen_dataclass_decorator
