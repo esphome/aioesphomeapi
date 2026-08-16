@@ -46,7 +46,6 @@ ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 ZC_LISTEN_DELAY = 2.0
 
 _zc_listener_cache: list[type[ReconnectRecordUpdateListener]] = []
-_zc_listener_import_locks: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
 
 
 def _import_zc_listener() -> type[ReconnectRecordUpdateListener]:
@@ -55,29 +54,6 @@ def _import_zc_listener() -> type[ReconnectRecordUpdateListener]:
     if not _zc_listener_cache:
         _zc_listener_cache.append(ReconnectRecordUpdateListener)
     return ReconnectRecordUpdateListener
-
-
-async def _async_load_zc_listener(
-    loop: asyncio.AbstractEventLoop,
-) -> type[ReconnectRecordUpdateListener]:
-    """Load the listener class, importing off the loop on the first cold import.
-
-    The import pulls in the zeroconf package, which does blocking file I/O;
-    running it in the executor keeps the event loop unblocked. The resolved
-    class is cached once the import fully completes, so later starts skip the
-    import entirely and a task racing the first cold import waits on the lock
-    instead of re-running the import on the loop thread.
-    """
-    if _zc_listener_cache:
-        return _zc_listener_cache[0]
-    lock = _zc_listener_import_locks.get(loop)
-    if lock is None:
-        lock = _zc_listener_import_locks[loop] = asyncio.Lock()
-    async with lock:
-        # Another task may have completed the import while we waited.
-        if _zc_listener_cache:
-            return _zc_listener_cache[0]
-        return await loop.run_in_executor(None, _import_zc_listener)
 
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
@@ -159,6 +135,7 @@ class ReconnectLogic:
             self.name = client.address.partition(".")[0]
         if self.name:
             self._cli.set_cached_name_if_unset(self.name)
+        self._zc_eligible = bool(self.name) and not self._is_ip_address
         # Caps the reconnect backoff so a short awake window is not missed. A
         # consumer may seed it before the first connect as a bootstrap hint
         # (e.g. from persisted DeviceInfo, so a restart caps from the first
@@ -455,7 +432,7 @@ class ReconnectLogic:
                 return
             # Not connected; bring the listener up for the backoff wait
             # instead of waiting out the remainder of the arm timer.
-            await self._async_start_zc_listen()
+            self._start_zc_listen_soon()
             tries = min(self._tries, 10)  # prevent OverflowError
             max_backoff = (
                 DEEP_SLEEP_MAXIMUM_BACKOFF if self.deep_sleep else MAXIMUM_BACKOFF
@@ -564,24 +541,30 @@ class ReconnectLogic:
         ZC_LISTEN_DELAY cancels the timer before it fires.
         """
         if (
-            not self._zc_listening
+            self._zc_eligible
+            and not self._zc_listening
             and self._zc_listen_timer is None
             and self._zc_listen_start_task is None
-            and self.name
-            and not self._is_ip_address
         ):
             self._zc_listen_timer = self.loop.call_later(
-                ZC_LISTEN_DELAY, self._fire_zc_listen_timer
+                ZC_LISTEN_DELAY, self._start_zc_listen_soon
             )
 
-    def _fire_zc_listen_timer(self) -> None:
-        """Start the listener from the arm timer via a task for the cold import."""
-        self._zc_listen_timer = None
-        self._zc_listen_start_task = create_eager_task(
-            self._async_start_zc_listen(),
-            name=f"{self._cli.log_name}: aioesphomeapi start zc listen",
-        )
-        self._zc_listen_start_task.add_done_callback(self._remove_zc_listen_start_task)
+    def _start_zc_listen_soon(self) -> None:
+        """Start the listener via a task so the cold import stays off the loop."""
+        self._cancel_zc_listen_timer()
+        if (
+            self._zc_eligible
+            and not self._zc_listening
+            and self._zc_listen_start_task is None
+        ):
+            self._zc_listen_start_task = create_eager_task(
+                self._async_start_zc_listen(),
+                name=f"{self._cli.log_name}: aioesphomeapi start zc listen",
+            )
+            self._zc_listen_start_task.add_done_callback(
+                self._remove_zc_listen_start_task
+            )
 
     def _remove_zc_listen_start_task(self, _fut: asyncio.Future[None]) -> None:
         self._zc_listen_start_task = None
@@ -592,18 +575,15 @@ class ReconnectLogic:
             # A failed import is retried inline by _start_zc_listen, which
             # owns logging the degraded no-mDNS-wake path.
             with contextlib.suppress(Exception):
-                await _async_load_zc_listener(self.loop)
+                await self.loop.run_in_executor(None, _import_zc_listener)
         if not self._is_stopped and self._connection_state in NOT_YET_CONNECTED_STATES:
             self._start_zc_listen()
 
     def _cancel_zc_listen_timer(self) -> None:
-        """Cancel the delayed mDNS listener start."""
+        """Cancel the delayed mDNS listener start timer."""
         if self._zc_listen_timer:
             self._zc_listen_timer.cancel()
             self._zc_listen_timer = None
-        if self._zc_listen_start_task:
-            self._zc_listen_start_task.cancel()
-            self._zc_listen_start_task = None
 
     def _start_zc_listen(self) -> None:
         """Listen for mDNS records.
@@ -615,8 +595,7 @@ class ReconnectLogic:
         connect attempt; the listener is a reconnect-speed
         optimisation, not a requirement for connecting.
         """
-        self._cancel_zc_listen_timer()
-        if not self._zc_listening and self.name and not self._is_ip_address:
+        if not self._zc_listening and self._zc_eligible:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
             # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
             # Lowercase the match keys here and the incoming records below
@@ -625,10 +604,8 @@ class ReconnectLogic:
             self._ptr_alias = f"{self.name}._esphomelib._tcp.local.".lower()
             self._a_name = f"{self.name}.local.".lower()
             try:
-                from ._zc_listener import ReconnectRecordUpdateListener  # noqa: PLC0415
-
                 if self._zc_listener is None:
-                    self._zc_listener = ReconnectRecordUpdateListener(self)
+                    self._zc_listener = _import_zc_listener()(self)
                 async_zc = self._zeroconf_manager.get_async_zeroconf()
                 async_zc.zeroconf.async_add_listener(self._zc_listener, None)
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
@@ -646,6 +623,9 @@ class ReconnectLogic:
     def _stop_zc_listen(self) -> None:
         """Stop listening for zeroconf updates."""
         self._cancel_zc_listen_timer()
+        if self._zc_listen_start_task:
+            self._zc_listen_start_task.cancel()
+            self._zc_listen_start_task = None
         if self._zc_listening:
             _LOGGER.debug("Removing zeroconf listener for %s", self.name)
             if TYPE_CHECKING:

@@ -1508,7 +1508,7 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
         mock_get_zc.assert_not_called()
 
         # Firing the arm timer starts the listener for a device name
-        logic_with_name._fire_zc_listen_timer()
+        logic_with_name._start_zc_listen_soon()
         assert logic_with_name._zc_listen_start_task is not None
         await logic_with_name._zc_listen_start_task
         mock_get_zc.assert_called()
@@ -1951,6 +1951,8 @@ async def test_zc_listener_delegate_registered_on_failed_attempt(
             await rl.start()
             await asyncio.sleep(0)
             await asyncio.sleep(0)
+            if rl._zc_listen_start_task is not None:
+                await rl._zc_listen_start_task
 
             add_listener.assert_called_once()
             listener, question = add_listener.call_args[0]
@@ -2000,8 +2002,7 @@ async def test_zc_listener_starts_when_timer_fires_mid_attempt(
             await resolve_started.wait()
 
             assert rl._zc_listen_timer is not None
-            rl._cancel_zc_listen_timer()
-            rl._fire_zc_listen_timer()
+            rl._start_zc_listen_soon()
             assert rl._zc_listen_start_task is not None
             await rl._zc_listen_start_task
 
