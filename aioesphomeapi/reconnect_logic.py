@@ -150,8 +150,16 @@ class ReconnectLogic:
         self._zeroconf_manager = client.zeroconf_manager
         if zeroconf_instance is not None:
             self._zeroconf_manager.set_instance(zeroconf_instance)
+        # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
+        # Lowercase the match keys here and the incoming records in
+        # async_update_records so a device advertising mixed-case labels
+        # still triggers the fast reconnect instead of falling back to
+        # exponential backoff.
         self._ptr_alias: str | None = None
         self._a_name: str | None = None
+        if self.name:
+            self._ptr_alias = f"{self.name}._esphomelib._tcp.local.".lower()
+            self._a_name = f"{self.name}.local.".lower()
         # Flag to check if the device is connected
         self._connection_state = ReconnectLogicState.DISCONNECTED
         self._accept_zeroconf_records: bool = True
@@ -597,12 +605,6 @@ class ReconnectLogic:
         """
         if not self._zc_listening and self._zc_eligible:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
-            # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
-            # Lowercase the match keys here and the incoming records below
-            # so a device advertising mixed-case labels still triggers the
-            # fast reconnect instead of falling back to exponential backoff.
-            self._ptr_alias = f"{self.name}._esphomelib._tcp.local.".lower()
-            self._a_name = f"{self.name}.local.".lower()
             try:
                 if self._zc_listener is None:
                     self._zc_listener = _import_zc_listener()(self)

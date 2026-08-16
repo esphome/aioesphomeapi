@@ -1507,10 +1507,8 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
         assert logic_with_name._zc_listen_timer is not None
         mock_get_zc.assert_not_called()
 
-        # Firing the arm timer starts the listener for a device name
-        logic_with_name._start_zc_listen_soon()
-        assert logic_with_name._zc_listen_start_task is not None
-        await logic_with_name._zc_listen_start_task
+        # Starting the listener for a device name calls get_async_zeroconf
+        logic_with_name._start_zc_listen()
         mock_get_zc.assert_called()
 
         await logic_with_name.stop()
