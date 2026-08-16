@@ -574,8 +574,9 @@ class ReconnectLogic:
                 self._remove_zc_listen_start_task
             )
 
-    def _remove_zc_listen_start_task(self, _fut: asyncio.Future[None]) -> None:
-        self._zc_listen_start_task = None
+    def _remove_zc_listen_start_task(self, fut: asyncio.Future[None]) -> None:
+        if self._zc_listen_start_task is fut:
+            self._zc_listen_start_task = None
 
     async def _async_start_zc_listen(self) -> None:
         """Import the listener off the event loop, then start listening."""
