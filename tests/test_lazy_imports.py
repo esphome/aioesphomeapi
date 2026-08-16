@@ -45,6 +45,16 @@ TZ_DEFERRED_MODULES = (
 )
 
 
+# Modules that must only load when mDNS is actually used: resolution of a
+# .local name, or the mDNS-wake reconnect listener starting.
+ZEROCONF_DEFERRED_MODULES = (
+    "zeroconf",
+    "zeroconf.asyncio",
+    "ifaddr",
+    "aioesphomeapi._zc_listener",
+)
+
+
 def _assert_modules_not_loaded_on_import(modules: tuple[str, ...]) -> None:
     script = (
         "import sys, aioesphomeapi\n"
@@ -68,6 +78,11 @@ def test_import_does_not_load_noise_stack() -> None:
 def test_import_does_not_load_tz_or_uuid_modules() -> None:
     """Importing the package must not pull in uuid or the timezone stack."""
     _assert_modules_not_loaded_on_import(TZ_DEFERRED_MODULES)
+
+
+def test_import_does_not_load_zeroconf_stack() -> None:
+    """Importing the package must not pull in the zeroconf stack."""
+    _assert_modules_not_loaded_on_import(ZEROCONF_DEFERRED_MODULES)
 
 
 def test_explicit_timezone_does_not_load_tzlocal() -> None:
