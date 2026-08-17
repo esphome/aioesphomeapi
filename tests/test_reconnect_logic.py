@@ -1643,34 +1643,41 @@ async def test_zc_listen_failure_does_not_block_connect(
     )
 
     caplog.clear()
-    with (
-        patch.object(
-            cli.zeroconf_manager,
-            "get_async_zeroconf",
-            side_effect=OSError(48, "Address already in use"),
-        ),
-        patch.object(cli, "start_resolve_host"),
-        patch.object(cli, "start_connection"),
-        patch.object(cli, "finish_connection"),
+    with patch.object(
+        cli.zeroconf_manager,
+        "get_async_zeroconf",
+        side_effect=OSError(48, "Address already in use"),
     ):
-        await logic.start()
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
+            await logic.start()
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            if logic._zc_wake._start_task is not None:
+                await logic._zc_wake._start_task
 
-        # The connection should have succeeded despite the zeroconf failure.
+        # The first failed listener start warns
+        log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
+        assert log_record is not None, (
+            "Expected zeroconf failure warning was not logged"
+        )
+        assert log_record.levelno == logging.WARNING
+        # _listening must remain False so stop() doesn't try to remove a
+        # listener we never added.
+        assert logic._zc_wake._listening is False
+
+        # The broken zeroconf stack must not block the next attempt
+        with (
+            patch.object(cli, "start_resolve_host"),
+            patch.object(cli, "start_connection"),
+            patch.object(cli, "finish_connection"),
+        ):
+            assert logic._connect_timer is not None
+            logic._connect_timer._run()
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+
         assert on_connect.call_count == 1
-        assert on_connect_fail.call_count == 0
         assert logic._connection_state is ReconnectLogicState.READY
-
-        # A broken zeroconf stack logs a warning, connection untouched
-        logic._zc_wake.start()
-
-    log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
-    assert log_record is not None, "Expected zeroconf failure warning was not logged"
-    assert log_record.levelno == logging.WARNING
-    # _listening must remain False so stop() doesn't try to remove a listener
-    # we never added.
-    assert logic._zc_wake._listening is False
 
     await logic.stop()
 
@@ -1704,6 +1711,8 @@ async def test_zc_listen_failure_downgrades_to_debug_after_first_try(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert logic._tries == 1
+        if logic._zc_wake._start_task is not None:
+            await logic._zc_wake._start_task
 
         caplog.clear()
         assert logic._connect_timer is not None

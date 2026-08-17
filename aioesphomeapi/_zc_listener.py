@@ -11,11 +11,7 @@ if TYPE_CHECKING:
 
 
 class ReconnectRecordUpdateListener(RecordUpdateListener):
-    """Forward zeroconf record updates to a ZeroconfWake.
-
-    Lazily imported so the zeroconf package loads only when the
-    mDNS-wake listener actually starts.
-    """
+    """Forward zeroconf record updates to a ZeroconfWake."""
 
     def __init__(self, wake: ZeroconfWake) -> None:
         self._wake = wake

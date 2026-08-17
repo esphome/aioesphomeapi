@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from enum import Enum
 import logging
 import time
@@ -46,6 +45,10 @@ _zc_listener_cache: list[type[ReconnectRecordUpdateListener]] = []
 
 
 def _import_zc_listener() -> type[ReconnectRecordUpdateListener]:
+    # Preload zeroconf.asyncio too; start() needs it via get_async_zeroconf
+    # and it is not pulled in by the top-level zeroconf import.
+    import zeroconf.asyncio  # noqa: F401, PLC0415
+
     from ._zc_listener import ReconnectRecordUpdateListener  # noqa: PLC0415
 
     if not _zc_listener_cache:
@@ -91,7 +94,6 @@ class ZeroconfWake:
         client: APIClient,
         name: str | None,
         can_kick: Callable[[], bool],
-        log_level: Callable[[], int],
         on_wake: Callable[[], None],
     ) -> None:
         """Initialize the wake listener; can_kick gates records, on_wake kicks a connect."""
@@ -100,8 +102,8 @@ class ZeroconfWake:
         self._name = name
         self._eligible = bool(name) and not is_ip_address(name)
         self._can_kick = can_kick
-        self._log_level = log_level
         self._on_wake = on_wake
+        self._warned = False
         # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
         # Lowercase the match keys here and the incoming records in
         # async_update_records so a device advertising mixed-case labels
@@ -156,14 +158,17 @@ class ZeroconfWake:
                 async_zc = self._client.zeroconf_manager.get_async_zeroconf()
                 async_zc.zeroconf.async_add_listener(self._listener, None)
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
+                # WARNING once per instance, DEBUG after, so a broken
+                # zeroconf stack is visible without spamming every retry.
                 _LOGGER.log(
-                    self._log_level(),
+                    logging.DEBUG if self._warned else logging.WARNING,
                     "Could not start zeroconf listener for %s: %s (%s); "
                     "continuing without mDNS-triggered reconnects",
                     self._client.log_name,
                     err,
                     type(err).__name__,
                 )
+                self._warned = True
                 return
             self._listening = True
 
@@ -231,10 +236,15 @@ class ZeroconfWake:
     async def _async_start(self) -> None:
         """Import the listener off the event loop, then start listening."""
         if not _zc_listener_cache:
-            # A failed import is retried inline by start(), which owns
-            # logging the degraded no-mDNS-wake path.
-            with contextlib.suppress(Exception):
+            try:
                 await self._loop.run_in_executor(None, _import_zc_listener)
+            except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
+                # start() retries the import inline and logs if still failing.
+                _LOGGER.debug(
+                    "%s: off-loop zc listener import failed: %s",
+                    self._client.log_name,
+                    err,
+                )
         if self._can_kick():
             self.start()
 
@@ -255,6 +265,10 @@ class ZeroconfWake:
     def _remove_start_task(self, fut: asyncio.Future[None]) -> None:
         if self._start_task is fut:
             self._start_task = None
+        if not fut.cancelled() and (exc := fut.exception()) is not None:
+            _LOGGER.debug(
+                "%s: zc listen start task failed: %s", self._client.log_name, exc
+            )
 
 
 class ReconnectLogic:
@@ -327,7 +341,6 @@ class ReconnectLogic:
             client,
             self.name,
             self._zc_can_kick,
-            self._first_try_log_level,
             self._connect_from_zeroconf,
         )
         # How many connect attempts have there been already, used for exponential wait time
