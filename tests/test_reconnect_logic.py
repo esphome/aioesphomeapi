@@ -403,7 +403,7 @@ async def test_deep_sleep_caps_reconnect_backoff(
     loop = asyncio.get_running_loop()
     now = loop.time()
     with (
-        patch.object(rl, "_start_zc_listen"),
+        patch.object(rl._zc_wake, "start"),
         patch.object(rl, "_try_connect", AsyncMock(return_value=False)),
     ):
         await rl._connect_once_or_reschedule()
@@ -691,7 +691,7 @@ async def test_reconnect_zeroconf_cancels_connecting_no_socket(
         ) as mock_start_connection,
     ):
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
         assert rl._connect_timer is not None
@@ -701,7 +701,7 @@ async def test_reconnect_zeroconf_cancels_connecting_no_socket(
         assert mock_start_resolve_host.call_count == 1
         assert mock_start_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.CONNECTING
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
     caplog.clear()
@@ -773,7 +773,7 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert rl._connection_state is ReconnectLogicState.CONNECTING
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
 
     with (
         patch.object(cli, "start_resolve_host") as mock_resolve_2,
@@ -789,7 +789,7 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
         assert (
             caplog.text.count("Triggering connect because of received mDNS record") == 1
         )
-        assert rl._accept_zeroconf_records is False
+        assert rl._zc_wake._accept_records is False
 
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -822,7 +822,7 @@ async def test_start_clears_stale_zeroconf_gate(
     """A stop() while the gate is closed must not leak into the next start().
 
     If the logic is stopped mid attempt after an mDNS triggered restart,
-    _accept_zeroconf_records is False. A subsequent start() on the same
+    the wake gate (accept_records) is False. A subsequent start() on the same
     instance must reopen the gate, otherwise the next run would ignore
     mDNS records until its first real failure.
     """
@@ -843,16 +843,16 @@ async def test_start_clears_stale_zeroconf_gate(
         await asyncio.sleep(0)
 
     # Simulate the stop-mid-attempt-with-closed-gate state directly.
-    rl._accept_zeroconf_records = False
+    rl._zc_wake._accept_records = False
     await rl.stop()
     assert rl._is_stopped is True
-    assert rl._accept_zeroconf_records is False
+    assert rl._zc_wake._accept_records is False
 
     with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
         await rl.start()
         await asyncio.sleep(0)
 
-    assert rl._accept_zeroconf_records is True
+    assert rl._zc_wake._accept_records is True
 
     await rl.stop()
 
@@ -892,7 +892,7 @@ async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
         ) as mock_start_connection,
     ):
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
         assert rl._connect_timer is not None
@@ -902,7 +902,7 @@ async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
         assert mock_start_resolve_host.call_count == 1
         assert mock_start_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.CONNECTING
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
     caplog.clear()
@@ -1015,7 +1015,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         ) as mock_finish_connection,
     ):
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
         assert rl._connect_timer is not None
@@ -1025,7 +1025,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         assert mock_start_connection.call_count == 1
         assert mock_finish_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.HANDSHAKING
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
     rl.async_update_records(
@@ -1073,7 +1073,7 @@ async def test_connect_task_not_cancelled_while_handshaking(
         ) as mock_finish_connection,
     ):
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
         assert rl._connect_timer is not None
@@ -1083,7 +1083,7 @@ async def test_connect_task_not_cancelled_while_handshaking(
         assert mock_start_connection.call_count == 1
         assert mock_finish_connection.call_count == 1
         assert rl._connection_state is ReconnectLogicState.HANDSHAKING
-        assert rl._accept_zeroconf_records is True
+        assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
     caplog.clear()
@@ -1504,11 +1504,11 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
         await asyncio.sleep(0)
 
         # The listener start is deferred; the arm timer must be scheduled
-        assert logic_with_name._zc_listen_timer is not None
+        assert logic_with_name._zc_wake._timer is not None
         mock_get_zc.assert_not_called()
 
         # Starting the listener for a device name calls get_async_zeroconf
-        logic_with_name._start_zc_listen()
+        logic_with_name._zc_wake.start()
         mock_get_zc.assert_called()
 
         await logic_with_name.stop()
@@ -1663,14 +1663,14 @@ async def test_zc_listen_failure_does_not_block_connect(
 
         # Starting the listener with a broken zeroconf stack must log a
         # warning and leave the connection untouched.
-        logic._start_zc_listen()
+        logic._zc_wake.start()
 
     log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
     assert log_record is not None, "Expected zeroconf failure warning was not logged"
     assert log_record.levelno == logging.WARNING
-    # _zc_listening must remain False so stop() doesn't try to remove a listener
+    # _listening must remain False so stop() doesn't try to remove a listener
     # we never added.
-    assert logic._zc_listening is False
+    assert logic._zc_wake._listening is False
 
     await logic.stop()
 
@@ -1710,6 +1710,8 @@ async def test_zc_listen_failure_downgrades_to_debug_after_first_try(
         logic._connect_timer._run()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
+        if logic._zc_wake._start_task is not None:
+            await logic._zc_wake._start_task
 
     log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
     assert log_record is not None, "Expected zeroconf failure log was not emitted"
@@ -1913,8 +1915,8 @@ async def test_zc_listen_timer_cancelled_on_fast_connect(
             await asyncio.sleep(0)
 
         assert rl._connection_state is ReconnectLogicState.READY
-        assert rl._zc_listen_timer is None
-        assert rl._zc_listen_start_task is None
+        assert rl._zc_wake._timer is None
+        assert rl._zc_wake._start_task is None
         mock_get_zc.assert_not_called()
 
         await rl.stop()
@@ -1949,8 +1951,8 @@ async def test_zc_listener_delegate_registered_on_failed_attempt(
             await rl.start()
             await asyncio.sleep(0)
             await asyncio.sleep(0)
-            if rl._zc_listen_start_task is not None:
-                await rl._zc_listen_start_task
+            if rl._zc_wake._start_task is not None:
+                await rl._zc_wake._start_task
 
             add_listener.assert_called_once()
             listener, question = add_listener.call_args[0]
@@ -1958,7 +1960,7 @@ async def test_zc_listener_delegate_registered_on_failed_attempt(
             assert listener is not rl
             assert isinstance(listener, RecordUpdateListener)
 
-            with patch.object(rl, "async_update_records") as mock_update:
+            with patch.object(rl._zc_wake, "async_update_records") as mock_update:
                 listener.async_update_records(async_zeroconf.zeroconf, 0.0, [])
             mock_update.assert_called_once_with(async_zeroconf.zeroconf, 0.0, [])
 
@@ -1999,13 +2001,13 @@ async def test_zc_listener_starts_when_timer_fires_mid_attempt(
             await rl.start()
             await resolve_started.wait()
 
-            assert rl._zc_listen_timer is not None
-            rl._start_zc_listen_soon()
-            assert rl._zc_listen_start_task is not None
-            await rl._zc_listen_start_task
+            assert rl._zc_wake._timer is not None
+            rl._zc_wake.start_soon()
+            assert rl._zc_wake._start_task is not None
+            await rl._zc_wake._start_task
 
             add_listener.assert_called_once()
-            assert rl._zc_listening is True
+            assert rl._zc_wake._listening is True
 
             release_resolve.set()
             await asyncio.sleep(0)
