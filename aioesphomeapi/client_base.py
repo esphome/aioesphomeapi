@@ -48,7 +48,7 @@ from .model import (
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
 from .util import build_log_name, create_eager_task
-from .zeroconf import ZeroconfInstanceType, ZeroconfManager
+from .zeroconf import ZeroconfManager
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine, Iterable
@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     from google.protobuf import message
 
     from .connection import APIConnection
+    from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
 
