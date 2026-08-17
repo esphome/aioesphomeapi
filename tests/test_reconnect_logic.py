@@ -38,6 +38,7 @@ from aioesphomeapi.reconnect_logic import (
     TYPE_A,
     TYPE_AAAA,
     TYPE_PTR,
+    ZC_LISTEN_DELAY,
     ReconnectLogic,
     ReconnectLogicState,
 )
@@ -2001,7 +2002,10 @@ async def test_zc_listener_starts_when_timer_fires_mid_attempt(
             await resolve_started.wait()
 
             assert rl._zc_wake._timer is not None
-            rl._zc_wake.start_soon()
+            assert rl._zc_wake._timer.when() == pytest.approx(
+                rl.loop.time() + ZC_LISTEN_DELAY, abs=0.1
+            )
+            rl._zc_wake._timer._run()
             assert rl._zc_wake._start_task is not None
             await rl._zc_wake._start_task
 
