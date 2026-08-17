@@ -13,9 +13,8 @@ if TYPE_CHECKING:
 class ReconnectRecordUpdateListener(RecordUpdateListener):
     """Forward zeroconf record updates to a ZeroconfWake.
 
-    Lives in its own module so importing reconnect_logic does not import
-    the zeroconf package; this module loads only when the mDNS-wake
-    listener actually starts.
+    Lazily imported so the zeroconf package loads only when the
+    mDNS-wake listener actually starts.
     """
 
     def __init__(self, wake: ZeroconfWake) -> None:

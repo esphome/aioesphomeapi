@@ -1503,7 +1503,7 @@ async def test_reconnect_logic_no_zeroconf_listener_for_ip_addresses(
         await logic_with_name.start()
         await asyncio.sleep(0)
 
-        # The listener start is deferred; the arm timer must be scheduled
+        # Deferred start: only the arm timer is scheduled
         assert logic_with_name._zc_wake._timer is not None
         mock_get_zc.assert_not_called()
 
@@ -1661,8 +1661,7 @@ async def test_zc_listen_failure_does_not_block_connect(
         assert on_connect_fail.call_count == 0
         assert logic._connection_state is ReconnectLogicState.READY
 
-        # Starting the listener with a broken zeroconf stack must log a
-        # warning and leave the connection untouched.
+        # A broken zeroconf stack logs a warning, connection untouched
         logic._zc_wake.start()
 
     log_record = find_log_with_message(caplog, "Could not start zeroconf listener")

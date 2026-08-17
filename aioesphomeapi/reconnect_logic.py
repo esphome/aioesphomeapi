@@ -29,20 +29,17 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-# DNS record type codes (RFC 1035/3596), duplicated from zeroconf.const and
-# pinned against it in tests so this module does not import zeroconf at load
-# time.
+# DNS record type codes (RFC 1035/3596), duplicated from zeroconf.const
+# (pinned in tests) so this module does not import zeroconf at load time.
 TYPE_A = 1
 TYPE_PTR = 12
 TYPE_AAAA = 28
 
 ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 
-# How long a connect attempt may stay in flight before the mDNS listener is
-# started anyway, so a device that comes online mid-attempt (our SYN lost
-# while it was still booting) is caught by its boot announcement instead of
-# waiting out a TCP timeout. Connects that land within this window never
-# load the zeroconf stack at all.
+# Connects that land within this window never load the zeroconf stack; an
+# attempt still in flight when it fires gets the listener so a device that
+# came online mid-attempt is woken by its boot announcement.
 ZC_LISTEN_DELAY = 2.0
 
 _zc_listener_cache: list[type[ReconnectRecordUpdateListener]] = []
@@ -119,8 +116,7 @@ class ZeroconfWake:
         self._listener: ReconnectRecordUpdateListener | None = None
         self._timer: asyncio.TimerHandle | None = None
         self._start_task: asyncio.Task[None] | None = None
-        # One-shot gate so a single connect attempt is only kicked once
-        # per mDNS record burst.
+        # One-shot gate: a connect attempt is only kicked once per record burst.
         self._accept_records = True
 
     def reopen(self) -> None:
@@ -128,12 +124,7 @@ class ZeroconfWake:
         self._accept_records = True
 
     def arm(self) -> None:
-        """Arm the delayed listener start for a connect attempt.
-
-        Deferring the start keeps the zeroconf stack (import, sockets)
-        entirely off the fast path: a connect that lands within
-        ZC_LISTEN_DELAY cancels the timer before it fires.
-        """
+        """Arm the delayed listener start for a connect attempt."""
         if self._startable() and self._timer is None:
             self._timer = self._loop.call_later(ZC_LISTEN_DELAY, self.start_soon)
 
@@ -608,8 +599,7 @@ class ReconnectLogic:
             self._zc_wake.arm()
             if await self._try_connect():
                 return
-            # Not connected; bring the listener up for the backoff wait
-            # instead of waiting out the remainder of the arm timer.
+            # Listen during the backoff wait without waiting out the arm timer.
             self._zc_wake.start_soon()
             tries = min(self._tries, 10)  # prevent OverflowError
             max_backoff = (
