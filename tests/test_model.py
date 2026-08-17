@@ -2274,14 +2274,12 @@ def test_serial_proxy_modem_pins_conversion() -> None:
     assert model_with_pins.line_states == 3
     assert model_with_pins.status == SerialProxyStatus.OK
 
-    # Test with error status
     pb_msg_error = SerialProxyGetModemPinsResponsePb(
         instance=9, status=SerialProxyStatus.INVALID_ARGUMENT
     )
     model_error = SerialProxyModemPins.from_pb(pb_msg_error)
     assert model_error.status == SerialProxyStatus.INVALID_ARGUMENT
 
-    # Test to_dict
     assert model_with_pins.to_dict() == {
         "instance": 1,
         "line_states": 3,
@@ -2323,7 +2321,6 @@ def test_serial_proxy_info_conversion() -> None:
     assert model.port_type == SerialProxyPortType.RS485
     assert model.configured_line_states == 3
 
-    # to_dict / from_dict
     assert model.to_dict() == {
         "name": "UART1",
         "port_type": 2,
