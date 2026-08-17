@@ -111,7 +111,7 @@ class ZeroconfWake:
         # exponential backoff.
         self._ptr_alias: str | None = None
         self._a_name: str | None = None
-        if name:
+        if self._eligible:
             self._ptr_alias = f"{name}._esphomelib._tcp.local.".lower()
             self._a_name = f"{name}.local.".lower()
         self._listening = False
@@ -265,10 +265,6 @@ class ZeroconfWake:
     def _remove_start_task(self, fut: asyncio.Future[None]) -> None:
         if self._start_task is fut:
             self._start_task = None
-        if not fut.cancelled() and (exc := fut.exception()) is not None:
-            _LOGGER.debug(
-                "%s: zc listen start task failed: %s", self._client.log_name, exc
-            )
 
 
 class ReconnectLogic:

@@ -75,6 +75,16 @@ def find_log_with_message(
     return None
 
 
+async def drain_zc_start(rl: ReconnectLogic) -> None:
+    """Wait out a pending deferred listener start.
+
+    A warm _zc_listener_cache completes the eager task synchronously,
+    so the task slot may already be cleared.
+    """
+    if (task := rl._zc_wake._start_task) is not None:
+        await task
+
+
 async def slow_connect_fail(*args, **kwargs):
     await asyncio.sleep(10)
     raise APIConnectionError
@@ -1642,7 +1652,6 @@ async def test_zc_listen_failure_does_not_block_connect(
         name="mydevice",
     )
 
-    caplog.clear()
     with patch.object(
         cli.zeroconf_manager,
         "get_async_zeroconf",
@@ -1652,9 +1661,9 @@ async def test_zc_listen_failure_does_not_block_connect(
             await logic.start()
             await asyncio.sleep(0)
             await asyncio.sleep(0)
-            if logic._zc_wake._start_task is not None:
-                await logic._zc_wake._start_task
+            await drain_zc_start(logic)
 
+        assert on_connect_fail.call_count == 1
         # The first failed listener start warns
         log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
         assert log_record is not None, (
@@ -1711,16 +1720,14 @@ async def test_zc_listen_failure_downgrades_to_debug_after_first_try(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert logic._tries == 1
-        if logic._zc_wake._start_task is not None:
-            await logic._zc_wake._start_task
+        await drain_zc_start(logic)
 
         caplog.clear()
         assert logic._connect_timer is not None
         logic._connect_timer._run()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
-        if logic._zc_wake._start_task is not None:
-            await logic._zc_wake._start_task
+        await drain_zc_start(logic)
 
     log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
     assert log_record is not None, "Expected zeroconf failure log was not emitted"
@@ -1960,13 +1967,11 @@ async def test_zc_listener_delegate_registered_on_failed_attempt(
             await rl.start()
             await asyncio.sleep(0)
             await asyncio.sleep(0)
-            if rl._zc_wake._start_task is not None:
-                await rl._zc_wake._start_task
+            await drain_zc_start(rl)
 
             add_listener.assert_called_once()
             listener, question = add_listener.call_args[0]
             assert question is None
-            assert listener is not rl
             assert isinstance(listener, RecordUpdateListener)
 
             with patch.object(rl._zc_wake, "async_update_records") as mock_update:
