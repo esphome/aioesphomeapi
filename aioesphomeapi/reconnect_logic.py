@@ -710,15 +710,3 @@ class ReconnectLogic:
     def _connect_from_zeroconf(self) -> None:
         """Connect from zeroconf."""
         self._schedule_connect(0.0)
-
-    def async_update_records(
-        self,
-        zc: Zeroconf,
-        now: float,
-        records: list[RecordUpdate],
-    ) -> None:
-        """Listen to zeroconf updated mDNS records. This must be called from the eventloop.
-
-        This is a mDNS record from the device and could mean it just woke up.
-        """
-        self._zc_wake.async_update_records(zc, now, records)

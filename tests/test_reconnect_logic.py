@@ -625,7 +625,7 @@ async def test_reconnect_zeroconf(  # noqa: C901  # parametrized over many recor
             # For matching records, signal the resolver to complete
             resolve_event.set()
 
-        rl.async_update_records(
+        rl._zc_wake.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(record, None)]
         )
 
@@ -715,7 +715,7 @@ async def test_reconnect_zeroconf_cancels_connecting_no_socket(
         patch.object(cli, "start_connection") as mock_start_connection_2,
         patch.object(cli, "finish_connection"),
     ):
-        rl.async_update_records(
+        rl._zc_wake.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
 
@@ -783,7 +783,7 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
         patch.object(cli, "finish_connection"),
     ):
         caplog.clear()
-        rl.async_update_records(
+        rl._zc_wake.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
         assert (
@@ -801,7 +801,7 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
         # Subsequent mDNS records during the same attempt must be ignored.
         caplog.clear()
         for _ in range(5):
-            rl.async_update_records(
+            rl._zc_wake.async_update_records(
                 mock_zeroconf,
                 current_time_millis(),
                 [RecordUpdate(DNS_POINTER, None)],
@@ -915,7 +915,7 @@ async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
         return_value="192.168.1.5",
     ):
         # Now trigger zeroconf while in CONNECTING state with socket connected
-        rl.async_update_records(
+        rl._zc_wake.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
 
@@ -962,7 +962,7 @@ async def test_reconnect_zeroconf_cancels_pending_timer(
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection"),
     ):
-        rl.async_update_records(
+        rl._zc_wake.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
 
@@ -1028,7 +1028,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
-    rl.async_update_records(
+    rl._zc_wake.async_update_records(
         mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
     )
     assert (
