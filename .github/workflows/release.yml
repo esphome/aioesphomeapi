@@ -64,7 +64,7 @@ jobs:
             echo "CIBW_BUILD=${{ matrix.pyver }}*" >> $GITHUB_ENV
           fi
       - name: Build wheels
-        uses: pypa/cibuildwheel@4726cd35bb13f7bde50cf2761f2499ac7b3aa32c  # v4.1.1
+        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074  # v4.2.0
         env:
           CIBW_SKIP: cp36-* cp37-* cp38-* cp39-* cp310-* pp* ${{ matrix.musl == 'musllinux' && '*manylinux*' || '*musllinux*' }}
           CIBW_BEFORE_ALL_LINUX: apt-get install -y gcc || yum install -y gcc || apk add gcc
@@ -104,4 +104,13 @@ jobs:
           merge-multiple: true
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247  # v1.14.1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+
+  bump_esphome:
+    name: Bump aioesphomeapi in esphome
+    needs: [upload_pypi]
+    concurrency:
+      group: bump-esphome
+    permissions: {}
+    secrets: inherit
+    uses: ./.github/workflows/bump-esphome.yml

@@ -36,6 +36,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothProxyCapabilities as BluetoothProxyCapabilitiesPb,
     BluetoothScannerMode,
     BluetoothScannerSetModeRequest,
     BluetoothScannerState,
@@ -49,6 +50,7 @@ from aioesphomeapi.api_pb2 import (
     CoverCommandRequest,
     DateCommandRequest,
     DateTimeCommandRequest,
+    DeviceCapabilitiesResponse,
     DeviceInfoResponse,
     DisconnectReason as DisconnectReasonPb,
     DisconnectRequest,
@@ -77,6 +79,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequest as SerialProxyRequestPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
@@ -97,6 +100,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
     VoiceAssistantAudioSettings,
+    VoiceAssistantCapabilities as VoiceAssistantCapabilitiesPb,
     VoiceAssistantConfigurationRequest,
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
@@ -108,6 +112,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
     WaterHeaterCommandRequest,
+    ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import (
@@ -136,6 +141,7 @@ from aioesphomeapi.model import (
     BluetoothDeviceRequestType,
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothLEAdvertisement,
+    BluetoothProxyCapabilities,
     BluetoothProxyFeature,
     BluetoothScannerMode as BluetoothScannerModeModel,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
@@ -145,6 +151,7 @@ from aioesphomeapi.model import (
     ClimatePreset,
     ClimateSwingMode,
     ConnectionClosedEvent,
+    DeviceCapabilities,
     DeviceInfo,
     DisconnectReason,
     ESPHomeBluetoothGATTServices,
@@ -160,8 +167,10 @@ from aioesphomeapi.model import (
     RadioFrequencyModulation,
     SensorInfo,
     SerialProxyDataReceived,
+    SerialProxyInfo,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyPortType,
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
@@ -171,13 +180,16 @@ from aioesphomeapi.model import (
     UserServiceArgType,
     VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
+    VoiceAssistantCapabilities,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
+    VoiceAssistantFeature,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
     WaterHeaterCommandField,
     WaterHeaterMode,
     WaterHeaterStateFlag,
+    ZWaveProxyCapabilities,
     ZWaveProxyRequest,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
@@ -1739,6 +1751,47 @@ async def test_addresses_parameter_handles_subclassed_string() -> None:
     assert cli._params.addresses[2] == "10.0.0.1"
 
 
+async def test_add_addresses() -> None:
+    """Test appending addresses after construction."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    assert cli._params.addresses == ["192.168.1.100"]
+
+    assert cli.add_addresses(["192.168.1.101", "192.168.1.100"]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101"]
+    assert cli.log_name == "192.168.1.100"
+
+    # Subclassed strings are converted, duplicates ignored
+    assert cli.add_addresses([Estr("192.168.1.101"), Estr("10.0.0.1")]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101", "10.0.0.1"]
+    assert all(type(addr) is str for addr in cli._params.addresses)
+
+
+async def test_add_addresses_fires_callbacks() -> None:
+    """Test the addresses-changed callbacks fire only on real additions."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    callback.assert_not_called()
+
+    assert cli.add_addresses(["192.168.1.101"]) is True
+    callback.assert_called_once_with()
+
+    unsub()
+    assert cli.add_addresses(["10.0.0.1"]) is True
+    callback.assert_called_once_with()
+
+
 async def test_client_properties(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -2024,6 +2077,155 @@ async def test_device_info(
     await disconnect_task
     with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_info()
+
+
+async def test_device_capabilities(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test the raw device_capabilities RPC decodes every field."""
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.device_capabilities())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        bluetooth_proxy=BluetoothProxyCapabilitiesPb(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilitiesPb(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=7, home_id=1234),
+        serial_proxies=[
+            SerialProxyInfoPb(name="RS485 Port", port_type=SerialProxyPortType.RS485),
+            SerialProxyInfoPb(name="RS232 Port", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.bluetooth_proxy.feature_flags == 3
+    assert caps.bluetooth_proxy.mac_address == "AA:BB:CC:DD:EE:FF"
+    assert caps.voice_assistant.feature_flags == 5
+    assert caps.zwave_proxy.feature_flags == 7
+    assert caps.zwave_proxy.home_id == 1234
+    assert len(caps.serial_proxies) == 2
+    assert caps.serial_proxies[0].name == "RS485 Port"
+    assert caps.serial_proxies[0].port_type == SerialProxyPortType.RS485
+    assert caps.serial_proxies[1].name == "RS232 Port"
+    assert caps.serial_proxies[1].port_type == SerialProxyPortType.RS232
+
+
+async def test_device_capabilities_compat_rpc_path(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """At API >= 1.15, compat takes the RPC path and ignores the passed DeviceInfo."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 15)
+    stale_device_info = DeviceInfo(
+        bluetooth_proxy_feature_flags=999,
+        bluetooth_mac_address="00:00:00:00:00:00",
+        voice_assistant_feature_flags=999,
+        zwave_proxy_feature_flags=999,
+        zwave_home_id=999,
+    )
+    task = asyncio.create_task(client.device_capabilities_compat(stale_device_info))
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        bluetooth_proxy=BluetoothProxyCapabilitiesPb(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilitiesPb(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=7, home_id=1234),
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.bluetooth_proxy.feature_flags == 3
+    assert caps.bluetooth_proxy.mac_address == "AA:BB:CC:DD:EE:FF"
+    assert caps.voice_assistant.feature_flags == 5
+    assert caps.zwave_proxy.feature_flags == 7
+    assert caps.zwave_proxy.home_id == 1234
+
+
+async def test_device_capabilities_compat_legacy_path(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Below API 1.15, compat synthesises capabilities from DeviceInfo with no RPC."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 14)
+    device_info = DeviceInfo(
+        bluetooth_proxy_feature_flags=3,
+        bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
+        voice_assistant_feature_flags=5,
+        zwave_proxy_feature_flags=7,
+        zwave_home_id=1234,
+        serial_proxies=[
+            SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL),
+            SerialProxyInfo(name="COM1", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+    caps = await client.device_capabilities_compat(device_info)
+    assert caps == DeviceCapabilities(
+        bluetooth_proxy=BluetoothProxyCapabilities(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilities(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilities(feature_flags=7, home_id=1234),
+        serial_proxies=[
+            SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL),
+            SerialProxyInfo(name="COM1", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+
+
+async def test_device_capabilities_compat_pre_1_9_legacy_translation(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Below API 1.9, feature flags are translated from the legacy version counters."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 8)
+    device_info = DeviceInfo(
+        legacy_bluetooth_proxy_version=5,
+        legacy_voice_assistant_version=2,
+    )
+    caps = await client.device_capabilities_compat(device_info)
+    assert caps.bluetooth_proxy.feature_flags == (
+        BluetoothProxyFeature.PASSIVE_SCAN
+        | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+        | BluetoothProxyFeature.REMOTE_CACHING
+        | BluetoothProxyFeature.PAIRING
+        | BluetoothProxyFeature.CACHE_CLEARING
+    )
+    assert caps.voice_assistant.feature_flags == (
+        VoiceAssistantFeature.VOICE_ASSISTANT | VoiceAssistantFeature.SPEAKER
+    )
+
+
+async def test_device_capabilities_compat_empty_device_info(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A bare DeviceInfo synthesises a default-constructed DeviceCapabilities."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 14)
+    caps = await client.device_capabilities_compat(DeviceInfo())
+    assert caps == DeviceCapabilities()
+
+
+async def test_device_capabilities_compat_no_api_version() -> None:
+    """With no connection, compat raises rather than guessing a device version."""
+    client = APIClient(address="mydevice.local", port=6052, password=None)
+    assert client.api_version is None
+    device_info = DeviceInfo(
+        bluetooth_proxy_feature_flags=3,
+        bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
+    )
+    with pytest.raises(APIConnectionError, match="Not connected"):
+        await client.device_capabilities_compat(device_info)
 
 
 async def test_device_info_sanitizes_name(
@@ -5406,6 +5608,83 @@ async def test_device_id_in_commands(
     # Verify key and device_id match
     assert actual_request.key == expected_request.key
     assert actual_request.device_id == expected_request.device_id
+
+
+async def test_add_addresses_rejects_bare_string() -> None:
+    """A bare string must not be iterated into single characters."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    with pytest.raises(TypeError, match="not a string"):
+        cli.add_addresses("10.0.0.1")  # type: ignore[arg-type]
+    assert cli._params.addresses == ["192.168.1.100"]
+
+
+async def test_add_addresses_unsubscribe_is_idempotent() -> None:
+    """Calling the returned unsubscribe callable twice is a no-op."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+    unsub()
+    unsub()
+    assert cli._addresses_changed_callbacks == []
+
+
+async def test_add_addresses_rejects_invalid_discovered_strings(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Garbage from out-of-band discovery is skipped, not rewritten and dialed."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert (
+        cli.add_addresses(
+            [
+                "10.0.0.1\n2026-08-12 ERROR forged line",  # log injection
+                "",  # empty
+                "   ",  # whitespace only
+                "a" * 300,  # over the maximum legal FQDN length
+                "10.0.0.5 extra",  # interior whitespace
+                None,  # JSON null from a broken broker payload
+                49,  # non-string element
+            ]
+        )
+        is False
+    )
+    assert cli._params.addresses == ["192.168.1.100"]
+    assert "\n" not in cli.log_name
+    assert caplog.text.count("Ignoring invalid discovered address") == 7
+
+    # A valid address mixed in with garbage still lands, and padding is
+    # normalized so it dedups against the canonical form
+    assert cli.add_addresses(["\x1b[31mforged\x1b[0m", "  10.0.0.2  "]) is True
+    assert cli._params.addresses == ["192.168.1.100", "10.0.0.2"]
+    assert cli.add_addresses(["10.0.0.2"]) is False
+
+
+async def test_add_addresses_raising_callback_does_not_starve_others() -> None:
+    """One buggy subscriber cannot skip later callbacks or the return value."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    first = MagicMock(side_effect=RuntimeError("consumer bug"))
+    second = MagicMock()
+    cli.register_addresses_changed_callback(first)
+    cli.register_addresses_changed_callback(second)
+
+    assert cli.add_addresses(["10.0.0.2"]) is True
+    first.assert_called_once_with()
+    second.assert_called_once_with()
 
 
 async def test_connection_closed_callbacks(
