@@ -1736,6 +1736,44 @@ async def test_zc_listen_failure_downgrades_to_debug_after_first_try(
     await logic.stop()
 
 
+async def test_zc_listen_import_failure_logged_and_retried_inline(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failed off-loop import logs at DEBUG; start() retries inline and warns."""
+    cli = patchable_api_client
+    logic = ReconnectLogic(
+        client=cli,
+        on_connect=AsyncMock(),
+        on_disconnect=AsyncMock(),
+        on_connect_error=AsyncMock(),
+        name="mydevice",
+    )
+
+    with (
+        patch("aioesphomeapi.reconnect_logic._zc_listener_cache", []),
+        patch(
+            "aioesphomeapi.reconnect_logic._import_zc_listener",
+            side_effect=ImportError("boom"),
+        ),
+        patch.object(cli, "start_resolve_host", side_effect=APIConnectionError),
+    ):
+        await logic.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await drain_zc_start(logic)
+
+    assert (
+        find_log_with_message(caplog, "off-loop zc listener import failed") is not None
+    )
+    log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
+    assert log_record is not None
+    assert log_record.levelno == logging.WARNING
+    assert logic._zc_wake._listening is False
+
+    await logic.stop()
+
+
 async def test_addresses_changed_callback_lifecycle(
     patchable_api_client: APIClient,
 ) -> None:
