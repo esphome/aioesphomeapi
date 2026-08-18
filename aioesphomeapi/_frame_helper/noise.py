@@ -286,7 +286,12 @@ class APINoiseFrameHelper(APIFrameHelper):
             ) from err
 
     def _setup_proto(self) -> None:
-        """Set up the noise protocol."""
+        """Set up the noise protocol.
+
+        Mirrors aioesphomeapi.noise.NoiseHandshake rather than delegating to
+        it: this module is cythonized and its hot path and .pxd stay
+        untouched. Keep the two in sync.
+        """
         proto = NoiseConnection.from_name(
             NOISE_PROTOCOL_NAME, backend=ESPHOME_NOISE_BACKEND
         )
