@@ -78,7 +78,7 @@ class NoiseHandshake:
         twice would silently reuse nonces under the same key.
         """
         if self._ciphers is None:
-            if not self._proto.handshake_finished:
+            if not self.handshake_finished:
                 msg = "Handshake is not finished"
                 raise RuntimeError(msg)
             noise_protocol = self._proto.noise_protocol
