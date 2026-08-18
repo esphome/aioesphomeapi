@@ -115,8 +115,8 @@ class ConnectionClosedEvent:
     """Why a connection closed, passed to connection closed callbacks."""
 
     expected_disconnect: bool = False
-    # Only set when the device requested the disconnect. None for a reason this
-    # version of the client does not know about.
+    # Only set when the device requested the disconnect. `UNSPECIFIED` when no specific
+    # reason exists. `None` for a reason this version of the client does not know about.
     reason: DisconnectReason | None = DisconnectReason.UNSPECIFIED
     error: Exception | None = None
 
