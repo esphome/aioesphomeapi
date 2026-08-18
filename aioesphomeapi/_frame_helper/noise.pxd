@@ -10,6 +10,9 @@ from .base cimport (
 )
 from .noise_encryption cimport EncryptCipher, DecryptCipher
 
+cdef object decode_noise_psk
+cdef bytes NOISE_PROTOCOL_NAME
+
 cdef bint TYPE_CHECKING
 
 
@@ -81,7 +84,6 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef void _setup_proto(self) except *
 
-    @cython.locals(psk_bytes=bytes)
     cdef _decode_noise_psk(self)
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *

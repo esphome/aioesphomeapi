@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import binascii
 from functools import partial
 from struct import Struct
 from typing import TYPE_CHECKING, Any
@@ -39,6 +40,24 @@ class ESPHomeNoiseBackend(DefaultNoiseBackend):  # type: ignore[misc]
 
 
 ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
+
+NOISE_PROTOCOL_NAME = b"Noise_NNpsk0_25519_ChaChaPoly_SHA256"
+
+
+def decode_noise_psk(psk: str) -> bytes:
+    """Decode a base64 noise PSK to its raw 32 bytes.
+
+    Raises ValueError when the input is not valid base64 or does not decode
+    to exactly 32 bytes.
+    """
+    msg = f"Malformed PSK (length={len(psk)}), expected base64-encoded 32-byte value"
+    try:
+        psk_bytes = binascii.a2b_base64(psk)
+    except ValueError as err:
+        raise ValueError(msg) from err
+    if len(psk_bytes) != 32:
+        raise ValueError(msg)
+    return psk_bytes
 
 
 class EncryptCipher:

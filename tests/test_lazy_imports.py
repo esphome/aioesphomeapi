@@ -20,6 +20,7 @@ DEFERRED_MODULES = (
     "cryptography.hazmat.primitives.ciphers.aead",
     "aioesphomeapi._frame_helper.noise",
     "aioesphomeapi._frame_helper.noise_encryption",
+    "aioesphomeapi.noise",
 )
 
 
