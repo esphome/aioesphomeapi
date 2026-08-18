@@ -1155,6 +1155,20 @@ class APIClient(APIClientBase):
         )
         raise BluetoothConnectionDroppedError(msg)
 
+    def bluetooth_device_disconnect_no_wait(self, address: int) -> None:
+        """Disconnect from a Bluetooth device without waiting for a response.
+
+        Sends the disconnect request and returns immediately instead of
+        awaiting the device's connection state change, so a cleanup or
+        cancellation path can release the connection slot without an
+        uncancellable wait. The device frees the slot when it processes
+        the request and reports the state change through the usual
+        subscriptions.
+
+        Raises APIConnectionError if the API connection is not open.
+        """
+        self._bluetooth_disconnect_no_wait(address)
+
     def _bluetooth_disconnect_no_wait(self, address: int) -> None:
         """Disconnect from a Bluetooth device without waiting for a response."""
         self._get_connection().send_message(
