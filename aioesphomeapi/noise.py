@@ -43,7 +43,7 @@ class NoiseHandshake:
     ``cryptography.exceptions.InvalidTag`` from ``read_message``.
     """
 
-    __slots__ = ("_proto",)
+    __slots__ = ("_ciphers", "_proto")
 
     def __init__(self, psk: str, prologue: bytes) -> None:
         """Initialize the handshake with a base64 PSK and a prologue."""
@@ -55,6 +55,7 @@ class NoiseHandshake:
         proto.set_prologue(prologue)
         proto.start_handshake()
         self._proto = proto
+        self._ciphers: tuple[EncryptCipher, DecryptCipher] | None = None
 
     def write_message(self) -> bytes:
         """Return the next handshake message to send to the responder."""
@@ -70,9 +71,19 @@ class NoiseHandshake:
         return bool(self._proto.handshake_finished)
 
     def get_ciphers(self) -> tuple[EncryptCipher, DecryptCipher]:
-        """Return the (encrypt, decrypt) transport ciphers after the handshake."""
-        noise_protocol = self._proto.noise_protocol
-        return (
-            EncryptCipher(noise_protocol.cipher_state_encrypt),
-            DecryptCipher(noise_protocol.cipher_state_decrypt),
-        )
+        """Return the (encrypt, decrypt) transport ciphers after the handshake.
+
+        The pair is created once and returned again on later calls; each
+        wrapper keeps its own nonce counter, so handing out fresh wrappers
+        twice would silently reuse nonces under the same key.
+        """
+        if self._ciphers is None:
+            if not self._proto.handshake_finished:
+                msg = "Handshake is not finished"
+                raise RuntimeError(msg)
+            noise_protocol = self._proto.noise_protocol
+            self._ciphers = (
+                EncryptCipher(noise_protocol.cipher_state_encrypt),
+                DecryptCipher(noise_protocol.cipher_state_decrypt),
+            )
+        return self._ciphers

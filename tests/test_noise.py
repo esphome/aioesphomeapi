@@ -86,3 +86,22 @@ def test_decode_noise_psk_roundtrip() -> None:
 def test_decode_noise_psk_rejects_bad_input(bad_psk: str) -> None:
     with pytest.raises(ValueError, match="expected base64-encoded 32-byte value"):
         decode_noise_psk(bad_psk)
+
+
+def test_get_ciphers_before_handshake_raises() -> None:
+    """Taking the ciphers before the handshake completes is a caller bug."""
+    handshake = NoiseHandshake(PSK, PROLOGUE)
+    with pytest.raises(RuntimeError, match="Handshake is not finished"):
+        handshake.get_ciphers()
+
+
+def test_get_ciphers_returns_same_pair() -> None:
+    """Repeat calls return the identical wrappers so nonces are never reused."""
+    handshake = NoiseHandshake(PSK, PROLOGUE)
+    responder = _make_responder(PSK, PROLOGUE)
+    responder.read_message(handshake.write_message())
+    handshake.read_message(bytes(responder.write_message()))
+    first = handshake.get_ciphers()
+    assert handshake.get_ciphers() == first
+    assert handshake.get_ciphers()[0] is first[0]
+    assert handshake.get_ciphers()[1] is first[1]
