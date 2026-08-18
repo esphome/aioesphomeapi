@@ -44,19 +44,22 @@ ESPHOME_NOISE_BACKEND = ESPHomeNoiseBackend()
 NOISE_PROTOCOL_NAME = b"Noise_NNpsk0_25519_ChaChaPoly_SHA256"
 
 
+def _malformed_psk_msg(psk: str) -> str:
+    return f"Malformed PSK (length={len(psk)}), expected base64-encoded 32-byte value"
+
+
 def decode_noise_psk(psk: str) -> bytes:
     """Decode a base64 noise PSK to its raw 32 bytes.
 
     Raises ValueError when the input is not valid base64 or does not decode
     to exactly 32 bytes.
     """
-    msg = f"Malformed PSK (length={len(psk)}), expected base64-encoded 32-byte value"
     try:
         psk_bytes = binascii.a2b_base64(psk)
     except ValueError as err:
-        raise ValueError(msg) from err
+        raise ValueError(_malformed_psk_msg(psk)) from err
     if len(psk_bytes) != 32:
-        raise ValueError(msg)
+        raise ValueError(_malformed_psk_msg(psk))
     return psk_bytes
 
 
