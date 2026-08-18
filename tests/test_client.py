@@ -5719,6 +5719,7 @@ async def test_connection_closed_callback_unsubscribe(
     events: list[ConnectionClosedEvent] = []
     unsub = client.add_connection_closed_callback(events.append)
     unsub()
+    unsub()
 
     connection.force_disconnect()
 
