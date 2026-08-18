@@ -1809,6 +1809,29 @@ async def test_bluetooth_disconnect(
     await disconnect_task
 
 
+async def test_bluetooth_disconnect_no_wait(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_disconnect_no_wait sends without waiting."""
+    client, connection, _transport, _protocol = api_client
+    with patch.object(connection, "send_message") as send:
+        client.bluetooth_device_disconnect_no_wait(1234)
+    send.assert_called_once_with(
+        BluetoothDeviceRequest(
+            address=1234, request_type=BluetoothDeviceRequestType.DISCONNECT
+        )
+    )
+
+
+async def test_bluetooth_disconnect_no_wait_requires_connection() -> None:
+    """Test bluetooth_device_disconnect_no_wait raises when not connected."""
+    client = APIClient(address="1.2.3.4", port=6052, password=None)
+    with pytest.raises(APIConnectionError):
+        client.bluetooth_device_disconnect_no_wait(1234)
+
+
 async def test_bluetooth_pair(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
