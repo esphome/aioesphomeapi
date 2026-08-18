@@ -535,7 +535,7 @@ class APIClientBase:
     def _remove_connection_closed_callback(
         self, callback: Callable[[ConnectionClosedEvent], None]
     ) -> None:
-        """Remove an connection-closed callback, tolerating a double call."""
+        """Remove a connection-closed callback, tolerating a double call."""
         if callback in self._connection_closed_callbacks:
             self._connection_closed_callbacks.remove(callback)
 
