@@ -51,8 +51,10 @@ def _malformed_psk_msg(psk: str) -> str:
 def decode_noise_psk(psk: str) -> bytes:
     """Decode a base64 noise PSK to its raw 32 bytes.
 
-    Raises ValueError when the input is not valid base64 or does not decode
-    to exactly 32 bytes.
+    Decoding is lenient, matching what the API connection path has always
+    accepted: whitespace and other non alphabet characters are ignored.
+    Raises ValueError when the input cannot be decoded or the result is not
+    exactly 32 bytes.
     """
     try:
         psk_bytes = binascii.a2b_base64(psk)
