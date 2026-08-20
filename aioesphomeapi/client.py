@@ -763,9 +763,12 @@ class APIClient(APIClientBase):
         instance: int,
         request_type: SerialProxyRequestType,
         timeout: float = 10.0,
+        usb_serial_number: str = "",
     ) -> SerialProxyRequestResponseModel:
         """Send a serial proxy request and await its matching response."""
-        req = SerialProxyRequest(instance=instance, type=request_type)
+        req = SerialProxyRequest(
+            instance=instance, type=request_type, usb_serial_number=usb_serial_number
+        )
 
         def is_matching_response(msg: SerialProxyRequestResponse) -> bool:
             return bool(msg.instance == instance and msg.type == request_type)
@@ -783,10 +786,18 @@ class APIClient(APIClientBase):
         self,
         instance: int,
         timeout: float = 10.0,
+        usb_serial_number: str = "",
     ) -> SerialProxyRequestResponseModel:
-        """Subscribe and await confirmation from the serial proxy instance."""
+        """Subscribe and await confirmation from the serial proxy instance.
+
+        Naming a usb_serial_number claims that specific device: the request is refused
+        unless it is the one attached to the port.
+        """
         return await self._send_serial_proxy_request_await_response(
-            instance, SerialProxyRequestType.SUBSCRIBE, timeout
+            instance,
+            SerialProxyRequestType.SUBSCRIBE,
+            timeout,
+            usb_serial_number=usb_serial_number,
         )
 
     async def serial_proxy_unsubscribe_await_response(

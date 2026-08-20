@@ -262,6 +262,21 @@ class SerialProxyInfo(APIModelBase):
     detected_mode: SerialProxyMode | None = converter_field(
         default=SerialProxyMode.RAW, converter=SerialProxyMode.convert
     )
+    # Identity of the USB device in this port. A vendor ID of zero means the port has no USB
+    # device behind it; strings the device does not report stay empty, as udev leaves them out
+    usb_vendor_id: int = 0
+    usb_product_id: int = 0
+    usb_bcd_device: int = 0
+    usb_interface_number: int = 0
+    usb_manufacturer: str = ""
+    usb_product: str = ""
+    usb_serial_number: str = ""
+    usb_interface_string: str = ""
+    usb_capable: bool = False
+    # The mode a tap on this port can handle on a client's behalf
+    tap_mode: SerialProxyMode | None = converter_field(
+        default=SerialProxyMode.RAW, converter=SerialProxyMode.convert
+    )
 
 
 @_frozen_dataclass_decorator

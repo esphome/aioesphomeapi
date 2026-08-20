@@ -238,6 +238,28 @@ message SerialProxyInfo {
   // expectation about a port whose device can be swapped) can stand in for it, so this is
   // what discovery keys off to route a port to the right integration.
   SerialProxyMode detected_mode = 3;
+  // Identity of the USB device currently in this port, as udev would name it. A vendor ID of
+  // zero means there is no USB device behind the port: a pin-header UART, or an empty socket.
+  // Within a present identity, strings the device does not report stay empty, which is legal
+  // in USB and must not be mistaken for a match.
+  uint32 usb_vendor_id = 4;
+  uint32 usb_product_id = 5;
+  uint32 usb_bcd_device = 6;
+  uint32 usb_interface_number = 7;
+  string usb_manufacturer = 8 [(max_data_length) = 126];
+  string usb_product = 9 [(max_data_length) = 126];
+  string usb_serial_number = 10 [(max_data_length) = 126];
+  // The bound interface's string descriptor. Together with the fields above this is what a
+  // host needs to describe the port the way a local enumeration would.
+  string usb_interface_string = 11 [(max_data_length) = 63];
+  // Whether this port is a USB socket at all. Without it a zero vendor ID is ambiguous: a
+  // pin-header UART, where the port itself is the device, looks the same as a socket with
+  // nothing in it, and only the second means "the thing you wanted is gone".
+  bool usb_capable = 12;
+  // The mode a tap on this port can handle on a client's behalf, RAW when there is none. A
+  // client asks for that mode to have the work done for it, and must not stop doing the work
+  // itself unless the port says it can.
+  SerialProxyMode tap_mode = 13;
 }
 
 // DeviceInfoResponse max_data_length values:
@@ -2718,6 +2740,11 @@ message SerialProxyRequest {
 
   uint32 instance = 1;                  // Instance index (0-based)
   SerialProxyRequestType type = 2;      // Request type
+  // On SUBSCRIBE, the serial number of the USB device the client means to talk to. A port is
+  // a socket whose device can be swapped, so a client that cares which device it gets names
+  // it here and the claim is refused unless it matches. Empty means "whatever is attached",
+  // which is the equivalent of opening /dev/ttyUSB0 and hoping.
+  string usb_serial_number = 3 [(max_data_length) = 126];
 }
 
 // Response to a SerialProxyRequest (e.g. flush completion or failure)
