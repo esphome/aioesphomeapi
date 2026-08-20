@@ -77,6 +77,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyRequest as SerialProxyRequestPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
+    SerialProxySetModeRequest as SerialProxySetModeRequestPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
     SubscribeHomeassistantServicesRequest,
@@ -150,6 +151,7 @@ from aioesphomeapi.model import (
     RadioFrequencyModulation,
     SensorInfo,
     SerialProxyDataReceived,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyRequestResponse,
@@ -169,6 +171,7 @@ from aioesphomeapi.model import (
     WaterHeaterMode,
     WaterHeaterStateFlag,
     ZWaveProxyRequest,
+    ZWaveProxyRequestType,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -3018,12 +3021,12 @@ async def test_subscribe_zwave_proxy_request(
 
     client.subscribe_zwave_proxy_request(on_zwave_proxy_request)
     await asyncio.sleep(0)
-    response: message.Message = ZWaveProxyRequestPb(type=2, data=b"\x00\x01\x02\x03")
+    response: message.Message = ZWaveProxyRequestPb(type=0, data=b"\x00\x01\x02\x03")
     mock_data_received(protocol, generate_plaintext_packet(response))
 
     assert len(test_msg) == 1
     first_msg = test_msg[0]
-    assert first_msg.type == 2
+    assert first_msg.type == ZWaveProxyRequestType.HOME_ID_CHANGE
     assert first_msg.data == b"\x00\x01\x02\x03"
 
 
@@ -3379,6 +3382,37 @@ async def test_serial_proxy_set_modem_pins(
     sent_msg = sent_messages[0]
     assert sent_msg.instance == 0
     assert sent_msg.line_states == 1
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [SerialProxyMode.RAW, SerialProxyMode.EZSP_ASH, SerialProxyMode.ZWAVE],
+)
+async def test_serial_proxy_set_mode(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    mode: SerialProxyMode,
+) -> None:
+    """Test serial_proxy_set_mode sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxySetModeRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxySetModeRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_set_mode(instance=1, mode=mode)
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 1
+    assert sent_msg.mode == mode
 
 
 async def test_serial_proxy_get_modem_pins(

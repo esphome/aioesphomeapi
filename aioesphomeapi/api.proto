@@ -66,10 +66,8 @@ service APIConnection {
 
   rpc alarm_control_panel_command (AlarmControlPanelCommandRequest) returns (void) {}
 
-  rpc zwave_proxy_frame(ZWaveProxyFrame) returns (void) {}
   rpc zwave_proxy_request(ZWaveProxyRequest) returns (void) {}
 
-  rpc zigbee_proxy_frame(ZigbeeProxyFrame) returns (void) {}
   rpc zigbee_proxy_request(ZigbeeProxyRequest) returns (void) {}
 
   rpc infrared_rf_transmit_raw_timings(InfraredRFTransmitRawTimingsRequest) returns (void) {}
@@ -77,6 +75,7 @@ service APIConnection {
   rpc serial_proxy_configure(SerialProxyConfigureRequest) returns (void) {}
   rpc serial_proxy_write(SerialProxyWriteRequest) returns (void) {}
   rpc serial_proxy_set_modem_pins(SerialProxySetModemPinsRequest) returns (void) {}
+  rpc serial_proxy_set_mode(SerialProxySetModeRequest) returns (void) {}
   rpc serial_proxy_get_modem_pins(SerialProxyGetModemPinsRequest) returns (void) {}
   rpc serial_proxy_request(SerialProxyRequest) returns (void) {}
 }
@@ -234,6 +233,11 @@ enum SerialProxyPortType {
 message SerialProxyInfo {
   string name = 1;                    // Human-readable port name
   SerialProxyPortType port_type = 2;  // Port type (RS232, RS485)
+  // The protocol a tap has recognized on this port, RAW if none has been. Neither the live
+  // mode (client-controlled, reset when a session ends) nor the configured mode (a mere
+  // expectation about a port whose device can be swapped) can stand in for it, so this is
+  // what discovery keys off to route a port to the right integration.
+  SerialProxyMode detected_mode = 3;
 }
 
 // DeviceInfoResponse max_data_length values:
@@ -321,7 +325,9 @@ message DeviceInfoResponse {
 
   // Indicates if Zigbee proxy support is available and features supported
   uint32 zigbee_proxy_feature_flags = 27 [(field_ifdef) = "USE_ZIGBEE_PROXY"];
-  uint64 zigbee_ieee_address = 28 [(field_ifdef) = "USE_ZIGBEE_PROXY"];
+  // Identifies the Zigbee network, the counterpart of zwave_home_id, and is what ZHA uses
+  // as its config entry unique ID. Zero until a network has been formed.
+  uint64 zigbee_extended_pan_id = 28 [(field_ifdef) = "USE_ZIGBEE_PROXY"];
 }
 
 message ListEntitiesRequest {
@@ -2533,20 +2539,8 @@ message UpdateCommandRequest {
 
 // ==================== Z-WAVE ====================
 
-message ZWaveProxyFrame {
-  option (id) = 128;
-  option (source) = SOURCE_BOTH;
-  option (ifdef) = "USE_ZWAVE_PROXY";
-  option (no_delay) = true;
-  option (speed_optimized) = true;
-
-  bytes data = 1;
-}
-
 enum ZWaveProxyRequestType {
-  ZWAVE_PROXY_REQUEST_TYPE_SUBSCRIBE = 0;
-  ZWAVE_PROXY_REQUEST_TYPE_UNSUBSCRIBE = 1;
-  ZWAVE_PROXY_REQUEST_TYPE_HOME_ID_CHANGE = 2;
+  ZWAVE_PROXY_REQUEST_TYPE_HOME_ID_CHANGE = 0;
 }
 message ZWaveProxyRequest {
   option (id) = 129;
@@ -2738,6 +2732,22 @@ message SerialProxyRequestResponse {
   string error_message = 4;            // Additional detail on failure (optional)
 }
 
+enum SerialProxyMode {
+  SERIAL_PROXY_MODE_RAW = 0;
+  SERIAL_PROXY_MODE_EZSP_ASH = 1;
+  SERIAL_PROXY_MODE_ZWAVE = 2;
+}
+
+// Set the framing mode used when forwarding serial data
+message SerialProxySetModeRequest {
+  option (id) = 151;
+  option (source) = SOURCE_CLIENT;
+  option (ifdef) = "USE_SERIAL_PROXY";
+
+  uint32 instance = 1;          // Instance index (0-based)
+  SerialProxyMode mode = 2;     // Framing mode
+}
+
 // ==================== BLUETOOTH CONNECTION PARAMS ====================
 message BluetoothSetConnectionParamsRequest {
   option (id) = 145;
@@ -2762,19 +2772,8 @@ message BluetoothSetConnectionParamsResponse {
 
 // ==================== ZIGBEE ====================
 
-message ZigbeeProxyFrame {
-  option (id) = 149;
-  option (source) = SOURCE_BOTH;
-  option (ifdef) = "USE_ZIGBEE_PROXY";
-  option (no_delay) = true;
-
-  bytes data = 1;
-}
-
 enum ZigbeeProxyRequestType {
-  ZIGBEE_PROXY_REQUEST_TYPE_SUBSCRIBE = 0;
-  ZIGBEE_PROXY_REQUEST_TYPE_UNSUBSCRIBE = 1;
-  ZIGBEE_PROXY_REQUEST_TYPE_NETWORK_INFO = 2;
+  ZIGBEE_PROXY_REQUEST_TYPE_NETWORK_INFO = 0;
 }
 
 message ZigbeeProxyRequest {

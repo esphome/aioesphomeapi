@@ -145,19 +145,12 @@ class ZWaveProxyFeature(enum.IntFlag):
 
 
 class ZWaveProxyRequestType(APIIntEnum):
-    SUBSCRIBE = 0
-    UNSUBSCRIBE = 1
-    HOME_ID_CHANGE = 2
-
-
-@_frozen_dataclass_decorator
-class ZWaveProxyFrame(APIModelBase):
-    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+    HOME_ID_CHANGE = 0
 
 
 @_frozen_dataclass_decorator
 class ZWaveProxyRequest(APIModelBase):
-    type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
+    type: ZWaveProxyRequestType = ZWaveProxyRequestType.HOME_ID_CHANGE
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
@@ -166,19 +159,12 @@ class ZigbeeProxyFeature(enum.IntFlag):
 
 
 class ZigbeeProxyRequestType(APIIntEnum):
-    SUBSCRIBE = 0
-    UNSUBSCRIBE = 1
-    NETWORK_INFO = 2
-
-
-@_frozen_dataclass_decorator
-class ZigbeeProxyFrame(APIModelBase):
-    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+    NETWORK_INFO = 0
 
 
 @_frozen_dataclass_decorator
 class ZigbeeProxyRequest(APIModelBase):
-    type: ZigbeeProxyRequestType = ZigbeeProxyRequestType.SUBSCRIBE
+    type: ZigbeeProxyRequestType = ZigbeeProxyRequestType.NETWORK_INFO
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
@@ -259,11 +245,22 @@ class SerialProxyPortType(APIIntEnum):
     RS485 = 2
 
 
+class SerialProxyMode(APIIntEnum):
+    RAW = 0
+    EZSP_ASH = 1
+    ZWAVE = 2
+
+
 @_frozen_dataclass_decorator
 class SerialProxyInfo(APIModelBase):
     name: str = ""
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
+    )
+    # The protocol a tap has recognized on the port, RAW if none has been. Neither the
+    # live mode nor the configured mode identifies what is actually attached.
+    detected_mode: SerialProxyMode | None = converter_field(
+        default=SerialProxyMode.RAW, converter=SerialProxyMode.convert
     )
 
 
@@ -288,7 +285,7 @@ class DeviceInfo(APIModelBase):
     zwave_proxy_feature_flags: int = 0
     zwave_home_id: int = 0
     zigbee_proxy_feature_flags: int = 0
-    zigbee_ieee_address: int = 0
+    zigbee_extended_pan_id: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -2175,6 +2172,7 @@ __all__ = (
     "SensorStateClass",
     "SerialProxyDataReceived",
     "SerialProxyInfo",
+    "SerialProxyMode",
     "SerialProxyModemPins",
     "SerialProxyParity",
     "SerialProxyPortType",
@@ -2225,12 +2223,10 @@ __all__ = (
     "WaterHeaterState",
     "WaterHeaterStateFlag",
     "ZWaveProxyFeature",
-    "ZWaveProxyFrame",
     "ZWaveProxyRequest",
     "ZWaveProxyRequestType",
     "ZigbeeNetworkInfo",
     "ZigbeeProxyFeature",
-    "ZigbeeProxyFrame",
     "ZigbeeProxyRequest",
     "ZigbeeProxyRequestType",
     "build_device_unique_id",

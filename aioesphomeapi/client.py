@@ -73,6 +73,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
+    SerialProxySetModeRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SubscribeBluetoothConnectionsFreeRequest,
@@ -103,7 +104,6 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
-    ZigbeeProxyFrame,
     ZigbeeProxyRequest,
     ZWaveProxyRequest,
 )
@@ -121,7 +121,6 @@ from .client_base import (
     on_serial_proxy_data_received,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
-    on_zigbee_proxy_frame_message,
     on_zigbee_proxy_request_message,
     on_zwave_proxy_request_message,
 )
@@ -169,6 +168,7 @@ from .model import (
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyRequestResponse as SerialProxyRequestResponseModel,
@@ -187,7 +187,6 @@ from .model import (
     VoiceAssistantTimerEventType,
     WaterHeaterCommandField,
     WaterHeaterStateFlag,
-    ZigbeeProxyFrame as ZigbeeProxyFrameModel,
     ZigbeeProxyRequest as ZigbeeProxyRequestModel,
     ZigbeeProxyRequestType,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
@@ -568,25 +567,6 @@ class APIClient(APIClientBase):
             (ZigbeeProxyRequest,),
         )
 
-    def subscribe_zigbee_proxy_frame(
-        self,
-        on_zigbee_proxy_frame: Callable[[ZigbeeProxyFrameModel], None],
-    ) -> Callable[[], None]:
-        """Subscribe to Zigbee Proxy Frame messages."""
-        return self._get_connection().add_message_callback(
-            partial(
-                on_zigbee_proxy_frame_message,
-                on_zigbee_proxy_frame,
-            ),
-            (ZigbeeProxyFrame,),
-        )
-
-    def send_zigbee_proxy_frame(self, data: bytes) -> None:
-        """Send a Zigbee Proxy Frame."""
-        req = ZigbeeProxyFrame()
-        req.data = data
-        self._get_connection().send_message(req)
-
     def send_zigbee_proxy_request(
         self, type: ZigbeeProxyRequestType, data: bytes = b""
     ) -> None:
@@ -710,6 +690,19 @@ class APIClient(APIClientBase):
             SerialProxySetModemPinsRequest(
                 instance=instance,
                 line_states=line_states,
+            )
+        )
+
+    def serial_proxy_set_mode(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+    ) -> None:
+        """Set the framing mode for a serial proxy instance."""
+        self._get_connection().send_message(
+            SerialProxySetModeRequest(
+                instance=instance,
+                mode=mode,
             )
         )
 

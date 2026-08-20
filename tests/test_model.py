@@ -81,7 +81,6 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
     VoiceAssistantWakeWord as VoiceAssistantWakeWordPb,
     WaterHeaterStateResponse,
-    ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.model import (
@@ -153,6 +152,7 @@ from aioesphomeapi.model import (
     SensorState,
     SerialProxyDataReceived,
     SerialProxyInfo,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyPortType,
@@ -187,7 +187,6 @@ from aioesphomeapi.model import (
     WaterHeaterInfo,
     WaterHeaterState,
     ZWaveProxyFeature,
-    ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestType,
     build_device_unique_id,
@@ -364,7 +363,6 @@ def test_api_version_ord():
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
         (BluetoothConnectionsFree, BluetoothConnectionsFreeResponse),
-        (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
         (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
@@ -696,69 +694,42 @@ def test_device_info_api_encryption_provisionable() -> None:
     assert info.api_encryption_provisionable is True
 
 
-def test_zwave_proxy_frame_conversion() -> None:
-    """Test ZWaveProxyFrame conversion from protobuf."""
-    # Test with empty data
-    pb_frame = ZWaveProxyFramePb()
-    frame = ZWaveProxyFrame.from_pb(pb_frame)
-    assert frame.data == b""
-
-    # Test with actual data
-    pb_frame_with_data = ZWaveProxyFramePb(data=b"\x01\x02\x03\x04")
-    frame_with_data = ZWaveProxyFrame.from_pb(pb_frame_with_data)
-    assert frame_with_data.data == b"\x01\x02\x03\x04"
-
-    # Test to_dict
-    assert frame_with_data.to_dict() == {"data": b"\x01\x02\x03\x04"}
-
-    # Test from_dict
-    frame_from_dict = ZWaveProxyFrame.from_dict({"data": b"\x05\x06\x07\x08"})
-    assert frame_from_dict.data == b"\x05\x06\x07\x08"
-
-
 def test_zwave_proxy_request_type_enum() -> None:
     """Test ZWaveProxyRequestType enum values."""
-    assert ZWaveProxyRequestType.SUBSCRIBE == 0
-    assert ZWaveProxyRequestType.UNSUBSCRIBE == 1
-    assert ZWaveProxyRequestType.HOME_ID_CHANGE == 2
+    assert ZWaveProxyRequestType.HOME_ID_CHANGE == 0
 
     # Test conversion
-    assert ZWaveProxyRequestType.convert(0) == ZWaveProxyRequestType.SUBSCRIBE
-    assert ZWaveProxyRequestType.convert(1) == ZWaveProxyRequestType.UNSUBSCRIBE
-    assert ZWaveProxyRequestType.convert(2) == ZWaveProxyRequestType.HOME_ID_CHANGE
-    assert ZWaveProxyRequestType.convert(3) is None
+    assert ZWaveProxyRequestType.convert(0) == ZWaveProxyRequestType.HOME_ID_CHANGE
+    assert ZWaveProxyRequestType.convert(1) is None
     assert ZWaveProxyRequestType.convert(-1) is None
 
 
 def test_zwave_proxy_request_conversion() -> None:
     """Test ZWaveProxyRequest conversion from protobuf."""
-    # Test with default value (SUBSCRIBE)
+    # Test with default value (HOME_ID_CHANGE)
     pb_request = ZWaveProxyRequestPb()
     request = ZWaveProxyRequest.from_pb(pb_request)
-    assert request.type == ZWaveProxyRequestType.SUBSCRIBE
+    assert request.type == ZWaveProxyRequestType.HOME_ID_CHANGE
+    assert request.data == b""
 
-    # Test with UNSUBSCRIBE
-    pb_request_unsub = ZWaveProxyRequestPb(type=1)
-    request_unsub = ZWaveProxyRequest.from_pb(pb_request_unsub)
-    assert request_unsub.type == ZWaveProxyRequestType.UNSUBSCRIBE
-
-    # Test with HOME_ID_CHANGE
-    pb_request_home_id_change = ZWaveProxyRequestPb(type=2, data=b"1,2,3,4")
+    # Test with data
+    pb_request_home_id_change = ZWaveProxyRequestPb(type=0, data=b"1,2,3,4")
     request_home_id_change = ZWaveProxyRequest.from_pb(pb_request_home_id_change)
     assert request_home_id_change.type == ZWaveProxyRequestType.HOME_ID_CHANGE
+    assert request_home_id_change.data == b"1,2,3,4"
 
     # Test to_dict
     assert request.to_dict() == {"type": 0, "data": b""}
-    assert request_unsub.to_dict() == {"type": 1, "data": b""}
-    assert request_home_id_change.to_dict() == {"type": 2, "data": b"1,2,3,4"}
+    assert request_home_id_change.to_dict() == {"type": 0, "data": b"1,2,3,4"}
 
     # Test from_dict
-    request_from_dict = ZWaveProxyRequest.from_dict({"type": 1})
-    assert request_from_dict.type == ZWaveProxyRequestType.UNSUBSCRIBE
+    request_from_dict = ZWaveProxyRequest.from_dict({"type": 0, "data": b"\x01"})
+    assert request_from_dict.type == ZWaveProxyRequestType.HOME_ID_CHANGE
+    assert request_from_dict.data == b"\x01"
 
     # Test from_dict with default when not provided
     request_default = ZWaveProxyRequest.from_dict({})
-    assert request_default.type == ZWaveProxyRequestType.SUBSCRIBE
+    assert request_default.type == ZWaveProxyRequestType.HOME_ID_CHANGE
 
 
 @pytest.mark.parametrize(
@@ -2210,6 +2181,19 @@ def test_serial_proxy_parity_enum() -> None:
     assert SerialProxyParity.convert(-1) is None
 
 
+def test_serial_proxy_mode_enum() -> None:
+    """Test SerialProxyMode enum values."""
+    assert SerialProxyMode.RAW == 0
+    assert SerialProxyMode.EZSP_ASH == 1
+    assert SerialProxyMode.ZWAVE == 2
+
+    assert SerialProxyMode.convert(0) == SerialProxyMode.RAW
+    assert SerialProxyMode.convert(1) == SerialProxyMode.EZSP_ASH
+    assert SerialProxyMode.convert(2) == SerialProxyMode.ZWAVE
+    assert SerialProxyMode.convert(3) is None
+    assert SerialProxyMode.convert(-1) is None
+
+
 def test_serial_proxy_request_type_enum() -> None:
     """Test SerialProxyRequestType enum values."""
     assert SerialProxyRequestType.SUBSCRIBE == 0
@@ -2289,20 +2273,35 @@ def test_serial_proxy_info_conversion() -> None:
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == ""
     assert model.port_type == SerialProxyPortType.TTL
+    assert model.detected_mode == SerialProxyMode.RAW
+    assert model.baud_rate == 0
 
     # With values
-    pb_msg = SerialProxyInfoPb(name="UART1", port_type=SerialProxyPortType.RS485)
+    pb_msg = SerialProxyInfoPb(
+        name="UART1",
+        port_type=SerialProxyPortType.RS485,
+        detected_mode=SerialProxyMode.EZSP_ASH,
+        baud_rate=460800,
+    )
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == "UART1"
     assert model.port_type == SerialProxyPortType.RS485
+    assert model.detected_mode == SerialProxyMode.EZSP_ASH
+    assert model.baud_rate == 460800
 
     # to_dict / from_dict
-    assert model.to_dict() == {"name": "UART1", "port_type": 2}
+    assert model.to_dict() == {
+        "name": "UART1",
+        "port_type": 2,
+        "detected_mode": 1,
+        "baud_rate": 460800,
+    }
     model_from_dict = SerialProxyInfo.from_dict(
         {"name": "RS485 Port", "port_type": SerialProxyPortType.RS485}
     )
     assert model_from_dict.name == "RS485 Port"
     assert model_from_dict.port_type == SerialProxyPortType.RS485
+    assert model_from_dict.detected_mode == SerialProxyMode.RAW
 
 
 def test_device_info_serial_proxies() -> None:

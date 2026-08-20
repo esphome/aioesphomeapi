@@ -29,7 +29,6 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     InfraredRFReceiveEvent,
     SerialProxyDataReceived,
     SubscribeHomeAssistantStateResponse,
-    ZigbeeProxyFrame,
     ZigbeeProxyRequest,
     ZWaveProxyRequest,
 )
@@ -45,7 +44,6 @@ from .model import (
     HomeassistantServiceCall,
     InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
-    ZigbeeProxyFrame as ZigbeeProxyFrameModel,
     ZigbeeProxyRequest as ZigbeeProxyRequestModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
@@ -245,13 +243,6 @@ def on_zwave_proxy_request_message(
     msg: ZWaveProxyRequest,
 ) -> None:
     on_zwave_proxy_request(ZWaveProxyRequestModel.from_pb(msg))
-
-
-def on_zigbee_proxy_frame_message(
-    on_zigbee_proxy_frame: Callable[[ZigbeeProxyFrameModel], None],
-    msg: ZigbeeProxyFrame,
-) -> None:
-    on_zigbee_proxy_frame(ZigbeeProxyFrameModel.from_pb(msg))
 
 
 def on_zigbee_proxy_request_message(

@@ -39,6 +39,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     PingResponse,
 )
 from .core import (
+    MESSAGE_NUMBER_TO_PROTO as MESSAGE_NUMBER_TO_CLASS,
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionCancelledError,
     APIConnectionError,
@@ -112,9 +113,15 @@ async def _async_load_noise_frame_helper(
         return await loop.run_in_executor(None, _import_noise_frame_helper)
 
 
+# Indexed by message type - 1; retired ids hold None so the rest stay aligned.
 MESSAGE_NUMBER_TO_PROTO: tuple[
-    tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
-] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
+    tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]]
+    | None,
+    ...,
+] = tuple(
+    None if klass is None else (klass, klass.MergeFromString)
+    for klass in MESSAGE_NUMBER_TO_CLASS
+)
 _MESSAGE_NUMBER_TO_PROTO_LEN = len(MESSAGE_NUMBER_TO_PROTO)
 
 
@@ -1100,7 +1107,12 @@ class APIConnection:
         # would otherwise wrap (0 -> -1) into the last registered class
         # or raise an IndexError on every out-of-range value, both of
         # which are avoidable on a hot path.
-        if msg_type_proto < 1 or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN:
+        # MESSAGE_NUMBER_TO_PROTO is 0-indexed but the message type is 1-indexed
+        if (
+            msg_type_proto < 1
+            or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN
+            or (proto := MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]) is None
+        ):
             if self._debug_enabled:
                 _LOGGER.debug(
                     "%s: Skipping unknown message type %s",
@@ -1108,8 +1120,7 @@ class APIConnection:
                     msg_type_proto,
                 )
             return
-        # MESSAGE_NUMBER_TO_PROTO is 0-indexed but the message type is 1-indexed
-        klass, merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
+        klass, merge = proto
         msg = klass()
         try:
             merge(msg, data)
