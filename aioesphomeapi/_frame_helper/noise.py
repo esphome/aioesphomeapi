@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import binascii
 import logging
 from typing import TYPE_CHECKING
 
@@ -20,7 +19,13 @@ from ..core import (
     ProtocolAPIError,
 )
 from .base import _LOGGER, APIFrameHelper
-from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
+from .noise_encryption import (
+    ESPHOME_NOISE_BACKEND,
+    NOISE_PROTOCOL_NAME,
+    DecryptCipher,
+    EncryptCipher,
+    decode_noise_psk,
+)
 
 if TYPE_CHECKING:
     import asyncio
@@ -270,37 +275,25 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _decode_noise_psk(self) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
-        psk = self._noise_psk
-        server_name = self._server_name
-        server_mac = self._server_mac
         try:
-            psk_bytes = binascii.a2b_base64(psk)
+            return decode_noise_psk(self._noise_psk)
         except ValueError as err:
-            msg = (
-                f"{self._log_name}: Malformed PSK (length={len(psk)}), "
-                "expected base64-encoded 32-byte value"
-            )
+            msg = f"{self._log_name}: {err}"
             raise InvalidEncryptionKeyAPIError(
                 msg,
-                server_name,
-                server_mac,
+                self._server_name,
+                self._server_mac,
             ) from err
-        if len(psk_bytes) != 32:
-            msg = (
-                f"{self._log_name}: Malformed PSK (length={len(psk)}), "
-                "expected base64-encoded 32-byte value"
-            )
-            raise InvalidEncryptionKeyAPIError(
-                msg,
-                server_name,
-                server_mac,
-            )
-        return psk_bytes
 
     def _setup_proto(self) -> None:
-        """Set up the noise protocol."""
+        """Set up the noise protocol.
+
+        Mirrors aioesphomeapi.noise.NoiseHandshake rather than delegating to
+        it: this module is cythonized and its hot path and .pxd stay
+        untouched. Keep the two in sync.
+        """
         proto = NoiseConnection.from_name(
-            b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+            NOISE_PROTOCOL_NAME, backend=ESPHOME_NOISE_BACKEND
         )
         proto.set_as_initiator()
         proto.set_psks(self._decode_noise_psk())

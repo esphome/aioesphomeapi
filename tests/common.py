@@ -20,6 +20,7 @@ from aioesphomeapi import APIClient, APIConnection
 from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
 from aioesphomeapi._frame_helper.noise_encryption import (
     ESPHOME_NOISE_BACKEND,
+    NOISE_PROTOCOL_NAME,
     EncryptCipher,
 )
 from aioesphomeapi._frame_helper.packets import _cached_varuint_to_bytes
@@ -282,13 +283,15 @@ def _make_encrypted_packet_from_encrypted_payload(encrypted_payload: bytes) -> b
     return encrypted_header + encrypted_payload
 
 
-def _mock_responder_proto(psk_bytes: bytes) -> NoiseConnection:
+def _mock_responder_proto(
+    psk_bytes: bytes, prologue: bytes = b"NoiseAPIInit\x00\x00"
+) -> NoiseConnection:
     proto = NoiseConnection.from_name(
-        b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+        NOISE_PROTOCOL_NAME, backend=ESPHOME_NOISE_BACKEND
     )
     proto.set_as_responder()
     proto.set_psks(psk_bytes)
-    proto.set_prologue(b"NoiseAPIInit\x00\x00")
+    proto.set_prologue(prologue)
     proto.start_handshake()
     return proto
 
