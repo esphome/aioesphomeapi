@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from datetime import timedelta
 from functools import partial
 import itertools
 import json
@@ -51,6 +52,8 @@ from aioesphomeapi.api_pb2 import (
     DateTimeCommandRequest,
     DeviceCapabilitiesResponse,
     DeviceInfoResponse,
+    DisconnectReason as DisconnectReasonPb,
+    DisconnectRequest,
     DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
@@ -117,11 +120,16 @@ from aioesphomeapi.client import (
     BluetoothConnectionDroppedError,
     _validate_connection_params,
 )
-from aioesphomeapi.client_base import MAX_CAMERA_FRAME_BYTES, MAX_INFLIGHT_CAMERA_KEYS
+from aioesphomeapi.client_base import (
+    KEEP_ALIVE_FREQUENCY,
+    MAX_CAMERA_FRAME_BYTES,
+    MAX_INFLIGHT_CAMERA_KEYS,
+)
 from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
+    PingFailedAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
 )
@@ -142,8 +150,10 @@ from aioesphomeapi.model import (
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    ConnectionClosedEvent,
     DeviceCapabilities,
     DeviceInfo,
+    DisconnectReason,
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
@@ -186,10 +196,15 @@ from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import (
     Estr,
+    _create_mock_transport_protocol,
+    async_fire_time_changed,
+    connect_client,
     generate_plaintext_packet,
     generate_split_plaintext_packet,
     get_mock_zeroconf,
     mock_data_received,
+    send_plaintext_hello,
+    utcnow,
 )
 from .conftest import PatchableAPIClient, PatchableAPIConnection
 
@@ -5693,3 +5708,215 @@ async def test_add_addresses_raising_callback_does_not_starve_others() -> None:
     assert cli.add_addresses(["10.0.0.2"]) is True
     first.assert_called_once_with()
     second.assert_called_once_with()
+
+
+async def test_connection_closed_callbacks(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """Every registered callback is called when an established connection closes."""
+    client, connection, _transport, _protocol = api_client
+    first: list[ConnectionClosedEvent] = []
+    second: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(first.append)
+    client.add_connection_closed_callback(second.append)
+    assert client.is_connected is True
+
+    connection.force_disconnect()
+
+    assert first == [
+        ConnectionClosedEvent(
+            expected_disconnect=True,
+            reason=DisconnectReason.UNSPECIFIED,
+            error=None,
+        )
+    ]
+    assert second == first
+    assert client.is_connected is False
+
+
+async def test_connection_closed_callback_unsubscribe(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """The returned callable removes the subscription."""
+    client, connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    unsub = client.add_connection_closed_callback(events.append)
+    unsub()
+    unsub()
+
+    connection.force_disconnect()
+
+    assert events == []
+
+
+async def test_connection_closed_callback_unsubscribes_itself(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A callback unsubscribing during dispatch does not skip the others."""
+    client, connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    others: list[ConnectionClosedEvent] = []
+
+    def unsubscribing_callback(event: ConnectionClosedEvent) -> None:
+        unsub()
+        events.append(event)
+
+    unsub = client.add_connection_closed_callback(unsubscribing_callback)
+    client.add_connection_closed_callback(others.append)
+
+    connection.force_disconnect()
+
+    assert len(events) == 1
+    assert len(others) == 1
+    assert client._connection_closed_callbacks == [others.append]
+
+
+async def test_connection_closed_callback_raising_is_isolated(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A raising callback is logged and the remaining callbacks still run."""
+    client, connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+
+    def raising_callback(event: ConnectionClosedEvent) -> None:
+        msg = "callback boom"
+        raise ValueError(msg)
+
+    client.add_connection_closed_callback(raising_callback)
+    client.add_connection_closed_callback(events.append)
+
+    connection.force_disconnect()
+
+    assert len(events) == 1
+    assert "Unexpected error in connection closed callback" in caplog.text
+    assert "callback boom" in caplog.text
+
+
+async def test_connection_closed_callback_reports_device_reason(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A device-requested disconnect reports its reason."""
+    client, _connection, _transport, protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            DisconnectRequest(
+                reason=DisconnectReasonPb.DISCONNECT_REASON_PROVISIONING_CLOSED
+            )
+        ),
+    )
+    await asyncio.sleep(0)
+
+    assert events == [
+        ConnectionClosedEvent(
+            expected_disconnect=True,
+            reason=DisconnectReason.PROVISIONING_CLOSED,
+            error=None,
+        )
+    ]
+
+
+async def test_connection_closed_callback_unknown_device_reason(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A reason from a newer device this client does not know maps to None."""
+    client, _connection, _transport, protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    unknown_reason = 9999
+    assert unknown_reason not in DisconnectReasonPb.values()
+    mock_data_received(
+        protocol, generate_plaintext_packet(DisconnectRequest(reason=unknown_reason))
+    )
+    await asyncio.sleep(0)
+
+    assert len(events) == 1
+    assert events[0].reason is None
+
+
+async def test_connection_closed_callback_ping_timeout(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A device that stops answering pings is reported as an unexpected close."""
+    client, _connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    start_time = utcnow()
+    for count in range(1, 8):
+        async_fire_time_changed(
+            start_time + timedelta(seconds=KEEP_ALIVE_FREQUENCY * count)
+        )
+        if not client.is_connected:
+            break
+
+    assert client.is_connected is False
+    assert len(events) == 1
+    event = events[0]
+    assert event.expected_disconnect is False
+    assert event.reason is DisconnectReason.UNSPECIFIED
+    assert isinstance(event.error, PingFailedAPIError)
+
+
+async def test_connection_closed_callback_survives_reconnect(
+    resolve_host: Any,
+    aiohappyeyeballs_start_connection: Any,
+) -> None:
+    """A callback registered once is called for every connection that closes."""
+    loop = asyncio.get_running_loop()
+    client = APIClient(address="mydevice.local", port=6052, password=None)
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    for _ in range(2):
+        transport = MagicMock()
+        connected = asyncio.Event()
+        with (
+            patch.object(
+                loop,
+                "create_connection",
+                side_effect=partial(
+                    _create_mock_transport_protocol, transport, connected
+                ),
+            ),
+            patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection),
+        ):
+            connect_task = asyncio.create_task(connect_client(client, login=False))
+            await connected.wait()
+            connection = client._connection
+            send_plaintext_hello(connection._frame_helper)
+            await connect_task
+        connection.force_disconnect()
+
+    assert len(events) == 2
+
+
+async def test_connection_closed_callback_not_called_for_failed_connect(
+    resolve_host: Any,
+    aiohappyeyeballs_start_connection: Any,
+) -> None:
+    """A connect attempt that never reached the connected state is not reported."""
+    loop = asyncio.get_running_loop()
+    client = APIClient(address="mydevice.local", port=6052, password=None)
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    transport = MagicMock()
+    connected = asyncio.Event()
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect_client(client, login=False))
+        await connected.wait()
+        client._connection.force_disconnect()
+        with pytest.raises(APIConnectionError):
+            await connect_task
+
+    assert events == []

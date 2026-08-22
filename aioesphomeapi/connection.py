@@ -390,6 +390,11 @@ class APIConnection:
         self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
 
+    @property
+    def fatal_exception(self) -> Exception | None:
+        """The exception that ended this connection, if it ended in an error."""
+        return self._fatal_exception
+
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
         self.log_name = name
