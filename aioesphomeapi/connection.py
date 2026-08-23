@@ -18,6 +18,7 @@ from google.protobuf.json_format import MessageToDict
 import aioesphomeapi.host_resolver as hr
 
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
+from ._frame_helper.noise_resume import RESUME_SECRET_SIZE, RESUME_SESSION_ID_SIZE
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
@@ -1268,9 +1269,10 @@ class APIConnection:
         self._add_message_callback_without_remove(
             self._handle_login_response, (AuthenticationResponse,)
         )
-        self._add_message_callback_without_remove(
-            self._handle_noise_resume_ticket_internal, (NoiseResumeTicket,)
-        )
+        if self._params.noise_psk is not None:
+            self._add_message_callback_without_remove(
+                self._handle_noise_resume_ticket_internal, (NoiseResumeTicket,)
+            )
 
     def _handle_disconnect_request_internal(self, msg: DisconnectRequest) -> None:
         """Handle a DisconnectRequest."""
@@ -1305,7 +1307,10 @@ class APIConnection:
 
     def _handle_noise_resume_ticket_internal(self, msg: NoiseResumeTicket) -> None:
         """Store a session resume ticket for the next connection."""
-        if len(msg.session_id) == 8 and len(msg.secret) == 32:
+        if (
+            len(msg.session_id) == RESUME_SESSION_ID_SIZE
+            and len(msg.secret) == RESUME_SECRET_SIZE
+        ):
             self._params.resume_ticket = (msg.session_id, msg.secret)
 
     def _handle_get_time_request_internal(  # pylint: disable=unused-argument

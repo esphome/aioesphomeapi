@@ -27,8 +27,6 @@ from hashlib import sha256
 import hmac
 from os import urandom
 
-from chacha20poly1305_reuseable import ChaCha20Poly1305Reusable
-
 RESUME_OFFER_VERSION = 0x01
 RESUME_ACCEPT_VERSION = 0x01
 RESUME_SESSION_ID_SIZE = 8
@@ -38,6 +36,9 @@ RESUME_SECRET_SIZE = 32
 
 # version | session_id | client_nonce | offer_mac
 RESUME_OFFER_SIZE = 1 + RESUME_SESSION_ID_SIZE + RESUME_NONCE_SIZE + RESUME_MAC_SIZE
+RESUME_OFFER_SESSION_ID_OFFSET = 1
+RESUME_OFFER_NONCE_OFFSET = RESUME_OFFER_SESSION_ID_OFFSET + RESUME_SESSION_ID_SIZE
+RESUME_OFFER_MAC_OFFSET = RESUME_OFFER_NONCE_OFFSET + RESUME_NONCE_SIZE
 # version | server_nonce | confirm_mac
 RESUME_ACCEPT_SIZE = 1 + RESUME_NONCE_SIZE + RESUME_MAC_SIZE
 
@@ -81,21 +82,28 @@ def derive_resume_keys(
     return hkdf_noise(secret, b"keys" + client_nonce + server_nonce + prologue_hash)
 
 
-class RawCipherState:
-    """Minimal stand-in for a noise CipherState built from a raw key.
+def build_client_hello(offer: bytes) -> tuple[bytes, bytes]:
+    r"""Build the ClientHello frame and matching prologue for an offer.
 
-    Provides exactly the attributes EncryptCipher/DecryptCipher read:
-    .cipher.cipher (a ChaCha20Poly1305Reusable) and .n (starting nonce).
+    The device mixes "NoiseAPIInit" plus the big-endian length and body of
+    whatever ClientHello it receives into the handshake prologue, so both
+    values are derived here from the same bytes. An empty offer yields the
+    classic frame b"\x01\x00\x00" and prologue b"NoiseAPIInit\x00\x00".
     """
+    offer_len = len(offer)
+    body = bytes(((offer_len >> 8) & 0xFF, offer_len & 0xFF)) + offer
+    return b"\x01" + body, b"NoiseAPIInit" + body
 
-    __slots__ = ("cipher", "n")
 
-    class _Inner:
-        __slots__ = ("cipher",)
+def parse_resume_accept(ext: bytes) -> tuple[bytes, bytes] | None:
+    """Parse a ServerHello resume accept extension.
 
-        def __init__(self, cipher: object) -> None:
-            self.cipher = cipher
-
-    def __init__(self, key: bytes) -> None:
-        self.cipher = RawCipherState._Inner(ChaCha20Poly1305Reusable(key))
-        self.n = 0
+    Returns (server_nonce, confirm_mac), or None when the bytes are not a
+    resume accept (old firmware sends nothing there).
+    """
+    if len(ext) < RESUME_ACCEPT_SIZE or ext[0] != RESUME_ACCEPT_VERSION:
+        return None
+    return (
+        ext[1 : 1 + RESUME_NONCE_SIZE],
+        ext[1 + RESUME_NONCE_SIZE : RESUME_ACCEPT_SIZE],
+    )

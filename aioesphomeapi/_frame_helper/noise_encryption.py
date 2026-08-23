@@ -77,6 +77,14 @@ class EncryptCipher:
         self._nonce: _int = cipher_state.n
         self._encrypt = cipher.encrypt
 
+    @classmethod
+    def from_key(cls, key: _bytes) -> EncryptCipher:
+        """Build a cipher from a raw 32-byte key with a zero nonce (session resume)."""
+        self: EncryptCipher = cls.__new__(cls)
+        self._nonce = 0
+        self._encrypt = ChaCha20Poly1305Reusable(key).encrypt
+        return self
+
     def encrypt(self, data: _bytes) -> bytes:
         """Encrypt a frame."""
         ciphertext = self._encrypt(fast_pack_nonce(self._nonce), data, None)
@@ -95,6 +103,14 @@ class DecryptCipher:
         cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
         self._nonce: _int = cipher_state.n
         self._decrypt = cipher.decrypt
+
+    @classmethod
+    def from_key(cls, key: _bytes) -> DecryptCipher:
+        """Build a cipher from a raw 32-byte key with a zero nonce (session resume)."""
+        self: DecryptCipher = cls.__new__(cls)
+        self._nonce = 0
+        self._decrypt = ChaCha20Poly1305Reusable(key).decrypt
+        return self
 
     def decrypt(self, data: _bytes) -> bytes:
         """Decrypt a frame."""

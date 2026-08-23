@@ -86,6 +86,9 @@ AUTH_EXCEPTIONS = (
     InvalidAuthAPIError,
 )
 
+# Errors that self-heal on the next attempt and should retry without backoff
+IMMEDIATE_RETRY_EXCEPTIONS = (ResumeAPIError,)
+
 
 class ZeroconfWake:
     """Deferred mDNS listener that wakes a reconnect attempt when its device announces."""
@@ -513,10 +516,10 @@ class ReconnectLogic:
             self._cli.clear_noise_psk()
             self._tries = 0
             return
-        if isinstance(err, ResumeAPIError):
-            # A session resume attempt failed; the ticket is already
-            # discarded, so the next attempt is a plain full handshake.
-            # Retry immediately instead of treating it as an auth error.
+        if isinstance(err, IMMEDIATE_RETRY_EXCEPTIONS):
+            # Self-healing one-shot failures (a resume attempt failed and
+            # its ticket is already discarded); the next attempt takes the
+            # plain path, so retry immediately instead of backing off.
             self._tries = 0
             return
         if isinstance(err, AUTH_EXCEPTIONS):

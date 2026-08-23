@@ -28,13 +28,10 @@ from .noise_encryption import (
     decode_noise_psk,
 )
 from .noise_resume import (
-    RESUME_ACCEPT_SIZE,
-    RESUME_ACCEPT_VERSION,
-    RESUME_MAC_SIZE,
-    RESUME_NONCE_SIZE,
-    RawCipherState,
+    build_client_hello,
     build_resume_offer,
     derive_resume_keys,
+    parse_resume_accept,
     verify_confirm_mac,
 )
 
@@ -57,8 +54,6 @@ NOISE_STATE_HANDSHAKE = 2
 NOISE_STATE_READY = 3
 NOISE_STATE_CLOSED = 4
 
-
-NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
 
@@ -103,11 +98,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_encrypt_cipher",
         "_expected_mac",
         "_expected_name",
+        "_hello",
         "_noise_psk",
         "_prologue",
         "_proto",
         "_resume_nonce",
-        "_resume_offer",
         "_resume_secret",
         "_server_mac",
         "_server_name",
@@ -134,24 +129,19 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._server_mac: str | None = None
         self._encrypt_cipher: EncryptCipher | None = None
         self._decrypt_cipher: DecryptCipher | None = None
+        # Abandoned (set to None) when a resume accept replaces the handshake
+        self._proto: NoiseConnection | None = None
         # The resume offer rides in the ClientHello body, which both sides
         # mix into the handshake prologue, so old firmware that ignores it
         # still completes a normal full handshake with a matching prologue.
         self._resume_secret: bytes | None = None
         self._resume_nonce: bytes | None = None
-        self._resume_offer = b""
+        offer = b""
         if resume_ticket is not None:
             session_id, secret = resume_ticket
-            self._resume_offer, self._resume_nonce = build_resume_offer(
-                session_id, secret
-            )
+            offer, self._resume_nonce = build_resume_offer(session_id, secret)
             self._resume_secret = secret
-        offer_len = len(self._resume_offer)
-        self._prologue = (
-            b"NoiseAPIInit"
-            + bytes(((offer_len >> 8) & 0xFF, offer_len & 0xFF))
-            + self._resume_offer
-        )
+        self._hello, self._prologue = build_client_hello(offer)
         self._setup_proto()
 
     def close(self) -> None:
@@ -233,16 +223,13 @@ class APINoiseFrameHelper(APIFrameHelper):
         # The full-handshake message 1 is always sent, even alongside a
         # resume offer: old firmware needs it, and new firmware discards it
         # when it accepts the resume.
-        offer_len = len(self._resume_offer)
-        hello = (
-            bytes((0x01, (offer_len >> 8) & 0xFF, offer_len & 0xFF))
-            + self._resume_offer
-        )
+        if TYPE_CHECKING:
+            assert self._proto is not None
         handshake_frame = self._proto.write_message()
         frame_len = len(handshake_frame) + 1
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         self._write_bytes(
-            (hello, header, b"\x00", handshake_frame),
+            (self._hello, header, b"\x00", handshake_frame),
             _LOGGER.isEnabledFor(logging.DEBUG),
         )
 
@@ -329,14 +316,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         present (full handshake proceeds); moves it to READY on a verified
         accept, or CLOSED when the accept fails verification.
         """
-        if len(ext) < RESUME_ACCEPT_SIZE or ext[0] != RESUME_ACCEPT_VERSION:
+        if (parsed := parse_resume_accept(ext)) is None:
             # Old firmware (no trailing bytes) or unknown extension: the
             # device is doing a full handshake
             return
-        server_nonce = ext[1 : 1 + RESUME_NONCE_SIZE]
-        confirm_mac = ext[
-            1 + RESUME_NONCE_SIZE : 1 + RESUME_NONCE_SIZE + RESUME_MAC_SIZE
-        ]
+        server_nonce, confirm_mac = parsed
         if TYPE_CHECKING:
             assert self._resume_secret is not None
             assert self._resume_nonce is not None
@@ -350,10 +334,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         k_c2d, k_d2c = derive_resume_keys(
             self._resume_secret, self._resume_nonce, server_nonce, self._prologue
         )
-        self._encrypt_cipher = EncryptCipher(RawCipherState(k_c2d))
-        self._decrypt_cipher = DecryptCipher(RawCipherState(k_d2c))
-        self._state = NOISE_STATE_READY
-        self.ready_future.set_result(None)
+        # The full handshake the client started is abandoned; free it
+        self._proto = None
+        self._become_ready(EncryptCipher.from_key(k_c2d), DecryptCipher.from_key(k_d2c))
 
     def _decode_noise_psk(self) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
@@ -423,6 +406,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         if msg[0] != 0:
             self._error_on_incorrect_preamble(msg)
             return
+        if TYPE_CHECKING:
+            assert self._proto is not None
         try:
             self._proto.read_message(msg[1:])
         except InvalidTag as exc:
@@ -447,10 +432,23 @@ class APINoiseFrameHelper(APIFrameHelper):
             handshake_err.__cause__ = exc
             self._handle_error_and_close(handshake_err)
             return
-        self._state = NOISE_STATE_READY
+        if TYPE_CHECKING:
+            assert self._proto is not None
         noise_protocol = self._proto.noise_protocol
-        self._decrypt_cipher = DecryptCipher(noise_protocol.cipher_state_decrypt)  # pylint: disable=no-member
-        self._encrypt_cipher = EncryptCipher(noise_protocol.cipher_state_encrypt)  # pylint: disable=no-member
+        self._become_ready(
+            EncryptCipher(noise_protocol.cipher_state_encrypt),  # pylint: disable=no-member
+            DecryptCipher(noise_protocol.cipher_state_decrypt),  # pylint: disable=no-member
+        )
+
+    def _become_ready(
+        self, encrypt_cipher: EncryptCipher, decrypt_cipher: DecryptCipher
+    ) -> None:
+        """Install the transport ciphers and release handshake-only state."""
+        self._encrypt_cipher = encrypt_cipher
+        self._decrypt_cipher = decrypt_cipher
+        self._resume_secret = None
+        self._resume_nonce = None
+        self._state = NOISE_STATE_READY
         self.ready_future.set_result(None)
 
     def write_packets(self, packets: list[Packet], debug_enabled: bool) -> None:
