@@ -1269,10 +1269,9 @@ class APIConnection:
         self._add_message_callback_without_remove(
             self._handle_login_response, (AuthenticationResponse,)
         )
-        if self._params.noise_psk is not None:
-            self._add_message_callback_without_remove(
-                self._handle_noise_resume_ticket_internal, (NoiseResumeTicket,)
-            )
+        self._add_message_callback_without_remove(
+            self._handle_noise_resume_ticket_internal, (NoiseResumeTicket,)
+        )
 
     def _handle_disconnect_request_internal(self, msg: DisconnectRequest) -> None:
         """Handle a DisconnectRequest."""

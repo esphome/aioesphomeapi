@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -27,10 +28,15 @@ from aioesphomeapi.core import ResumeAPIError
 
 from .common import (
     MockAPINoiseFrameHelper,
+    _create_mock_transport_protocol,
     _make_encrypted_packet,
     _make_mock_connection,
     _make_noise_hello_pkt,
+    connect,
+    generate_plaintext_packet,
     get_mock_connection_params,
+    mock_data_received,
+    send_plaintext_hello,
 )
 
 # Known-answer vectors shared with the device implementation
@@ -218,13 +224,36 @@ async def test_ticket_handler_stores_valid_ticket() -> None:
 
 
 @pytest.mark.asyncio
-async def test_resume_ticket_message_dispatch() -> None:
-    params = get_mock_connection_params()
-    params.noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
-    connection = APIConnection(params, AsyncMock(), True, None)
-    connection._register_internal_message_handlers()
+async def test_resume_ticket_message_dispatch(
+    conn: APIConnection,
+    connection_params,
+    resolve_host,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """A NoiseResumeTicket pushed by the device lands on ConnectionParams."""
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect(conn, login=False))
+        await connected.wait()
+        protocol = conn._frame_helper
+        send_plaintext_hello(protocol)
+        await connect_task
+
     msg = NoiseResumeTicket()
     msg.session_id = KAT_SESSION_ID
     msg.secret = KAT_SECRET
-    connection.process_packet(151, msg.SerializeToString())
-    assert params.resume_ticket == (KAT_SESSION_ID, KAT_SECRET)
+    mock_data_received(protocol, generate_plaintext_packet(msg))
+    assert connection_params.resume_ticket == (KAT_SESSION_ID, KAT_SECRET)
+
+    bad = NoiseResumeTicket()
+    bad.session_id = b"short"
+    bad.secret = KAT_SECRET
+    connection_params.resume_ticket = None
+    mock_data_received(protocol, generate_plaintext_packet(bad))
+    assert connection_params.resume_ticket is None
