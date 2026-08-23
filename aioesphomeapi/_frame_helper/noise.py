@@ -131,9 +131,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._decrypt_cipher: DecryptCipher | None = None
         # Abandoned (set to None) when a resume accept replaces the handshake
         self._proto: NoiseConnection | None = None
-        # The resume offer rides in the ClientHello body, which both sides
-        # mix into the handshake prologue, so old firmware that ignores it
-        # still completes a normal full handshake with a matching prologue.
+        # The offer rides in the prologue-mixed ClientHello body, so old
+        # firmware that ignores it still completes a full handshake.
         self._resume_secret: bytes | None = None
         self._resume_nonce: bytes | None = None
         offer = b""
@@ -220,9 +219,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
-        # The full-handshake message 1 is always sent, even alongside a
-        # resume offer: old firmware needs it, and new firmware discards it
-        # when it accepts the resume.
+        # Message 1 is always sent; new firmware discards it on resume.
         if TYPE_CHECKING:
             assert self._proto is not None
         handshake_frame = self._proto.write_message()
@@ -310,11 +307,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._state = NOISE_STATE_HANDSHAKE
 
     def _handle_resume_accept(self, ext: bytes) -> None:
-        """Handle a resume accept extension trailing the ServerHello.
+        """Handle a resume accept trailing the ServerHello.
 
-        Leaves the state at NOISE_STATE_HELLO when no accept extension is
-        present (full handshake proceeds); moves it to READY on a verified
-        accept, or CLOSED when the accept fails verification.
+        State stays HELLO when no accept is present, READY on a verified
+        accept, CLOSED when verification fails.
         """
         if (parsed := parse_resume_accept(ext)) is None:
             # Old firmware (no trailing bytes) or unknown extension: the

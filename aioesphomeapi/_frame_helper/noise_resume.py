@@ -1,24 +1,18 @@
-"""Session resume support for the Noise frame helper.
+"""Session resume for the noise frame helper.
 
-After a full NNpsk0 handshake the device sends a single-use
-NoiseResumeTicket (session id + secret). On the next connection the client
-places a resume offer in its ClientHello; the device proves possession of
-the ticket secret in a trailing ServerHello extension and both sides derive
-the transport keys with HKDF-SHA256 alone, skipping the curve25519
-handshake entirely. Every mismatch (old firmware, unknown ticket, reboot)
-falls back to the full handshake on the same TCP connection.
+The device issues a single-use NoiseResumeTicket after each encrypted
+connection; the next connection offers it in the ClientHello body and both
+sides derive the transport keys with HKDF-SHA256, skipping the X25519
+handshake. Any mismatch falls back to the full handshake.
 
-All derivations use the Noise HKDF construction, matching noise-c's
-noise_hashstate_hkdf on the device:
-
+HKDF is the Noise construction, matching noise-c on the device:
     temp = HMAC-SHA256(key, data)
     out1 = HMAC-SHA256(temp, 0x01)
     out2 = HMAC-SHA256(temp, out1 || 0x02)
 
     offer_mac   = HKDF(secret, b"offer"   + session_id + client_nonce).out1[:16]
     confirm_mac = HKDF(secret, b"confirm" + client_nonce + server_nonce).out1[:16]
-    k_c2d, k_d2c = HKDF(secret, b"keys"   + client_nonce + server_nonce
-                                          + SHA256(prologue))
+    k_c2d, k_d2c = HKDF(secret, b"keys" + client_nonce + server_nonce + SHA256(prologue))
 """
 
 from __future__ import annotations
@@ -85,10 +79,7 @@ def derive_resume_keys(
 def build_client_hello(offer: bytes) -> tuple[bytes, bytes]:
     r"""Build the ClientHello frame and matching prologue for an offer.
 
-    The device mixes "NoiseAPIInit" plus the big-endian length and body of
-    whatever ClientHello it receives into the handshake prologue, so both
-    values are derived here from the same bytes. An empty offer yields the
-    classic frame b"\x01\x00\x00" and prologue b"NoiseAPIInit\x00\x00".
+    An empty offer yields the classic b"\x01\x00\x00" / b"NoiseAPIInit\x00\x00".
     """
     offer_len = len(offer)
     body = bytes(((offer_len >> 8) & 0xFF, offer_len & 0xFF)) + offer
@@ -96,11 +87,7 @@ def build_client_hello(offer: bytes) -> tuple[bytes, bytes]:
 
 
 def parse_resume_accept(ext: bytes) -> tuple[bytes, bytes] | None:
-    """Parse a ServerHello resume accept extension.
-
-    Returns (server_nonce, confirm_mac), or None when the bytes are not a
-    resume accept (old firmware sends nothing there).
-    """
+    """Parse a ServerHello resume accept; (server_nonce, confirm_mac) or None."""
     if len(ext) < RESUME_ACCEPT_SIZE or ext[0] != RESUME_ACCEPT_VERSION:
         return None
     return (
