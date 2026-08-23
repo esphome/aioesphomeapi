@@ -106,6 +106,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     MediaPlayerStateResponse,
     NoiseEncryptionSetKeyRequest,
     NoiseEncryptionSetKeyResponse,
+    NoiseResumeTicket,
     NumberCommandRequest,
     NumberStateResponse,
     PingRequest,
@@ -311,6 +312,14 @@ class EncryptionHelloAPIError(HandshakeAPIError):
 
 class EncryptionPlaintextAPIError(HandshakeAPIError):
     """Raised when the ESP is using plaintext during noise handshake."""
+
+
+class ResumeAPIError(HandshakeAPIError):
+    """Raised when a session resume attempt failed.
+
+    The stored ticket has been discarded; the caller should retry
+    immediately with a full handshake.
+    """
 
 
 class PingFailedAPIError(APIConnectionError):
@@ -559,6 +568,7 @@ MESSAGE_TYPE_TO_PROTO = {
     149: DeviceCapabilitiesRequest,
     150: DeviceCapabilitiesResponse,
     151: ZWaveProxyRequestResponse,
+    152: NoiseResumeTicket,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

@@ -36,6 +36,16 @@ cdef bytes NOISE_HELLO
 cdef object InvalidTag
 cdef object ESPHOME_NOISE_BACKEND
 
+cdef object ResumeAPIError
+cdef object RawCipherState
+cdef object build_resume_offer
+cdef object derive_resume_keys
+cdef object verify_confirm_mac
+cdef unsigned int RESUME_ACCEPT_SIZE
+cdef unsigned int RESUME_ACCEPT_VERSION
+cdef unsigned int RESUME_MAC_SIZE
+cdef unsigned int RESUME_NONCE_SIZE
+
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef object _noise_psk
@@ -47,6 +57,10 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef object _proto
     cdef EncryptCipher _encrypt_cipher
     cdef DecryptCipher _decrypt_cipher
+    cdef object _resume_secret
+    cdef object _resume_nonce
+    cdef bytes _resume_offer
+    cdef bytes _prologue
 
     @cython.locals(
         header=bytes,
@@ -75,11 +89,22 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     )
     cdef void _handle_hello(self, bytes server_hello) except *
 
+    @cython.locals(
+        server_nonce=bytes,
+        confirm_mac=bytes,
+    )
+    cdef void _handle_resume_accept(self, bytes ext) except *
+
     cdef void _handle_handshake(self, bytes msg) except *
 
     cdef void _handle_closed(self, bytes frame) except *
 
-    @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
+    @cython.locals(
+        handshake_frame=bytearray,
+        frame_len="unsigned int",
+        offer_len="unsigned int",
+        hello=bytes,
+    )
     cdef void _send_hello_handshake(self) except *
 
     cdef void _setup_proto(self) except *

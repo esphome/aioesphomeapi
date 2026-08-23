@@ -410,6 +410,7 @@ class APIClientBase:
         plane clients such as Home Assistant.
         """
         self._params.noise_psk = None
+        self._params.resume_ticket = None
 
     def add_addresses(self, addresses: Iterable[str_]) -> bool:
         """Append new addresses to try on future connection attempts.

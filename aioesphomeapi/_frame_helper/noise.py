@@ -17,6 +17,7 @@ from ..core import (
     HandshakeAPIError,
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
+    ResumeAPIError,
 )
 from .base import _LOGGER, APIFrameHelper
 from .noise_encryption import (
@@ -25,6 +26,16 @@ from .noise_encryption import (
     DecryptCipher,
     EncryptCipher,
     decode_noise_psk,
+)
+from .noise_resume import (
+    RESUME_ACCEPT_SIZE,
+    RESUME_ACCEPT_VERSION,
+    RESUME_MAC_SIZE,
+    RESUME_NONCE_SIZE,
+    RawCipherState,
+    build_resume_offer,
+    derive_resume_keys,
+    verify_confirm_mac,
 )
 
 if TYPE_CHECKING:
@@ -93,7 +104,11 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_expected_mac",
         "_expected_name",
         "_noise_psk",
+        "_prologue",
         "_proto",
+        "_resume_nonce",
+        "_resume_offer",
+        "_resume_secret",
         "_server_mac",
         "_server_name",
         "_state",
@@ -107,6 +122,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         expected_mac: str | None,
         client_info: str,
         log_name: str,
+        resume_ticket: tuple[bytes, bytes] | None = None,
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(connection, client_info, log_name)
@@ -118,6 +134,24 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._server_mac: str | None = None
         self._encrypt_cipher: EncryptCipher | None = None
         self._decrypt_cipher: DecryptCipher | None = None
+        # The resume offer rides in the ClientHello body, which both sides
+        # mix into the handshake prologue, so old firmware that ignores it
+        # still completes a normal full handshake with a matching prologue.
+        self._resume_secret: bytes | None = None
+        self._resume_nonce: bytes | None = None
+        self._resume_offer = b""
+        if resume_ticket is not None:
+            session_id, secret = resume_ticket
+            self._resume_offer, self._resume_nonce = build_resume_offer(
+                session_id, secret
+            )
+            self._resume_secret = secret
+        offer_len = len(self._resume_offer)
+        self._prologue = (
+            b"NoiseAPIInit"
+            + bytes(((offer_len >> 8) & 0xFF, offer_len & 0xFF))
+            + self._resume_offer
+        )
         self._setup_proto()
 
     def close(self) -> None:
@@ -196,11 +230,19 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
+        # The full-handshake message 1 is always sent, even alongside a
+        # resume offer: old firmware needs it, and new firmware discards it
+        # when it accepts the resume.
+        offer_len = len(self._resume_offer)
+        hello = (
+            bytes((0x01, (offer_len >> 8) & 0xFF, offer_len & 0xFF))
+            + self._resume_offer
+        )
         handshake_frame = self._proto.write_message()
         frame_len = len(handshake_frame) + 1
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
         self._write_bytes(
-            (NOISE_HELLO, header, b"\x00", handshake_frame),
+            (hello, header, b"\x00", handshake_frame),
             _LOGGER.isEnabledFor(logging.DEBUG),
         )
 
@@ -272,7 +314,46 @@ class APINoiseFrameHelper(APIFrameHelper):
                     )
                     return
 
+                if self._resume_secret is not None:
+                    self._handle_resume_accept(server_hello[mac_address_i + 1 :])
+                    if self._state != NOISE_STATE_HELLO:
+                        # Resumed (READY) or failed verification (CLOSED)
+                        return
+
         self._state = NOISE_STATE_HANDSHAKE
+
+    def _handle_resume_accept(self, ext: bytes) -> None:
+        """Handle a resume accept extension trailing the ServerHello.
+
+        Leaves the state at NOISE_STATE_HELLO when no accept extension is
+        present (full handshake proceeds); moves it to READY on a verified
+        accept, or CLOSED when the accept fails verification.
+        """
+        if len(ext) < RESUME_ACCEPT_SIZE or ext[0] != RESUME_ACCEPT_VERSION:
+            # Old firmware (no trailing bytes) or unknown extension: the
+            # device is doing a full handshake
+            return
+        server_nonce = ext[1 : 1 + RESUME_NONCE_SIZE]
+        confirm_mac = ext[
+            1 + RESUME_NONCE_SIZE : 1 + RESUME_NONCE_SIZE + RESUME_MAC_SIZE
+        ]
+        if TYPE_CHECKING:
+            assert self._resume_secret is not None
+            assert self._resume_nonce is not None
+        if not verify_confirm_mac(
+            self._resume_secret, self._resume_nonce, server_nonce, confirm_mac
+        ):
+            self._handle_error_and_close(
+                ResumeAPIError(f"{self._log_name}: Resume accept failed verification")
+            )
+            return
+        k_c2d, k_d2c = derive_resume_keys(
+            self._resume_secret, self._resume_nonce, server_nonce, self._prologue
+        )
+        self._encrypt_cipher = EncryptCipher(RawCipherState(k_c2d))
+        self._decrypt_cipher = DecryptCipher(RawCipherState(k_d2c))
+        self._state = NOISE_STATE_READY
+        self.ready_future.set_result(None)
 
     def _decode_noise_psk(self) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
@@ -298,7 +379,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         )
         proto.set_as_initiator()
         proto.set_psks(self._decode_noise_psk())
-        proto.set_prologue(b"NoiseAPIInit\x00\x00")
+        # "NoiseAPIInit" + big-endian length of the ClientHello body + the
+        # body itself; the device mixes whatever ClientHello it receives, so
+        # the two sides always agree.
+        proto.set_prologue(self._prologue)
         proto.start_handshake()
         self._proto = proto
 
@@ -313,6 +397,14 @@ class APINoiseFrameHelper(APIFrameHelper):
         if explanation_raw != "Handshake MAC failure":
             exc = HandshakeAPIError(
                 f"{self._log_name}: Handshake failure: {explanation}"
+            )
+        elif self._resume_secret is not None:
+            # A resume offer was in the prologue, so a MAC failure is
+            # ambiguous: wrong key, or a prologue mismatch caused by the
+            # offer. The ticket is already spent; retry once with a bare
+            # ClientHello before reporting a key problem to the user.
+            exc = ResumeAPIError(
+                f"{self._log_name}: Handshake MAC failure after resume offer"
             )
         else:
             exc = InvalidEncryptionKeyAPIError(

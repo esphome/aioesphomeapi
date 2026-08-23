@@ -13,6 +13,7 @@ from .core import (
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
     RequiresEncryptionAPIError,
+    ResumeAPIError,
     UnhandledAPIConnectionError,
 )
 from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_address
@@ -510,6 +511,12 @@ class ReconnectLogic:
                 self._cli.log_name,
             )
             self._cli.clear_noise_psk()
+            self._tries = 0
+            return
+        if isinstance(err, ResumeAPIError):
+            # A session resume attempt failed; the ticket is already
+            # discarded, so the next attempt is a plain full handshake.
+            # Retry immediately instead of treating it as an auth error.
             self._tries = 0
             return
         if isinstance(err, AUTH_EXCEPTIONS):
