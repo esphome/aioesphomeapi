@@ -153,8 +153,10 @@ from .model import (
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    ConnectionClosedEvent,
     DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
+    DisconnectReason,
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
@@ -357,8 +359,20 @@ class APIClient(APIClientBase):
         expected_disconnect: bool,
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
+        connection = self._connection
         self._connection = None
         self._cached_device_info = None
+        if connection is not None:
+            # Subscribers run before on_stop: create_eager_task starts the
+            # on_stop coroutine synchronously, so reconnect machinery would
+            # otherwise get to run first.
+            self._fire_connection_closed_callbacks(
+                ConnectionClosedEvent(
+                    expected_disconnect=expected_disconnect,
+                    reason=DisconnectReason.convert(connection.disconnect_reason),
+                    error=connection.fatal_exception,
+                )
+            )
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
@@ -1303,6 +1317,20 @@ class APIClient(APIClientBase):
             f"({response.error})"
         )
         raise BluetoothConnectionDroppedError(msg)
+
+    def bluetooth_device_disconnect_no_wait(self, address: int) -> None:
+        """Disconnect from a Bluetooth device without waiting for a response.
+
+        Sends the disconnect request and returns immediately instead of
+        awaiting the device's connection state change, so a cleanup or
+        cancellation path can release the connection slot without an
+        uncancellable wait. The device frees the slot when it processes
+        the request and reports the state change through the usual
+        subscriptions.
+
+        Raises APIConnectionError if the API connection is not open.
+        """
+        self._bluetooth_disconnect_no_wait(address)
 
     def _bluetooth_disconnect_no_wait(self, address: int) -> None:
         """Disconnect from a Bluetooth device without waiting for a response."""

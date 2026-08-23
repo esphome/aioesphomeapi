@@ -9,9 +9,6 @@ import logging
 import socket
 from typing import TYPE_CHECKING, Any, cast
 
-from zeroconf import DNSQuestionType, IPVersion
-from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
-
 from .core import ResolveAPIError, ResolveTimeoutAPIError
 from .util import (
     address_is_local,
@@ -23,6 +20,8 @@ from .zeroconf import ZeroconfManager
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine
+
+    from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +64,8 @@ async def _async_zeroconf_get_service_info(
     short_host: str,
     timeout: float,
 ) -> AsyncServiceInfo:
+    from zeroconf import DNSQuestionType  # noqa: PLC0415
+
     info = _make_service_info_for_short_host(short_host)
     try:
         # Use QM (multicast) questions to ensure multicast responses that all
@@ -95,6 +96,8 @@ def _scope_id_to_int(value: str | None) -> int:
 
 def _make_service_info_for_short_host(host: str) -> AsyncServiceInfo:
     """Make service info for an ESPHome host."""
+    from zeroconf.asyncio import AsyncServiceInfo  # noqa: PLC0415
+
     service_name = f"{host}.{SERVICE_TYPE}"
     server = f"{host}.local."
     return AsyncServiceInfo(SERVICE_TYPE, service_name, server=server)
@@ -113,6 +116,8 @@ async def _async_resolve_short_host_zeroconf(
 
 
 def service_info_to_addr_info(info: AsyncServiceInfo, port: int) -> list[AddrInfo]:
+    from zeroconf import IPVersion  # noqa: PLC0415
+
     return [
         _async_ip_address_to_addrinfo(ip, port)
         for version in (IPVersion.V6Only, IPVersion.V4Only)

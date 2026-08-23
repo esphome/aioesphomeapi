@@ -1055,6 +1055,14 @@ def test_bluetooth_all_zero_uuid_from_dict() -> None:
     )
 
 
+def test_bluetooth_out_of_range_uuid_from_dict() -> None:
+    """from_dict rejects uuid words outside the 128-bit range."""
+    with pytest.raises(ValueError, match="128-bit"):
+        BluetoothGATTDescriptorModel.from_dict({"uuid": [2**100, 0], "handle": 7})
+    with pytest.raises(ValueError, match="128-bit"):
+        BluetoothGATTDescriptorModel.from_dict({"uuid": [-1, 0], "handle": 7})
+
+
 def test_bluetooth_characteristic_efficient_uuids() -> None:
     """Test characteristic with mixed UUID types in descriptors."""
     pb_char = BluetoothGATTCharacteristic()

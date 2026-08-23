@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import CancelledError
-from dataclasses import astuple, dataclass
+from dataclasses import astuple
 import enum
 from functools import lru_cache, partial
 import logging
@@ -183,7 +183,8 @@ class ConnectionInterruptedError(Exception):
     """An error that is raised when a connection is interrupted."""
 
 
-@dataclass
+# Not a dataclass: Cython 3.3 rejects an annotated field with a default on a
+# cdef class declared in a .pxd, and the defaults here are public API.
 class ConnectionParams:
     addresses: list[str]
     port: int
@@ -194,8 +195,34 @@ class ConnectionParams:
     noise_psk: str | None
     expected_name: str | None
     expected_mac: str | None
-    timezone: str | None = None
-    provide_time: bool = True
+    timezone: str | None
+    provide_time: bool
+
+    def __init__(
+        self,
+        addresses: list[str],
+        port: int,
+        password: str | None,
+        client_info: str,
+        keepalive: float,
+        zeroconf_manager: ZeroconfManager,
+        noise_psk: str | None,
+        expected_name: str | None,
+        expected_mac: str | None,
+        timezone: str | None = None,
+        provide_time: bool = True,
+    ) -> None:
+        self.addresses = addresses
+        self.port = port
+        self.password = password
+        self.client_info = client_info
+        self.keepalive = keepalive
+        self.zeroconf_manager = zeroconf_manager
+        self.noise_psk = noise_psk
+        self.expected_name = expected_name
+        self.expected_mac = expected_mac
+        self.timezone = timezone
+        self.provide_time = provide_time
 
 
 class ConnectionState(enum.Enum):
@@ -389,6 +416,11 @@ class APIConnection:
         self.connected_address: str | None = None
         self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
+
+    @property
+    def fatal_exception(self) -> Exception | None:
+        """The exception that ended this connection, if it ended in an error."""
+        return self._fatal_exception
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
