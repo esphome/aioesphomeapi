@@ -27,7 +27,7 @@ from aioesphomeapi import (
     RequiresEncryptionAPIError,
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.core import APIConnectionCancelledError
+from aioesphomeapi.core import APIConnectionCancelledError, ResumeAPIError
 
 if TYPE_CHECKING:
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
@@ -211,6 +211,39 @@ async def test_reconnect_logic_name_from_cli_address():
     )
     assert cli.log_name == "mydevice"
     assert rl.name == "mydevice"
+
+
+async def test_reconnect_logic_resume_error_retries_immediately(
+    patchable_api_client: APIClient,
+):
+    """A failed resume attempt retries without backoff."""
+    cli = patchable_api_client
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        pass
+
+    async def on_connect() -> None:
+        pass
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=on_disconnect,
+        on_connect=on_connect,
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection", side_effect=ResumeAPIError("resume")),
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._tries == 0
+    await rl.stop()
 
 
 async def test_reconnect_logic_state(patchable_api_client: APIClient):

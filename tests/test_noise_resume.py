@@ -215,3 +215,16 @@ async def test_ticket_handler_stores_valid_ticket() -> None:
     params.resume_ticket = None
     connection._handle_noise_resume_ticket_internal(bad)
     assert params.resume_ticket is None
+
+
+@pytest.mark.asyncio
+async def test_resume_ticket_message_dispatch() -> None:
+    params = get_mock_connection_params()
+    params.noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+    connection = APIConnection(params, AsyncMock(), True, None)
+    connection._register_internal_message_handlers()
+    msg = NoiseResumeTicket()
+    msg.session_id = KAT_SESSION_ID
+    msg.secret = KAT_SECRET
+    connection.process_packet(151, msg.SerializeToString())
+    assert params.resume_ticket == (KAT_SESSION_ID, KAT_SECRET)
