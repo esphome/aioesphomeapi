@@ -152,8 +152,10 @@ from .model import (
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    ConnectionClosedEvent,
     DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
+    DisconnectReason,
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
@@ -326,8 +328,20 @@ class APIClient(APIClientBase):
         expected_disconnect: bool,
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
+        connection = self._connection
         self._connection = None
         self._cached_device_info = None
+        if connection is not None:
+            # Subscribers run before on_stop: create_eager_task starts the
+            # on_stop coroutine synchronously, so reconnect machinery would
+            # otherwise get to run first.
+            self._fire_connection_closed_callbacks(
+                ConnectionClosedEvent(
+                    expected_disconnect=expected_disconnect,
+                    reason=DisconnectReason.convert(connection.disconnect_reason),
+                    error=connection.fatal_exception,
+                )
+            )
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
