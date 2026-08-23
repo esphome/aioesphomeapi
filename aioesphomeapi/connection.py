@@ -183,6 +183,8 @@ class ConnectionInterruptedError(Exception):
     """An error that is raised when a connection is interrupted."""
 
 
+# Not a dataclass: Cython 3.3 rejects an annotated field with a default on a
+# cdef class declared in a .pxd, and the defaults here are public API.
 class ConnectionParams:
     addresses: list[str]
     port: int
