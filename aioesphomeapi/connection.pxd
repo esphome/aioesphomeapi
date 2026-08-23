@@ -78,7 +78,6 @@ cdef tuple MESSAGE_NUMBER_TO_PROTO
 cdef Py_ssize_t _MESSAGE_NUMBER_TO_PROTO_LEN
 
 
-@cython.dataclasses.dataclass
 cdef class ConnectionParams:
 
     cdef public list addresses

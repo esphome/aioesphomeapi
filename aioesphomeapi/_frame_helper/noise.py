@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     import asyncio
 
     from ..connection import APIConnection
+    from .packets import Packet
 
 
 # This is effectively an enum but we don't want to use an enum
@@ -59,13 +60,13 @@ _MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
 
 
 def make_noise_packets(
-    packets: list[tuple[int, bytes]], encrypt_cipher: EncryptCipher
+    packets: list[Packet], encrypt_cipher: EncryptCipher
 ) -> list[bytes]:
     """Make a list of noise packet."""
     out: list[bytes] = []
     for packet in packets:
-        type_: int = packet[0]
-        data: bytes = packet[1]
+        type_ = packet[0]
+        data = packet[1]
         data_len = len(data)
         data_header = bytes(
             (
@@ -360,9 +361,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._encrypt_cipher = EncryptCipher(noise_protocol.cipher_state_encrypt)  # pylint: disable=no-member
         self.ready_future.set_result(None)
 
-    def write_packets(
-        self, packets: list[tuple[int, bytes]], debug_enabled: bool
-    ) -> None:
+    def write_packets(self, packets: list[Packet], debug_enabled: bool) -> None:
         """Write a packets to the socket.
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]

@@ -7,7 +7,6 @@ for GetTimeRequest and responds to it, otherwise ignores the request.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import replace
 from functools import partial
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -66,7 +65,8 @@ async def _make_connected_conn(
     loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
-    params = replace(get_mock_connection_params(), provide_time=provide_time)
+    params = get_mock_connection_params()
+    params.provide_time = provide_time
     conn = PatchableAPIConnection(params, mock_on_stop, True, None)
 
     if get_timezone_patch is None:
