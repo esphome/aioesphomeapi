@@ -242,6 +242,16 @@ async def test_resume_confirm_mac_mismatch_raises_resume_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_truncated_resume_accept_raises_resume_error() -> None:
+    helper, _, _ = _make_helper_with_ticket()
+
+    helper.data_received(_make_noise_hello_pkt(_make_server_hello(b"\x01short")))
+    await asyncio.sleep(0)
+    with pytest.raises(ResumeAPIError):
+        helper.ready_future.result()
+
+
+@pytest.mark.asyncio
 async def test_mac_failure_reject_after_offer_raises_resume_error() -> None:
     helper, _, _ = _make_helper_with_ticket()
 

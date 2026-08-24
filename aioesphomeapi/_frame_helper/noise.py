@@ -28,6 +28,7 @@ from .noise_encryption import (
     decode_noise_psk,
 )
 from .noise_resume import (
+    RESUME_ACCEPT_VERSION,
     build_client_hello,
     build_resume_offer,
     derive_resume_keys,
@@ -331,6 +332,13 @@ class APINoiseFrameHelper(APIFrameHelper):
         accept, CLOSED when verification fails.
         """
         if (parsed := parse_resume_accept(ext)) is None:
+            if ext and ext[0] == RESUME_ACCEPT_VERSION:
+                # Tagged as an accept but truncated; a full handshake would
+                # only stall, so fail fast and retry bare
+                self._handle_error_and_close(
+                    ResumeAPIError(f"{self._log_name}: Malformed resume accept")
+                )
+                return
             # Old firmware (no trailing bytes) or unknown extension: the
             # device is doing a full handshake
             return
