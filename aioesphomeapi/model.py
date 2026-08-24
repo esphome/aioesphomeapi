@@ -415,6 +415,12 @@ class EntityState(APIModelBase):
     key: int = 0
     device_id: int = 0
 
+    def with_device_id(self, device_id: int) -> Self:
+        """Return a copy of this state that belongs to another device."""
+        values = {f.name: getattr(self, f.name) for f in cached_fields(type(self))}  # type: ignore[arg-type]
+        values["device_id"] = device_id
+        return type(self)(**values)
+
 
 @_frozen_dataclass_decorator
 class CommandProtoMessage(APIModelBase):
