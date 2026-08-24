@@ -304,6 +304,14 @@ def test_api_model_base_from_dict():
     assert ListAPIModel.from_dict({"val": []}) == ListAPIModel()
 
 
+def test_entity_state_with_device_id() -> None:
+    """Test with_device_id returns a copy with only the device id changed."""
+    state = SensorState(key=1, state=4.5, device_id=1)
+    moved = state.with_device_id(2)
+    assert moved == SensorState(key=1, state=4.5, device_id=2)
+    assert state.device_id == 1
+
+
 def test_api_model_base_from_dict_null_float_becomes_nan() -> None:
     """Test a null float field (how JSON encodes NaN) is restored as NaN."""
     restored = SensorState.from_dict({"key": 1, "state": None})
