@@ -3648,6 +3648,30 @@ async def test_serial_proxy_get_modem_pins(
     assert isinstance(result, SerialProxyModemPins)
     assert result.instance == 0
     assert result.line_states == 1
+    assert result.status == SerialProxyStatus.OK
+
+
+async def test_serial_proxy_get_modem_pins_invalid_instance(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test an out-of-range instance surfaces INVALID_ARGUMENT in the status."""
+    client, connection, _transport, _protocol = api_client
+
+    response_pb = SerialProxyGetModemPinsResponsePb(
+        instance=9, status=SerialProxyStatus.INVALID_ARGUMENT
+    )
+
+    async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_get_modem_pins(instance=9)
+
+    assert result.status == SerialProxyStatus.INVALID_ARGUMENT
+    assert result.line_states == 0
 
 
 async def test_serial_proxy_get_modem_pins_matches_instance(

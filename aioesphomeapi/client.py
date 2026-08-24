@@ -718,7 +718,9 @@ class APIClient(APIClientBase):
         """Configure UART parameters and await the device acknowledgement.
 
         Returns None when the device is too old to acknowledge (API < 1.16);
-        the request is still sent.
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
         """
         req = _make_serial_proxy_configure_request(
             instance, baudrate, flow_control, parity, stop_bits, data_size
@@ -780,7 +782,9 @@ class APIClient(APIClientBase):
         """Set modem control pin states and await the device acknowledgement.
 
         Returns None when the device is too old to acknowledge (API < 1.16);
-        the request is still sent.
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
         """
         req = SerialProxySetModemPinsRequest(instance=instance, line_states=line_states)
         if not self._supports_proxy_ack():
@@ -795,7 +799,12 @@ class APIClient(APIClientBase):
         instance: int,
         timeout: float = 10.0,
     ) -> SerialProxyModemPins:
-        """Get current modem control pin states for a serial proxy instance."""
+        """Get current modem control pin states for a serial proxy instance.
+
+        line_states is only meaningful when status is SerialProxyStatus.OK.
+        Devices below API 1.16 never set status, so it always reads OK there;
+        an out-of-range instance times out on those devices instead.
+        """
         resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
         return SerialProxyModemPins.from_pb(resp)
 
@@ -872,7 +881,9 @@ class APIClient(APIClientBase):
         """Send a serial proxy request and await its matching response.
 
         Returns None when the device is too old to acknowledge (API < 1.16);
-        the request is still sent.
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
         """
         req = SerialProxyRequest(instance=instance, type=request_type)
         if not self._supports_proxy_ack():
@@ -922,7 +933,9 @@ class APIClient(APIClientBase):
         """Send a Z-Wave proxy request and await its matching response.
 
         Returns None when the device is too old to acknowledge (API < 1.16);
-        the request is still sent.
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
         """
         req = ZWaveProxyRequest(type=request_type)
         if not self._supports_proxy_ack():

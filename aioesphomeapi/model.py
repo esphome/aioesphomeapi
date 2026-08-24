@@ -249,6 +249,8 @@ class SerialProxyInfo(APIModelBase):
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
     )
+    # Bitmask of SerialProxyLineStateFlag the instance can drive; devices below
+    # API 1.16 never send it, so 0 there means "unknown", not "drives nothing"
     configured_line_states: int = 0
 
 
@@ -1380,6 +1382,13 @@ class RadioFrequencyInfo(EntityInfo):
 # ==================== SERIAL PROXY ====================
 
 
+class SerialProxyLineStateFlag(enum.IntFlag):
+    """Modem control line bits used in line_states and configured_line_states."""
+
+    RTS = 1 << 0
+    DTR = 1 << 1
+
+
 class SerialProxyParity(APIIntEnum):
     NONE = 0
     EVEN = 1
@@ -2224,6 +2233,7 @@ __all__ = (
     "SensorStateClass",
     "SerialProxyDataReceived",
     "SerialProxyInfo",
+    "SerialProxyLineStateFlag",
     "SerialProxyModemPins",
     "SerialProxyParity",
     "SerialProxyPortType",
