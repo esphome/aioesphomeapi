@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from functools import partial
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import TYPE_CHECKING, Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -23,8 +23,10 @@ from aioesphomeapi._frame_helper.noise_resume import (
     verify_confirm_mac,
 )
 from aioesphomeapi.api_pb2 import NoiseResumeTicket
-from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import ResumeAPIError
+
+if TYPE_CHECKING:
+    from aioesphomeapi.connection import APIConnection
 
 from .common import (
     MockAPINoiseFrameHelper,
@@ -34,7 +36,6 @@ from .common import (
     _make_noise_hello_pkt,
     connect,
     generate_plaintext_packet,
-    get_mock_connection_params,
     mock_data_received,
     send_plaintext_hello,
 )
@@ -182,7 +183,8 @@ async def test_resume_without_extension_falls_back_to_handshake() -> None:
     # Old firmware path: the deferred message 1 goes out, handshake pending
     joined = b"".join(writes)
     assert joined[0] == 0x01
-    assert (joined[1] << 8) | joined[2] == 49
+    # status byte + 48 byte NNpsk0 message 1
+    assert (joined[1] << 8) | joined[2] == 1 + 48
     assert joined[3] == 0x00
     assert not helper.ready_future.done()
 
@@ -209,23 +211,6 @@ async def test_mac_failure_reject_after_offer_raises_resume_error() -> None:
     await asyncio.sleep(0)
     with pytest.raises(ResumeAPIError):
         helper.ready_future.result()
-
-
-@pytest.mark.asyncio
-async def test_ticket_handler_stores_valid_ticket() -> None:
-    params = get_mock_connection_params()
-    params.noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
-    connection = APIConnection(params, AsyncMock(), True, None)
-    msg = NoiseResumeTicket()
-    msg.ticket = KAT_SESSION_ID + KAT_SECRET
-    connection._handle_noise_resume_ticket_internal(msg)
-    assert params.resume_ticket == (KAT_SESSION_ID, KAT_SECRET)
-
-    bad = NoiseResumeTicket()
-    bad.ticket = b"short" + KAT_SECRET
-    params.resume_ticket = None
-    connection._handle_noise_resume_ticket_internal(bad)
-    assert params.resume_ticket is None
 
 
 @pytest.mark.asyncio

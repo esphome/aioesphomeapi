@@ -98,6 +98,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_encrypt_cipher",
         "_expected_mac",
         "_expected_name",
+        "_handshake_deferred",
         "_hello",
         "_noise_psk",
         "_prologue",
@@ -141,7 +142,10 @@ class APINoiseFrameHelper(APIFrameHelper):
             offer, self._resume_nonce = build_resume_offer(session_id, secret)
             self._resume_secret = secret
         self._hello, self._prologue = build_client_hello(offer)
-        self._setup_proto()
+        # Offering resume holds message 1 back until the device declines
+        self._handshake_deferred = resume_ticket is not None
+        if not self._handshake_deferred:
+            self._setup_proto()
 
     def close(self) -> None:
         """Close the connection."""
@@ -219,9 +223,7 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
-        if self._resume_secret is not None:
-            # Offering resume: message 1 is only needed if the device
-            # declines, so wait for the ServerHello instead of pipelining
+        if self._handshake_deferred:
             self._write_bytes((self._hello,), _LOGGER.isEnabledFor(logging.DEBUG))
             return
         self._write_bytes(
@@ -231,6 +233,8 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _handshake_message(self) -> tuple[bytes, bytes, bytes]:
         """Frame handshake message 1: header, status byte, noise message."""
+        if self._proto is None:
+            self._setup_proto()
         if TYPE_CHECKING:
             assert self._proto is not None
         handshake_frame = self._proto.write_message()
@@ -312,8 +316,9 @@ class APINoiseFrameHelper(APIFrameHelper):
                         # Resumed (READY) or failed verification (CLOSED)
                         return
 
-        if self._resume_secret is not None:
+        if self._handshake_deferred:
             # The device declined the resume offer; send the deferred message 1
+            self._handshake_deferred = False
             self._write_bytes(
                 self._handshake_message(), _LOGGER.isEnabledFor(logging.DEBUG)
             )
@@ -343,8 +348,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         k_c2d, k_d2c = derive_resume_keys(
             self._resume_secret, self._resume_nonce, server_nonce, self._prologue
         )
-        # The full handshake the client started is abandoned; free it
-        self._proto = None
         _LOGGER.debug("%s: Session resumed", self._log_name)
         self._become_ready(EncryptCipher.from_key(k_c2d), DecryptCipher.from_key(k_d2c))
 
@@ -446,8 +449,8 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._proto is not None
         noise_protocol = self._proto.noise_protocol
         self._become_ready(
-            EncryptCipher(noise_protocol.cipher_state_encrypt),  # pylint: disable=no-member
-            DecryptCipher(noise_protocol.cipher_state_decrypt),  # pylint: disable=no-member
+            EncryptCipher.from_cipher_state(noise_protocol.cipher_state_encrypt),  # pylint: disable=no-member
+            DecryptCipher.from_cipher_state(noise_protocol.cipher_state_decrypt),  # pylint: disable=no-member
         )
 
     def _become_ready(
@@ -456,6 +459,9 @@ class APINoiseFrameHelper(APIFrameHelper):
         """Install the transport ciphers and release handshake-only state."""
         self._encrypt_cipher = encrypt_cipher
         self._decrypt_cipher = decrypt_cipher
+        self._proto = None
+        self._hello = b""
+        self._prologue = b""
         self._resume_secret = None
         self._resume_nonce = None
         self._state = NOISE_STATE_READY

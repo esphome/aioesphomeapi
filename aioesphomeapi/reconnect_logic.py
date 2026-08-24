@@ -344,8 +344,8 @@ class ReconnectLogic:
         )
         # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
-        # The next attempt should run without backoff (a spent resume ticket)
-        self._retry_now = False
+        # Overrides the backoff for the next attempt (a spent resume ticket)
+        self._next_wait: float | None = None
         # Event for tracking when logic should stop
         self._connect_task: asyncio.Task[None] | None = None
         self._connect_timer: asyncio.TimerHandle | None = None
@@ -521,7 +521,7 @@ class ReconnectLogic:
             # The resume ticket is already discarded; the next attempt takes
             # the plain path, so retry immediately instead of backing off.
             self._tries = 0
-            self._retry_now = True
+            self._next_wait = 0.0
             return
         if isinstance(err, AUTH_EXCEPTIONS):
             # If we get an encryption or password error,
@@ -536,6 +536,10 @@ class ReconnectLogic:
         if not delay:
             self._call_connect_once()
             return
+        self._arm_connect_timer(delay)
+
+    def _arm_connect_timer(self, delay: float) -> None:
+        """Arm the connect timer; a zero delay fires on the next loop iteration."""
         _LOGGER.debug("Scheduling new connect attempt in %.2f seconds", delay)
         self._connect_timer = self.loop.call_at(
             self.loop.time() + delay, self._call_connect_once
@@ -619,13 +623,13 @@ class ReconnectLogic:
             self._zc_wake.arm()
             if await self._try_connect():
                 return
-            if self._retry_now:
-                # Defer one loop iteration so this connect task has finished
-                self._retry_now = False
+            if self._next_wait is not None:
+                # Cannot call _schedule_connect(0) from inside the running
+                # connect task; arm a timer so it fires once this task is done
+                wait_time = self._next_wait
+                self._next_wait = None
                 self._cancel_connect_timer()
-                self._connect_timer = self.loop.call_at(
-                    self.loop.time(), self._call_connect_once
-                )
+                self._arm_connect_timer(wait_time)
                 return
             # Listen during the backoff wait without waiting out the arm timer.
             self._zc_wake.start_soon()
@@ -720,7 +724,7 @@ class ReconnectLogic:
 
         async with self._connected_lock:
             self._is_stopped = True
-            self._retry_now = False
+            self._next_wait = None
             # Cancel again while holding the lock
             self._cancel_connect("Stopping")
             self._zc_wake.stop()

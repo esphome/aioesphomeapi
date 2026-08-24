@@ -22,6 +22,7 @@ from .core import (
     ProtocolAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
+    ResumeAPIError,
     SocketAPIError,
     wifi_mac_to_bluetooth_mac,
 )

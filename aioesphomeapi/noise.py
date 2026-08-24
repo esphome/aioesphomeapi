@@ -83,7 +83,7 @@ class NoiseHandshake:
                 raise RuntimeError(msg)
             noise_protocol = self._proto.noise_protocol
             self._ciphers = (
-                EncryptCipher(noise_protocol.cipher_state_encrypt),
-                DecryptCipher(noise_protocol.cipher_state_decrypt),
+                EncryptCipher.from_cipher_state(noise_protocol.cipher_state_encrypt),
+                DecryptCipher.from_cipher_state(noise_protocol.cipher_state_decrypt),
             )
         return self._ciphers

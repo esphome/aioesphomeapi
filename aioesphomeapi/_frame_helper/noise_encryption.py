@@ -70,20 +70,21 @@ class EncryptCipher:
 
     __slots__ = ("_encrypt", "_nonce")
 
-    def __init__(self, cipher_state: CipherState) -> None:
+    def __init__(self, cipher: ChaCha20Poly1305Reusable, nonce: _int) -> None:
         """Initialize the cipher wrapper."""
-        crypto_cipher: CryptographyCipher = cipher_state.cipher
-        cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
-        self._nonce: _int = cipher_state.n
+        self._nonce: _int = nonce
         self._encrypt = cipher.encrypt
+
+    @classmethod
+    def from_cipher_state(cls, cipher_state: CipherState) -> EncryptCipher:
+        """Wrap the cipher a completed noise handshake produced."""
+        crypto_cipher: CryptographyCipher = cipher_state.cipher
+        return cls(crypto_cipher.cipher, cipher_state.n)
 
     @classmethod
     def from_key(cls, key: _bytes) -> EncryptCipher:
         """Build a cipher from a raw 32-byte key with a zero nonce (session resume)."""
-        self: EncryptCipher = cls.__new__(cls)
-        self._nonce = 0
-        self._encrypt = ChaCha20Poly1305Reusable(key).encrypt
-        return self
+        return cls(ChaCha20Poly1305Reusable(key), 0)
 
     def encrypt(self, data: _bytes) -> bytes:
         """Encrypt a frame."""
@@ -97,20 +98,21 @@ class DecryptCipher:
 
     __slots__ = ("_decrypt", "_nonce")
 
-    def __init__(self, cipher_state: CipherState) -> None:
+    def __init__(self, cipher: ChaCha20Poly1305Reusable, nonce: _int) -> None:
         """Initialize the cipher wrapper."""
-        crypto_cipher: CryptographyCipher = cipher_state.cipher
-        cipher: ChaCha20Poly1305Reusable = crypto_cipher.cipher
-        self._nonce: _int = cipher_state.n
+        self._nonce: _int = nonce
         self._decrypt = cipher.decrypt
+
+    @classmethod
+    def from_cipher_state(cls, cipher_state: CipherState) -> DecryptCipher:
+        """Wrap the cipher a completed noise handshake produced."""
+        crypto_cipher: CryptographyCipher = cipher_state.cipher
+        return cls(crypto_cipher.cipher, cipher_state.n)
 
     @classmethod
     def from_key(cls, key: _bytes) -> DecryptCipher:
         """Build a cipher from a raw 32-byte key with a zero nonce (session resume)."""
-        self: DecryptCipher = cls.__new__(cls)
-        self._nonce = 0
-        self._decrypt = ChaCha20Poly1305Reusable(key).decrypt
-        return self
+        return cls(ChaCha20Poly1305Reusable(key), 0)
 
     def decrypt(self, data: _bytes) -> bytes:
         """Decrypt a frame."""

@@ -272,16 +272,16 @@ async def test_reconnect_logic_resume_error_flag_cleared_on_stop(
     # A resume failure flags an immediate retry; stop before it runs
     async with rl._connected_lock:
         await rl._handle_connection_failure(ResumeAPIError("resume"))
-    assert rl._retry_now is True
+    assert rl._next_wait == 0.0
     await rl.stop()
-    assert rl._retry_now is False
+    assert rl._next_wait is None
 
     # A fresh start with an ordinary failure backs off normally
     with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
         await rl.start()
         await asyncio.sleep(0)
         await asyncio.sleep(0)
-    assert rl._retry_now is False
+    assert rl._next_wait is None
     assert rl._tries == 1
     await rl.stop()
 
