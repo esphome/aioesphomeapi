@@ -235,13 +235,17 @@ async def test_reconnect_logic_resume_error_retries_immediately(
     with (
         patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
-        patch.object(cli, "finish_connection", side_effect=ResumeAPIError("resume")),
+        patch.object(
+            cli, "finish_connection", side_effect=[ResumeAPIError("resume"), None]
+        ) as finish_connection,
     ):
         await rl.start()
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        for _ in range(6):
+            await asyncio.sleep(0)
 
-    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    # The second attempt ran without a backoff timer and succeeded
+    assert finish_connection.call_count == 2
+    assert rl._connection_state is ReconnectLogicState.READY
     assert rl._tries == 0
     await rl.stop()
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from functools import partial
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -229,8 +230,10 @@ async def test_resume_ticket_message_dispatch(
     connection_params,
     resolve_host,
     aiohappyeyeballs_start_connection,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A NoiseResumeTicket pushed by the device lands on ConnectionParams."""
+    caplog.set_level(logging.DEBUG)
     loop = asyncio.get_running_loop()
     transport = MagicMock()
     connected = asyncio.Event()
@@ -250,6 +253,11 @@ async def test_resume_ticket_message_dispatch(
     msg.secret = KAT_SECRET
     mock_data_received(protocol, generate_plaintext_packet(msg))
     assert connection_params.resume_ticket == (KAT_SESSION_ID, KAT_SECRET)
+    # The secret must never reach the debug message log
+    assert "NoiseResumeTicket" in caplog.text
+    assert "<redacted>" in caplog.text
+    assert KAT_SECRET.hex() not in caplog.text
+    assert repr(KAT_SECRET)[2:-1] not in caplog.text
 
     bad = NoiseResumeTicket()
     bad.session_id = b"short"

@@ -86,7 +86,6 @@ AUTH_EXCEPTIONS = (
     InvalidAuthAPIError,
 )
 
-# Errors that self-heal on the next attempt and should retry without backoff
 IMMEDIATE_RETRY_EXCEPTIONS = (ResumeAPIError,)
 
 
@@ -345,6 +344,8 @@ class ReconnectLogic:
         )
         # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
+        # The next attempt should run without backoff (a spent resume ticket)
+        self._retry_now = False
         # Event for tracking when logic should stop
         self._connect_task: asyncio.Task[None] | None = None
         self._connect_timer: asyncio.TimerHandle | None = None
@@ -517,10 +518,10 @@ class ReconnectLogic:
             self._tries = 0
             return
         if isinstance(err, IMMEDIATE_RETRY_EXCEPTIONS):
-            # Self-healing one-shot failures (a resume attempt failed and
-            # its ticket is already discarded); the next attempt takes the
-            # plain path, so retry immediately instead of backing off.
+            # The resume ticket is already discarded; the next attempt takes
+            # the plain path, so retry immediately instead of backing off.
             self._tries = 0
+            self._retry_now = True
             return
         if isinstance(err, AUTH_EXCEPTIONS):
             # If we get an encryption or password error,
@@ -617,6 +618,14 @@ class ReconnectLogic:
                 return
             self._zc_wake.arm()
             if await self._try_connect():
+                return
+            if self._retry_now:
+                # Defer one loop iteration so this connect task has finished
+                self._retry_now = False
+                self._cancel_connect_timer()
+                self._connect_timer = self.loop.call_at(
+                    self.loop.time(), self._call_connect_once
+                )
                 return
             # Listen during the backoff wait without waiting out the arm timer.
             self._zc_wake.start_soon()
