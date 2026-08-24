@@ -219,16 +219,24 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _send_hello_handshake(self) -> None:
         """Send a ClientHello to the server."""
-        # Message 1 is always sent; new firmware discards it on resume.
+        if self._resume_secret is not None:
+            # Offering resume: message 1 is only needed if the device
+            # declines, so wait for the ServerHello instead of pipelining
+            self._write_bytes((self._hello,), _LOGGER.isEnabledFor(logging.DEBUG))
+            return
+        self._write_bytes(
+            (self._hello, *self._handshake_message()),
+            _LOGGER.isEnabledFor(logging.DEBUG),
+        )
+
+    def _handshake_message(self) -> tuple[bytes, bytes, bytes]:
+        """Frame handshake message 1: header, status byte, noise message."""
         if TYPE_CHECKING:
             assert self._proto is not None
         handshake_frame = self._proto.write_message()
         frame_len = len(handshake_frame) + 1
         header = bytes((0x01, (frame_len >> 8) & 0xFF, frame_len & 0xFF))
-        self._write_bytes(
-            (self._hello, header, b"\x00", handshake_frame),
-            _LOGGER.isEnabledFor(logging.DEBUG),
-        )
+        return header, b"\x00", bytes(handshake_frame)
 
     def _handle_hello(self, server_hello: bytes) -> None:
         """Perform the handshake with the server."""
@@ -304,6 +312,11 @@ class APINoiseFrameHelper(APIFrameHelper):
                         # Resumed (READY) or failed verification (CLOSED)
                         return
 
+        if self._resume_secret is not None:
+            # The device declined the resume offer; send the deferred message 1
+            self._write_bytes(
+                self._handshake_message(), _LOGGER.isEnabledFor(logging.DEBUG)
+            )
         self._state = NOISE_STATE_HANDSHAKE
 
     def _handle_resume_accept(self, ext: bytes) -> None:

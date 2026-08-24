@@ -1306,11 +1306,12 @@ class APIConnection:
 
     def _handle_noise_resume_ticket_internal(self, msg: NoiseResumeTicket) -> None:
         """Store a session resume ticket for the next connection."""
-        if (
-            len(msg.session_id) == RESUME_SESSION_ID_SIZE
-            and len(msg.secret) == RESUME_SECRET_SIZE
-        ):
-            self._params.resume_ticket = (msg.session_id, msg.secret)
+        ticket = msg.ticket
+        if len(ticket) == RESUME_SESSION_ID_SIZE + RESUME_SECRET_SIZE:
+            self._params.resume_ticket = (
+                ticket[:RESUME_SESSION_ID_SIZE],
+                ticket[RESUME_SESSION_ID_SIZE:],
+            )
 
     def _handle_get_time_request_internal(  # pylint: disable=unused-argument
         self, _msg: GetTimeRequest

@@ -112,6 +112,8 @@ def _make_helper_with_ticket() -> tuple[MockAPINoiseFrameHelper, Any, list[bytes
 def _extract_offer(writes: list[bytes]) -> tuple[bytes, bytes]:
     """Pull the resume offer and client nonce out of the client's first write."""
     joined = b"".join(writes)
+    # Offering clients send only the hello and hold message 1 back
+    assert len(joined) == 3 + RESUME_OFFER_SIZE
     assert joined[0] == 0x01
     hello_len = (joined[1] << 8) | joined[2]
     assert hello_len == RESUME_OFFER_SIZE
@@ -172,11 +174,16 @@ async def test_resume_accept_establishes_session() -> None:
 
 @pytest.mark.asyncio
 async def test_resume_without_extension_falls_back_to_handshake() -> None:
-    helper, _, _ = _make_helper_with_ticket()
+    helper, _, writes = _make_helper_with_ticket()
+    writes.clear()
 
     helper.data_received(_make_noise_hello_pkt(_make_server_hello()))
     await asyncio.sleep(0)
-    # Old firmware path: hello consumed, handshake still pending
+    # Old firmware path: the deferred message 1 goes out, handshake pending
+    joined = b"".join(writes)
+    assert joined[0] == 0x01
+    assert (joined[1] << 8) | joined[2] == 49
+    assert joined[3] == 0x00
     assert not helper.ready_future.done()
 
 
@@ -210,14 +217,12 @@ async def test_ticket_handler_stores_valid_ticket() -> None:
     params.noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
     connection = APIConnection(params, AsyncMock(), True, None)
     msg = NoiseResumeTicket()
-    msg.session_id = KAT_SESSION_ID
-    msg.secret = KAT_SECRET
+    msg.ticket = KAT_SESSION_ID + KAT_SECRET
     connection._handle_noise_resume_ticket_internal(msg)
     assert params.resume_ticket == (KAT_SESSION_ID, KAT_SECRET)
 
     bad = NoiseResumeTicket()
-    bad.session_id = b"short"
-    bad.secret = KAT_SECRET
+    bad.ticket = b"short" + KAT_SECRET
     params.resume_ticket = None
     connection._handle_noise_resume_ticket_internal(bad)
     assert params.resume_ticket is None
@@ -246,14 +251,12 @@ async def test_resume_ticket_message_dispatch(
         await connect_task
 
     msg = NoiseResumeTicket()
-    msg.session_id = KAT_SESSION_ID
-    msg.secret = KAT_SECRET
+    msg.ticket = KAT_SESSION_ID + KAT_SECRET
     mock_data_received(protocol, generate_plaintext_packet(msg))
     assert connection_params.resume_ticket == (KAT_SESSION_ID, KAT_SECRET)
 
     bad = NoiseResumeTicket()
-    bad.session_id = b"short"
-    bad.secret = KAT_SECRET
+    bad.ticket = b"short" + KAT_SECRET
     connection_params.resume_ticket = None
     mock_data_received(protocol, generate_plaintext_packet(bad))
     assert connection_params.resume_ticket is None
