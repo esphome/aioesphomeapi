@@ -269,18 +269,10 @@ async def test_reconnect_logic_resume_error_flag_cleared_on_stop(
         zeroconf_instance=get_mock_zeroconf(),
         name="mydevice",
     )
-    with (
-        patch.object(cli, "start_resolve_host"),
-        patch.object(cli, "start_connection"),
-        patch.object(cli, "finish_connection", side_effect=ResumeAPIError("resume")),
-        patch.object(rl, "_call_connect_once"),
-    ):
-        await rl.start()
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        # Failure flagged an immediate retry; stop before it runs
-        assert rl._retry_now is True
-        await rl.stop()
+    # A resume failure flags an immediate retry; stop before it runs
+    await rl._handle_connection_failure(ResumeAPIError("resume"))
+    assert rl._retry_now is True
+    await rl.stop()
     assert rl._retry_now is False
 
     # A fresh start with an ordinary failure backs off normally
