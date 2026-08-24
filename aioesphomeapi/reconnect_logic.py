@@ -720,6 +720,7 @@ class ReconnectLogic:
 
         async with self._connected_lock:
             self._is_stopped = True
+            self._retry_now = False
             # Cancel again while holding the lock
             self._cancel_connect("Stopping")
             self._zc_wake.stop()

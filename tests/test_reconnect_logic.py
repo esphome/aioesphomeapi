@@ -250,6 +250,49 @@ async def test_reconnect_logic_resume_error_retries_immediately(
     await rl.stop()
 
 
+async def test_reconnect_logic_resume_error_flag_cleared_on_stop(
+    patchable_api_client: APIClient,
+):
+    """Stopping before the zero delay retry fires must not skip backoff later."""
+    cli = patchable_api_client
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        pass
+
+    async def on_connect() -> None:
+        pass
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=on_disconnect,
+        on_connect=on_connect,
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection", side_effect=ResumeAPIError("resume")),
+        patch.object(rl, "_call_connect_once"),
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # Failure flagged an immediate retry; stop before it runs
+        assert rl._retry_now is True
+        await rl.stop()
+    assert rl._retry_now is False
+
+    # A fresh start with an ordinary failure backs off normally
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+    assert rl._retry_now is False
+    assert rl._tries == 1
+    await rl.stop()
+
+
 async def test_reconnect_logic_state(patchable_api_client: APIClient):
     """Test that reconnect logic state changes."""
     on_disconnect_called = []
