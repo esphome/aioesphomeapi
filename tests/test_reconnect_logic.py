@@ -270,7 +270,8 @@ async def test_reconnect_logic_resume_error_flag_cleared_on_stop(
         name="mydevice",
     )
     # A resume failure flags an immediate retry; stop before it runs
-    await rl._handle_connection_failure(ResumeAPIError("resume"))
+    async with rl._connected_lock:
+        await rl._handle_connection_failure(ResumeAPIError("resume"))
     assert rl._retry_now is True
     await rl.stop()
     assert rl._retry_now is False
