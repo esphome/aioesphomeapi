@@ -1197,9 +1197,7 @@ class APIConnection:
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead
-                "<redacted>"
-                if klass is NoiseResumeTicket
-                else (MessageToDict(msg) if _WIN32 else msg),
+                MessageToDict(msg) if _WIN32 else msg,
             )
 
         if self._pong_timer is not None:
