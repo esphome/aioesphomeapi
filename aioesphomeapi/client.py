@@ -106,6 +106,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
     ZWaveProxyRequest,
+    ZWaveProxyRequestResponse,
 )
 from .client_base import (
     APIClientBase,
@@ -192,6 +193,8 @@ from .model import (
     WaterHeaterStateFlag,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
+    ZWaveProxyRequestResponse as ZWaveProxyRequestResponseModel,
+    ZWaveProxyRequestType,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -260,6 +263,34 @@ def _validate_connection_params(
 
 # API version 1.14+ may omit object_id to reduce protocol overhead
 MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
+
+# API version 1.16+ acknowledges proxy subscribe and port configuration requests
+MIN_VERSION_PROXY_ACK = APIVersion(1, 16)
+
+
+def _make_serial_proxy_configure_request(
+    instance: int,
+    baudrate: int,
+    flow_control: bool,
+    parity: SerialProxyParity,
+    stop_bits: int,
+    data_size: int,
+) -> SerialProxyConfigureRequest:
+    """Validate parameters and build a SerialProxyConfigureRequest."""
+    if not 1 <= stop_bits <= 2:
+        msg = f"stop_bits must be 1 or 2, got {stop_bits}"
+        raise ValueError(msg)
+    if not 5 <= data_size <= 8:
+        msg = f"data_size must be 5-8, got {data_size}"
+        raise ValueError(msg)
+    return SerialProxyConfigureRequest(
+        instance=instance,
+        baudrate=baudrate,
+        flow_control=flow_control,
+        parity=parity,
+        stop_bits=stop_bits,
+        data_size=data_size,
+    )
 
 
 def _fill_object_ids_if_needed(
@@ -652,6 +683,10 @@ class APIClient(APIClientBase):
         req.timings.extend(timings)
         self._get_connection().send_message(req)
 
+    def _supports_proxy_ack(self) -> bool:
+        api_version = self.api_version
+        return api_version is None or api_version >= MIN_VERSION_PROXY_ACK
+
     def serial_proxy_configure(
         self,
         instance: int,
@@ -663,21 +698,38 @@ class APIClient(APIClientBase):
         data_size: int = 8,
     ) -> None:
         """Configure UART parameters for a serial proxy instance."""
-        if not 1 <= stop_bits <= 2:
-            msg = f"stop_bits must be 1 or 2, got {stop_bits}"
-            raise ValueError(msg)
-        if not 5 <= data_size <= 8:
-            msg = f"data_size must be 5-8, got {data_size}"
-            raise ValueError(msg)
         self._get_connection().send_message(
-            SerialProxyConfigureRequest(
-                instance=instance,
-                baudrate=baudrate,
-                flow_control=flow_control,
-                parity=parity,
-                stop_bits=stop_bits,
-                data_size=data_size,
+            _make_serial_proxy_configure_request(
+                instance, baudrate, flow_control, parity, stop_bits, data_size
             )
+        )
+
+    async def serial_proxy_configure_await_response(
+        self,
+        instance: int,
+        baudrate: int,
+        *,
+        flow_control: bool = False,
+        parity: SerialProxyParity = SerialProxyParity.NONE,
+        stop_bits: int = 1,
+        data_size: int = 8,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel | None:
+        """Configure UART parameters and await the device acknowledgement.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = _make_serial_proxy_configure_request(
+            instance, baudrate, flow_control, parity, stop_bits, data_size
+        )
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.CONFIGURE, timeout
         )
 
     def serial_proxy_write(
@@ -720,12 +772,39 @@ class APIClient(APIClientBase):
             )
         )
 
+    async def serial_proxy_set_modem_pins_await_response(
+        self,
+        instance: int,
+        *,
+        line_states: int = 0,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel | None:
+        """Set modem control pin states and await the device acknowledgement.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = SerialProxySetModemPinsRequest(instance=instance, line_states=line_states)
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.SET_MODEM_PINS, timeout
+        )
+
     async def serial_proxy_get_modem_pins(
         self,
         instance: int,
         timeout: float = 10.0,
     ) -> SerialProxyModemPins:
-        """Get current modem control pin states for a serial proxy instance."""
+        """Get current modem control pin states for a serial proxy instance.
+
+        line_states is only meaningful when status is SerialProxyStatus.OK.
+        Devices below API 1.16 never set status, so it always reads OK there;
+        an out-of-range instance times out on those devices instead.
+        """
         resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
         return SerialProxyModemPins.from_pb(resp)
 
@@ -772,17 +851,17 @@ class APIClient(APIClientBase):
             )
         )
 
-    async def _send_serial_proxy_request_await_response(
+    async def _await_serial_proxy_response(
         self,
+        req: message.Message,
         instance: int,
-        request_type: SerialProxyRequestType,
-        timeout: float = 10.0,
+        response_type: SerialProxyRequestType,
+        timeout: float,
     ) -> SerialProxyRequestResponseModel:
-        """Send a serial proxy request and await its matching response."""
-        req = SerialProxyRequest(instance=instance, type=request_type)
+        """Send a serial proxy message and await its matching acknowledgement."""
 
         def is_matching_response(msg: SerialProxyRequestResponse) -> bool:
-            return bool(msg.instance == instance and msg.type == request_type)
+            return bool(msg.instance == instance and msg.type == response_type)
 
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
@@ -793,11 +872,32 @@ class APIClient(APIClientBase):
         )
         return SerialProxyRequestResponseModel.from_pb(resp)
 
+    async def _send_serial_proxy_request_await_response(
+        self,
+        instance: int,
+        request_type: SerialProxyRequestType,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel | None:
+        """Send a serial proxy request and await its matching response.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = SerialProxyRequest(instance=instance, type=request_type)
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+        return await self._await_serial_proxy_response(
+            req, instance, request_type, timeout
+        )
+
     async def serial_proxy_subscribe_await_response(
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyRequestResponseModel:
+    ) -> SerialProxyRequestResponseModel | None:
         """Subscribe and await confirmation from the serial proxy instance."""
         return await self._send_serial_proxy_request_await_response(
             instance, SerialProxyRequestType.SUBSCRIBE, timeout
@@ -807,10 +907,69 @@ class APIClient(APIClientBase):
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyRequestResponseModel:
+    ) -> SerialProxyRequestResponseModel | None:
         """Unsubscribe and await confirmation from the serial proxy instance."""
         return await self._send_serial_proxy_request_await_response(
             instance, SerialProxyRequestType.UNSUBSCRIBE, timeout
+        )
+
+    def zwave_proxy_subscribe(self) -> None:
+        """Subscribe to receive frames from the Z-Wave proxy."""
+        self._get_connection().send_message(
+            ZWaveProxyRequest(type=ZWaveProxyRequestType.SUBSCRIBE)
+        )
+
+    def zwave_proxy_unsubscribe(self) -> None:
+        """Unsubscribe from the Z-Wave proxy."""
+        self._get_connection().send_message(
+            ZWaveProxyRequest(type=ZWaveProxyRequestType.UNSUBSCRIBE)
+        )
+
+    async def _send_zwave_proxy_request_await_response(
+        self,
+        request_type: ZWaveProxyRequestType,
+        timeout: float = 10.0,
+    ) -> ZWaveProxyRequestResponseModel | None:
+        """Send a Z-Wave proxy request and await its matching response.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = ZWaveProxyRequest(type=request_type)
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+
+        def is_matching_response(msg: ZWaveProxyRequestResponse) -> bool:
+            return bool(msg.type == request_type)
+
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            is_matching_response,
+            is_matching_response,
+            (ZWaveProxyRequestResponse,),
+            timeout,
+        )
+        return ZWaveProxyRequestResponseModel.from_pb(resp)
+
+    async def zwave_proxy_subscribe_await_response(
+        self,
+        timeout: float = 10.0,
+    ) -> ZWaveProxyRequestResponseModel | None:
+        """Subscribe and await confirmation from the Z-Wave proxy."""
+        return await self._send_zwave_proxy_request_await_response(
+            ZWaveProxyRequestType.SUBSCRIBE, timeout
+        )
+
+    async def zwave_proxy_unsubscribe_await_response(
+        self,
+        timeout: float = 10.0,
+    ) -> ZWaveProxyRequestResponseModel | None:
+        """Unsubscribe and await confirmation from the Z-Wave proxy."""
+        return await self._send_zwave_proxy_request_await_response(
+            ZWaveProxyRequestType.UNSUBSCRIBE, timeout
         )
 
     async def serial_proxy_flush(
@@ -819,7 +978,10 @@ class APIClient(APIClientBase):
         timeout: float = 10.0,
     ) -> SerialProxyRequestResponseModel:
         """Flush the serial port and await confirmation."""
-        return await self._send_serial_proxy_request_await_response(
+        # Flush has been acknowledged since the feature was introduced,
+        # so it is not gated on MIN_VERSION_PROXY_ACK
+        return await self._await_serial_proxy_response(
+            SerialProxyRequest(instance=instance, type=SerialProxyRequestType.FLUSH),
             instance,
             SerialProxyRequestType.FLUSH,
             timeout,

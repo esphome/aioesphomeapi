@@ -158,6 +158,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     WaterHeaterStateResponse,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
+    ZWaveProxyRequestResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -557,6 +558,7 @@ MESSAGE_TYPE_TO_PROTO = {
     148: ListEntitiesRadioFrequencyResponse,
     149: DeviceCapabilitiesRequest,
     150: DeviceCapabilitiesResponse,
+    151: ZWaveProxyRequestResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

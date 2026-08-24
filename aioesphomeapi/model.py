@@ -178,6 +178,12 @@ class ZWaveProxyRequestType(APIIntEnum):
     HOME_ID_CHANGE = 2
 
 
+class ZWaveProxyStatus(APIIntEnum):
+    OK = 0
+    IN_USE = 1
+    NOT_SUPPORTED = 2
+
+
 @_frozen_dataclass_decorator
 class ZWaveProxyFrame(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
@@ -187,6 +193,17 @@ class ZWaveProxyFrame(APIModelBase):
 class ZWaveProxyRequest(APIModelBase):
     type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyRequestResponse(APIModelBase):
+    type: ZWaveProxyRequestType | None = converter_field(
+        default=ZWaveProxyRequestType.SUBSCRIBE,
+        converter=ZWaveProxyRequestType.convert,
+    )
+    status: ZWaveProxyStatus | None = converter_field(
+        default=ZWaveProxyStatus.OK, converter=ZWaveProxyStatus.convert
+    )
 
 
 class InfraredCapability(enum.IntFlag):
@@ -245,6 +262,9 @@ class SerialProxyInfo(APIModelBase):
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
     )
+    # Bitmask of SerialProxyLineStateFlag the instance can drive; devices below
+    # API 1.16 never send it, so 0 there means "unknown", not "drives nothing"
+    configured_line_states: int = 0
 
 
 @_frozen_dataclass_decorator
@@ -1375,6 +1395,13 @@ class RadioFrequencyInfo(EntityInfo):
 # ==================== SERIAL PROXY ====================
 
 
+class SerialProxyLineStateFlag(enum.IntFlag):
+    """Modem control line bits used in line_states and configured_line_states."""
+
+    RTS = 1 << 0
+    DTR = 1 << 1
+
+
 class SerialProxyParity(APIIntEnum):
     NONE = 0
     EVEN = 1
@@ -1385,6 +1412,8 @@ class SerialProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
     FLUSH = 2
+    CONFIGURE = 3
+    SET_MODEM_PINS = 4
 
 
 class SerialProxyStatus(APIIntEnum):
@@ -1393,6 +1422,8 @@ class SerialProxyStatus(APIIntEnum):
     ERROR = 2
     TIMEOUT = 3
     NOT_SUPPORTED = 4
+    PORT_IN_USE = 5
+    INVALID_ARGUMENT = 6
 
 
 @_frozen_dataclass_decorator
@@ -1418,6 +1449,9 @@ class SerialProxyRequestResponse(APIModelBase):
 class SerialProxyModemPins(APIModelBase):
     instance: int = 0
     line_states: int = 0
+    status: SerialProxyStatus | None = converter_field(
+        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    )
 
 
 # ==================== INFO MAP ====================
@@ -2212,6 +2246,7 @@ __all__ = (
     "SensorStateClass",
     "SerialProxyDataReceived",
     "SerialProxyInfo",
+    "SerialProxyLineStateFlag",
     "SerialProxyModemPins",
     "SerialProxyParity",
     "SerialProxyPortType",
@@ -2266,7 +2301,9 @@ __all__ = (
     "ZWaveProxyFeature",
     "ZWaveProxyFrame",
     "ZWaveProxyRequest",
+    "ZWaveProxyRequestResponse",
     "ZWaveProxyRequestType",
+    "ZWaveProxyStatus",
     "build_device_unique_id",
     "build_unique_id",
 )

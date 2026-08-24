@@ -114,6 +114,7 @@ from aioesphomeapi.api_pb2 import (
     WaterHeaterCommandRequest,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
+    ZWaveProxyRequestResponse as ZWaveProxyRequestResponsePb,
 )
 from aioesphomeapi.client import (
     APIClient,
@@ -191,6 +192,9 @@ from aioesphomeapi.model import (
     WaterHeaterStateFlag,
     ZWaveProxyCapabilities,
     ZWaveProxyRequest,
+    ZWaveProxyRequestResponse,
+    ZWaveProxyRequestType,
+    ZWaveProxyStatus,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -3644,6 +3648,30 @@ async def test_serial_proxy_get_modem_pins(
     assert isinstance(result, SerialProxyModemPins)
     assert result.instance == 0
     assert result.line_states == 1
+    assert result.status == SerialProxyStatus.OK
+
+
+async def test_serial_proxy_get_modem_pins_invalid_instance(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test an out-of-range instance surfaces INVALID_ARGUMENT in the status."""
+    client, connection, _transport, _protocol = api_client
+
+    response_pb = SerialProxyGetModemPinsResponsePb(
+        instance=9, status=SerialProxyStatus.INVALID_ARGUMENT
+    )
+
+    async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_get_modem_pins(instance=9)
+
+    assert result.status == SerialProxyStatus.INVALID_ARGUMENT
+    assert result.line_states == 0
 
 
 async def test_serial_proxy_get_modem_pins_matches_instance(
@@ -3811,6 +3839,7 @@ async def test_serial_proxy_request_await_response(
 ) -> None:
     """Test awaitable serial_proxy subscribe/unsubscribe returns matching response."""
     client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
 
     response_pb = SerialProxyRequestResponsePb(
         instance=instance,
@@ -3853,6 +3882,348 @@ async def test_serial_proxy_request_await_response(
     assert result.instance == instance
     assert result.type == request_type
     assert result.status == SerialProxyStatus.OK
+
+
+async def test_serial_proxy_subscribe_await_response_denied(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test a denied subscribe surfaces PORT_IN_USE in the response."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=0,
+        type=SerialProxyRequestType.SUBSCRIBE,
+        status=SerialProxyStatus.PORT_IN_USE,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_subscribe_await_response(0)
+
+    assert result is not None
+    assert result.status == SerialProxyStatus.PORT_IN_USE
+
+
+@pytest.mark.parametrize(
+    ("method", "request_type"),
+    [
+        (
+            APIClient.serial_proxy_subscribe_await_response,
+            SerialProxyRequestType.SUBSCRIBE,
+        ),
+        (
+            APIClient.serial_proxy_unsubscribe_await_response,
+            SerialProxyRequestType.UNSUBSCRIBE,
+        ),
+    ],
+)
+async def test_serial_proxy_request_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    method: Callable[..., Coroutine[Any, Any, SerialProxyRequestResponse | None]],
+    request_type: SerialProxyRequestType,
+) -> None:
+    """Test devices below API 1.16 get the request fire-and-forget and None back."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await method(client, instance=1)
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].instance == 1
+    assert sent_messages[0].type == request_type
+
+
+async def test_serial_proxy_configure_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_configure_await_response matches the CONFIGURE ack."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=2,
+        type=SerialProxyRequestType.CONFIGURE,
+        status=SerialProxyStatus.OK,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxyConfigureRequestPb)
+        assert messages[0].instance == 2
+        assert messages[0].baudrate == 115200
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        mismatched_type = SerialProxyRequestResponsePb(
+            instance=2,
+            type=SerialProxyRequestType.SUBSCRIBE,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(mismatched_type) is False
+        assert stop(mismatched_type) is False
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_configure_await_response(2, 115200)
+
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.instance == 2
+    assert result.type == SerialProxyRequestType.CONFIGURE
+    assert result.status == SerialProxyStatus.OK
+
+
+async def test_serial_proxy_configure_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test configure on devices below API 1.16 sends fire-and-forget."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyConfigureRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyConfigureRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await client.serial_proxy_configure_await_response(1, 9600)
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].baudrate == 9600
+
+
+async def test_serial_proxy_configure_await_response_invalid_args(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test configure_await_response validates parameters before sending."""
+    client, _connection, _transport, _protocol = api_client
+    with pytest.raises(ValueError, match="stop_bits"):
+        await client.serial_proxy_configure_await_response(0, 9600, stop_bits=3)
+    with pytest.raises(ValueError, match="data_size"):
+        await client.serial_proxy_configure_await_response(0, 9600, data_size=9)
+
+
+async def test_serial_proxy_set_modem_pins_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test set_modem_pins_await_response matches the SET_MODEM_PINS ack."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=1,
+        type=SerialProxyRequestType.SET_MODEM_PINS,
+        status=SerialProxyStatus.NOT_SUPPORTED,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxySetModemPinsRequestPb)
+        assert messages[0].instance == 1
+        assert messages[0].line_states == 3
+        assert do_append(response_pb) is True
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_set_modem_pins_await_response(1, line_states=3)
+
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.type == SerialProxyRequestType.SET_MODEM_PINS
+    assert result.status == SerialProxyStatus.NOT_SUPPORTED
+
+
+async def test_serial_proxy_set_modem_pins_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test set_modem_pins on devices below API 1.16 sends fire-and-forget."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxySetModemPinsRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxySetModemPinsRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await client.serial_proxy_set_modem_pins_await_response(0, line_states=1)
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].line_states == 1
+
+
+@pytest.mark.parametrize(
+    ("method", "request_type"),
+    [
+        (APIClient.zwave_proxy_subscribe, ZWaveProxyRequestType.SUBSCRIBE),
+        (APIClient.zwave_proxy_unsubscribe, ZWaveProxyRequestType.UNSUBSCRIBE),
+    ],
+)
+async def test_zwave_proxy_request_send(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    method: Callable[..., None],
+    request_type: ZWaveProxyRequestType,
+) -> None:
+    """Test zwave_proxy subscribe/unsubscribe sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[ZWaveProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, ZWaveProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    method(client)
+
+    assert len(sent_messages) == 1
+    assert sent_messages[0].type == request_type
+
+
+@pytest.mark.parametrize(
+    ("method", "request_type"),
+    [
+        (
+            APIClient.zwave_proxy_subscribe_await_response,
+            ZWaveProxyRequestType.SUBSCRIBE,
+        ),
+        (
+            APIClient.zwave_proxy_unsubscribe_await_response,
+            ZWaveProxyRequestType.UNSUBSCRIBE,
+        ),
+    ],
+)
+async def test_zwave_proxy_request_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    method: Callable[..., Coroutine[Any, Any, ZWaveProxyRequestResponse | None]],
+    request_type: ZWaveProxyRequestType,
+) -> None:
+    """Test awaitable zwave_proxy subscribe/unsubscribe returns matching response."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = ZWaveProxyRequestResponsePb(
+        type=request_type,
+        status=ZWaveProxyStatus.OK,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], ZWaveProxyRequestPb)
+        assert messages[0].type == request_type
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        mismatched_type = ZWaveProxyRequestResponsePb(
+            type=(
+                ZWaveProxyRequestType.UNSUBSCRIBE
+                if request_type == ZWaveProxyRequestType.SUBSCRIBE
+                else ZWaveProxyRequestType.SUBSCRIBE
+            ),
+            status=ZWaveProxyStatus.OK,
+        )
+        assert do_append(mismatched_type) is False
+        assert stop(mismatched_type) is False
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await method(client)
+
+    assert isinstance(result, ZWaveProxyRequestResponse)
+    assert result.type == request_type
+    assert result.status == ZWaveProxyStatus.OK
+
+
+async def test_zwave_proxy_subscribe_await_response_denied(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test a denied Z-Wave subscribe surfaces IN_USE in the response."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = ZWaveProxyRequestResponsePb(
+        type=ZWaveProxyRequestType.SUBSCRIBE,
+        status=ZWaveProxyStatus.IN_USE,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.zwave_proxy_subscribe_await_response()
+
+    assert result is not None
+    assert result.status == ZWaveProxyStatus.IN_USE
+
+
+async def test_zwave_proxy_request_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test devices below API 1.16 get the request fire-and-forget and None back."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[ZWaveProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, ZWaveProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await client.zwave_proxy_subscribe_await_response()
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].type == ZWaveProxyRequestType.SUBSCRIBE
 
 
 async def test_execute_service_with_response(
