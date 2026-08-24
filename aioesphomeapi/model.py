@@ -58,7 +58,7 @@ cached_fields = cache(fields)
 
 @cache
 def _float_field_names(cls: type[Any]) -> frozenset[str]:
-    return frozenset(f.name for f in cached_fields(cls) if f.type == "float")  # type: ignore[arg-type]
+    return frozenset(f.name for f in cached_fields(cls) if f.type in ("float", float))  # type: ignore[arg-type]
 
 
 @_frozen_dataclass_decorator
