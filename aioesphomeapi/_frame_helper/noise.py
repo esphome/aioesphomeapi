@@ -332,6 +332,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         )
         # The full handshake the client started is abandoned; free it
         self._proto = None
+        _LOGGER.debug("%s: Session resumed", self._log_name)
         self._become_ready(EncryptCipher.from_key(k_c2d), DecryptCipher.from_key(k_d2c))
 
     def _decode_noise_psk(self) -> bytes:
