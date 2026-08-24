@@ -86,6 +86,7 @@ AUTH_EXCEPTIONS = (
     InvalidAuthAPIError,
 )
 
+# The ticket is spent, so the bare retry is not a repeat of the same failure
 IMMEDIATE_RETRY_EXCEPTIONS = (ResumeAPIError,)
 
 

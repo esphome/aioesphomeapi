@@ -113,7 +113,6 @@ def _make_helper_with_ticket() -> tuple[MockAPINoiseFrameHelper, Any, list[bytes
 def _extract_offer(writes: list[bytes]) -> tuple[bytes, bytes]:
     """Pull the resume offer and client nonce out of the client's first write."""
     joined = b"".join(writes)
-    # Offering clients send only the hello and hold message 1 back
     assert len(joined) == 3 + RESUME_OFFER_SIZE
     assert joined[0] == 0x01
     hello_len = (joined[1] << 8) | joined[2]
@@ -180,10 +179,8 @@ async def test_resume_without_extension_falls_back_to_handshake() -> None:
 
     helper.data_received(_make_noise_hello_pkt(_make_server_hello()))
     await asyncio.sleep(0)
-    # Old firmware path: the deferred message 1 goes out, handshake pending
     joined = b"".join(writes)
     assert joined[0] == 0x01
-    # status byte + 48 byte NNpsk0 message 1
     assert (joined[1] << 8) | joined[2] == 1 + 48
     assert joined[3] == 0x00
     assert not helper.ready_future.done()
@@ -208,6 +205,19 @@ async def test_mac_failure_reject_after_offer_raises_resume_error() -> None:
 
     helper.data_received(_make_noise_hello_pkt(_make_server_hello()))
     helper.data_received(_make_noise_hello_pkt(b"\x01Handshake MAC failure"))
+    await asyncio.sleep(0)
+    with pytest.raises(ResumeAPIError):
+        helper.ready_future.result()
+
+
+@pytest.mark.asyncio
+async def test_invalid_tag_after_offer_raises_resume_error() -> None:
+    helper, _, _ = _make_helper_with_ticket()
+
+    helper.data_received(_make_noise_hello_pkt(_make_server_hello()))
+    await asyncio.sleep(0)
+    bogus = b"\x00" + b"\xff" * 48
+    helper.data_received(bytes((0x01, 0, len(bogus))) + bogus)
     await asyncio.sleep(0)
     with pytest.raises(ResumeAPIError):
         helper.ready_future.result()

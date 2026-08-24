@@ -428,13 +428,19 @@ class APINoiseFrameHelper(APIFrameHelper):
             # the PSK doesn't match or the ciphertext was tampered with. ESPHome
             # firmware normally rejects with the dedicated preamble=0x01
             # "Handshake MAC failure" frame, so reaching this path means the
-            # peer is buggy or hostile; surface the same friendly error the
-            # named-failure branch raises.
-            key_err = InvalidEncryptionKeyAPIError(
-                f"{self._log_name}: Invalid encryption key",
-                self._server_name,
-                self._server_mac,
-            )
+            # peer is buggy or hostile; classify it the same way the
+            # named-failure branch does.
+            key_err: Exception
+            if self._resume_secret is not None:
+                key_err = ResumeAPIError(
+                    f"{self._log_name}: Handshake MAC failure after resume offer"
+                )
+            else:
+                key_err = InvalidEncryptionKeyAPIError(
+                    f"{self._log_name}: Invalid encryption key",
+                    self._server_name,
+                    self._server_mac,
+                )
             key_err.__cause__ = exc
             self._handle_error_and_close(key_err)
             return
