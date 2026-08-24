@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import TYPE_CHECKING
 
 import pytest
@@ -299,6 +300,15 @@ def test_api_model_base_from_dict():
     ) == DummyAPIModel(val1=-1)
     assert ListAPIModel.from_dict({}) == ListAPIModel()
     assert ListAPIModel.from_dict({"val": []}) == ListAPIModel()
+
+
+def test_api_model_base_from_dict_null_float_becomes_nan() -> None:
+    """Test a null float field (how JSON encodes NaN) is restored as NaN."""
+    restored = SensorState.from_dict({"key": 1, "state": None})
+    assert math.isnan(restored.state)
+    assert restored.key == 1
+    assert SensorState.from_dict({"key": 1, "state": 4.5}).state == 4.5
+    assert DummyAPIModel.from_dict({"val1": None}).val1 is None
 
 
 def test_api_model_base_from_pb():
