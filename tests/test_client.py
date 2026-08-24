@@ -5705,6 +5705,7 @@ async def test_noise_encryption_set_key(
         assert msg == NoiseEncryptionSetKeyRequest(key=b"1234")
         original_send_message(msg)
 
+    client._params.resume_ticket = (b"session", b"secret")
     with patch.object(connection, "send_message", new=send_message):
         set_task = asyncio.create_task(client.noise_encryption_set_key(b"1234"))
         await asyncio.sleep(0)
@@ -5712,6 +5713,7 @@ async def test_noise_encryption_set_key(
         mock_data_received(protocol, generate_plaintext_packet(response))
         success = await set_task
         assert success is True
+    assert client._params.resume_ticket is None
 
 
 async def test_bluetooth_scanner_set_mode(

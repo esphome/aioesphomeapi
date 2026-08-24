@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from functools import partial
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
@@ -33,12 +34,16 @@ from .common import (
     _create_mock_transport_protocol,
     _make_encrypted_packet,
     _make_mock_connection,
+    _make_noise_handshake_pkt,
     _make_noise_hello_pkt,
+    _mock_responder_proto,
     connect,
     generate_plaintext_packet,
+    get_mock_connection_params,
     mock_data_received,
     send_plaintext_hello,
 )
+from .conftest import PatchableAPIConnection, mock_on_stop
 
 # Known-answer vectors shared with the device implementation
 # (esphome tests/components/noise/test_noise_resume.cpp); the two must stay
@@ -90,6 +95,9 @@ def test_build_resume_offer_layout() -> None:
     )
 
 
+_PSK = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+
+
 def _make_helper_with_ticket() -> tuple[MockAPINoiseFrameHelper, Any, list[bytes]]:
     connection, packets = _make_mock_connection()
     writes: list[bytes] = []
@@ -99,7 +107,7 @@ def _make_helper_with_ticket() -> tuple[MockAPINoiseFrameHelper, Any, list[bytes
 
     helper = MockAPINoiseFrameHelper(
         connection=connection,
-        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        noise_psk=_PSK,
         expected_name="servicetest",
         expected_mac="11:22:33:44:55:aa",
         client_info="my client",
@@ -174,7 +182,8 @@ async def test_resume_accept_establishes_session() -> None:
 
 @pytest.mark.asyncio
 async def test_resume_without_extension_falls_back_to_handshake() -> None:
-    helper, _, writes = _make_helper_with_ticket()
+    helper, packets, writes = _make_helper_with_ticket()
+    offer, _ = _extract_offer(writes)
     writes.clear()
 
     helper.data_received(_make_noise_hello_pkt(_make_server_hello()))
@@ -184,6 +193,34 @@ async def test_resume_without_extension_falls_back_to_handshake() -> None:
     assert (joined[1] << 8) | joined[2] == 1 + 48
     assert joined[3] == 0x00
     assert not helper.ready_future.done()
+
+    # Old firmware mixes the offer it ignored into its prologue, so the full
+    # handshake completes with the client's offer-bearing prologue
+    _, prologue = build_client_hello(offer)
+    responder = _mock_responder_proto(base64.b64decode(_PSK), prologue)
+    assert responder.read_message(joined[4:52]) == b""
+    helper.data_received(_make_noise_handshake_pkt(responder))
+    await helper.ready_future
+
+    device_send = EncryptCipher.from_cipher_state(
+        responder.noise_protocol.cipher_state_encrypt
+    )
+    helper.data_received(_make_encrypted_packet(device_send, 42, b"abc"))
+    assert packets == [(42, b"abc")]
+
+
+@pytest.mark.asyncio
+async def test_ticket_consumed_on_connect_attempt() -> None:
+    loop = asyncio.get_running_loop()
+    params = get_mock_connection_params()
+    params.noise_psk = _PSK
+    params.resume_ticket = (KAT_SESSION_ID, KAT_SECRET)
+    conn = PatchableAPIConnection(params, mock_on_stop, True, None)
+    with patch.object(loop, "create_connection") as create_connection:
+        create_connection.return_value = (MagicMock(), MagicMock())
+        conn._socket = MagicMock()
+        await conn._connect_init_frame_helper()
+    assert params.resume_ticket is None
 
 
 @pytest.mark.asyncio
@@ -229,6 +266,7 @@ async def test_resume_ticket_message_dispatch(
     connection_params,
     resolve_host,
     aiohappyeyeballs_start_connection,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A NoiseResumeTicket pushed by the device lands on ConnectionParams."""
     loop = asyncio.get_running_loop()
@@ -255,3 +293,4 @@ async def test_resume_ticket_message_dispatch(
     connection_params.resume_ticket = None
     mock_data_received(protocol, generate_plaintext_packet(bad))
     assert connection_params.resume_ticket is None
+    assert "Ignoring resume ticket of 37 bytes" in caplog.text

@@ -1312,6 +1312,10 @@ class APIConnection:
                 ticket[:RESUME_SESSION_ID_SIZE],
                 ticket[RESUME_SESSION_ID_SIZE:],
             )
+        else:
+            _LOGGER.debug(
+                "%s: Ignoring resume ticket of %d bytes", self.log_name, len(ticket)
+            )
 
     def _handle_get_time_request_internal(  # pylint: disable=unused-argument
         self, _msg: GetTimeRequest

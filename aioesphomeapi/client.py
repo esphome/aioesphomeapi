@@ -2333,7 +2333,11 @@ class APIClient(APIClientBase):
         resp = await self._get_connection().send_message_await_response(
             req, NoiseEncryptionSetKeyResponse
         )
-        return NoiseEncryptionSetKeyResponseModel.from_pb(resp).success
+        success = NoiseEncryptionSetKeyResponseModel.from_pb(resp).success
+        if success:
+            # The device drops its ticket cache with the old key
+            self._params.resume_ticket = None
+        return success
 
     def send_homeassistant_action_response(
         self,
