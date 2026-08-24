@@ -4,6 +4,7 @@ import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
+import math
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 
 from .util import fix_float_single_double_conversion
@@ -55,6 +56,11 @@ class APIIntEnum(enum.IntEnum):
 cached_fields = cache(fields)
 
 
+@cache
+def _float_field_names(cls: type[Any]) -> frozenset[str]:
+    return frozenset(f.name for f in cached_fields(cls) if f.type in ("float", float))  # type: ignore[arg-type]
+
+
 @_frozen_dataclass_decorator
 class APIModelBase:
     def __post_init__(self) -> None:
@@ -71,9 +77,16 @@ class APIModelBase:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], *, ignore_missing: bool = True) -> Self:
+        # JSON has no representation for NaN or inf, so serializers such as
+        # orjson emit null; map it back to NaN for float fields.
+        float_fields = _float_field_names(cls)  # type: ignore[arg-type]
         return cls(
             **{
-                f.name: data[f.name]
+                f.name: (
+                    math.nan
+                    if f.name in float_fields and data[f.name] is None
+                    else data[f.name]
+                )
                 for f in cached_fields(cls)  # type: ignore[arg-type]
                 if f.name in data or (not ignore_missing)
             }
