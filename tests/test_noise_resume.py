@@ -24,7 +24,7 @@ from aioesphomeapi._frame_helper.noise_resume import (
     verify_confirm_mac,
 )
 from aioesphomeapi.api_pb2 import NoiseResumeTicket
-from aioesphomeapi.core import ResumeAPIError
+from aioesphomeapi.core import InvalidEncryptionKeyAPIError, ResumeAPIError
 
 if TYPE_CHECKING:
     from aioesphomeapi.connection import APIConnection
@@ -141,6 +141,7 @@ def _accept_ext(client_nonce: bytes, server_nonce: bytes = KAT_SERVER_NONCE) -> 
 def test_parse_resume_accept() -> None:
     ext = _accept_ext(KAT_CLIENT_NONCE)
     assert parse_resume_accept(ext) == (KAT_SERVER_NONCE, KAT_CONFIRM_MAC)
+    assert parse_resume_accept(ext + b"\xff\xff") == (KAT_SERVER_NONCE, KAT_CONFIRM_MAC)
     assert parse_resume_accept(b"") is None
     assert parse_resume_accept(ext[:-1]) is None
     assert parse_resume_accept(b"\x7f" + ext[1:]) is None
@@ -249,6 +250,22 @@ async def test_truncated_resume_accept_raises_resume_error() -> None:
     await asyncio.sleep(0)
     with pytest.raises(ResumeAPIError):
         helper.ready_future.result()
+
+
+@pytest.mark.asyncio
+async def test_bad_psk_raises_before_deferred_handshake() -> None:
+    connection, _ = _make_mock_connection()
+    with pytest.raises(InvalidEncryptionKeyAPIError):
+        MockAPINoiseFrameHelper(
+            connection=connection,
+            noise_psk="not base64",
+            expected_name="servicetest",
+            expected_mac=None,
+            client_info="my client",
+            log_name="test",
+            writer=lambda _data: None,
+            resume_ticket=(KAT_SESSION_ID, KAT_SECRET),
+        )
 
 
 @pytest.mark.asyncio

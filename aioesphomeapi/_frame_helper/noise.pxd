@@ -44,7 +44,7 @@ cdef object verify_confirm_mac
 
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
-    cdef object _noise_psk
+    cdef bytes _noise_psk
     cdef str _expected_name
     cdef str _expected_mac
     cdef unsigned int _state
@@ -107,7 +107,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
 
     cdef void _setup_proto(self) except *
 
-    cdef _decode_noise_psk(self)
+    cdef _decode_noise_psk(self, str noise_psk)
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 

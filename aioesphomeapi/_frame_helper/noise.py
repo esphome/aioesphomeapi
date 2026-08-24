@@ -123,7 +123,6 @@ class APINoiseFrameHelper(APIFrameHelper):
     ) -> None:
         """Initialize the API frame helper."""
         super().__init__(connection, client_info, log_name)
-        self._noise_psk = noise_psk
         self._expected_mac = expected_mac
         self._expected_name = expected_name
         self._state = NOISE_STATE_HELLO
@@ -145,6 +144,8 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._hello, self._prologue = build_client_hello(offer)
         # Offering resume holds message 1 back until the device declines
         self._handshake_deferred = resume_ticket is not None
+        # Decode now so a bad key raises here even when the handshake waits
+        self._noise_psk: bytes = self._decode_noise_psk(noise_psk)
         if not self._handshake_deferred:
             self._setup_proto()
 
@@ -359,10 +360,10 @@ class APINoiseFrameHelper(APIFrameHelper):
         _LOGGER.debug("%s: Session resumed", self._log_name)
         self._become_ready(EncryptCipher.from_key(k_c2d), DecryptCipher.from_key(k_d2c))
 
-    def _decode_noise_psk(self) -> bytes:
+    def _decode_noise_psk(self, noise_psk: str) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
         try:
-            return decode_noise_psk(self._noise_psk)
+            return decode_noise_psk(noise_psk)
         except ValueError as err:
             msg = f"{self._log_name}: {err}"
             raise InvalidEncryptionKeyAPIError(
@@ -382,7 +383,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             NOISE_PROTOCOL_NAME, backend=ESPHOME_NOISE_BACKEND
         )
         proto.set_as_initiator()
-        proto.set_psks(self._decode_noise_psk())
+        proto.set_psks(self._noise_psk)
         # "NoiseAPIInit" + big-endian length of the ClientHello body + the
         # body itself; the device mixes whatever ClientHello it receives, so
         # the two sides always agree.
