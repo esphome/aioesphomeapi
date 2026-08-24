@@ -216,8 +216,13 @@ async def test_ticket_consumed_on_connect_attempt() -> None:
     params.noise_psk = _PSK
     params.resume_ticket = (KAT_SESSION_ID, KAT_SECRET)
     conn = PatchableAPIConnection(params, mock_on_stop, True, None)
-    with patch.object(loop, "create_connection") as create_connection:
-        create_connection.return_value = (MagicMock(), MagicMock())
+
+    def _create_connection(factory: Any, **_: Any) -> tuple[Any, Any]:
+        helper = factory()
+        loop.call_soon(helper.ready_future.set_result, None)
+        return MagicMock(), helper
+
+    with patch.object(loop, "create_connection", side_effect=_create_connection):
         conn._socket = MagicMock()
         await conn._connect_init_frame_helper()
     assert params.resume_ticket is None
