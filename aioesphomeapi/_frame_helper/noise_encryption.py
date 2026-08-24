@@ -71,7 +71,7 @@ class EncryptCipher:
     __slots__ = ("_encrypt", "_nonce")
 
     def __init__(self, cipher: ChaCha20Poly1305Reusable, nonce: _int) -> None:
-        """Initialize the cipher wrapper."""
+        """Initialize from a reusable cipher and nonce."""
         self._nonce: _int = nonce
         self._encrypt = cipher.encrypt
 
@@ -99,7 +99,7 @@ class DecryptCipher:
     __slots__ = ("_decrypt", "_nonce")
 
     def __init__(self, cipher: ChaCha20Poly1305Reusable, nonce: _int) -> None:
-        """Initialize the cipher wrapper."""
+        """Initialize from a reusable cipher and nonce."""
         self._nonce: _int = nonce
         self._decrypt = cipher.decrypt
 
