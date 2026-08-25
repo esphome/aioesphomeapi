@@ -10,15 +10,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aioesphomeapi import connection as connection_module
 from aioesphomeapi._frame_helper.noise_encryption import DecryptCipher, EncryptCipher
 from aioesphomeapi._frame_helper.noise_resume import (
     RESUME_OFFER_MAC_OFFSET,
     RESUME_OFFER_NONCE_OFFSET,
     RESUME_OFFER_SESSION_ID_OFFSET,
     RESUME_OFFER_SIZE,
-    RESUME_SECRET_SIZE,
-    RESUME_SESSION_ID_SIZE,
     build_client_hello,
     build_resume_offer,
     derive_resume_keys,
@@ -139,14 +136,6 @@ def _make_server_hello(ext: bytes = b"") -> bytes:
 def _accept_ext(client_nonce: bytes, server_nonce: bytes = KAT_SERVER_NONCE) -> bytes:
     confirm = hkdf_noise(KAT_SECRET, b"confirm" + client_nonce + server_nonce)[0][:16]
     return b"\x01" + server_nonce + confirm
-
-
-def test_connection_ticket_sizes_match_noise_resume() -> None:
-    assert connection_module.RESUME_SESSION_ID_SIZE == RESUME_SESSION_ID_SIZE
-    assert (
-        connection_module.RESUME_TICKET_SIZE
-        == RESUME_SESSION_ID_SIZE + RESUME_SECRET_SIZE
-    )
 
 
 def test_parse_resume_accept() -> None:

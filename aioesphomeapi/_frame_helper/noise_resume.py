@@ -21,20 +21,39 @@ from hashlib import sha256
 import hmac
 from os import urandom
 
-RESUME_OFFER_VERSION = 0x01
-RESUME_ACCEPT_VERSION = 0x01
-RESUME_SESSION_ID_SIZE = 8
-RESUME_NONCE_SIZE = 16
-RESUME_MAC_SIZE = 16
-RESUME_SECRET_SIZE = 32
+from .noise_resume_layout import (
+    RESUME_ACCEPT_SIZE,
+    RESUME_ACCEPT_VERSION,
+    RESUME_MAC_SIZE,
+    RESUME_NONCE_SIZE,
+    RESUME_OFFER_MAC_OFFSET,
+    RESUME_OFFER_NONCE_OFFSET,
+    RESUME_OFFER_SESSION_ID_OFFSET,
+    RESUME_OFFER_SIZE,
+    RESUME_OFFER_VERSION,
+    RESUME_SECRET_SIZE,
+    RESUME_SESSION_ID_SIZE,
+)
 
-# version | session_id | client_nonce | offer_mac
-RESUME_OFFER_SIZE = 1 + RESUME_SESSION_ID_SIZE + RESUME_NONCE_SIZE + RESUME_MAC_SIZE
-RESUME_OFFER_SESSION_ID_OFFSET = 1
-RESUME_OFFER_NONCE_OFFSET = RESUME_OFFER_SESSION_ID_OFFSET + RESUME_SESSION_ID_SIZE
-RESUME_OFFER_MAC_OFFSET = RESUME_OFFER_NONCE_OFFSET + RESUME_NONCE_SIZE
-# version | server_nonce | confirm_mac
-RESUME_ACCEPT_SIZE = 1 + RESUME_NONCE_SIZE + RESUME_MAC_SIZE
+__all__ = [
+    "RESUME_ACCEPT_SIZE",
+    "RESUME_ACCEPT_VERSION",
+    "RESUME_MAC_SIZE",
+    "RESUME_NONCE_SIZE",
+    "RESUME_OFFER_MAC_OFFSET",
+    "RESUME_OFFER_NONCE_OFFSET",
+    "RESUME_OFFER_SESSION_ID_OFFSET",
+    "RESUME_OFFER_SIZE",
+    "RESUME_OFFER_VERSION",
+    "RESUME_SECRET_SIZE",
+    "RESUME_SESSION_ID_SIZE",
+    "build_client_hello",
+    "build_resume_offer",
+    "derive_resume_keys",
+    "hkdf_noise",
+    "parse_resume_accept",
+    "verify_confirm_mac",
+]
 
 
 def hkdf_noise(key: bytes, data: bytes) -> tuple[bytes, bytes]:
