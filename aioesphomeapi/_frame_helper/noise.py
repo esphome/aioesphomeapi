@@ -467,8 +467,8 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._proto is not None
         noise_protocol = self._proto.noise_protocol
         self._become_ready(
-            EncryptCipher(noise_protocol.cipher_state_encrypt),  # pylint: disable=no-member
-            DecryptCipher(noise_protocol.cipher_state_decrypt),  # pylint: disable=no-member
+            EncryptCipher.from_cipher_state(noise_protocol.cipher_state_encrypt),  # pylint: disable=no-member
+            DecryptCipher.from_cipher_state(noise_protocol.cipher_state_decrypt),  # pylint: disable=no-member
         )
 
     def _become_ready(

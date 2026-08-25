@@ -36,8 +36,12 @@ def test_handshake_and_cipher_roundtrip() -> None:
     assert handshake.handshake_finished
 
     encrypt_cipher, decrypt_cipher = handshake.get_ciphers()
-    responder_decrypt = DecryptCipher(responder.noise_protocol.cipher_state_decrypt)
-    responder_encrypt = EncryptCipher(responder.noise_protocol.cipher_state_encrypt)
+    responder_decrypt = DecryptCipher.from_cipher_state(
+        responder.noise_protocol.cipher_state_decrypt
+    )
+    responder_encrypt = EncryptCipher.from_cipher_state(
+        responder.noise_protocol.cipher_state_encrypt
+    )
 
     for i in range(5):
         plaintext = b"frame %d " % i + bytes(200)
@@ -68,7 +72,9 @@ def test_decrypt_rejects_tampered_frame() -> None:
     responder.read_message(handshake.write_message())
     handshake.read_message(bytes(responder.write_message()))
     encrypt_cipher, _ = handshake.get_ciphers()
-    responder_decrypt = DecryptCipher(responder.noise_protocol.cipher_state_decrypt)
+    responder_decrypt = DecryptCipher.from_cipher_state(
+        responder.noise_protocol.cipher_state_decrypt
+    )
 
     ciphertext = bytearray(encrypt_cipher.encrypt(b"payload"))
     ciphertext[0] ^= 0x01

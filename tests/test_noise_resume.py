@@ -221,7 +221,9 @@ async def test_resume_without_extension_falls_back_to_handshake() -> None:
     helper.data_received(_make_noise_handshake_pkt(responder))
     await helper.ready_future
 
-    device_send = EncryptCipher(responder.noise_protocol.cipher_state_encrypt)
+    device_send = EncryptCipher.from_cipher_state(
+        responder.noise_protocol.cipher_state_encrypt
+    )
     helper.data_received(_make_encrypted_packet(device_send, 42, b"abc"))
     assert packets == [(42, b"abc")]
 
