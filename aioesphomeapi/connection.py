@@ -18,7 +18,6 @@ from google.protobuf.json_format import MessageToDict
 import aioesphomeapi.host_resolver as hr
 
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
-from ._frame_helper.noise_resume import RESUME_SECRET_SIZE, RESUME_SESSION_ID_SIZE
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
@@ -70,6 +69,10 @@ if TYPE_CHECKING:
     from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
+
+# Mirrors _frame_helper.noise_resume, which is only imported on the noise path
+RESUME_SESSION_ID_SIZE = 8
+RESUME_TICKET_SIZE = RESUME_SESSION_ID_SIZE + 32
 
 # The noise frame helper pulls in cryptography and the noise protocol stack,
 # which are only needed for encrypted connections; importing them is deferred
@@ -1307,7 +1310,7 @@ class APIConnection:
     def _handle_noise_resume_ticket_internal(self, msg: NoiseResumeTicket) -> None:
         """Store a session resume ticket for the next connection."""
         ticket = msg.ticket
-        if len(ticket) == RESUME_SESSION_ID_SIZE + RESUME_SECRET_SIZE:
+        if len(ticket) == RESUME_TICKET_SIZE:
             self._params.resume_ticket = (
                 ticket[:RESUME_SESSION_ID_SIZE],
                 ticket[RESUME_SESSION_ID_SIZE:],
