@@ -24,7 +24,12 @@ from aioesphomeapi._frame_helper.noise_resume import (
     verify_confirm_mac,
 )
 from aioesphomeapi.api_pb2 import NoiseResumeTicket
-from aioesphomeapi.core import InvalidEncryptionKeyAPIError, ResumeAPIError
+from aioesphomeapi.core import (
+    BadMACAddressAPIError,
+    BadNameAPIError,
+    InvalidEncryptionKeyAPIError,
+    ResumeAPIError,
+)
 
 if TYPE_CHECKING:
     from aioesphomeapi.connection import APIConnection
@@ -98,7 +103,9 @@ def test_build_resume_offer_layout() -> None:
 _PSK = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
 
 
-def _make_helper_with_ticket() -> tuple[MockAPINoiseFrameHelper, Any, list[bytes]]:
+def _make_helper_with_ticket(
+    expected_name: str = "servicetest", expected_mac: str = "11:22:33:44:55:aa"
+) -> tuple[MockAPINoiseFrameHelper, Any, list[bytes]]:
     connection, packets = _make_mock_connection()
     writes: list[bytes] = []
 
@@ -108,8 +115,8 @@ def _make_helper_with_ticket() -> tuple[MockAPINoiseFrameHelper, Any, list[bytes
     helper = MockAPINoiseFrameHelper(
         connection=connection,
         noise_psk=_PSK,
-        expected_name="servicetest",
-        expected_mac="11:22:33:44:55:aa",
+        expected_name=expected_name,
+        expected_mac=expected_mac,
         client_info="my client",
         log_name="test",
         writer=_writer,
@@ -197,6 +204,28 @@ async def test_resumed_session_decrypt_failure_raises_resume_error(
     helper.data_received(_make_encrypted_packet(wrong, 42, b"abc"))
     assert "Resumed session decrypt failed" in caplog.text
     assert "Encryption error" not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("kwargs", "exc"),
+    [
+        ({"expected_name": "other"}, BadNameAPIError),
+        ({"expected_mac": "11:22:33:44:55:bb"}, BadMACAddressAPIError),
+    ],
+)
+async def test_identity_checked_before_resume_accept(
+    kwargs: dict[str, str], exc: type[Exception]
+) -> None:
+    helper, _, writes = _make_helper_with_ticket(**kwargs)
+    _, client_nonce = _extract_offer(writes)
+
+    helper.data_received(
+        _make_noise_hello_pkt(_make_server_hello(_accept_ext(client_nonce)))
+    )
+    await asyncio.sleep(0)
+    with pytest.raises(exc):
+        helper.ready_future.result()
 
 
 @pytest.mark.asyncio
