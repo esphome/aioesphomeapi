@@ -58,6 +58,7 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef bytes _hello
     cdef bytes _prologue
     cdef bint _handshake_deferred
+    cdef bint _resumed
 
     @cython.locals(
         header=bytes,

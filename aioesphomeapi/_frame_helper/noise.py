@@ -106,6 +106,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         "_proto",
         "_resume_nonce",
         "_resume_secret",
+        "_resumed",
         "_server_mac",
         "_server_name",
         "_state",
@@ -144,6 +145,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._hello, self._prologue = build_client_hello(offer)
         # Offering resume holds message 1 back until the device declines
         self._handshake_deferred = resume_ticket is not None
+        self._resumed = False
         # Decode now so a bad key raises here even when the handshake waits
         self._noise_psk: bytes = self._decode_noise_psk(noise_psk)
         if not self._handshake_deferred:
@@ -358,6 +360,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             self._resume_secret, self._resume_nonce, server_nonce, self._prologue
         )
         _LOGGER.debug("%s: Session resumed", self._log_name)
+        self._resumed = True
         self._become_ready(EncryptCipher.from_key(k_c2d), DecryptCipher.from_key(k_d2c))
 
     def _decode_noise_psk(self, noise_psk: str) -> bytes:
@@ -464,8 +467,8 @@ class APINoiseFrameHelper(APIFrameHelper):
             assert self._proto is not None
         noise_protocol = self._proto.noise_protocol
         self._become_ready(
-            EncryptCipher.from_cipher_state(noise_protocol.cipher_state_encrypt),  # pylint: disable=no-member
-            DecryptCipher.from_cipher_state(noise_protocol.cipher_state_decrypt),  # pylint: disable=no-member
+            EncryptCipher(noise_protocol.cipher_state_encrypt),  # pylint: disable=no-member
+            DecryptCipher(noise_protocol.cipher_state_decrypt),  # pylint: disable=no-member
         )
 
     def _become_ready(
@@ -503,6 +506,12 @@ class APINoiseFrameHelper(APIFrameHelper):
             # This shouldn't happen since we already checked the tag during handshake
             # but it could happen if the server sends a bad frame see
             # issue https://github.com/esphome/aioesphomeapi/issues/1044
+            if self._resumed:
+                # Resumed keys never went through a handshake; retry bare
+                self._handle_error_and_close(
+                    ResumeAPIError(f"{self._log_name}: Resumed session decrypt failed")
+                )
+                return
             self._handle_error_and_close(
                 EncryptionErrorAPIError(
                     f"{self._log_name}: Encryption error", self._server_name

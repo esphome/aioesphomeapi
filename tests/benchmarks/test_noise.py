@@ -76,9 +76,7 @@ async def _make_ready_helper(
 
     await helper.ready_future
 
-    responder_encrypt = EncryptCipher.from_cipher_state(
-        proto.noise_protocol.cipher_state_encrypt
-    )
+    responder_encrypt = EncryptCipher(proto.noise_protocol.cipher_state_encrypt)
     return helper, responder_encrypt
 
 
@@ -154,9 +152,7 @@ async def test_noise_messages(benchmark: BenchmarkFixture, payload_size: int) ->
     helper._writelines = _empty_writelines
 
     payload = b"x" * payload_size
-    encrypt_cipher = EncryptCipher.from_cipher_state(
-        proto.noise_protocol.cipher_state_encrypt
-    )
+    encrypt_cipher = EncryptCipher(proto.noise_protocol.cipher_state_encrypt)
 
     @benchmark
     def process_encrypted_packets():

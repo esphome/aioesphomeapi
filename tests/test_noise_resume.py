@@ -182,6 +182,24 @@ async def test_resume_accept_establishes_session() -> None:
 
 
 @pytest.mark.asyncio
+async def test_resumed_session_decrypt_failure_raises_resume_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    helper, _, writes = _make_helper_with_ticket()
+    _, client_nonce = _extract_offer(writes)
+    helper.data_received(
+        _make_noise_hello_pkt(_make_server_hello(_accept_ext(client_nonce)))
+    )
+    await asyncio.sleep(0)
+    assert helper.ready_future.done()
+
+    wrong = EncryptCipher.from_key(bytes(32))
+    helper.data_received(_make_encrypted_packet(wrong, 42, b"abc"))
+    assert "Resumed session decrypt failed" in caplog.text
+    assert "Encryption error" not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_resume_without_extension_falls_back_to_handshake() -> None:
     helper, packets, writes = _make_helper_with_ticket()
     offer, _ = _extract_offer(writes)
@@ -203,9 +221,7 @@ async def test_resume_without_extension_falls_back_to_handshake() -> None:
     helper.data_received(_make_noise_handshake_pkt(responder))
     await helper.ready_future
 
-    device_send = EncryptCipher.from_cipher_state(
-        responder.noise_protocol.cipher_state_encrypt
-    )
+    device_send = EncryptCipher(responder.noise_protocol.cipher_state_encrypt)
     helper.data_received(_make_encrypted_packet(device_send, 42, b"abc"))
     assert packets == [(42, b"abc")]
 
