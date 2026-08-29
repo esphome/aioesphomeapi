@@ -614,6 +614,28 @@ def test_user_service_conversion_with_metadata():
     assert UserService.from_dict({"args": [{"name": "arg", "type": 1}]}) == UserService(
         args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)]
     )
+    # Optional args with defaults round-trip through from_pb
+    assert UserService.from_pb(
+        ListEntitiesServicesResponse(
+            args=[
+                ListEntitiesServicesArgument(
+                    name="octave",
+                    type=ServiceArgType.SERVICE_ARG_TYPE_INT,
+                    optional=True,
+                    default_value="5",
+                )
+            ]
+        )
+    ) == UserService(
+        args=[
+            UserServiceArg(
+                name="octave",
+                type=UserServiceArgType.INT,
+                optional=True,
+                default_value="5",
+            )
+        ]
+    )
     # Older devices that send no metadata decode to empty strings
     assert UserService.from_pb(
         ListEntitiesServicesResponse(
