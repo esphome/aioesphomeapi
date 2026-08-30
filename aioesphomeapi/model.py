@@ -1554,6 +1554,8 @@ class UserServiceArg(APIModelBase):
     type: UserServiceArgType | None = converter_field(
         default=UserServiceArgType.BOOL, converter=UserServiceArgType.convert
     )
+    description: str = ""
+    example: str = ""
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[UserServiceArg]:
@@ -1578,6 +1580,7 @@ class UserService(APIModelBase):
     supports_response: SupportsResponseType | None = converter_field(
         default=SupportsResponseType.NONE, converter=SupportsResponseType.convert
     )
+    description: str = ""
 
 
 @_frozen_dataclass_decorator

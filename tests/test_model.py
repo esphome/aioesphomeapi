@@ -562,6 +562,55 @@ def test_user_service_conversion():
     ) == UserService(args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)])
 
 
+def test_user_service_conversion_with_metadata():
+    assert UserService.from_pb(
+        ListEntitiesServicesResponse(
+            description="Play an RTTTL melody",
+            args=[
+                ListEntitiesServicesArgument(
+                    name="song_str",
+                    type=ServiceArgType.SERVICE_ARG_TYPE_STRING,
+                    description="RTTTL melody string",
+                    example="two_short:d=4,o=5,b=100:16e6,16e6",
+                )
+            ],
+        )
+    ) == UserService(
+        description="Play an RTTTL melody",
+        args=[
+            UserServiceArg(
+                name="song_str",
+                type=UserServiceArgType.STRING,
+                description="RTTTL melody string",
+                example="two_short:d=4,o=5,b=100:16e6,16e6",
+            )
+        ],
+    )
+    assert UserService.from_dict(
+        {
+            "description": "Play an RTTTL melody",
+            "args": [
+                {
+                    "name": "song_str",
+                    "type": 3,
+                    "description": "RTTTL melody string",
+                    "example": "two_short:d=4,o=5,b=100:16e6,16e6",
+                }
+            ],
+        }
+    ) == UserService(
+        description="Play an RTTTL melody",
+        args=[
+            UserServiceArg(
+                name="song_str",
+                type=UserServiceArgType.STRING,
+                description="RTTTL melody string",
+                example="two_short:d=4,o=5,b=100:16e6,16e6",
+            )
+        ],
+    )
+
+
 @pytest.mark.parametrize(
     "model",
     [
