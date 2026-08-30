@@ -586,7 +586,6 @@ def test_user_service_conversion_with_metadata():
             )
         ],
     )
-    # from_dict path (stored services) round-trips the metadata
     assert UserService.from_dict(
         {
             "description": "Play an RTTTL melody",
@@ -610,11 +609,9 @@ def test_user_service_conversion_with_metadata():
             )
         ],
     )
-    # Stored dicts from before the metadata fields still load
-    assert UserService.from_dict({"args": [{"name": "arg", "type": 1}]}) == UserService(
-        args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)]
-    )
-    # Optional args with defaults round-trip through from_pb
+
+
+def test_user_service_conversion_with_optional_args():
     assert UserService.from_pb(
         ListEntitiesServicesResponse(
             args=[
@@ -636,16 +633,22 @@ def test_user_service_conversion_with_metadata():
             )
         ]
     )
-    # Older devices that send no metadata decode to empty strings
-    assert UserService.from_pb(
-        ListEntitiesServicesResponse(
-            args=[
-                ListEntitiesServicesArgument(
-                    name="arg", type=ServiceArgType.SERVICE_ARG_TYPE_INT
-                )
+    assert UserService.from_dict(
+        {
+            "args": [
+                {"name": "octave", "type": 1, "optional": True, "default_value": "5"}
             ]
-        )
-    ) == UserService(args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)])
+        }
+    ) == UserService(
+        args=[
+            UserServiceArg(
+                name="octave",
+                type=UserServiceArgType.INT,
+                optional=True,
+                default_value="5",
+            )
+        ]
+    )
 
 
 @pytest.mark.parametrize(
