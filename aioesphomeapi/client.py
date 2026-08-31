@@ -422,8 +422,11 @@ class APIClient(APIClientBase):
         """Adopt an already-connected socket the device opened to us.
 
         Replaces start_resolve_host and start_connection; call
-        finish_connection afterwards as usual.
+        finish_connection afterwards as usual. Owns the socket: it is closed
+        when the client cannot take it.
         """
+        if self._connection is not None:
+            sock.close()
         connection = self._create_connection(on_stop, log_errors)
         await self._execute_connection_coro(
             connection.start_connection_from_socket(sock)

@@ -841,6 +841,7 @@ class APIConnection:
         start_connection; finish_connection runs unchanged afterwards.
         """
         if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+            sock.close()  # this method owns the socket, even on refusal
             msg = "Connection can only be used once, connection is not in init state"
             raise RuntimeError(msg)
         try:

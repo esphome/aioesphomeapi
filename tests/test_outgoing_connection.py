@@ -19,7 +19,7 @@ from aioesphomeapi.connection import (
     APIConnection,
     make_hello_request,
 )
-from aioesphomeapi.core import APIConnectionError
+from aioesphomeapi.core import APIConnectionError, InvalidEncryptionKeyAPIError
 from aioesphomeapi.model import DeviceInfo
 from aioesphomeapi.outgoing_connection import (
     OutgoingConnectionServer,
@@ -252,3 +252,42 @@ def test_device_info_outgoing_connection_supported() -> None:
     )
     assert info.api_outgoing_connection_supported is True
     assert DeviceInfo().api_outgoing_connection_supported is False
+
+
+async def test_adopt_connection_preempts_unestablished_attempt() -> None:
+    """An in-flight attempt with no socket loses to the inbound connection."""
+    cli, rl, on_connect, _ = _make_reconnect_logic()
+    rl._connection_state = ReconnectLogicState.CONNECTING
+    connect_task = asyncio.get_running_loop().create_future()
+    task = asyncio.ensure_future(connect_task)
+    rl._connect_task = task
+    client_sock, server_sock = await _tcp_pair()
+    with (
+        patch.object(cli, "start_connection_from_socket"),
+        patch.object(cli, "finish_connection"),
+    ):
+        assert await rl.async_adopt_connection(server_sock) is True
+    assert task.cancelled()
+    on_connect.assert_awaited_once()
+    assert rl._connection_state is ReconnectLogicState.READY
+    client_sock.close()
+    server_sock.close()
+
+
+async def test_adopt_connection_failure_does_not_pin_backoff() -> None:
+    """A failed adoption cannot escalate the backoff past one ordinary try."""
+    cli, rl, _, _ = _make_reconnect_logic()
+    rl._tries = 2
+    client_sock, server_sock = await _tcp_pair()
+    with (
+        patch.object(cli, "start_connection_from_socket"),
+        patch.object(
+            cli, "finish_connection", side_effect=InvalidEncryptionKeyAPIError("bad")
+        ),
+    ):
+        assert await rl.async_adopt_connection(server_sock) is False
+    # An auth error normally jumps to MAXIMUM_BACKOFF_TRIES; adoption caps it
+    assert rl._tries == 3
+    rl._cancel_connect("test cleanup")
+    client_sock.close()
+    server_sock.close()

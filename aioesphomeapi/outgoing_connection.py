@@ -98,6 +98,9 @@ class OutgoingConnectionServer:
         self._server_socket: socket.socket | None = None
         self._accept_task: asyncio.Task[None] | None = None
         self._pending: set[asyncio.Task[None]] = set()
+        # Adoptions in progress: kept only as strong references so the tasks
+        # cannot be garbage collected; stop() leaves them running
+        self._adopting: set[asyncio.Task[None]] = set()
 
     @property
     def port(self) -> int:
@@ -164,7 +167,8 @@ class OutgoingConnectionServer:
         while True:
             try:
                 conn, addr = await loop.sock_accept(sock)
-            except OSError:  # transient accept failure (e.g. EMFILE)
+            except OSError as err:  # transient accept failure (e.g. EMFILE)
+                _LOGGER.warning("Error accepting outgoing connection: %s", err)
                 await asyncio.sleep(_ACCEPT_ERROR_BACKOFF)
                 continue
             if len(self._pending) >= _MAX_PENDING:
@@ -200,9 +204,12 @@ class OutgoingConnectionServer:
             return
         _LOGGER.debug("Device %s (%s) dialed in from %s", name, mac, addr)
         # Identification is done: leave the pending set so a slow handshake
-        # does not hold an admission slot, and so stop() leaves it running
+        # does not hold an admission slot, and so stop() leaves it running.
+        # _adopting keeps a strong reference so the task is not collected.
         if (current := asyncio.current_task()) is not None:
             self._pending.discard(current)
+            self._adopting.add(current)
+            current.add_done_callback(self._adopting.discard)
         # async_adopt_connection takes ownership of the socket either way
         if not await target.async_adopt_connection(conn):
             _LOGGER.debug("Dial-in from %s (%s) was not adopted", name, addr)

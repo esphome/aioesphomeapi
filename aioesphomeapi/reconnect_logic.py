@@ -751,6 +751,12 @@ class ReconnectLogic:
             return False
         self._cancel_connect("Adopting connection from device")
         self._async_set_connection_state_without_lock(ReconnectLogicState.DISCONNECTED)
+        # The routing MAC is unauthenticated pre-handshake data, so a failed
+        # adoption must not escalate the outbound backoff any further than a
+        # single ordinary failed attempt would; otherwise a hostile dial-in
+        # failing the handshake (an AUTH_EXCEPTIONS case) could pin the retry
+        # interval at its ceiling.
+        tries_before = self._tries
         async with self._connected_lock:
             if (
                 self._is_stopped
@@ -764,6 +770,7 @@ class ReconnectLogic:
                 )
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
                 await self._handle_connection_failure(err)
+                self._tries = min(self._tries, tries_before + 1)
                 self._schedule_backoff_connect()
                 return False
             _LOGGER.info(
@@ -774,10 +781,13 @@ class ReconnectLogic:
                     return True
             except asyncio.CancelledError:
                 # Cancelled mid-handshake (e.g. the listener shutting down):
-                # leave the state machine able to reconnect on its own
+                # put the state machine back on its own retry schedule since
+                # _cancel_connect above removed the pending attempt
                 self._async_set_connection_state_while_locked(
                     ReconnectLogicState.DISCONNECTED
                 )
+                self._schedule_backoff_connect()
                 raise
+            self._tries = min(self._tries, tries_before + 1)
             self._schedule_backoff_connect()
             return False
