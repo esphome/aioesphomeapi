@@ -287,3 +287,54 @@ async def test_adopt_connection_failure_does_not_pin_backoff() -> None:
     rl._cancel_connect("test cleanup")
     client_sock.close()
     server_sock.close()
+
+
+async def test_adopt_connection_cancelled_mid_handshake() -> None:
+    """Cancellation mid-handshake leaves a scheduled retry behind."""
+    cli, rl, on_connect, _ = _make_reconnect_logic()
+    client_sock, server_sock = await _tcp_pair()
+    with (
+        patch.object(cli, "start_connection_from_socket"),
+        patch.object(cli, "finish_connection", side_effect=asyncio.CancelledError),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await rl.async_adopt_connection(server_sock)
+    on_connect.assert_not_awaited()
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    # The state machine must be able to reconnect on its own
+    assert rl._connect_timer is not None or rl._connect_task is not None
+    rl._cancel_connect("test cleanup")
+    client_sock.close()
+    server_sock.close()
+
+
+async def test_server_ipv4_fallback() -> None:
+    """Without dual-stack IPv6 the listener binds IPv4."""
+    server = OutgoingConnectionServer(port=0)
+    with patch(
+        "aioesphomeapi.outgoing_connection.socket.has_dualstack_ipv6",
+        return_value=False,
+    ):
+        await server.start()
+    try:
+        _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        writer.close()
+    finally:
+        await server.stop()
+
+
+async def test_server_identification_timeout() -> None:
+    """A connection that never sends a hello is closed after the timeout."""
+    server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
+    await server.start()
+    try:
+        with patch(
+            "aioesphomeapi.outgoing_connection._IDENTIFY_TIMEOUT",
+            0.05,
+        ):
+            reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+            assert await asyncio.wait_for(reader.read(), timeout=5) == b""
+            writer.close()
+    finally:
+        await server.stop()
