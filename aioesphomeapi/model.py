@@ -291,6 +291,7 @@ class DeviceInfo(APIModelBase):
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
     api_encryption_provisionable: bool = False
+    api_outgoing_connection_supported: bool = False
     devices: list[SubDeviceInfo] = converter_field(
         default_factory=list, converter=SubDeviceInfo.convert_list
     )

@@ -10,13 +10,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aioesphomeapi import APIClient
-from aioesphomeapi.api_pb2 import HelloRequest  # type: ignore[attr-defined]
+from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
+    DeviceInfoResponse,
+    HelloRequest,
+)
 from aioesphomeapi.connection import (
     CONNECTION_STATE_SOCKET_OPENED,
     APIConnection,
     make_hello_request,
 )
 from aioesphomeapi.core import APIConnectionError
+from aioesphomeapi.model import DeviceInfo
 from aioesphomeapi.outgoing_connection import (
     OutgoingConnectionServer,
     _parse_server_hello,
@@ -240,3 +244,11 @@ async def test_api_client_outgoing_connection_target_param() -> None:
     assert cli._params.outgoing_connection_target is True
     cli = APIClient(address="127.0.0.1", port=6052, password=None)
     assert cli._params.outgoing_connection_target is False
+
+
+def test_device_info_outgoing_connection_supported() -> None:
+    info = DeviceInfo.from_pb(
+        DeviceInfoResponse(api_outgoing_connection_supported=True)
+    )
+    assert info.api_outgoing_connection_supported is True
+    assert DeviceInfo().api_outgoing_connection_supported is False
