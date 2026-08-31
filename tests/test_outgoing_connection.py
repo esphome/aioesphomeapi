@@ -14,11 +14,7 @@ from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     DeviceInfoResponse,
     HelloRequest,
 )
-from aioesphomeapi.connection import (
-    CONNECTION_STATE_SOCKET_OPENED,
-    APIConnection,
-    make_hello_request,
-)
+from aioesphomeapi.connection import APIConnection, ConnectionState, make_hello_request
 from aioesphomeapi.core import APIConnectionError, InvalidEncryptionKeyAPIError
 from aioesphomeapi.model import DeviceInfo
 from aioesphomeapi.outgoing_connection import (
@@ -145,7 +141,7 @@ async def test_start_connection_from_socket(conn: APIConnection) -> None:
     client_sock, server_sock = await _tcp_pair()
     try:
         await conn.start_connection_from_socket(server_sock)
-        assert conn.connection_state is CONNECTION_STATE_SOCKET_OPENED
+        assert conn.connection_state is ConnectionState.SOCKET_OPENED
         assert conn.connected_address == "127.0.0.1"
         with pytest.raises(RuntimeError, match="not in init state"):
             await conn.start_connection_from_socket(server_sock)
