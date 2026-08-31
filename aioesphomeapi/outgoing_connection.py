@@ -85,6 +85,12 @@ class OutgoingConnectionServer:
     Consumers register a MAC address with the :class:`ReconnectLogic` that
     should take over when that device dials in; everything wire-level is
     handled here.
+
+    The MAC in the hello is unauthenticated pre-handshake data: anything on
+    the network can dial in claiming a registered MAC. Adoption refuses to
+    preempt an established session, the Noise handshake rejects an impostor,
+    and a failed adoption cannot escalate the reconnect backoff by more than
+    one ordinary attempt, so the worst case is wasted handshakes.
     """
 
     def __init__(
@@ -144,6 +150,8 @@ class OutgoingConnectionServer:
         self._accept_task = create_eager_task(
             self._accept_loop(sock), name=f"esphome-outgoing-connection-{self._port}"
         )
+        # Surface an unexpected death of the accept loop instead of silence
+        self._accept_task.add_done_callback(self._log_task_exception)
         _LOGGER.debug("Listening for outgoing connections on port %s", self._port)
 
     async def stop(self) -> None:
@@ -161,6 +169,11 @@ class OutgoingConnectionServer:
         if self._server_socket is not None:
             self._server_socket.close()
             self._server_socket = None
+
+    @staticmethod
+    def _log_task_exception(task: asyncio.Task[None]) -> None:
+        if not task.cancelled() and (exc := task.exception()) is not None:
+            _LOGGER.error("Unexpected error handling outgoing connection", exc_info=exc)
 
     async def _accept_loop(self, sock: socket.socket) -> None:
         loop = asyncio.get_running_loop()
@@ -180,8 +193,13 @@ class OutgoingConnectionServer:
                 self._identify_and_dispatch(conn, addr),
                 name=f"esphome-outgoing-connection-identify-{addr}",
             )
-            self._pending.add(task)
-            task.add_done_callback(self._pending.discard)
+            task.add_done_callback(self._log_task_exception)
+            # Eager start may have run the task past identification (or to
+            # completion) already; only track it as pending unidentified work
+            # when it is still in that phase
+            if not task.done() and task not in self._adopting:
+                self._pending.add(task)
+                task.add_done_callback(self._pending.discard)
 
     async def _identify_and_dispatch(
         self, conn: socket.socket, addr: tuple[object, ...]

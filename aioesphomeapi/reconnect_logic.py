@@ -786,6 +786,9 @@ class ReconnectLogic:
                 self._async_set_connection_state_while_locked(
                     ReconnectLogicState.DISCONNECTED
                 )
+                # The wake gate was consumed by the attempt; re-arm it so the
+                # mDNS listener started by the backoff can kick a connect
+                self._zc_wake.reopen()
                 self._schedule_backoff_connect()
                 raise
             self._tries = min(self._tries, tries_before + 1)

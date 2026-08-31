@@ -559,7 +559,10 @@ class APIConnection:
                 self.log_name,
             )
         self._increase_recv_buffer_size()
-        self.connected_address = sock.getpeername()[0]
+        peer_address: str = sock.getpeername()[0]
+        # Dual-stack listeners report IPv4 peers as ::ffff:x.x.x.x; strip the
+        # mapping so log names show the plain IPv4 address
+        self.connected_address = peer_address.removeprefix("::ffff:")
 
     def _increase_recv_buffer_size(self) -> None:
         """Increase the recv buffer size."""
