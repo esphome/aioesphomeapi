@@ -377,12 +377,12 @@ class APIClient(APIClientBase):
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
-    async def start_resolve_host(
+    def _create_connection(
         self,
-        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
-        log_errors: bool = True,
-    ) -> None:
-        """Start resolving the host."""
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None,
+        log_errors: bool,
+    ) -> APIConnection:
+        """Create the one connection this client may hold."""
         if self._connection is not None:
             msg = f"Already connected to {self.log_name}!"
             raise APIConnectionError(msg)
@@ -393,7 +393,16 @@ class APIClient(APIClientBase):
             self.log_name,
             log_errors=log_errors,
         )
-        await self._execute_connection_coro(self._connection.start_resolve_host())
+        return self._connection
+
+    async def start_resolve_host(
+        self,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
+        log_errors: bool = True,
+    ) -> None:
+        """Start resolving the host."""
+        connection = self._create_connection(on_stop, log_errors)
+        await self._execute_connection_coro(connection.start_resolve_host())
 
     async def start_connection(self) -> None:
         """Start connecting to the device."""
@@ -410,26 +419,16 @@ class APIClient(APIClientBase):
         on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
         log_errors: bool = True,
     ) -> None:
-        """Adopt an already-connected socket instead of dialing out.
+        """Adopt an already-connected socket the device opened to us.
 
-        Used when the device opened the TCP connection to us (the api
-        outgoing_connection option). Replaces start_resolve_host and
-        start_connection; call finish_connection afterwards as usual.
+        Replaces start_resolve_host and start_connection; call
+        finish_connection afterwards as usual.
         """
-        if self._connection is not None:
-            msg = f"Already connected to {self.log_name}!"
-            raise APIConnectionError(msg)
-        self._connection = APIConnection(
-            self._params,
-            partial(self._on_stop, on_stop),
-            self._debug_enabled,
-            self.log_name,
-            log_errors=log_errors,
-        )
+        connection = self._create_connection(on_stop, log_errors)
         await self._execute_connection_coro(
-            self._connection.start_connection_from_socket(sock)
+            connection.start_connection_from_socket(sock)
         )
-        if self._connection.connected_address:
+        if connection.connected_address:
             self._set_log_name()
 
     async def finish_connection(

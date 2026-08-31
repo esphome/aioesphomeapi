@@ -23,7 +23,7 @@ from aioesphomeapi.outgoing_connection import (
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
-from .common import get_mock_zeroconf
+from .common import _make_noise_hello_pkt, get_mock_zeroconf
 
 MAC = "aabbccddeeff"
 
@@ -31,8 +31,7 @@ MAC = "aabbccddeeff"
 def _server_hello_frame(
     name: bytes = b"test-device", mac: bytes = MAC.encode()
 ) -> bytes:
-    payload = b"\x01" + name + b"\x00" + mac + b"\x00"
-    return bytes((0x01, len(payload) >> 8, len(payload) & 0xFF)) + payload
+    return _make_noise_hello_pkt(b"\x01" + name + b"\x00" + mac + b"\x00")
 
 
 async def _tcp_pair() -> tuple[socket.socket, socket.socket]:
@@ -78,9 +77,11 @@ def test_parse_server_hello_rejects(data: bytes) -> None:
 async def test_server_dispatches_to_registered_target() -> None:
     server = OutgoingConnectionServer(port=0)
     adopted: list[socket.socket] = []
+    dispatched = asyncio.Event()
 
     async def adopt(sock: socket.socket) -> bool:
         adopted.append(sock)
+        dispatched.set()
         return True
 
     target = MagicMock()
@@ -92,11 +93,7 @@ async def test_server_dispatches_to_registered_target() -> None:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(_server_hello_frame())
         await writer.drain()
-        for _ in range(100):
-            if adopted:
-                break
-            await asyncio.sleep(0.01)
-        assert adopted, "target was not dispatched"
+        await asyncio.wait_for(dispatched.wait(), timeout=5)
         sock = adopted[0]
         # The hello was only peeked; the adopted socket still holds the bytes
         assert sock.recv(64) == _server_hello_frame()

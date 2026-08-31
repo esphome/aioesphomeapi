@@ -1,16 +1,12 @@
 """Listener for device-initiated (outgoing) API connections.
 
-An ESPHome device with the ``api: outgoing_connection:`` option opens the TCP
-connection to us when no dial-back client is connected to it. The protocol
-roles do not change: the device stays the server and Noise responder, so once
-the socket is adopted the normal client machinery runs unchanged.
-
-To let us pick the right encryption key before the PSK-mixed handshake
-starts, the device sends its server hello (name and MAC) first on these
-connections. This module peeks at those bytes without consuming them, looks
-up the registered :class:`ReconnectLogic` for the MAC, and hands the socket
-over via :meth:`ReconnectLogic.async_adopt_connection`; the frame helper then
-reads the server hello from the socket as usual.
+A device with the ``api: outgoing_connection:`` option opens the TCP
+connection to us when no dial-back client is connected to it, sending its
+server hello (name and MAC) first so the right encryption key can be chosen
+before the PSK-mixed handshake starts. Protocol roles are unchanged. The
+hello is peeked without consuming it, the :class:`ReconnectLogic` registered
+for the MAC gets the socket via ``async_adopt_connection``, and the frame
+helper then reads the hello from the socket as usual.
 """
 
 from __future__ import annotations
@@ -21,6 +17,7 @@ import logging
 import socket
 from typing import TYPE_CHECKING
 
+from ._sanitize import MAX_NAME_LEN, safe_label_str
 from .util import asyncio_timeout, create_eager_task
 
 if TYPE_CHECKING:
@@ -32,13 +29,13 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_OUTGOING_CONNECTION_PORT = 6054
 # How long an accepted connection may take to identify itself
-IDENTIFY_TIMEOUT = 10.0
+_IDENTIFY_TIMEOUT = 10.0
 # Cap on concurrent connections that have not identified themselves yet
-MAX_PENDING = 8
+_MAX_PENDING = 8
 # The hello frame is tiny (name + MAC); anything larger is not a hello
-MAX_HELLO_SIZE = 128
+_MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
-# Delay between peeks while a hello frame is still incomplete
+# Delay between peeks while the hello frame is still incomplete
 _PEEK_RETRY_DELAY = 0.05
 
 
@@ -58,7 +55,7 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
         msg = f"not a noise frame (indicator {data[0]})"
         raise ValueError(msg)
     frame_len = (data[1] << 8) | data[2]
-    if frame_len < 2 or frame_len > MAX_HELLO_SIZE - 3:
+    if frame_len < 2 or frame_len > _MAX_HELLO_SIZE - 3:
         msg = f"bad hello frame length {frame_len}"
         raise ValueError(msg)
     if len(data) < 3 + frame_len:
@@ -67,12 +64,15 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     if payload[0] != 0x01:
         msg = f"unsupported protocol byte {payload[0]}"
         raise ValueError(msg)
-    parts = payload[1:].split(b"\x00")
-    if len(parts) < 2:
+    name_end = payload.find(b"\x00", 1)
+    mac_end = payload.find(b"\x00", name_end + 1) if name_end != -1 else -1
+    if mac_end == -1:
         msg = "malformed hello payload"
         raise ValueError(msg)
-    name = parts[0].decode("utf-8", "replace")
-    mac = parts[1].decode("ascii", "replace").lower()
+    # The name is peer-supplied; sanitize before it can reach a log line
+    name = safe_label_str(payload[1:name_end].decode("utf-8", "replace"), MAX_NAME_LEN)
+    mac = payload[name_end + 1 : mac_end].decode("ascii", "replace").lower()
+    # Devices that dial out always announce their bare 12-hex-digit MAC
     if len(mac) != 12:
         msg = f"malformed MAC {mac!r}"
         raise ValueError(msg)
@@ -107,8 +107,9 @@ class OutgoingConnectionServer:
     def register(self, mac: str, reconnect_logic: ReconnectLogic) -> Callable[[], None]:
         """Route dial-ins from the device with this MAC to a ReconnectLogic.
 
-        The MAC may contain ``:`` or ``-`` separators and any case. Returns a
-        callable that removes the registration.
+        The MAC may contain ``:`` or ``-`` separators and any case. Returns
+        a callable that removes the registration; call it when the
+        ReconnectLogic is discarded, the registry holds a strong reference.
         """
         mac = _normalize_mac(mac)
         if mac in self._targets:
@@ -122,31 +123,18 @@ class OutgoingConnectionServer:
         return _unregister
 
     async def start(self) -> None:
-        """Open the listening socket and start accepting connections.
-
-        Raises OSError when the port cannot be bound.
-        """
+        """Open the listening socket; raises OSError when the port is taken."""
         if self._server_socket is not None:
             return
-        sock: socket.socket | None = None
-        try:
-            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            with contextlib.suppress(AttributeError, OSError):
-                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-            sock.bind((self._host or "::", self._port))
-        except OSError:
-            # Fall back to IPv4 only (no IPv6 stack, or a v4 literal host)
-            if sock is not None:
-                sock.close()
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                sock.bind((self._host or "", self._port))
-            except OSError:
-                sock.close()
-                raise
-        sock.listen(4)
+        if self._host is None and socket.has_dualstack_ipv6():
+            sock = socket.create_server(
+                ("::", self._port),
+                family=socket.AF_INET6,
+                dualstack_ipv6=True,
+                backlog=4,
+            )
+        else:
+            sock = socket.create_server((self._host or "", self._port), backlog=4)
         sock.setblocking(False)
         self._server_socket = sock
         self._port = sock.getsockname()[1]
@@ -158,17 +146,15 @@ class OutgoingConnectionServer:
     async def stop(self) -> None:
         """Stop accepting and close the listening socket.
 
-        Established sessions that were already handed to a ReconnectLogic
-        keep running.
+        Sessions already handed to a ReconnectLogic keep running.
         """
         if self._accept_task is not None:
             self._accept_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._accept_task
             self._accept_task = None
-        for task in list(self._pending):
+        for task in self._pending.copy():
             task.cancel()
-        self._pending.clear()
         if self._server_socket is not None:
             self._server_socket.close()
             self._server_socket = None
@@ -178,12 +164,10 @@ class OutgoingConnectionServer:
         while True:
             try:
                 conn, addr = await loop.sock_accept(sock)
-            except OSError:
-                if self._server_socket is None:
-                    return
+            except OSError:  # transient accept failure (e.g. EMFILE)
                 await asyncio.sleep(_ACCEPT_ERROR_BACKOFF)
                 continue
-            if len(self._pending) >= MAX_PENDING:
+            if len(self._pending) >= _MAX_PENDING:
                 _LOGGER.warning("Too many unidentified connections; rejecting %s", addr)
                 conn.close()
                 continue
@@ -199,13 +183,14 @@ class OutgoingConnectionServer:
         self, conn: socket.socket, addr: tuple[object, ...]
     ) -> None:
         try:
-            async with asyncio_timeout(IDENTIFY_TIMEOUT):
+            async with asyncio_timeout(_IDENTIFY_TIMEOUT):
                 name, mac = await self._peek_server_hello(conn)
-        except (TimeoutError, OSError, ValueError, asyncio.CancelledError) as err:
+        except asyncio.CancelledError:
+            conn.close()
+            raise
+        except (TimeoutError, OSError, ValueError) as err:
             _LOGGER.debug("Rejecting connection from %s: %s", addr, err)
             conn.close()
-            if isinstance(err, asyncio.CancelledError):
-                raise
             return
         if (target := self._targets.get(mac)) is None:
             _LOGGER.debug(
@@ -214,33 +199,27 @@ class OutgoingConnectionServer:
             conn.close()
             return
         _LOGGER.debug("Device %s (%s) dialed in from %s", name, mac, addr)
+        # Identification is done: leave the pending set so a slow handshake
+        # does not hold an admission slot, and so stop() leaves it running
+        if (current := asyncio.current_task()) is not None:
+            self._pending.discard(current)
         # async_adopt_connection takes ownership of the socket either way
-        await target.async_adopt_connection(conn)
+        if not await target.async_adopt_connection(conn):
+            _LOGGER.debug("Dial-in from %s (%s) was not adopted", name, addr)
 
     async def _peek_server_hello(self, conn: socket.socket) -> tuple[str, str]:
         """Read the server hello with MSG_PEEK, leaving the bytes in the socket."""
-        loop = asyncio.get_running_loop()
         while True:
             try:
-                data = conn.recv(MAX_HELLO_SIZE, socket.MSG_PEEK)
+                data = conn.recv(_MAX_HELLO_SIZE, socket.MSG_PEEK)
             except (BlockingIOError, InterruptedError):
-                await _wait_readable(loop, conn)
-                continue
-            if not data:
-                msg = "connection closed before hello"
-                raise ValueError(msg)
-            if (result := _parse_server_hello(data)) is not None:
-                return result
-            # Frame incomplete; the fd stays readable with the peeked bytes,
-            # so wait a moment instead of spinning on the reader callback
+                pass  # nothing buffered yet
+            else:
+                if not data:
+                    msg = "connection closed before hello"
+                    raise ValueError(msg)
+                if (result := _parse_server_hello(data)) is not None:
+                    return result
+            # The peeked bytes keep the fd readable, so a reader callback
+            # would spin; a short sleep is enough for a frame this small
             await asyncio.sleep(_PEEK_RETRY_DELAY)
-
-
-async def _wait_readable(loop: asyncio.AbstractEventLoop, conn: socket.socket) -> None:
-    fut: asyncio.Future[None] = loop.create_future()
-    fd = conn.fileno()
-    loop.add_reader(fd, fut.set_result, None)
-    try:
-        await fut
-    finally:
-        loop.remove_reader(fd)

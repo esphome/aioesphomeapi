@@ -251,18 +251,19 @@ CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 
 
 def _make_hello_request(
-    client_info: str, outgoing_connection_target: bool = False
+    client_info: str, outgoing_connection_target: bool
 ) -> HelloRequest:
     """Make a HelloRequest."""
-    hello = HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=16
+    # A False flag has implicit presence and does not serialize
+    return HelloRequest(
+        client_info=client_info,
+        api_version_major=1,
+        api_version_minor=16,
+        outgoing_connection_target=outgoing_connection_target,
     )
-    if outgoing_connection_target:
-        hello.outgoing_connection_target = True
-    return hello
 
 
-_cached_make_hello_request = lru_cache(maxsize=16)(_make_hello_request)
+_cached_make_hello_request = lru_cache(maxsize=32)(_make_hello_request)
 make_hello_request = _cached_make_hello_request
 
 _DST_RULE_TYPE_MAP: dict[DSTRuleType, int] = {
@@ -654,7 +655,8 @@ class APIConnection:
             tuple(messages),
             None,
             lambda resp: (
-                type(resp) is HelloResponse  # pylint: disable=unidiomatic-typecheck
+                type(resp)  # pylint: disable=unidiomatic-typecheck
+                is HelloResponse
             ),  # Only wait for HelloResponse
             tuple(msg_types),
             CONNECT_REQUEST_TIMEOUT,
