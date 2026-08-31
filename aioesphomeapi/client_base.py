@@ -309,6 +309,7 @@ class APIClientBase:
         expected_mac: str_ | None = None,
         timezone: str_ | None = None,
         provide_time: bool = True,
+        outgoing_connection_target: bool = False,
     ) -> None:
         """Create a client, this object is shared across sessions.
 
@@ -336,12 +337,16 @@ class APIClientBase:
             Example: 'America/Chicago' or 'Europe/London'
         :param provide_time: If True, the client will respond to a server
             request for the current time and timezone.
+        :param outgoing_connection_target: If True, the client declares itself
+            a dial-back target in its hello; a device with the api
+            outgoing_connection option remembers this client's address and
+            opens the TCP connection itself when no such client is connected.
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         self._params = ConnectionParams(
-            addresses=[str(addr) for addr in addresses]
-            if addresses
-            else [str(address)],
+            addresses=(
+                [str(addr) for addr in addresses] if addresses else [str(address)]
+            ),
             port=port,
             password=password,
             client_info=client_info,
@@ -353,6 +358,7 @@ class APIClientBase:
             expected_mac=_stringify_or_none(expected_mac) or None,
             timezone=_stringify_or_none(timezone) or None,
             provide_time=provide_time,
+            outgoing_connection_target=outgoing_connection_target,
         )
         self._connection: APIConnection | None = None
         self._connection_closed_callbacks: list[

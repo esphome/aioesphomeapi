@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
+    import socket
 
     from google.protobuf import message
 
@@ -400,6 +401,34 @@ class APIClient(APIClientBase):
             assert self._connection is not None
         await self._execute_connection_coro(self._connection.start_connection())
         # If we connected, we should set the log name now
+        if self._connection.connected_address:
+            self._set_log_name()
+
+    async def start_connection_from_socket(
+        self,
+        sock: socket.socket,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
+        log_errors: bool = True,
+    ) -> None:
+        """Adopt an already-connected socket instead of dialing out.
+
+        Used when the device opened the TCP connection to us (the api
+        outgoing_connection option). Replaces start_resolve_host and
+        start_connection; call finish_connection afterwards as usual.
+        """
+        if self._connection is not None:
+            msg = f"Already connected to {self.log_name}!"
+            raise APIConnectionError(msg)
+        self._connection = APIConnection(
+            self._params,
+            partial(self._on_stop, on_stop),
+            self._debug_enabled,
+            self.log_name,
+            log_errors=log_errors,
+        )
+        await self._execute_connection_coro(
+            self._connection.start_connection_from_socket(sock)
+        )
         if self._connection.connected_address:
             self._set_log_name()
 
