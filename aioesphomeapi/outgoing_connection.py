@@ -170,8 +170,7 @@ class OutgoingConnectionServer:
         """
         if self._accept_task is not None:
             self._accept_task.cancel()
-            # A crashed accept loop already logged via _log_task_exception;
-            # its exception must not skip the socket cleanup below
+            # A crash was already logged; it must not skip the cleanup below
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._accept_task
             self._accept_task = None
@@ -196,9 +195,7 @@ class OutgoingConnectionServer:
                 conn, addr = await loop.sock_accept(sock)
             except OSError as err:
                 if err.errno not in _RETRYABLE_ACCEPT_ERRNOS:
-                    # Listening socket is broken; die loudly via the
-                    # done callback instead of retrying forever
-                    raise
+                    raise  # broken listener; die loudly via the done callback
                 _LOGGER.warning("Error accepting outgoing connection: %s", err)
                 await asyncio.sleep(_ACCEPT_ERROR_BACKOFF)
                 continue
