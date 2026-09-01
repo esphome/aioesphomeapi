@@ -36,11 +36,9 @@ _MAX_PENDING = 8
 # The hello frame is tiny (name + MAC); anything larger is not a hello
 _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
-# Accept failures that clear up on their own; anything else (EBADF, EINVAL,
-# ...) means the listening socket is broken and retrying cannot help
-_RETRYABLE_ACCEPT_ERRNOS = frozenset(
-    {errno.EMFILE, errno.ENFILE, errno.ENOBUFS, errno.ECONNABORTED}
-)
+# A broken listening socket that retrying cannot fix; accept(2) can surface
+# many transient per-connection errors, so everything else is retried
+_FATAL_ACCEPT_ERRNOS = frozenset({errno.EBADF, errno.ENOTSOCK, errno.EINVAL})
 # Delay between peeks while the hello frame is still incomplete
 _PEEK_RETRY_DELAY = 0.05
 
@@ -112,7 +110,8 @@ class OutgoingConnectionServer:
         self._targets: dict[str, ReconnectLogic] = {}
         self._server_socket: socket.socket | None = None
         self._accept_task: asyncio.Task[None] | None = None
-        self._pending: set[asyncio.Task[None]] = set()
+        # Insertion-ordered so admission control can evict the oldest
+        self._pending: dict[asyncio.Task[None], None] = {}
         # Adoptions in progress: kept only as strong references so the tasks
         # cannot be garbage collected; stop() leaves them running
         self._adopting: set[asyncio.Task[None]] = set()
@@ -188,21 +187,30 @@ class OutgoingConnectionServer:
         if not task.cancelled() and (exc := task.exception()) is not None:
             _LOGGER.error("Unexpected error in %s", task.get_name(), exc_info=exc)
 
+    def _discard_pending(self, task: asyncio.Task[None]) -> None:
+        self._pending.pop(task, None)
+
     async def _accept_loop(self, sock: socket.socket) -> None:
         loop = asyncio.get_running_loop()
         while True:
             try:
                 conn, addr = await loop.sock_accept(sock)
             except OSError as err:
-                if err.errno not in _RETRYABLE_ACCEPT_ERRNOS:
+                if err.errno in _FATAL_ACCEPT_ERRNOS:
                     raise  # broken listener; die loudly via the done callback
                 _LOGGER.warning("Error accepting outgoing connection: %s", err)
                 await asyncio.sleep(_ACCEPT_ERROR_BACKOFF)
                 continue
             if len(self._pending) >= _MAX_PENDING:
-                _LOGGER.warning("Too many unidentified connections; rejecting %s", addr)
-                conn.close()
-                continue
+                # Evict the oldest unidentified connection: a real device
+                # identifies within milliseconds, so stale or hostile silent
+                # connections cannot starve it out of an admission slot
+                oldest = next(iter(self._pending))
+                _LOGGER.warning(
+                    "Too many unidentified connections; evicting oldest for %s", addr
+                )
+                self._pending.pop(oldest, None)
+                oldest.cancel()  # its handler closes the socket
             conn.setblocking(False)
             # Deliberately not eager: the task must not run before it is in
             # _pending, or the identification bookkeeping races
@@ -211,8 +219,8 @@ class OutgoingConnectionServer:
                 name=f"esphome-outgoing-connection-identify-{addr}",
             )
             task.add_done_callback(self._log_task_exception)
-            self._pending.add(task)
-            task.add_done_callback(self._pending.discard)
+            self._pending[task] = None
+            task.add_done_callback(self._discard_pending)
 
     async def _identify_and_dispatch(
         self, conn: socket.socket, addr: tuple[object, ...]
@@ -238,7 +246,7 @@ class OutgoingConnectionServer:
         # does not hold an admission slot, and so stop() leaves it running.
         # _adopting keeps a strong reference so the task is not collected.
         if (current := asyncio.current_task()) is not None:
-            self._pending.discard(current)
+            self._pending.pop(current, None)
             self._adopting.add(current)
             current.add_done_callback(self._adopting.discard)
         # async_adopt_connection takes ownership of the socket either way

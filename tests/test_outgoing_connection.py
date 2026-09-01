@@ -19,6 +19,7 @@ from aioesphomeapi.connection import APIConnection, ConnectionState, make_hello_
 from aioesphomeapi.core import APIConnectionError, InvalidEncryptionKeyAPIError
 from aioesphomeapi.model import DeviceInfo
 from aioesphomeapi.outgoing_connection import (
+    _MAX_PENDING,
     OutgoingConnectionServer,
     _parse_server_hello,
 )
@@ -394,3 +395,38 @@ async def test_server_stop_closes_pending_identifications() -> None:
     with contextlib.suppress(ConnectionResetError):
         assert await asyncio.wait_for(reader.read(), timeout=5) == b""
     writer.close()
+
+
+async def test_server_evicts_oldest_unidentified_when_full() -> None:
+    """A full admission table evicts the oldest silent connection."""
+    server = OutgoingConnectionServer(port=0)
+    dispatched = asyncio.Event()
+
+    async def adopt(sock: socket.socket) -> bool:
+        sock.close()
+        dispatched.set()
+        return True
+
+    target = MagicMock()
+    target.async_adopt_connection = adopt
+    server.register(MAC, target)
+    await server.start()
+    try:
+        silent = [
+            await asyncio.open_connection("127.0.0.1", server.port)
+            for _ in range(_MAX_PENDING)
+        ]
+        await asyncio.sleep(0.05)
+        # A real device dial-in evicts the oldest slot and is still adopted
+        _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        writer.write(_server_hello_frame())
+        await writer.drain()
+        await asyncio.wait_for(dispatched.wait(), timeout=5)
+        reader0, _ = silent[0]
+        with contextlib.suppress(ConnectionResetError):
+            assert await asyncio.wait_for(reader0.read(), timeout=5) == b""
+        writer.close()
+        for _, w in silent:
+            w.close()
+    finally:
+        await server.stop()
