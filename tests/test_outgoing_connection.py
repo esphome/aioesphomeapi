@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -338,3 +339,58 @@ async def test_server_identification_timeout() -> None:
             writer.close()
     finally:
         await server.stop()
+
+
+async def test_server_accept_fatal_error_ends_loop(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A non-retryable accept error ends the loop loudly; stop() still cleans up."""
+    server = OutgoingConnectionServer(port=0)
+    err = OSError(errno.EBADF, "Bad file descriptor")
+    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
+        await server.start()
+        for _ in range(50):
+            if "Unexpected error in" in caplog.text:
+                break
+            await asyncio.sleep(0)
+    assert "Unexpected error in" in caplog.text
+    port = server.port
+    # Must not re-raise the stored exception, and must release the port
+    await server.stop()
+    reuse = OutgoingConnectionServer(port=port)
+    await reuse.start()
+    await reuse.stop()
+
+
+async def test_server_accept_transient_error_retries(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A retryable accept errno is logged and the loop keeps accepting."""
+    server = OutgoingConnectionServer(port=0)
+    err = OSError(errno.EMFILE, "Too many open files")
+    with (
+        patch("aioesphomeapi.outgoing_connection._ACCEPT_ERROR_BACKOFF", 0),
+        patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err),
+    ):
+        await server.start()
+        for _ in range(50):
+            if "Error accepting outgoing connection" in caplog.text:
+                break
+            await asyncio.sleep(0)
+        assert "Error accepting outgoing connection" in caplog.text
+        assert "Unexpected error in" not in caplog.text
+        await server.stop()
+
+
+async def test_server_stop_closes_pending_identifications() -> None:
+    """stop() awaits cancelled identify tasks so their sockets close."""
+    server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
+    await server.start()
+    reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+    # Let the accept loop pick the connection up
+    await asyncio.sleep(0.05)
+    await server.stop()
+    with contextlib.suppress(ConnectionResetError):
+        assert await asyncio.wait_for(reader.read(), timeout=5) == b""
+    writer.close()

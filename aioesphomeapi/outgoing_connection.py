@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import logging
 import socket
 from typing import TYPE_CHECKING
@@ -35,6 +36,11 @@ _MAX_PENDING = 8
 # The hello frame is tiny (name + MAC); anything larger is not a hello
 _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
+# Accept failures that clear up on their own; anything else (EBADF, EINVAL,
+# ...) means the listening socket is broken and retrying cannot help
+_RETRYABLE_ACCEPT_ERRNOS = frozenset(
+    {errno.EMFILE, errno.ENFILE, errno.ENOBUFS, errno.ECONNABORTED}
+)
 # Delay between peeks while the hello frame is still incomplete
 _PEEK_RETRY_DELAY = 0.05
 
@@ -90,7 +96,10 @@ class OutgoingConnectionServer:
     the network can dial in claiming a registered MAC. Adoption refuses to
     preempt an established session, the Noise handshake rejects an impostor,
     and a failed adoption cannot escalate the reconnect backoff by more than
-    one ordinary attempt, so the worst case is wasted handshakes.
+    one ordinary attempt per dial-in (repeated hostile dial-ins can still
+    walk it to the normal ceiling), so the worst case is wasted handshakes
+    and ordinary backoff. Only Noise devices can dial out, so a plaintext
+    hello never matches and is rejected during identification.
     """
 
     def __init__(
@@ -161,11 +170,16 @@ class OutgoingConnectionServer:
         """
         if self._accept_task is not None:
             self._accept_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
+            # A crashed accept loop already logged via _log_task_exception;
+            # its exception must not skip the socket cleanup below
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._accept_task
             self._accept_task = None
-        for task in self._pending:
-            task.cancel()  # done-callbacks run via call_soon, no mutation here
+        if pending := tuple(self._pending):
+            for task in pending:
+                task.cancel()
+            # Wait so each task's CancelledError handler closes its socket
+            await asyncio.gather(*pending, return_exceptions=True)
         if self._server_socket is not None:
             self._server_socket.close()
             self._server_socket = None
@@ -180,7 +194,11 @@ class OutgoingConnectionServer:
         while True:
             try:
                 conn, addr = await loop.sock_accept(sock)
-            except OSError as err:  # transient accept failure (e.g. EMFILE)
+            except OSError as err:
+                if err.errno not in _RETRYABLE_ACCEPT_ERRNOS:
+                    # Listening socket is broken; die loudly via the
+                    # done callback instead of retrying forever
+                    raise
                 _LOGGER.warning("Error accepting outgoing connection: %s", err)
                 await asyncio.sleep(_ACCEPT_ERROR_BACKOFF)
                 continue
