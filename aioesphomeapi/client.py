@@ -425,14 +425,15 @@ class APIClient(APIClientBase):
         finish_connection afterwards as usual. Owns the socket: it is closed
         when the client cannot take it.
         """
-        if self._connection is not None:
-            sock.close()
-        connection = self._create_connection(on_stop, log_errors)
+        try:
+            connection = self._create_connection(on_stop, log_errors)
+        except APIConnectionError:
+            sock.close()  # this method owns the socket, even on refusal
+            raise
         await self._execute_connection_coro(
             connection.start_connection_from_socket(sock)
         )
-        if connection.connected_address:
-            self._set_log_name()
+        self._set_log_name()
 
     async def finish_connection(
         self,

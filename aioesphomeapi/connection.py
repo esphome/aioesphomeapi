@@ -848,8 +848,8 @@ class APIConnection:
             msg = "Connection can only be used once, connection is not in init state"
             raise RuntimeError(msg)
         try:
-            self._finish_socket_setup(sock)
-        except (Exception, CancelledError) as ex:  # noqa: BLE001
+            self._finish_socket_setup(sock)  # synchronous, cannot be cancelled
+        except Exception as ex:  # noqa: BLE001
             self._raise_fatal_connection_exception("adopting", ex)
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
 

@@ -760,7 +760,7 @@ class ReconnectLogic:
         async with self._connected_lock:
             if (
                 self._is_stopped
-                or self._connection_state != ReconnectLogicState.DISCONNECTED
+                or self._connection_state is not ReconnectLogicState.DISCONNECTED
             ):
                 sock.close()
                 return False
@@ -770,27 +770,27 @@ class ReconnectLogic:
                 )
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
                 await self._handle_connection_failure(err)
-                self._tries = min(self._tries, tries_before + 1)
-                self._schedule_backoff_connect()
-                return False
-            _LOGGER.info(
-                "Adopted connection from %s (device dialed us)", self._cli.log_name
-            )
-            try:
-                if await self._finish_connection_while_locked():
-                    return True
-            except asyncio.CancelledError:
-                # Cancelled mid-handshake (e.g. the listener shutting down):
-                # put the state machine back on its own retry schedule since
-                # _cancel_connect above removed the pending attempt
-                self._async_set_connection_state_while_locked(
-                    ReconnectLogicState.DISCONNECTED
+            else:
+                _LOGGER.info(
+                    "Adopted connection from %s (device dialed us)", self._cli.log_name
                 )
-                # The wake gate was consumed by the attempt; re-arm it so the
-                # mDNS listener started by the backoff can kick a connect
-                self._zc_wake.reopen()
-                self._schedule_backoff_connect()
-                raise
+                try:
+                    if await self._finish_connection_while_locked():
+                        return True
+                except asyncio.CancelledError:
+                    # Cancelled mid-handshake (e.g. the listener shutting
+                    # down): put the state machine back on its own retry
+                    # schedule since _cancel_connect above removed the
+                    # pending attempt
+                    self._async_set_connection_state_while_locked(
+                        ReconnectLogicState.DISCONNECTED
+                    )
+                    # The wake gate was consumed by the attempt; re-arm it so
+                    # the mDNS listener started by the backoff can kick a
+                    # connect
+                    self._zc_wake.reopen()
+                    self._schedule_backoff_connect()
+                    raise
             self._tries = min(self._tries, tries_before + 1)
             self._schedule_backoff_connect()
             return False

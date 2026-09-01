@@ -64,14 +64,14 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     if payload[0] != 0x01:
         msg = f"unsupported protocol byte {payload[0]}"
         raise ValueError(msg)
-    name_end = payload.find(b"\x00", 1)
-    mac_end = payload.find(b"\x00", name_end + 1) if name_end != -1 else -1
-    if mac_end == -1:
+    name_bytes, name_sep, rest = payload[1:].partition(b"\x00")
+    mac_bytes, mac_sep, _ = rest.partition(b"\x00")
+    if not name_sep or not mac_sep:
         msg = "malformed hello payload"
         raise ValueError(msg)
     # The name is peer-supplied; sanitize before it can reach a log line
-    name = safe_label_str(payload[1:name_end].decode("utf-8", "replace"), MAX_NAME_LEN)
-    mac = payload[name_end + 1 : mac_end].decode("ascii", "replace").lower()
+    name = safe_label_str(name_bytes.decode("utf-8", "replace"), MAX_NAME_LEN)
+    mac = mac_bytes.decode("ascii", "replace").lower()
     # Devices that dial out always announce their bare 12-hex-digit MAC
     if len(mac) != 12:
         msg = f"malformed MAC {mac!r}"
@@ -164,8 +164,8 @@ class OutgoingConnectionServer:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._accept_task
             self._accept_task = None
-        for task in self._pending.copy():
-            task.cancel()
+        for task in self._pending:
+            task.cancel()  # done-callbacks run via call_soon, no mutation here
         if self._server_socket is not None:
             self._server_socket.close()
             self._server_socket = None
@@ -173,7 +173,7 @@ class OutgoingConnectionServer:
     @staticmethod
     def _log_task_exception(task: asyncio.Task[None]) -> None:
         if not task.cancelled() and (exc := task.exception()) is not None:
-            _LOGGER.error("Unexpected error handling outgoing connection", exc_info=exc)
+            _LOGGER.error("Unexpected error in %s", task.get_name(), exc_info=exc)
 
     async def _accept_loop(self, sock: socket.socket) -> None:
         loop = asyncio.get_running_loop()
@@ -189,17 +189,15 @@ class OutgoingConnectionServer:
                 conn.close()
                 continue
             conn.setblocking(False)
-            task = create_eager_task(
+            # Deliberately not eager: the task must not run before it is in
+            # _pending, or the identification bookkeeping races
+            task = loop.create_task(
                 self._identify_and_dispatch(conn, addr),
                 name=f"esphome-outgoing-connection-identify-{addr}",
             )
             task.add_done_callback(self._log_task_exception)
-            # Eager start may have run the task past identification (or to
-            # completion) already; only track it as pending unidentified work
-            # when it is still in that phase
-            if not task.done() and task not in self._adopting:
-                self._pending.add(task)
-                task.add_done_callback(self._pending.discard)
+            self._pending.add(task)
+            task.add_done_callback(self._pending.discard)
 
     async def _identify_and_dispatch(
         self, conn: socket.socket, addr: tuple[object, ...]
