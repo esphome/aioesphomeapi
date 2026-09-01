@@ -33,6 +33,8 @@ DEFAULT_OUTGOING_CONNECTION_PORT = 6054
 _IDENTIFY_TIMEOUT = 10.0
 # Cap on concurrent connections that have not identified themselves yet
 _MAX_PENDING = 8
+# Cap on distinct unknown MACs reported at INFO before dropping to DEBUG
+_MAX_UNKNOWN_MACS_LOGGED = 32
 # The hello frame is tiny (name + MAC); anything larger is not a hello
 _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
@@ -110,8 +112,11 @@ class OutgoingConnectionServer:
         self._targets: dict[str, ReconnectLogic] = {}
         self._server_socket: socket.socket | None = None
         self._accept_task: asyncio.Task[None] | None = None
-        # Insertion-ordered so admission control can evict the oldest
-        self._pending: dict[asyncio.Task[None], None] = {}
+        # Insertion-ordered so admission control can evict the oldest; the
+        # socket value lets eviction close a task that never got to run
+        self._pending: dict[asyncio.Task[None], socket.socket] = {}
+        # MACs already reported at INFO, bounded so a scan cannot grow it
+        self._unknown_macs_logged: set[str] = set()
         # Adoptions in progress: kept only as strong references so the tasks
         # cannot be garbage collected; stop() leaves them running
         self._adopting: set[asyncio.Task[None]] = set()
@@ -173,11 +178,13 @@ class OutgoingConnectionServer:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._accept_task
             self._accept_task = None
-        if pending := tuple(self._pending):
+        if pending := dict(self._pending):
             for task in pending:
                 task.cancel()
             # Wait so each task's CancelledError handler closes its socket
             await asyncio.gather(*pending, return_exceptions=True)
+            for conn in pending.values():
+                conn.close()  # idempotent; covers tasks that never started
         if self._server_socket is not None:
             self._server_socket.close()
             self._server_socket = None
@@ -205,12 +212,13 @@ class OutgoingConnectionServer:
                 # Evict the oldest unidentified connection: a real device
                 # identifies within milliseconds, so stale or hostile silent
                 # connections cannot starve it out of an admission slot
-                oldest = next(iter(self._pending))
+                oldest, oldest_conn = next(iter(self._pending.items()))
                 _LOGGER.warning(
                     "Too many unidentified connections; evicting oldest for %s", addr
                 )
                 self._pending.pop(oldest, None)
-                oldest.cancel()  # its handler closes the socket
+                oldest.cancel()
+                oldest_conn.close()  # the task body may never have started
             conn.setblocking(False)
             # Deliberately not eager: the task must not run before it is in
             # _pending, or the identification bookkeeping races
@@ -219,7 +227,7 @@ class OutgoingConnectionServer:
                 name=f"esphome-outgoing-connection-identify-{addr}",
             )
             task.add_done_callback(self._log_task_exception)
-            self._pending[task] = None
+            self._pending[task] = conn
             task.add_done_callback(self._discard_pending)
 
     async def _identify_and_dispatch(
@@ -236,8 +244,21 @@ class OutgoingConnectionServer:
             conn.close()
             return
         if (target := self._targets.get(mac)) is None:
-            _LOGGER.debug(
-                "No registered target for %s (%s) dialing in from %s", mac, name, addr
+            # INFO once per MAC so a misregistration is diagnosable without
+            # letting a hostile repeat dialer spam the log
+            level = logging.DEBUG
+            if (
+                mac not in self._unknown_macs_logged
+                and len(self._unknown_macs_logged) < _MAX_UNKNOWN_MACS_LOGGED
+            ):
+                self._unknown_macs_logged.add(mac)
+                level = logging.INFO
+            _LOGGER.log(
+                level,
+                "No registered target for %s (%s) dialing in from %s",
+                mac,
+                name,
+                addr,
             )
             conn.close()
             return
@@ -251,7 +272,7 @@ class OutgoingConnectionServer:
             current.add_done_callback(self._adopting.discard)
         # async_adopt_connection takes ownership of the socket either way
         if not await target.async_adopt_connection(conn):
-            _LOGGER.debug("Dial-in from %s (%s) was not adopted", name, addr)
+            _LOGGER.info("Dial-in from %s (%s) was not adopted", name, addr)
 
     async def _peek_server_hello(self, conn: socket.socket) -> tuple[str, str]:
         """Read the server hello with MSG_PEEK, leaving the bytes in the socket."""
