@@ -515,6 +515,9 @@ async def test_server_stop_propagates_own_cancellation() -> None:
     stop_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await stop_task
+    # The teardown still ran, so the state is honest and restartable
+    assert not server.is_listening
+    await server.start()
     await server.stop()
 
 

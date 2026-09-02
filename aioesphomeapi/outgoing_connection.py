@@ -32,10 +32,10 @@ DEFAULT_OUTGOING_CONNECTION_PORT = 6054
 _IDENTIFY_TIMEOUT = 10.0
 # Cap on concurrent connections that have not identified themselves yet
 _MAX_PENDING = 8
-# Cap on distinct unknown MACs reported at INFO before dropping to DEBUG,
-# reset every window so a later misregistration still surfaces
-_MAX_UNKNOWN_MACS_LOGGED = 32
-_UNKNOWN_MAC_LOG_WINDOW = 3600.0
+# Cap on distinct rejection keys reported at INFO before dropping to DEBUG,
+# reset every window so a later misconfiguration still surfaces
+_MAX_INFO_KEYS_LOGGED = 32
+_INFO_LOG_WINDOW = 3600.0
 # The hello frame is tiny (name + MAC); anything larger is not a hello
 _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
@@ -117,9 +117,10 @@ class OutgoingConnectionServer:
         # Insertion-ordered so admission control can evict the oldest; the
         # socket value lets eviction close a task that never got to run
         self._pending: dict[asyncio.Task[None], socket.socket] = {}
-        # MACs already reported at INFO, bounded so a scan cannot grow it
-        self._unknown_macs_logged: set[str] = set()
-        self._unknown_macs_cleared = 0.0
+        # Rejection keys already reported at INFO, bounded so a scan
+        # cannot grow it
+        self._info_keys_logged: set[str] = set()
+        self._info_keys_cleared = 0.0
         # One adoption in flight per MAC: extras would queue on the
         # ReconnectLogic lock holding an fd each, and could never win anyway.
         # The value is the strong task reference (stop() leaves them running)
@@ -191,7 +192,13 @@ class OutgoingConnectionServer:
             except asyncio.CancelledError:
                 current = asyncio.current_task()
                 if current is not None and current.cancelling():
-                    raise  # aimed at our caller, not the accept loop
+                    # Aimed at our caller, not the accept loop; still tear
+                    # down so is_listening is honest and start() can rebind
+                    self._accept_task = None
+                    if self._server_socket is not None:
+                        self._server_socket.close()
+                        self._server_socket = None
+                    raise
             except Exception:  # noqa: BLE001, S110  # already logged
                 pass
             self._accept_task = None
@@ -225,26 +232,20 @@ class OutgoingConnectionServer:
     def _discard_pending(self, task: asyncio.Task[None]) -> None:
         self._pending.pop(task, None)
 
-    def _log_unknown_mac(self, mac: str, name: str, addr: tuple[object, ...]) -> None:
-        """Log INFO once per MAC and window so a misregistration is diagnosable."""
+    def _log_rate_limited(self, key: str, msg: str, *args: object) -> None:
+        """Log INFO once per key and window so a misconfiguration surfaces."""
         now = asyncio.get_running_loop().time()
-        if now - self._unknown_macs_cleared >= _UNKNOWN_MAC_LOG_WINDOW:
-            self._unknown_macs_logged.clear()
-            self._unknown_macs_cleared = now
+        if now - self._info_keys_cleared >= _INFO_LOG_WINDOW:
+            self._info_keys_logged.clear()
+            self._info_keys_cleared = now
         level = logging.DEBUG
         if (
-            mac not in self._unknown_macs_logged
-            and len(self._unknown_macs_logged) < _MAX_UNKNOWN_MACS_LOGGED
+            key not in self._info_keys_logged
+            and len(self._info_keys_logged) < _MAX_INFO_KEYS_LOGGED
         ):
-            self._unknown_macs_logged.add(mac)
+            self._info_keys_logged.add(key)
             level = logging.INFO
-        _LOGGER.log(
-            level,
-            "No registered target for %s (%s) dialing in from %s",
-            mac,
-            name,
-            addr,
-        )
+        _LOGGER.log(level, msg, *args)
 
     async def _accept_loop(self, sock: socket.socket) -> None:
         loop = asyncio.get_running_loop()
@@ -289,14 +290,24 @@ class OutgoingConnectionServer:
             conn.close()
             raise
         except (TimeoutError, OSError, ValueError) as err:
-            _LOGGER.debug("Rejecting connection from %s: %s", addr, err)
+            # A real device that cannot identify itself (plaintext firmware,
+            # protocol skew) must be diagnosable, not only port-scan noise
+            self._log_rate_limited(
+                f"reject:{addr[0]}", "Rejecting connection from %s: %s", addr, err
+            )
             conn.close()
             return
         except BaseException:
             conn.close()  # ownership has not transferred yet
             raise
         if (target := self._targets.get(mac)) is None:
-            self._log_unknown_mac(mac, name, addr)
+            self._log_rate_limited(
+                f"mac:{mac}",
+                "No registered target for %s (%s) dialing in from %s",
+                mac,
+                name,
+                addr,
+            )
             conn.close()
             return
         if mac in self._adopting:
