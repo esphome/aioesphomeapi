@@ -116,12 +116,10 @@ class OutgoingConnectionServer:
         self._pending: dict[asyncio.Task[None], socket.socket] = {}
         # MACs already reported at INFO, bounded so a scan cannot grow it
         self._unknown_macs_logged: set[str] = set()
-        # Adoptions in progress: kept only as strong references so the tasks
-        # cannot be garbage collected; stop() leaves them running
-        self._adopting: set[asyncio.Task[None]] = set()
         # One adoption in flight per MAC: extras would queue on the
-        # ReconnectLogic lock holding an fd each, and could never win anyway
-        self._adopting_targets: set[str] = set()
+        # ReconnectLogic lock holding an fd each, and could never win anyway.
+        # The value is the strong task reference (stop() leaves them running)
+        self._adopting: dict[str, asyncio.Task[None]] = {}
 
     @property
     def port(self) -> int:
@@ -283,39 +281,45 @@ class OutgoingConnectionServer:
             )
             conn.close()
             return
-        if mac in self._adopting_targets:
+        if mac in self._adopting:
             _LOGGER.debug("Adoption already in flight for %s; closing %s", mac, addr)
             conn.close()
             return
         _LOGGER.debug("Device %s (%s) dialed in from %s", name, mac, addr)
         # Identification is done: leave the pending set so a slow handshake
-        # does not hold an admission slot, and so stop() leaves it running.
-        # _adopting keeps a strong reference so the task is not collected.
+        # does not hold an admission slot, and so stop() leaves it running
         if (current := asyncio.current_task()) is not None:
             self._pending.pop(current, None)
-            self._adopting.add(current)
-            current.add_done_callback(self._adopting.discard)
-        self._adopting_targets.add(mac)
+            self._adopting[mac] = current
         try:
             # async_adopt_connection takes ownership of the socket either way
             if not await target.async_adopt_connection(conn):
                 _LOGGER.info("Dial-in from %s (%s) was not adopted", name, addr)
         finally:
-            self._adopting_targets.discard(mac)
+            self._adopting.pop(mac, None)
 
     async def _peek_server_hello(self, conn: socket.socket) -> tuple[str, str]:
         """Read the server hello with MSG_PEEK, leaving the bytes in the socket."""
+        loop = asyncio.get_running_loop()
         while True:
             try:
                 data = conn.recv(_MAX_HELLO_SIZE, socket.MSG_PEEK)
             except (BlockingIOError, InterruptedError):
-                pass  # nothing buffered yet
-            else:
-                if not data:
-                    msg = "connection closed before hello"
-                    raise ValueError(msg)
-                if (result := _parse_server_hello(data)) is not None:
-                    return result
+                # Nothing buffered yet: wait for the first readability
+                # instead of polling
+                fut: asyncio.Future[None] = loop.create_future()
+                fd = conn.fileno()
+                loop.add_reader(fd, fut.set_result, None)
+                try:
+                    await fut
+                finally:
+                    loop.remove_reader(fd)
+                continue
+            if not data:
+                msg = "connection closed before hello"
+                raise ValueError(msg)
+            if (result := _parse_server_hello(data)) is not None:
+                return result
             # The peeked bytes keep the fd readable, so a reader callback
-            # would spin; a short sleep is enough for a frame this small
+            # would spin; a short sleep covers the rare partial frame
             await asyncio.sleep(_PEEK_RETRY_DELAY)
