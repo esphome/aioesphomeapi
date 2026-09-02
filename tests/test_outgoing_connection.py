@@ -430,3 +430,60 @@ async def test_server_evicts_oldest_unidentified_when_full() -> None:
             w.close()
     finally:
         await server.stop()
+
+
+async def test_server_restarts_after_fatal_accept_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A crashed accept loop releases the socket so start() can rebind."""
+    server = OutgoingConnectionServer(port=0)
+    err = OSError(errno.EBADF, "Bad file descriptor")
+    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
+        await server.start()
+        for _ in range(50):
+            if "Unexpected error in" in caplog.text:
+                break
+            await asyncio.sleep(0)
+    # The same instance can be started again and accepts connections
+    await server.start()
+    _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+    writer.close()
+    await server.stop()
+
+
+async def test_server_single_adoption_in_flight_per_mac() -> None:
+    """A second dial-in for a MAC mid-adoption is closed, not queued."""
+    server = OutgoingConnectionServer(port=0)
+    first_adopting = asyncio.Event()
+    release = asyncio.Event()
+    adopted: list[socket.socket] = []
+
+    async def adopt(sock: socket.socket) -> bool:
+        adopted.append(sock)
+        first_adopting.set()
+        await release.wait()
+        return True
+
+    target = MagicMock()
+    target.async_adopt_connection = adopt
+    server.register(MAC, target)
+    await server.start()
+    try:
+        _, writer1 = await asyncio.open_connection("127.0.0.1", server.port)
+        writer1.write(_server_hello_frame())
+        await writer1.drain()
+        await asyncio.wait_for(first_adopting.wait(), timeout=5)
+        # Second dial-in for the same MAC while adoption is in flight
+        reader2, writer2 = await asyncio.open_connection("127.0.0.1", server.port)
+        writer2.write(_server_hello_frame())
+        await writer2.drain()
+        with contextlib.suppress(ConnectionResetError):
+            assert await asyncio.wait_for(reader2.read(), timeout=5) == b""
+        release.set()
+        await asyncio.sleep(0)
+        assert len(adopted) == 1
+        adopted[0].close()
+        writer1.close()
+        writer2.close()
+    finally:
+        await server.stop()

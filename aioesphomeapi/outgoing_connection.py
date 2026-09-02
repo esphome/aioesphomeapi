@@ -12,7 +12,6 @@ helper then reads the hello from the socket as usual.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import errno
 import logging
 import socket
@@ -120,6 +119,9 @@ class OutgoingConnectionServer:
         # Adoptions in progress: kept only as strong references so the tasks
         # cannot be garbage collected; stop() leaves them running
         self._adopting: set[asyncio.Task[None]] = set()
+        # One adoption in flight per MAC: extras would queue on the
+        # ReconnectLogic lock holding an fd each, and could never win anyway
+        self._adopting_targets: set[str] = set()
 
     @property
     def port(self) -> int:
@@ -140,7 +142,10 @@ class OutgoingConnectionServer:
         self._targets[mac] = reconnect_logic
 
         def _unregister() -> None:
-            self._targets.pop(mac, None)
+            # Identity-guarded so a stale callable cannot clobber a newer
+            # registration for the same MAC
+            if self._targets.get(mac) is reconnect_logic:
+                del self._targets[mac]
 
         return _unregister
 
@@ -164,7 +169,7 @@ class OutgoingConnectionServer:
             self._accept_loop(sock), name=f"esphome-outgoing-connection-{self._port}"
         )
         # Surface an unexpected death of the accept loop instead of silence
-        self._accept_task.add_done_callback(self._log_task_exception)
+        self._accept_task.add_done_callback(self._accept_task_done)
         _LOGGER.debug("Listening for outgoing connections on port %s", self._port)
 
     async def stop(self) -> None:
@@ -174,9 +179,14 @@ class OutgoingConnectionServer:
         """
         if self._accept_task is not None:
             self._accept_task.cancel()
-            # A crash was already logged; it must not skip the cleanup below
-            with contextlib.suppress(asyncio.CancelledError, Exception):
+            try:
                 await self._accept_task
+            except asyncio.CancelledError:
+                current = asyncio.current_task()
+                if current is not None and current.cancelling():
+                    raise  # aimed at our caller, not the accept loop
+            except Exception:  # noqa: BLE001, S110  # already logged
+                pass
             self._accept_task = None
         if pending := dict(self._pending):
             for task in pending:
@@ -193,6 +203,17 @@ class OutgoingConnectionServer:
     def _log_task_exception(task: asyncio.Task[None]) -> None:
         if not task.cancelled() and (exc := task.exception()) is not None:
             _LOGGER.error("Unexpected error in %s", task.get_name(), exc_info=exc)
+
+    def _accept_task_done(self, task: asyncio.Task[None]) -> None:
+        self._log_task_exception(task)
+        if task.cancelled() or task.exception() is None:
+            return  # normal stop(); it owns the cleanup
+        # The listener is dead; release the socket so start() can rebind
+        if self._accept_task is task:
+            self._accept_task = None
+        if self._server_socket is not None:
+            self._server_socket.close()
+            self._server_socket = None
 
     def _discard_pending(self, task: asyncio.Task[None]) -> None:
         self._pending.pop(task, None)
@@ -262,6 +283,10 @@ class OutgoingConnectionServer:
             )
             conn.close()
             return
+        if mac in self._adopting_targets:
+            _LOGGER.debug("Adoption already in flight for %s; closing %s", mac, addr)
+            conn.close()
+            return
         _LOGGER.debug("Device %s (%s) dialed in from %s", name, mac, addr)
         # Identification is done: leave the pending set so a slow handshake
         # does not hold an admission slot, and so stop() leaves it running.
@@ -270,9 +295,13 @@ class OutgoingConnectionServer:
             self._pending.pop(current, None)
             self._adopting.add(current)
             current.add_done_callback(self._adopting.discard)
-        # async_adopt_connection takes ownership of the socket either way
-        if not await target.async_adopt_connection(conn):
-            _LOGGER.info("Dial-in from %s (%s) was not adopted", name, addr)
+        self._adopting_targets.add(mac)
+        try:
+            # async_adopt_connection takes ownership of the socket either way
+            if not await target.async_adopt_connection(conn):
+                _LOGGER.info("Dial-in from %s (%s) was not adopted", name, addr)
+        finally:
+            self._adopting_targets.discard(mac)
 
     async def _peek_server_hello(self, conn: socket.socket) -> tuple[str, str]:
         """Read the server hello with MSG_PEEK, leaving the bytes in the socket."""
