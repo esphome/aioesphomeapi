@@ -32,8 +32,10 @@ DEFAULT_OUTGOING_CONNECTION_PORT = 6054
 _IDENTIFY_TIMEOUT = 10.0
 # Cap on concurrent connections that have not identified themselves yet
 _MAX_PENDING = 8
-# Cap on distinct unknown MACs reported at INFO before dropping to DEBUG
+# Cap on distinct unknown MACs reported at INFO before dropping to DEBUG,
+# reset every window so a later misregistration still surfaces
 _MAX_UNKNOWN_MACS_LOGGED = 32
+_UNKNOWN_MAC_LOG_WINDOW = 3600.0
 # The hello frame is tiny (name + MAC); anything larger is not a hello
 _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
@@ -77,8 +79,9 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     # The name is peer-supplied; sanitize before it can reach a log line
     name = safe_label_str(name_bytes.decode("utf-8", "replace"), MAX_NAME_LEN)
     mac = mac_bytes.decode("ascii", "replace").lower()
-    # Devices that dial out always announce their bare 12-hex-digit MAC
-    if len(mac) != 12:
+    # Devices that dial out always announce their bare 12-hex-digit MAC;
+    # validating hex also keeps peer bytes from forging log lines
+    if len(mac) != 12 or any(c not in "0123456789abcdef" for c in mac):
         msg = f"malformed MAC {mac!r}"
         raise ValueError(msg)
     return name, mac
@@ -116,6 +119,7 @@ class OutgoingConnectionServer:
         self._pending: dict[asyncio.Task[None], socket.socket] = {}
         # MACs already reported at INFO, bounded so a scan cannot grow it
         self._unknown_macs_logged: set[str] = set()
+        self._unknown_macs_cleared = 0.0
         # One adoption in flight per MAC: extras would queue on the
         # ReconnectLogic lock holding an fd each, and could never win anyway.
         # The value is the strong task reference (stop() leaves them running)
@@ -125,6 +129,11 @@ class OutgoingConnectionServer:
     def port(self) -> int:
         """The listening port; resolved after start() when created with port 0."""
         return self._port
+
+    @property
+    def is_listening(self) -> bool:
+        """False before start(), after stop(), or when the listener died."""
+        return self._server_socket is not None
 
     def register(self, mac: str, reconnect_logic: ReconnectLogic) -> Callable[[], None]:
         """Route dial-ins from the device with this MAC to a ReconnectLogic.
@@ -216,6 +225,27 @@ class OutgoingConnectionServer:
     def _discard_pending(self, task: asyncio.Task[None]) -> None:
         self._pending.pop(task, None)
 
+    def _log_unknown_mac(self, mac: str, name: str, addr: tuple[object, ...]) -> None:
+        """Log INFO once per MAC and window so a misregistration is diagnosable."""
+        now = asyncio.get_running_loop().time()
+        if now - self._unknown_macs_cleared >= _UNKNOWN_MAC_LOG_WINDOW:
+            self._unknown_macs_logged.clear()
+            self._unknown_macs_cleared = now
+        level = logging.DEBUG
+        if (
+            mac not in self._unknown_macs_logged
+            and len(self._unknown_macs_logged) < _MAX_UNKNOWN_MACS_LOGGED
+        ):
+            self._unknown_macs_logged.add(mac)
+            level = logging.INFO
+        _LOGGER.log(
+            level,
+            "No registered target for %s (%s) dialing in from %s",
+            mac,
+            name,
+            addr,
+        )
+
     async def _accept_loop(self, sock: socket.socket) -> None:
         loop = asyncio.get_running_loop()
         while True:
@@ -262,23 +292,11 @@ class OutgoingConnectionServer:
             _LOGGER.debug("Rejecting connection from %s: %s", addr, err)
             conn.close()
             return
+        except BaseException:
+            conn.close()  # ownership has not transferred yet
+            raise
         if (target := self._targets.get(mac)) is None:
-            # INFO once per MAC so a misregistration is diagnosable without
-            # letting a hostile repeat dialer spam the log
-            level = logging.DEBUG
-            if (
-                mac not in self._unknown_macs_logged
-                and len(self._unknown_macs_logged) < _MAX_UNKNOWN_MACS_LOGGED
-            ):
-                self._unknown_macs_logged.add(mac)
-                level = logging.INFO
-            _LOGGER.log(
-                level,
-                "No registered target for %s (%s) dialing in from %s",
-                mac,
-                name,
-                addr,
-            )
+            self._log_unknown_mac(mac, name, addr)
             conn.close()
             return
         if mac in self._adopting:
@@ -293,10 +311,14 @@ class OutgoingConnectionServer:
             self._adopting[mac] = current
         try:
             # async_adopt_connection takes ownership of the socket either way
-            if not await target.async_adopt_connection(conn):
-                _LOGGER.info("Dial-in from %s (%s) was not adopted", name, addr)
+            adopted = await target.async_adopt_connection(conn)
+        except BaseException:
+            conn.close()  # idempotent; adoption closes on its own paths
+            raise
         finally:
             self._adopting.pop(mac, None)
+        if not adopted:
+            _LOGGER.info("Dial-in from %s (%s) was not adopted", name, addr)
 
     async def _peek_server_hello(self, conn: socket.socket) -> tuple[str, str]:
         """Read the server hello with MSG_PEEK, leaving the bytes in the socket."""

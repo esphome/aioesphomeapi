@@ -747,6 +747,12 @@ class ReconnectLogic:
                 and self._cli.connected_address is not None
             )
         ):
+            _LOGGER.debug(
+                "%s: Refusing dial-in adoption (stopped=%s, state=%s)",
+                self._cli.log_name,
+                self._is_stopped,
+                state,
+            )
             sock.close()
             return False
         self._cancel_connect("Adopting connection from device")
@@ -762,6 +768,12 @@ class ReconnectLogic:
                 self._is_stopped
                 or self._connection_state is not ReconnectLogicState.DISCONNECTED
             ):
+                _LOGGER.debug(
+                    "%s: Refusing dial-in adoption (stopped=%s, state=%s)",
+                    self._cli.log_name,
+                    self._is_stopped,
+                    self._connection_state,
+                )
                 sock.close()
                 return False
             try:

@@ -69,6 +69,7 @@ def test_parse_server_hello_incomplete() -> None:
         b"\x01\x00\x03\x02ab",  # wrong protocol byte
         b"\x01\x00\x02\x01a",  # no null-separated name/mac
         _server_hello_frame(mac=b"nonsense"),  # malformed mac
+        _server_hello_frame(mac=b"\r\n\x1b[0mabcdef"),  # 12 bytes but not hex
     ],
 )
 def test_parse_server_hello_rejects(data: bytes) -> None:
@@ -444,11 +445,14 @@ async def test_server_restarts_after_fatal_accept_error(
             if "Unexpected error in" in caplog.text:
                 break
             await asyncio.sleep(0)
+    assert not server.is_listening
     # The same instance can be started again and accepts connections
     await server.start()
+    assert server.is_listening
     _, writer = await asyncio.open_connection("127.0.0.1", server.port)
     writer.close()
     await server.stop()
+    assert not server.is_listening
 
 
 async def test_server_single_adoption_in_flight_per_mac() -> None:
