@@ -263,8 +263,12 @@ class OutgoingConnectionServer:
                 # identifies within milliseconds, so stale or hostile silent
                 # connections cannot starve it out of an admission slot
                 oldest, oldest_conn = next(iter(self._pending.items()))
-                _LOGGER.warning(
-                    "Too many unidentified connections; evicting oldest for %s", addr
+                # Rate limited: a peer holding sockets open triggers this on
+                # every dial-in once the admission table is full
+                self._log_rate_limited(
+                    f"evict:{addr[0]}",
+                    "Too many unidentified connections; evicting oldest for %s",
+                    addr,
                 )
                 self._pending.pop(oldest, None)
                 oldest.cancel()
