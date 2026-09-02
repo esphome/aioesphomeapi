@@ -185,33 +185,30 @@ class OutgoingConnectionServer:
 
         Sessions already handed to a ReconnectLogic keep running.
         """
-        if self._accept_task is not None:
-            self._accept_task.cancel()
-            try:
-                await self._accept_task
-            except asyncio.CancelledError:
-                current = asyncio.current_task()
-                if current is not None and current.cancelling():
-                    # Aimed at our caller, not the accept loop; still tear
-                    # down so is_listening is honest and start() can rebind
-                    self._accept_task = None
-                    if self._server_socket is not None:
-                        self._server_socket.close()
-                        self._server_socket = None
-                    raise
-            except Exception:  # noqa: BLE001, S110  # already logged
-                pass
+        try:
+            if self._accept_task is not None:
+                self._accept_task.cancel()
+                try:
+                    await self._accept_task
+                except asyncio.CancelledError:
+                    current = asyncio.current_task()
+                    if current is not None and current.cancelling():
+                        # Aimed at our caller; the finally still tears down
+                        raise
+                except Exception:  # noqa: BLE001, S110  # already logged
+                    pass
+        finally:
             self._accept_task = None
-        if pending := dict(self._pending):
-            for task in pending:
+            # Close directly rather than awaiting the cancelled tasks: a task
+            # that never ran has no handler to close its socket, and this
+            # path must also run when stop() itself is cancelled
+            for task, conn in self._pending.items():
                 task.cancel()
-            # Wait so each task's CancelledError handler closes its socket
-            await asyncio.gather(*pending, return_exceptions=True)
-            for conn in pending.values():
-                conn.close()  # idempotent; covers tasks that never started
-        if self._server_socket is not None:
-            self._server_socket.close()
-            self._server_socket = None
+                conn.close()
+            self._pending.clear()
+            if self._server_socket is not None:
+                self._server_socket.close()
+                self._server_socket = None
 
     @staticmethod
     def _log_task_exception(task: asyncio.Task[None]) -> None:

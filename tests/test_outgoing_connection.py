@@ -509,14 +509,21 @@ async def test_server_start_twice_is_a_no_op() -> None:
 async def test_server_stop_propagates_own_cancellation() -> None:
     """A cancellation aimed at stop()'s caller is not swallowed."""
     server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
     await server.start()
+    reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+    await asyncio.sleep(0.05)  # a silent connection sits in _pending
     stop_task = asyncio.create_task(server.stop())
     await asyncio.sleep(0)  # let stop() cancel and await the accept task
     stop_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await stop_task
-    # The teardown still ran, so the state is honest and restartable
+    # The teardown still ran, so the state is honest and restartable, and
+    # the pending connection was closed rather than left to its timeout
     assert not server.is_listening
+    with contextlib.suppress(ConnectionResetError):
+        assert await asyncio.wait_for(reader.read(), timeout=5) == b""
+    writer.close()
     await server.start()
     await server.stop()
 
