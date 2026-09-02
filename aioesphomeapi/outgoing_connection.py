@@ -331,7 +331,12 @@ class OutgoingConnectionServer:
                 # instead of polling
                 fut: asyncio.Future[None] = loop.create_future()
                 fd = conn.fileno()
-                loop.add_reader(fd, fut.set_result, None)
+                try:
+                    loop.add_reader(fd, fut.set_result, None)
+                except NotImplementedError:
+                    # Proactor loop (Windows) cannot watch readability
+                    await asyncio.sleep(_PEEK_RETRY_DELAY)
+                    continue
                 try:
                     await fut
                 finally:

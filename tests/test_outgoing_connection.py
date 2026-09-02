@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import errno
+import logging
 import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -15,7 +16,7 @@ from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     DeviceInfoResponse,
     HelloRequest,
 )
-from aioesphomeapi.connection import APIConnection, ConnectionState, make_hello_request
+from aioesphomeapi.connection import APIConnection, ConnectionState, _make_hello_request
 from aioesphomeapi.core import APIConnectionError, InvalidEncryptionKeyAPIError
 from aioesphomeapi.model import DeviceInfo
 from aioesphomeapi.outgoing_connection import (
@@ -222,12 +223,14 @@ async def test_adopt_connection_failure_schedules_retry() -> None:
 
 
 def test_make_hello_request_flag() -> None:
-    flagged = make_hello_request("client", True)
+    # The uncached inner function: the cached wrapper is a C-level name in
+    # Cython builds and cannot be imported
+    flagged = _make_hello_request("client", True)
     assert flagged.outgoing_connection_target is True
     round_trip = HelloRequest.FromString(flagged.SerializeToString())
     assert round_trip.outgoing_connection_target is True
 
-    plain = make_hello_request("client", False)
+    plain = _make_hello_request("client", False)
     assert plain.outgoing_connection_target is False
     round_trip = HelloRequest.FromString(plain.SerializeToString())
     assert round_trip.outgoing_connection_target is False
@@ -375,11 +378,12 @@ async def test_server_accept_transient_error_retries(
         patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err),
     ):
         await server.start()
-        for _ in range(50):
-            if "Error accepting outgoing connection" in caplog.text:
+        # Two warnings prove the loop retried rather than dying
+        for _ in range(200):
+            if caplog.text.count("Error accepting outgoing connection") >= 2:
                 break
             await asyncio.sleep(0)
-        assert "Error accepting outgoing connection" in caplog.text
+        assert caplog.text.count("Error accepting outgoing connection") >= 2
         assert "Unexpected error in" not in caplog.text
         await server.stop()
 
@@ -491,3 +495,248 @@ async def test_server_single_adoption_in_flight_per_mac() -> None:
         writer2.close()
     finally:
         await server.stop()
+
+
+async def test_server_start_twice_is_a_no_op() -> None:
+    server = OutgoingConnectionServer(port=0)
+    await server.start()
+    port = server.port
+    await server.start()
+    assert server.port == port
+    await server.stop()
+
+
+async def test_server_stop_propagates_own_cancellation() -> None:
+    """A cancellation aimed at stop()'s caller is not swallowed."""
+    server = OutgoingConnectionServer(port=0)
+    await server.start()
+    stop_task = asyncio.create_task(server.stop())
+    await asyncio.sleep(0)  # let stop() cancel and await the accept task
+    stop_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await stop_task
+    await server.stop()
+
+
+async def test_server_stop_swallows_crashed_accept_loop() -> None:
+    """stop() before the done callback runs must not re-raise the crash."""
+    server = OutgoingConnectionServer(port=0)
+    err = OSError(errno.EBADF, "Bad file descriptor")
+    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
+        await server.start()
+        await server.stop()
+    assert not server.is_listening
+
+
+async def test_server_closes_socket_on_unexpected_identify_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unexpected error during identification still closes the socket."""
+    server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
+    await server.start()
+    try:
+        with patch(
+            "aioesphomeapi.outgoing_connection._parse_server_hello",
+            side_effect=RuntimeError("boom"),
+        ):
+            reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+            writer.write(_server_hello_frame())
+            await writer.drain()
+            with contextlib.suppress(ConnectionResetError):
+                assert await asyncio.wait_for(reader.read(), timeout=5) == b""
+        assert "Unexpected error in" in caplog.text
+        writer.close()
+    finally:
+        await server.stop()
+
+
+async def test_server_closes_socket_when_adoption_raises(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An adoption raising unexpectedly still closes the socket."""
+    server = OutgoingConnectionServer(port=0)
+    target = MagicMock()
+    target.async_adopt_connection = AsyncMock(side_effect=RuntimeError("boom"))
+    server.register(MAC, target)
+    await server.start()
+    try:
+        reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        writer.write(_server_hello_frame())
+        await writer.drain()
+        with contextlib.suppress(ConnectionResetError):
+            assert await asyncio.wait_for(reader.read(), timeout=5) == b""
+        assert "Unexpected error in" in caplog.text
+        assert MAC not in server._adopting
+        writer.close()
+    finally:
+        await server.stop()
+
+
+async def test_server_logs_not_adopted(caplog: pytest.LogCaptureFixture) -> None:
+    """A refused adoption is reported at INFO."""
+    server = OutgoingConnectionServer(port=0)
+    refused = asyncio.Event()
+
+    async def adopt(sock: socket.socket) -> bool:
+        sock.close()
+        refused.set()
+        return False
+
+    target = MagicMock()
+    target.async_adopt_connection = adopt
+    server.register(MAC, target)
+    await server.start()
+    try:
+        _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        writer.write(_server_hello_frame())
+        await writer.drain()
+        await asyncio.wait_for(refused.wait(), timeout=5)
+        for _ in range(50):
+            if "was not adopted" in caplog.text:
+                break
+            await asyncio.sleep(0)
+        assert "was not adopted" in caplog.text
+        writer.close()
+    finally:
+        await server.stop()
+
+
+async def test_server_peek_falls_back_without_add_reader() -> None:
+    """A proactor loop without add_reader falls back to sleep-polling."""
+    server = OutgoingConnectionServer(port=0)
+    dispatched = asyncio.Event()
+
+    async def adopt(sock: socket.socket) -> bool:
+        sock.close()
+        dispatched.set()
+        return True
+
+    target = MagicMock()
+    target.async_adopt_connection = adopt
+    server.register(MAC, target)
+    await server.start()
+    try:
+        with patch.object(
+            type(asyncio.get_running_loop()),
+            "add_reader",
+            side_effect=NotImplementedError,
+        ):
+            _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+            await asyncio.sleep(0.02)  # let the first peek find no bytes
+            writer.write(_server_hello_frame())
+            await writer.drain()
+            await asyncio.wait_for(dispatched.wait(), timeout=5)
+        writer.close()
+    finally:
+        await server.stop()
+
+
+async def test_server_rejects_connection_closed_before_hello(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="aioesphomeapi.outgoing_connection")
+    server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
+    await server.start()
+    try:
+        _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        writer.close()
+        for _ in range(100):
+            if "closed before hello" in caplog.text:
+                break
+            await asyncio.sleep(0.01)
+        assert "closed before hello" in caplog.text
+    finally:
+        await server.stop()
+
+
+async def test_server_waits_for_partial_hello() -> None:
+    """A hello split across writes is peeked until complete."""
+    server = OutgoingConnectionServer(port=0)
+    dispatched = asyncio.Event()
+
+    async def adopt(sock: socket.socket) -> bool:
+        sock.close()
+        dispatched.set()
+        return True
+
+    target = MagicMock()
+    target.async_adopt_connection = adopt
+    server.register(MAC, target)
+    await server.start()
+    try:
+        frame = _server_hello_frame()
+        _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        writer.write(frame[:5])
+        await writer.drain()
+        await asyncio.sleep(0.1)  # a peek must see the partial frame
+        writer.write(frame[5:])
+        await writer.drain()
+        await asyncio.wait_for(dispatched.wait(), timeout=5)
+        writer.close()
+    finally:
+        await server.stop()
+
+
+async def test_adopt_connection_refused_after_lock_wait() -> None:
+    """A stop that lands while waiting for the lock refuses the adoption."""
+    _, rl, on_connect, _ = _make_reconnect_logic()
+    client_sock, server_sock = await _tcp_pair()
+    await rl._connected_lock.acquire()
+    task = asyncio.create_task(rl.async_adopt_connection(server_sock))
+    await asyncio.sleep(0)  # adoption passes the pre-check, waits on the lock
+    rl._is_stopped = True
+    rl._connected_lock.release()
+    assert await task is False
+    assert server_sock.fileno() == -1
+    on_connect.assert_not_awaited()
+    client_sock.close()
+
+
+async def test_adopt_connection_start_failure_schedules_retry() -> None:
+    """A failure inside start_connection_from_socket routes to the retry path."""
+    cli, rl, on_connect, on_connect_error = _make_reconnect_logic()
+    client_sock, server_sock = await _tcp_pair()
+    with patch.object(
+        cli,
+        "start_connection_from_socket",
+        side_effect=APIConnectionError("refused"),
+    ):
+        assert await rl.async_adopt_connection(server_sock) is False
+    on_connect.assert_not_awaited()
+    on_connect_error.assert_awaited_once()
+    client_sock.close()
+    server_sock.close()
+
+
+async def test_client_start_connection_from_socket() -> None:
+    cli = APIClient(address="127.0.0.1", port=6052, password=None)
+    client_sock, server_sock = await _tcp_pair()
+    await cli.start_connection_from_socket(server_sock)
+    assert cli._connection is not None
+    assert cli._connection.connection_state is ConnectionState.SOCKET_OPENED
+    cli._connection.force_disconnect()
+    client_sock.close()
+
+
+async def test_client_start_connection_from_socket_closes_on_refusal() -> None:
+    """The client owns the socket even when it cannot take the connection."""
+    cli = APIClient(address="127.0.0.1", port=6052, password=None)
+    client_sock, server_sock = await _tcp_pair()
+    with (
+        patch.object(cli, "_create_connection", side_effect=APIConnectionError("busy")),
+        pytest.raises(APIConnectionError),
+    ):
+        await cli.start_connection_from_socket(server_sock)
+    assert server_sock.fileno() == -1
+    client_sock.close()
+
+
+async def test_start_connection_from_socket_bad_socket(conn: APIConnection) -> None:
+    """A dead socket surfaces as a connection error, not a raw OSError."""
+    client_sock, server_sock = await _tcp_pair()
+    server_sock.close()
+    with pytest.raises(APIConnectionError):
+        await conn.start_connection_from_socket(server_sock)
+    client_sock.close()
