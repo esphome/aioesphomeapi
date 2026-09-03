@@ -1,17 +1,16 @@
 """Listener for device-initiated (outgoing) API connections.
 
-A device with the ``api: outgoing_connection:`` option opens the TCP
-connection to us when no dial-back client is connected to it, sending its
-server hello (name and MAC) first so the right encryption key can be chosen
-before the PSK-mixed handshake starts. Protocol roles are unchanged. The
-hello is peeked without consuming it, the :class:`ReconnectLogic` registered
-for the MAC gets the socket via ``async_adopt_connection``, and the frame
-helper then reads the hello from the socket as usual.
+A device with ``api: outgoing_connection:`` dials this host when no
+dial-back client is connected, sending its server hello (name and MAC)
+first so the right encryption key can be chosen. The hello is peeked
+without consuming it and the socket is adopted by the
+:class:`ReconnectLogic` registered for the MAC.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import errno
 import logging
 import socket
@@ -22,6 +21,7 @@ from .util import asyncio_timeout, create_eager_task
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import NoReturn
 
     from .reconnect_logic import ReconnectLogic
 
@@ -32,8 +32,7 @@ DEFAULT_OUTGOING_CONNECTION_PORT = 6054
 _IDENTIFY_TIMEOUT = 10.0
 # Cap on concurrent connections that have not identified themselves yet
 _MAX_PENDING = 8
-# Cap on distinct rejection keys reported at INFO before dropping to DEBUG,
-# reset every window so a later misconfiguration still surfaces
+# Distinct rejection keys reported at INFO per window before dropping to DEBUG
 _MAX_INFO_KEYS_LOGGED = 32
 _INFO_LOG_WINDOW = 3600.0
 # The hello frame is tiny (name + MAC); anything larger is not a hello
@@ -41,11 +40,14 @@ _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
 # A recurring bind failure re-warns after this long instead of staying at info
 _BIND_WARN_INTERVAL = 3600.0
-# A broken listening socket that retrying cannot fix; accept(2) can surface
-# many transient per-connection errors, so everything else is retried
+# Broken-listener errnos; everything else accept(2) raises is transient
 _FATAL_ACCEPT_ERRNOS = frozenset({errno.EBADF, errno.ENOTSOCK, errno.EINVAL})
 # Delay between peeks while the hello frame is still incomplete
 _PEEK_RETRY_DELAY = 0.05
+
+
+def _raise_invalid(msg: str) -> NoReturn:
+    raise ValueError(msg)
 
 
 def _normalize_mac(mac: str) -> str:
@@ -65,54 +67,41 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     if len(data) < 3:
         return None
     if data[0] != 0x01:
-        msg = f"not a noise frame (indicator {data[0]})"
-        raise ValueError(msg)
+        _raise_invalid(f"not a noise frame (indicator {data[0]})")
     frame_len = (data[1] << 8) | data[2]
     if frame_len < 2 or frame_len > _MAX_HELLO_SIZE - 3:
-        msg = f"bad hello frame length {frame_len}"
-        raise ValueError(msg)
+        _raise_invalid(f"bad hello frame length {frame_len}")
     if len(data) < 3 + frame_len:
         return None
     payload = data[3 : 3 + frame_len]
     if payload[0] != 0x01:
-        msg = f"unsupported protocol byte {payload[0]}"
-        raise ValueError(msg)
+        _raise_invalid(f"unsupported protocol byte {payload[0]}")
     name_bytes, name_sep, rest = payload[1:].partition(b"\x00")
     mac_bytes, mac_sep, _ = rest.partition(b"\x00")
     if not name_sep or not mac_sep:
-        msg = "malformed hello payload"
-        raise ValueError(msg)
-    # The name is peer-supplied; sanitize before it can reach a log line
+        _raise_invalid("malformed hello payload")
+    # Peer-supplied; sanitize before it can reach a log line
     name = safe_label_str(name_bytes.decode("utf-8", "replace"), MAX_NAME_LEN)
     mac = mac_bytes.decode("ascii", "replace").lower()
-    # Devices that dial out always announce their bare 12-hex-digit MAC;
-    # validating hex also keeps peer bytes from forging log lines
+    # Devices announce a bare 12-hex-digit MAC; this also keeps peer
+    # bytes from forging log lines
     if not _is_valid_mac(mac):
-        msg = f"malformed MAC {mac!r}"
-        raise ValueError(msg)
+        _raise_invalid(f"malformed MAC {mac!r}")
     return name, mac
 
 
 class OutgoingConnectionServer:
     """Accepts connections that ESPHome devices open to this host.
 
-    Consumers register a MAC address with the :class:`ReconnectLogic` that
-    should take over when that device dials in; everything wire-level is
-    handled here. The listener manages its own lifecycle: the first
-    registration opens it, removing the last one closes it and frees the
-    port, and a bind failure or a fatal accept error is retried on the next
-    registration. ``start()`` and ``close()`` remain available for
-    consumers that want explicit control.
+    ``register()`` maps a MAC to the :class:`ReconnectLogic` that adopts
+    its dial-ins and drives the listener lifecycle: the first registration
+    opens it, removing the last one closes it and frees the port, and a
+    bind failure or fatal accept error is retried on the next registration.
 
-    The MAC in the hello is unauthenticated pre-handshake data: anything on
-    the network can dial in claiming a registered MAC. Adoption refuses to
-    preempt an established session, the Noise handshake rejects any peer
-    that does not hold the claimed MAC's key,
-    and a failed adoption cannot escalate the reconnect backoff by more than
-    one ordinary attempt per dial-in (repeated hostile dial-ins can still
-    walk it to the normal ceiling), so the worst case is wasted handshakes
-    and ordinary backoff. Only Noise devices can dial out, so a plaintext
-    hello never matches and is rejected during identification.
+    The MAC in the hello is unauthenticated: adoption never preempts an
+    established session, the Noise handshake rejects a peer without the
+    claimed MAC's key, and a hostile dial-in costs at most one ordinary
+    backoff step, so the worst case is wasted handshakes.
     """
 
     def __init__(
@@ -125,16 +114,14 @@ class OutgoingConnectionServer:
         self._targets: dict[str, ReconnectLogic] = {}
         self._server_socket: socket.socket | None = None
         self._accept_task: asyncio.Task[None] | None = None
-        # Insertion-ordered so admission control can evict the oldest; the
-        # socket value lets eviction close a task that never got to run
+        # Insertion-ordered for oldest-eviction; the socket value lets
+        # eviction close a task that never ran
         self._pending: dict[asyncio.Task[None], socket.socket] = {}
-        # Rejection keys already reported at INFO, bounded so a scan
-        # cannot grow it
+        # Rejection keys already reported at INFO; bounded against scans
         self._info_keys_logged: set[str] = set()
         self._info_keys_cleared = 0.0
-        # One adoption in flight per MAC: extras would queue on the
-        # ReconnectLogic lock holding an fd each, and could never win anyway.
-        # The value is the strong task reference (close() leaves them running)
+        # One adoption in flight per MAC; extras would queue on the
+        # ReconnectLogic lock holding an fd each. Values are strong task refs
         self._adopting: dict[str, asyncio.Task[None]] = {}
         # None until a bind fails; holds the last warning time after
         self._last_bind_warning: float | None = None
@@ -152,30 +139,23 @@ class OutgoingConnectionServer:
     def register(self, mac: str, reconnect_logic: ReconnectLogic) -> Callable[[], None]:
         """Route dial-ins from the device with this MAC to a ReconnectLogic.
 
-        The MAC may contain ``:`` or ``-`` separators and any case. Returns
-        a callable that removes the registration; call it when the
-        ReconnectLogic is discarded, the registry holds a strong reference.
-        The returned callable never raises.
-
-        Registration drives the listener lifecycle (see the class
-        docstring). A bind failure is logged rather than raised; the route
-        stays registered and the bind is retried on the next registration.
+        Separators and case in the MAC are normalized. Returns a callable
+        that removes the registration; it never raises. A bind failure is
+        logged, not raised: the route stays registered and the bind is
+        retried on the next registration.
         """
         mac = _normalize_mac(mac)
-        # A shape the hello parser can never produce would register fine and
-        # then silently never adopt; fail at the wiring site instead
+        # A MAC the hello parser can never produce would silently never
+        # adopt; fail at the wiring site instead
         if not _is_valid_mac(mac):
-            msg = f"invalid MAC {mac!r}; expected 12 hex digits"
-            raise ValueError(msg)
+            _raise_invalid(f"invalid MAC {mac!r}; expected 12 hex digits")
         if mac in self._targets:
-            msg = f"MAC {mac} is already registered"
-            raise ValueError(msg)
+            _raise_invalid(f"MAC {mac} is already registered")
         self._targets[mac] = reconnect_logic
         self._ensure_listening()
 
         def _unregister() -> None:
-            # Identity-guarded so a stale callable cannot clobber a newer
-            # registration for the same MAC
+            # Identity-guarded against stale callables
             if self._targets.get(mac) is reconnect_logic:
                 del self._targets[mac]
                 if not self._targets:
@@ -184,12 +164,7 @@ class OutgoingConnectionServer:
         return _unregister
 
     def _ensure_listening(self) -> None:
-        """Open the listener if it is not running, logging a bind failure.
-
-        Warns once per :data:`_BIND_WARN_INTERVAL` and reports at info
-        between, so a hundred registered devices produce one warning while a
-        deliberate retry still shows its outcome.
-        """
+        """Open the listener if needed; warn once per window on bind failure."""
         if self.is_listening:
             return
         try:
@@ -220,8 +195,7 @@ class OutgoingConnectionServer:
     def start(self) -> None:
         """Open the listening socket; raises OSError when the port is taken.
 
-        Synchronous: binding and listening are non-blocking syscalls, and
-        the accept loop runs as a background task.
+        Synchronous; the accept loop runs as a background task.
         """
         if self._server_socket is not None:
             return
@@ -245,25 +219,25 @@ class OutgoingConnectionServer:
         _LOGGER.debug("Listening for outgoing connections on port %s", self._port)
 
     def close(self) -> None:
-        """Stop accepting and close the listening socket.
+        """Stop accepting and close the listening socket; never raises.
 
-        Synchronous: the port is free when this returns, so a replacement
-        listener can bind immediately. The cancelled accept and identify
-        tasks finish on their own on the next event loop pass. Sessions
-        already handed to a ReconnectLogic keep running. Never raises.
+        Synchronous: the port is free when this returns. Sessions already
+        handed to a ReconnectLogic keep running.
         """
-        # Close directly rather than letting the cancelled tasks do it: a
-        # task that never ran has no handler to close its socket
+        # Close directly; a task that never ran has no handler to close its socket
         for task, conn in self._pending.items():
             task.cancel()
             conn.close()
         self._pending.clear()
-        if self._server_socket is not None:
-            self._server_socket.close()
-            self._server_socket = None
+        self._release_socket()
         if (accept_task := self._accept_task) is not None:
             self._accept_task = None
             accept_task.cancel()
+
+    def _release_socket(self) -> None:
+        if self._server_socket is not None:
+            self._server_socket.close()
+            self._server_socket = None
 
     @staticmethod
     def _log_task_exception(task: asyncio.Task[None]) -> None:
@@ -278,9 +252,7 @@ class OutgoingConnectionServer:
             return  # a restart already replaced this listener
         # The listener is dead; release the socket so start() can rebind
         self._accept_task = None
-        if self._server_socket is not None:
-            self._server_socket.close()
-            self._server_socket = None
+        self._release_socket()
 
     def _identify_done(self, task: asyncio.Task[None]) -> None:
         self._log_task_exception(task)
@@ -313,12 +285,9 @@ class OutgoingConnectionServer:
                 await asyncio.sleep(_ACCEPT_ERROR_BACKOFF)
                 continue
             if len(self._pending) >= _MAX_PENDING:
-                # Evict the oldest unidentified connection: a real device
-                # identifies within milliseconds, so stale or hostile silent
-                # connections cannot starve it out of an admission slot
+                # Evict the oldest unidentified connection; a real device
+                # identifies within milliseconds
                 oldest, oldest_conn = next(iter(self._pending.items()))
-                # Rate limited: a peer holding sockets open triggers this on
-                # every dial-in once the admission table is full
                 self._log_rate_limited(
                     f"evict:{addr[0]}",
                     "Too many unidentified connections; evicting oldest for %s",
@@ -328,8 +297,7 @@ class OutgoingConnectionServer:
                 oldest.cancel()
                 oldest_conn.close()  # the task body may never have started
             conn.setblocking(False)
-            # Deliberately not eager: the task must not run before it is in
-            # _pending, or the identification bookkeeping races
+            # Not eager: the task must be in _pending before it first runs
             task = loop.create_task(
                 self._identify_and_dispatch(conn, addr),
                 name=f"esphome-outgoing-connection-identify-{addr}",
@@ -340,48 +308,45 @@ class OutgoingConnectionServer:
     async def _identify_and_dispatch(
         self, conn: socket.socket, addr: tuple[object, ...]
     ) -> None:
-        try:
-            async with asyncio_timeout(_IDENTIFY_TIMEOUT):
-                name, mac = await self._peek_server_hello(conn)
-        except (TimeoutError, OSError, ValueError) as err:
-            # A real device that cannot identify itself (plaintext firmware,
-            # protocol skew) must be diagnosable, not only port-scan noise
-            self._log_rate_limited(
-                f"reject:{addr[0]}", "Rejecting connection from %s: %s", addr, err
-            )
-            conn.close()
-            return
-        except BaseException:
-            conn.close()  # ownership has not transferred yet
-            raise
-        if (target := self._targets.get(mac)) is None:
-            self._log_rate_limited(
-                f"mac:{mac}",
-                "No registered target for %s (%s) dialing in from %s",
-                mac,
-                name,
-                addr,
-            )
-            conn.close()
-            return
-        if mac in self._adopting:
-            _LOGGER.debug("Adoption already in flight for %s; closing %s", mac, addr)
-            conn.close()
-            return
-        _LOGGER.debug("Device %s (%s) dialed in from %s", name, mac, addr)
-        # Identification is done: leave the pending set so a slow handshake
-        # does not hold an admission slot, and so close() leaves it running
-        if (current := asyncio.current_task()) is not None:
-            self._pending.pop(current, None)
-            self._adopting[mac] = current
-        try:
-            # async_adopt_connection takes ownership of the socket either way
-            adopted = await target.async_adopt_connection(conn)
-        except BaseException:
-            conn.close()  # idempotent; adoption closes on its own paths
-            raise
-        finally:
-            self._adopting.pop(mac, None)
+        # The stack owns the socket until adoption takes it over
+        with contextlib.ExitStack() as stack:
+            stack.callback(conn.close)
+            try:
+                async with asyncio_timeout(_IDENTIFY_TIMEOUT):
+                    name, mac = await self._peek_server_hello(conn)
+            except (TimeoutError, OSError, ValueError) as err:
+                # Rate limited, not silent: a plaintext or skewed device
+                # must stay diagnosable
+                self._log_rate_limited(
+                    f"reject:{addr[0]}", "Rejecting connection from %s: %s", addr, err
+                )
+                return
+            if (target := self._targets.get(mac)) is None:
+                self._log_rate_limited(
+                    f"mac:{mac}",
+                    "No registered target for %s (%s) dialing in from %s",
+                    mac,
+                    name,
+                    addr,
+                )
+                return
+            if mac in self._adopting:
+                _LOGGER.debug(
+                    "Adoption already in flight for %s; closing %s", mac, addr
+                )
+                return
+            _LOGGER.debug("Device %s (%s) dialed in from %s", name, mac, addr)
+            # Leave the pending set so a slow handshake holds no admission slot
+            if (current := asyncio.current_task()) is not None:
+                self._pending.pop(current, None)
+                self._adopting[mac] = current
+            try:
+                # async_adopt_connection takes ownership of the socket on all
+                # its paths; the stack still closes it if this raises
+                adopted = await target.async_adopt_connection(conn)
+            finally:
+                self._adopting.pop(mac, None)
+            stack.pop_all()
         if not adopted:
             _LOGGER.info("Dial-in from %s (%s) was not adopted", name, addr)
 
@@ -392,8 +357,7 @@ class OutgoingConnectionServer:
             try:
                 data = conn.recv(_MAX_HELLO_SIZE, socket.MSG_PEEK)
             except (BlockingIOError, InterruptedError):
-                # Nothing buffered yet: wait for the first readability
-                # instead of polling
+                # Nothing buffered yet; wait for readability
                 fut: asyncio.Future[None] = loop.create_future()
                 fd = conn.fileno()
                 try:
@@ -408,10 +372,8 @@ class OutgoingConnectionServer:
                     loop.remove_reader(fd)
                 continue
             if not data:
-                msg = "connection closed before hello"
-                raise ValueError(msg)
+                _raise_invalid("connection closed before hello")
             if (result := _parse_server_hello(data)) is not None:
                 return result
-            # The peeked bytes keep the fd readable, so a reader callback
-            # would spin; a short sleep covers the rare partial frame
+            # Peeked bytes keep the fd readable, so a reader would spin
             await asyncio.sleep(_PEEK_RETRY_DELAY)

@@ -760,11 +760,9 @@ class ReconnectLogic:
             return self._refuse_adoption(sock, state)
         self._cancel_connect("Adopting connection from device")
         self._async_set_connection_state_without_lock(ReconnectLogicState.DISCONNECTED)
-        # The routing MAC is unauthenticated pre-handshake data, so a failed
-        # adoption must not escalate the outbound backoff any further than a
-        # single ordinary failed attempt would; otherwise a hostile dial-in
-        # failing the handshake (an AUTH_EXCEPTIONS case) could pin the retry
-        # interval at its ceiling.
+        # The routing MAC is unauthenticated, so a failed adoption must not
+        # escalate the backoff beyond one ordinary failed attempt; a hostile
+        # dial-in could otherwise pin the retry interval at its ceiling.
         tries_before = self._tries
         async with self._connected_lock:
             if (

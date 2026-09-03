@@ -338,12 +338,10 @@ class APIClientBase:
         :param provide_time: If True, the client will respond to a server
             request for the current time and timezone.
         :param outgoing_connection_target: If True, the client declares itself
-            a dial-back target in its hello; a device with the api
-            outgoing_connection option remembers this client's address and
-            opens the TCP connection itself when no such client is connected.
-            Ignored without a real encryption key: devices only honor the
-            declaration on encrypted sessions, and the zero-PSK provisioning
-            key authenticates nobody.
+            a dial-back target in its hello, so the device remembers this
+            client's address and dials it when no such client is connected.
+            Ignored without a real key; devices only honor the declaration
+            on encrypted sessions.
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
         # treat empty '' psk string as missing (like password)
