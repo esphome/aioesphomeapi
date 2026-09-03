@@ -21,7 +21,6 @@ from .util import asyncio_timeout, create_eager_task
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from typing import NoReturn
 
     from .reconnect_logic import ReconnectLogic
 
@@ -46,10 +45,6 @@ _FATAL_ACCEPT_ERRNOS = frozenset({errno.EBADF, errno.ENOTSOCK, errno.EINVAL})
 _PEEK_RETRY_DELAY = 0.05
 
 
-def _raise_invalid(msg: str) -> NoReturn:
-    raise ValueError(msg)
-
-
 def _normalize_mac(mac: str) -> str:
     return mac.replace(":", "").replace("-", "").lower()
 
@@ -67,26 +62,31 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     if len(data) < 3:
         return None
     if data[0] != 0x01:
-        _raise_invalid(f"not a noise frame (indicator {data[0]})")
+        msg = f"not a noise frame (indicator {data[0]})"
+        raise ValueError(msg)
     frame_len = (data[1] << 8) | data[2]
     if frame_len < 2 or frame_len > _MAX_HELLO_SIZE - 3:
-        _raise_invalid(f"bad hello frame length {frame_len}")
+        msg = f"bad hello frame length {frame_len}"
+        raise ValueError(msg)
     if len(data) < 3 + frame_len:
         return None
     payload = data[3 : 3 + frame_len]
     if payload[0] != 0x01:
-        _raise_invalid(f"unsupported protocol byte {payload[0]}")
+        msg = f"unsupported protocol byte {payload[0]}"
+        raise ValueError(msg)
     name_bytes, name_sep, rest = payload[1:].partition(b"\x00")
     mac_bytes, mac_sep, _ = rest.partition(b"\x00")
     if not name_sep or not mac_sep:
-        _raise_invalid("malformed hello payload")
+        msg = "malformed hello payload"
+        raise ValueError(msg)
     # Peer-supplied; sanitize before it can reach a log line
     name = safe_label_str(name_bytes.decode("utf-8", "replace"), MAX_NAME_LEN)
     mac = mac_bytes.decode("ascii", "replace").lower()
     # Devices announce a bare 12-hex-digit MAC; this also keeps peer
     # bytes from forging log lines
     if not _is_valid_mac(mac):
-        _raise_invalid(f"malformed MAC {mac!r}")
+        msg = f"malformed MAC {mac!r}"
+        raise ValueError(msg)
     return name, mac
 
 
@@ -148,9 +148,11 @@ class OutgoingConnectionServer:
         # A MAC the hello parser can never produce would silently never
         # adopt; fail at the wiring site instead
         if not _is_valid_mac(mac):
-            _raise_invalid(f"invalid MAC {mac!r}; expected 12 hex digits")
+            msg = f"invalid MAC {mac!r}; expected 12 hex digits"
+            raise ValueError(msg)
         if mac in self._targets:
-            _raise_invalid(f"MAC {mac} is already registered")
+            msg = f"MAC {mac} is already registered"
+            raise ValueError(msg)
         self._targets[mac] = reconnect_logic
         self._ensure_listening()
 
@@ -372,7 +374,8 @@ class OutgoingConnectionServer:
                     loop.remove_reader(fd)
                 continue
             if not data:
-                _raise_invalid("connection closed before hello")
+                msg = "connection closed before hello"
+                raise ValueError(msg)
             if (result := _parse_server_hello(data)) is not None:
                 return result
             # Peeked bytes keep the fd readable, so a reader would spin
