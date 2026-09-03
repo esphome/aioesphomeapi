@@ -140,6 +140,15 @@ async def test_server_register_invalid_mac_raises() -> None:
         server.register("my-device-name", MagicMock())
 
 
+async def test_server_discard_removes_any_owner() -> None:
+    server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
+    server.discard("AA:BB:CC:DD:EE:FF")  # separators and case normalized
+    # The MAC is free to register again, and a double discard is a no-op
+    server.discard(MAC)
+    server.register(MAC, MagicMock())
+
+
 async def test_server_register_duplicate_raises() -> None:
     server = OutgoingConnectionServer(port=0)
     unregister = server.register(MAC, MagicMock())

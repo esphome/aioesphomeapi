@@ -166,6 +166,15 @@ class OutgoingConnectionServer:
 
         return _unregister
 
+    def discard(self, mac: str) -> None:
+        """Remove any registration for this MAC, regardless of owner.
+
+        A recovery hook for when a registration's unregister callable could
+        not run: it guarantees no route is left pointing at a discarded
+        ReconnectLogic without disturbing other registrations.
+        """
+        self._targets.pop(_normalize_mac(mac), None)
+
     async def start(self) -> None:
         """Open the listening socket; raises OSError when the port is taken."""
         if self._server_socket is not None:
