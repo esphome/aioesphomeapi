@@ -92,7 +92,7 @@ async def test_server_dispatches_to_registered_target() -> None:
     target.async_adopt_connection = adopt
     # Separators and case are normalized
     unregister = server.register("AA:BB:CC:DD:EE:FF", target)
-    await server.start()
+    server.start()
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(_server_hello_frame())
@@ -105,7 +105,7 @@ async def test_server_dispatches_to_registered_target() -> None:
         writer.close()
     finally:
         unregister()
-        await server.stop()
+        server.close()
 
 
 @pytest.mark.parametrize(
@@ -118,7 +118,7 @@ async def test_server_dispatches_to_registered_target() -> None:
 async def test_server_closes_unwanted_connections(sent: bytes) -> None:
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    await server.start()
+    server.start()
     try:
         reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(sent)
@@ -129,7 +129,7 @@ async def test_server_closes_unwanted_connections(sent: bytes) -> None:
             assert await asyncio.wait_for(reader.read(), timeout=5) == b""
         writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_register_invalid_mac_raises() -> None:
@@ -340,19 +340,19 @@ async def test_server_ipv4_fallback() -> None:
         "aioesphomeapi.outgoing_connection.socket.has_dualstack_ipv6",
         return_value=False,
     ):
-        await server.start()
+        server.start()
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_identification_timeout() -> None:
     """A connection that never sends a hello is closed after the timeout."""
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    await server.start()
+    server.start()
     try:
         with patch(
             "aioesphomeapi.outgoing_connection._IDENTIFY_TIMEOUT",
@@ -362,7 +362,7 @@ async def test_server_identification_timeout() -> None:
             assert await asyncio.wait_for(reader.read(), timeout=5) == b""
             writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_accept_fatal_error_ends_loop(
@@ -372,7 +372,7 @@ async def test_server_accept_fatal_error_ends_loop(
     server = OutgoingConnectionServer(port=0)
     err = OSError(errno.EBADF, "Bad file descriptor")
     with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
-        await server.start()
+        server.start()
         for _ in range(50):
             if "Unexpected error in" in caplog.text:
                 break
@@ -380,10 +380,10 @@ async def test_server_accept_fatal_error_ends_loop(
     assert "Unexpected error in" in caplog.text
     port = server.port
     # Must not re-raise the stored exception, and must release the port
-    await server.stop()
+    server.close()
     reuse = OutgoingConnectionServer(port=port)
-    await reuse.start()
-    await reuse.stop()
+    reuse.start()
+    reuse.close()
 
 
 async def test_server_accept_transient_error_retries(
@@ -396,7 +396,7 @@ async def test_server_accept_transient_error_retries(
         patch("aioesphomeapi.outgoing_connection._ACCEPT_ERROR_BACKOFF", 0),
         patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err),
     ):
-        await server.start()
+        server.start()
         # Two warnings prove the loop retried rather than dying
         for _ in range(200):
             if caplog.text.count("Error accepting outgoing connection") >= 2:
@@ -404,21 +404,7 @@ async def test_server_accept_transient_error_retries(
             await asyncio.sleep(0)
         assert caplog.text.count("Error accepting outgoing connection") >= 2
         assert "Unexpected error in" not in caplog.text
-        await server.stop()
-
-
-async def test_server_stop_closes_pending_identifications() -> None:
-    """stop() awaits cancelled identify tasks so their sockets close."""
-    server = OutgoingConnectionServer(port=0)
-    server.register(MAC, MagicMock())
-    await server.start()
-    reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
-    # Let the accept loop pick the connection up
-    await asyncio.sleep(0.05)
-    await server.stop()
-    with contextlib.suppress(ConnectionResetError):
-        assert await asyncio.wait_for(reader.read(), timeout=5) == b""
-    writer.close()
+        server.close()
 
 
 async def test_server_evicts_oldest_unidentified_when_full() -> None:
@@ -434,7 +420,7 @@ async def test_server_evicts_oldest_unidentified_when_full() -> None:
     target = MagicMock()
     target.async_adopt_connection = adopt
     server.register(MAC, target)
-    await server.start()
+    server.start()
     try:
         silent = [
             await asyncio.open_connection("127.0.0.1", server.port)
@@ -453,7 +439,7 @@ async def test_server_evicts_oldest_unidentified_when_full() -> None:
         for _, w in silent:
             w.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_restarts_after_fatal_accept_error(
@@ -463,18 +449,18 @@ async def test_server_restarts_after_fatal_accept_error(
     server = OutgoingConnectionServer(port=0)
     err = OSError(errno.EBADF, "Bad file descriptor")
     with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
-        await server.start()
+        server.start()
         for _ in range(50):
             if "Unexpected error in" in caplog.text:
                 break
             await asyncio.sleep(0)
     assert not server.is_listening
     # The same instance can be started again and accepts connections
-    await server.start()
+    server.start()
     assert server.is_listening
     _, writer = await asyncio.open_connection("127.0.0.1", server.port)
     writer.close()
-    await server.stop()
+    server.close()
     assert not server.is_listening
 
 
@@ -494,7 +480,7 @@ async def test_server_single_adoption_in_flight_per_mac() -> None:
     target = MagicMock()
     target.async_adopt_connection = adopt
     server.register(MAC, target)
-    await server.start()
+    server.start()
     try:
         _, writer1 = await asyncio.open_connection("127.0.0.1", server.port)
         writer1.write(_server_hello_frame())
@@ -513,38 +499,35 @@ async def test_server_single_adoption_in_flight_per_mac() -> None:
         writer1.close()
         writer2.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_start_twice_is_a_no_op() -> None:
     server = OutgoingConnectionServer(port=0)
-    await server.start()
+    server.start()
     port = server.port
-    await server.start()
+    server.start()
     assert server.port == port
-    await server.stop()
+    server.close()
 
 
-async def test_server_stop_propagates_own_cancellation() -> None:
-    """A cancellation aimed at stop()'s caller is not swallowed."""
+async def test_server_close_releases_port_immediately() -> None:
+    """close() is synchronous; the port is free when it returns."""
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    await server.start()
+    server.start()
     reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
     await asyncio.sleep(0.05)  # a silent connection sits in _pending
-    stop_task = asyncio.create_task(server.stop())
-    await asyncio.sleep(0)  # let stop() cancel and await the accept task
-    stop_task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await stop_task
-    # The teardown still ran, so the state is honest and restartable, and
-    # the pending connection was closed rather than left to its timeout
+    server.close()
     assert not server.is_listening
+    replacement = OutgoingConnectionServer(port=server.port)
+    replacement.start()
+    replacement.close()
+    # The pending connection was closed rather than left to its timeout
     with contextlib.suppress(ConnectionResetError):
         assert await asyncio.wait_for(reader.read(), timeout=5) == b""
     writer.close()
-    await server.start()
-    await server.stop()
+    await asyncio.sleep(0)  # let the cancelled tasks finish
 
 
 async def test_server_stop_swallows_crashed_accept_loop() -> None:
@@ -552,8 +535,8 @@ async def test_server_stop_swallows_crashed_accept_loop() -> None:
     server = OutgoingConnectionServer(port=0)
     err = OSError(errno.EBADF, "Bad file descriptor")
     with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
-        await server.start()
-        await server.stop()
+        server.start()
+        server.close()
     assert not server.is_listening
 
 
@@ -563,7 +546,7 @@ async def test_server_closes_socket_on_unexpected_identify_error(
     """An unexpected error during identification still closes the socket."""
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    await server.start()
+    server.start()
     try:
         with patch(
             "aioesphomeapi.outgoing_connection._parse_server_hello",
@@ -577,7 +560,7 @@ async def test_server_closes_socket_on_unexpected_identify_error(
         assert "Unexpected error in" in caplog.text
         writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_closes_socket_when_adoption_raises(
@@ -588,7 +571,7 @@ async def test_server_closes_socket_when_adoption_raises(
     target = MagicMock()
     target.async_adopt_connection = AsyncMock(side_effect=RuntimeError("boom"))
     server.register(MAC, target)
-    await server.start()
+    server.start()
     try:
         reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(_server_hello_frame())
@@ -599,7 +582,7 @@ async def test_server_closes_socket_when_adoption_raises(
         assert MAC not in server._adopting
         writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_logs_not_adopted(caplog: pytest.LogCaptureFixture) -> None:
@@ -615,7 +598,7 @@ async def test_server_logs_not_adopted(caplog: pytest.LogCaptureFixture) -> None
     target = MagicMock()
     target.async_adopt_connection = adopt
     server.register(MAC, target)
-    await server.start()
+    server.start()
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(_server_hello_frame())
@@ -628,7 +611,7 @@ async def test_server_logs_not_adopted(caplog: pytest.LogCaptureFixture) -> None
         assert "was not adopted" in caplog.text
         writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_peek_falls_back_without_add_reader() -> None:
@@ -644,7 +627,7 @@ async def test_server_peek_falls_back_without_add_reader() -> None:
     target = MagicMock()
     target.async_adopt_connection = adopt
     server.register(MAC, target)
-    await server.start()
+    server.start()
     try:
         with patch.object(
             type(asyncio.get_running_loop()),
@@ -658,7 +641,7 @@ async def test_server_peek_falls_back_without_add_reader() -> None:
             await asyncio.wait_for(dispatched.wait(), timeout=5)
         writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_rejects_connection_closed_before_hello(
@@ -667,7 +650,7 @@ async def test_server_rejects_connection_closed_before_hello(
     caplog.set_level(logging.DEBUG, logger="aioesphomeapi.outgoing_connection")
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    await server.start()
+    server.start()
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.close()
@@ -677,7 +660,7 @@ async def test_server_rejects_connection_closed_before_hello(
             await asyncio.sleep(0.01)
         assert "closed before hello" in caplog.text
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_server_waits_for_partial_hello() -> None:
@@ -693,7 +676,7 @@ async def test_server_waits_for_partial_hello() -> None:
     target = MagicMock()
     target.async_adopt_connection = adopt
     server.register(MAC, target)
-    await server.start()
+    server.start()
     try:
         frame = _server_hello_frame()
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
@@ -705,7 +688,7 @@ async def test_server_waits_for_partial_hello() -> None:
         await asyncio.wait_for(dispatched.wait(), timeout=5)
         writer.close()
     finally:
-        await server.stop()
+        server.close()
 
 
 async def test_adopt_connection_refused_after_lock_wait() -> None:
@@ -787,33 +770,3 @@ async def test_server_info_log_window_resets(
     ]
     # The zero-length window reset between the calls, so both logged at INFO
     assert len(infos) == 2
-
-
-async def test_server_port_released_before_stop_finishes() -> None:
-    """A replacement listener can bind while the old stop() is still pending."""
-    server = OutgoingConnectionServer(port=0)
-    await server.start()
-    # Swap in an accept task whose teardown is slow, like a busy loop
-    real = server._accept_task
-    assert real is not None
-    real.cancel()
-    await asyncio.gather(real, return_exceptions=True)
-    release = asyncio.Event()
-
-    async def stubborn() -> None:
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            await release.wait()
-            raise
-
-    server._accept_task = asyncio.create_task(stubborn())
-    stop_task = asyncio.create_task(server.stop())
-    await asyncio.sleep(0)
-    assert not stop_task.done()  # the stop is genuinely still pending
-    assert not server.is_listening  # but the port is already released
-    replacement = OutgoingConnectionServer(port=server.port)
-    await replacement.start()
-    await replacement.stop()
-    release.set()
-    await stop_task

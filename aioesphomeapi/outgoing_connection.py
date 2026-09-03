@@ -176,8 +176,12 @@ class OutgoingConnectionServer:
         """
         self._targets.pop(_normalize_mac(mac), None)
 
-    async def start(self) -> None:
-        """Open the listening socket; raises OSError when the port is taken."""
+    def start(self) -> None:
+        """Open the listening socket; raises OSError when the port is taken.
+
+        Synchronous: binding and listening are non-blocking syscalls, and
+        the accept loop runs as a background task.
+        """
         if self._server_socket is not None:
             return
         if self._host is None and socket.has_dualstack_ipv6():
@@ -199,16 +203,16 @@ class OutgoingConnectionServer:
         self._accept_task.add_done_callback(self._accept_task_done)
         _LOGGER.debug("Listening for outgoing connections on port %s", self._port)
 
-    async def stop(self) -> None:
+    def close(self) -> None:
         """Stop accepting and close the listening socket.
 
-        The port is released before the first await, so a replacement
-        listener can bind immediately without waiting for stop() to finish.
-        Sessions already handed to a ReconnectLogic keep running.
+        Synchronous: the port is free when this returns, so a replacement
+        listener can bind immediately. The cancelled accept and identify
+        tasks finish on their own on the next event loop pass. Sessions
+        already handed to a ReconnectLogic keep running. Never raises.
         """
-        # Close directly rather than awaiting the cancelled tasks: a task
-        # that never ran has no handler to close its socket, and the port
-        # must be free even when stop() itself is cancelled below
+        # Close directly rather than letting the cancelled tasks do it: a
+        # task that never ran has no handler to close its socket
         for task, conn in self._pending.items():
             task.cancel()
             conn.close()
@@ -216,18 +220,9 @@ class OutgoingConnectionServer:
         if self._server_socket is not None:
             self._server_socket.close()
             self._server_socket = None
-        if (accept_task := self._accept_task) is None:
-            return
-        self._accept_task = None
-        accept_task.cancel()
-        try:
-            await accept_task
-        except asyncio.CancelledError:
-            current = asyncio.current_task()
-            if current is not None and current.cancelling():
-                raise  # aimed at our caller; everything is torn down already
-        except Exception:  # noqa: BLE001, S110  # already logged
-            pass
+        if (accept_task := self._accept_task) is not None:
+            self._accept_task = None
+            accept_task.cancel()
 
     @staticmethod
     def _log_task_exception(task: asyncio.Task[None]) -> None:
