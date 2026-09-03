@@ -427,7 +427,7 @@ class APIClient(APIClientBase):
         """
         try:
             connection = self._create_connection(on_stop, log_errors)
-        except APIConnectionError:
+        except BaseException:
             sock.close()  # this method owns the socket, even on refusal
             raise
         await self._execute_connection_coro(
