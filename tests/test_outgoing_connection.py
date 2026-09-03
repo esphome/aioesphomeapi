@@ -758,3 +758,21 @@ async def test_start_connection_from_socket_bad_socket(conn: APIConnection) -> N
     with pytest.raises(APIConnectionError):
         await conn.start_connection_from_socket(server_sock)
     client_sock.close()
+
+
+async def test_server_info_log_window_resets(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The INFO-once cap clears each window so later issues still surface."""
+    caplog.set_level(logging.INFO, logger="aioesphomeapi.outgoing_connection")
+    server = OutgoingConnectionServer(port=0)
+    with patch("aioesphomeapi.outgoing_connection._INFO_LOG_WINDOW", 0):
+        server._log_rate_limited("mac:" + MAC, "unknown %s", MAC)
+        server._log_rate_limited("mac:" + MAC, "unknown %s", MAC)
+    infos = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.INFO and MAC in record.message
+    ]
+    # The zero-length window reset between the calls, so both logged at INFO
+    assert len(infos) == 2
