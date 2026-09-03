@@ -752,6 +752,24 @@ class APIClient(APIClientBase):
             )
         )
 
+    async def serial_proxy_set_mode_await_response(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Set the mode and await the device acknowledgement.
+
+        Unlike the older serial proxy operations, set_mode has been acknowledged
+        since it was introduced (API 1.17), so no version check is needed. A
+        device that does not have the proxy component never answers and the call
+        raises TimeoutAPIError; check the device capabilities before calling.
+        """
+        req = SerialProxySetModeRequest(instance=instance, mode=mode)
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.SET_MODE, timeout
+        )
+
     def serial_proxy_write(
         self,
         instance: int,
