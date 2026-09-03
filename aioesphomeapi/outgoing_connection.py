@@ -100,7 +100,8 @@ class OutgoingConnectionServer:
 
     The MAC in the hello is unauthenticated pre-handshake data: anything on
     the network can dial in claiming a registered MAC. Adoption refuses to
-    preempt an established session, the Noise handshake rejects an impostor,
+    preempt an established session, the Noise handshake rejects any peer
+    that does not hold the claimed MAC's key,
     and a failed adoption cannot escalate the reconnect backoff by more than
     one ordinary attempt per dial-in (repeated hostile dial-ins can still
     walk it to the normal ceiling), so the worst case is wasted handshakes
