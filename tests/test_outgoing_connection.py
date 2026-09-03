@@ -368,7 +368,7 @@ async def test_server_identification_timeout() -> None:
 async def test_server_accept_fatal_error_ends_loop(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A non-retryable accept error ends the loop loudly; stop() still cleans up."""
+    """A non-retryable accept error ends the loop loudly; close() still cleans up."""
     server = OutgoingConnectionServer(port=0)
     err = OSError(errno.EBADF, "Bad file descriptor")
     with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
@@ -379,7 +379,7 @@ async def test_server_accept_fatal_error_ends_loop(
             await asyncio.sleep(0)
     assert "Unexpected error in" in caplog.text
     port = server.port
-    # Must not re-raise the stored exception, and must release the port
+    # Must release the port so a new listener can bind
     server.close()
     reuse = OutgoingConnectionServer(port=port)
     reuse.start()
@@ -530,8 +530,8 @@ async def test_server_close_releases_port_immediately() -> None:
     await asyncio.sleep(0)  # let the cancelled tasks finish
 
 
-async def test_server_stop_swallows_crashed_accept_loop() -> None:
-    """stop() before the done callback runs must not re-raise the crash."""
+async def test_server_close_before_crash_callback_runs() -> None:
+    """close() before the crash's done callback still tears down cleanly."""
     server = OutgoingConnectionServer(port=0)
     err = OSError(errno.EBADF, "Bad file descriptor")
     with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):

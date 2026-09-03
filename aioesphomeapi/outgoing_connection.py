@@ -127,7 +127,7 @@ class OutgoingConnectionServer:
         self._info_keys_cleared = 0.0
         # One adoption in flight per MAC: extras would queue on the
         # ReconnectLogic lock holding an fd each, and could never win anyway.
-        # The value is the strong task reference (stop() leaves them running)
+        # The value is the strong task reference (close() leaves them running)
         self._adopting: dict[str, asyncio.Task[None]] = {}
 
     @property
@@ -137,7 +137,7 @@ class OutgoingConnectionServer:
 
     @property
     def is_listening(self) -> bool:
-        """False before start(), after stop(), or when the listener died."""
+        """False before start(), after close(), or when the listener died."""
         return self._server_socket is not None
 
     def register(self, mac: str, reconnect_logic: ReconnectLogic) -> Callable[[], None]:
@@ -232,10 +232,11 @@ class OutgoingConnectionServer:
     def _accept_task_done(self, task: asyncio.Task[None]) -> None:
         self._log_task_exception(task)
         if task.cancelled() or task.exception() is None:
-            return  # normal stop(); it owns the cleanup
+            return  # normal close(); it owns the cleanup
+        if self._accept_task is not task:
+            return  # a restart already replaced this listener
         # The listener is dead; release the socket so start() can rebind
-        if self._accept_task is task:
-            self._accept_task = None
+        self._accept_task = None
         if self._server_socket is not None:
             self._server_socket.close()
             self._server_socket = None
@@ -328,7 +329,7 @@ class OutgoingConnectionServer:
             return
         _LOGGER.debug("Device %s (%s) dialed in from %s", name, mac, addr)
         # Identification is done: leave the pending set so a slow handshake
-        # does not hold an admission slot, and so stop() leaves it running
+        # does not hold an admission slot, and so close() leaves it running
         if (current := asyncio.current_task()) is not None:
             self._pending.pop(current, None)
             self._adopting[mac] = current

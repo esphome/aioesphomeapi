@@ -727,9 +727,7 @@ class ReconnectLogic:
         """Connect from zeroconf."""
         self._schedule_connect(0.0)
 
-    def _refuse_adoption_(
-        self, sock: socket.socket, state: ReconnectLogicState
-    ) -> bool:
+    def _refuse_adoption(self, sock: socket.socket, state: ReconnectLogicState) -> bool:
         _LOGGER.debug(
             "%s: Refusing dial-in adoption (stopped=%s, state=%s)",
             self._cli.log_name,
@@ -759,7 +757,7 @@ class ReconnectLogic:
                 and self._cli.connected_address is not None
             )
         ):
-            return self._refuse_adoption_(sock, state)
+            return self._refuse_adoption(sock, state)
         self._cancel_connect("Adopting connection from device")
         self._async_set_connection_state_without_lock(ReconnectLogicState.DISCONNECTED)
         # The routing MAC is unauthenticated pre-handshake data, so a failed
@@ -773,7 +771,7 @@ class ReconnectLogic:
                 self._is_stopped
                 or self._connection_state is not ReconnectLogicState.DISCONNECTED
             ):
-                return self._refuse_adoption_(sock, self._connection_state)
+                return self._refuse_adoption(sock, self._connection_state)
             try:
                 await self._cli.start_connection_from_socket(
                     sock, on_stop=self._on_disconnect, log_errors=False
