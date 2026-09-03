@@ -132,6 +132,14 @@ async def test_server_closes_unwanted_connections(sent: bytes) -> None:
         await server.stop()
 
 
+async def test_server_register_invalid_mac_raises() -> None:
+    server = OutgoingConnectionServer(port=0)
+    with pytest.raises(ValueError, match="expected 12 hex digits"):
+        server.register("aa:bb:cc:dd:ee", MagicMock())
+    with pytest.raises(ValueError, match="expected 12 hex digits"):
+        server.register("my-device-name", MagicMock())
+
+
 async def test_server_register_duplicate_raises() -> None:
     server = OutgoingConnectionServer(port=0)
     unregister = server.register(MAC, MagicMock())

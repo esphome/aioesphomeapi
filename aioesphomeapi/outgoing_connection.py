@@ -50,6 +50,10 @@ def _normalize_mac(mac: str) -> str:
     return mac.replace(":", "").replace("-", "").lower()
 
 
+def _is_valid_mac(mac: str) -> bool:
+    return len(mac) == 12 and all(c in "0123456789abcdef" for c in mac)
+
+
 def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     """Parse the device's unsolicited server hello.
 
@@ -81,7 +85,7 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     mac = mac_bytes.decode("ascii", "replace").lower()
     # Devices that dial out always announce their bare 12-hex-digit MAC;
     # validating hex also keeps peer bytes from forging log lines
-    if len(mac) != 12 or any(c not in "0123456789abcdef" for c in mac):
+    if not _is_valid_mac(mac):
         msg = f"malformed MAC {mac!r}"
         raise ValueError(msg)
     return name, mac
@@ -144,6 +148,11 @@ class OutgoingConnectionServer:
         ReconnectLogic is discarded, the registry holds a strong reference.
         """
         mac = _normalize_mac(mac)
+        # A shape the hello parser can never produce would register fine and
+        # then silently never adopt; fail at the wiring site instead
+        if not _is_valid_mac(mac):
+            msg = f"invalid MAC {mac!r}; expected 12 hex digits"
+            raise ValueError(msg)
         if mac in self._targets:
             msg = f"MAC {mac} is already registered"
             raise ValueError(msg)
