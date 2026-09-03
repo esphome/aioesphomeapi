@@ -31,7 +31,8 @@ DEFAULT_OUTGOING_CONNECTION_PORT = 6054
 _IDENTIFY_TIMEOUT = 10.0
 # Cap on concurrent connections that have not identified themselves yet
 _MAX_PENDING = 8
-# Distinct rejection keys reported at INFO per window before dropping to DEBUG
+# Distinct rejection keys reported at INFO per window and class before
+# dropping to DEBUG; per class so scan noise cannot crowd out a real device
 _MAX_INFO_KEYS_LOGGED = 32
 _INFO_LOG_WINDOW = 3600.0
 # The hello frame is tiny (name + MAC); anything larger is not a hello
@@ -39,6 +40,8 @@ _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
 # A recurring bind failure re-warns after this long instead of staying at info
 _BIND_WARN_INTERVAL = 3600.0
+# How often to retry binding while routes exist and the port is taken
+_BIND_RETRY_INTERVAL = 60.0
 # Broken-listener errnos; everything else accept(2) raises is transient
 _FATAL_ACCEPT_ERRNOS = frozenset({errno.EBADF, errno.ENOTSOCK, errno.EINVAL})
 # Delay between peeks while the hello frame is still incomplete
@@ -96,7 +99,8 @@ class OutgoingConnectionServer:
     ``register()`` maps a MAC to the :class:`ReconnectLogic` that adopts
     its dial-ins and drives the listener lifecycle: the first registration
     opens it, removing the last one closes it and frees the port, and a
-    bind failure or fatal accept error is retried on the next registration.
+    bind failure is retried periodically and a fatal accept error on the
+    next registration.
 
     The MAC in the hello is unauthenticated: adoption never preempts an
     established session, the Noise handshake rejects a peer without the
@@ -119,12 +123,14 @@ class OutgoingConnectionServer:
         self._pending: dict[asyncio.Task[None], socket.socket] = {}
         # Rejection keys already reported at INFO; bounded against scans
         self._info_keys_logged: set[str] = set()
+        self._info_class_counts: dict[str, int] = {}
         self._info_keys_cleared = 0.0
         # One adoption in flight per MAC; extras would queue on the
         # ReconnectLogic lock holding an fd each. Values are strong task refs
         self._adopting: dict[str, asyncio.Task[None]] = {}
         # None until a bind fails; holds the last warning time after
         self._last_bind_warning: float | None = None
+        self._bind_retry_handle: asyncio.TimerHandle | None = None
 
     @property
     def port(self) -> int:
@@ -142,7 +148,7 @@ class OutgoingConnectionServer:
         Separators and case in the MAC are normalized. Returns a callable
         that removes the registration; it never raises. A bind failure is
         logged, not raised: the route stays registered and the bind is
-        retried on the next registration.
+        retried periodically and on the next registration.
         """
         mac = _normalize_mac(mac)
         # A MAC the hello parser can never produce would silently never
@@ -169,10 +175,11 @@ class OutgoingConnectionServer:
         """Open the listener if needed; warn once per window on bind failure."""
         if self.is_listening:
             return
+        loop = asyncio.get_running_loop()
         try:
             self.start()
         except OSError as err:
-            now = asyncio.get_running_loop().time()
+            now = loop.time()
             last = self._last_bind_warning
             level = logging.INFO
             if last is None or now - last >= _BIND_WARN_INTERVAL:
@@ -180,11 +187,14 @@ class OutgoingConnectionServer:
                 level = logging.WARNING
             _LOGGER.log(
                 level,
-                "Cannot listen for outgoing connections on port %s: %s;"
-                " will retry on the next registration",
+                "Cannot listen for outgoing connections on port %s: %s; retrying",
                 self._port,
                 err,
             )
+            if self._bind_retry_handle is None:
+                self._bind_retry_handle = loop.call_later(
+                    _BIND_RETRY_INTERVAL, self._retry_bind
+                )
             return
         if self._last_bind_warning is not None:
             self._last_bind_warning = None
@@ -193,6 +203,11 @@ class OutgoingConnectionServer:
                 " earlier failure",
                 self._port,
             )
+
+    def _retry_bind(self) -> None:
+        self._bind_retry_handle = None
+        if self._targets:
+            self._ensure_listening()
 
     def start(self) -> None:
         """Open the listening socket; raises OSError when the port is taken.
@@ -231,6 +246,9 @@ class OutgoingConnectionServer:
             task.cancel()
             conn.close()
         self._pending.clear()
+        if (retry_handle := self._bind_retry_handle) is not None:
+            self._bind_retry_handle = None
+            retry_handle.cancel()
         self._release_socket()
         if (accept_task := self._accept_task) is not None:
             self._accept_task = None
@@ -265,13 +283,18 @@ class OutgoingConnectionServer:
         now = asyncio.get_running_loop().time()
         if now - self._info_keys_cleared >= _INFO_LOG_WINDOW:
             self._info_keys_logged.clear()
+            self._info_class_counts.clear()
             self._info_keys_cleared = now
         level = logging.DEBUG
+        key_class = key.partition(":")[0]
         if (
             key not in self._info_keys_logged
-            and len(self._info_keys_logged) < _MAX_INFO_KEYS_LOGGED
+            and self._info_class_counts.get(key_class, 0) < _MAX_INFO_KEYS_LOGGED
         ):
             self._info_keys_logged.add(key)
+            self._info_class_counts[key_class] = (
+                self._info_class_counts.get(key_class, 0) + 1
+            )
             level = logging.INFO
         _LOGGER.log(level, msg, *args)
 

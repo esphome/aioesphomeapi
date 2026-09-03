@@ -25,6 +25,7 @@ from aioesphomeapi.core import (
 )
 from aioesphomeapi.model import DeviceInfo
 from aioesphomeapi.outgoing_connection import (
+    _MAX_INFO_KEYS_LOGGED,
     _MAX_PENDING,
     OutgoingConnectionServer,
     _parse_server_hello,
@@ -858,3 +859,77 @@ async def test_server_bind_warning_window_resets(
     ]
     assert len(bind_warnings) == 2
     server.close()
+
+
+async def test_client_start_connection_from_socket_resets_on_error() -> None:
+    """A failing socket setup clears the client's connection reference."""
+    cli = APIClient(address="127.0.0.1", port=6052, password=None)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.close()
+    with pytest.raises(APIConnectionError):
+        cli.start_connection_from_socket(sock)
+    assert cli._connection is None
+
+
+async def test_server_bind_retry_timer() -> None:
+    """A bind failure arms a retry timer that rebinds once the port frees."""
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", 0))
+    blocker.listen(1)
+    port = blocker.getsockname()[1]
+    server = OutgoingConnectionServer(port=port, host="127.0.0.1")
+    server.register(MAC, MagicMock())
+    assert not server.is_listening
+    assert server._bind_retry_handle is not None
+    blocker.close()
+    server._retry_bind()
+    assert server.is_listening
+    server.close()
+    assert server._bind_retry_handle is None
+
+
+async def test_server_close_cancels_bind_retry() -> None:
+    """Closing while a bind retry is pending cancels the timer."""
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", 0))
+    blocker.listen(1)
+    server = OutgoingConnectionServer(port=blocker.getsockname()[1], host="127.0.0.1")
+    unregister = server.register(MAC, MagicMock())
+    assert server._bind_retry_handle is not None
+    unregister()
+    assert server._bind_retry_handle is None
+    blocker.close()
+
+
+async def test_adopt_connection_cancelled_waiting_for_lock() -> None:
+    """Cancellation while waiting for the lock reschedules the reconnect."""
+    _, rl, _, _ = _make_reconnect_logic()
+    client_sock, server_sock = await _tcp_pair()
+    async with rl._connected_lock:
+        task = asyncio.ensure_future(rl.async_adopt_connection(server_sock))
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._connect_timer is not None
+    rl._cancel_connect("test cleanup")
+    client_sock.close()
+    server_sock.close()
+
+
+async def test_server_info_budget_is_per_class(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Scan noise in one key class cannot demote another class to DEBUG."""
+    caplog.set_level(logging.INFO, logger="aioesphomeapi.outgoing_connection")
+    server = OutgoingConnectionServer(port=0)
+    for i in range(_MAX_INFO_KEYS_LOGGED + 5):
+        server._log_rate_limited(f"evict:10.0.0.{i}", "evict %s", i)
+    server._log_rate_limited("reject:10.0.0.1", "real failure %s", MAC)
+    infos = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.INFO and "real failure" in record.message
+    ]
+    assert len(infos) == 1

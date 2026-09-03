@@ -764,39 +764,38 @@ class ReconnectLogic:
         # escalate the backoff beyond one ordinary failed attempt; a hostile
         # dial-in could otherwise pin the retry interval at its ceiling.
         tries_before = self._tries
-        async with self._connected_lock:
-            if (
-                self._is_stopped
-                or self._connection_state is not ReconnectLogicState.DISCONNECTED
-            ):
-                return self._refuse_adoption(sock, self._connection_state)
-            try:
-                self._cli.start_connection_from_socket(
-                    sock, on_stop=self._on_disconnect, log_errors=False
-                )
-            except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
-                await self._handle_connection_failure(err)
-            else:
-                _LOGGER.info(
-                    "Adopted connection from %s (device dialed us)", self._cli.log_name
-                )
+        try:
+            async with self._connected_lock:
+                if (
+                    self._is_stopped
+                    or self._connection_state is not ReconnectLogicState.DISCONNECTED
+                ):
+                    return self._refuse_adoption(sock, self._connection_state)
                 try:
+                    self._cli.start_connection_from_socket(
+                        sock, on_stop=self._on_disconnect, log_errors=False
+                    )
+                except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
+                    await self._handle_connection_failure(err)
+                else:
+                    _LOGGER.info(
+                        "Adopted connection from %s (device dialed us)",
+                        self._cli.log_name,
+                    )
                     if await self._finish_connection_while_locked():
                         return True
-                except asyncio.CancelledError:
-                    # Cancelled mid-handshake (e.g. the listener shutting
-                    # down): put the state machine back on its own retry
-                    # schedule since _cancel_connect above removed the
-                    # pending attempt
-                    self._async_set_connection_state_while_locked(
-                        ReconnectLogicState.DISCONNECTED
-                    )
-                    # The wake gate was consumed by the attempt; re-arm it so
-                    # the mDNS listener started by the backoff can kick a
-                    # connect
-                    self._zc_wake.reopen()
-                    self._schedule_backoff_connect()
-                    raise
-            self._tries = min(self._tries, tries_before + 1)
+                self._tries = min(self._tries, tries_before + 1)
+                self._schedule_backoff_connect()
+                return False
+        except asyncio.CancelledError:
+            # Cancelled waiting for the lock or mid-handshake (e.g. the
+            # listener shutting down): put the state machine back on its own
+            # retry schedule since _cancel_connect above removed the pending
+            # attempt. The wake gate may have been consumed; re-arm it so the
+            # mDNS listener started by the backoff can kick a connect.
+            self._async_set_connection_state_without_lock(
+                ReconnectLogicState.DISCONNECTED
+            )
+            self._zc_wake.reopen()
             self._schedule_backoff_connect()
-            return False
+            raise
