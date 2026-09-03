@@ -161,6 +161,7 @@ from aioesphomeapi.model import (
     SerialProxyDataReceived,
     SerialProxyInfo,
     SerialProxyLineStateFlag,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyPortType,
@@ -2406,6 +2407,16 @@ def test_serial_proxy_port_type_enum() -> None:
     assert SerialProxyPortType.convert(1) == SerialProxyPortType.RS232
     assert SerialProxyPortType.convert(2) == SerialProxyPortType.RS485
     assert SerialProxyPortType.convert(-1) is None
+
+
+def test_serial_proxy_mode_enum() -> None:
+    """Test SerialProxyMode enum values."""
+    assert SerialProxyMode.RAW == 0
+    assert SerialProxyMode.PROTOCOL == 1
+
+    assert SerialProxyMode.convert(0) == SerialProxyMode.RAW
+    assert SerialProxyMode.convert(1) == SerialProxyMode.PROTOCOL
+    assert SerialProxyMode.convert(-1) is None
 
 
 def test_serial_proxy_info_conversion() -> None:

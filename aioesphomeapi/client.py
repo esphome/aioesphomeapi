@@ -75,6 +75,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
+    SerialProxySetModeRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SubscribeBluetoothConnectionsFreeRequest,
@@ -172,6 +173,7 @@ from .model import (
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyRequestResponse as SerialProxyRequestResponseModel,
@@ -730,6 +732,24 @@ class APIClient(APIClientBase):
             return None
         return await self._await_serial_proxy_response(
             req, instance, SerialProxyRequestType.CONFIGURE, timeout
+        )
+
+    def serial_proxy_set_mode(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+    ) -> None:
+        """Set the mode for a serial proxy instance.
+
+        RAW is a plain byte pipe; PROTOCOL activates the port's protocol-aware
+        tap (if the device configures one). The device resets the mode to RAW
+        whenever the subscriber disconnects.
+        """
+        self._get_connection().send_message(
+            SerialProxySetModeRequest(
+                instance=instance,
+                mode=mode,
+            )
         )
 
     def serial_proxy_write(

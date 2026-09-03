@@ -83,6 +83,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyRequest as SerialProxyRequestPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
+    SerialProxySetModeRequest as SerialProxySetModeRequestPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
     SubscribeHomeassistantServicesRequest,
@@ -169,6 +170,7 @@ from aioesphomeapi.model import (
     SensorInfo,
     SerialProxyDataReceived,
     SerialProxyInfo,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyPortType,
@@ -3623,6 +3625,37 @@ async def test_serial_proxy_set_modem_pins(
     sent_msg = sent_messages[0]
     assert sent_msg.instance == 0
     assert sent_msg.line_states == 1
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [SerialProxyMode.RAW, SerialProxyMode.PROTOCOL],
+)
+async def test_serial_proxy_set_mode(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    mode: SerialProxyMode,
+) -> None:
+    """Test serial_proxy_set_mode sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxySetModeRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxySetModeRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_set_mode(instance=1, mode=mode)
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 1
+    assert sent_msg.mode == mode
 
 
 async def test_serial_proxy_get_modem_pins(
