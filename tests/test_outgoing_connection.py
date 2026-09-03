@@ -933,3 +933,22 @@ async def test_server_info_budget_is_per_class(
         if record.levelno == logging.INFO and "real failure" in record.message
     ]
     assert len(infos) == 1
+
+
+async def test_start_connection_from_socket_strips_v4_mapped(
+    conn: APIConnection,
+) -> None:
+    """A dual-stack listener's ::ffff:-mapped peer is recorded as plain IPv4."""
+
+    class MappedPeerSocket(socket.socket):
+        def getpeername(self) -> tuple[str, int]:
+            return ("::ffff:127.0.0.1", 6054)
+
+    client_sock, server_sock = await _tcp_pair()
+    mapped = MappedPeerSocket(fileno=server_sock.detach())
+    try:
+        conn.start_connection_from_socket(mapped)
+        assert conn.connected_address == "127.0.0.1"
+    finally:
+        client_sock.close()
+        mapped.close()
