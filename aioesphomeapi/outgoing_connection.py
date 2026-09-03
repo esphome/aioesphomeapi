@@ -157,8 +157,8 @@ class OutgoingConnectionServer:
         ReconnectLogic is discarded, the registry holds a strong reference.
         The returned callable never raises.
 
-        The first registration opens the listener and removing the last one
-        closes it. A bind failure is logged and does not raise; the route
+        Registration drives the listener lifecycle (see the class
+        docstring). A bind failure is logged rather than raised; the route
         stays registered and the bind is retried on the next registration.
         """
         mac = _normalize_mac(mac)
@@ -216,17 +216,6 @@ class OutgoingConnectionServer:
                 " earlier failure",
                 self._port,
             )
-
-    def discard(self, mac: str) -> None:
-        """Remove any registration for this MAC, regardless of owner.
-
-        A recovery hook for when a registration's unregister callable could
-        not run: it guarantees no route is left pointing at a discarded
-        ReconnectLogic without disturbing other registrations. Never raises.
-        """
-        self._targets.pop(_normalize_mac(mac), None)
-        if not self._targets:
-            self.close()
 
     def start(self) -> None:
         """Open the listening socket; raises OSError when the port is taken.

@@ -7,6 +7,7 @@ import contextlib
 import errno
 import logging
 import socket
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -17,7 +18,11 @@ from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     HelloRequest,
 )
 from aioesphomeapi.connection import APIConnection, ConnectionState, _make_hello_request
-from aioesphomeapi.core import APIConnectionError, InvalidEncryptionKeyAPIError
+from aioesphomeapi.core import (
+    ZERO_NOISE_PSK,
+    APIConnectionError,
+    InvalidEncryptionKeyAPIError,
+)
 from aioesphomeapi.model import DeviceInfo
 from aioesphomeapi.outgoing_connection import (
     _MAX_PENDING,
@@ -28,6 +33,9 @@ from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import _make_noise_hello_pkt, get_mock_zeroconf
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 MAC = "aabbccddeeff"
 
 
@@ -35,6 +43,26 @@ def _server_hello_frame(
     name: bytes = b"test-device", mac: bytes = MAC.encode()
 ) -> bytes:
     return _make_noise_hello_pkt(b"\x01" + name + b"\x00" + mac + b"\x00")
+
+
+async def _crash_accept_loop(
+    caplog: pytest.LogCaptureFixture, open_listener: Callable[[], object]
+) -> None:
+    """Open the listener while accept(2) fails fatally; wait for the crash."""
+    err = OSError(errno.EBADF, "Bad file descriptor")
+    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
+        open_listener()
+        for _ in range(50):
+            if "Unexpected error in" in caplog.text:
+                break
+            await asyncio.sleep(0)
+
+
+def _make_target(adopt: object) -> MagicMock:
+    """Build a registration target adopting via the given callable."""
+    target = MagicMock()
+    target.async_adopt_connection = adopt
+    return target
 
 
 async def _tcp_pair() -> tuple[socket.socket, socket.socket]:
@@ -88,11 +116,9 @@ async def test_server_dispatches_to_registered_target() -> None:
         dispatched.set()
         return True
 
-    target = MagicMock()
-    target.async_adopt_connection = adopt
+    target = _make_target(adopt)
     # Separators and case are normalized
     unregister = server.register("AA:BB:CC:DD:EE:FF", target)
-    server.start()
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(_server_hello_frame())
@@ -118,7 +144,6 @@ async def test_server_dispatches_to_registered_target() -> None:
 async def test_server_closes_unwanted_connections(sent: bytes) -> None:
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    server.start()
     try:
         reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(sent)
@@ -138,18 +163,6 @@ async def test_server_register_invalid_mac_raises() -> None:
         server.register("aa:bb:cc:dd:ee", MagicMock())
     with pytest.raises(ValueError, match="expected 12 hex digits"):
         server.register("my-device-name", MagicMock())
-
-
-async def test_server_discard_removes_any_owner() -> None:
-    server = OutgoingConnectionServer(port=0)
-    server.register(MAC, MagicMock())
-    server.discard("AA:BB:CC:DD:EE:FF")  # separators and case normalized
-    # Discarding the last route closed the listener
-    assert not server.is_listening
-    # The MAC is free to register again, and a double discard is a no-op
-    server.discard(MAC)
-    server.register(MAC, MagicMock())
-    server.close()
 
 
 async def test_server_register_duplicate_raises() -> None:
@@ -262,12 +275,39 @@ async def test_api_client_outgoing_connection_target_param() -> None:
         address="127.0.0.1",
         port=6052,
         password=None,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
         outgoing_connection_target=True,
     )
     assert cli._params.outgoing_connection_target is True
     assert cli.outgoing_connection_target is True
     cli = APIClient(address="127.0.0.1", port=6052, password=None)
-    assert cli._params.outgoing_connection_target is False
+    assert cli.outgoing_connection_target is False
+
+
+@pytest.mark.parametrize("noise_psk", [None, "", ZERO_NOISE_PSK])
+async def test_api_client_outgoing_connection_target_needs_real_key(
+    noise_psk: str | None,
+) -> None:
+    """Devices only honor the declaration with a real key; do not send it without one."""
+    cli = APIClient(
+        address="127.0.0.1",
+        port=6052,
+        password=None,
+        noise_psk=noise_psk,
+        outgoing_connection_target=True,
+    )
+    assert cli.outgoing_connection_target is False
+
+
+async def test_api_client_clear_noise_psk_clears_target_flag() -> None:
+    cli = APIClient(
+        address="127.0.0.1",
+        port=6052,
+        password=None,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        outgoing_connection_target=True,
+    )
+    cli.clear_noise_psk()
     assert cli.outgoing_connection_target is False
 
 
@@ -356,7 +396,6 @@ async def test_server_identification_timeout() -> None:
     """A connection that never sends a hello is closed after the timeout."""
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    server.start()
     try:
         with patch(
             "aioesphomeapi.outgoing_connection._IDENTIFY_TIMEOUT",
@@ -369,25 +408,21 @@ async def test_server_identification_timeout() -> None:
         server.close()
 
 
-async def test_server_accept_fatal_error_ends_loop(
+async def test_server_fatal_accept_error_releases_port_and_restarts(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A non-retryable accept error ends the loop loudly; close() still cleans up."""
+    """A crashed accept loop dies loudly and frees the port for a restart."""
     server = OutgoingConnectionServer(port=0)
-    err = OSError(errno.EBADF, "Bad file descriptor")
-    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
-        server.start()
-        for _ in range(50):
-            if "Unexpected error in" in caplog.text:
-                break
-            await asyncio.sleep(0)
+    await _crash_accept_loop(caplog, server.start)
     assert "Unexpected error in" in caplog.text
-    port = server.port
-    # Must release the port so a new listener can bind
+    assert not server.is_listening
+    # The same instance rebinds the freed port and accepts connections
+    server.start()
+    assert server.is_listening
+    _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+    writer.close()
     server.close()
-    reuse = OutgoingConnectionServer(port=port)
-    reuse.start()
-    reuse.close()
+    assert not server.is_listening
 
 
 async def test_server_accept_transient_error_retries(
@@ -421,10 +456,8 @@ async def test_server_evicts_oldest_unidentified_when_full() -> None:
         dispatched.set()
         return True
 
-    target = MagicMock()
-    target.async_adopt_connection = adopt
+    target = _make_target(adopt)
     server.register(MAC, target)
-    server.start()
     try:
         silent = [
             await asyncio.open_connection("127.0.0.1", server.port)
@@ -446,28 +479,6 @@ async def test_server_evicts_oldest_unidentified_when_full() -> None:
         server.close()
 
 
-async def test_server_restarts_after_fatal_accept_error(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A crashed accept loop releases the socket so start() can rebind."""
-    server = OutgoingConnectionServer(port=0)
-    err = OSError(errno.EBADF, "Bad file descriptor")
-    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
-        server.start()
-        for _ in range(50):
-            if "Unexpected error in" in caplog.text:
-                break
-            await asyncio.sleep(0)
-    assert not server.is_listening
-    # The same instance can be started again and accepts connections
-    server.start()
-    assert server.is_listening
-    _, writer = await asyncio.open_connection("127.0.0.1", server.port)
-    writer.close()
-    server.close()
-    assert not server.is_listening
-
-
 async def test_server_single_adoption_in_flight_per_mac() -> None:
     """A second dial-in for a MAC mid-adoption is closed, not queued."""
     server = OutgoingConnectionServer(port=0)
@@ -481,10 +492,8 @@ async def test_server_single_adoption_in_flight_per_mac() -> None:
         await release.wait()
         return True
 
-    target = MagicMock()
-    target.async_adopt_connection = adopt
+    target = _make_target(adopt)
     server.register(MAC, target)
-    server.start()
     try:
         _, writer1 = await asyncio.open_connection("127.0.0.1", server.port)
         writer1.write(_server_hello_frame())
@@ -519,7 +528,6 @@ async def test_server_close_releases_port_immediately() -> None:
     """close() is synchronous; the port is free when it returns."""
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    server.start()
     reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
     await asyncio.sleep(0.05)  # a silent connection sits in _pending
     server.close()
@@ -550,7 +558,6 @@ async def test_server_closes_socket_on_unexpected_identify_error(
     """An unexpected error during identification still closes the socket."""
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    server.start()
     try:
         with patch(
             "aioesphomeapi.outgoing_connection._parse_server_hello",
@@ -575,7 +582,6 @@ async def test_server_closes_socket_when_adoption_raises(
     target = MagicMock()
     target.async_adopt_connection = AsyncMock(side_effect=RuntimeError("boom"))
     server.register(MAC, target)
-    server.start()
     try:
         reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(_server_hello_frame())
@@ -599,10 +605,8 @@ async def test_server_logs_not_adopted(caplog: pytest.LogCaptureFixture) -> None
         refused.set()
         return False
 
-    target = MagicMock()
-    target.async_adopt_connection = adopt
+    target = _make_target(adopt)
     server.register(MAC, target)
-    server.start()
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.write(_server_hello_frame())
@@ -628,10 +632,8 @@ async def test_server_peek_falls_back_without_add_reader() -> None:
         dispatched.set()
         return True
 
-    target = MagicMock()
-    target.async_adopt_connection = adopt
+    target = _make_target(adopt)
     server.register(MAC, target)
-    server.start()
     try:
         with patch.object(
             type(asyncio.get_running_loop()),
@@ -654,7 +656,6 @@ async def test_server_rejects_connection_closed_before_hello(
     caplog.set_level(logging.DEBUG, logger="aioesphomeapi.outgoing_connection")
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
-    server.start()
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
         writer.close()
@@ -677,10 +678,8 @@ async def test_server_waits_for_partial_hello() -> None:
         dispatched.set()
         return True
 
-    target = MagicMock()
-    target.async_adopt_connection = adopt
+    target = _make_target(adopt)
     server.register(MAC, target)
-    server.start()
     try:
         frame = _server_hello_frame()
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
@@ -805,13 +804,7 @@ async def test_server_register_restarts_dead_listener(
 ) -> None:
     """A registration after a fatal accept error brings the listener back."""
     server = OutgoingConnectionServer(port=0)
-    err = OSError(errno.EBADF, "Bad file descriptor")
-    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
-        server.register(MAC, MagicMock())
-        for _ in range(50):
-            if "Unexpected error in" in caplog.text:
-                break
-            await asyncio.sleep(0)
+    await _crash_accept_loop(caplog, lambda: server.register(MAC, MagicMock()))
     assert not server.is_listening
     server.register("00:11:22:33:44:55", MagicMock())
     assert server.is_listening
