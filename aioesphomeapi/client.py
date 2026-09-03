@@ -739,12 +739,7 @@ class APIClient(APIClientBase):
         instance: int,
         mode: SerialProxyMode,
     ) -> None:
-        """Set the mode for a serial proxy instance.
-
-        RAW is a plain byte pipe; PROTOCOL activates the port's protocol-aware
-        tap (if the device configures one). The device resets the mode to RAW
-        whenever the subscriber disconnects.
-        """
+        """Set the mode for a serial proxy instance."""
         self._get_connection().send_message(
             SerialProxySetModeRequest(
                 instance=instance,
@@ -758,13 +753,7 @@ class APIClient(APIClientBase):
         mode: SerialProxyMode,
         timeout: float = 10.0,
     ) -> SerialProxyRequestResponseModel:
-        """Set the mode and await the device acknowledgement.
-
-        Unlike the older serial proxy operations, set_mode has been acknowledged
-        since it was introduced (API 1.17), so no version check is needed. A
-        device that does not have the proxy component never answers and the call
-        raises TimeoutAPIError; check the device capabilities before calling.
-        """
+        """Set a serial proxy mode and await the device acknowledgement."""
         req = SerialProxySetModeRequest(instance=instance, mode=mode)
         return await self._await_serial_proxy_response(
             req, instance, SerialProxyRequestType.SET_MODE, timeout
