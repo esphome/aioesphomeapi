@@ -178,11 +178,11 @@ async def test_server_register_duplicate_raises() -> None:
 async def test_start_connection_from_socket(conn: APIConnection) -> None:
     client_sock, server_sock = await _tcp_pair()
     try:
-        await conn.start_connection_from_socket(server_sock)
+        conn.start_connection_from_socket(server_sock)
         assert conn.connection_state is ConnectionState.SOCKET_OPENED
         assert conn.connected_address == "127.0.0.1"
         with pytest.raises(RuntimeError, match="not in init state"):
-            await conn.start_connection_from_socket(server_sock)
+            conn.start_connection_from_socket(server_sock)
     finally:
         client_sock.close()
         server_sock.close()
@@ -212,8 +212,8 @@ async def test_adopt_connection_success() -> None:
         patch.object(cli, "finish_connection"),
     ):
         assert await rl.async_adopt_connection(server_sock) is True
-    assert start_mock.await_count == 1
-    assert start_mock.await_args.args == (server_sock,)
+    assert start_mock.call_count == 1
+    assert start_mock.call_args.args == (server_sock,)
     on_connect.assert_awaited_once()
     assert rl._connection_state is ReconnectLogicState.READY
     client_sock.close()
@@ -728,7 +728,7 @@ async def test_adopt_connection_start_failure_schedules_retry() -> None:
 async def test_client_start_connection_from_socket() -> None:
     cli = APIClient(address="127.0.0.1", port=6052, password=None)
     client_sock, server_sock = await _tcp_pair()
-    await cli.start_connection_from_socket(server_sock)
+    cli.start_connection_from_socket(server_sock)
     assert cli._connection is not None
     assert cli._connection.connection_state is ConnectionState.SOCKET_OPENED
     cli._connection.force_disconnect()
@@ -743,7 +743,7 @@ async def test_client_start_connection_from_socket_closes_on_refusal() -> None:
         patch.object(cli, "_create_connection", side_effect=APIConnectionError("busy")),
         pytest.raises(APIConnectionError),
     ):
-        await cli.start_connection_from_socket(server_sock)
+        cli.start_connection_from_socket(server_sock)
     assert server_sock.fileno() == -1
     client_sock.close()
 
@@ -753,7 +753,7 @@ async def test_start_connection_from_socket_bad_socket(conn: APIConnection) -> N
     client_sock, server_sock = await _tcp_pair()
     server_sock.close()
     with pytest.raises(APIConnectionError):
-        await conn.start_connection_from_socket(server_sock)
+        conn.start_connection_from_socket(server_sock)
     client_sock.close()
 
 

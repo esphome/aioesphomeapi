@@ -771,7 +771,7 @@ class ReconnectLogic:
             ):
                 return self._refuse_adoption(sock, self._connection_state)
             try:
-                await self._cli.start_connection_from_socket(
+                self._cli.start_connection_from_socket(
                     sock, on_stop=self._on_disconnect, log_errors=False
                 )
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except

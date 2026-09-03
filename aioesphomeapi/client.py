@@ -413,7 +413,7 @@ class APIClient(APIClientBase):
         if self._connection.connected_address:
             self._set_log_name()
 
-    async def start_connection_from_socket(
+    def start_connection_from_socket(
         self,
         sock: socket.socket,
         on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
@@ -421,7 +421,7 @@ class APIClient(APIClientBase):
     ) -> None:
         """Adopt an already-connected socket the device opened to us.
 
-        Replaces start_resolve_host and start_connection; call
+        Synchronous. Replaces start_resolve_host and start_connection; call
         finish_connection afterwards as usual. Owns the socket: it is closed
         when the client cannot take it.
         """
@@ -430,9 +430,11 @@ class APIClient(APIClientBase):
         except BaseException:
             sock.close()  # this method owns the socket, even on refusal
             raise
-        await self._execute_connection_coro(
+        try:
             connection.start_connection_from_socket(sock)
-        )
+        except Exception:
+            self._connection = None
+            raise
         self._set_log_name()
 
     async def finish_connection(

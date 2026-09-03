@@ -836,11 +836,12 @@ class APIConnection:
             self._set_start_connect_future()
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
 
-    async def start_connection_from_socket(self, sock: socket.socket) -> None:
+    def start_connection_from_socket(self, sock: socket.socket) -> None:
         """Adopt an already-connected socket.
 
         Used when the device opened the TCP connection to us (the api
-        outgoing_connection option). Replaces start_resolve_host and
+        outgoing_connection option). Synchronous: there is nothing to
+        resolve or connect. Replaces start_resolve_host and
         start_connection; finish_connection runs unchanged afterwards.
         """
         if self.connection_state is not CONNECTION_STATE_INITIALIZED:
