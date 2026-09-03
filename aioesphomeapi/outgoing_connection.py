@@ -39,6 +39,8 @@ _INFO_LOG_WINDOW = 3600.0
 # The hello frame is tiny (name + MAC); anything larger is not a hello
 _MAX_HELLO_SIZE = 128
 _ACCEPT_ERROR_BACKOFF = 1.0
+# A recurring bind failure re-warns after this long instead of staying at info
+_BIND_WARN_INTERVAL = 3600.0
 # A broken listening socket that retrying cannot fix; accept(2) can surface
 # many transient per-connection errors, so everything else is retried
 _FATAL_ACCEPT_ERRNOS = frozenset({errno.EBADF, errno.ENOTSOCK, errno.EINVAL})
@@ -96,7 +98,11 @@ class OutgoingConnectionServer:
 
     Consumers register a MAC address with the :class:`ReconnectLogic` that
     should take over when that device dials in; everything wire-level is
-    handled here.
+    handled here. The listener manages its own lifecycle: the first
+    registration opens it, removing the last one closes it and frees the
+    port, and a bind failure or a fatal accept error is retried on the next
+    registration. ``start()`` and ``close()`` remain available for
+    consumers that want explicit control.
 
     The MAC in the hello is unauthenticated pre-handshake data: anything on
     the network can dial in claiming a registered MAC. Adoption refuses to
@@ -130,6 +136,8 @@ class OutgoingConnectionServer:
         # ReconnectLogic lock holding an fd each, and could never win anyway.
         # The value is the strong task reference (close() leaves them running)
         self._adopting: dict[str, asyncio.Task[None]] = {}
+        # None until a bind fails; holds the last warning time after
+        self._last_bind_warning: float | None = None
 
     @property
     def port(self) -> int:
@@ -148,6 +156,10 @@ class OutgoingConnectionServer:
         a callable that removes the registration; call it when the
         ReconnectLogic is discarded, the registry holds a strong reference.
         The returned callable never raises.
+
+        The first registration opens the listener and removing the last one
+        closes it. A bind failure is logged and does not raise; the route
+        stays registered and the bind is retried on the next registration.
         """
         mac = _normalize_mac(mac)
         # A shape the hello parser can never produce would register fine and
@@ -159,14 +171,51 @@ class OutgoingConnectionServer:
             msg = f"MAC {mac} is already registered"
             raise ValueError(msg)
         self._targets[mac] = reconnect_logic
+        self._ensure_listening()
 
         def _unregister() -> None:
             # Identity-guarded so a stale callable cannot clobber a newer
             # registration for the same MAC
             if self._targets.get(mac) is reconnect_logic:
                 del self._targets[mac]
+                if not self._targets:
+                    self.close()
 
         return _unregister
+
+    def _ensure_listening(self) -> None:
+        """Open the listener if it is not running, logging a bind failure.
+
+        Warns once per :data:`_BIND_WARN_INTERVAL` and reports at info
+        between, so a hundred registered devices produce one warning while a
+        deliberate retry still shows its outcome.
+        """
+        if self.is_listening:
+            return
+        try:
+            self.start()
+        except OSError as err:
+            now = asyncio.get_running_loop().time()
+            last = self._last_bind_warning
+            level = logging.INFO
+            if last is None or now - last >= _BIND_WARN_INTERVAL:
+                self._last_bind_warning = now
+                level = logging.WARNING
+            _LOGGER.log(
+                level,
+                "Cannot listen for outgoing connections on port %s: %s;"
+                " will retry on the next registration",
+                self._port,
+                err,
+            )
+            return
+        if self._last_bind_warning is not None:
+            self._last_bind_warning = None
+            _LOGGER.info(
+                "Listening for outgoing connections on port %s after an"
+                " earlier failure",
+                self._port,
+            )
 
     def discard(self, mac: str) -> None:
         """Remove any registration for this MAC, regardless of owner.
@@ -176,6 +225,8 @@ class OutgoingConnectionServer:
         ReconnectLogic without disturbing other registrations. Never raises.
         """
         self._targets.pop(_normalize_mac(mac), None)
+        if not self._targets:
+            self.close()
 
     def start(self) -> None:
         """Open the listening socket; raises OSError when the port is taken.

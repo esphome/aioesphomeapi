@@ -144,9 +144,12 @@ async def test_server_discard_removes_any_owner() -> None:
     server = OutgoingConnectionServer(port=0)
     server.register(MAC, MagicMock())
     server.discard("AA:BB:CC:DD:EE:FF")  # separators and case normalized
+    # Discarding the last route closed the listener
+    assert not server.is_listening
     # The MAC is free to register again, and a double discard is a no-op
     server.discard(MAC)
     server.register(MAC, MagicMock())
+    server.close()
 
 
 async def test_server_register_duplicate_raises() -> None:
@@ -156,6 +159,7 @@ async def test_server_register_duplicate_raises() -> None:
         server.register("aa:bb:cc:dd:ee:ff", MagicMock())
     unregister()
     server.register(MAC, MagicMock())
+    server.close()
 
 
 async def test_start_connection_from_socket(conn: APIConnection) -> None:
@@ -770,3 +774,94 @@ async def test_server_info_log_window_resets(
     ]
     # The zero-length window reset between the calls, so both logged at INFO
     assert len(infos) == 2
+
+
+async def test_server_register_manages_listener_lifecycle() -> None:
+    """The first registration opens the listener; the last removal closes it."""
+    server = OutgoingConnectionServer(port=0)
+    unregister1 = server.register(MAC, MagicMock())
+    assert server.is_listening
+    port = server.port
+    unregister2 = server.register("00:11:22:33:44:55", MagicMock())
+    unregister1()
+    assert server.is_listening
+    unregister2()
+    assert not server.is_listening
+    # The port was freed synchronously
+    replacement = OutgoingConnectionServer(port=port, host="127.0.0.1")
+    replacement.start()
+    replacement.close()
+    # Stale unregister callables cannot close a listener with live routes
+    server.register(MAC, MagicMock())
+    unregister1()
+    unregister2()
+    assert server.is_listening
+    server.close()
+    await asyncio.sleep(0)  # let the cancelled accept tasks finish
+
+
+async def test_server_register_restarts_dead_listener(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A registration after a fatal accept error brings the listener back."""
+    server = OutgoingConnectionServer(port=0)
+    err = OSError(errno.EBADF, "Bad file descriptor")
+    with patch.object(type(asyncio.get_running_loop()), "sock_accept", side_effect=err):
+        server.register(MAC, MagicMock())
+        for _ in range(50):
+            if "Unexpected error in" in caplog.text:
+                break
+            await asyncio.sleep(0)
+    assert not server.is_listening
+    server.register("00:11:22:33:44:55", MagicMock())
+    assert server.is_listening
+    _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+    writer.close()
+    server.close()
+
+
+async def test_server_register_bind_failure_warns_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A bind failure keeps the route, warns once, and retries on register."""
+    caplog.set_level(logging.INFO, logger="aioesphomeapi.outgoing_connection")
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", 0))
+    blocker.listen(1)
+    port = blocker.getsockname()[1]
+    server = OutgoingConnectionServer(port=port, host="127.0.0.1")
+    server.register(MAC, MagicMock())
+    assert not server.is_listening
+    server.register("00:11:22:33:44:55", MagicMock())
+    bind_logs = [
+        record for record in caplog.records if "Cannot listen" in record.message
+    ]
+    # First failure warned, the second reported at info within the window
+    assert [record.levelno for record in bind_logs] == [logging.WARNING, logging.INFO]
+    blocker.close()
+    server.register("00:11:22:33:44:66", MagicMock())
+    assert server.is_listening
+    assert "after an earlier failure" in caplog.text
+    server.close()
+
+
+async def test_server_bind_warning_window_resets(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An expired warning window re-warns instead of staying at info."""
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", 0))
+    blocker.listen(1)
+    port = blocker.getsockname()[1]
+    server = OutgoingConnectionServer(port=port, host="127.0.0.1")
+    with patch("aioesphomeapi.outgoing_connection._BIND_WARN_INTERVAL", 0):
+        server.register(MAC, MagicMock())
+        server.register("00:11:22:33:44:55", MagicMock())
+    blocker.close()
+    bind_warnings = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.WARNING and "Cannot listen" in record.message
+    ]
+    assert len(bind_warnings) == 2
+    server.close()
