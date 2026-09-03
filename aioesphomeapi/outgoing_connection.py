@@ -146,6 +146,7 @@ class OutgoingConnectionServer:
         The MAC may contain ``:`` or ``-`` separators and any case. Returns
         a callable that removes the registration; call it when the
         ReconnectLogic is discarded, the registry holds a strong reference.
+        The returned callable never raises.
         """
         mac = _normalize_mac(mac)
         # A shape the hello parser can never produce would register fine and
@@ -171,7 +172,7 @@ class OutgoingConnectionServer:
 
         A recovery hook for when a registration's unregister callable could
         not run: it guarantees no route is left pointing at a discarded
-        ReconnectLogic without disturbing other registrations.
+        ReconnectLogic without disturbing other registrations. Never raises.
         """
         self._targets.pop(_normalize_mac(mac), None)
 
@@ -201,32 +202,32 @@ class OutgoingConnectionServer:
     async def stop(self) -> None:
         """Stop accepting and close the listening socket.
 
+        The port is released before the first await, so a replacement
+        listener can bind immediately without waiting for stop() to finish.
         Sessions already handed to a ReconnectLogic keep running.
         """
+        # Close directly rather than awaiting the cancelled tasks: a task
+        # that never ran has no handler to close its socket, and the port
+        # must be free even when stop() itself is cancelled below
+        for task, conn in self._pending.items():
+            task.cancel()
+            conn.close()
+        self._pending.clear()
+        if self._server_socket is not None:
+            self._server_socket.close()
+            self._server_socket = None
+        if (accept_task := self._accept_task) is None:
+            return
+        self._accept_task = None
+        accept_task.cancel()
         try:
-            if self._accept_task is not None:
-                self._accept_task.cancel()
-                try:
-                    await self._accept_task
-                except asyncio.CancelledError:
-                    current = asyncio.current_task()
-                    if current is not None and current.cancelling():
-                        # Aimed at our caller; the finally still tears down
-                        raise
-                except Exception:  # noqa: BLE001, S110  # already logged
-                    pass
-        finally:
-            self._accept_task = None
-            # Close directly rather than awaiting the cancelled tasks: a task
-            # that never ran has no handler to close its socket, and this
-            # path must also run when stop() itself is cancelled
-            for task, conn in self._pending.items():
-                task.cancel()
-                conn.close()
-            self._pending.clear()
-            if self._server_socket is not None:
-                self._server_socket.close()
-                self._server_socket = None
+            await accept_task
+        except asyncio.CancelledError:
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise  # aimed at our caller; everything is torn down already
+        except Exception:  # noqa: BLE001, S110  # already logged
+            pass
 
     @staticmethod
     def _log_task_exception(task: asyncio.Task[None]) -> None:
@@ -244,7 +245,8 @@ class OutgoingConnectionServer:
             self._server_socket.close()
             self._server_socket = None
 
-    def _discard_pending(self, task: asyncio.Task[None]) -> None:
+    def _identify_done(self, task: asyncio.Task[None]) -> None:
+        self._log_task_exception(task)
         self._pending.pop(task, None)
 
     def _log_rate_limited(self, key: str, msg: str, *args: object) -> None:
@@ -295,9 +297,8 @@ class OutgoingConnectionServer:
                 self._identify_and_dispatch(conn, addr),
                 name=f"esphome-outgoing-connection-identify-{addr}",
             )
-            task.add_done_callback(self._log_task_exception)
+            task.add_done_callback(self._identify_done)
             self._pending[task] = conn
-            task.add_done_callback(self._discard_pending)
 
     async def _identify_and_dispatch(
         self, conn: socket.socket, addr: tuple[object, ...]
@@ -305,9 +306,6 @@ class OutgoingConnectionServer:
         try:
             async with asyncio_timeout(_IDENTIFY_TIMEOUT):
                 name, mac = await self._peek_server_hello(conn)
-        except asyncio.CancelledError:
-            conn.close()
-            raise
         except (TimeoutError, OSError, ValueError) as err:
             # A real device that cannot identify itself (plaintext firmware,
             # protocol skew) must be diagnosable, not only port-scan noise

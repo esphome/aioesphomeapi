@@ -787,3 +787,33 @@ async def test_server_info_log_window_resets(
     ]
     # The zero-length window reset between the calls, so both logged at INFO
     assert len(infos) == 2
+
+
+async def test_server_port_released_before_stop_finishes() -> None:
+    """A replacement listener can bind while the old stop() is still pending."""
+    server = OutgoingConnectionServer(port=0)
+    await server.start()
+    # Swap in an accept task whose teardown is slow, like a busy loop
+    real = server._accept_task
+    assert real is not None
+    real.cancel()
+    await asyncio.gather(real, return_exceptions=True)
+    release = asyncio.Event()
+
+    async def stubborn() -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            await release.wait()
+            raise
+
+    server._accept_task = asyncio.create_task(stubborn())
+    stop_task = asyncio.create_task(server.stop())
+    await asyncio.sleep(0)
+    assert not stop_task.done()  # the stop is genuinely still pending
+    assert not server.is_listening  # but the port is already released
+    replacement = OutgoingConnectionServer(port=server.port)
+    await replacement.start()
+    await replacement.stop()
+    release.set()
+    await stop_task
