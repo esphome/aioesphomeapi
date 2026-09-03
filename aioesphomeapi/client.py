@@ -739,7 +739,11 @@ class APIClient(APIClientBase):
         instance: int,
         mode: SerialProxyMode,
     ) -> None:
-        """Set the mode for a serial proxy instance."""
+        """Set the mode for a serial proxy instance.
+
+        The device only honours this from the currently subscribed client;
+        subscribe to the instance first.
+        """
         self._get_connection().send_message(
             SerialProxySetModeRequest(
                 instance=instance,
