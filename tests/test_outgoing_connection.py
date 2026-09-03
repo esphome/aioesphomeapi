@@ -252,8 +252,10 @@ async def test_api_client_outgoing_connection_target_param() -> None:
         outgoing_connection_target=True,
     )
     assert cli._params.outgoing_connection_target is True
+    assert cli.outgoing_connection_target is True
     cli = APIClient(address="127.0.0.1", port=6052, password=None)
     assert cli._params.outgoing_connection_target is False
+    assert cli.outgoing_connection_target is False
 
 
 def test_device_info_outgoing_connection_supported() -> None:

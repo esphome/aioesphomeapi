@@ -407,6 +407,11 @@ class APIClientBase:
     def noise_psk(self) -> str | None:
         return self._params.noise_psk
 
+    @property
+    def outgoing_connection_target(self) -> bool:
+        """Whether this client declares itself a dial-back target in its hello."""
+        return self._params.outgoing_connection_target
+
     def clear_noise_psk(self) -> None:
         """Clear the noise PSK so future connections use plaintext.
 
