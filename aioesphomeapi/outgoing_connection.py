@@ -93,6 +93,13 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
     return name, mac
 
 
+def _remove_reader(conn: socket.socket) -> None:
+    """Unregister a pending socket's reader before its fd can be reused."""
+    # Proactor loop (Windows): the peek path never registered one
+    with contextlib.suppress(NotImplementedError):
+        asyncio.get_running_loop().remove_reader(conn.fileno())
+
+
 class OutgoingConnectionServer:
     """Accepts connections that ESPHome devices open to this host.
 
@@ -243,10 +250,9 @@ class OutgoingConnectionServer:
         """
         # Close directly; a task that never ran has no handler to close its
         # socket. Unregister its reader first so the fd is clean before reuse.
-        loop = asyncio.get_running_loop()
         for task, conn in self._pending.items():
             task.cancel()
-            loop.remove_reader(conn.fileno())
+            _remove_reader(conn)
             conn.close()
         self._pending.clear()
         if (retry_handle := self._bind_retry_handle) is not None:
@@ -323,8 +329,7 @@ class OutgoingConnectionServer:
                 )
                 self._pending.pop(oldest, None)
                 oldest.cancel()
-                # Unregister its reader before the fd is reused
-                loop.remove_reader(oldest_conn.fileno())
+                _remove_reader(oldest_conn)
                 oldest_conn.close()  # the task body may never have started
             conn.setblocking(False)
             # Not eager: the task must be in _pending before it first runs

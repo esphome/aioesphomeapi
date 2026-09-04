@@ -1002,10 +1002,11 @@ async def test_server_close_unregisters_pending_reader() -> None:
     await asyncio.sleep(0)
 
 
-async def test_client_force_disconnect() -> None:
+async def test_client_force_disconnect(conn: APIConnection) -> None:
     """force_disconnect drops a live connection and no-ops without one."""
     cli = APIClient(address="127.0.0.1", port=6052, password=None)
     cli.force_disconnect()  # no connection: no error
-    cli._connection = MagicMock()
-    cli.force_disconnect()
-    cli._connection.force_disconnect.assert_called_once()
+    cli._connection = conn
+    with patch.object(conn, "force_disconnect") as force_disconnect:
+        cli.force_disconnect()
+    force_disconnect.assert_called_once()
