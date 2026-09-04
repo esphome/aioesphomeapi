@@ -45,7 +45,7 @@ jobs:
           - extension: "use_cython"
             os: macos-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         id: python
@@ -54,7 +54,7 @@ jobs:
           allow-prereleases: true
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           enable-cache: true
       - name: Set up Python environment (no cython)
@@ -121,13 +121,14 @@ jobs:
   benchmarks:
     name: Run benchmarks
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.14"
       - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           enable-cache: true
       - name: Set up Python environment (cython)
@@ -137,8 +138,42 @@ jobs:
         run: |
             uv pip install --system -r requirements/base.txt -r requirements/test.txt
             uv pip install --system -e .
+      - name: Bound apt fetches and pre-install libc6-dbg
+        # The CodSpeed runner installs valgrind + libc6-dbg via its own
+        # unbounded apt-get update; per-invocation apt options cannot reach
+        # it. The apt.conf.d timeouts below bound every later apt call in
+        # this job, the runner's included. Pre-installing libc6-dbg lets the
+        # runner skip apt once its valgrind cache is restored (it checks
+        # ``dpkg -s libc6-dbg``, so the cache action's unregistered restores
+        # would not count). Install without update first: image lists are
+        # fresh, and the index refresh is what a congested mirror makes
+        # slow. Best effort; the job timeout is the last backstop.
+        timeout-minutes: 15
+        continue-on-error: true
+        run: |
+          sudo tee /etc/apt/apt.conf.d/99ci-acquire-timeouts >/dev/null <<'EOF'
+          Acquire::Retries "1";
+          Acquire::http::Timeout "15";
+          Acquire::https::Timeout "15";
+          EOF
+          if dpkg -s libc6-dbg >/dev/null 2>&1; then
+            echo "libc6-dbg already installed"
+            exit 0
+          fi
+          # Common path: the image's package lists are fresh enough.
+          if sudo DEBIAN_FRONTEND=noninteractive timeout -k 15 90 \
+              apt-get install -y libc6-dbg; then
+            exit 0
+          fi
+          # Rescue path: refresh the lists once with a generous bound; the
+          # apt config already fails a stalled mirror over quickly.
+          sudo DEBIAN_FRONTEND=noninteractive timeout -k 10 30 \
+            dpkg --configure -a || true
+          sudo timeout -k 15 300 apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive timeout -k 15 300 \
+            apt-get install -y libc6-dbg
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@f99becdce5e5d51fd556489ebef684f4ecfd6286  # v4.18.5
+        uses: CodSpeedHQ/action@373d6868929f444bc08d901fd0eb0ad52a8875ea  # v5.2.1
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}

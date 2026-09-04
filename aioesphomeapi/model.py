@@ -4,8 +4,8 @@ import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
+import math
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
-from uuid import UUID
 
 from .util import fix_float_single_double_conversion
 
@@ -56,6 +56,11 @@ class APIIntEnum(enum.IntEnum):
 cached_fields = cache(fields)
 
 
+@cache
+def _float_field_names(cls: type[Any]) -> frozenset[str]:
+    return frozenset(f.name for f in cached_fields(cls) if f.type in ("float", float))  # type: ignore[arg-type]
+
+
 @_frozen_dataclass_decorator
 class APIModelBase:
     def __post_init__(self) -> None:
@@ -72,9 +77,16 @@ class APIModelBase:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], *, ignore_missing: bool = True) -> Self:
+        # JSON has no representation for NaN or inf, so serializers such as
+        # orjson emit null; map it back to NaN for float fields.
+        float_fields = _float_field_names(cls)  # type: ignore[arg-type]
         return cls(
             **{
-                f.name: data[f.name]
+                f.name: (
+                    math.nan
+                    if f.name in float_fields and data[f.name] is None
+                    else data[f.name]
+                )
                 for f in cached_fields(cls)  # type: ignore[arg-type]
                 if f.name in data or (not ignore_missing)
             }
@@ -104,6 +116,22 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
 class APIVersion(APIModelBase):
     major: int = 0
     minor: int = 0
+
+
+class DisconnectReason(APIIntEnum):
+    UNSPECIFIED = 0
+    PROVISIONING_CLOSED = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectionClosedEvent:
+    """Why a connection closed, passed to connection closed callbacks."""
+
+    expected_disconnect: bool = False
+    # Only set when the device requested the disconnect. `UNSPECIFIED` when no specific
+    # reason exists. `None` for a reason this version of the client does not know about.
+    reason: DisconnectReason | None = DisconnectReason.UNSPECIFIED
+    error: Exception | None = None
 
 
 class BluetoothProxyFeature(enum.IntFlag):
@@ -145,13 +173,37 @@ class ZWaveProxyFeature(enum.IntFlag):
 
 
 class ZWaveProxyRequestType(APIIntEnum):
-    HOME_ID_CHANGE = 0
+    SUBSCRIBE = 0
+    UNSUBSCRIBE = 1
+    HOME_ID_CHANGE = 2
+
+
+class ZWaveProxyStatus(APIIntEnum):
+    OK = 0
+    IN_USE = 1
+    NOT_SUPPORTED = 2
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyFrame(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
 class ZWaveProxyRequest(APIModelBase):
-    type: ZWaveProxyRequestType = ZWaveProxyRequestType.HOME_ID_CHANGE
+    type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyRequestResponse(APIModelBase):
+    type: ZWaveProxyRequestType | None = converter_field(
+        default=ZWaveProxyRequestType.SUBSCRIBE,
+        converter=ZWaveProxyRequestType.convert,
+    )
+    status: ZWaveProxyStatus | None = converter_field(
+        default=ZWaveProxyStatus.OK, converter=ZWaveProxyStatus.convert
+    )
 
 
 class ZigbeeProxyFeature(enum.IntFlag):
@@ -247,8 +299,7 @@ class SerialProxyPortType(APIIntEnum):
 
 class SerialProxyMode(APIIntEnum):
     RAW = 0
-    EZSP_ASH = 1
-    ZWAVE = 2
+    PROTOCOL = 1
 
 
 @_frozen_dataclass_decorator
@@ -257,26 +308,9 @@ class SerialProxyInfo(APIModelBase):
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
     )
-    # The protocol a tap has recognized on the port, RAW if none has been. Neither the
-    # live mode nor the configured mode identifies what is actually attached.
-    detected_mode: SerialProxyMode | None = converter_field(
-        default=SerialProxyMode.RAW, converter=SerialProxyMode.convert
-    )
-    # Identity of the USB device in this port. A vendor ID of zero means the port has no USB
-    # device behind it; strings the device does not report stay empty, as udev leaves them out
-    usb_vendor_id: int = 0
-    usb_product_id: int = 0
-    usb_bcd_device: int = 0
-    usb_interface_number: int = 0
-    usb_manufacturer: str = ""
-    usb_product: str = ""
-    usb_serial_number: str = ""
-    usb_interface_string: str = ""
-    usb_capable: bool = False
-    # The mode a tap on this port can handle on a client's behalf
-    tap_mode: SerialProxyMode | None = converter_field(
-        default=SerialProxyMode.RAW, converter=SerialProxyMode.convert
-    )
+    # Bitmask of SerialProxyLineStateFlag the instance can drive; devices below
+    # API 1.16 never send it, so 0 there means "unknown", not "drives nothing"
+    configured_line_states: int = 0
 
 
 @_frozen_dataclass_decorator
@@ -300,7 +334,7 @@ class DeviceInfo(APIModelBase):
     zwave_proxy_feature_flags: int = 0
     zwave_home_id: int = 0
     zigbee_proxy_feature_flags: int = 0
-    zigbee_extended_pan_id: int = 0
+    zigbee_ieee_address: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -357,6 +391,60 @@ class DeviceInfo(APIModelBase):
         return self.zigbee_proxy_feature_flags
 
 
+@_frozen_dataclass_decorator
+class BluetoothProxyCapabilities(APIModelBase):
+    feature_flags: int = 0
+    mac_address: str = ""
+
+    @classmethod
+    def convert(cls, value: Any) -> BluetoothProxyCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantCapabilities(APIModelBase):
+    feature_flags: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> VoiceAssistantCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyCapabilities(APIModelBase):
+    feature_flags: int = 0
+    home_id: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> ZWaveProxyCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class DeviceCapabilities(APIModelBase):
+    bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
+        default_factory=BluetoothProxyCapabilities,
+        converter=BluetoothProxyCapabilities.convert,
+    )
+    voice_assistant: VoiceAssistantCapabilities = converter_field(
+        default_factory=VoiceAssistantCapabilities,
+        converter=VoiceAssistantCapabilities.convert,
+    )
+    zwave_proxy: ZWaveProxyCapabilities = converter_field(
+        default_factory=ZWaveProxyCapabilities,
+        converter=ZWaveProxyCapabilities.convert,
+    )
+    serial_proxies: list[SerialProxyInfo] = converter_field(
+        default_factory=list, converter=SerialProxyInfo.convert_list
+    )
+
+
 class EntityCategory(APIIntEnum):
     NONE = 0
     CONFIG = 1
@@ -380,6 +468,12 @@ class EntityInfo(APIModelBase):
 class EntityState(APIModelBase):
     key: int = 0
     device_id: int = 0
+
+    def with_device_id(self, device_id: int) -> Self:
+        """Return a copy of this state that belongs to another device."""
+        values = {f.name: getattr(self, f.name) for f in cached_fields(type(self))}  # type: ignore[arg-type]
+        values["device_id"] = device_id
+        return type(self)(**values)
 
 
 @_frozen_dataclass_decorator
@@ -1361,6 +1455,13 @@ class RadioFrequencyInfo(EntityInfo):
 # ==================== SERIAL PROXY ====================
 
 
+class SerialProxyLineStateFlag(enum.IntFlag):
+    """Modem control line bits used in line_states and configured_line_states."""
+
+    RTS = 1 << 0
+    DTR = 1 << 1
+
+
 class SerialProxyParity(APIIntEnum):
     NONE = 0
     EVEN = 1
@@ -1371,6 +1472,8 @@ class SerialProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
     FLUSH = 2
+    CONFIGURE = 3
+    SET_MODEM_PINS = 4
 
 
 class SerialProxyStatus(APIIntEnum):
@@ -1379,6 +1482,8 @@ class SerialProxyStatus(APIIntEnum):
     ERROR = 2
     TIMEOUT = 3
     NOT_SUPPORTED = 4
+    PORT_IN_USE = 5
+    INVALID_ARGUMENT = 6
 
 
 @_frozen_dataclass_decorator
@@ -1404,6 +1509,9 @@ class SerialProxyRequestResponse(APIModelBase):
 class SerialProxyModemPins(APIModelBase):
     instance: int = 0
     line_states: int = 0
+    status: SerialProxyStatus | None = converter_field(
+        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    )
 
 
 # ==================== INFO MAP ====================
@@ -1500,6 +1608,8 @@ class UserServiceArg(APIModelBase):
     type: UserServiceArgType | None = converter_field(
         default=UserServiceArgType.BOOL, converter=UserServiceArgType.convert
     )
+    description: str = ""
+    example: str = ""
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[UserServiceArg]:
@@ -1524,6 +1634,7 @@ class UserService(APIModelBase):
     supports_response: SupportsResponseType | None = converter_field(
         default=SupportsResponseType.NONE, converter=SupportsResponseType.convert
     )
+    description: str = ""
 
 
 @_frozen_dataclass_decorator
@@ -1551,7 +1662,14 @@ def _join_split_uuid(value: list[int]) -> str:
 
 @lru_cache(maxsize=256)
 def _join_split_uuid_high_low(high: int, low: int) -> str:
-    return str(UUID(int=(high << 64) | low))
+    # Same output and range check as str(UUID(int=...)) without
+    # importing the uuid module
+    value = (high << 64) | low
+    if not 0 <= value < 1 << 128:
+        msg = "int is out of range (need a 128-bit value)"
+        raise ValueError(msg)
+    h = f"{value:032x}"
+    return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:]}"
 
 
 @lru_cache(maxsize=256)
@@ -2112,6 +2230,7 @@ __all__ = (
     "BluetoothGATTService",
     "BluetoothGATTServices",
     "BluetoothLEAdvertisement",
+    "BluetoothProxyCapabilities",
     "BluetoothProxyFeature",
     "BluetoothProxySubscriptionFlag",
     "BluetoothScannerMode",
@@ -2130,6 +2249,7 @@ __all__ = (
     "ClimateSwingMode",
     "ColorMode",
     "CommandProtoMessage",
+    "ConnectionClosedEvent",
     "CoverInfo",
     "CoverOperation",
     "CoverState",
@@ -2137,7 +2257,9 @@ __all__ = (
     "DateState",
     "DateTimeInfo",
     "DateTimeState",
+    "DeviceCapabilities",
     "DeviceInfo",
+    "DisconnectReason",
     "ESPHomeBluetoothGATTServices",
     "EntityCategory",
     "EntityInfo",
@@ -2187,6 +2309,7 @@ __all__ = (
     "SensorStateClass",
     "SerialProxyDataReceived",
     "SerialProxyInfo",
+    "SerialProxyLineStateFlag",
     "SerialProxyMode",
     "SerialProxyModemPins",
     "SerialProxyParity",
@@ -2220,6 +2343,7 @@ __all__ = (
     "VoiceAssistantAnnounceFinished",
     "VoiceAssistantAudioData",
     "VoiceAssistantAudioSettings",
+    "VoiceAssistantCapabilities",
     "VoiceAssistantCommand",
     "VoiceAssistantCommandFlag",
     "VoiceAssistantConfigurationRequest",
@@ -2237,9 +2361,13 @@ __all__ = (
     "WaterHeaterMode",
     "WaterHeaterState",
     "WaterHeaterStateFlag",
+    "ZWaveProxyCapabilities",
     "ZWaveProxyFeature",
+    "ZWaveProxyFrame",
     "ZWaveProxyRequest",
+    "ZWaveProxyRequestResponse",
     "ZWaveProxyRequestType",
+    "ZWaveProxyStatus",
     "ZigbeeNetworkInfo",
     "ZigbeeProxyFeature",
     "ZigbeeProxyRequest",

@@ -676,3 +676,162 @@ async def test_async_run_on_disconnect_logs_warning(
     assert "Disconnected from API" in caplog.text
 
     await stop()
+
+
+async def test_log_runner_add_addresses_triggers_immediate_attempt() -> None:
+    """add_addresses on the client kicks the runner's internal ReconnectLogic."""
+    async_zeroconf = get_mock_async_zeroconf()
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    cli = PatchableAPIClient(
+        address=Estr("10.0.0.1"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=Estr("fake"),
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    with patch.object(
+        cli, "start_resolve_host", side_effect=APIConnectionError
+    ) as mock_resolve:
+        stop = await async_run(
+            cli,
+            lambda msg: None,
+            aio_zeroconf_instance=async_zeroconf,
+            subscribe_states=False,
+        )
+        await asyncio.sleep(0)
+        assert mock_resolve.call_count == 1
+
+    # First attempt failed; the runner is waiting out its backoff timer.
+    # Feeding a new address must trigger an attempt right away that sees
+    # the full address list.
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve_2,
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
+        assert cli.add_addresses(["127.0.0.1"]) is True
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_resolve_2.call_count == 1
+        assert cli._params.addresses == ["10.0.0.1", "127.0.0.1"]
+
+    await stop()
+
+
+async def test_log_runner_on_connect_callback(
+    conn: APIConnection,
+    caplog: pytest.LogCaptureFixture,
+    aiohappyeyeballs_start_connection,
+) -> None:
+    """The optional on_connect callback fires once the log subscription is up."""
+    loop = asyncio.get_running_loop()
+    protocol: APIPlaintextFrameHelper | None = None
+    transport = MagicMock()
+    connected = asyncio.Event()
+
+    class PatchableAPIClient(APIClient):
+        pass
+
+    async_zeroconf = get_mock_async_zeroconf()
+
+    cli = PatchableAPIClient(
+        address=Estr("127.0.0.1"),
+        port=6052,
+        password=None,
+        noise_psk=None,
+        expected_name=Estr("fake"),
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+
+    def _create_mock_transport_protocol(create_func, **kwargs):
+        nonlocal protocol
+        protocol = create_func()
+        protocol.connection_made(transport)
+        connected.set()
+        return transport, protocol
+
+    subscribed = asyncio.Event()
+    original_subscribe_logs = cli.subscribe_logs
+
+    def _wait_subscribe_cli(*args, **kwargs):
+        original_subscribe_logs(*args, **kwargs)
+        subscribed.set()
+
+    # A raising callback must be contained: the connection must still come
+    # up and the error must be logged rather than escaping the connect task
+    on_connect = MagicMock(side_effect=RuntimeError("callback blew up"))
+
+    with (
+        patch.object(
+            loop, "create_connection", side_effect=_create_mock_transport_protocol
+        ),
+        patch.object(cli, "subscribe_logs", _wait_subscribe_cli),
+    ):
+        stop = await async_run(
+            cli,
+            lambda msg: None,
+            aio_zeroconf_instance=async_zeroconf,
+            subscribe_states=False,
+            on_connect=on_connect,
+        )
+        on_connect.assert_not_called()
+        await connected.wait()
+        protocol = cli._connection._frame_helper
+        send_plaintext_hello(protocol)
+        send_plaintext_auth_response(protocol, False)
+        await subscribed.wait()
+
+    on_connect.assert_called_once_with()
+    assert "Error in on_connect callback" in caplog.text
+
+    stop_task = asyncio.create_task(stop())
+    await asyncio.sleep(0)
+    mock_data_received(protocol, generate_plaintext_packet(DisconnectResponse()))
+    await stop_task
+
+
+@pytest.mark.parametrize("callback_raises", [False, True])
+async def test_log_runner_on_connect_callback_keeps_state_subscription(
+    caplog: pytest.LogCaptureFixture,
+    callback_raises: bool,
+) -> None:
+    """The state subscription runs after the on_connect callback either way."""
+    cli = MagicMock(spec=APIClient)
+    cli.device_info_and_list_entities = AsyncMock(return_value=(MagicMock(), [], []))
+
+    on_connect_callback = None
+
+    class MockReconnectLogic(ReconnectLogic):
+        def __init__(self, *, on_connect, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal on_connect_callback
+            on_connect_callback = on_connect
+
+        async def start(self) -> None:
+            await on_connect_callback()
+
+        async def stop(self) -> None:
+            pass
+
+    on_connect = MagicMock(
+        side_effect=RuntimeError("callback blew up") if callback_raises else None
+    )
+
+    with patch("aioesphomeapi.log_runner.ReconnectLogic", MockReconnectLogic):
+        stop = await async_run(
+            cli,
+            lambda msg: None,
+            subscribe_states=True,
+            on_connect=on_connect,
+        )
+
+    on_connect.assert_called_once_with()
+    # The entity-state subscription must run even when the callback raised
+    cli.device_info_and_list_entities.assert_awaited_once()
+    assert ("Error in on_connect callback" in caplog.text) is callback_raises
+
+    await stop()

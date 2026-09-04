@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from datetime import timedelta
 from functools import partial
 import itertools
 import json
@@ -35,6 +36,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothLEAdvertisementResponse,
     BluetoothLERawAdvertisement,
     BluetoothLERawAdvertisementsResponse,
+    BluetoothProxyCapabilities as BluetoothProxyCapabilitiesPb,
     BluetoothScannerMode,
     BluetoothScannerSetModeRequest,
     BluetoothScannerState,
@@ -48,7 +50,10 @@ from aioesphomeapi.api_pb2 import (
     CoverCommandRequest,
     DateCommandRequest,
     DateTimeCommandRequest,
+    DeviceCapabilitiesResponse,
     DeviceInfoResponse,
+    DisconnectReason as DisconnectReasonPb,
+    DisconnectRequest,
     DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
@@ -74,6 +79,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequest as SerialProxyRequestPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
@@ -95,6 +101,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantAnnounceRequest,
     VoiceAssistantAudio,
     VoiceAssistantAudioSettings,
+    VoiceAssistantCapabilities as VoiceAssistantCapabilitiesPb,
     VoiceAssistantConfigurationRequest,
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
@@ -106,18 +113,25 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
     WaterHeaterCommandRequest,
+    ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
+    ZWaveProxyRequestResponse as ZWaveProxyRequestResponsePb,
 )
 from aioesphomeapi.client import (
     APIClient,
     BluetoothConnectionDroppedError,
     _validate_connection_params,
 )
-from aioesphomeapi.client_base import MAX_CAMERA_FRAME_BYTES, MAX_INFLIGHT_CAMERA_KEYS
+from aioesphomeapi.client_base import (
+    KEEP_ALIVE_FREQUENCY,
+    MAX_CAMERA_FRAME_BYTES,
+    MAX_INFLIGHT_CAMERA_KEYS,
+)
 from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
+    PingFailedAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
 )
@@ -129,6 +143,7 @@ from aioesphomeapi.model import (
     BluetoothDeviceRequestType,
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothLEAdvertisement,
+    BluetoothProxyCapabilities,
     BluetoothProxyFeature,
     BluetoothScannerMode as BluetoothScannerModeModel,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
@@ -137,7 +152,10 @@ from aioesphomeapi.model import (
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    ConnectionClosedEvent,
+    DeviceCapabilities,
     DeviceInfo,
+    DisconnectReason,
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
@@ -151,9 +169,11 @@ from aioesphomeapi.model import (
     RadioFrequencyModulation,
     SensorInfo,
     SerialProxyDataReceived,
+    SerialProxyInfo,
     SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
+    SerialProxyPortType,
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
@@ -163,24 +183,34 @@ from aioesphomeapi.model import (
     UserServiceArgType,
     VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
+    VoiceAssistantCapabilities,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType as VoiceAssistantEventModelType,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
+    VoiceAssistantFeature,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
     WaterHeaterCommandField,
     WaterHeaterMode,
     WaterHeaterStateFlag,
+    ZWaveProxyCapabilities,
     ZWaveProxyRequest,
+    ZWaveProxyRequestResponse,
     ZWaveProxyRequestType,
+    ZWaveProxyStatus,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
 from .common import (
     Estr,
+    _create_mock_transport_protocol,
+    async_fire_time_changed,
+    connect_client,
     generate_plaintext_packet,
     generate_split_plaintext_packet,
     get_mock_zeroconf,
     mock_data_received,
+    send_plaintext_hello,
+    utcnow,
 )
 from .conftest import PatchableAPIClient, PatchableAPIConnection
 
@@ -1727,6 +1757,47 @@ async def test_addresses_parameter_handles_subclassed_string() -> None:
     assert cli._params.addresses[2] == "10.0.0.1"
 
 
+async def test_add_addresses() -> None:
+    """Test appending addresses after construction."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    assert cli._params.addresses == ["192.168.1.100"]
+
+    assert cli.add_addresses(["192.168.1.101", "192.168.1.100"]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101"]
+    assert cli.log_name == "192.168.1.100"
+
+    # Subclassed strings are converted, duplicates ignored
+    assert cli.add_addresses([Estr("192.168.1.101"), Estr("10.0.0.1")]) is True
+    assert cli._params.addresses == ["192.168.1.100", "192.168.1.101", "10.0.0.1"]
+    assert all(type(addr) is str for addr in cli._params.addresses)
+
+
+async def test_add_addresses_fires_callbacks() -> None:
+    """Test the addresses-changed callbacks fire only on real additions."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+
+    assert cli.add_addresses(["192.168.1.100"]) is False
+    callback.assert_not_called()
+
+    assert cli.add_addresses(["192.168.1.101"]) is True
+    callback.assert_called_once_with()
+
+    unsub()
+    assert cli.add_addresses(["10.0.0.1"]) is True
+    callback.assert_called_once_with()
+
+
 async def test_client_properties(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1757,6 +1828,29 @@ async def test_bluetooth_disconnect(
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     await disconnect_task
+
+
+async def test_bluetooth_disconnect_no_wait(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test bluetooth_device_disconnect_no_wait sends without waiting."""
+    client, connection, _transport, _protocol = api_client
+    with patch.object(connection, "send_message") as send:
+        client.bluetooth_device_disconnect_no_wait(1234)
+    send.assert_called_once_with(
+        BluetoothDeviceRequest(
+            address=1234, request_type=BluetoothDeviceRequestType.DISCONNECT
+        )
+    )
+
+
+async def test_bluetooth_disconnect_no_wait_requires_connection() -> None:
+    """Test bluetooth_device_disconnect_no_wait raises when not connected."""
+    client = APIClient(address="1.2.3.4", port=6052, password=None)
+    with pytest.raises(APIConnectionError):
+        client.bluetooth_device_disconnect_no_wait(1234)
 
 
 async def test_bluetooth_pair(
@@ -2012,6 +2106,155 @@ async def test_device_info(
     await disconnect_task
     with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_info()
+
+
+async def test_device_capabilities(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test the raw device_capabilities RPC decodes every field."""
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.device_capabilities())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        bluetooth_proxy=BluetoothProxyCapabilitiesPb(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilitiesPb(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=7, home_id=1234),
+        serial_proxies=[
+            SerialProxyInfoPb(name="RS485 Port", port_type=SerialProxyPortType.RS485),
+            SerialProxyInfoPb(name="RS232 Port", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.bluetooth_proxy.feature_flags == 3
+    assert caps.bluetooth_proxy.mac_address == "AA:BB:CC:DD:EE:FF"
+    assert caps.voice_assistant.feature_flags == 5
+    assert caps.zwave_proxy.feature_flags == 7
+    assert caps.zwave_proxy.home_id == 1234
+    assert len(caps.serial_proxies) == 2
+    assert caps.serial_proxies[0].name == "RS485 Port"
+    assert caps.serial_proxies[0].port_type == SerialProxyPortType.RS485
+    assert caps.serial_proxies[1].name == "RS232 Port"
+    assert caps.serial_proxies[1].port_type == SerialProxyPortType.RS232
+
+
+async def test_device_capabilities_compat_rpc_path(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """At API >= 1.15, compat takes the RPC path and ignores the passed DeviceInfo."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 15)
+    stale_device_info = DeviceInfo(
+        bluetooth_proxy_feature_flags=999,
+        bluetooth_mac_address="00:00:00:00:00:00",
+        voice_assistant_feature_flags=999,
+        zwave_proxy_feature_flags=999,
+        zwave_home_id=999,
+    )
+    task = asyncio.create_task(client.device_capabilities_compat(stale_device_info))
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        bluetooth_proxy=BluetoothProxyCapabilitiesPb(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilitiesPb(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=7, home_id=1234),
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.bluetooth_proxy.feature_flags == 3
+    assert caps.bluetooth_proxy.mac_address == "AA:BB:CC:DD:EE:FF"
+    assert caps.voice_assistant.feature_flags == 5
+    assert caps.zwave_proxy.feature_flags == 7
+    assert caps.zwave_proxy.home_id == 1234
+
+
+async def test_device_capabilities_compat_legacy_path(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Below API 1.15, compat synthesises capabilities from DeviceInfo with no RPC."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 14)
+    device_info = DeviceInfo(
+        bluetooth_proxy_feature_flags=3,
+        bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
+        voice_assistant_feature_flags=5,
+        zwave_proxy_feature_flags=7,
+        zwave_home_id=1234,
+        serial_proxies=[
+            SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL),
+            SerialProxyInfo(name="COM1", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+    caps = await client.device_capabilities_compat(device_info)
+    assert caps == DeviceCapabilities(
+        bluetooth_proxy=BluetoothProxyCapabilities(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilities(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilities(feature_flags=7, home_id=1234),
+        serial_proxies=[
+            SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL),
+            SerialProxyInfo(name="COM1", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+
+
+async def test_device_capabilities_compat_pre_1_9_legacy_translation(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Below API 1.9, feature flags are translated from the legacy version counters."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 8)
+    device_info = DeviceInfo(
+        legacy_bluetooth_proxy_version=5,
+        legacy_voice_assistant_version=2,
+    )
+    caps = await client.device_capabilities_compat(device_info)
+    assert caps.bluetooth_proxy.feature_flags == (
+        BluetoothProxyFeature.PASSIVE_SCAN
+        | BluetoothProxyFeature.ACTIVE_CONNECTIONS
+        | BluetoothProxyFeature.REMOTE_CACHING
+        | BluetoothProxyFeature.PAIRING
+        | BluetoothProxyFeature.CACHE_CLEARING
+    )
+    assert caps.voice_assistant.feature_flags == (
+        VoiceAssistantFeature.VOICE_ASSISTANT | VoiceAssistantFeature.SPEAKER
+    )
+
+
+async def test_device_capabilities_compat_empty_device_info(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A bare DeviceInfo synthesises a default-constructed DeviceCapabilities."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 14)
+    caps = await client.device_capabilities_compat(DeviceInfo())
+    assert caps == DeviceCapabilities()
+
+
+async def test_device_capabilities_compat_no_api_version() -> None:
+    """With no connection, compat raises rather than guessing a device version."""
+    client = APIClient(address="mydevice.local", port=6052, password=None)
+    assert client.api_version is None
+    device_info = DeviceInfo(
+        bluetooth_proxy_feature_flags=3,
+        bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
+    )
+    with pytest.raises(APIConnectionError, match="Not connected"):
+        await client.device_capabilities_compat(device_info)
 
 
 async def test_device_info_sanitizes_name(
@@ -3021,12 +3264,12 @@ async def test_subscribe_zwave_proxy_request(
 
     client.subscribe_zwave_proxy_request(on_zwave_proxy_request)
     await asyncio.sleep(0)
-    response: message.Message = ZWaveProxyRequestPb(type=0, data=b"\x00\x01\x02\x03")
+    response: message.Message = ZWaveProxyRequestPb(type=2, data=b"\x00\x01\x02\x03")
     mock_data_received(protocol, generate_plaintext_packet(response))
 
     assert len(test_msg) == 1
     first_msg = test_msg[0]
-    assert first_msg.type == ZWaveProxyRequestType.HOME_ID_CHANGE
+    assert first_msg.type == 2
     assert first_msg.data == b"\x00\x01\x02\x03"
 
 
@@ -3386,7 +3629,7 @@ async def test_serial_proxy_set_modem_pins(
 
 @pytest.mark.parametrize(
     "mode",
-    [SerialProxyMode.RAW, SerialProxyMode.EZSP_ASH, SerialProxyMode.ZWAVE],
+    [SerialProxyMode.RAW, SerialProxyMode.PROTOCOL],
 )
 async def test_serial_proxy_set_mode(
     api_client: tuple[
@@ -3438,6 +3681,30 @@ async def test_serial_proxy_get_modem_pins(
     assert isinstance(result, SerialProxyModemPins)
     assert result.instance == 0
     assert result.line_states == 1
+    assert result.status == SerialProxyStatus.OK
+
+
+async def test_serial_proxy_get_modem_pins_invalid_instance(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test an out-of-range instance surfaces INVALID_ARGUMENT in the status."""
+    client, connection, _transport, _protocol = api_client
+
+    response_pb = SerialProxyGetModemPinsResponsePb(
+        instance=9, status=SerialProxyStatus.INVALID_ARGUMENT
+    )
+
+    async def mock_send_complex(messages, app, stop, msg_types, timeout=10.0):
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_get_modem_pins(instance=9)
+
+    assert result.status == SerialProxyStatus.INVALID_ARGUMENT
+    assert result.line_states == 0
 
 
 async def test_serial_proxy_get_modem_pins_matches_instance(
@@ -3605,6 +3872,7 @@ async def test_serial_proxy_request_await_response(
 ) -> None:
     """Test awaitable serial_proxy subscribe/unsubscribe returns matching response."""
     client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
 
     response_pb = SerialProxyRequestResponsePb(
         instance=instance,
@@ -3647,6 +3915,348 @@ async def test_serial_proxy_request_await_response(
     assert result.instance == instance
     assert result.type == request_type
     assert result.status == SerialProxyStatus.OK
+
+
+async def test_serial_proxy_subscribe_await_response_denied(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test a denied subscribe surfaces PORT_IN_USE in the response."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=0,
+        type=SerialProxyRequestType.SUBSCRIBE,
+        status=SerialProxyStatus.PORT_IN_USE,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_subscribe_await_response(0)
+
+    assert result is not None
+    assert result.status == SerialProxyStatus.PORT_IN_USE
+
+
+@pytest.mark.parametrize(
+    ("method", "request_type"),
+    [
+        (
+            APIClient.serial_proxy_subscribe_await_response,
+            SerialProxyRequestType.SUBSCRIBE,
+        ),
+        (
+            APIClient.serial_proxy_unsubscribe_await_response,
+            SerialProxyRequestType.UNSUBSCRIBE,
+        ),
+    ],
+)
+async def test_serial_proxy_request_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    method: Callable[..., Coroutine[Any, Any, SerialProxyRequestResponse | None]],
+    request_type: SerialProxyRequestType,
+) -> None:
+    """Test devices below API 1.16 get the request fire-and-forget and None back."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await method(client, instance=1)
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].instance == 1
+    assert sent_messages[0].type == request_type
+
+
+async def test_serial_proxy_configure_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_configure_await_response matches the CONFIGURE ack."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=2,
+        type=SerialProxyRequestType.CONFIGURE,
+        status=SerialProxyStatus.OK,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxyConfigureRequestPb)
+        assert messages[0].instance == 2
+        assert messages[0].baudrate == 115200
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        mismatched_type = SerialProxyRequestResponsePb(
+            instance=2,
+            type=SerialProxyRequestType.SUBSCRIBE,
+            status=SerialProxyStatus.OK,
+        )
+        assert do_append(mismatched_type) is False
+        assert stop(mismatched_type) is False
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_configure_await_response(2, 115200)
+
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.instance == 2
+    assert result.type == SerialProxyRequestType.CONFIGURE
+    assert result.status == SerialProxyStatus.OK
+
+
+async def test_serial_proxy_configure_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test configure on devices below API 1.16 sends fire-and-forget."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxyConfigureRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxyConfigureRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await client.serial_proxy_configure_await_response(1, 9600)
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].baudrate == 9600
+
+
+async def test_serial_proxy_configure_await_response_invalid_args(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test configure_await_response validates parameters before sending."""
+    client, _connection, _transport, _protocol = api_client
+    with pytest.raises(ValueError, match="stop_bits"):
+        await client.serial_proxy_configure_await_response(0, 9600, stop_bits=3)
+    with pytest.raises(ValueError, match="data_size"):
+        await client.serial_proxy_configure_await_response(0, 9600, data_size=9)
+
+
+async def test_serial_proxy_set_modem_pins_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test set_modem_pins_await_response matches the SET_MODEM_PINS ack."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=1,
+        type=SerialProxyRequestType.SET_MODEM_PINS,
+        status=SerialProxyStatus.NOT_SUPPORTED,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxySetModemPinsRequestPb)
+        assert messages[0].instance == 1
+        assert messages[0].line_states == 3
+        assert do_append(response_pb) is True
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_set_modem_pins_await_response(1, line_states=3)
+
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.type == SerialProxyRequestType.SET_MODEM_PINS
+    assert result.status == SerialProxyStatus.NOT_SUPPORTED
+
+
+async def test_serial_proxy_set_modem_pins_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test set_modem_pins on devices below API 1.16 sends fire-and-forget."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxySetModemPinsRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxySetModemPinsRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await client.serial_proxy_set_modem_pins_await_response(0, line_states=1)
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].line_states == 1
+
+
+@pytest.mark.parametrize(
+    ("method", "request_type"),
+    [
+        (APIClient.zwave_proxy_subscribe, ZWaveProxyRequestType.SUBSCRIBE),
+        (APIClient.zwave_proxy_unsubscribe, ZWaveProxyRequestType.UNSUBSCRIBE),
+    ],
+)
+async def test_zwave_proxy_request_send(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    method: Callable[..., None],
+    request_type: ZWaveProxyRequestType,
+) -> None:
+    """Test zwave_proxy subscribe/unsubscribe sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[ZWaveProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, ZWaveProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    method(client)
+
+    assert len(sent_messages) == 1
+    assert sent_messages[0].type == request_type
+
+
+@pytest.mark.parametrize(
+    ("method", "request_type"),
+    [
+        (
+            APIClient.zwave_proxy_subscribe_await_response,
+            ZWaveProxyRequestType.SUBSCRIBE,
+        ),
+        (
+            APIClient.zwave_proxy_unsubscribe_await_response,
+            ZWaveProxyRequestType.UNSUBSCRIBE,
+        ),
+    ],
+)
+async def test_zwave_proxy_request_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    method: Callable[..., Coroutine[Any, Any, ZWaveProxyRequestResponse | None]],
+    request_type: ZWaveProxyRequestType,
+) -> None:
+    """Test awaitable zwave_proxy subscribe/unsubscribe returns matching response."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = ZWaveProxyRequestResponsePb(
+        type=request_type,
+        status=ZWaveProxyStatus.OK,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], ZWaveProxyRequestPb)
+        assert messages[0].type == request_type
+        assert do_append(response_pb) is True
+        assert stop(response_pb) is True
+        mismatched_type = ZWaveProxyRequestResponsePb(
+            type=(
+                ZWaveProxyRequestType.UNSUBSCRIBE
+                if request_type == ZWaveProxyRequestType.SUBSCRIBE
+                else ZWaveProxyRequestType.SUBSCRIBE
+            ),
+            status=ZWaveProxyStatus.OK,
+        )
+        assert do_append(mismatched_type) is False
+        assert stop(mismatched_type) is False
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await method(client)
+
+    assert isinstance(result, ZWaveProxyRequestResponse)
+    assert result.type == request_type
+    assert result.status == ZWaveProxyStatus.OK
+
+
+async def test_zwave_proxy_subscribe_await_response_denied(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test a denied Z-Wave subscribe surfaces IN_USE in the response."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 16))
+
+    response_pb = ZWaveProxyRequestResponsePb(
+        type=ZWaveProxyRequestType.SUBSCRIBE,
+        status=ZWaveProxyStatus.IN_USE,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.zwave_proxy_subscribe_await_response()
+
+    assert result is not None
+    assert result.status == ZWaveProxyStatus.IN_USE
+
+
+async def test_zwave_proxy_request_await_response_old_device(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test devices below API 1.16 get the request fire-and-forget and None back."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[ZWaveProxyRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, ZWaveProxyRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    result = await client.zwave_proxy_subscribe_await_response()
+
+    assert result is None
+    assert len(sent_messages) == 1
+    assert sent_messages[0].type == ZWaveProxyRequestType.SUBSCRIBE
 
 
 async def test_execute_service_with_response(
@@ -5425,3 +6035,292 @@ async def test_device_id_in_commands(
     # Verify key and device_id match
     assert actual_request.key == expected_request.key
     assert actual_request.device_id == expected_request.device_id
+
+
+async def test_add_addresses_rejects_bare_string() -> None:
+    """A bare string must not be iterated into single characters."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    with pytest.raises(TypeError, match="not a string"):
+        cli.add_addresses("10.0.0.1")  # type: ignore[arg-type]
+    assert cli._params.addresses == ["192.168.1.100"]
+
+
+async def test_add_addresses_unsubscribe_is_idempotent() -> None:
+    """Calling the returned unsubscribe callable twice is a no-op."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    callback = MagicMock()
+    unsub = cli.register_addresses_changed_callback(callback)
+    unsub()
+    unsub()
+    assert cli._addresses_changed_callbacks == []
+
+
+async def test_add_addresses_rejects_invalid_discovered_strings(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Garbage from out-of-band discovery is skipped, not rewritten and dialed."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    assert (
+        cli.add_addresses(
+            [
+                "10.0.0.1\n2026-08-12 ERROR forged line",  # log injection
+                "",  # empty
+                "   ",  # whitespace only
+                "a" * 300,  # over the maximum legal FQDN length
+                "10.0.0.5 extra",  # interior whitespace
+                None,  # JSON null from a broken broker payload
+                49,  # non-string element
+            ]
+        )
+        is False
+    )
+    assert cli._params.addresses == ["192.168.1.100"]
+    assert "\n" not in cli.log_name
+    assert caplog.text.count("Ignoring invalid discovered address") == 7
+
+    # A valid address mixed in with garbage still lands, and padding is
+    # normalized so it dedups against the canonical form
+    assert cli.add_addresses(["\x1b[31mforged\x1b[0m", "  10.0.0.2  "]) is True
+    assert cli._params.addresses == ["192.168.1.100", "10.0.0.2"]
+    assert cli.add_addresses(["10.0.0.2"]) is False
+
+
+async def test_add_addresses_raising_callback_does_not_starve_others() -> None:
+    """One buggy subscriber cannot skip later callbacks or the return value."""
+    cli = APIClient(
+        address="192.168.1.100",
+        port=6052,
+        password=None,
+    )
+    first = MagicMock(side_effect=RuntimeError("consumer bug"))
+    second = MagicMock()
+    cli.register_addresses_changed_callback(first)
+    cli.register_addresses_changed_callback(second)
+
+    assert cli.add_addresses(["10.0.0.2"]) is True
+    first.assert_called_once_with()
+    second.assert_called_once_with()
+
+
+async def test_connection_closed_callbacks(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """Every registered callback is called when an established connection closes."""
+    client, connection, _transport, _protocol = api_client
+    first: list[ConnectionClosedEvent] = []
+    second: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(first.append)
+    client.add_connection_closed_callback(second.append)
+    assert client.is_connected is True
+
+    connection.force_disconnect()
+
+    assert first == [
+        ConnectionClosedEvent(
+            expected_disconnect=True,
+            reason=DisconnectReason.UNSPECIFIED,
+            error=None,
+        )
+    ]
+    assert second == first
+    assert client.is_connected is False
+
+
+async def test_connection_closed_callback_unsubscribe(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """The returned callable removes the subscription."""
+    client, connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    unsub = client.add_connection_closed_callback(events.append)
+    unsub()
+    unsub()
+
+    connection.force_disconnect()
+
+    assert events == []
+
+
+async def test_connection_closed_callback_unsubscribes_itself(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A callback unsubscribing during dispatch does not skip the others."""
+    client, connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    others: list[ConnectionClosedEvent] = []
+
+    def unsubscribing_callback(event: ConnectionClosedEvent) -> None:
+        unsub()
+        events.append(event)
+
+    unsub = client.add_connection_closed_callback(unsubscribing_callback)
+    client.add_connection_closed_callback(others.append)
+
+    connection.force_disconnect()
+
+    assert len(events) == 1
+    assert len(others) == 1
+    assert client._connection_closed_callbacks == [others.append]
+
+
+async def test_connection_closed_callback_raising_is_isolated(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A raising callback is logged and the remaining callbacks still run."""
+    client, connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+
+    def raising_callback(event: ConnectionClosedEvent) -> None:
+        msg = "callback boom"
+        raise ValueError(msg)
+
+    client.add_connection_closed_callback(raising_callback)
+    client.add_connection_closed_callback(events.append)
+
+    connection.force_disconnect()
+
+    assert len(events) == 1
+    assert "Unexpected error in connection closed callback" in caplog.text
+    assert "callback boom" in caplog.text
+
+
+async def test_connection_closed_callback_reports_device_reason(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A device-requested disconnect reports its reason."""
+    client, _connection, _transport, protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            DisconnectRequest(
+                reason=DisconnectReasonPb.DISCONNECT_REASON_PROVISIONING_CLOSED
+            )
+        ),
+    )
+    await asyncio.sleep(0)
+
+    assert events == [
+        ConnectionClosedEvent(
+            expected_disconnect=True,
+            reason=DisconnectReason.PROVISIONING_CLOSED,
+            error=None,
+        )
+    ]
+
+
+async def test_connection_closed_callback_unknown_device_reason(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A reason from a newer device this client does not know maps to None."""
+    client, _connection, _transport, protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    unknown_reason = 9999
+    assert unknown_reason not in DisconnectReasonPb.values()
+    mock_data_received(
+        protocol, generate_plaintext_packet(DisconnectRequest(reason=unknown_reason))
+    )
+    await asyncio.sleep(0)
+
+    assert len(events) == 1
+    assert events[0].reason is None
+
+
+async def test_connection_closed_callback_ping_timeout(
+    api_client: tuple[APIClient, APIConnection, asyncio.Transport, Any],
+) -> None:
+    """A device that stops answering pings is reported as an unexpected close."""
+    client, _connection, _transport, _protocol = api_client
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    start_time = utcnow()
+    for count in range(1, 8):
+        async_fire_time_changed(
+            start_time + timedelta(seconds=KEEP_ALIVE_FREQUENCY * count)
+        )
+        if not client.is_connected:
+            break
+
+    assert client.is_connected is False
+    assert len(events) == 1
+    event = events[0]
+    assert event.expected_disconnect is False
+    assert event.reason is DisconnectReason.UNSPECIFIED
+    assert isinstance(event.error, PingFailedAPIError)
+
+
+async def test_connection_closed_callback_survives_reconnect(
+    resolve_host: Any,
+    aiohappyeyeballs_start_connection: Any,
+) -> None:
+    """A callback registered once is called for every connection that closes."""
+    loop = asyncio.get_running_loop()
+    client = APIClient(address="mydevice.local", port=6052, password=None)
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    for _ in range(2):
+        transport = MagicMock()
+        connected = asyncio.Event()
+        with (
+            patch.object(
+                loop,
+                "create_connection",
+                side_effect=partial(
+                    _create_mock_transport_protocol, transport, connected
+                ),
+            ),
+            patch("aioesphomeapi.client.APIConnection", PatchableAPIConnection),
+        ):
+            connect_task = asyncio.create_task(connect_client(client, login=False))
+            await connected.wait()
+            connection = client._connection
+            send_plaintext_hello(connection._frame_helper)
+            await connect_task
+        connection.force_disconnect()
+
+    assert len(events) == 2
+
+
+async def test_connection_closed_callback_not_called_for_failed_connect(
+    resolve_host: Any,
+    aiohappyeyeballs_start_connection: Any,
+) -> None:
+    """A connect attempt that never reached the connected state is not reported."""
+    loop = asyncio.get_running_loop()
+    client = APIClient(address="mydevice.local", port=6052, password=None)
+    events: list[ConnectionClosedEvent] = []
+    client.add_connection_closed_callback(events.append)
+
+    transport = MagicMock()
+    connected = asyncio.Event()
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        connect_task = asyncio.create_task(connect_client(client, login=False))
+        await connected.wait()
+        client._connection.force_disconnect()
+        with pytest.raises(APIConnectionError):
+            await connect_task
+
+    assert events == []

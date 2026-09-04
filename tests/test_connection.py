@@ -1386,32 +1386,6 @@ async def test_zero_protobuf_message_type_rejected(
     await asyncio.sleep(0)
 
 
-@pytest.mark.parametrize("retired_message_type", [128, 149])
-async def test_retired_protobuf_message_type_skipped(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-    caplog: pytest.LogCaptureFixture,
-    retired_message_type: int,
-) -> None:
-    """Test a retired message id is skipped without shifting the ids after it."""
-    client, connection, _transport, protocol = api_client
-    caplog.set_level(logging.DEBUG)
-    client.set_debug(True)
-    message_with_retired_protobuf_number = (
-        b"\0"
-        + _cached_varuint_to_bytes(0)
-        + _cached_varuint_to_bytes(retired_message_type)
-    )
-
-    mock_data_received(protocol, message_with_retired_protobuf_number)
-
-    assert f"Skipping unknown message type {retired_message_type}" in caplog.text
-    assert connection.is_connected
-    connection.force_disconnect()
-    await asyncio.sleep(0)
-
-
 async def test_bad_protobuf_message_drops_connection(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper

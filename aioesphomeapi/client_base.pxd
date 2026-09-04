@@ -24,10 +24,12 @@ cdef str _stringify_or_none(object value)
 
 cdef class APIClientBase:
 
+    cdef public list _addresses_changed_callbacks
     cdef public set _background_tasks
     cdef public object _cached_device_info
     cdef public object _call_id_counter
     cdef public APIConnection _connection
+    cdef public list _connection_closed_callbacks
     cdef public bint _debug_enabled
     cdef public object _loop
     cdef public dict _notify_callbacks

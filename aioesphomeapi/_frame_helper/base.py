@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from ..connection import APIConnection
+    from .packets import Packet
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class APIFrameHelper:
         self._connection = connection
         self._transport: asyncio.Transport | None = None
         self._writelines: (
-            None | (Callable[[Iterable[bytes | bytearray | memoryview[int]]], None])
+            Callable[[Iterable[bytes | bytearray | memoryview[int]]], None] | None
         ) = None
         self.ready_future = self._loop.create_future()
         self._buffer: bytes | None = None
@@ -144,9 +145,7 @@ class APIFrameHelper:
         return cstr[original_pos:new_pos]
 
     @abstractmethod
-    def write_packets(
-        self, packets: list[tuple[int, bytes]], debug_enabled: bool
-    ) -> None:
+    def write_packets(self, packets: list[Packet], debug_enabled: bool) -> None:
         """Write a packets to the socket.
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]

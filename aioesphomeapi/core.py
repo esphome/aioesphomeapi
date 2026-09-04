@@ -49,6 +49,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DateStateResponse,
     DateTimeCommandRequest,
     DateTimeStateResponse,
+    DeviceCapabilitiesRequest,
+    DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
     DisconnectRequest,
@@ -156,7 +158,9 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     WaterHeaterCommandRequest,
     WaterHeaterStateResponse,
     ZigbeeProxyRequest,
+    ZWaveProxyFrame,
     ZWaveProxyRequest,
+    ZWaveProxyRequestResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -533,7 +537,7 @@ MESSAGE_TYPE_TO_PROTO = {
     125: NoiseEncryptionSetKeyResponse,
     126: BluetoothScannerStateResponse,
     127: BluetoothScannerSetModeRequest,
-    # 128 is retired (was ZWaveProxyFrame); ids are never reused
+    128: ZWaveProxyFrame,
     129: ZWaveProxyRequest,
     130: HomeassistantActionResponse,
     131: ExecuteServiceResponse,
@@ -554,13 +558,11 @@ MESSAGE_TYPE_TO_PROTO = {
     146: BluetoothSetConnectionParamsResponse,
     147: SerialProxyRequestResponse,
     148: ListEntitiesRadioFrequencyResponse,
-    # 149 is retired (was ZigbeeProxyFrame); ids are never reused
-    150: ZigbeeProxyRequest,
-    151: SerialProxySetModeRequest,
+    149: DeviceCapabilitiesRequest,
+    150: DeviceCapabilitiesResponse,
+    151: ZWaveProxyRequestResponse,
+    152: SerialProxySetModeRequest,
+    153: ZigbeeProxyRequest,
 }
 
-# Indexed by message type - 1; retired ids hold None so the rest stay aligned.
-MESSAGE_NUMBER_TO_PROTO = tuple(
-    MESSAGE_TYPE_TO_PROTO.get(number)
-    for number in range(1, max(MESSAGE_TYPE_TO_PROTO) + 1)
-)
+MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

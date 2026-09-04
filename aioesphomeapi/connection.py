@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import CancelledError
-from dataclasses import astuple, dataclass
+from dataclasses import astuple
 import enum
 from functools import lru_cache, partial
 import logging
@@ -39,7 +39,6 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     PingResponse,
 )
 from .core import (
-    MESSAGE_NUMBER_TO_PROTO as MESSAGE_NUMBER_TO_CLASS,
     MESSAGE_TYPE_TO_PROTO,
     APIConnectionCancelledError,
     APIConnectionError,
@@ -58,7 +57,7 @@ from .core import (
 from .model import APIVersion, message_types_to_names
 from .posix_tz import DSTRule as DSTRuleParsed, DSTRuleType, parse_posix_tz
 from .timezone import get_timezone
-from .util import asyncio_timeout
+from .util import asyncio_timeout, create_eager_task
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -113,15 +112,9 @@ async def _async_load_noise_frame_helper(
         return await loop.run_in_executor(None, _import_noise_frame_helper)
 
 
-# Indexed by message type - 1; retired ids hold None so the rest stay aligned.
 MESSAGE_NUMBER_TO_PROTO: tuple[
-    tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]]
-    | None,
-    ...,
-] = tuple(
-    None if klass is None else (klass, klass.MergeFromString)
-    for klass in MESSAGE_NUMBER_TO_CLASS
-)
+    tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
+] = tuple((msg, msg.MergeFromString) for msg in MESSAGE_TYPE_TO_PROTO.values())
 _MESSAGE_NUMBER_TO_PROTO_LEN = len(MESSAGE_NUMBER_TO_PROTO)
 
 
@@ -190,7 +183,8 @@ class ConnectionInterruptedError(Exception):
     """An error that is raised when a connection is interrupted."""
 
 
-@dataclass
+# Not a dataclass: Cython 3.3 rejects an annotated field with a default on a
+# cdef class declared in a .pxd, and the defaults here are public API.
 class ConnectionParams:
     addresses: list[str]
     port: int
@@ -201,8 +195,34 @@ class ConnectionParams:
     noise_psk: str | None
     expected_name: str | None
     expected_mac: str | None
-    timezone: str | None = None
-    provide_time: bool = True
+    timezone: str | None
+    provide_time: bool
+
+    def __init__(
+        self,
+        addresses: list[str],
+        port: int,
+        password: str | None,
+        client_info: str,
+        keepalive: float,
+        zeroconf_manager: ZeroconfManager,
+        noise_psk: str | None,
+        expected_name: str | None,
+        expected_mac: str | None,
+        timezone: str | None = None,
+        provide_time: bool = True,
+    ) -> None:
+        self.addresses = addresses
+        self.port = port
+        self.password = password
+        self.client_info = client_info
+        self.keepalive = keepalive
+        self.zeroconf_manager = zeroconf_manager
+        self.noise_psk = noise_psk
+        self.expected_name = expected_name
+        self.expected_mac = expected_mac
+        self.timezone = timezone
+        self.provide_time = provide_time
 
 
 class ConnectionState(enum.Enum):
@@ -230,7 +250,7 @@ CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 def _make_hello_request(client_info: str) -> HelloRequest:
     """Make a HelloRequest."""
     return HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=14
+        client_info=client_info, api_version_major=1, api_version_minor=16
     )
 
 
@@ -335,6 +355,7 @@ class APIConnection:
         "_send_pending_ping",
         "_socket",
         "_start_connect_future",
+        "_timezone_task",
         "api_version",
         "connected_address",
         "connection_state",
@@ -356,7 +377,7 @@ class APIConnection:
         self._params = params
         self.on_stop = on_stop
         self._socket: socket.socket | None = None
-        self._frame_helper: None | APINoiseFrameHelper | APIPlaintextFrameHelper = None
+        self._frame_helper: APINoiseFrameHelper | APIPlaintextFrameHelper | None = None
         self.api_version: APIVersion | None = None
 
         self.connection_state = CONNECTION_STATE_INITIALIZED
@@ -391,9 +412,15 @@ class APIConnection:
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self._cached_timezone: str = ""
+        self._timezone_task: asyncio.Task[str] | None = None
         self.connected_address: str | None = None
         self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
+
+    @property
+    def fatal_exception(self) -> Exception | None:
+        """The exception that ended this connection, if it ended in an error."""
+        return self._fatal_exception
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -846,11 +873,15 @@ class APIConnection:
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
-        # Cache timezone before registering handlers to ensure it's available
-        # when GetTimeRequest is received
-        # Use provided timezone from params (converted from IANA to POSIX if needed),
-        # or fall back to local timezone detection
-        self._cached_timezone = await get_timezone(self._params.timezone)
+        # Only needed to answer GetTimeRequest; runs as its own task so it
+        # never delays the handshake.
+        if self._params.provide_time:
+            timezone_task = create_eager_task(get_timezone(self._params.timezone))
+            if timezone_task.done():
+                self._set_cached_timezone(timezone_task)
+            else:
+                self._timezone_task = timezone_task
+                timezone_task.add_done_callback(self._set_cached_timezone)
         # Register internal handlers before
         # connecting the helper so we can ensure
         # we handle any messages that are received immediately
@@ -1107,12 +1138,7 @@ class APIConnection:
         # would otherwise wrap (0 -> -1) into the last registered class
         # or raise an IndexError on every out-of-range value, both of
         # which are avoidable on a hot path.
-        # MESSAGE_NUMBER_TO_PROTO is 0-indexed but the message type is 1-indexed
-        if (
-            msg_type_proto < 1
-            or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN
-            or (proto := MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]) is None
-        ):
+        if msg_type_proto < 1 or msg_type_proto > _MESSAGE_NUMBER_TO_PROTO_LEN:
             if self._debug_enabled:
                 _LOGGER.debug(
                     "%s: Skipping unknown message type %s",
@@ -1120,7 +1146,8 @@ class APIConnection:
                     msg_type_proto,
                 )
             return
-        klass, merge = proto
+        # MESSAGE_NUMBER_TO_PROTO is 0-indexed but the message type is 1-indexed
+        klass, merge = MESSAGE_NUMBER_TO_PROTO[msg_type_proto - 1]
         msg = klass()
         try:
             merge(msg, data)
@@ -1265,6 +1292,27 @@ class APIConnection:
         self, _msg: GetTimeRequest
     ) -> None:
         """Handle a GetTimeRequest."""
+        if (timezone_task := self._timezone_task) is not None:
+            timezone_task.add_done_callback(self._send_get_time_response_when_ready)
+            return
+        self._send_get_time_response()
+
+    def _set_cached_timezone(self, task: asyncio.Task[str]) -> None:
+        self._timezone_task = None
+        if task.cancelled():
+            return
+        if (exc := task.exception()) is not None:
+            _LOGGER.warning("%s: Timezone resolution failed: %s", self.log_name, exc)
+            return
+        self._cached_timezone = task.result()
+
+    def _send_get_time_response_when_ready(self, _task: asyncio.Task[str]) -> None:
+        # _cleanup clears _handshake_complete, so this also drops the
+        # response when the connection closed while the timezone resolved.
+        if self._handshake_complete:
+            self._send_get_time_response()
+
+    def _send_get_time_response(self) -> None:
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
         resp.timezone = self._cached_timezone

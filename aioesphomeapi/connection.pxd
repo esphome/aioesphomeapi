@@ -78,7 +78,6 @@ cdef tuple MESSAGE_NUMBER_TO_PROTO
 cdef Py_ssize_t _MESSAGE_NUMBER_TO_PROTO_LEN
 
 
-@cython.dataclasses.dataclass
 cdef class ConnectionParams:
 
     cdef public list addresses
@@ -123,6 +122,7 @@ cdef class APIConnection:
     cdef public str connected_address
     cdef public object disconnect_reason
     cdef str _cached_timezone
+    cdef public object _timezone_task
     cdef list _addrs_info
     cdef bint _log_errors
 

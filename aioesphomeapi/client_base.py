@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import itertools
 import logging
 from typing import TYPE_CHECKING, Any
@@ -39,6 +40,7 @@ from .model import (
     BluetoothLEAdvertisement,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     CameraState,
+    ConnectionClosedEvent,
     DeviceInfo,
     EntityState,
     HomeassistantServiceCall,
@@ -49,14 +51,15 @@ from .model import (
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
 from .util import build_log_name, create_eager_task
-from .zeroconf import ZeroconfInstanceType, ZeroconfManager
+from .zeroconf import ZeroconfManager
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
+    from collections.abc import Callable, Coroutine, Iterable
 
     from google.protobuf import message
 
     from .connection import APIConnection
+    from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +72,9 @@ _LOGGER = logging.getLogger(__name__)
 # maximum time a device can take to respond when its behind + the WiFi
 # connection is poor.
 KEEP_ALIVE_FREQUENCY = 20.0
+
+# RFC 1035 maximum FQDN length; longer discovered addresses are rejected
+MAX_ADDRESS_LEN = 253
 
 # Caps on the per-subscription camera reassembly buffer. The peer fully
 # controls cam_msg.key and cam_msg.done, so without these limits a single
@@ -283,10 +289,12 @@ class APIClientBase:
     """Base client for ESPHome API clients."""
 
     __slots__ = (
+        "_addresses_changed_callbacks",
         "_background_tasks",
         "_cached_device_info",
         "_call_id_counter",
         "_connection",
+        "_connection_closed_callbacks",
         "_debug_enabled",
         "_loop",
         "_notify_callbacks",
@@ -356,9 +364,13 @@ class APIClientBase:
             provide_time=provide_time,
         )
         self._connection: APIConnection | None = None
+        self._connection_closed_callbacks: list[
+            Callable[[ConnectionClosedEvent], None]
+        ] = []
         self._cached_device_info: DeviceInfo | None = None
         self.cached_name: str | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
@@ -408,6 +420,69 @@ class APIClientBase:
         """
         self._params.noise_psk = None
 
+    def add_addresses(self, addresses: Iterable[str_]) -> bool:
+        """Append new addresses to try on future connection attempts.
+
+        Addresses already known are ignored; order is preserved. If any
+        address is new, the addresses-changed callbacks are fired so
+        consumers (e.g. ReconnectLogic) can act on them right away.
+
+        Addresses come from out-of-band discovery (e.g. an MQTT broker
+        lookup); anything empty, over-long, or non-printable (a log
+        injection risk via ``log_name``) is skipped with a warning.
+
+        Must be called from the event loop. Returns True if at least one
+        address was new.
+        """
+        if isinstance(addresses, str):
+            msg = "addresses must be an iterable of strings, not a string"
+            raise TypeError(msg)
+        params_addresses = self._params.addresses
+        added = False
+        for addr in addresses:
+            # str() only normalizes str subclasses (e.g. Estr); anything
+            # else (a JSON null, an int) is bad discovery data
+            addr_str = str(addr).strip() if isinstance(addr, str) else ""
+            if (
+                not addr_str
+                or " " in addr_str
+                or len(addr_str) > MAX_ADDRESS_LEN
+                or safe_label_str(addr_str, MAX_ADDRESS_LEN) != addr_str
+            ):
+                # repr-escaped and truncated: the garbage must not forge log lines
+                _LOGGER.warning(
+                    "Ignoring invalid discovered address: %s", repr(addr)[:100]
+                )
+                continue
+            if addr_str not in params_addresses:
+                params_addresses.append(addr_str)
+                added = True
+        if added:
+            self._set_log_name()
+            for callback in self._addresses_changed_callbacks.copy():
+                try:
+                    callback()
+                except Exception:
+                    # One buggy subscriber must not starve the rest
+                    _LOGGER.exception("Error in addresses-changed callback")
+        return added
+
+    def register_addresses_changed_callback(
+        self, callback: Callable[[], None]
+    ) -> Callable[[], None]:
+        """Register a callback fired when add_addresses adds a new address.
+
+        Must be called from the event loop. Returns a callable that
+        unregisters the callback; calling it more than once is a no-op.
+        """
+        self._addresses_changed_callbacks.append(callback)
+        return partial(self._remove_addresses_changed_callback, callback)
+
+    def _remove_addresses_changed_callback(self, callback: Callable[[], None]) -> None:
+        """Remove an addresses-changed callback, tolerating a double call."""
+        if callback in self._addresses_changed_callbacks:
+            self._addresses_changed_callbacks.remove(callback)
+
     @property
     def connected_address(self) -> str | None:
         """Return the address we are currently connected to, or None if not connected."""
@@ -420,6 +495,24 @@ class APIClientBase:
         if self._connection is None:
             return None
         return self._connection.api_version
+
+    @property
+    def is_connected(self) -> bool:
+        """Return if there is a fully established connection to the device."""
+        return self._connection is not None and self._connection.is_connected
+
+    def add_connection_closed_callback(
+        self, callback: Callable[[ConnectionClosedEvent], None]
+    ) -> Callable[[], None]:
+        """Register a callback for when an established connection closes.
+
+        The subscription survives reconnects; the returned callable removes it.
+        Connect attempts that never reached the connected state do not call it,
+        and a connection that closed before registering is not replayed — check
+        is_connected afterwards.
+        """
+        self._connection_closed_callbacks.append(callback)
+        return partial(self._remove_connection_closed_callback, callback)
 
     def _set_log_name(self) -> None:
         """Set the log name of the device."""
@@ -447,6 +540,27 @@ class APIClientBase:
         """Set the cached name of the device if not set."""
         if not self.cached_name:
             self._set_name_from_device(name)
+
+    def _remove_connection_closed_callback(
+        self, callback: Callable[[ConnectionClosedEvent], None]
+    ) -> None:
+        """Remove a connection-closed callback, tolerating a double call."""
+        if callback in self._connection_closed_callbacks:
+            self._connection_closed_callbacks.remove(callback)
+
+    def _fire_connection_closed_callbacks(self, event: ConnectionClosedEvent) -> None:
+        """Call every connection closed callback, isolating failures."""
+        # Iterate a copy: unsubscribing from inside the callback is expected.
+        for callback in self._connection_closed_callbacks.copy():
+            try:
+                callback(event)
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.warning(
+                    "%s: Unexpected error in connection closed callback %s",
+                    self.log_name,
+                    callback,
+                    exc_info=True,
+                )
 
     def _create_background_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a background task and add it to the background tasks set."""

@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from zeroconf import Zeroconf
-from zeroconf.asyncio import AsyncZeroconf
+if TYPE_CHECKING:
+    from zeroconf import Zeroconf
+    from zeroconf.asyncio import AsyncZeroconf
 
-ZeroconfInstanceType = Zeroconf | AsyncZeroconf
+    ZeroconfInstanceType = Zeroconf | AsyncZeroconf
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,9 @@ class ZeroconfManager:
 
     def set_instance(self, zc: AsyncZeroconf | Zeroconf) -> None:
         """Set the AsyncZeroconf instance."""
+        from zeroconf import Zeroconf  # noqa: PLC0415
+        from zeroconf.asyncio import AsyncZeroconf  # noqa: PLC0415
+
         if self._aiozc:
             if isinstance(zc, AsyncZeroconf) and self._aiozc.zeroconf is zc.zeroconf:
                 return
@@ -45,6 +49,8 @@ class ZeroconfManager:
 
     def _create_async_zeroconf(self) -> None:
         """Create an AsyncZeroconf instance."""
+        from zeroconf.asyncio import AsyncZeroconf  # noqa: PLC0415
+
         _LOGGER.debug("Creating new AsyncZeroconf instance")
         self._aiozc = AsyncZeroconf()
         self._created = True

@@ -4,20 +4,56 @@ from __future__ import annotations
 
 import asyncio
 from functools import cache, lru_cache
-from importlib import resources
 import logging
-
-import tzlocal
+import threading
+from typing import TYPE_CHECKING
 
 from .singleton import singleton
 
+if TYPE_CHECKING:
+    from importlib import resources
+
+    import tzlocal
+else:
+    resources = None
+    tzlocal = None
+
 _LOGGER = logging.getLogger(__name__)
+
+# Guards the lazy imports below; a module-level lock is per-interpreter,
+# matching the per-interpreter sys.modules the imports populate.
+_import_lock = threading.Lock()
+_resources_loaded = False
+_tzlocal_loaded = False
+
+
+def _load_resources() -> None:
+    """Import importlib.resources; blocking, so run off the event loop."""
+    global resources, _resources_loaded  # noqa: PLW0603
+    # Callers are behind lru_cache so this is cold; always taking the lock
+    # keeps the flag and module stores ordered on free-threaded builds.
+    with _import_lock:
+        if not _resources_loaded:
+            from importlib import resources  # noqa: PLC0415
+
+            _resources_loaded = True
+
+
+def _load_tzlocal() -> None:
+    """Import tzlocal; blocking, so run off the event loop."""
+    global tzlocal, _tzlocal_loaded  # noqa: PLW0603
+    with _import_lock:
+        if not _tzlocal_loaded:
+            import tzlocal  # noqa: PLC0415
+
+            _tzlocal_loaded = True
 
 
 def _load_tzdata(iana_key: str) -> bytes | None:
     """Load timezone data from tzdata package."""
     if not iana_key:
         return None
+    _load_resources()
     try:
         package_loc, resource = iana_key.rsplit("/", 1)
     except ValueError:
@@ -52,6 +88,7 @@ def _get_local_timezone() -> str:
     This function is cached since the timezone doesn't change during runtime.
     This matches the implementation in ESPHome's time component.
     """
+    _load_tzlocal()
     try:
         # Use tzlocal to get the IANA timezone key, same as ESPHome
         iana_key: str | None = tzlocal.get_localzone_name()

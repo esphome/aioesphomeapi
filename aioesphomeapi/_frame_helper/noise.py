@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import binascii
 import logging
 from typing import TYPE_CHECKING
 
@@ -20,12 +19,19 @@ from ..core import (
     ProtocolAPIError,
 )
 from .base import _LOGGER, APIFrameHelper
-from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
+from .noise_encryption import (
+    ESPHOME_NOISE_BACKEND,
+    NOISE_PROTOCOL_NAME,
+    DecryptCipher,
+    EncryptCipher,
+    decode_noise_psk,
+)
 
 if TYPE_CHECKING:
     import asyncio
 
     from ..connection import APIConnection
+    from .packets import Packet
 
 
 # This is effectively an enum but we don't want to use an enum
@@ -54,13 +60,13 @@ _MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
 
 
 def make_noise_packets(
-    packets: list[tuple[int, bytes]], encrypt_cipher: EncryptCipher
+    packets: list[Packet], encrypt_cipher: EncryptCipher
 ) -> list[bytes]:
     """Make a list of noise packet."""
     out: list[bytes] = []
     for packet in packets:
-        type_: int = packet[0]
-        data: bytes = packet[1]
+        type_ = packet[0]
+        data = packet[1]
         data_len = len(data)
         data_header = bytes(
             (
@@ -270,37 +276,25 @@ class APINoiseFrameHelper(APIFrameHelper):
 
     def _decode_noise_psk(self) -> bytes:
         """Decode the given noise psk from base64 format to raw bytes."""
-        psk = self._noise_psk
-        server_name = self._server_name
-        server_mac = self._server_mac
         try:
-            psk_bytes = binascii.a2b_base64(psk)
+            return decode_noise_psk(self._noise_psk)
         except ValueError as err:
-            msg = (
-                f"{self._log_name}: Malformed PSK (length={len(psk)}), "
-                "expected base64-encoded 32-byte value"
-            )
+            msg = f"{self._log_name}: {err}"
             raise InvalidEncryptionKeyAPIError(
                 msg,
-                server_name,
-                server_mac,
+                self._server_name,
+                self._server_mac,
             ) from err
-        if len(psk_bytes) != 32:
-            msg = (
-                f"{self._log_name}: Malformed PSK (length={len(psk)}), "
-                "expected base64-encoded 32-byte value"
-            )
-            raise InvalidEncryptionKeyAPIError(
-                msg,
-                server_name,
-                server_mac,
-            )
-        return psk_bytes
 
     def _setup_proto(self) -> None:
-        """Set up the noise protocol."""
+        """Set up the noise protocol.
+
+        Mirrors aioesphomeapi.noise.NoiseHandshake rather than delegating to
+        it: this module is cythonized and its hot path and .pxd stay
+        untouched. Keep the two in sync.
+        """
         proto = NoiseConnection.from_name(
-            b"Noise_NNpsk0_25519_ChaChaPoly_SHA256", backend=ESPHOME_NOISE_BACKEND
+            NOISE_PROTOCOL_NAME, backend=ESPHOME_NOISE_BACKEND
         )
         proto.set_as_initiator()
         proto.set_psks(self._decode_noise_psk())
@@ -367,9 +361,7 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._encrypt_cipher = EncryptCipher(noise_protocol.cipher_state_encrypt)  # pylint: disable=no-member
         self.ready_future.set_result(None)
 
-    def write_packets(
-        self, packets: list[tuple[int, bytes]], debug_enabled: bool
-    ) -> None:
+    def write_packets(self, packets: list[Packet], debug_enabled: bool) -> None:
         """Write a packets to the socket.
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]
