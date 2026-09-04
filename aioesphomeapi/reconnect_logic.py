@@ -793,6 +793,11 @@ class ReconnectLogic:
             # retry schedule since _cancel_connect above removed the pending
             # attempt. The wake gate may have been consumed; re-arm it so the
             # mDNS listener started by the backoff can kick a connect.
+            if self._connection_state is ReconnectLogicState.READY:
+                # A cancel inside the on-connect callback leaves a live
+                # client; drop it so the reschedule does not hit "already
+                # connected" forever
+                self._cli.force_disconnect()
             self._async_set_connection_state_without_lock(
                 ReconnectLogicState.DISCONNECTED
             )

@@ -241,9 +241,12 @@ class OutgoingConnectionServer:
         Synchronous: the port is free when this returns. Sessions already
         handed to a ReconnectLogic keep running.
         """
-        # Close directly; a task that never ran has no handler to close its socket
+        # Close directly; a task that never ran has no handler to close its
+        # socket. Unregister its reader first so the fd is clean before reuse.
+        loop = asyncio.get_running_loop()
         for task, conn in self._pending.items():
             task.cancel()
+            loop.remove_reader(conn.fileno())
             conn.close()
         self._pending.clear()
         if (retry_handle := self._bind_retry_handle) is not None:
@@ -320,6 +323,8 @@ class OutgoingConnectionServer:
                 )
                 self._pending.pop(oldest, None)
                 oldest.cancel()
+                # Unregister its reader before the fd is reused
+                loop.remove_reader(oldest_conn.fileno())
                 oldest_conn.close()  # the task body may never have started
             conn.setblocking(False)
             # Not eager: the task must be in _pending before it first runs
@@ -394,7 +399,8 @@ class OutgoingConnectionServer:
                 try:
                     await fut
                 finally:
-                    loop.remove_reader(fd)
+                    if conn.fileno() == fd:  # not closed out from under us
+                        loop.remove_reader(fd)
                 continue
             if not data:
                 msg = "connection closed before hello"

@@ -432,7 +432,9 @@ class APIClient(APIClientBase):
             raise
         try:
             connection.start_connection_from_socket(sock)
-        except Exception:
+        except BaseException:
+            # Match _execute_connection_coro: any failure, cancellation
+            # included, must not leave a half-open connection cached
             self._connection = None
             raise
         self._set_log_name()
@@ -465,6 +467,11 @@ class APIClient(APIClientBase):
             self._connection.force_disconnect()
         else:
             await self._connection.disconnect()
+
+    def force_disconnect(self) -> None:
+        """Drop the connection synchronously; safe to call with none open."""
+        if self._connection is not None:
+            self._connection.force_disconnect()
 
     @property
     def cached_device_has_deep_sleep(self) -> bool | None:

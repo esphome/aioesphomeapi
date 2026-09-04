@@ -952,3 +952,60 @@ async def test_start_connection_from_socket_strips_v4_mapped(
     finally:
         client_sock.close()
         mapped.close()
+
+
+async def test_adopt_connection_cancelled_after_ready_disconnects() -> None:
+    """A cancel after the session reached READY drops the live client."""
+    cli, rl, _, _ = _make_reconnect_logic()
+    client_sock, server_sock = await _tcp_pair()
+
+    async def on_connect() -> None:
+        # The session is READY here; cancelling now must not strand a live
+        # client
+        raise asyncio.CancelledError
+
+    rl._on_connect_cb = on_connect
+    with (
+        patch.object(cli, "start_connection_from_socket"),
+        patch.object(cli, "finish_connection"),
+        patch.object(cli, "force_disconnect") as force_disconnect,
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await rl.async_adopt_connection(server_sock)
+    force_disconnect.assert_called_once()
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    rl._cancel_connect("test cleanup")
+    client_sock.close()
+    server_sock.close()
+
+
+async def test_server_close_unregisters_pending_reader() -> None:
+    """close() removes a pending peek's reader before closing its fd."""
+    server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
+    server.start()
+    try:
+        # A connection that never sends its hello sits in the peek loop
+        _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        for _ in range(50):
+            if server._pending:
+                break
+            await asyncio.sleep(0)
+        assert server._pending
+        loop = asyncio.get_running_loop()
+        with patch.object(loop, "remove_reader", wraps=loop.remove_reader) as removed:
+            server.close()
+        removed.assert_called()
+        writer.close()
+    finally:
+        server.close()
+    await asyncio.sleep(0)
+
+
+async def test_client_force_disconnect() -> None:
+    """force_disconnect drops a live connection and no-ops without one."""
+    cli = APIClient(address="127.0.0.1", port=6052, password=None)
+    cli.force_disconnect()  # no connection: no error
+    cli._connection = MagicMock()
+    cli.force_disconnect()
+    cli._connection.force_disconnect.assert_called_once()
