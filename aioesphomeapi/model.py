@@ -1474,6 +1474,7 @@ class SerialProxyRequestType(APIIntEnum):
     FLUSH = 2
     CONFIGURE = 3
     SET_MODEM_PINS = 4
+    SET_MODE = 5
 
 
 class SerialProxyStatus(APIIntEnum):

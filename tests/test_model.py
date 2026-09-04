@@ -200,7 +200,6 @@ from aioesphomeapi.model import (
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
-    ZWaveProxyRequestResponse,
     ZWaveProxyRequestType,
     ZWaveProxyStatus,
     build_device_unique_id,

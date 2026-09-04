@@ -654,11 +654,11 @@ class APIClient(APIClientBase):
         )
 
     def send_zigbee_proxy_request(
-        self, type: ZigbeeProxyRequestType, data: bytes = b""
+        self, request_type: ZigbeeProxyRequestType, data: bytes = b""
     ) -> None:
         """Send a Zigbee Proxy Request."""
         req = ZigbeeProxyRequest()
-        req.type = type
+        req.type = request_type
         req.data = data
         self._get_connection().send_message(req)
 
@@ -758,6 +758,35 @@ class APIClient(APIClientBase):
             return None
         return await self._await_serial_proxy_response(
             req, instance, SerialProxyRequestType.CONFIGURE, timeout
+        )
+
+    def serial_proxy_set_mode(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+    ) -> None:
+        """Set the mode for a serial proxy instance.
+
+        The device only honours this from the currently subscribed client;
+        subscribe to the instance first.
+        """
+        self._get_connection().send_message(
+            SerialProxySetModeRequest(
+                instance=instance,
+                mode=mode,
+            )
+        )
+
+    async def serial_proxy_set_mode_await_response(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Set a serial proxy mode and await the device acknowledgement."""
+        req = SerialProxySetModeRequest(instance=instance, mode=mode)
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.SET_MODE, timeout
         )
 
     def serial_proxy_write(
