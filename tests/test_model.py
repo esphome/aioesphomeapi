@@ -70,6 +70,7 @@ from aioesphomeapi.api_pb2 import (
     SensorStateResponse,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyGetUsbInfoResponse as SerialProxyGetUsbInfoResponsePb,
     SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     ServiceArgType,
@@ -168,6 +169,7 @@ from aioesphomeapi.model import (
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
+    SerialProxyUsbInfo,
     SirenInfo,
     SirenState,
     SubDeviceInfo,
@@ -2413,11 +2415,49 @@ def test_serial_proxy_port_type_enum() -> None:
     assert SerialProxyPortType.TTL == 0
     assert SerialProxyPortType.RS232 == 1
     assert SerialProxyPortType.RS485 == 2
+    assert SerialProxyPortType.USB_SERIAL == 3
 
     assert SerialProxyPortType.convert(0) == SerialProxyPortType.TTL
     assert SerialProxyPortType.convert(1) == SerialProxyPortType.RS232
     assert SerialProxyPortType.convert(2) == SerialProxyPortType.RS485
+    assert SerialProxyPortType.convert(3) == SerialProxyPortType.USB_SERIAL
     assert SerialProxyPortType.convert(-1) is None
+
+
+def test_serial_proxy_usb_info_conversion() -> None:
+    """Test SerialProxyUsbInfo conversion from protobuf."""
+    pb_msg = SerialProxyGetUsbInfoResponsePb()
+    model = SerialProxyUsbInfo.from_pb(pb_msg)
+    assert model.status == SerialProxyStatus.OK
+    assert model.connected is False
+    assert model.vendor_id == 0
+    assert model.serial_number == ""
+
+    pb_msg = SerialProxyGetUsbInfoResponsePb(
+        instance=1,
+        connected=True,
+        vendor_id=0x303A,
+        product_id=0x831A,
+        bcd_device=0x0100,
+        interface_number=0,
+        manufacturer="Espressif",
+        product="ZBT-2",
+        serial_number="5B901035281",
+    )
+    model = SerialProxyUsbInfo.from_pb(pb_msg)
+    assert model.instance == 1
+    assert model.connected is True
+    assert model.vendor_id == 0x303A
+    assert model.product_id == 0x831A
+    assert model.manufacturer == "Espressif"
+    assert model.product == "ZBT-2"
+    assert model.serial_number == "5B901035281"
+
+    pb_msg = SerialProxyGetUsbInfoResponsePb(
+        instance=2, status=SerialProxyStatus.NOT_SUPPORTED
+    )
+    model = SerialProxyUsbInfo.from_pb(pb_msg)
+    assert model.status == SerialProxyStatus.NOT_SUPPORTED
 
 
 def test_serial_proxy_info_conversion() -> None:

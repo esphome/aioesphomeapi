@@ -295,6 +295,7 @@ class SerialProxyPortType(APIIntEnum):
     TTL = 0
     RS232 = 1
     RS485 = 2
+    USB_SERIAL = 3
 
 
 class SerialProxyMode(APIIntEnum):
@@ -1515,6 +1516,24 @@ class SerialProxyModemPins(APIModelBase):
     )
 
 
+@_frozen_dataclass_decorator
+class SerialProxyUsbInfo(APIModelBase):
+    """Identity of the USB device behind a USB_SERIAL port."""
+
+    instance: int = 0
+    status: SerialProxyStatus | None = converter_field(
+        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    )
+    connected: bool = False
+    vendor_id: int = 0
+    product_id: int = 0
+    bcd_device: int = 0
+    interface_number: int = 0
+    manufacturer: str = ""
+    product: str = ""
+    serial_number: str = ""
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
@@ -2318,6 +2337,7 @@ __all__ = (
     "SerialProxyRequestResponse",
     "SerialProxyRequestType",
     "SerialProxyStatus",
+    "SerialProxyUsbInfo",
     "SirenInfo",
     "SirenState",
     "SubDeviceInfo",

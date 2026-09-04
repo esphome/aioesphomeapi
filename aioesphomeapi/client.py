@@ -72,6 +72,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyGetUsbInfoRequest,
+    SerialProxyGetUsbInfoResponse,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
@@ -180,6 +182,7 @@ from .model import (
     SerialProxyParity,
     SerialProxyRequestResponse as SerialProxyRequestResponseModel,
     SerialProxyRequestType,
+    SerialProxyUsbInfo,
     UpdateCommand,
     UserService,
     UserServiceArgType,
@@ -864,6 +867,30 @@ class APIClient(APIClientBase):
         """
         resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
         return SerialProxyModemPins.from_pb(resp)
+
+    async def serial_proxy_get_usb_info(
+        self,
+        instance: int,
+        timeout: float = 10.0,
+    ) -> SerialProxyUsbInfo:
+        """Get the USB identity of the device behind a USB_SERIAL port.
+
+        Ports that are not USB_SERIAL answer with status NOT_SUPPORTED; a port
+        with no device attached answers with connected False.
+        """
+        req = SerialProxyGetUsbInfoRequest(instance=instance)
+
+        def is_matching_response(msg: SerialProxyGetUsbInfoResponse) -> bool:
+            return bool(msg.instance == instance)
+
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            is_matching_response,
+            is_matching_response,
+            (SerialProxyGetUsbInfoResponse,),
+            timeout,
+        )
+        return SerialProxyUsbInfo.from_pb(resp)
 
     async def _send_serial_proxy_get_modem_pins(
         self,

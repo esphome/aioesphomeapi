@@ -79,6 +79,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyGetUsbInfoResponse as SerialProxyGetUsbInfoResponsePb,
     SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequest as SerialProxyRequestPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
@@ -3656,6 +3657,37 @@ async def test_serial_proxy_set_mode(
     sent_msg = sent_messages[0]
     assert sent_msg.instance == 1
     assert sent_msg.mode == mode
+
+
+async def test_serial_proxy_get_usb_info(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test serial_proxy_get_usb_info returns the matching response."""
+    client, connection, _transport, _protocol = api_client
+
+    response_pb = SerialProxyGetUsbInfoResponsePb(
+        instance=1,
+        connected=True,
+        vendor_id=0x303A,
+        product_id=0x831A,
+        serial_number="5B901035281",
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert messages[0].instance == 1
+        assert do_append(response_pb) is True
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_get_usb_info(1)
+
+    assert result.connected is True
+    assert result.vendor_id == 0x303A
+    assert result.serial_number == "5B901035281"
 
 
 async def test_serial_proxy_get_modem_pins(

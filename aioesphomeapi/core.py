@@ -117,6 +117,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyGetUsbInfoRequest,
+    SerialProxyGetUsbInfoResponse,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
@@ -562,7 +564,9 @@ MESSAGE_TYPE_TO_PROTO = {
     150: DeviceCapabilitiesResponse,
     151: ZWaveProxyRequestResponse,
     152: SerialProxySetModeRequest,
-    153: ZigbeeProxyRequest,
+    153: SerialProxyGetUsbInfoRequest,
+    154: SerialProxyGetUsbInfoResponse,
+    155: ZigbeeProxyRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
