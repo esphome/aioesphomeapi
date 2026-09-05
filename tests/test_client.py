@@ -83,6 +83,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyRequest as SerialProxyRequestPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
+    SerialProxySetModeRequest as SerialProxySetModeRequestPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
     SubscribeHomeassistantServicesRequest,
@@ -169,6 +170,7 @@ from aioesphomeapi.model import (
     SensorInfo,
     SerialProxyDataReceived,
     SerialProxyInfo,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyPortType,
@@ -3625,6 +3627,37 @@ async def test_serial_proxy_set_modem_pins(
     assert sent_msg.line_states == 1
 
 
+@pytest.mark.parametrize(
+    "mode",
+    [SerialProxyMode.RAW, SerialProxyMode.PROTOCOL],
+)
+async def test_serial_proxy_set_mode(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    mode: SerialProxyMode,
+) -> None:
+    """Test serial_proxy_set_mode sends the correct request."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[SerialProxySetModeRequestPb] = []
+
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, SerialProxySetModeRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    client.serial_proxy_set_mode(instance=1, mode=mode)
+
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.instance == 1
+    assert sent_msg.mode == mode
+
+
 async def test_serial_proxy_get_modem_pins(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -4060,6 +4093,40 @@ async def test_serial_proxy_set_modem_pins_await_response(
     assert isinstance(result, SerialProxyRequestResponse)
     assert result.type == SerialProxyRequestType.SET_MODEM_PINS
     assert result.status == SerialProxyStatus.NOT_SUPPORTED
+
+
+async def test_serial_proxy_set_mode_await_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test set_mode_await_response matches the SET_MODE ack."""
+    client, connection, _transport, _protocol = api_client
+    patch_api_version(client, APIVersion(1, 17))
+
+    response_pb = SerialProxyRequestResponsePb(
+        instance=1,
+        type=SerialProxyRequestType.SET_MODE,
+        status=SerialProxyStatus.PORT_IN_USE,
+    )
+
+    async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
+        assert len(messages) == 1
+        assert isinstance(messages[0], SerialProxySetModeRequestPb)
+        assert messages[0].instance == 1
+        assert messages[0].mode == SerialProxyMode.PROTOCOL
+        assert do_append(response_pb) is True
+        return [response_pb]
+
+    connection.send_messages_await_response_complex = mock_send_complex
+
+    result = await client.serial_proxy_set_mode_await_response(
+        1, mode=SerialProxyMode.PROTOCOL
+    )
+
+    assert isinstance(result, SerialProxyRequestResponse)
+    assert result.type == SerialProxyRequestType.SET_MODE
+    assert result.status == SerialProxyStatus.PORT_IN_USE
 
 
 async def test_serial_proxy_set_modem_pins_await_response_old_device(

@@ -256,6 +256,11 @@ class SerialProxyPortType(APIIntEnum):
     RS485 = 2
 
 
+class SerialProxyMode(APIIntEnum):
+    RAW = 0
+    PROTOCOL = 1
+
+
 @_frozen_dataclass_decorator
 class SerialProxyInfo(APIModelBase):
     name: str = ""
@@ -1420,6 +1425,7 @@ class SerialProxyRequestType(APIIntEnum):
     FLUSH = 2
     CONFIGURE = 3
     SET_MODEM_PINS = 4
+    SET_MODE = 5
 
 
 class SerialProxyStatus(APIIntEnum):
@@ -2256,6 +2262,7 @@ __all__ = (
     "SerialProxyDataReceived",
     "SerialProxyInfo",
     "SerialProxyLineStateFlag",
+    "SerialProxyMode",
     "SerialProxyModemPins",
     "SerialProxyParity",
     "SerialProxyPortType",
