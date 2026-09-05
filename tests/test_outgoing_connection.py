@@ -1010,3 +1010,65 @@ async def test_client_force_disconnect(conn: APIConnection) -> None:
     with patch.object(conn, "force_disconnect") as force_disconnect:
         cli.force_disconnect()
     force_disconnect.assert_called_once()
+
+
+async def test_server_fatal_accept_error_arms_retry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listener that dies with routes registered rebinds on the timer."""
+    server = OutgoingConnectionServer(port=0)
+    await _crash_accept_loop(caplog, lambda: server.register(MAC, MagicMock()))
+    assert not server.is_listening
+    assert server._bind_retry_handle is not None
+    server._retry_bind()
+    assert server.is_listening
+    server.close()
+    assert server._bind_retry_handle is None
+
+
+async def test_server_fatal_accept_error_without_routes_does_not_retry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """With nothing registered a dead listener stays down until start()."""
+    server = OutgoingConnectionServer(port=0)
+    await _crash_accept_loop(caplog, server.start)
+    assert not server.is_listening
+    assert server._bind_retry_handle is None
+
+
+async def test_server_close_tolerates_closed_pending_socket() -> None:
+    """A pending entry whose identify task already closed its socket is skipped."""
+    server = OutgoingConnectionServer(port=0)
+    closed = socket.socket()
+    closed.close()
+
+    async def noop() -> None:
+        pass
+
+    task = asyncio.get_running_loop().create_task(noop())
+    await task
+    server._pending[task] = closed
+    server.close()  # remove_reader(-1) would raise ValueError
+    assert not server._pending
+
+
+async def test_server_closes_accepted_socket_when_setup_raises(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failure between accept and _pending closes the socket."""
+    server = OutgoingConnectionServer(port=0)
+    server.start()
+    client = socket.create_connection(("127.0.0.1", server.port))
+    client.settimeout(5)
+    loop = asyncio.get_running_loop()
+    try:
+        with patch.object(loop, "create_task", side_effect=RuntimeError("boom")):
+            for _ in range(50):
+                if "Unexpected error in" in caplog.text:
+                    break
+                await asyncio.sleep(0)
+        assert "Unexpected error in" in caplog.text
+        assert client.recv(1) == b""  # closed by the accept loop, not leaked
+    finally:
+        client.close()
+        server.close()

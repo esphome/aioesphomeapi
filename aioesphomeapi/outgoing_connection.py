@@ -95,9 +95,12 @@ def _parse_server_hello(data: bytes) -> tuple[str, str] | None:
 
 def _remove_reader(conn: socket.socket) -> None:
     """Unregister a pending socket's reader before its fd can be reused."""
+    # A finished identify task closes its socket before it leaves _pending
+    if (fd := conn.fileno()) == -1:
+        return
     # Proactor loop (Windows): the peek path never registered one
     with contextlib.suppress(NotImplementedError):
-        asyncio.get_running_loop().remove_reader(conn.fileno())
+        asyncio.get_running_loop().remove_reader(fd)
 
 
 class OutgoingConnectionServer:
@@ -106,8 +109,8 @@ class OutgoingConnectionServer:
     ``register()`` maps a MAC to the :class:`ReconnectLogic` that adopts
     its dial-ins and drives the listener lifecycle: the first registration
     opens it, removing the last one closes it and frees the port, and a
-    bind failure is retried periodically and a fatal accept error on the
-    next registration.
+    bind failure or a fatal accept error is retried periodically and on
+    the next registration.
 
     The MAC in the hello is unauthenticated: adoption never preempts an
     established session, the Noise handshake rejects a peer without the
@@ -155,7 +158,8 @@ class OutgoingConnectionServer:
         Separators and case in the MAC are normalized. Returns a callable
         that removes the registration; it never raises. A bind failure is
         logged, not raised: the route stays registered and the bind is
-        retried periodically and on the next registration.
+        retried periodically and on the next registration, as is a
+        listener that later dies.
         """
         mac = _normalize_mac(mac)
         # A MAC the hello parser can never produce would silently never
@@ -198,10 +202,7 @@ class OutgoingConnectionServer:
                 self._port,
                 err,
             )
-            if self._bind_retry_handle is None:
-                self._bind_retry_handle = loop.call_later(
-                    _BIND_RETRY_INTERVAL, self._retry_bind
-                )
+            self._arm_bind_retry()
             return
         if self._last_bind_warning is not None:
             self._last_bind_warning = None
@@ -209,6 +210,12 @@ class OutgoingConnectionServer:
                 "Listening for outgoing connections on port %s after an"
                 " earlier failure",
                 self._port,
+            )
+
+    def _arm_bind_retry(self) -> None:
+        if self._bind_retry_handle is None:
+            self._bind_retry_handle = asyncio.get_running_loop().call_later(
+                _BIND_RETRY_INTERVAL, self._retry_bind
             )
 
     def _retry_bind(self) -> None:
@@ -282,6 +289,8 @@ class OutgoingConnectionServer:
         # The listener is dead; release the socket so start() can rebind
         self._accept_task = None
         self._release_socket()
+        if self._targets:
+            self._arm_bind_retry()
 
     def _identify_done(self, task: asyncio.Task[None]) -> None:
         self._log_task_exception(task)
@@ -331,12 +340,16 @@ class OutgoingConnectionServer:
                 oldest.cancel()
                 _remove_reader(oldest_conn)
                 oldest_conn.close()  # the task body may never have started
-            conn.setblocking(False)
-            # Not eager: the task must be in _pending before it first runs
-            task = loop.create_task(
-                self._identify_and_dispatch(conn, addr),
-                name=f"esphome-outgoing-connection-identify-{addr}",
-            )
+            try:
+                conn.setblocking(False)
+                # Not eager: the task must be in _pending before it first runs
+                task = loop.create_task(
+                    self._identify_and_dispatch(conn, addr),
+                    name=f"esphome-outgoing-connection-identify-{addr}",
+                )
+            except BaseException:
+                conn.close()  # nothing owns it until it is in _pending
+                raise
             task.add_done_callback(self._identify_done)
             self._pending[task] = conn
 
