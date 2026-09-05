@@ -32,7 +32,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
 )
-from .connection import ConnectionParams
+from .connection import ConnectionParams, declares_outgoing_target
 from .core import APIConnectionError
 from .model import (
     APIVersion,
@@ -309,6 +309,7 @@ class APIClientBase:
         expected_mac: str_ | None = None,
         timezone: str_ | None = None,
         provide_time: bool = True,
+        outgoing_connection_target: bool = False,
     ) -> None:
         """Create a client, this object is shared across sessions.
 
@@ -336,8 +337,15 @@ class APIClientBase:
             Example: 'America/Chicago' or 'Europe/London'
         :param provide_time: If True, the client will respond to a server
             request for the current time and timezone.
+        :param outgoing_connection_target: If True, the client declares itself
+            a dial-back target in its hello, so the device remembers this
+            client's address and dials it when no such client is connected.
+            Ignored without a real key; devices only honor the declaration
+            on encrypted sessions.
         """
         self._debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
+        # treat empty '' psk string as missing (like password)
+        psk = _stringify_or_none(noise_psk) or None
         self._params = ConnectionParams(
             addresses=[str(addr) for addr in addresses]
             if addresses
@@ -347,12 +355,12 @@ class APIClientBase:
             client_info=client_info,
             keepalive=keepalive,
             zeroconf_manager=ZeroconfManager(zeroconf_instance),
-            # treat empty '' psk string as missing (like password)
-            noise_psk=_stringify_or_none(noise_psk) or None,
+            noise_psk=psk,
             expected_name=_stringify_or_none(expected_name) or None,
             expected_mac=_stringify_or_none(expected_mac) or None,
             timezone=_stringify_or_none(timezone) or None,
             provide_time=provide_time,
+            outgoing_connection_target=outgoing_connection_target,
         )
         self._connection: APIConnection | None = None
         self._connection_closed_callbacks: list[
@@ -400,6 +408,11 @@ class APIClientBase:
     @property
     def noise_psk(self) -> str | None:
         return self._params.noise_psk
+
+    @property
+    def outgoing_connection_target(self) -> bool:
+        """Whether this client declares itself a dial-back target in its hello."""
+        return declares_outgoing_target(self._params)
 
     def clear_noise_psk(self) -> None:
         """Clear the noise PSK so future connections use plaintext.

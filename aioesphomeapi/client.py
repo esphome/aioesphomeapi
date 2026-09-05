@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
+    import socket
 
     from google.protobuf import message
 
@@ -376,12 +377,12 @@ class APIClient(APIClientBase):
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
-    async def start_resolve_host(
+    def _create_connection(
         self,
-        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
-        log_errors: bool = True,
-    ) -> None:
-        """Start resolving the host."""
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None,
+        log_errors: bool,
+    ) -> APIConnection:
+        """Create the one connection this client may hold."""
         if self._connection is not None:
             msg = f"Already connected to {self.log_name}!"
             raise APIConnectionError(msg)
@@ -392,7 +393,16 @@ class APIClient(APIClientBase):
             self.log_name,
             log_errors=log_errors,
         )
-        await self._execute_connection_coro(self._connection.start_resolve_host())
+        return self._connection
+
+    async def start_resolve_host(
+        self,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
+        log_errors: bool = True,
+    ) -> None:
+        """Start resolving the host."""
+        connection = self._create_connection(on_stop, log_errors)
+        await self._execute_connection_coro(connection.start_resolve_host())
 
     async def start_connection(self) -> None:
         """Start connecting to the device."""
@@ -402,6 +412,32 @@ class APIClient(APIClientBase):
         # If we connected, we should set the log name now
         if self._connection.connected_address:
             self._set_log_name()
+
+    def start_connection_from_socket(
+        self,
+        sock: socket.socket,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
+        log_errors: bool = True,
+    ) -> None:
+        """Adopt an already-connected socket the device opened to us.
+
+        Synchronous. Replaces start_resolve_host and start_connection; call
+        finish_connection afterwards as usual. Owns the socket: it is closed
+        when the client cannot take it.
+        """
+        try:
+            connection = self._create_connection(on_stop, log_errors)
+        except BaseException:
+            sock.close()  # this method owns the socket, even on refusal
+            raise
+        try:
+            connection.start_connection_from_socket(sock)
+        except BaseException:
+            # Match _execute_connection_coro: any failure, cancellation
+            # included, must not leave a half-open connection cached
+            self._connection = None
+            raise
+        self._set_log_name()
 
     async def finish_connection(
         self,
@@ -431,6 +467,11 @@ class APIClient(APIClientBase):
             self._connection.force_disconnect()
         else:
             await self._connection.disconnect()
+
+    def force_disconnect(self) -> None:
+        """Drop the connection synchronously; safe to call with none open."""
+        if self._connection is not None:
+            self._connection.force_disconnect()
 
     @property
     def cached_device_has_deep_sleep(self) -> bool | None:

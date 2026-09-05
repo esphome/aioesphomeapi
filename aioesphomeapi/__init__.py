@@ -27,4 +27,8 @@ from .core import (
 )
 from .log_parser import LogParser, parse_log_message
 from .model import *
+from .outgoing_connection import (
+    DEFAULT_OUTGOING_CONNECTION_PORT,
+    OutgoingConnectionServer,
+)
 from .reconnect_logic import ReconnectLogic

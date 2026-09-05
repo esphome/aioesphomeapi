@@ -19,6 +19,7 @@ from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+    import socket
 
     from zeroconf import RecordUpdate, Zeroconf
 
@@ -461,16 +462,20 @@ class ReconnectLogic:
         _LOGGER.info(
             "Successfully connected to %s in %0.3fs", self._cli.log_name, connect_time
         )
+        return await self._finish_connection_while_locked()
+
+    async def _finish_connection_while_locked(self) -> bool:
+        """Handshake and mark the attempt ready; shared by dial-out and adoption."""
         self._zc_wake.stop()
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
+        start_handshake_time = time.perf_counter()
         try:
             await self._cli.finish_connection(login=True)
         except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         self._tries = 0
-        finish_handshake_time = time.perf_counter()
-        handshake_time = finish_handshake_time - finish_connect_time
+        handshake_time = time.perf_counter() - start_handshake_time
         _LOGGER.info(
             "Successful handshake with %s in %0.3fs", self._cli.log_name, handshake_time
         )
@@ -608,19 +613,21 @@ class ReconnectLogic:
             self._zc_wake.arm()
             if await self._try_connect():
                 return
-            # Listen during the backoff wait without waiting out the arm timer.
-            self._zc_wake.start_soon()
-            tries = min(self._tries, 10)  # prevent OverflowError
-            max_backoff = (
-                DEEP_SLEEP_MAXIMUM_BACKOFF if self.deep_sleep else MAXIMUM_BACKOFF
+            self._schedule_backoff_connect()
+
+    def _schedule_backoff_connect(self) -> None:
+        """Schedule the next connect attempt using the exponential backoff."""
+        # Listen during the backoff wait without waiting out the arm timer.
+        self._zc_wake.start_soon()
+        tries = min(self._tries, 10)  # prevent OverflowError
+        max_backoff = DEEP_SLEEP_MAXIMUM_BACKOFF if self.deep_sleep else MAXIMUM_BACKOFF
+        wait_time = round(min(1.8**tries, max_backoff))
+        if tries == 1:
+            _LOGGER.info(
+                "Trying to connect to %s in the background", self._cli.log_name
             )
-            wait_time = round(min(1.8**tries, max_backoff))
-            if tries == 1:
-                _LOGGER.info(
-                    "Trying to connect to %s in the background", self._cli.log_name
-                )
-            _LOGGER.debug("Retrying %s in %.2f seconds", self._cli.log_name, wait_time)
-            self._schedule_connect(wait_time)
+        _LOGGER.debug("Retrying %s in %.2f seconds", self._cli.log_name, wait_time)
+        self._schedule_connect(wait_time)
 
     def _remove_stop_task(self, _fut: asyncio.Future[None]) -> None:
         """Remove the stop task from the connect loop.
@@ -719,3 +726,81 @@ class ReconnectLogic:
     def _connect_from_zeroconf(self) -> None:
         """Connect from zeroconf."""
         self._schedule_connect(0.0)
+
+    def _refuse_adoption(self, sock: socket.socket, state: ReconnectLogicState) -> bool:
+        _LOGGER.debug(
+            "%s: Refusing dial-in adoption (stopped=%s, state=%s)",
+            self._cli.log_name,
+            self._is_stopped,
+            state,
+        )
+        sock.close()
+        return False
+
+    async def async_adopt_connection(self, sock: socket.socket) -> bool:
+        """Adopt a socket the device connected to us (outgoing connection).
+
+        Returns True when the session is ready; on refusal or handshake
+        failure the socket is closed, False is returned, and the normal
+        reconnect backoff continues.
+        """
+        state = self._connection_state
+        if (
+            self._is_stopped
+            or state not in NOT_YET_CONNECTED_STATES
+            or (
+                state is ReconnectLogicState.CONNECTING
+                # Same predicate _call_connect_once uses: an established
+                # outbound socket is not preempted. A RESOLVING attempt is
+                # preempted here (unlike the mDNS kick): the device dialed
+                # us because the forward path is not working.
+                and self._cli.connected_address is not None
+            )
+        ):
+            return self._refuse_adoption(sock, state)
+        self._cancel_connect("Adopting connection from device")
+        self._async_set_connection_state_without_lock(ReconnectLogicState.DISCONNECTED)
+        # The routing MAC is unauthenticated, so a failed adoption must not
+        # escalate the backoff beyond one ordinary failed attempt; a hostile
+        # dial-in could otherwise pin the retry interval at its ceiling.
+        tries_before = self._tries
+        try:
+            async with self._connected_lock:
+                if (
+                    self._is_stopped
+                    or self._connection_state is not ReconnectLogicState.DISCONNECTED
+                ):
+                    return self._refuse_adoption(sock, self._connection_state)
+                try:
+                    self._cli.start_connection_from_socket(
+                        sock, on_stop=self._on_disconnect, log_errors=False
+                    )
+                except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
+                    await self._handle_connection_failure(err)
+                else:
+                    _LOGGER.info(
+                        "Adopted connection from %s (device dialed us)",
+                        self._cli.log_name,
+                    )
+                    if await self._finish_connection_while_locked():
+                        return True
+                self._tries = min(self._tries, tries_before + 1)
+                self._schedule_backoff_connect()
+                return False
+        except asyncio.CancelledError:
+            # Cancelled waiting for the lock or mid-handshake (e.g. the
+            # listener shutting down): put the state machine back on its own
+            # retry schedule since _cancel_connect above removed the pending
+            # attempt. The wake gate may have been consumed; re-arm it so the
+            # mDNS listener started by the backoff can kick a connect.
+            if self._connection_state is ReconnectLogicState.READY:
+                # A cancel inside the on-connect callback leaves a live
+                # client; drop it so the reschedule does not hit "already
+                # connected" forever
+                self._cli.force_disconnect()
+            self._async_set_connection_state_without_lock(
+                ReconnectLogicState.DISCONNECTED
+            )
+            self._zc_wake.reopen()
+            self._schedule_backoff_connect()
+            raise

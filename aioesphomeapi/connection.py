@@ -40,6 +40,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
 )
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
+    ZERO_NOISE_PSK,
     APIConnectionCancelledError,
     APIConnectionError,
     BadNameAPIError,
@@ -197,6 +198,7 @@ class ConnectionParams:
     expected_mac: str | None
     timezone: str | None
     provide_time: bool
+    outgoing_connection_target: bool
 
     def __init__(
         self,
@@ -211,6 +213,7 @@ class ConnectionParams:
         expected_mac: str | None,
         timezone: str | None = None,
         provide_time: bool = True,
+        outgoing_connection_target: bool = False,
     ) -> None:
         self.addresses = addresses
         self.port = port
@@ -223,6 +226,7 @@ class ConnectionParams:
         self.expected_mac = expected_mac
         self.timezone = timezone
         self.provide_time = provide_time
+        self.outgoing_connection_target = outgoing_connection_target
 
 
 class ConnectionState(enum.Enum):
@@ -247,15 +251,34 @@ CONNECTION_STATE_CONNECTED = ConnectionState.CONNECTED
 CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 
 
-def _make_hello_request(client_info: str) -> HelloRequest:
+def _make_hello_request(
+    client_info: str, outgoing_connection_target: bool
+) -> HelloRequest:
     """Make a HelloRequest."""
+    # A False flag has implicit presence and does not serialize
     return HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=16
+        client_info=client_info,
+        api_version_major=1,
+        api_version_minor=16,
+        outgoing_connection_target=outgoing_connection_target,
     )
 
 
-_cached_make_hello_request = lru_cache(maxsize=16)(_make_hello_request)
+_cached_make_hello_request = lru_cache(maxsize=32)(_make_hello_request)
 make_hello_request = _cached_make_hello_request
+
+
+def declares_outgoing_target(params: ConnectionParams) -> bool:
+    """Whether the hello declares a dial-back target.
+
+    Devices only honor the declaration on sessions with a real key, so it
+    is derived from the current PSK rather than fixed at construction.
+    """
+    psk = params.noise_psk
+    return (
+        params.outgoing_connection_target and psk is not None and psk != ZERO_NOISE_PSK
+    )
+
 
 _DST_RULE_TYPE_MAP: dict[DSTRuleType, int] = {
     DSTRuleType.NONE: DST_RULE_TYPE_NONE_PB,
@@ -527,6 +550,18 @@ class APIConnection:
             msg = f"Error connecting to {addrs}: {last_exception}"
             raise SocketAPIError(msg) from last_exception
 
+        self._finish_socket_setup(sock)
+
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Opened socket to %s:%s",
+                self.log_name,
+                self.connected_address,
+                self._params.port,
+            )
+
+    def _finish_socket_setup(self, sock: socket.socket) -> None:
+        """Apply socket options and record the peer of a connected socket."""
         self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -538,15 +573,10 @@ class APIConnection:
                 self.log_name,
             )
         self._increase_recv_buffer_size()
-        self.connected_address = sock.getpeername()[0]
-
-        if self._debug_enabled:
-            _LOGGER.debug(
-                "%s: Opened socket to %s:%s",
-                self.log_name,
-                self.connected_address,
-                self._params.port,
-            )
+        peer_address: str = sock.getpeername()[0]
+        # Dual-stack listeners report IPv4 peers as ::ffff:x.x.x.x; strip the
+        # mapping so log names show the plain IPv4 address
+        self.connected_address = peer_address.removeprefix("::ffff:")
 
     def _increase_recv_buffer_size(self) -> None:
         """Increase the recv buffer size."""
@@ -626,7 +656,11 @@ class APIConnection:
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
-        messages = [make_hello_request(self._params.client_info)]
+        messages = [
+            make_hello_request(
+                self._params.client_info, declares_outgoing_target(self._params)
+            )
+        ]
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_auth_request())
@@ -814,6 +848,24 @@ class APIConnection:
             self._raise_fatal_connection_exception("starting", ex)
         finally:
             self._set_start_connect_future()
+        self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
+
+    def start_connection_from_socket(self, sock: socket.socket) -> None:
+        """Adopt an already-connected socket.
+
+        Used when the device opened the TCP connection to us (the api
+        outgoing_connection option). Synchronous: there is nothing to
+        resolve or connect. Replaces start_resolve_host and
+        start_connection; finish_connection runs unchanged afterwards.
+        """
+        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+            sock.close()  # this method owns the socket, even on refusal
+            msg = "Connection can only be used once, connection is not in init state"
+            raise RuntimeError(msg)
+        try:
+            self._finish_socket_setup(sock)  # synchronous, cannot be cancelled
+        except Exception as ex:  # noqa: BLE001
+            self._raise_fatal_connection_exception("adopting", ex)
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
 
     def _set_start_connect_future(self) -> None:
