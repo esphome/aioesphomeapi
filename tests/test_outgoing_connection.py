@@ -1077,3 +1077,30 @@ async def test_server_closes_accepted_socket_when_setup_raises(
     finally:
         client.close()
         server.close()
+
+
+async def test_server_close_cancels_adoption_in_flight() -> None:
+    """close() cancels an adoption still waiting on its ReconnectLogic."""
+    server = OutgoingConnectionServer(port=0)
+    adopting = asyncio.Event()
+    adopted: list[socket.socket] = []
+
+    async def adopt(sock: socket.socket) -> bool:
+        adopted.append(sock)
+        adopting.set()
+        await asyncio.Event().wait()  # never released
+        return True
+
+    server.register(MAC, _make_target(adopt))
+    _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+    writer.write(_server_hello_frame())
+    await writer.drain()
+    await asyncio.wait_for(adopting.wait(), timeout=5)
+    task = server._adopting[MAC]
+    server.close()
+    with contextlib.suppress(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=5)  # hangs here without the cancel
+    assert task.cancelled()
+    assert adopted[0].fileno() == -1  # the identify task's stack closed it
+    assert not server._adopting
+    writer.close()

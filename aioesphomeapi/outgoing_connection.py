@@ -263,12 +263,16 @@ class OutgoingConnectionServer:
     def close(self) -> None:
         """Stop accepting and close the listening socket; never raises.
 
-        Synchronous: the port is free when this returns. Sessions already
-        handed to a ReconnectLogic keep running.
+        Synchronous: the port is free when this returns. Established
+        sessions keep running; an adoption still in flight is cancelled.
         """
         for task, conn in self._pending.items():
             _drop_pending(task, conn)
         self._pending.clear()
+        # Still waiting on its ReconnectLogic and holding an fd; the task's
+        # own cleanup closes the socket once cancelled
+        for task in self._adopting.values():
+            task.cancel()
         if (retry_handle := self._bind_retry_handle) is not None:
             self._bind_retry_handle = None
             retry_handle.cancel()
