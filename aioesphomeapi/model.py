@@ -1556,6 +1556,8 @@ class UserServiceArg(APIModelBase):
     )
     description: str = ""
     example: str = ""
+    optional: bool = False
+    default_value: str = ""
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[UserServiceArg]:

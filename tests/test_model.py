@@ -611,6 +611,46 @@ def test_user_service_conversion_with_metadata():
     )
 
 
+def test_user_service_conversion_with_optional_args():
+    assert UserService.from_pb(
+        ListEntitiesServicesResponse(
+            args=[
+                ListEntitiesServicesArgument(
+                    name="octave",
+                    type=ServiceArgType.SERVICE_ARG_TYPE_INT,
+                    optional=True,
+                    default_value="5",
+                )
+            ]
+        )
+    ) == UserService(
+        args=[
+            UserServiceArg(
+                name="octave",
+                type=UserServiceArgType.INT,
+                optional=True,
+                default_value="5",
+            )
+        ]
+    )
+    assert UserService.from_dict(
+        {
+            "args": [
+                {"name": "octave", "type": 1, "optional": True, "default_value": "5"}
+            ]
+        }
+    ) == UserService(
+        args=[
+            UserServiceArg(
+                name="octave",
+                type=UserServiceArgType.INT,
+                optional=True,
+                default_value="5",
+            )
+        ]
+    )
+
+
 @pytest.mark.parametrize(
     "model",
     [
