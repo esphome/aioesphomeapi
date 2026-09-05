@@ -1099,8 +1099,25 @@ async def test_server_close_cancels_adoption_in_flight() -> None:
     task = server._adopting[MAC]
     server.close()
     with contextlib.suppress(asyncio.CancelledError):
-        await asyncio.wait_for(task, timeout=5)  # hangs here without the cancel
+        await asyncio.wait_for(task, timeout=2)  # hangs here without the cancel
     assert task.cancelled()
     assert adopted[0].fileno() == -1  # the identify task's stack closed it
     assert not server._adopting
     writer.close()
+
+
+async def test_server_external_accept_cancel_releases_listener() -> None:
+    """A cancel that did not come from close() still frees the port and retries."""
+    server = OutgoingConnectionServer(port=0)
+    server.register(MAC, MagicMock())
+    task = server._accept_task
+    assert task is not None
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    await asyncio.sleep(0)  # done callbacks run on the next pass
+    assert not server.is_listening
+    assert server._bind_retry_handle is not None
+    server._retry_bind()
+    assert server.is_listening
+    server.close()

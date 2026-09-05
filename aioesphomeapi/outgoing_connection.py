@@ -264,7 +264,9 @@ class OutgoingConnectionServer:
         """Stop accepting and close the listening socket; never raises.
 
         Synchronous: the port is free when this returns. Established
-        sessions keep running; an adoption still in flight is cancelled.
+        sessions keep running. An adoption still in flight is cancelled,
+        which reaches into its on_connect callback; the ReconnectLogic then
+        reconnects outbound on its own.
         """
         for task, conn in self._pending.items():
             _drop_pending(task, conn)
@@ -287,19 +289,16 @@ class OutgoingConnectionServer:
             self._server_socket = None
 
     @staticmethod
-    def _log_task_exception(task: asyncio.Task[None]) -> BaseException | None:
-        """Log and return the task's exception; None when it ended normally."""
-        if task.cancelled() or (exc := task.exception()) is None:
-            return None
-        _LOGGER.error("Unexpected error in %s", task.get_name(), exc_info=exc)
-        return exc
+    def _log_task_exception(task: asyncio.Task[None]) -> None:
+        if not task.cancelled() and (exc := task.exception()) is not None:
+            _LOGGER.error("Unexpected error in %s", task.get_name(), exc_info=exc)
 
     def _accept_task_done(self, task: asyncio.Task[None]) -> None:
-        if self._log_task_exception(task) is None:
-            return  # normal close(); it owns the cleanup
+        self._log_task_exception(task)
         if self._accept_task is not task:
-            return  # a restart already replaced this listener
-        # The listener is dead; release the socket so start() can rebind
+            return  # close() or a restart detached it and owns the cleanup
+        # Died on its own (fatal accept error, or cancelled from outside):
+        # release the socket so the retry timer or the next register() rebinds
         self._accept_task = None
         self._release_socket()
         if self._targets:
