@@ -40,6 +40,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
 )
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
+    ZERO_NOISE_PSK,
     APIConnectionCancelledError,
     APIConnectionError,
     BadNameAPIError,
@@ -265,6 +266,19 @@ def _make_hello_request(
 
 _cached_make_hello_request = lru_cache(maxsize=32)(_make_hello_request)
 make_hello_request = _cached_make_hello_request
+
+
+def declares_outgoing_target(params: ConnectionParams) -> bool:
+    """Whether the hello declares a dial-back target.
+
+    Devices only honor the declaration on sessions with a real key, so it
+    is derived from the current PSK rather than fixed at construction.
+    """
+    psk = params.noise_psk
+    return (
+        params.outgoing_connection_target and psk is not None and psk != ZERO_NOISE_PSK
+    )
+
 
 _DST_RULE_TYPE_MAP: dict[DSTRuleType, int] = {
     DSTRuleType.NONE: DST_RULE_TYPE_NONE_PB,
@@ -644,7 +658,7 @@ class APIConnection:
         """Step 4 in connect process: send hello and login and get api version."""
         messages = [
             make_hello_request(
-                self._params.client_info, self._params.outgoing_connection_target
+                self._params.client_info, declares_outgoing_target(self._params)
             )
         ]
         msg_types = [HelloResponse]

@@ -32,8 +32,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
 )
-from .connection import ConnectionParams
-from .core import ZERO_NOISE_PSK, APIConnectionError
+from .connection import ConnectionParams, declares_outgoing_target
+from .core import APIConnectionError
 from .model import (
     APIVersion,
     BluetoothLEAdvertisement,
@@ -360,9 +360,7 @@ class APIClientBase:
             expected_mac=_stringify_or_none(expected_mac) or None,
             timezone=_stringify_or_none(timezone) or None,
             provide_time=provide_time,
-            outgoing_connection_target=outgoing_connection_target
-            and psk is not None
-            and psk != ZERO_NOISE_PSK,
+            outgoing_connection_target=outgoing_connection_target,
         )
         self._connection: APIConnection | None = None
         self._connection_closed_callbacks: list[
@@ -414,7 +412,7 @@ class APIClientBase:
     @property
     def outgoing_connection_target(self) -> bool:
         """Whether this client declares itself a dial-back target in its hello."""
-        return self._params.outgoing_connection_target
+        return declares_outgoing_target(self._params)
 
     def clear_noise_psk(self) -> None:
         """Clear the noise PSK so future connections use plaintext.
@@ -425,8 +423,6 @@ class APIClientBase:
         plane clients such as Home Assistant.
         """
         self._params.noise_psk = None
-        # A dial-back declaration is only honored on encrypted sessions
-        self._params.outgoing_connection_target = False
 
     def add_addresses(self, addresses: Iterable[str_]) -> bool:
         """Append new addresses to try on future connection attempts.

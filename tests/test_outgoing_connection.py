@@ -35,7 +35,7 @@ from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 from .common import _make_noise_hello_pkt, get_mock_zeroconf
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
 
 MAC = "aabbccddeeff"
 
@@ -64,6 +64,28 @@ def _make_target(adopt: object) -> MagicMock:
     target = MagicMock()
     target.async_adopt_connection = adopt
     return target
+
+
+def _closing_target(done: asyncio.Event, *, adopted: bool = True) -> MagicMock:
+    """Build a target whose adoption closes the socket and signals done."""
+
+    async def adopt(sock: socket.socket) -> bool:
+        sock.close()
+        done.set()
+        return adopted
+
+    return _make_target(adopt)
+
+
+@pytest.fixture
+def blocked_server() -> Generator[tuple[socket.socket, OutgoingConnectionServer]]:
+    """Build a server whose port another listener holds until the blocker closes."""
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", 0))
+    blocker.listen(1)
+    server = OutgoingConnectionServer(port=blocker.getsockname()[1], host="127.0.0.1")
+    yield blocker, server
+    blocker.close()
 
 
 async def _tcp_pair() -> tuple[socket.socket, socket.socket]:
@@ -452,12 +474,7 @@ async def test_server_evicts_oldest_unidentified_when_full() -> None:
     server = OutgoingConnectionServer(port=0)
     dispatched = asyncio.Event()
 
-    async def adopt(sock: socket.socket) -> bool:
-        sock.close()
-        dispatched.set()
-        return True
-
-    target = _make_target(adopt)
+    target = _closing_target(dispatched)
     server.register(MAC, target)
     try:
         silent = [
@@ -601,12 +618,7 @@ async def test_server_logs_not_adopted(caplog: pytest.LogCaptureFixture) -> None
     server = OutgoingConnectionServer(port=0)
     refused = asyncio.Event()
 
-    async def adopt(sock: socket.socket) -> bool:
-        sock.close()
-        refused.set()
-        return False
-
-    target = _make_target(adopt)
+    target = _closing_target(refused, adopted=False)
     server.register(MAC, target)
     try:
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
@@ -628,12 +640,7 @@ async def test_server_peek_falls_back_without_add_reader() -> None:
     server = OutgoingConnectionServer(port=0)
     dispatched = asyncio.Event()
 
-    async def adopt(sock: socket.socket) -> bool:
-        sock.close()
-        dispatched.set()
-        return True
-
-    target = _make_target(adopt)
+    target = _closing_target(dispatched)
     server.register(MAC, target)
     try:
         with patch.object(
@@ -674,12 +681,7 @@ async def test_server_waits_for_partial_hello() -> None:
     server = OutgoingConnectionServer(port=0)
     dispatched = asyncio.Event()
 
-    async def adopt(sock: socket.socket) -> bool:
-        sock.close()
-        dispatched.set()
-        return True
-
-    target = _make_target(adopt)
+    target = _closing_target(dispatched)
     server.register(MAC, target)
     try:
         frame = _server_hello_frame()
@@ -816,14 +818,11 @@ async def test_server_register_restarts_dead_listener(
 
 async def test_server_register_bind_failure_warns_once(
     caplog: pytest.LogCaptureFixture,
+    blocked_server: tuple[socket.socket, OutgoingConnectionServer],
 ) -> None:
     """A bind failure keeps the route, warns once, and retries on register."""
     caplog.set_level(logging.INFO, logger="aioesphomeapi.outgoing_connection")
-    blocker = socket.socket()
-    blocker.bind(("127.0.0.1", 0))
-    blocker.listen(1)
-    port = blocker.getsockname()[1]
-    server = OutgoingConnectionServer(port=port, host="127.0.0.1")
+    blocker, server = blocked_server
     server.register(MAC, MagicMock())
     assert not server.is_listening
     server.register("00:11:22:33:44:55", MagicMock())
@@ -841,13 +840,10 @@ async def test_server_register_bind_failure_warns_once(
 
 async def test_server_bind_warning_window_resets(
     caplog: pytest.LogCaptureFixture,
+    blocked_server: tuple[socket.socket, OutgoingConnectionServer],
 ) -> None:
     """An expired warning window re-warns instead of staying at info."""
-    blocker = socket.socket()
-    blocker.bind(("127.0.0.1", 0))
-    blocker.listen(1)
-    port = blocker.getsockname()[1]
-    server = OutgoingConnectionServer(port=port, host="127.0.0.1")
+    blocker, server = blocked_server
     with patch("aioesphomeapi.outgoing_connection._BIND_WARN_INTERVAL", 0):
         server.register(MAC, MagicMock())
         server.register("00:11:22:33:44:55", MagicMock())
@@ -871,13 +867,11 @@ async def test_client_start_connection_from_socket_resets_on_error() -> None:
     assert cli._connection is None
 
 
-async def test_server_bind_retry_timer() -> None:
+async def test_server_bind_retry_timer(
+    blocked_server: tuple[socket.socket, OutgoingConnectionServer],
+) -> None:
     """A bind failure arms a retry timer that rebinds once the port frees."""
-    blocker = socket.socket()
-    blocker.bind(("127.0.0.1", 0))
-    blocker.listen(1)
-    port = blocker.getsockname()[1]
-    server = OutgoingConnectionServer(port=port, host="127.0.0.1")
+    blocker, server = blocked_server
     server.register(MAC, MagicMock())
     assert not server.is_listening
     assert server._bind_retry_handle is not None
@@ -888,12 +882,11 @@ async def test_server_bind_retry_timer() -> None:
     assert server._bind_retry_handle is None
 
 
-async def test_server_close_cancels_bind_retry() -> None:
+async def test_server_close_cancels_bind_retry(
+    blocked_server: tuple[socket.socket, OutgoingConnectionServer],
+) -> None:
     """Closing while a bind retry is pending cancels the timer."""
-    blocker = socket.socket()
-    blocker.bind(("127.0.0.1", 0))
-    blocker.listen(1)
-    server = OutgoingConnectionServer(port=blocker.getsockname()[1], host="127.0.0.1")
+    blocker, server = blocked_server
     unregister = server.register(MAC, MagicMock())
     assert server._bind_retry_handle is not None
     unregister()

@@ -103,6 +103,17 @@ def _remove_reader(conn: socket.socket) -> None:
         asyncio.get_running_loop().remove_reader(fd)
 
 
+def _drop_pending(task: asyncio.Task[None], conn: socket.socket) -> None:
+    """Cancel an identify task and close its socket.
+
+    Closed here because a task that never ran has no handler to close it;
+    the reader is unregistered first so the fd is clean before reuse.
+    """
+    task.cancel()
+    _remove_reader(conn)
+    conn.close()
+
+
 class OutgoingConnectionServer:
     """Accepts connections that ESPHome devices open to this host.
 
@@ -131,9 +142,9 @@ class OutgoingConnectionServer:
         # Insertion-ordered for oldest-eviction; the socket value lets
         # eviction close a task that never ran
         self._pending: dict[asyncio.Task[None], socket.socket] = {}
-        # Rejection keys already reported at INFO; bounded against scans
-        self._info_keys_logged: set[str] = set()
-        self._info_class_counts: dict[str, int] = {}
+        # Rejection keys already reported at INFO, per class so scan noise
+        # cannot crowd out a real device
+        self._info_keys_by_class: dict[str, set[str]] = {}
         self._info_keys_cleared = 0.0
         # One adoption in flight per MAC; extras would queue on the
         # ReconnectLogic lock holding an fd each. Values are strong task refs
@@ -255,12 +266,8 @@ class OutgoingConnectionServer:
         Synchronous: the port is free when this returns. Sessions already
         handed to a ReconnectLogic keep running.
         """
-        # Close directly; a task that never ran has no handler to close its
-        # socket. Unregister its reader first so the fd is clean before reuse.
         for task, conn in self._pending.items():
-            task.cancel()
-            _remove_reader(conn)
-            conn.close()
+            _drop_pending(task, conn)
         self._pending.clear()
         if (retry_handle := self._bind_retry_handle) is not None:
             self._bind_retry_handle = None
@@ -276,13 +283,15 @@ class OutgoingConnectionServer:
             self._server_socket = None
 
     @staticmethod
-    def _log_task_exception(task: asyncio.Task[None]) -> None:
-        if not task.cancelled() and (exc := task.exception()) is not None:
-            _LOGGER.error("Unexpected error in %s", task.get_name(), exc_info=exc)
+    def _log_task_exception(task: asyncio.Task[None]) -> BaseException | None:
+        """Log and return the task's exception; None when it ended normally."""
+        if task.cancelled() or (exc := task.exception()) is None:
+            return None
+        _LOGGER.error("Unexpected error in %s", task.get_name(), exc_info=exc)
+        return exc
 
     def _accept_task_done(self, task: asyncio.Task[None]) -> None:
-        self._log_task_exception(task)
-        if task.cancelled() or task.exception() is None:
+        if self._log_task_exception(task) is None:
             return  # normal close(); it owns the cleanup
         if self._accept_task is not task:
             return  # a restart already replaced this listener
@@ -300,19 +309,12 @@ class OutgoingConnectionServer:
         """Log INFO once per key and window so a misconfiguration surfaces."""
         now = asyncio.get_running_loop().time()
         if now - self._info_keys_cleared >= _INFO_LOG_WINDOW:
-            self._info_keys_logged.clear()
-            self._info_class_counts.clear()
+            self._info_keys_by_class.clear()
             self._info_keys_cleared = now
         level = logging.DEBUG
-        key_class = key.partition(":")[0]
-        if (
-            key not in self._info_keys_logged
-            and self._info_class_counts.get(key_class, 0) < _MAX_INFO_KEYS_LOGGED
-        ):
-            self._info_keys_logged.add(key)
-            self._info_class_counts[key_class] = (
-                self._info_class_counts.get(key_class, 0) + 1
-            )
+        seen = self._info_keys_by_class.setdefault(key.partition(":")[0], set())
+        if key not in seen and len(seen) < _MAX_INFO_KEYS_LOGGED:
+            seen.add(key)
             level = logging.INFO
         _LOGGER.log(level, msg, *args)
 
@@ -337,9 +339,7 @@ class OutgoingConnectionServer:
                     addr,
                 )
                 self._pending.pop(oldest, None)
-                oldest.cancel()
-                _remove_reader(oldest_conn)
-                oldest_conn.close()  # the task body may never have started
+                _drop_pending(oldest, oldest_conn)
             try:
                 conn.setblocking(False)
                 # Not eager: the task must be in _pending before it first runs
