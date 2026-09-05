@@ -1053,15 +1053,27 @@ async def test_server_closes_accepted_socket_when_setup_raises(
     server.start()
     client = socket.create_connection(("127.0.0.1", server.port))
     client.settimeout(5)
-    loop = asyncio.get_running_loop()
     try:
-        with patch.object(loop, "create_task", side_effect=RuntimeError("boom")):
+        # Raise where the task would be created; patching the loop's
+        # create_task would break the proactor loop's own accept machinery.
+        # A plain MagicMock raises at the call, an AsyncMock only when awaited
+        with patch.object(
+            server,
+            "_identify_and_dispatch",
+            MagicMock(side_effect=RuntimeError("boom")),
+        ):
             for _ in range(50):
                 if "Unexpected error in" in caplog.text:
                     break
                 await asyncio.sleep(0)
         assert "Unexpected error in" in caplog.text
-        assert client.recv(1) == b""  # closed by the accept loop, not leaked
+        # Closed by the accept loop, not leaked; Windows may report the
+        # close as a reset instead of EOF
+        try:
+            data = client.recv(1)
+        except ConnectionResetError:
+            data = b""
+        assert data == b""
     finally:
         client.close()
         server.close()
