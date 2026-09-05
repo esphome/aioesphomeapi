@@ -32,13 +32,19 @@ cdef unsigned int NOISE_STATE_HANDSHAKE
 cdef unsigned int NOISE_STATE_READY
 cdef unsigned int NOISE_STATE_CLOSED
 
-cdef bytes NOISE_HELLO
 cdef object InvalidTag
 cdef object ESPHOME_NOISE_BACKEND
 
+cdef object ResumeAPIError
+cdef object build_client_hello
+cdef object build_resume_offer
+cdef object derive_resume_keys
+cdef object parse_resume_accept
+cdef object verify_confirm_mac
+
 cdef class APINoiseFrameHelper(APIFrameHelper):
 
-    cdef object _noise_psk
+    cdef bytes _noise_psk
     cdef str _expected_name
     cdef str _expected_mac
     cdef unsigned int _state
@@ -47,6 +53,12 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     cdef object _proto
     cdef EncryptCipher _encrypt_cipher
     cdef DecryptCipher _decrypt_cipher
+    cdef object _resume_secret
+    cdef object _resume_nonce
+    cdef bytes _hello
+    cdef bytes _prologue
+    cdef bint _handshake_deferred
+    cdef bint _resumed
 
     @cython.locals(
         header=bytes,
@@ -75,16 +87,28 @@ cdef class APINoiseFrameHelper(APIFrameHelper):
     )
     cdef void _handle_hello(self, bytes server_hello) except *
 
+    @cython.locals(
+        server_nonce=bytes,
+        confirm_mac=bytes,
+    )
+    cdef void _handle_resume_accept(self, bytes ext) except *
+
+    cdef void _become_ready(
+        self, EncryptCipher encrypt_cipher, DecryptCipher decrypt_cipher
+    ) except *
+
     cdef void _handle_handshake(self, bytes msg) except *
 
     cdef void _handle_closed(self, bytes frame) except *
 
-    @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
     cdef void _send_hello_handshake(self) except *
+
+    @cython.locals(handshake_frame=bytearray, frame_len="unsigned int")
+    cdef tuple _handshake_message(self)
 
     cdef void _setup_proto(self) except *
 
-    cdef _decode_noise_psk(self)
+    cdef _decode_noise_psk(self, str noise_psk)
 
     cpdef void write_packets(self, list packets, bint debug_enabled) except *
 

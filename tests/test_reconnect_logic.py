@@ -27,7 +27,7 @@ from aioesphomeapi import (
     RequiresEncryptionAPIError,
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.core import APIConnectionCancelledError
+from aioesphomeapi.core import APIConnectionCancelledError, ResumeAPIError
 
 if TYPE_CHECKING:
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
@@ -211,6 +211,79 @@ async def test_reconnect_logic_name_from_cli_address():
     )
     assert cli.log_name == "mydevice"
     assert rl.name == "mydevice"
+
+
+async def test_reconnect_logic_resume_error_retries_immediately(
+    patchable_api_client: APIClient,
+):
+    """A failed resume attempt retries without backoff."""
+    cli = patchable_api_client
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        pass
+
+    async def on_connect() -> None:
+        pass
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=on_disconnect,
+        on_connect=on_connect,
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(
+            cli, "finish_connection", side_effect=[ResumeAPIError("resume"), None]
+        ) as finish_connection,
+    ):
+        await rl.start()
+        for _ in range(6):
+            await asyncio.sleep(0)
+
+    # The second attempt ran without a backoff timer and succeeded
+    assert finish_connection.call_count == 2
+    assert rl._connection_state is ReconnectLogicState.READY
+    assert rl._tries == 0
+    await rl.stop()
+
+
+async def test_reconnect_logic_resume_error_flag_cleared_on_stop(
+    patchable_api_client: APIClient,
+):
+    """Stopping before the zero delay retry fires must not skip backoff later."""
+    cli = patchable_api_client
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        pass
+
+    async def on_connect() -> None:
+        pass
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=on_disconnect,
+        on_connect=on_connect,
+        zeroconf_instance=get_mock_zeroconf(),
+        name="mydevice",
+    )
+    # A resume failure flags an immediate retry; stop before it runs
+    async with rl._connected_lock:
+        await rl._handle_connection_failure(ResumeAPIError("resume"))
+    assert rl._next_wait == 0.0
+    await rl.stop()
+    assert rl._next_wait is None
+
+    # A fresh start with an ordinary failure backs off normally
+    with patch.object(cli, "start_resolve_host", side_effect=APIConnectionError):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+    assert rl._next_wait is None
+    assert rl._tries == 1
+    await rl.stop()
 
 
 async def test_reconnect_logic_state(patchable_api_client: APIClient):

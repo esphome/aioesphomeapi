@@ -18,6 +18,10 @@ from google.protobuf.json_format import MessageToDict
 import aioesphomeapi.host_resolver as hr
 
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
+from ._frame_helper.noise_resume_layout import (
+    RESUME_SECRET_SIZE,
+    RESUME_SESSION_ID_SIZE,
+)
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
@@ -34,6 +38,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     GetTimeResponse,
     HelloRequest,
     HelloResponse,
+    NoiseResumeTicket,
     ParsedTimezone as ParsedTimezoneProto,
     PingRequest,
     PingResponse,
@@ -197,6 +202,7 @@ class ConnectionParams:
     expected_mac: str | None
     timezone: str | None
     provide_time: bool
+    resume_ticket: tuple[bytes, bytes] | None
 
     def __init__(
         self,
@@ -211,6 +217,7 @@ class ConnectionParams:
         expected_mac: str | None,
         timezone: str | None = None,
         provide_time: bool = True,
+        resume_ticket: tuple[bytes, bytes] | None = None,
     ) -> None:
         self.addresses = addresses
         self.port = port
@@ -223,6 +230,10 @@ class ConnectionParams:
         self.expected_mac = expected_mac
         self.timezone = timezone
         self.provide_time = provide_time
+        # Single-use noise session resume ticket learned from the device on a
+        # previous connection; mutated in place like noise_psk so it survives
+        # reconnects.
+        self.resume_ticket = resume_ticket
 
 
 class ConnectionState(enum.Enum):
@@ -592,6 +603,10 @@ class APIConnection:
             )
         else:
             noise_frame_helper = await _async_load_noise_frame_helper(self._loop)
+            # Consume the resume ticket on attempt: the device burns it on
+            # use, and a fresh one arrives once the connection authenticates.
+            resume_ticket = self._params.resume_ticket
+            self._params.resume_ticket = None
             _, fh = await self._loop.create_connection(  # type: ignore[type-var]
                 lambda: noise_frame_helper(
                     noise_psk=noise_psk,
@@ -600,6 +615,7 @@ class APIConnection:
                     connection=self,
                     client_info=self._params.client_info,
                     log_name=self.log_name,
+                    resume_ticket=resume_ticket,
                 ),
                 sock=self._socket,
             )
@@ -1256,6 +1272,9 @@ class APIConnection:
         self._add_message_callback_without_remove(
             self._handle_login_response, (AuthenticationResponse,)
         )
+        self._add_message_callback_without_remove(
+            self._handle_noise_resume_ticket_internal, (NoiseResumeTicket,)
+        )
 
     def _handle_disconnect_request_internal(self, msg: DisconnectRequest) -> None:
         """Handle a DisconnectRequest."""
@@ -1287,6 +1306,19 @@ class APIConnection:
     ) -> None:
         """Handle a PingRequest."""
         self.send_messages(PING_RESPONSE_MESSAGES)
+
+    def _handle_noise_resume_ticket_internal(self, msg: NoiseResumeTicket) -> None:
+        """Store a session resume ticket for the next connection."""
+        ticket = msg.ticket
+        if len(ticket) == RESUME_SESSION_ID_SIZE + RESUME_SECRET_SIZE:
+            self._params.resume_ticket = (
+                ticket[:RESUME_SESSION_ID_SIZE],
+                ticket[RESUME_SESSION_ID_SIZE:],
+            )
+        else:
+            _LOGGER.debug(
+                "%s: Ignoring resume ticket of %d bytes", self.log_name, len(ticket)
+            )
 
     def _handle_get_time_request_internal(  # pylint: disable=unused-argument
         self, _msg: GetTimeRequest
