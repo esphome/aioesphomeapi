@@ -287,6 +287,7 @@ class APIClientBase:
         "_connection",
         "_connection_closed_callbacks",
         "_debug_enabled",
+        "_ir_rf_busy_until",
         "_loop",
         "_notify_callbacks",
         "_params",
@@ -347,9 +348,9 @@ class APIClientBase:
         # treat empty '' psk string as missing (like password)
         psk = _stringify_or_none(noise_psk) or None
         self._params = ConnectionParams(
-            addresses=[str(addr) for addr in addresses]
-            if addresses
-            else [str(address)],
+            addresses=(
+                [str(addr) for addr in addresses] if addresses else [str(address)]
+            ),
             port=port,
             password=password,
             client_info=client_info,
@@ -371,6 +372,8 @@ class APIClientBase:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
+        # entity key -> loop time until which its transmitter is busy
+        self._ir_rf_busy_until: dict[int, float] = {}
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
         self._set_log_name()

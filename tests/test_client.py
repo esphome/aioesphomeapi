@@ -6358,3 +6358,75 @@ async def test_connection_closed_callback_not_called_for_failed_connect(
             await connect_task
 
     assert events == []
+
+
+async def test_ir_rf_transmit_paced_per_entity(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A second frame for the same entity waits until the first has left the device."""
+    client, connection, _transport, _protocol = api_client
+    sent: list[InfraredRFTransmitRawTimingsRequestPb] = []
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
+            sent.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    # 200 ms of timings, sent 5 times: one second on the wire
+    timings = [100_000, -100_000]
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings, repeat_count=5
+    )
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings, repeat_count=5
+    )
+    # a different entity is not held back
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1, 2]
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=0.5))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=1.1))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2, 1]
+
+
+async def test_ir_rf_transmit_deferred_frame_dropped_after_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A deferred frame is not sent on a connection that has since closed."""
+    client, connection, _transport, _protocol = api_client
+    sent: list[InfraredRFTransmitRawTimingsRequestPb] = []
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
+            sent.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    timings = [500_000, -500_000]
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    assert len(sent) == 1
+
+    connection.is_connected = False
+    async_fire_time_changed(utcnow() + timedelta(seconds=2))
+    await asyncio.sleep(0)
+    assert len(sent) == 1

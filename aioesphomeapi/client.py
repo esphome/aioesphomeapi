@@ -209,6 +209,10 @@ from .util import create_eager_task
 
 _LOGGER = logging.getLogger(__name__)
 
+# Added to a computed frame duration before the next frame for the same entity is
+# sent; the device drops a transmit that arrives while one is still on the wire
+IR_RF_TRANSMIT_MARGIN = 0.05
+
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
 DEFAULT_EXECUTE_SERVICE_TIMEOUT = 30.0
@@ -698,14 +702,18 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send an infrared/RF raw timings transmit request."""
+        """Send an infrared/RF raw timings transmit request.
+
+        Requests for an entity whose previous frame is still being sent are
+        delayed until it has finished, in order.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
         req.carrier_frequency = carrier_frequency
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req, timings, repeat_count)
 
     def radio_frequency_transmit_raw_timings(
         self,
@@ -724,7 +732,37 @@ class APIClient(APIClientBase):
         req.modulation = modulation
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req, timings, repeat_count)
+
+    def _send_ir_rf_transmit(
+        self,
+        req: InfraredRFTransmitRawTimingsRequest,
+        timings: list[int],
+        repeat_count: int,
+    ) -> None:
+        """Send now, or once the entity's previous frame has left the device."""
+        connection = self._get_connection()
+        duration = (
+            sum(abs(timing) for timing in timings) * max(repeat_count, 1) / 1_000_000
+            + IR_RF_TRANSMIT_MARGIN
+        )
+        now = self._loop.time()
+        busy_until = self._ir_rf_busy_until.get(req.key, 0.0)
+        if busy_until <= now:
+            connection.send_message(req)
+            self._ir_rf_busy_until[req.key] = now + duration
+            return
+        self._ir_rf_busy_until[req.key] = busy_until + duration
+        self._loop.call_at(
+            busy_until, self._send_deferred_ir_rf_transmit, connection, req
+        )
+
+    @staticmethod
+    def _send_deferred_ir_rf_transmit(
+        connection: APIConnection, req: InfraredRFTransmitRawTimingsRequest
+    ) -> None:
+        if connection.is_connected:
+            connection.send_message(req)
 
     def _supports_proxy_ack(self) -> bool:
         api_version = self.api_version
@@ -1064,13 +1102,11 @@ class APIClient(APIClientBase):
         address: int,
         handle: int,
         request: message.Message,
-        response_type: (
-            type[
-                BluetoothGATTNotifyResponse
-                | BluetoothGATTReadResponse
-                | BluetoothGATTWriteResponse
-            ]
-        ),
+        response_type: type[
+            BluetoothGATTNotifyResponse
+            | BluetoothGATTReadResponse
+            | BluetoothGATTWriteResponse
+        ],
         timeout: float = 10.0,
     ) -> message.Message:
         message_filter = partial(on_bluetooth_handle_message, address, handle)
@@ -1500,7 +1536,7 @@ class APIClient(APIClientBase):
 
     async def _bluetooth_gatt_read(
         self,
-        req_type: (type[BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest]),
+        req_type: type[BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest],
         address: int,
         handle: int,
         timeout: float,
