@@ -1484,6 +1484,7 @@ class SerialProxyUsbInfo(APIModelBase):
     manufacturer: str = ""
     product: str = ""
     serial_number: str = ""
+    interface_description: str = ""
 
 
 # ==================== INFO MAP ====================

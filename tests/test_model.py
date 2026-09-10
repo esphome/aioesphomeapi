@@ -2443,6 +2443,7 @@ def test_serial_proxy_usb_info_conversion() -> None:
         manufacturer="Espressif",
         product="ZBT-2",
         serial_number="5B901035281",
+        interface_description="Nabu Casa ZBT-2",
     )
     model = SerialProxyUsbInfo.from_pb(pb_msg)
     assert model.instance == 1
@@ -2452,6 +2453,7 @@ def test_serial_proxy_usb_info_conversion() -> None:
     assert model.manufacturer == "Espressif"
     assert model.product == "ZBT-2"
     assert model.serial_number == "5B901035281"
+    assert model.interface_description == "Nabu Casa ZBT-2"
 
     pb_msg = SerialProxyUsbInfoPb(instance=2, status=SerialProxyStatus.NOT_SUPPORTED)
     model = SerialProxyUsbInfo.from_pb(pb_msg)

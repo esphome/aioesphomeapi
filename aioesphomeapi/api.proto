@@ -2913,10 +2913,11 @@ message SerialProxyUsbInfo {
   uint32 vendor_id = 4;
   uint32 product_id = 5;
   uint32 bcd_device = 6;
-  uint32 interface_number = 7;    // Channel index on multi-port bridges
+  uint32 interface_number = 7;    // bInterfaceNumber a host driver binds to, as Linux reports it
   string manufacturer = 8;
   string product = 9;
   string serial_number = 10;
+  string interface_description = 11;  // iInterface string of that interface; empty when the device has none
 }
 
 // ==================== BLUETOOTH CONNECTION PARAMS ====================
