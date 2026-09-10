@@ -109,7 +109,6 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
-    ZigbeeProxyRequest,
     ZWaveProxyRequest,
     ZWaveProxyRequestResponse,
 )
@@ -128,7 +127,6 @@ from .client_base import (
     on_serial_proxy_usb_info,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
-    on_zigbee_proxy_request_message,
     on_zwave_proxy_request_message,
 )
 from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa: F401
@@ -200,8 +198,6 @@ from .model import (
     VoiceAssistantTimerEventType,
     WaterHeaterCommandField,
     WaterHeaterStateFlag,
-    ZigbeeProxyRequest as ZigbeeProxyRequestModel,
-    ZigbeeProxyRequestType,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
     ZWaveProxyRequestResponse as ZWaveProxyRequestResponseModel,
@@ -684,28 +680,6 @@ class APIClient(APIClientBase):
             ),
             (ZWaveProxyRequest,),
         )
-
-    def subscribe_zigbee_proxy_request(
-        self,
-        on_zigbee_proxy_request: Callable[[ZigbeeProxyRequestModel], None],
-    ) -> Callable[[], None]:
-        """Subscribe to Zigbee Proxy Request messages."""
-        return self._get_connection().add_message_callback(
-            partial(
-                on_zigbee_proxy_request_message,
-                on_zigbee_proxy_request,
-            ),
-            (ZigbeeProxyRequest,),
-        )
-
-    def send_zigbee_proxy_request(
-        self, request_type: ZigbeeProxyRequestType, data: bytes = b""
-    ) -> None:
-        """Send a Zigbee Proxy Request."""
-        req = ZigbeeProxyRequest()
-        req.type = request_type
-        req.data = data
-        self._get_connection().send_message(req)
 
     def subscribe_infrared_rf_receive(
         self,

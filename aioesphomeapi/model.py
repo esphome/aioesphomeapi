@@ -206,47 +206,6 @@ class ZWaveProxyRequestResponse(APIModelBase):
     )
 
 
-class ZigbeeProxyFeature(enum.IntFlag):
-    ENABLED = 1 << 0
-
-
-class ZigbeeProxyRequestType(APIIntEnum):
-    NETWORK_INFO = 0
-
-
-@_frozen_dataclass_decorator
-class ZigbeeProxyRequest(APIModelBase):
-    type: ZigbeeProxyRequestType = ZigbeeProxyRequestType.NETWORK_INFO
-    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
-
-
-@_frozen_dataclass_decorator
-class ZigbeeNetworkInfo(APIModelBase):
-    """Parsed payload of a NETWORK_INFO ZigbeeProxyRequest.
-
-    The device packs it little-endian: ieee(8) + extended_pan_id(8) + pan_id(2) + channel(1).
-    """
-
-    ieee_address: int = 0
-    extended_pan_id: int = 0
-    pan_id: int = 0
-    channel: int = 0
-
-    @classmethod
-    def from_payload(cls, data: bytes) -> ZigbeeNetworkInfo:
-        if len(data) < 19:
-            msg = f"Zigbee network info payload too short: {len(data)} bytes (expected 19)"
-            raise ValueError(msg)
-        return cls.from_dict(
-            {
-                "ieee_address": int.from_bytes(data[0:8], "little"),
-                "extended_pan_id": int.from_bytes(data[8:16], "little"),
-                "pan_id": int.from_bytes(data[16:18], "little"),
-                "channel": data[18],
-            }
-        )
-
-
 class InfraredCapability(enum.IntFlag):
     TRANSMITTER = 1 << 0
     RECEIVER = 1 << 1
@@ -334,8 +293,6 @@ class DeviceInfo(APIModelBase):
     bluetooth_proxy_feature_flags: int = 0
     zwave_proxy_feature_flags: int = 0
     zwave_home_id: int = 0
-    zigbee_proxy_feature_flags: int = 0
-    zigbee_ieee_address: int = 0
     suggested_area: str = ""
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
@@ -385,12 +342,6 @@ class DeviceInfo(APIModelBase):
         api_version: APIVersion,  # noqa: ARG002
     ) -> int:
         return self.zwave_proxy_feature_flags
-
-    def zigbee_proxy_feature_flags_compat(
-        self,
-        api_version: APIVersion,  # noqa: ARG002
-    ) -> int:
-        return self.zigbee_proxy_feature_flags
 
 
 @_frozen_dataclass_decorator
@@ -2390,10 +2341,6 @@ __all__ = (
     "ZWaveProxyRequestResponse",
     "ZWaveProxyRequestType",
     "ZWaveProxyStatus",
-    "ZigbeeNetworkInfo",
-    "ZigbeeProxyFeature",
-    "ZigbeeProxyRequest",
-    "ZigbeeProxyRequestType",
     "build_device_unique_id",
     "build_unique_id",
 )

@@ -31,7 +31,6 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyDataReceived,
     SerialProxyUsbInfo,
     SubscribeHomeAssistantStateResponse,
-    ZigbeeProxyRequest,
     ZWaveProxyRequest,
 )
 from .connection import ConnectionParams, declares_outgoing_target
@@ -48,7 +47,6 @@ from .model import (
     InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
     SerialProxyUsbInfo as SerialProxyUsbInfoModel,
-    ZigbeeProxyRequest as ZigbeeProxyRequestModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
@@ -251,13 +249,6 @@ def on_zwave_proxy_request_message(
     msg: ZWaveProxyRequest,
 ) -> None:
     on_zwave_proxy_request(ZWaveProxyRequestModel.from_pb(msg))
-
-
-def on_zigbee_proxy_request_message(
-    on_zigbee_proxy_request: Callable[[ZigbeeProxyRequestModel], None],
-    msg: ZigbeeProxyRequest,
-) -> None:
-    on_zigbee_proxy_request(ZigbeeProxyRequestModel.from_pb(msg))
 
 
 def on_infrared_rf_receive_event(
