@@ -91,6 +91,7 @@ cdef class ConnectionParams:
     cdef public object expected_mac
     cdef public object timezone
     cdef public bint provide_time
+    cdef public bint outgoing_connection_target
 
 
 cdef class APIConnection:

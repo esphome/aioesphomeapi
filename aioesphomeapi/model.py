@@ -256,6 +256,11 @@ class SerialProxyPortType(APIIntEnum):
     RS485 = 2
 
 
+class SerialProxyMode(APIIntEnum):
+    RAW = 0
+    PROTOCOL = 1
+
+
 @_frozen_dataclass_decorator
 class SerialProxyInfo(APIModelBase):
     name: str = ""
@@ -291,6 +296,7 @@ class DeviceInfo(APIModelBase):
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
     api_encryption_provisionable: bool = False
+    api_outgoing_connection_supported: bool = False
     devices: list[SubDeviceInfo] = converter_field(
         default_factory=list, converter=SubDeviceInfo.convert_list
     )
@@ -1420,6 +1426,7 @@ class SerialProxyRequestType(APIIntEnum):
     FLUSH = 2
     CONFIGURE = 3
     SET_MODEM_PINS = 4
+    SET_MODE = 5
 
 
 class SerialProxyStatus(APIIntEnum):
@@ -2258,6 +2265,7 @@ __all__ = (
     "SerialProxyDataReceived",
     "SerialProxyInfo",
     "SerialProxyLineStateFlag",
+    "SerialProxyMode",
     "SerialProxyModemPins",
     "SerialProxyParity",
     "SerialProxyPortType",
