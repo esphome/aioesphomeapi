@@ -2892,7 +2892,14 @@ message SerialProxyGetUsbInfoRequest {
 
 // The USB identity of the device currently behind a port, read live from the cached
 // USB descriptors. Fields are zero/empty while no device is connected.
-message SerialProxyGetUsbInfoResponse {
+//
+// Sent in reply to SerialProxyGetUsbInfoRequest, and also unsolicited to every connected
+// client whenever a USB device is attached to or removed from a USB_SERIAL port. A client
+// therefore subscribes to this message before querying the current state, so the
+// connect-time query and later hotplug events are handled by one path. The port's
+// subscription is untouched by a hotplug: the session belongs to the client, which decides
+// whether to keep it.
+message SerialProxyUsbInfo {
   option (id) = 154;
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SERIAL_PROXY";

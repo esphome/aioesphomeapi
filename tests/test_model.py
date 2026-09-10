@@ -70,9 +70,9 @@ from aioesphomeapi.api_pb2 import (
     SensorStateResponse,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
-    SerialProxyGetUsbInfoResponse as SerialProxyGetUsbInfoResponsePb,
     SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
+    SerialProxyUsbInfo as SerialProxyUsbInfoPb,
     ServiceArgType,
     SirenStateResponse,
     SupportsResponseType as SupportsResponseTypePb,
@@ -2426,14 +2426,14 @@ def test_serial_proxy_port_type_enum() -> None:
 
 def test_serial_proxy_usb_info_conversion() -> None:
     """Test SerialProxyUsbInfo conversion from protobuf."""
-    pb_msg = SerialProxyGetUsbInfoResponsePb()
+    pb_msg = SerialProxyUsbInfoPb()
     model = SerialProxyUsbInfo.from_pb(pb_msg)
     assert model.status == SerialProxyStatus.OK
     assert model.connected is False
     assert model.vendor_id == 0
     assert model.serial_number == ""
 
-    pb_msg = SerialProxyGetUsbInfoResponsePb(
+    pb_msg = SerialProxyUsbInfoPb(
         instance=1,
         connected=True,
         vendor_id=0x303A,
@@ -2453,9 +2453,7 @@ def test_serial_proxy_usb_info_conversion() -> None:
     assert model.product == "ZBT-2"
     assert model.serial_number == "5B901035281"
 
-    pb_msg = SerialProxyGetUsbInfoResponsePb(
-        instance=2, status=SerialProxyStatus.NOT_SUPPORTED
-    )
+    pb_msg = SerialProxyUsbInfoPb(instance=2, status=SerialProxyStatus.NOT_SUPPORTED)
     model = SerialProxyUsbInfo.from_pb(pb_msg)
     assert model.status == SerialProxyStatus.NOT_SUPPORTED
 

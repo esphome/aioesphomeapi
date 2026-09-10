@@ -118,11 +118,11 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
     SerialProxyGetUsbInfoRequest,
-    SerialProxyGetUsbInfoResponse,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
     SerialProxySetModeRequest,
+    SerialProxyUsbInfo,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SirenStateResponse,
@@ -565,7 +565,7 @@ MESSAGE_TYPE_TO_PROTO = {
     151: ZWaveProxyRequestResponse,
     152: SerialProxySetModeRequest,
     153: SerialProxyGetUsbInfoRequest,
-    154: SerialProxyGetUsbInfoResponse,
+    154: SerialProxyUsbInfo,
     155: ZigbeeProxyRequest,
 }
 

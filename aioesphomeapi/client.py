@@ -73,11 +73,11 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
     SerialProxyGetUsbInfoRequest,
-    SerialProxyGetUsbInfoResponse,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
     SerialProxySetModeRequest,
+    SerialProxyUsbInfo,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SubscribeBluetoothConnectionsFreeRequest,
@@ -124,6 +124,7 @@ from .client_base import (
     on_home_assistant_action_request,
     on_infrared_rf_receive_event,
     on_serial_proxy_data_received,
+    on_serial_proxy_usb_info,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zigbee_proxy_request_message,
@@ -182,7 +183,7 @@ from .model import (
     SerialProxyParity,
     SerialProxyRequestResponse as SerialProxyRequestResponseModel,
     SerialProxyRequestType,
-    SerialProxyUsbInfo,
+    SerialProxyUsbInfo as SerialProxyUsbInfoModel,
     UpdateCommand,
     UserService,
     UserServiceArgType,
@@ -872,7 +873,7 @@ class APIClient(APIClientBase):
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyUsbInfo:
+    ) -> SerialProxyUsbInfoModel:
         """Get the USB identity of the device behind a USB_SERIAL port.
 
         Ports that are not USB_SERIAL answer with status NOT_SUPPORTED; a port
@@ -880,17 +881,35 @@ class APIClient(APIClientBase):
         """
         req = SerialProxyGetUsbInfoRequest(instance=instance)
 
-        def is_matching_response(msg: SerialProxyGetUsbInfoResponse) -> bool:
+        def is_matching_response(msg: SerialProxyUsbInfo) -> bool:
             return bool(msg.instance == instance)
 
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
             is_matching_response,
             is_matching_response,
-            (SerialProxyGetUsbInfoResponse,),
+            (SerialProxyUsbInfo,),
             timeout,
         )
-        return SerialProxyUsbInfo.from_pb(resp)
+        return SerialProxyUsbInfoModel.from_pb(resp)
+
+    def subscribe_serial_proxy_usb_info(
+        self,
+        on_usb_info: Callable[[SerialProxyUsbInfoModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to USB identity changes of USB_SERIAL ports.
+
+        The device sends one message whenever a USB device is attached to or removed
+        from a port. Replies to serial_proxy_get_usb_info are delivered here as well, so
+        subscribe first and then query each port to learn the current state.
+        """
+        return self._get_connection().add_message_callback(
+            partial(
+                on_serial_proxy_usb_info,
+                on_usb_info,
+            ),
+            (SerialProxyUsbInfo,),
+        )
 
     async def _send_serial_proxy_get_modem_pins(
         self,
