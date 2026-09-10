@@ -75,6 +75,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
+    SerialProxySetModeRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SubscribeBluetoothConnectionsFreeRequest,
@@ -172,6 +173,7 @@ from .model import (
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyRequestResponse as SerialProxyRequestResponseModel,
@@ -730,6 +732,35 @@ class APIClient(APIClientBase):
             return None
         return await self._await_serial_proxy_response(
             req, instance, SerialProxyRequestType.CONFIGURE, timeout
+        )
+
+    def serial_proxy_set_mode(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+    ) -> None:
+        """Set the mode for a serial proxy instance.
+
+        The device only honours this from the currently subscribed client;
+        subscribe to the instance first.
+        """
+        self._get_connection().send_message(
+            SerialProxySetModeRequest(
+                instance=instance,
+                mode=mode,
+            )
+        )
+
+    async def serial_proxy_set_mode_await_response(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Set a serial proxy mode and await the device acknowledgement."""
+        req = SerialProxySetModeRequest(instance=instance, mode=mode)
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.SET_MODE, timeout
         )
 
     def serial_proxy_write(
