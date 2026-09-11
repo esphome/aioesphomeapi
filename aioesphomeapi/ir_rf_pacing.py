@@ -33,14 +33,7 @@ class IrRfTransmitPacing:
     frames are spaced by their computed duration plus a margin instead.
     """
 
-    __slots__ = (
-        "_abandoned",
-        "_connection",
-        "_loop",
-        "_pending",
-        "_supports_complete",
-        "_timer",
-    )
+    __slots__ = ("_connection", "_loop", "_pending", "_supports_complete", "_timer")
 
     def __init__(
         self,
@@ -53,10 +46,6 @@ class IrRfTransmitPacing:
         self._pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
         self._supports_complete = supports_complete
         self._timer: asyncio.TimerHandle | None = None
-        # one expiry handle per frame the timer gave up on: a reply that still comes for it
-        # must not pop the frame on the wire now, and a reply that never comes must not
-        # swallow the next frame's reply for good
-        self._abandoned: deque[asyncio.TimerHandle] = deque()
         if supports_complete:
             connection.add_message_callback(
                 self._on_complete, (InfraredRFTransmitCompleteResponse,)
@@ -72,9 +61,6 @@ class IrRfTransmitPacing:
         if self._timer is not None:
             self._timer.cancel()
             self._timer = None
-        for handle in self._abandoned:
-            handle.cancel()
-        self._abandoned.clear()
         self._pending.clear()
 
     def _transmit(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
@@ -85,24 +71,16 @@ class IrRfTransmitPacing:
             if self._supports_complete
             else IR_RF_TRANSMIT_MARGIN
         )
-        self._timer = self._loop.call_later(duration + grace, self._on_timeout)
+        self._timer = self._loop.call_later(duration + grace, self._advance)
 
-    def _on_timeout(self) -> None:
-        if self._supports_complete:
-            self._abandoned.append(
-                self._loop.call_later(
-                    IR_RF_TRANSMIT_REPLY_TIMEOUT, self._forget_abandoned
-                )
-            )
-        self._advance()
-
-    def _forget_abandoned(self) -> None:
-        # the oldest credit is the one whose expiry just fired
-        self._abandoned.popleft()
-
-    def _on_complete(self, _msg: InfraredRFTransmitCompleteResponse) -> None:
-        if self._abandoned:
-            self._abandoned.popleft().cancel()
+    def _on_complete(self, msg: InfraredRFTransmitCompleteResponse) -> None:
+        pending = self._pending
+        if not pending:
+            return
+        # the reply echoes the request's key; one for a frame the timer already gave up on
+        # must not release the frame on the wire now
+        on_wire = pending[0]
+        if msg.key != on_wire.key or msg.device_id != on_wire.device_id:
             return
         if self._timer is not None:
             self._timer.cancel()
