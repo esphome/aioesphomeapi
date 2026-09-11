@@ -6450,12 +6450,12 @@ async def test_ir_rf_transmit_pending_cleared_on_disconnect(
         key=7, carrier_frequency=38000, timings=timings, repeat_count=1
     )
     assert len(sent) == 1
-    assert client._ir_rf_pending
+    assert client._ir_rf.pending
 
     client._on_stop(None, expected_disconnect=False)
-    assert not client._ir_rf_pending
-    assert client._ir_rf_in_flight is False
-    assert client._ir_rf_complete_unsub is None
+    assert not client._ir_rf.pending
+    assert client._ir_rf.in_flight is False
+    assert client._ir_rf.complete_unsub is None
 
 
 async def test_ir_rf_transmit_estimate_fallback_before_api_1_18(
@@ -6512,7 +6512,7 @@ async def test_ir_rf_transmit_estimate_fallback_warns_once(
 
     caplog.clear()
     connection.api_version = APIVersion(1, 18)
-    client._ir_rf_version_warned = False
+    client._ir_rf.version_warned = False
     client.radio_frequency_transmit_raw_timings(
         key=3, frequency=433920000, timings=timings
     )

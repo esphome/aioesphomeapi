@@ -278,6 +278,35 @@ def _stringify_or_none(value: str_ | None) -> str | None:
     return None if value is None else str(value)
 
 
+class IrRfTransmitPacing:
+    """IR/RF transmit pacing state, one frame on the wire per device.
+
+    Entities may share a transmitter, so the device is the unit of pacing.
+    busy_until is the estimate fallback for firmware older than API 1.18,
+    which never reports completion.
+    """
+
+    __slots__ = (
+        "busy_until",
+        "complete_unsub",
+        "in_flight",
+        "pending",
+        "version_warned",
+    )
+
+    def __init__(self) -> None:
+        self.pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
+        self.reset()
+
+    def reset(self) -> None:
+        """Forget everything about the connection that just closed."""
+        self.in_flight = False
+        self.pending.clear()
+        self.busy_until = 0.0
+        self.complete_unsub: Callable[[], None] | None = None
+        self.version_warned = False
+
+
 class APIClientBase:
     """Base client for ESPHome API clients."""
 
@@ -289,11 +318,7 @@ class APIClientBase:
         "_connection",
         "_connection_closed_callbacks",
         "_debug_enabled",
-        "_ir_rf_busy_until",
-        "_ir_rf_complete_unsub",
-        "_ir_rf_in_flight",
-        "_ir_rf_pending",
-        "_ir_rf_version_warned",
+        "_ir_rf",
         "_loop",
         "_notify_callbacks",
         "_params",
@@ -378,13 +403,7 @@ class APIClientBase:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
-        # IR/RF transmit pacing: one frame on the wire per device, because entities may
-        # share a transmitter; busy_until is the estimate fallback for older firmware
-        self._ir_rf_in_flight: bool = False
-        self._ir_rf_pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
-        self._ir_rf_complete_unsub: Callable[[], None] | None = None
-        self._ir_rf_busy_until: float = 0.0
-        self._ir_rf_version_warned: bool = False
+        self._ir_rf = IrRfTransmitPacing()
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
         self._set_log_name()
