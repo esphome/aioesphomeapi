@@ -6487,6 +6487,38 @@ async def test_ir_rf_transmit_estimate_fallback_before_api_1_18(
     assert [msg.key for msg in sent] == [1, 2]
 
 
+async def test_ir_rf_transmit_estimate_fallback_warns_once(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Firmware without completion replies gets one warning per connection."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 17)
+    _capture_ir_rf_sends(connection)
+
+    caplog.clear()
+    timings = [1_000, -1_000]
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings
+    )
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings
+    )
+    warnings = [r for r in caplog.records if "overwhelm the device" in r.message]
+    assert len(warnings) == 1
+    assert "1.17" in warnings[0].message
+
+    caplog.clear()
+    connection.api_version = APIVersion(1, 18)
+    client._ir_rf_version_warned = False
+    client.radio_frequency_transmit_raw_timings(
+        key=3, frequency=433920000, timings=timings
+    )
+    assert "overwhelm the device" not in caplog.text
+
+
 async def test_ir_rf_transmit_estimate_fallback_dropped_after_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper

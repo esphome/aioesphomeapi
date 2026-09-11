@@ -293,6 +293,7 @@ class APIClientBase:
         "_ir_rf_complete_unsub",
         "_ir_rf_in_flight",
         "_ir_rf_pending",
+        "_ir_rf_version_warned",
         "_loop",
         "_notify_callbacks",
         "_params",
@@ -383,6 +384,7 @@ class APIClientBase:
         self._ir_rf_pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
         self._ir_rf_complete_unsub: Callable[[], None] | None = None
         self._ir_rf_busy_until: float = 0.0
+        self._ir_rf_version_warned: bool = False
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
         self._set_log_name()

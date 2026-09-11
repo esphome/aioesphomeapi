@@ -376,6 +376,7 @@ class APIClient(APIClientBase):
         self._ir_rf_pending.clear()
         self._ir_rf_busy_until = 0.0
         self._ir_rf_complete_unsub = None
+        self._ir_rf_version_warned = False
         if connection is not None:
             # Subscribers run before on_stop: create_eager_task starts the
             # on_stop coroutine synchronously, so reconnect machinery would
@@ -755,6 +756,18 @@ class APIClient(APIClientBase):
         """
         connection = self._get_connection()
         if not self._supports_ir_rf_transmit_complete():
+            api_version = self.api_version
+            if not self._ir_rf_version_warned and api_version is not None:
+                self._ir_rf_version_warned = True
+                _LOGGER.warning(
+                    "%s: firmware API %s.%s does not report when an IR/RF transmit "
+                    "has finished, so frames are spaced by an estimate and a burst of "
+                    "transmits can overwhelm the device; update to ESPHome 2026.10.0 "
+                    "or newer",
+                    self.log_name,
+                    api_version.major,
+                    api_version.minor,
+                )
             self._send_ir_rf_transmit_estimated(connection, req, timings, repeat_count)
             return
         if self._ir_rf_complete_unsub is None:

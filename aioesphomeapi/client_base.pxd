@@ -36,6 +36,7 @@ cdef class APIClientBase:
     cdef public object _ir_rf_complete_unsub
     cdef public bint _ir_rf_in_flight
     cdef public object _ir_rf_pending
+    cdef public bint _ir_rf_version_warned
     cdef public dict _notify_callbacks
     cdef public ConnectionParams _params
     cdef public str cached_name
