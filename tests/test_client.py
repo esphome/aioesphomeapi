@@ -6397,7 +6397,7 @@ async def test_ir_rf_transmit_paced_by_completion_response(
     )
     assert [msg.key for msg in sent] == [1]
 
-    # nothing is released by time alone
+    # time alone does not release the frame before the reply is long overdue
     async_fire_time_changed(utcnow() + timedelta(seconds=30))
     await asyncio.sleep(0)
     assert [msg.key for msg in sent] == [1]
@@ -6430,6 +6430,29 @@ async def test_ir_rf_transmit_paced_by_completion_response(
         key=1, frequency=433920000, timings=timings, repeat_count=1
     )
     assert [msg.key for msg in sent] == [1, 1, 2, 1]
+
+
+async def test_ir_rf_transmit_released_when_reply_never_comes(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A reply the device could not send must not hold the queue for good."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    for key in (1, 2):
+        client.radio_frequency_transmit_raw_timings(
+            key=key, frequency=433920000, timings=timings, repeat_count=5
+        )
+    assert [msg.key for msg in sent] == [1]
+
+    # 1 s frame plus the 35 s grace: released without a reply
+    async_fire_time_changed(utcnow() + timedelta(seconds=37))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
 
 
 async def test_ir_rf_transmit_pending_cleared_on_disconnect(

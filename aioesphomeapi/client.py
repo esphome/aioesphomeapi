@@ -213,6 +213,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # Estimate fallback for firmware before API 1.18: added to the computed frame duration
 IR_RF_TRANSMIT_MARGIN = 0.05
+# The device answers a frame that never reported 30 s after its air time; a reply the device
+# could not send at all (unknown key on a full TCP buffer) never comes, so give up a bit later
+IR_RF_TRANSMIT_REPLY_TIMEOUT = 35.0
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
@@ -348,8 +351,9 @@ class IrRfTransmitPacing:
     Entities can share a transmitter, so the device is the unit of pacing:
     pending[0] is the frame on the wire and the rest wait behind it. Firmware on
     API 1.18 or newer replies once a frame has left the transmitter and the next
-    frame goes out on that reply. Older firmware never replies, so frames are
-    spaced by their computed duration plus a margin instead.
+    frame goes out on that reply, or when the reply is long overdue so a lost
+    reply cannot hold the queue for good. Older firmware never replies, so
+    frames are spaced by their computed duration plus a margin instead.
     """
 
     __slots__ = ("_connection", "_loop", "_pending", "_supports_complete", "_timer")
@@ -384,13 +388,17 @@ class IrRfTransmitPacing:
 
     def _transmit(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
         self._connection.send_message(req)
-        if not self._supports_complete:
-            duration = sum(map(abs, req.timings)) * max(req.repeat_count, 1) / 1_000_000
-            self._timer = self._loop.call_later(
-                duration + IR_RF_TRANSMIT_MARGIN, self._advance
-            )
+        duration = sum(map(abs, req.timings)) * max(req.repeat_count, 1) / 1_000_000
+        grace = (
+            IR_RF_TRANSMIT_REPLY_TIMEOUT
+            if self._supports_complete
+            else IR_RF_TRANSMIT_MARGIN
+        )
+        self._timer = self._loop.call_later(duration + grace, self._advance)
 
     def _on_complete(self, _msg: InfraredRFTransmitCompleteResponse) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
         self._advance()
 
     def _advance(self) -> None:
