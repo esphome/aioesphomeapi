@@ -344,7 +344,6 @@ ExecuteServiceDataType = dict[
 ]
 
 
-# pylint: disable=too-many-public-methods
 class IrRfTransmitPacing:
     """Sends the IR/RF transmit requests of one connection one frame at a time.
 
@@ -356,7 +355,14 @@ class IrRfTransmitPacing:
     frames are spaced by their computed duration plus a margin instead.
     """
 
-    __slots__ = ("_connection", "_loop", "_pending", "_supports_complete", "_timer")
+    __slots__ = (
+        "_abandoned",
+        "_connection",
+        "_loop",
+        "_pending",
+        "_supports_complete",
+        "_timer",
+    )
 
     def __init__(
         self,
@@ -369,6 +375,9 @@ class IrRfTransmitPacing:
         self._pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
         self._supports_complete = supports_complete
         self._timer: asyncio.TimerHandle | None = None
+        # frames given up on by the timer; their replies, if they still come, must not
+        # pop the frame that is on the wire now
+        self._abandoned = 0
         if supports_complete:
             connection.add_message_callback(
                 self._on_complete, (InfraredRFTransmitCompleteResponse,)
@@ -394,9 +403,17 @@ class IrRfTransmitPacing:
             if self._supports_complete
             else IR_RF_TRANSMIT_MARGIN
         )
-        self._timer = self._loop.call_later(duration + grace, self._advance)
+        self._timer = self._loop.call_later(duration + grace, self._on_timeout)
+
+    def _on_timeout(self) -> None:
+        if self._supports_complete:
+            self._abandoned += 1
+        self._advance()
 
     def _on_complete(self, _msg: InfraredRFTransmitCompleteResponse) -> None:
+        if self._abandoned:
+            self._abandoned -= 1
+            return
         if self._timer is not None:
             self._timer.cancel()
         self._advance()
@@ -410,6 +427,7 @@ class IrRfTransmitPacing:
             self._transmit(pending[0])
 
 
+# pylint: disable=too-many-public-methods
 class APIClient(APIClientBase):
     """The ESPHome API client.
 

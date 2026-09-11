@@ -6438,7 +6438,7 @@ async def test_ir_rf_transmit_released_when_reply_never_comes(
     ],
 ) -> None:
     """A reply the device could not send must not hold the queue for good."""
-    client, connection, _transport, _protocol = api_client
+    client, connection, _transport, protocol = api_client
     connection.api_version = APIVersion(1, 18)
     sent = _capture_ir_rf_sends(connection)
 
@@ -6453,6 +6453,25 @@ async def test_ir_rf_transmit_released_when_reply_never_comes(
     async_fire_time_changed(utcnow() + timedelta(seconds=37))
     await asyncio.sleep(0)
     assert [msg.key for msg in sent] == [1, 2]
+
+    # the late reply for the abandoned frame must not release the one now on the wire
+    client.radio_frequency_transmit_raw_timings(
+        key=3, frequency=433920000, timings=timings, repeat_count=5
+    )
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=1, success=False)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2]
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=2, success=True)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2, 3]
 
 
 async def test_ir_rf_transmit_pending_cleared_on_disconnect(
