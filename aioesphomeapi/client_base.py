@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from google.protobuf import message
 
     from .connection import APIConnection
+    from .ir_rf_pacing import IrRfTransmitPacing
     from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
@@ -287,6 +288,7 @@ class APIClientBase:
         "_connection",
         "_connection_closed_callbacks",
         "_debug_enabled",
+        "_ir_rf",
         "_loop",
         "_notify_callbacks",
         "_params",
@@ -371,6 +373,8 @@ class APIClientBase:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
+        # created by the first IR/RF transmit on a connection, dropped with it
+        self._ir_rf: IrRfTransmitPacing | None = None
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
         self._set_log_name()

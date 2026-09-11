@@ -63,6 +63,7 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredRFReceiveEvent as InfraredRFReceiveEventPb,
+    InfraredRFTransmitCompleteResponse as InfraredRFTransmitCompleteResponsePb,
     InfraredRFTransmitRawTimingsRequest as InfraredRFTransmitRawTimingsRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
@@ -6358,3 +6359,277 @@ async def test_connection_closed_callback_not_called_for_failed_connect(
             await connect_task
 
     assert events == []
+
+
+def _capture_ir_rf_sends(
+    connection: APIConnection,
+) -> list[InfraredRFTransmitRawTimingsRequestPb]:
+    sent: list[InfraredRFTransmitRawTimingsRequestPb] = []
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
+            sent.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+    return sent
+
+
+async def test_ir_rf_transmit_paced_by_completion_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """One frame at a time per device; the next waits for the device's completion."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    for _ in range(2):
+        client.radio_frequency_transmit_raw_timings(
+            key=1, frequency=433920000, timings=timings, repeat_count=5
+        )
+    # another entity may share the transmitter, so it waits too
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1]
+
+    # time alone does not release the frame before the reply is long overdue
+    async_fire_time_changed(utcnow() + timedelta(seconds=30))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1]
+
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=1, success=True)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 1]
+
+    # a frame that never started also frees the transmitter
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=1, success=False)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 1, 2]
+
+    # queue drained: the next request goes out immediately once this one completes
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=2, success=True)
+        ),
+    )
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1, 1, 2, 1]
+
+
+async def test_ir_rf_transmit_released_when_reply_never_comes(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A reply the device could not send must not hold the queue for good."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    for key in (1, 2):
+        client.radio_frequency_transmit_raw_timings(
+            key=key, frequency=433920000, timings=timings, repeat_count=5
+        )
+    assert [msg.key for msg in sent] == [1]
+
+    # 1 s frame plus the 35 s grace: released without a reply
+    async_fire_time_changed(utcnow() + timedelta(seconds=37))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
+
+    # the late reply for the abandoned frame must not release the one now on the wire
+    client.radio_frequency_transmit_raw_timings(
+        key=3, frequency=433920000, timings=timings, repeat_count=5
+    )
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=1, success=False)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2]
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=2, success=True)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2, 3]
+
+
+async def test_ir_rf_transmit_next_frame_completes_after_lost_reply(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A reply that never comes must not slow the frames after it."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    for key in (1, 2, 3):
+        client.radio_frequency_transmit_raw_timings(
+            key=key, frequency=433920000, timings=timings, repeat_count=5
+        )
+    async_fire_time_changed(utcnow() + timedelta(seconds=37))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
+
+    # frame 2's own reply is honoured right away
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=2, success=True)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2, 3]
+
+
+async def test_ir_rf_transmit_reply_with_empty_queue_is_ignored(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A stray reply after the queue drained changes nothing."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings, repeat_count=1
+    )
+    for _ in range(2):
+        mock_data_received(
+            protocol,
+            generate_plaintext_packet(
+                InfraredRFTransmitCompleteResponsePb(key=1, success=True)
+            ),
+        )
+    assert [msg.key for msg in sent] == [1]
+
+    # the queue is idle, so the next request goes out at once
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1, 2]
+
+
+async def test_ir_rf_transmit_pending_cleared_on_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Frames waiting for a completion are dropped with the connection."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [500_000, -500_000]
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    assert len(sent) == 1
+    assert client._ir_rf is not None
+    assert client._ir_rf._pending
+
+    client._on_stop(None, expected_disconnect=False)
+    assert client._ir_rf is None
+
+
+async def test_ir_rf_transmit_estimate_fallback_before_api_1_18(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Older firmware never replies, so frames are spaced by their computed duration."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 17)
+    sent = _capture_ir_rf_sends(connection)
+
+    # 200 ms of timings, sent 5 times: one second on the wire
+    timings = [100_000, -100_000]
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings, repeat_count=5
+    )
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1]
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=0.5))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1]
+
+    async_fire_time_changed(utcnow() + timedelta(seconds=1.1))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
+
+
+async def test_ir_rf_transmit_estimate_fallback_warns_once(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Firmware without completion replies gets one warning per connection."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 17)
+
+    caplog.clear()
+    timings = [1_000, -1_000]
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings
+    )
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings
+    )
+    warnings = [r for r in caplog.records if "overwhelm the device" in r.message]
+    assert len(warnings) == 1
+    assert "1.17" in warnings[0].message
+
+
+async def test_ir_rf_transmit_estimate_fallback_dropped_after_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A deferred frame is not sent on a connection that has since closed."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 17)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [500_000, -500_000]
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    assert len(sent) == 1
+
+    connection.is_connected = False
+    async_fire_time_changed(utcnow() + timedelta(seconds=2))
+    await asyncio.sleep(0)
+    assert len(sent) == 1

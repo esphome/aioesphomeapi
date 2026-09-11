@@ -68,6 +68,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredRFReceiveEvent,
+    InfraredRFTransmitCompleteResponse,
     InfraredRFTransmitRawTimingsRequest,
     LightCommandRequest,
     LightStateResponse,
@@ -561,6 +562,7 @@ MESSAGE_TYPE_TO_PROTO = {
     150: DeviceCapabilitiesResponse,
     151: ZWaveProxyRequestResponse,
     152: SerialProxySetModeRequest,
+    153: InfraredRFTransmitCompleteResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

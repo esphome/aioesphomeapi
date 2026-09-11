@@ -136,6 +136,7 @@ from .core import (
     to_human_readable_address,
     to_human_readable_gatt_error,
 )
+from .ir_rf_pacing import IrRfTransmitPacing
 from .model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -269,6 +270,8 @@ MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
 
 # API version 1.16+ acknowledges proxy subscribe and port configuration requests
 MIN_VERSION_PROXY_ACK = APIVersion(1, 16)
+# API version 1.18+ replies to each IR/RF transmit once the frame has left the device
+MIN_VERSION_IR_RF_TRANSMIT_COMPLETE = APIVersion(1, 18)
 
 
 def _make_serial_proxy_configure_request(
@@ -365,6 +368,9 @@ class APIClient(APIClientBase):
         connection = self._connection
         self._connection = None
         self._cached_device_info = None
+        if (ir_rf := self._ir_rf) is not None:
+            ir_rf.close()
+            self._ir_rf = None
         if connection is not None:
             # Subscribers run before on_stop: create_eager_task starts the
             # on_stop coroutine synchronously, so reconnect machinery would
@@ -698,14 +704,18 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send an infrared/RF raw timings transmit request."""
+        """Send an infrared/RF raw timings transmit request.
+
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
         req.carrier_frequency = carrier_frequency
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req)
 
     def radio_frequency_transmit_raw_timings(
         self,
@@ -716,7 +726,11 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send a radio frequency raw timings transmit request."""
+        """Send a radio frequency raw timings transmit request.
+
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
@@ -724,7 +738,32 @@ class APIClient(APIClientBase):
         req.modulation = modulation
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req)
+
+    def _send_ir_rf_transmit(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
+        if (ir_rf := self._ir_rf) is None:
+            connection = self._get_connection()
+            api_version = self.api_version
+            supports_complete = True
+            if (
+                api_version is not None
+                and api_version < MIN_VERSION_IR_RF_TRANSMIT_COMPLETE
+            ):
+                supports_complete = False
+                # the pacing object lives as long as the connection, so this warns once per connection
+                _LOGGER.warning(
+                    "%s: firmware API %s.%s does not report when an IR/RF transmit "
+                    "has finished, so frames are spaced by an estimate and a burst of "
+                    "transmits can overwhelm the device; update to ESPHome 2026.10.0 "
+                    "or newer",
+                    self.log_name,
+                    api_version.major,
+                    api_version.minor,
+                )
+            ir_rf = self._ir_rf = IrRfTransmitPacing(
+                connection, self._loop, supports_complete
+            )
+        ir_rf.send(req)
 
     def _supports_proxy_ack(self) -> bool:
         api_version = self.api_version
