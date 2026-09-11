@@ -2716,7 +2716,9 @@ message InfraredRFReceiveEvent {
 // several entities may share one, so a client should keep at most one transmit outstanding per
 // device, not per entity. A reply for an unknown key or a refused request is sent once and can be lost
 // when the device's send buffer is full, so a client should also stop waiting on its own after the
-// expected air time plus a margin. Lets clients pace requests instead of estimating durations (since API 1.18)
+// expected air time plus a margin. The reply carries no request id, so a client that queues the same entity
+// twice must treat a reply later than its own timeout as belonging to the next frame. Lets clients pace
+// requests instead of estimating durations (since API 1.18)
 message InfraredRFTransmitCompleteResponse {
   option (id) = 153;
   option (source) = SOURCE_SERVER;

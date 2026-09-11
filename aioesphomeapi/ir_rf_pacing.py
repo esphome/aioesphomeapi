@@ -31,6 +31,12 @@ class IrRfTransmitPacing:
     frame goes out on that reply, or when the reply is long overdue so a lost
     reply cannot hold the queue for good. Older firmware never replies, so
     frames are spaced by their computed duration plus a margin instead.
+
+    A reply carries only the entity's key and device id, not a request id. If
+    the device answers a frame later than the grace timeout and the next frame
+    queued is for the same entity, that late reply releases the next frame
+    early; the device answers within 30 s of a frame's air time, so this needs
+    a reply more than 5 s late.
     """
 
     __slots__ = ("_connection", "_loop", "_pending", "_supports_complete", "_timer")
