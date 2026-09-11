@@ -754,8 +754,8 @@ class APIClient(APIClientBase):
                 _LOGGER.warning(
                     "%s: firmware API %s.%s does not report when an IR/RF transmit "
                     "has finished, so frames are spaced by an estimate and a burst of "
-                    "transmits can overwhelm the device; update to firmware with API "
-                    "1.18 or newer",
+                    "transmits can overwhelm the device; update to ESPHome 2026.10.0 "
+                    "or newer",
                     self.log_name,
                     api_version.major,
                     api_version.minor,
