@@ -56,8 +56,8 @@ if TYPE_CHECKING:
 
     from google.protobuf import message
 
-    from .client import IrRfTransmitPacing
     from .connection import APIConnection
+    from .ir_rf_pacing import IrRfTransmitPacing
     from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)

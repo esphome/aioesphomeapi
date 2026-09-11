@@ -6474,6 +6474,41 @@ async def test_ir_rf_transmit_released_when_reply_never_comes(
     assert [msg.key for msg in sent] == [1, 2, 3]
 
 
+async def test_ir_rf_transmit_abandoned_credit_expires(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A reply that never comes must not swallow the next frame's reply for good."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    for key in (1, 2, 3):
+        client.radio_frequency_transmit_raw_timings(
+            key=key, frequency=433920000, timings=timings, repeat_count=5
+        )
+    # frame 1 is abandoned at 36 s and frame 2 goes out with its own 36 s timer; the mocked
+    # clock does not move the loop's base time, so both new timers count from now
+    async_fire_time_changed(utcnow() + timedelta(seconds=37))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
+    # 35.5 s lapses frame 1's credit without reaching frame 2's timer
+    async_fire_time_changed(utcnow() + timedelta(seconds=35.5))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
+
+    # frame 2's own reply is honoured once the stale credit is gone
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=2, success=True)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2, 3]
+
+
 async def test_ir_rf_transmit_pending_cleared_on_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
