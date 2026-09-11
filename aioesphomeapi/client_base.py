@@ -28,6 +28,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     CameraImageResponse,
     HomeassistantActionRequest,
     InfraredRFReceiveEvent,
+    InfraredRFTransmitRawTimingsRequest,
     SerialProxyDataReceived,
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
@@ -52,6 +53,7 @@ from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfManager
 
 if TYPE_CHECKING:
+    from collections import deque
     from collections.abc import Callable, Coroutine, Iterable
 
     from google.protobuf import message
@@ -288,6 +290,9 @@ class APIClientBase:
         "_connection_closed_callbacks",
         "_debug_enabled",
         "_ir_rf_busy_until",
+        "_ir_rf_complete_unsub",
+        "_ir_rf_in_flight",
+        "_ir_rf_pending",
         "_loop",
         "_notify_callbacks",
         "_params",
@@ -372,7 +377,11 @@ class APIClientBase:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
-        # entity key -> loop time until which its transmitter is busy
+        # IR/RF transmit pacing: keys with a frame on the wire, frames waiting per key,
+        # and the estimate fallback for firmware without completion responses
+        self._ir_rf_in_flight: set[int] = set()
+        self._ir_rf_pending: dict[int, deque[InfraredRFTransmitRawTimingsRequest]] = {}
+        self._ir_rf_complete_unsub: Callable[[], None] | None = None
         self._ir_rf_busy_until: dict[int, float] = {}
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)

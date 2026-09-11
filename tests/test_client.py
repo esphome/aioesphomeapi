@@ -63,6 +63,7 @@ from aioesphomeapi.api_pb2 import (
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredRFReceiveEvent as InfraredRFReceiveEventPb,
+    InfraredRFTransmitCompleteResponse as InfraredRFTransmitCompleteResponsePb,
     InfraredRFTransmitRawTimingsRequest as InfraredRFTransmitRawTimingsRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
@@ -6360,13 +6361,9 @@ async def test_connection_closed_callback_not_called_for_failed_connect(
     assert events == []
 
 
-async def test_ir_rf_transmit_paced_per_entity(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    """A second frame for the same entity waits until the first has left the device."""
-    client, connection, _transport, _protocol = api_client
+def _capture_ir_rf_sends(
+    connection: APIConnection,
+) -> list[InfraredRFTransmitRawTimingsRequestPb]:
     sent: list[InfraredRFTransmitRawTimingsRequestPb] = []
     original_send = connection.send_message
 
@@ -6376,6 +6373,100 @@ async def test_ir_rf_transmit_paced_per_entity(
         original_send(msg)
 
     connection.send_message = capture_send
+    return sent
+
+
+async def test_ir_rf_transmit_paced_by_completion_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A frame for an entity waits for the device's completion of the previous one."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    for _ in range(3):
+        client.radio_frequency_transmit_raw_timings(
+            key=1, frequency=433920000, timings=timings, repeat_count=5
+        )
+    # another entity is not held back
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1, 2]
+
+    # nothing is released by time alone
+    async_fire_time_changed(utcnow() + timedelta(seconds=30))
+    await asyncio.sleep(0)
+    assert [msg.key for msg in sent] == [1, 2]
+
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=1, success=True)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2, 1]
+
+    # a frame that never started also frees the entity
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=1, success=False)
+        ),
+    )
+    assert [msg.key for msg in sent] == [1, 2, 1, 1]
+
+    # queue drained: the next request goes out immediately once this one completes
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            InfraredRFTransmitCompleteResponsePb(key=1, success=True)
+        ),
+    )
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1, 2, 1, 1, 1]
+
+
+async def test_ir_rf_transmit_pending_cleared_on_disconnect(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Frames waiting for a completion are dropped with the connection."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [500_000, -500_000]
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    client.infrared_rf_transmit_raw_timings(
+        key=7, carrier_frequency=38000, timings=timings, repeat_count=1
+    )
+    assert len(sent) == 1
+    assert client._ir_rf_pending
+
+    client._on_stop(None, expected_disconnect=False)
+    assert not client._ir_rf_pending
+    assert not client._ir_rf_in_flight
+    assert client._ir_rf_complete_unsub is None
+
+
+async def test_ir_rf_transmit_estimate_fallback_before_api_1_18(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Older firmware never replies, so frames are spaced by their computed duration."""
+    client, connection, _transport, _protocol = api_client
+    connection.api_version = APIVersion(1, 17)
+    sent = _capture_ir_rf_sends(connection)
 
     # 200 ms of timings, sent 5 times: one second on the wire
     timings = [100_000, -100_000]
@@ -6385,7 +6476,6 @@ async def test_ir_rf_transmit_paced_per_entity(
     client.radio_frequency_transmit_raw_timings(
         key=1, frequency=433920000, timings=timings, repeat_count=5
     )
-    # a different entity is not held back
     client.radio_frequency_transmit_raw_timings(
         key=2, frequency=433920000, timings=timings, repeat_count=1
     )
@@ -6400,22 +6490,15 @@ async def test_ir_rf_transmit_paced_per_entity(
     assert [msg.key for msg in sent] == [1, 2, 1]
 
 
-async def test_ir_rf_transmit_deferred_frame_dropped_after_disconnect(
+async def test_ir_rf_transmit_estimate_fallback_dropped_after_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
     """A deferred frame is not sent on a connection that has since closed."""
     client, connection, _transport, _protocol = api_client
-    sent: list[InfraredRFTransmitRawTimingsRequestPb] = []
-    original_send = connection.send_message
-
-    def capture_send(msg: Any) -> None:
-        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
-            sent.append(msg)
-        original_send(msg)
-
-    connection.send_message = capture_send
+    connection.api_version = APIVersion(1, 17)
+    sent = _capture_ir_rf_sends(connection)
 
     timings = [500_000, -500_000]
     client.infrared_rf_transmit_raw_timings(

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any
@@ -58,6 +59,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredRFReceiveEvent,
+    InfraredRFTransmitCompleteResponse,
     InfraredRFTransmitRawTimingsRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
@@ -209,8 +211,8 @@ from .util import create_eager_task
 
 _LOGGER = logging.getLogger(__name__)
 
-# Added to a computed frame duration before the next frame for the same entity is
-# sent; the device drops a transmit that arrives while one is still on the wire
+# Estimate fallback for firmware before API 1.18: added to a computed frame duration
+# before the next frame for the same entity is sent
 IR_RF_TRANSMIT_MARGIN = 0.05
 
 DEFAULT_BLE_TIMEOUT = 30.0
@@ -273,6 +275,8 @@ MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
 
 # API version 1.16+ acknowledges proxy subscribe and port configuration requests
 MIN_VERSION_PROXY_ACK = APIVersion(1, 16)
+# API version 1.18+ replies to each IR/RF transmit once the frame has left the device
+MIN_VERSION_IR_RF_TRANSMIT_COMPLETE = APIVersion(1, 18)
 
 
 def _make_serial_proxy_configure_request(
@@ -369,6 +373,10 @@ class APIClient(APIClientBase):
         connection = self._connection
         self._connection = None
         self._cached_device_info = None
+        self._ir_rf_in_flight.clear()
+        self._ir_rf_pending.clear()
+        self._ir_rf_busy_until.clear()
+        self._ir_rf_complete_unsub = None
         if connection is not None:
             # Subscribers run before on_stop: create_eager_task starts the
             # on_stop coroutine synchronously, so reconnect machinery would
@@ -740,8 +748,55 @@ class APIClient(APIClientBase):
         timings: list[int],
         repeat_count: int,
     ) -> None:
-        """Send now, or once the entity's previous frame has left the device."""
+        """Send now, or once the entity's previous frame has left the device.
+
+        The device replies with InfraredRFTransmitCompleteResponse when a frame has
+        finished, so a frame never overlaps the previous one for the same entity.
+        """
         connection = self._get_connection()
+        if not self._supports_ir_rf_transmit_complete():
+            self._send_ir_rf_transmit_estimated(connection, req, timings, repeat_count)
+            return
+        if self._ir_rf_complete_unsub is None:
+            self._ir_rf_complete_unsub = connection.add_message_callback(
+                self._on_ir_rf_transmit_complete, (InfraredRFTransmitCompleteResponse,)
+            )
+        key = req.key
+        if key in self._ir_rf_in_flight:
+            self._ir_rf_pending.setdefault(key, deque()).append(req)
+            return
+        self._ir_rf_in_flight.add(key)
+        connection.send_message(req)
+
+    def _on_ir_rf_transmit_complete(
+        self, msg: InfraredRFTransmitCompleteResponse
+    ) -> None:
+        key = msg.key
+        if not msg.success:
+            _LOGGER.debug(
+                "%s: IR/RF transmit for key %s did not start", self.log_name, key
+            )
+        pending = self._ir_rf_pending.get(key)
+        connection = self._connection
+        if not pending or connection is None or not connection.is_connected:
+            self._ir_rf_in_flight.discard(key)
+            return
+        connection.send_message(pending.popleft())
+        if not pending:
+            del self._ir_rf_pending[key]
+
+    def _supports_ir_rf_transmit_complete(self) -> bool:
+        api_version = self.api_version
+        return api_version is None or api_version >= MIN_VERSION_IR_RF_TRANSMIT_COMPLETE
+
+    def _send_ir_rf_transmit_estimated(
+        self,
+        connection: APIConnection,
+        req: InfraredRFTransmitRawTimingsRequest,
+        timings: list[int],
+        repeat_count: int,
+    ) -> None:
+        """Pace by frame duration for firmware without completion responses."""
         duration = (
             sum(abs(timing) for timing in timings) * max(repeat_count, 1) / 1_000_000
             + IR_RF_TRANSMIT_MARGIN

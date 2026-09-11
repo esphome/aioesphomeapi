@@ -32,6 +32,10 @@ cdef class APIClientBase:
     cdef public list _connection_closed_callbacks
     cdef public bint _debug_enabled
     cdef public object _loop
+    cdef public dict _ir_rf_busy_until
+    cdef public object _ir_rf_complete_unsub
+    cdef public set _ir_rf_in_flight
+    cdef public dict _ir_rf_pending
     cdef public dict _notify_callbacks
     cdef public ConnectionParams _params
     cdef public str cached_name
