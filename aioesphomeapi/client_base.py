@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from functools import partial
 import itertools
 import logging
@@ -53,7 +54,6 @@ from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfManager
 
 if TYPE_CHECKING:
-    from collections import deque
     from collections.abc import Callable, Coroutine, Iterable
 
     from google.protobuf import message
@@ -377,12 +377,12 @@ class APIClientBase:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
-        # IR/RF transmit pacing: keys with a frame on the wire, frames waiting per key,
-        # and the estimate fallback for firmware without completion responses
-        self._ir_rf_in_flight: set[int] = set()
-        self._ir_rf_pending: dict[int, deque[InfraredRFTransmitRawTimingsRequest]] = {}
+        # IR/RF transmit pacing: one frame on the wire per device, because entities may
+        # share a transmitter; busy_until is the estimate fallback for older firmware
+        self._ir_rf_in_flight: bool = False
+        self._ir_rf_pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
         self._ir_rf_complete_unsub: Callable[[], None] | None = None
-        self._ir_rf_busy_until: dict[int, float] = {}
+        self._ir_rf_busy_until: float = 0.0
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
         self._set_log_name()

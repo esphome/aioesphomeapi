@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any
@@ -373,9 +372,9 @@ class APIClient(APIClientBase):
         connection = self._connection
         self._connection = None
         self._cached_device_info = None
-        self._ir_rf_in_flight.clear()
+        self._ir_rf_in_flight = False
         self._ir_rf_pending.clear()
-        self._ir_rf_busy_until.clear()
+        self._ir_rf_busy_until = 0.0
         self._ir_rf_complete_unsub = None
         if connection is not None:
             # Subscribers run before on_stop: create_eager_task starts the
@@ -748,10 +747,11 @@ class APIClient(APIClientBase):
         timings: list[int],
         repeat_count: int,
     ) -> None:
-        """Send now, or once the entity's previous frame has left the device.
+        """Send now, or once the device's previous frame has left the transmitter.
 
         The device replies with InfraredRFTransmitCompleteResponse when a frame has
-        finished, so a frame never overlaps the previous one for the same entity.
+        finished. Pacing is per device rather than per entity because entities can
+        share one transmitter, which is what actually serializes frames.
         """
         connection = self._get_connection()
         if not self._supports_ir_rf_transmit_complete():
@@ -761,29 +761,24 @@ class APIClient(APIClientBase):
             self._ir_rf_complete_unsub = connection.add_message_callback(
                 self._on_ir_rf_transmit_complete, (InfraredRFTransmitCompleteResponse,)
             )
-        key = req.key
-        if key in self._ir_rf_in_flight:
-            self._ir_rf_pending.setdefault(key, deque()).append(req)
+        if self._ir_rf_in_flight:
+            self._ir_rf_pending.append(req)
             return
-        self._ir_rf_in_flight.add(key)
+        self._ir_rf_in_flight = True
         connection.send_message(req)
 
     def _on_ir_rf_transmit_complete(
         self, msg: InfraredRFTransmitCompleteResponse
     ) -> None:
-        key = msg.key
         if not msg.success:
             _LOGGER.debug(
-                "%s: IR/RF transmit for key %s did not start", self.log_name, key
+                "%s: IR/RF transmit for key %s did not start", self.log_name, msg.key
             )
-        pending = self._ir_rf_pending.get(key)
         connection = self._connection
-        if not pending or connection is None or not connection.is_connected:
-            self._ir_rf_in_flight.discard(key)
+        if not self._ir_rf_pending or connection is None or not connection.is_connected:
+            self._ir_rf_in_flight = False
             return
-        connection.send_message(pending.popleft())
-        if not pending:
-            del self._ir_rf_pending[key]
+        connection.send_message(self._ir_rf_pending.popleft())
 
     def _supports_ir_rf_transmit_complete(self) -> bool:
         api_version = self.api_version
@@ -802,12 +797,12 @@ class APIClient(APIClientBase):
             + IR_RF_TRANSMIT_MARGIN
         )
         now = self._loop.time()
-        busy_until = self._ir_rf_busy_until.get(req.key, 0.0)
+        busy_until = self._ir_rf_busy_until
         if busy_until <= now:
             connection.send_message(req)
-            self._ir_rf_busy_until[req.key] = now + duration
+            self._ir_rf_busy_until = now + duration
             return
-        self._ir_rf_busy_until[req.key] = busy_until + duration
+        self._ir_rf_busy_until = busy_until + duration
         self._loop.call_at(
             busy_until, self._send_deferred_ir_rf_transmit, connection, req
         )

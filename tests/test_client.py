@@ -6381,26 +6381,26 @@ async def test_ir_rf_transmit_paced_by_completion_response(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """A frame for an entity waits for the device's completion of the previous one."""
+    """One frame at a time per device; the next waits for the device's completion."""
     client, connection, _transport, protocol = api_client
     connection.api_version = APIVersion(1, 18)
     sent = _capture_ir_rf_sends(connection)
 
     timings = [100_000, -100_000]
-    for _ in range(3):
+    for _ in range(2):
         client.radio_frequency_transmit_raw_timings(
             key=1, frequency=433920000, timings=timings, repeat_count=5
         )
-    # another entity is not held back
+    # another entity may share the transmitter, so it waits too
     client.radio_frequency_transmit_raw_timings(
         key=2, frequency=433920000, timings=timings, repeat_count=1
     )
-    assert [msg.key for msg in sent] == [1, 2]
+    assert [msg.key for msg in sent] == [1]
 
     # nothing is released by time alone
     async_fire_time_changed(utcnow() + timedelta(seconds=30))
     await asyncio.sleep(0)
-    assert [msg.key for msg in sent] == [1, 2]
+    assert [msg.key for msg in sent] == [1]
 
     mock_data_received(
         protocol,
@@ -6408,28 +6408,28 @@ async def test_ir_rf_transmit_paced_by_completion_response(
             InfraredRFTransmitCompleteResponsePb(key=1, success=True)
         ),
     )
-    assert [msg.key for msg in sent] == [1, 2, 1]
+    assert [msg.key for msg in sent] == [1, 1]
 
-    # a frame that never started also frees the entity
+    # a frame that never started also frees the transmitter
     mock_data_received(
         protocol,
         generate_plaintext_packet(
             InfraredRFTransmitCompleteResponsePb(key=1, success=False)
         ),
     )
-    assert [msg.key for msg in sent] == [1, 2, 1, 1]
+    assert [msg.key for msg in sent] == [1, 1, 2]
 
     # queue drained: the next request goes out immediately once this one completes
     mock_data_received(
         protocol,
         generate_plaintext_packet(
-            InfraredRFTransmitCompleteResponsePb(key=1, success=True)
+            InfraredRFTransmitCompleteResponsePb(key=2, success=True)
         ),
     )
     client.radio_frequency_transmit_raw_timings(
         key=1, frequency=433920000, timings=timings, repeat_count=1
     )
-    assert [msg.key for msg in sent] == [1, 2, 1, 1, 1]
+    assert [msg.key for msg in sent] == [1, 1, 2, 1]
 
 
 async def test_ir_rf_transmit_pending_cleared_on_disconnect(
@@ -6454,7 +6454,7 @@ async def test_ir_rf_transmit_pending_cleared_on_disconnect(
 
     client._on_stop(None, expected_disconnect=False)
     assert not client._ir_rf_pending
-    assert not client._ir_rf_in_flight
+    assert client._ir_rf_in_flight is False
     assert client._ir_rf_complete_unsub is None
 
 
@@ -6474,20 +6474,17 @@ async def test_ir_rf_transmit_estimate_fallback_before_api_1_18(
         key=1, frequency=433920000, timings=timings, repeat_count=5
     )
     client.radio_frequency_transmit_raw_timings(
-        key=1, frequency=433920000, timings=timings, repeat_count=5
-    )
-    client.radio_frequency_transmit_raw_timings(
         key=2, frequency=433920000, timings=timings, repeat_count=1
     )
-    assert [msg.key for msg in sent] == [1, 2]
+    assert [msg.key for msg in sent] == [1]
 
     async_fire_time_changed(utcnow() + timedelta(seconds=0.5))
     await asyncio.sleep(0)
-    assert [msg.key for msg in sent] == [1, 2]
+    assert [msg.key for msg in sent] == [1]
 
     async_fire_time_changed(utcnow() + timedelta(seconds=1.1))
     await asyncio.sleep(0)
-    assert [msg.key for msg in sent] == [1, 2, 1]
+    assert [msg.key for msg in sent] == [1, 2]
 
 
 async def test_ir_rf_transmit_estimate_fallback_dropped_after_disconnect(
