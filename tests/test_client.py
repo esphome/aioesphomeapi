@@ -6503,6 +6503,36 @@ async def test_ir_rf_transmit_next_frame_completes_after_lost_reply(
     assert [msg.key for msg in sent] == [1, 2, 3]
 
 
+async def test_ir_rf_transmit_reply_with_empty_queue_is_ignored(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A stray reply after the queue drained changes nothing."""
+    client, connection, _transport, protocol = api_client
+    connection.api_version = APIVersion(1, 18)
+    sent = _capture_ir_rf_sends(connection)
+
+    timings = [100_000, -100_000]
+    client.radio_frequency_transmit_raw_timings(
+        key=1, frequency=433920000, timings=timings, repeat_count=1
+    )
+    for _ in range(2):
+        mock_data_received(
+            protocol,
+            generate_plaintext_packet(
+                InfraredRFTransmitCompleteResponsePb(key=1, success=True)
+            ),
+        )
+    assert [msg.key for msg in sent] == [1]
+
+    # the queue is idle, so the next request goes out at once
+    client.radio_frequency_transmit_raw_timings(
+        key=2, frequency=433920000, timings=timings, repeat_count=1
+    )
+    assert [msg.key for msg in sent] == [1, 2]
+
+
 async def test_ir_rf_transmit_pending_cleared_on_disconnect(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
