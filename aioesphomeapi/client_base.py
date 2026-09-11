@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
 from functools import partial
 import itertools
 import logging
@@ -29,7 +28,6 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     CameraImageResponse,
     HomeassistantActionRequest,
     InfraredRFReceiveEvent,
-    InfraredRFTransmitRawTimingsRequest,
     SerialProxyDataReceived,
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
@@ -58,6 +56,7 @@ if TYPE_CHECKING:
 
     from google.protobuf import message
 
+    from .client import IrRfTransmitPacing
     from .connection import APIConnection
     from .zeroconf import ZeroconfInstanceType
 
@@ -278,35 +277,6 @@ def _stringify_or_none(value: str_ | None) -> str | None:
     return None if value is None else str(value)
 
 
-class IrRfTransmitPacing:
-    """IR/RF transmit pacing state, one frame on the wire per device.
-
-    Entities may share a transmitter, so the device is the unit of pacing.
-    busy_until is the estimate fallback for firmware older than API 1.18,
-    which never reports completion.
-    """
-
-    __slots__ = (
-        "busy_until",
-        "complete_unsub",
-        "in_flight",
-        "pending",
-        "version_warned",
-    )
-
-    def __init__(self) -> None:
-        self.pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
-        self.reset()
-
-    def reset(self) -> None:
-        """Forget everything about the connection that just closed."""
-        self.in_flight = False
-        self.pending.clear()
-        self.busy_until = 0.0
-        self.complete_unsub: Callable[[], None] | None = None
-        self.version_warned = False
-
-
 class APIClientBase:
     """Base client for ESPHome API clients."""
 
@@ -379,9 +349,9 @@ class APIClientBase:
         # treat empty '' psk string as missing (like password)
         psk = _stringify_or_none(noise_psk) or None
         self._params = ConnectionParams(
-            addresses=(
-                [str(addr) for addr in addresses] if addresses else [str(address)]
-            ),
+            addresses=[str(addr) for addr in addresses]
+            if addresses
+            else [str(address)],
             port=port,
             password=password,
             client_info=client_info,
@@ -403,7 +373,8 @@ class APIClientBase:
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._addresses_changed_callbacks: list[Callable[[], None]] = []
         self._notify_callbacks: dict[tuple[int, int], Callable[[], None]] = {}
-        self._ir_rf = IrRfTransmitPacing()
+        # created by the first IR/RF transmit on a connection, dropped with it
+        self._ir_rf: IrRfTransmitPacing | None = None
         self._loop = asyncio.get_running_loop()
         self._call_id_counter = itertools.count(1)
         self._set_log_name()

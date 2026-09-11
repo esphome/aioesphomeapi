@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any
@@ -210,8 +211,7 @@ from .util import create_eager_task
 
 _LOGGER = logging.getLogger(__name__)
 
-# Estimate fallback for firmware before API 1.18: added to a computed frame duration
-# before the next frame for the same entity is sent
+# Estimate fallback for firmware before API 1.18: added to the computed frame duration
 IR_RF_TRANSMIT_MARGIN = 0.05
 
 DEFAULT_BLE_TIMEOUT = 30.0
@@ -342,6 +342,66 @@ ExecuteServiceDataType = dict[
 
 
 # pylint: disable=too-many-public-methods
+class IrRfTransmitPacing:
+    """Sends the IR/RF transmit requests of one connection one frame at a time.
+
+    Entities can share a transmitter, so the device is the unit of pacing:
+    pending[0] is the frame on the wire and the rest wait behind it. Firmware on
+    API 1.18 or newer replies once a frame has left the transmitter and the next
+    frame goes out on that reply. Older firmware never replies, so frames are
+    spaced by their computed duration plus a margin instead.
+    """
+
+    __slots__ = ("_connection", "_loop", "_pending", "_supports_complete", "_timer")
+
+    def __init__(
+        self,
+        connection: APIConnection,
+        loop: asyncio.AbstractEventLoop,
+        supports_complete: bool,
+    ) -> None:
+        self._connection = connection
+        self._loop = loop
+        self._pending: deque[InfraredRFTransmitRawTimingsRequest] = deque()
+        self._supports_complete = supports_complete
+        self._timer: asyncio.TimerHandle | None = None
+        if supports_complete:
+            connection.add_message_callback(
+                self._on_complete, (InfraredRFTransmitCompleteResponse,)
+            )
+
+    def send(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
+        self._pending.append(req)
+        if len(self._pending) == 1:
+            self._transmit(req)
+
+    def close(self) -> None:
+        """Drop the queue together with the connection it belonged to."""
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+        self._pending.clear()
+
+    def _transmit(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
+        self._connection.send_message(req)
+        if not self._supports_complete:
+            duration = sum(map(abs, req.timings)) * max(req.repeat_count, 1) / 1_000_000
+            self._timer = self._loop.call_later(
+                duration + IR_RF_TRANSMIT_MARGIN, self._advance
+            )
+
+    def _on_complete(self, _msg: InfraredRFTransmitCompleteResponse) -> None:
+        self._advance()
+
+    def _advance(self) -> None:
+        self._timer = None
+        pending = self._pending
+        if pending:
+            pending.popleft()
+        if pending and self._connection.is_connected:
+            self._transmit(pending[0])
+
+
 class APIClient(APIClientBase):
     """The ESPHome API client.
 
@@ -372,7 +432,9 @@ class APIClient(APIClientBase):
         connection = self._connection
         self._connection = None
         self._cached_device_info = None
-        self._ir_rf.reset()
+        if (ir_rf := self._ir_rf) is not None:
+            ir_rf.close()
+            self._ir_rf = None
         if connection is not None:
             # Subscribers run before on_stop: create_eager_task starts the
             # on_stop coroutine synchronously, so reconnect machinery would
@@ -708,8 +770,8 @@ class APIClient(APIClientBase):
     ) -> None:
         """Send an infrared/RF raw timings transmit request.
 
-        Requests for an entity whose previous frame is still being sent are
-        delayed until it has finished, in order.
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
         """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
@@ -717,7 +779,7 @@ class APIClient(APIClientBase):
         req.carrier_frequency = carrier_frequency
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._send_ir_rf_transmit(req, timings, repeat_count)
+        self._send_ir_rf_transmit(req)
 
     def radio_frequency_transmit_raw_timings(
         self,
@@ -728,7 +790,11 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send a radio frequency raw timings transmit request."""
+        """Send a radio frequency raw timings transmit request.
+
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
@@ -736,26 +802,19 @@ class APIClient(APIClientBase):
         req.modulation = modulation
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._send_ir_rf_transmit(req, timings, repeat_count)
+        self._send_ir_rf_transmit(req)
 
-    def _send_ir_rf_transmit(
-        self,
-        req: InfraredRFTransmitRawTimingsRequest,
-        timings: list[int],
-        repeat_count: int,
-    ) -> None:
-        """Send now, or once the device's previous frame has left the transmitter.
-
-        The device replies with InfraredRFTransmitCompleteResponse when a frame has
-        finished. Pacing is per device rather than per entity because entities can
-        share one transmitter, which is what actually serializes frames.
-        """
-        connection = self._get_connection()
-        ir_rf = self._ir_rf
-        if not self._supports_ir_rf_transmit_complete():
+    def _send_ir_rf_transmit(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
+        if (ir_rf := self._ir_rf) is None:
+            connection = self._get_connection()
             api_version = self.api_version
-            if not ir_rf.version_warned and api_version is not None:
-                ir_rf.version_warned = True
+            supports_complete = True
+            if (
+                api_version is not None
+                and api_version < MIN_VERSION_IR_RF_TRANSMIT_COMPLETE
+            ):
+                supports_complete = False
+                # the pacing object lives as long as the connection, so this warns once per connection
                 _LOGGER.warning(
                     "%s: firmware API %s.%s does not report when an IR/RF transmit "
                     "has finished, so frames are spaced by an estimate and a burst of "
@@ -765,66 +824,10 @@ class APIClient(APIClientBase):
                     api_version.major,
                     api_version.minor,
                 )
-            self._send_ir_rf_transmit_estimated(connection, req, timings, repeat_count)
-            return
-        if ir_rf.complete_unsub is None:
-            ir_rf.complete_unsub = connection.add_message_callback(
-                self._on_ir_rf_transmit_complete, (InfraredRFTransmitCompleteResponse,)
+            ir_rf = self._ir_rf = IrRfTransmitPacing(
+                connection, self._loop, supports_complete
             )
-        if ir_rf.in_flight:
-            ir_rf.pending.append(req)
-            return
-        ir_rf.in_flight = True
-        connection.send_message(req)
-
-    def _on_ir_rf_transmit_complete(
-        self, msg: InfraredRFTransmitCompleteResponse
-    ) -> None:
-        if not msg.success:
-            _LOGGER.debug(
-                "%s: IR/RF transmit for key %s did not start", self.log_name, msg.key
-            )
-        connection = self._connection
-        ir_rf = self._ir_rf
-        if not ir_rf.pending or connection is None or not connection.is_connected:
-            ir_rf.in_flight = False
-            return
-        connection.send_message(ir_rf.pending.popleft())
-
-    def _supports_ir_rf_transmit_complete(self) -> bool:
-        api_version = self.api_version
-        return api_version is None or api_version >= MIN_VERSION_IR_RF_TRANSMIT_COMPLETE
-
-    def _send_ir_rf_transmit_estimated(
-        self,
-        connection: APIConnection,
-        req: InfraredRFTransmitRawTimingsRequest,
-        timings: list[int],
-        repeat_count: int,
-    ) -> None:
-        """Pace by frame duration for firmware without completion responses."""
-        duration = (
-            sum(abs(timing) for timing in timings) * max(repeat_count, 1) / 1_000_000
-            + IR_RF_TRANSMIT_MARGIN
-        )
-        now = self._loop.time()
-        ir_rf = self._ir_rf
-        busy_until = ir_rf.busy_until
-        if busy_until <= now:
-            connection.send_message(req)
-            ir_rf.busy_until = now + duration
-            return
-        ir_rf.busy_until = busy_until + duration
-        self._loop.call_at(
-            busy_until, self._send_deferred_ir_rf_transmit, connection, req
-        )
-
-    @staticmethod
-    def _send_deferred_ir_rf_transmit(
-        connection: APIConnection, req: InfraredRFTransmitRawTimingsRequest
-    ) -> None:
-        if connection.is_connected:
-            connection.send_message(req)
+        ir_rf.send(req)
 
     def _supports_proxy_ack(self) -> bool:
         api_version = self.api_version
@@ -1164,11 +1167,13 @@ class APIClient(APIClientBase):
         address: int,
         handle: int,
         request: message.Message,
-        response_type: type[
-            BluetoothGATTNotifyResponse
-            | BluetoothGATTReadResponse
-            | BluetoothGATTWriteResponse
-        ],
+        response_type: (
+            type[
+                BluetoothGATTNotifyResponse
+                | BluetoothGATTReadResponse
+                | BluetoothGATTWriteResponse
+            ]
+        ),
         timeout: float = 10.0,
     ) -> message.Message:
         message_filter = partial(on_bluetooth_handle_message, address, handle)
@@ -1598,7 +1603,7 @@ class APIClient(APIClientBase):
 
     async def _bluetooth_gatt_read(
         self,
-        req_type: type[BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest],
+        req_type: (type[BluetoothGATTReadDescriptorRequest | BluetoothGATTReadRequest]),
         address: int,
         handle: int,
         timeout: float,

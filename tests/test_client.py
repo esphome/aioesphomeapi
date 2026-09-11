@@ -6450,12 +6450,11 @@ async def test_ir_rf_transmit_pending_cleared_on_disconnect(
         key=7, carrier_frequency=38000, timings=timings, repeat_count=1
     )
     assert len(sent) == 1
-    assert client._ir_rf.pending
+    assert client._ir_rf is not None
+    assert client._ir_rf._pending
 
     client._on_stop(None, expected_disconnect=False)
-    assert not client._ir_rf.pending
-    assert client._ir_rf.in_flight is False
-    assert client._ir_rf.complete_unsub is None
+    assert client._ir_rf is None
 
 
 async def test_ir_rf_transmit_estimate_fallback_before_api_1_18(
@@ -6496,7 +6495,6 @@ async def test_ir_rf_transmit_estimate_fallback_warns_once(
     """Firmware without completion replies gets one warning per connection."""
     client, connection, _transport, _protocol = api_client
     connection.api_version = APIVersion(1, 17)
-    _capture_ir_rf_sends(connection)
 
     caplog.clear()
     timings = [1_000, -1_000]
@@ -6509,14 +6507,6 @@ async def test_ir_rf_transmit_estimate_fallback_warns_once(
     warnings = [r for r in caplog.records if "overwhelm the device" in r.message]
     assert len(warnings) == 1
     assert "1.17" in warnings[0].message
-
-    caplog.clear()
-    connection.api_version = APIVersion(1, 18)
-    client._ir_rf.version_warned = False
-    client.radio_frequency_transmit_raw_timings(
-        key=3, frequency=433920000, timings=timings
-    )
-    assert "overwhelm the device" not in caplog.text
 
 
 async def test_ir_rf_transmit_estimate_fallback_dropped_after_disconnect(
