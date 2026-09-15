@@ -2708,6 +2708,30 @@ message InfraredRFReceiveEvent {
   repeated sint32 timings = 3 [packed = true, (container_pointer_no_template) = "std::vector<int32_t>"];  // Raw timings in microseconds (zigzag-encoded): alternating mark/space periods
 }
 
+// Sent only to the client that issued an InfraredRFTransmitRawTimingsRequest, once the
+// transmitter reports that the transmission (all repeats) has finished, or immediately with
+// success=false if it was refused before reaching the transmitter (unknown key, no transmitter,
+// no or invalid timings) or the transmitter could not send it (not set up, hardware error).
+// success=false also answers a request superseded by a newer request on the same entity, from
+// any client, and a transmit that reported nothing within 30 s past its expected air time, so a
+// client should not retry on it blindly. The device serializes transmits per transmitter and
+// several entities may share one, so a client should keep at most one transmit outstanding per
+// device, not per entity. A reply for an unknown key or a refused request is sent once and can be lost
+// when the device's send buffer is full, so a client should also stop waiting on its own after the
+// expected air time plus a margin. The reply carries no request id, so a client that queues the same entity
+// twice must treat a reply later than its own timeout as belonging to the next frame. Lets clients pace
+// requests instead of estimating durations (since API 1.18)
+message InfraredRFTransmitCompleteResponse {
+  option (id) = 153;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_IR_RF || USE_RADIO_FREQUENCY";
+  option (no_delay) = true;
+
+  uint32 device_id = 1 [(field_ifdef) = "USE_DEVICES"];
+  fixed32 key = 2 [(force) = true];  // Key of the transmitter entity from the request
+  bool success = 3;                  // false if the request was refused, not sent, superseded, or never reported
+}
+
 // ==================== RADIO FREQUENCY ====================
 
 // Lists available radio frequency entity instances
@@ -2882,7 +2906,7 @@ message SerialProxySetModeRequest {
 // subscription is required. Answered with NOT_SUPPORTED on ports without a USB bridge
 // (since API 1.18).
 message SerialProxyGetUsbInfoRequest {
-  option (id) = 153;
+  option (id) = 154;
   option (source) = SOURCE_CLIENT;
   option (ifdef) = "USE_SERIAL_PROXY";
 
@@ -2894,7 +2918,7 @@ message SerialProxyGetUsbInfoRequest {
 // unsolicited to every connected client whenever a USB device is attached to or
 // removed from a port on a USB bridge (since API 1.18).
 message SerialProxyUsbInfo {
-  option (id) = 154;
+  option (id) = 155;
   option (source) = SOURCE_SERVER;
   option (ifdef) = "USE_SERIAL_PROXY";
 
