@@ -72,6 +72,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
     SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
+    SerialProxyUsbInfo as SerialProxyUsbInfoPb,
     ServiceArgType,
     SirenStateResponse,
     SupportsResponseType as SupportsResponseTypePb,
@@ -168,6 +169,8 @@ from aioesphomeapi.model import (
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
+    SerialProxyUsbInfo,
+    SerialProxyUsbInfoFlag,
     SirenInfo,
     SirenState,
     SubDeviceInfo,
@@ -398,7 +401,6 @@ def test_api_version_ord():
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
         (BluetoothConnectionsFree, BluetoothConnectionsFreeResponse),
-        (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
         (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
@@ -2317,6 +2319,18 @@ def test_serial_proxy_parity_enum() -> None:
     assert SerialProxyParity.convert(-1) is None
 
 
+def test_serial_proxy_mode_enum() -> None:
+    """Test SerialProxyMode enum values."""
+    assert SerialProxyMode.RAW == 0
+    assert SerialProxyMode.PROTOCOL == 1
+
+    assert SerialProxyMode.convert(0) == SerialProxyMode.RAW
+    assert SerialProxyMode.convert(1) == SerialProxyMode.PROTOCOL
+    assert SerialProxyMode.convert(2) is None
+    assert SerialProxyMode.convert(3) is None
+    assert SerialProxyMode.convert(-1) is None
+
+
 def test_serial_proxy_request_type_enum() -> None:
     """Test SerialProxyRequestType enum values."""
     assert SerialProxyRequestType.SUBSCRIBE == 0
@@ -2402,21 +2416,47 @@ def test_serial_proxy_port_type_enum() -> None:
     assert SerialProxyPortType.TTL == 0
     assert SerialProxyPortType.RS232 == 1
     assert SerialProxyPortType.RS485 == 2
+    assert SerialProxyPortType.USB_SERIAL == 3
 
     assert SerialProxyPortType.convert(0) == SerialProxyPortType.TTL
     assert SerialProxyPortType.convert(1) == SerialProxyPortType.RS232
     assert SerialProxyPortType.convert(2) == SerialProxyPortType.RS485
+    assert SerialProxyPortType.convert(3) == SerialProxyPortType.USB_SERIAL
     assert SerialProxyPortType.convert(-1) is None
 
 
-def test_serial_proxy_mode_enum() -> None:
-    """Test SerialProxyMode enum values."""
-    assert SerialProxyMode.RAW == 0
-    assert SerialProxyMode.PROTOCOL == 1
+def test_serial_proxy_usb_info_conversion() -> None:
+    """Test SerialProxyUsbInfo conversion from protobuf."""
+    pb_msg = SerialProxyUsbInfoPb()
+    model = SerialProxyUsbInfo.from_pb(pb_msg)
+    assert model.status == SerialProxyStatus.OK
+    assert model.flags == 0
+    assert model.vendor_id == 0
+    assert model.serial_number == ""
 
-    assert SerialProxyMode.convert(0) == SerialProxyMode.RAW
-    assert SerialProxyMode.convert(1) == SerialProxyMode.PROTOCOL
-    assert SerialProxyMode.convert(-1) is None
+    pb_msg = SerialProxyUsbInfoPb(
+        instance=1,
+        flags=SerialProxyUsbInfoFlag.CONNECTED,
+        vendor_id=0x303A,
+        product_id=0x831A,
+        bcd_device=0x0100,
+        interface_number=0,
+        manufacturer="Espressif",
+        product="ZBT-2",
+        serial_number="5B901035281",
+    )
+    model = SerialProxyUsbInfo.from_pb(pb_msg)
+    assert model.instance == 1
+    assert model.flags & SerialProxyUsbInfoFlag.CONNECTED
+    assert model.vendor_id == 0x303A
+    assert model.product_id == 0x831A
+    assert model.manufacturer == "Espressif"
+    assert model.product == "ZBT-2"
+    assert model.serial_number == "5B901035281"
+
+    pb_msg = SerialProxyUsbInfoPb(instance=2, status=SerialProxyStatus.NOT_SUPPORTED)
+    model = SerialProxyUsbInfo.from_pb(pb_msg)
+    assert model.status == SerialProxyStatus.NOT_SUPPORTED
 
 
 def test_serial_proxy_info_conversion() -> None:
@@ -2426,6 +2466,7 @@ def test_serial_proxy_info_conversion() -> None:
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == ""
     assert model.port_type == SerialProxyPortType.TTL
+    assert model.configured_line_states == 0
 
     # With values
     pb_msg = SerialProxyInfoPb(

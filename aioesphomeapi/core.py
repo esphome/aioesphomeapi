@@ -118,10 +118,12 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyGetUsbInfoRequest,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
     SerialProxySetModeRequest,
+    SerialProxyUsbInfo,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SirenStateResponse,
@@ -563,6 +565,8 @@ MESSAGE_TYPE_TO_PROTO = {
     151: ZWaveProxyRequestResponse,
     152: SerialProxySetModeRequest,
     153: InfraredRFTransmitCompleteResponse,
+    154: SerialProxyGetUsbInfoRequest,
+    155: SerialProxyUsbInfo,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
