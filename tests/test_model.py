@@ -170,6 +170,7 @@ from aioesphomeapi.model import (
     SerialProxyRequestType,
     SerialProxyStatus,
     SerialProxyUsbInfo,
+    SerialProxyUsbInfoFlag,
     SirenInfo,
     SirenState,
     SubDeviceInfo,
@@ -2429,13 +2430,13 @@ def test_serial_proxy_usb_info_conversion() -> None:
     pb_msg = SerialProxyUsbInfoPb()
     model = SerialProxyUsbInfo.from_pb(pb_msg)
     assert model.status == SerialProxyStatus.OK
-    assert model.connected is False
+    assert model.flags == 0
     assert model.vendor_id == 0
     assert model.serial_number == ""
 
     pb_msg = SerialProxyUsbInfoPb(
         instance=1,
-        connected=True,
+        flags=SerialProxyUsbInfoFlag.CONNECTED,
         vendor_id=0x303A,
         product_id=0x831A,
         bcd_device=0x0100,
@@ -2446,7 +2447,7 @@ def test_serial_proxy_usb_info_conversion() -> None:
     )
     model = SerialProxyUsbInfo.from_pb(pb_msg)
     assert model.instance == 1
-    assert model.connected is True
+    assert model.flags & SerialProxyUsbInfoFlag.CONNECTED
     assert model.vendor_id == 0x303A
     assert model.product_id == 0x831A
     assert model.manufacturer == "Espressif"

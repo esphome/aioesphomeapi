@@ -180,6 +180,7 @@ from aioesphomeapi.model import (
     SerialProxyRequestType,
     SerialProxyStatus,
     SerialProxyUsbInfo,
+    SerialProxyUsbInfoFlag,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -3671,7 +3672,7 @@ async def test_serial_proxy_get_usb_info(
 
     response_pb = SerialProxyUsbInfoPb(
         instance=1,
-        connected=True,
+        flags=SerialProxyUsbInfoFlag.CONNECTED,
         vendor_id=0x303A,
         product_id=0x831A,
         serial_number="5B901035281",
@@ -3687,7 +3688,7 @@ async def test_serial_proxy_get_usb_info(
 
     result = await client.serial_proxy_get_usb_info(1)
 
-    assert result.connected is True
+    assert result.flags & SerialProxyUsbInfoFlag.CONNECTED
     assert result.vendor_id == 0x303A
     assert result.serial_number == "5B901035281"
 
@@ -3706,7 +3707,7 @@ async def test_subscribe_serial_proxy_usb_info(
 
     attached: message.Message = SerialProxyUsbInfoPb(
         instance=0,
-        connected=True,
+        flags=SerialProxyUsbInfoFlag.CONNECTED,
         vendor_id=0x303A,
         product_id=0x4001,
         manufacturer="Nabu Casa",
@@ -3714,12 +3715,12 @@ async def test_subscribe_serial_proxy_usb_info(
         serial_number="10B41DE58F10",
     )
     mock_data_received(protocol, generate_plaintext_packet(attached))
-    removed: message.Message = SerialProxyUsbInfoPb(instance=0, connected=False)
+    removed: message.Message = SerialProxyUsbInfoPb(instance=0)
     mock_data_received(protocol, generate_plaintext_packet(removed))
 
-    assert [(m.instance, m.connected, m.serial_number) for m in received] == [
-        (0, True, "10B41DE58F10"),
-        (0, False, ""),
+    assert [(m.instance, m.flags, m.serial_number) for m in received] == [
+        (0, SerialProxyUsbInfoFlag.CONNECTED, "10B41DE58F10"),
+        (0, 0, ""),
     ]
 
     unsub()

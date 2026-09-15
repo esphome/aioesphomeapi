@@ -1415,6 +1415,10 @@ class SerialProxyLineStateFlag(enum.IntFlag):
     DTR = 1 << 1
 
 
+class SerialProxyUsbInfoFlag(enum.IntFlag):
+    CONNECTED = 1 << 0
+
+
 class SerialProxyParity(APIIntEnum):
     NONE = 0
     EVEN = 1
@@ -1476,7 +1480,7 @@ class SerialProxyUsbInfo(APIModelBase):
     status: SerialProxyStatus | None = converter_field(
         default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
     )
-    connected: bool = False
+    flags: int = 0
     vendor_id: int = 0
     product_id: int = 0
     bcd_device: int = 0
@@ -2290,6 +2294,7 @@ __all__ = (
     "SerialProxyRequestType",
     "SerialProxyStatus",
     "SerialProxyUsbInfo",
+    "SerialProxyUsbInfoFlag",
     "SirenInfo",
     "SirenState",
     "SubDeviceInfo",
