@@ -70,9 +70,9 @@ from aioesphomeapi.api_pb2 import (
     SensorStateResponse,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyIdentity as SerialProxyIdentityPb,
     SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
-    SerialProxyUsbInfo as SerialProxyUsbInfoPb,
     ServiceArgType,
     SirenStateResponse,
     SupportsResponseType as SupportsResponseTypePb,
@@ -160,6 +160,9 @@ from aioesphomeapi.model import (
     SensorInfo,
     SensorState,
     SerialProxyDataReceived,
+    SerialProxyIdentity,
+    SerialProxyIdentityFlag,
+    SerialProxyIdentitySource,
     SerialProxyInfo,
     SerialProxyLineStateFlag,
     SerialProxyMode,
@@ -169,8 +172,6 @@ from aioesphomeapi.model import (
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
-    SerialProxyUsbInfo,
-    SerialProxyUsbInfoFlag,
     SirenInfo,
     SirenState,
     SubDeviceInfo,
@@ -2425,38 +2426,46 @@ def test_serial_proxy_port_type_enum() -> None:
     assert SerialProxyPortType.convert(-1) is None
 
 
-def test_serial_proxy_usb_info_conversion() -> None:
-    """Test SerialProxyUsbInfo conversion from protobuf."""
-    pb_msg = SerialProxyUsbInfoPb()
-    model = SerialProxyUsbInfo.from_pb(pb_msg)
-    assert model.status == SerialProxyStatus.OK
+def test_serial_proxy_identity_conversion() -> None:
+    """Test SerialProxyIdentity conversion from protobuf."""
+    pb_msg = SerialProxyIdentityPb()
+    model = SerialProxyIdentity.from_pb(pb_msg)
+    assert model.source == SerialProxyIdentitySource.NONE
     assert model.flags == 0
-    assert model.vendor_id == 0
+    assert model.usb_vendor_id == 0
     assert model.serial_number == ""
 
-    pb_msg = SerialProxyUsbInfoPb(
+    pb_msg = SerialProxyIdentityPb(
         instance=1,
-        flags=SerialProxyUsbInfoFlag.CONNECTED,
-        vendor_id=0x303A,
-        product_id=0x831A,
-        bcd_device=0x0100,
-        interface_number=0,
-        manufacturer="Espressif",
+        source=SerialProxyIdentitySource.USB,
+        flags=SerialProxyIdentityFlag.CONNECTED,
+        manufacturer="Nabu Casa",
         product="ZBT-2",
-        serial_number="5B901035281",
+        serial_number="10B41DE58F10",
+        usb_vendor_id=0x303A,
+        usb_product_id=0x4001,
+        usb_bcd_device=0x0100,
+        usb_interface_number=0,
     )
-    model = SerialProxyUsbInfo.from_pb(pb_msg)
+    model = SerialProxyIdentity.from_pb(pb_msg)
     assert model.instance == 1
-    assert model.flags & SerialProxyUsbInfoFlag.CONNECTED
-    assert model.vendor_id == 0x303A
-    assert model.product_id == 0x831A
-    assert model.manufacturer == "Espressif"
+    assert model.source == SerialProxyIdentitySource.USB
+    assert model.flags & SerialProxyIdentityFlag.CONNECTED
+    assert model.manufacturer == "Nabu Casa"
     assert model.product == "ZBT-2"
-    assert model.serial_number == "5B901035281"
+    assert model.serial_number == "10B41DE58F10"
+    assert model.usb_vendor_id == 0x303A
+    assert model.usb_product_id == 0x4001
 
-    pb_msg = SerialProxyUsbInfoPb(instance=2, status=SerialProxyStatus.NOT_SUPPORTED)
-    model = SerialProxyUsbInfo.from_pb(pb_msg)
-    assert model.status == SerialProxyStatus.NOT_SUPPORTED
+    pb_msg = SerialProxyIdentityPb(
+        instance=2,
+        source=SerialProxyIdentitySource.CONFIGURED,
+        flags=SerialProxyIdentityFlag.CONNECTED,
+        product="ZBT-2",
+    )
+    model = SerialProxyIdentity.from_pb(pb_msg)
+    assert model.source == SerialProxyIdentitySource.CONFIGURED
+    assert model.usb_vendor_id == 0
 
 
 def test_serial_proxy_info_conversion() -> None:

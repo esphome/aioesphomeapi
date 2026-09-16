@@ -1415,8 +1415,15 @@ class SerialProxyLineStateFlag(enum.IntFlag):
     DTR = 1 << 1
 
 
-class SerialProxyUsbInfoFlag(enum.IntFlag):
+class SerialProxyIdentitySource(APIIntEnum):
+    NONE = 0
+    CONFIGURED = 1
+    USB = 2
+
+
+class SerialProxyIdentityFlag(enum.IntFlag):
     CONNECTED = 1 << 0
+    ERROR = 1 << 1
 
 
 class SerialProxyParity(APIIntEnum):
@@ -1473,21 +1480,24 @@ class SerialProxyModemPins(APIModelBase):
 
 
 @_frozen_dataclass_decorator
-class SerialProxyUsbInfo(APIModelBase):
-    """Identity of the USB device behind a USB_SERIAL port."""
+class SerialProxyIdentity(APIModelBase):
+    """Identity of the device behind a serial proxy port."""
 
     instance: int = 0
-    status: SerialProxyStatus | None = converter_field(
-        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    source: SerialProxyIdentitySource | None = converter_field(
+        default=SerialProxyIdentitySource.NONE,
+        converter=SerialProxyIdentitySource.convert,
     )
     flags: int = 0
-    vendor_id: int = 0
-    product_id: int = 0
-    bcd_device: int = 0
-    interface_number: int = 0
     manufacturer: str = ""
     product: str = ""
     serial_number: str = ""
+
+    # The `usb_` fields only set for proxied USB devices
+    usb_vendor_id: int = 0
+    usb_product_id: int = 0
+    usb_bcd_device: int = 0
+    usb_interface_number: int = 0
 
 
 # ==================== INFO MAP ====================
@@ -2284,6 +2294,9 @@ __all__ = (
     "SensorState",
     "SensorStateClass",
     "SerialProxyDataReceived",
+    "SerialProxyIdentity",
+    "SerialProxyIdentityFlag",
+    "SerialProxyIdentitySource",
     "SerialProxyInfo",
     "SerialProxyLineStateFlag",
     "SerialProxyMode",
@@ -2293,8 +2306,6 @@ __all__ = (
     "SerialProxyRequestResponse",
     "SerialProxyRequestType",
     "SerialProxyStatus",
-    "SerialProxyUsbInfo",
-    "SerialProxyUsbInfoFlag",
     "SirenInfo",
     "SirenState",
     "SubDeviceInfo",

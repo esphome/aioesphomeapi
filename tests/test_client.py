@@ -80,18 +80,19 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyIdentity as SerialProxyIdentityPb,
     SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequest as SerialProxyRequestPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     SerialProxySetModemPinsRequest as SerialProxySetModemPinsRequestPb,
     SerialProxySetModeRequest as SerialProxySetModeRequestPb,
-    SerialProxyUsbInfo as SerialProxyUsbInfoPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
     SubscribeHomeAssistantStatesRequest,
     SubscribeLogsResponse,
+    SubscribeSerialProxyIdentityRequest,
     SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
@@ -171,6 +172,9 @@ from aioesphomeapi.model import (
     RadioFrequencyModulation,
     SensorInfo,
     SerialProxyDataReceived,
+    SerialProxyIdentity,
+    SerialProxyIdentityFlag,
+    SerialProxyIdentitySource,
     SerialProxyInfo,
     SerialProxyMode,
     SerialProxyModemPins,
@@ -179,8 +183,6 @@ from aioesphomeapi.model import (
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
-    SerialProxyUsbInfo,
-    SerialProxyUsbInfoFlag,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -3662,69 +3664,78 @@ async def test_serial_proxy_set_mode(
     assert sent_msg.mode == mode
 
 
-async def test_serial_proxy_get_usb_info(
+async def test_serial_proxy_get_identity(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test serial_proxy_get_usb_info returns the matching response."""
+    """Test serial_proxy_get_identity subscribes and picks the port's entry."""
     client, connection, _transport, _protocol = api_client
 
-    response_pb = SerialProxyUsbInfoPb(
+    other_pb = SerialProxyIdentityPb(instance=0)
+    response_pb = SerialProxyIdentityPb(
         instance=1,
-        flags=SerialProxyUsbInfoFlag.CONNECTED,
-        vendor_id=0x303A,
-        product_id=0x831A,
-        serial_number="5B901035281",
+        source=SerialProxyIdentitySource.USB,
+        flags=SerialProxyIdentityFlag.CONNECTED,
+        serial_number="10B41DE58F10",
+        usb_vendor_id=0x303A,
     )
 
     async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
         assert len(messages) == 1
-        assert messages[0].instance == 1
+        assert isinstance(messages[0], SubscribeSerialProxyIdentityRequest)
+        assert do_append(other_pb) is False
         assert do_append(response_pb) is True
         return [response_pb]
 
     connection.send_messages_await_response_complex = mock_send_complex
 
-    result = await client.serial_proxy_get_usb_info(1)
+    result = await client.serial_proxy_get_identity(1)
 
-    assert result.flags & SerialProxyUsbInfoFlag.CONNECTED
-    assert result.vendor_id == 0x303A
-    assert result.serial_number == "5B901035281"
+    assert result.source == SerialProxyIdentitySource.USB
+    assert result.flags & SerialProxyIdentityFlag.CONNECTED
+    assert result.usb_vendor_id == 0x303A
+    assert result.serial_number == "10B41DE58F10"
 
 
-async def test_subscribe_serial_proxy_usb_info(
+async def test_subscribe_serial_proxy_identity(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """Test subscribe_serial_proxy_usb_info receives unsolicited hotplug messages."""
+    """Test subscribe_serial_proxy_identity receives the snapshot and changes."""
     client, _connection, _transport, protocol = api_client
-    received: list[SerialProxyUsbInfo] = []
+    received: list[SerialProxyIdentity] = []
 
-    unsub = client.subscribe_serial_proxy_usb_info(received.append)
+    unsub = client.subscribe_serial_proxy_identity(received.append)
     await asyncio.sleep(0)
 
-    attached: message.Message = SerialProxyUsbInfoPb(
+    configured: message.Message = SerialProxyIdentityPb(
         instance=0,
-        flags=SerialProxyUsbInfoFlag.CONNECTED,
-        vendor_id=0x303A,
-        product_id=0x4001,
+        source=SerialProxyIdentitySource.CONFIGURED,
+        flags=SerialProxyIdentityFlag.CONNECTED,
         manufacturer="Nabu Casa",
         product="ZBT-2",
         serial_number="10B41DE58F10",
     )
-    mock_data_received(protocol, generate_plaintext_packet(attached))
-    removed: message.Message = SerialProxyUsbInfoPb(instance=0)
+    mock_data_received(protocol, generate_plaintext_packet(configured))
+    removed: message.Message = SerialProxyIdentityPb(
+        instance=1, source=SerialProxyIdentitySource.USB
+    )
     mock_data_received(protocol, generate_plaintext_packet(removed))
 
-    assert [(m.instance, m.flags, m.serial_number) for m in received] == [
-        (0, SerialProxyUsbInfoFlag.CONNECTED, "10B41DE58F10"),
-        (0, 0, ""),
+    assert [(m.instance, m.source, m.flags, m.serial_number) for m in received] == [
+        (
+            0,
+            SerialProxyIdentitySource.CONFIGURED,
+            SerialProxyIdentityFlag.CONNECTED,
+            "10B41DE58F10",
+        ),
+        (1, SerialProxyIdentitySource.USB, 0, ""),
     ]
 
     unsub()
-    mock_data_received(protocol, generate_plaintext_packet(attached))
+    mock_data_received(protocol, generate_plaintext_packet(configured))
     assert len(received) == 2
 
 
