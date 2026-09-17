@@ -29,6 +29,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     HomeassistantActionRequest,
     InfraredRFReceiveEvent,
     SerialProxyDataReceived,
+    SerialProxyIdentity,
     SubscribeHomeAssistantStateResponse,
     ZWaveProxyRequest,
 )
@@ -45,6 +46,7 @@ from .model import (
     HomeassistantServiceCall,
     InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyIdentity as SerialProxyIdentityModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
 )
 from .model_conversions import SUBSCRIBE_STATES_RESPONSE_TYPES
@@ -262,6 +264,13 @@ def on_serial_proxy_data_received(
     msg: SerialProxyDataReceived,
 ) -> None:
     on_data(SerialProxyDataReceivedModel.from_pb(msg))
+
+
+def on_serial_proxy_identity(
+    on_identity: Callable[[SerialProxyIdentityModel], None],
+    msg: SerialProxyIdentity,
+) -> None:
+    on_identity(SerialProxyIdentityModel.from_pb(msg))
 
 
 str_ = str

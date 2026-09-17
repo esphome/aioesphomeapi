@@ -73,6 +73,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyIdentity,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
@@ -86,6 +87,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStatesRequest,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
+    SubscribeSerialProxyIdentityRequest,
     SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
@@ -122,6 +124,7 @@ from .client_base import (
     on_home_assistant_action_request,
     on_infrared_rf_receive_event,
     on_serial_proxy_data_received,
+    on_serial_proxy_identity,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -175,6 +178,7 @@ from .model import (
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyIdentity as SerialProxyIdentityModel,
     SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
@@ -916,24 +920,70 @@ class APIClient(APIClientBase):
         Devices below API 1.16 never set status, so it always reads OK there;
         an out-of-range instance times out on those devices instead.
         """
-        resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
+        resp = await self._await_serial_proxy_instance_response(
+            SerialProxyGetModemPinsRequest(instance=instance),
+            instance,
+            SerialProxyGetModemPinsResponse,
+            timeout,
+        )
         return SerialProxyModemPins.from_pb(resp)
 
-    async def _send_serial_proxy_get_modem_pins(
+    def subscribe_serial_proxy_identity(
+        self,
+        on_identity: Callable[[SerialProxyIdentityModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to the identity of every serial proxy port.
+
+        The device sends one message per port, then one whenever a port changes.
+        A device below API 1.18 or without the proxy component never answers.
+        The returned callable only detaches the local handler; there is no
+        unsubscribe message.
+        """
+        return self._get_connection().send_message_callback_response(
+            SubscribeSerialProxyIdentityRequest(),
+            partial(
+                on_serial_proxy_identity,
+                on_identity,
+            ),
+            (SerialProxyIdentity,),
+        )
+
+    async def serial_proxy_get_identity(
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyGetModemPinsResponse:
-        req = SerialProxyGetModemPinsRequest(instance=instance)
+    ) -> SerialProxyIdentityModel:
+        """Read the identity of one serial proxy port.
 
-        def is_matching_response(msg: SerialProxyGetModemPinsResponse) -> bool:
+        Subscribes as a side effect, so every subscriber on the connection sees
+        the snapshot again. An unknown instance, a device below API 1.18, or a
+        device without the proxy component never answers and the call times out.
+        """
+        resp = await self._await_serial_proxy_instance_response(
+            SubscribeSerialProxyIdentityRequest(),
+            instance,
+            SerialProxyIdentity,
+            timeout,
+        )
+        return SerialProxyIdentityModel.from_pb(resp)
+
+    async def _await_serial_proxy_instance_response(
+        self,
+        req: message.Message,
+        instance: int,
+        msg_type: type[message.Message],
+        timeout: float,
+    ) -> message.Message:
+        """Send a serial proxy message and await the reply for its instance."""
+
+        def is_matching_response(msg: Any) -> bool:
             return bool(msg.instance == instance)
 
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
             is_matching_response,
             is_matching_response,
-            (SerialProxyGetModemPinsResponse,),
+            (msg_type,),
             timeout,
         )
         return resp
