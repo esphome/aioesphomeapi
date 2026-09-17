@@ -930,7 +930,10 @@ class APIClient(APIClientBase):
         """Subscribe to the identity of every serial proxy port.
 
         The device first sends one message per port, then another whenever a port's
-        identity changes, for as long as the connection lasts.
+        identity changes, for as long as the connection lasts. A device below API
+        1.18 or without the proxy component never answers, so the callback never
+        fires; check DeviceInfo.serial_proxies before calling. There is no
+        unsubscribe message: the returned callable only detaches the local handler.
         """
         return self._get_connection().send_message_callback_response(
             SubscribeSerialProxyIdentityRequest(),
@@ -951,18 +954,13 @@ class APIClient(APIClientBase):
         There is no single-port request, so this subscribes and picks the port's entry
         out of the snapshot the device sends in reply. The connection stays subscribed,
         and every subscriber on it sees the snapshot again. An instance the device does
-        not have never answers, so the call times out.
+        not have never answers, so the call times out; the same happens on a device
+        below API 1.18 or without the proxy component.
         """
-        req = SubscribeSerialProxyIdentityRequest()
-
-        def is_matching_response(msg: SerialProxyIdentity) -> bool:
-            return bool(msg.instance == instance)
-
-        [resp] = await self._get_connection().send_messages_await_response_complex(
-            (req,),
-            is_matching_response,
-            is_matching_response,
-            (SerialProxyIdentity,),
+        resp = await self._await_serial_proxy_instance_response(
+            SubscribeSerialProxyIdentityRequest(),
+            instance,
+            SerialProxyIdentity,
             timeout,
         )
         return SerialProxyIdentityModel.from_pb(resp)
@@ -972,16 +970,30 @@ class APIClient(APIClientBase):
         instance: int,
         timeout: float = 10.0,
     ) -> SerialProxyGetModemPinsResponse:
-        req = SerialProxyGetModemPinsRequest(instance=instance)
+        return await self._await_serial_proxy_instance_response(
+            SerialProxyGetModemPinsRequest(instance=instance),
+            instance,
+            SerialProxyGetModemPinsResponse,
+            timeout,
+        )
 
-        def is_matching_response(msg: SerialProxyGetModemPinsResponse) -> bool:
+    async def _await_serial_proxy_instance_response(
+        self,
+        req: message.Message,
+        instance: int,
+        msg_type: type[Any],
+        timeout: float,
+    ) -> Any:
+        """Send a serial proxy message and await the reply for its instance."""
+
+        def is_matching_response(msg: Any) -> bool:
             return bool(msg.instance == instance)
 
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
             is_matching_response,
             is_matching_response,
-            (SerialProxyGetModemPinsResponse,),
+            (msg_type,),
             timeout,
         )
         return resp

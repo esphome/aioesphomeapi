@@ -402,6 +402,7 @@ def test_api_version_ord():
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
         (BluetoothConnectionsFree, BluetoothConnectionsFreeResponse),
+        (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
         (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
@@ -2426,6 +2427,25 @@ def test_serial_proxy_port_type_enum() -> None:
     assert SerialProxyPortType.convert(-1) is None
 
 
+def test_serial_proxy_identity_source_enum() -> None:
+    """Test SerialProxyIdentitySource enum values."""
+    assert SerialProxyIdentitySource.NONE == 0
+    assert SerialProxyIdentitySource.CONFIGURED == 1
+    assert SerialProxyIdentitySource.USB == 2
+
+    assert SerialProxyIdentitySource.convert(0) == SerialProxyIdentitySource.NONE
+    assert SerialProxyIdentitySource.convert(1) == SerialProxyIdentitySource.CONFIGURED
+    assert SerialProxyIdentitySource.convert(2) == SerialProxyIdentitySource.USB
+    assert SerialProxyIdentitySource.convert(3) is None
+    assert SerialProxyIdentitySource.convert(-1) is None
+
+
+def test_serial_proxy_identity_flag_enum() -> None:
+    """Test SerialProxyIdentityFlag bit values."""
+    assert SerialProxyIdentityFlag.CONNECTED == 1
+    assert SerialProxyIdentityFlag.ERROR == 2
+
+
 def test_serial_proxy_identity_conversion() -> None:
     """Test SerialProxyIdentity conversion from protobuf."""
     pb_msg = SerialProxyIdentityPb()
@@ -2445,7 +2465,7 @@ def test_serial_proxy_identity_conversion() -> None:
         usb_vendor_id=0x303A,
         usb_product_id=0x4001,
         usb_bcd_device=0x0100,
-        usb_interface_number=0,
+        usb_interface_number=2,
     )
     model = SerialProxyIdentity.from_pb(pb_msg)
     assert model.instance == 1
@@ -2456,6 +2476,8 @@ def test_serial_proxy_identity_conversion() -> None:
     assert model.serial_number == "10B41DE58F10"
     assert model.usb_vendor_id == 0x303A
     assert model.usb_product_id == 0x4001
+    assert model.usb_bcd_device == 0x0100
+    assert model.usb_interface_number == 2
 
     pb_msg = SerialProxyIdentityPb(
         instance=2,
