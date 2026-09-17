@@ -920,7 +920,12 @@ class APIClient(APIClientBase):
         Devices below API 1.16 never set status, so it always reads OK there;
         an out-of-range instance times out on those devices instead.
         """
-        resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
+        resp = await self._await_serial_proxy_instance_response(
+            SerialProxyGetModemPinsRequest(instance=instance),
+            instance,
+            SerialProxyGetModemPinsResponse,
+            timeout,
+        )
         return SerialProxyModemPins.from_pb(resp)
 
     def subscribe_serial_proxy_identity(
@@ -929,11 +934,10 @@ class APIClient(APIClientBase):
     ) -> Callable[[], None]:
         """Subscribe to the identity of every serial proxy port.
 
-        The device first sends one message per port, then another whenever a port's
-        identity changes, for as long as the connection lasts. A device below API
-        1.18 or without the proxy component never answers, so the callback never
-        fires; check DeviceInfo.serial_proxies before calling. There is no
-        unsubscribe message: the returned callable only detaches the local handler.
+        The device sends one message per port, then one whenever a port changes.
+        A device below API 1.18 or without the proxy component never answers.
+        The returned callable only detaches the local handler; there is no
+        unsubscribe message.
         """
         return self._get_connection().send_message_callback_response(
             SubscribeSerialProxyIdentityRequest(),
@@ -949,13 +953,11 @@ class APIClient(APIClientBase):
         instance: int,
         timeout: float = 10.0,
     ) -> SerialProxyIdentityModel:
-        """Read the current identity of one serial proxy port.
+        """Read the identity of one serial proxy port.
 
-        There is no single-port request, so this subscribes and picks the port's entry
-        out of the snapshot the device sends in reply. The connection stays subscribed,
-        and every subscriber on it sees the snapshot again. An instance the device does
-        not have never answers, so the call times out; the same happens on a device
-        below API 1.18 or without the proxy component.
+        Subscribes as a side effect, so every subscriber on the connection sees
+        the snapshot again. An unknown instance, a device below API 1.18, or a
+        device without the proxy component never answers and the call times out.
         """
         resp = await self._await_serial_proxy_instance_response(
             SubscribeSerialProxyIdentityRequest(),
@@ -965,25 +967,13 @@ class APIClient(APIClientBase):
         )
         return SerialProxyIdentityModel.from_pb(resp)
 
-    async def _send_serial_proxy_get_modem_pins(
-        self,
-        instance: int,
-        timeout: float = 10.0,
-    ) -> SerialProxyGetModemPinsResponse:
-        return await self._await_serial_proxy_instance_response(
-            SerialProxyGetModemPinsRequest(instance=instance),
-            instance,
-            SerialProxyGetModemPinsResponse,
-            timeout,
-        )
-
     async def _await_serial_proxy_instance_response(
         self,
         req: message.Message,
         instance: int,
-        msg_type: type[Any],
+        msg_type: type[message.Message],
         timeout: float,
-    ) -> Any:
+    ) -> message.Message:
         """Send a serial proxy message and await the reply for its instance."""
 
         def is_matching_response(msg: Any) -> bool:

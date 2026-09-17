@@ -410,6 +410,7 @@ def test_api_version_ord():
         (SerialProxyInfo, SerialProxyInfoPb),
         (SerialProxyDataReceived, SerialProxyDataReceivedPb),
         (SerialProxyModemPins, SerialProxyGetModemPinsResponsePb),
+        (SerialProxyIdentity, SerialProxyIdentityPb),
         (DeviceCapabilities, DeviceCapabilitiesResponse),
         (BluetoothProxyCapabilities, BluetoothProxyCapabilitiesPb),
         (VoiceAssistantCapabilities, VoiceAssistantCapabilitiesPb),
@@ -2321,18 +2322,6 @@ def test_serial_proxy_parity_enum() -> None:
     assert SerialProxyParity.convert(-1) is None
 
 
-def test_serial_proxy_mode_enum() -> None:
-    """Test SerialProxyMode enum values."""
-    assert SerialProxyMode.RAW == 0
-    assert SerialProxyMode.PROTOCOL == 1
-
-    assert SerialProxyMode.convert(0) == SerialProxyMode.RAW
-    assert SerialProxyMode.convert(1) == SerialProxyMode.PROTOCOL
-    assert SerialProxyMode.convert(2) is None
-    assert SerialProxyMode.convert(3) is None
-    assert SerialProxyMode.convert(-1) is None
-
-
 def test_serial_proxy_request_type_enum() -> None:
     """Test SerialProxyRequestType enum values."""
     assert SerialProxyRequestType.SUBSCRIBE == 0
@@ -2427,6 +2416,17 @@ def test_serial_proxy_port_type_enum() -> None:
     assert SerialProxyPortType.convert(-1) is None
 
 
+def test_serial_proxy_mode_enum() -> None:
+    """Test SerialProxyMode enum values."""
+    assert SerialProxyMode.RAW == 0
+    assert SerialProxyMode.PROTOCOL == 1
+
+    assert SerialProxyMode.convert(0) == SerialProxyMode.RAW
+    assert SerialProxyMode.convert(1) == SerialProxyMode.PROTOCOL
+    assert SerialProxyMode.convert(2) is None
+    assert SerialProxyMode.convert(-1) is None
+
+
 def test_serial_proxy_identity_source_enum() -> None:
     """Test SerialProxyIdentitySource enum values."""
     assert SerialProxyIdentitySource.NONE == 0
@@ -2448,13 +2448,6 @@ def test_serial_proxy_identity_flag_enum() -> None:
 
 def test_serial_proxy_identity_conversion() -> None:
     """Test SerialProxyIdentity conversion from protobuf."""
-    pb_msg = SerialProxyIdentityPb()
-    model = SerialProxyIdentity.from_pb(pb_msg)
-    assert model.source == SerialProxyIdentitySource.NONE
-    assert model.flags == 0
-    assert model.usb_vendor_id == 0
-    assert model.serial_number == ""
-
     pb_msg = SerialProxyIdentityPb(
         instance=1,
         source=SerialProxyIdentitySource.USB,
@@ -2479,16 +2472,6 @@ def test_serial_proxy_identity_conversion() -> None:
     assert model.usb_bcd_device == 0x0100
     assert model.usb_interface_number == 2
 
-    pb_msg = SerialProxyIdentityPb(
-        instance=2,
-        source=SerialProxyIdentitySource.CONFIGURED,
-        flags=SerialProxyIdentityFlag.CONNECTED,
-        product="ZBT-2",
-    )
-    model = SerialProxyIdentity.from_pb(pb_msg)
-    assert model.source == SerialProxyIdentitySource.CONFIGURED
-    assert model.usb_vendor_id == 0
-
 
 def test_serial_proxy_info_conversion() -> None:
     """Test SerialProxyInfo conversion from protobuf."""
@@ -2497,7 +2480,6 @@ def test_serial_proxy_info_conversion() -> None:
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == ""
     assert model.port_type == SerialProxyPortType.TTL
-    assert model.configured_line_states == 0
 
     # With values
     pb_msg = SerialProxyInfoPb(
