@@ -2475,6 +2475,7 @@ def test_serial_proxy_identity_conversion() -> None:
     assert model.usb == UsbDeviceDescriptor(
         vendor_id=0x303A, product_id=0x4001, bcd_device=0x0100, interface_number=2
     )
+    assert SerialProxyIdentity.from_dict(model.to_dict()) == model
 
 
 def test_serial_proxy_info_conversion() -> None:
