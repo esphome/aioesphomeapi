@@ -101,6 +101,12 @@ def test_switch_off() -> None:
     assert format_state_log(state, info) == "[S][switch]: 'Relay' >> OFF"
 
 
+def test_switch_missing() -> None:
+    info = BinarySensorInfo(name="Relay", key=1)
+    state = SwitchState(key=1, state=False, missing_state=True)
+    assert format_state_log(state, info) is None
+
+
 def test_siren_on() -> None:
     info = BinarySensorInfo(name="Alarm", key=1)
     state = SirenState(key=1, state=True)
@@ -361,6 +367,12 @@ def test_climate_basic() -> None:
     assert "[S][climate]:   Target Temperature: 22.00°C" in result
 
 
+def test_climate_missing() -> None:
+    info = ClimateInfo(name="HVAC", key=1)
+    state = ClimateState(key=1, mode=ClimateMode.OFF, missing_state=True)
+    assert format_state_log(state, info) is None
+
+
 def test_climate_full_features() -> None:
     info = ClimateInfo(name="AC", key=1)
     state = ClimateState(
@@ -492,6 +504,12 @@ def test_water_heater_basic() -> None:
     assert "[S][water_heater]: 'Boiler' >>" in result
     assert "[S][water_heater]:   Mode: ECO" in result
     assert "[S][water_heater]:   Current Temperature: 45.00°C" in result
+
+
+def test_water_heater_missing() -> None:
+    info = BinarySensorInfo(name="Boiler", key=1)
+    state = WaterHeaterState(key=1, mode=WaterHeaterMode.OFF, missing_state=True)
+    assert format_state_log(state, info) is None
 
 
 def test_update_basic() -> None:
