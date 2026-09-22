@@ -1480,6 +1480,20 @@ class SerialProxyModemPins(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class UsbDeviceDescriptor(APIModelBase):
+    vendor_id: int = 0
+    product_id: int = 0
+    bcd_device: int = 0
+    interface_number: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> UsbDeviceDescriptor:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
 class SerialProxyIdentity(APIModelBase):
     """Identity of the device behind a serial proxy port."""
 
@@ -1492,12 +1506,10 @@ class SerialProxyIdentity(APIModelBase):
     manufacturer: str = ""
     product: str = ""
     serial_number: str = ""
-
-    # The `usb_` fields only set for proxied USB devices
-    usb_vendor_id: int = 0
-    usb_product_id: int = 0
-    usb_bcd_device: int = 0
-    usb_interface_number: int = 0
+    # All zero unless source is USB
+    usb: UsbDeviceDescriptor = converter_field(
+        default_factory=UsbDeviceDescriptor, converter=UsbDeviceDescriptor.convert
+    )
 
 
 # ==================== INFO MAP ====================
@@ -2323,6 +2335,7 @@ __all__ = (
     "UpdateCommand",
     "UpdateInfo",
     "UpdateState",
+    "UsbDeviceDescriptor",
     "UserService",
     "UserServiceArg",
     "UserServiceArgType",

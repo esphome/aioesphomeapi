@@ -99,6 +99,7 @@ from aioesphomeapi.api_pb2 import (
     TextCommandRequest,
     TimeCommandRequest,
     UpdateCommandRequest,
+    UsbDeviceDescriptor as UsbDeviceDescriptorPb,
     ValveCommandRequest,
     VoiceAssistantAnnounceFinished,
     VoiceAssistantAnnounceRequest,
@@ -3678,7 +3679,7 @@ async def test_serial_proxy_get_identity(
         source=SerialProxyIdentitySource.USB,
         flags=SerialProxyIdentityFlag.CONNECTED,
         serial_number="10B41DE58F10",
-        usb_vendor_id=0x303A,
+        usb=UsbDeviceDescriptorPb(vendor_id=0x303A),
     )
 
     async def mock_send_complex(messages, do_append, stop, msg_types, timeout=10.0):
@@ -3694,7 +3695,7 @@ async def test_serial_proxy_get_identity(
 
     assert result.source == SerialProxyIdentitySource.USB
     assert result.flags & SerialProxyIdentityFlag.CONNECTED
-    assert result.usb_vendor_id == 0x303A
+    assert result.usb.vendor_id == 0x303A
     assert result.serial_number == "10B41DE58F10"
 
 

@@ -81,6 +81,7 @@ from aioesphomeapi.api_pb2 import (
     TextStateResponse,
     TimeStateResponse,
     UpdateStateResponse,
+    UsbDeviceDescriptor as UsbDeviceDescriptorPb,
     ValveStateResponse,
     VoiceAssistantCapabilities as VoiceAssistantCapabilitiesPb,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
@@ -187,6 +188,7 @@ from aioesphomeapi.model import (
     TimeState,
     UpdateInfo,
     UpdateState,
+    UsbDeviceDescriptor,
     UserService,
     UserServiceArg,
     UserServiceArgType,
@@ -411,6 +413,7 @@ def test_api_version_ord():
         (SerialProxyDataReceived, SerialProxyDataReceivedPb),
         (SerialProxyModemPins, SerialProxyGetModemPinsResponsePb),
         (SerialProxyIdentity, SerialProxyIdentityPb),
+        (UsbDeviceDescriptor, UsbDeviceDescriptorPb),
         (DeviceCapabilities, DeviceCapabilitiesResponse),
         (BluetoothProxyCapabilities, BluetoothProxyCapabilitiesPb),
         (VoiceAssistantCapabilities, VoiceAssistantCapabilitiesPb),
@@ -2455,10 +2458,12 @@ def test_serial_proxy_identity_conversion() -> None:
         manufacturer="Nabu Casa",
         product="ZBT-2",
         serial_number="10B41DE58F10",
-        usb_vendor_id=0x303A,
-        usb_product_id=0x4001,
-        usb_bcd_device=0x0100,
-        usb_interface_number=2,
+        usb=UsbDeviceDescriptorPb(
+            vendor_id=0x303A,
+            product_id=0x4001,
+            bcd_device=0x0100,
+            interface_number=2,
+        ),
     )
     model = SerialProxyIdentity.from_pb(pb_msg)
     assert model.instance == 1
@@ -2467,10 +2472,9 @@ def test_serial_proxy_identity_conversion() -> None:
     assert model.manufacturer == "Nabu Casa"
     assert model.product == "ZBT-2"
     assert model.serial_number == "10B41DE58F10"
-    assert model.usb_vendor_id == 0x303A
-    assert model.usb_product_id == 0x4001
-    assert model.usb_bcd_device == 0x0100
-    assert model.usb_interface_number == 2
+    assert model.usb == UsbDeviceDescriptor(
+        vendor_id=0x303A, product_id=0x4001, bcd_device=0x0100, interface_number=2
+    )
 
 
 def test_serial_proxy_info_conversion() -> None:
