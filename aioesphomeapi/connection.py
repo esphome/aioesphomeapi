@@ -259,7 +259,7 @@ def _make_hello_request(
     return HelloRequest(
         client_info=client_info,
         api_version_major=1,
-        api_version_minor=16,
+        api_version_minor=18,
         outgoing_connection_target=outgoing_connection_target,
     )
 

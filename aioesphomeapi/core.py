@@ -68,6 +68,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredRFReceiveEvent,
+    InfraredRFTransmitCompleteResponse,
     InfraredRFTransmitRawTimingsRequest,
     LightCommandRequest,
     LightStateResponse,
@@ -117,6 +118,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyIdentity,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
@@ -131,6 +133,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStatesRequest,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
+    SubscribeSerialProxyIdentityRequest,
     SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
@@ -561,6 +564,9 @@ MESSAGE_TYPE_TO_PROTO = {
     150: DeviceCapabilitiesResponse,
     151: ZWaveProxyRequestResponse,
     152: SerialProxySetModeRequest,
+    153: InfraredRFTransmitCompleteResponse,
+    154: SubscribeSerialProxyIdentityRequest,
+    155: SerialProxyIdentity,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

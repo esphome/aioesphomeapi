@@ -73,6 +73,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyIdentity,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
@@ -86,6 +87,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStatesRequest,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
+    SubscribeSerialProxyIdentityRequest,
     SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
@@ -122,6 +124,7 @@ from .client_base import (
     on_home_assistant_action_request,
     on_infrared_rf_receive_event,
     on_serial_proxy_data_received,
+    on_serial_proxy_identity,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -136,6 +139,7 @@ from .core import (
     to_human_readable_address,
     to_human_readable_gatt_error,
 )
+from .ir_rf_pacing import IrRfTransmitPacing
 from .model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -174,6 +178,7 @@ from .model import (
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyIdentity as SerialProxyIdentityModel,
     SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
@@ -269,6 +274,8 @@ MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
 
 # API version 1.16+ acknowledges proxy subscribe and port configuration requests
 MIN_VERSION_PROXY_ACK = APIVersion(1, 16)
+# API version 1.18+ replies to each IR/RF transmit once the frame has left the device
+MIN_VERSION_IR_RF_TRANSMIT_COMPLETE = APIVersion(1, 18)
 
 
 def _make_serial_proxy_configure_request(
@@ -365,6 +372,9 @@ class APIClient(APIClientBase):
         connection = self._connection
         self._connection = None
         self._cached_device_info = None
+        if (ir_rf := self._ir_rf) is not None:
+            ir_rf.close()
+            self._ir_rf = None
         if connection is not None:
             # Subscribers run before on_stop: create_eager_task starts the
             # on_stop coroutine synchronously, so reconnect machinery would
@@ -698,14 +708,18 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send an infrared/RF raw timings transmit request."""
+        """Send an infrared/RF raw timings transmit request.
+
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
         req.carrier_frequency = carrier_frequency
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req)
 
     def radio_frequency_transmit_raw_timings(
         self,
@@ -716,7 +730,11 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send a radio frequency raw timings transmit request."""
+        """Send a radio frequency raw timings transmit request.
+
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
@@ -724,7 +742,32 @@ class APIClient(APIClientBase):
         req.modulation = modulation
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req)
+
+    def _send_ir_rf_transmit(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
+        if (ir_rf := self._ir_rf) is None:
+            connection = self._get_connection()
+            api_version = self.api_version
+            supports_complete = True
+            if (
+                api_version is not None
+                and api_version < MIN_VERSION_IR_RF_TRANSMIT_COMPLETE
+            ):
+                supports_complete = False
+                # the pacing object lives as long as the connection, so this warns once per connection
+                _LOGGER.warning(
+                    "%s: firmware API %s.%s does not report when an IR/RF transmit "
+                    "has finished, so frames are spaced by an estimate and a burst of "
+                    "transmits can overwhelm the device; update to ESPHome 2026.10.0 "
+                    "or newer",
+                    self.log_name,
+                    api_version.major,
+                    api_version.minor,
+                )
+            ir_rf = self._ir_rf = IrRfTransmitPacing(
+                connection, self._loop, supports_complete
+            )
+        ir_rf.send(req)
 
     def _supports_proxy_ack(self) -> bool:
         api_version = self.api_version
@@ -877,24 +920,70 @@ class APIClient(APIClientBase):
         Devices below API 1.16 never set status, so it always reads OK there;
         an out-of-range instance times out on those devices instead.
         """
-        resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
+        resp = await self._await_serial_proxy_instance_response(
+            SerialProxyGetModemPinsRequest(instance=instance),
+            instance,
+            SerialProxyGetModemPinsResponse,
+            timeout,
+        )
         return SerialProxyModemPins.from_pb(resp)
 
-    async def _send_serial_proxy_get_modem_pins(
+    def subscribe_serial_proxy_identity(
+        self,
+        on_identity: Callable[[SerialProxyIdentityModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to the identity of every serial proxy port.
+
+        The device sends one message per port, then one whenever a port changes.
+        A device below API 1.18 or without the proxy component never answers.
+        The returned callable only detaches the local handler; there is no
+        unsubscribe message.
+        """
+        return self._get_connection().send_message_callback_response(
+            SubscribeSerialProxyIdentityRequest(),
+            partial(
+                on_serial_proxy_identity,
+                on_identity,
+            ),
+            (SerialProxyIdentity,),
+        )
+
+    async def serial_proxy_get_identity(
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyGetModemPinsResponse:
-        req = SerialProxyGetModemPinsRequest(instance=instance)
+    ) -> SerialProxyIdentityModel:
+        """Read the identity of one serial proxy port.
 
-        def is_matching_response(msg: SerialProxyGetModemPinsResponse) -> bool:
+        Subscribes as a side effect, so every subscriber on the connection sees
+        the snapshot again. An unknown instance, a device below API 1.18, or a
+        device without the proxy component never answers and the call times out.
+        """
+        resp = await self._await_serial_proxy_instance_response(
+            SubscribeSerialProxyIdentityRequest(),
+            instance,
+            SerialProxyIdentity,
+            timeout,
+        )
+        return SerialProxyIdentityModel.from_pb(resp)
+
+    async def _await_serial_proxy_instance_response(
+        self,
+        req: message.Message,
+        instance: int,
+        msg_type: type[message.Message],
+        timeout: float,
+    ) -> message.Message:
+        """Send a serial proxy message and await the reply for its instance."""
+
+        def is_matching_response(msg: Any) -> bool:
             return bool(msg.instance == instance)
 
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
             is_matching_response,
             is_matching_response,
-            (SerialProxyGetModemPinsResponse,),
+            (msg_type,),
             timeout,
         )
         return resp
