@@ -1,4 +1,4 @@
-aiohappyeyeballs>=2.6.2
+aiohappyeyeballs>=2.7.1
 async-interrupt>=1.2.2
 protobuf>=6,<8
 tzdata>=2026.3
