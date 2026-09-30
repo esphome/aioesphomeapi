@@ -1154,6 +1154,7 @@ class MediaPlayerSupportedFormat(APIModelBase):
         converter=MediaPlayerFormatPurpose.convert,
     )
     sample_bytes: int = 0
+    bitrate: int = 0
 
 
 @_frozen_dataclass_decorator
