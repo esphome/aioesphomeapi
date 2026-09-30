@@ -1582,7 +1582,14 @@ def test_media_player_supported_format_convert_list() -> None:
                     "num_channels": 2,
                     "purpose": 1,
                     "sample_bytes": 2,
-                }
+                },
+                {
+                    "format": "mp3",
+                    "sample_rate": 48000,
+                    "num_channels": 2,
+                    "purpose": 0,
+                    "bitrate": 48,
+                },
             ],
             "feature_flags": 0,
         }
@@ -1595,7 +1602,14 @@ def test_media_player_supported_format_convert_list() -> None:
                 num_channels=2,
                 purpose=1,
                 sample_bytes=2,
-            )
+            ),
+            MediaPlayerSupportedFormat(
+                format="mp3",
+                sample_rate=48000,
+                num_channels=2,
+                purpose=0,
+                bitrate=48,
+            ),
         ],
         feature_flags=0,
     )
@@ -2765,6 +2779,24 @@ _GATT_UUID_STR = "12345678-aabb-ccdd-1122-334455667788"
                 "num_channels": 2,
                 "purpose": 1,
                 "sample_bytes": 2,
+                "bitrate": 0,
+            },
+        ),
+        (
+            MediaPlayerSupportedFormatModel,
+            lambda: MediaPlayerSupportedFormat(
+                format="mp3",
+                sample_rate=48000,
+                num_channels=2,
+                bitrate=48,
+            ),
+            {
+                "format": "mp3",
+                "sample_rate": 48000,
+                "num_channels": 2,
+                "purpose": 0,
+                "sample_bytes": 0,
+                "bitrate": 48,
             },
         ),
         (
