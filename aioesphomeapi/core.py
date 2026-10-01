@@ -53,6 +53,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
+    DeviceWizardRequest,
+    DeviceWizardResponse,
     DisconnectRequest,
     DisconnectResponse,
     EventResponse,
@@ -160,6 +162,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
     WaterHeaterStateResponse,
+    WizardInputSetRequest,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestResponse,
@@ -567,6 +570,9 @@ MESSAGE_TYPE_TO_PROTO = {
     153: InfraredRFTransmitCompleteResponse,
     154: SubscribeSerialProxyIdentityRequest,
     155: SerialProxyIdentity,
+    156: DeviceWizardRequest,
+    157: DeviceWizardResponse,
+    158: WizardInputSetRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

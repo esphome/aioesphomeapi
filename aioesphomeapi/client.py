@@ -50,6 +50,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
+    DeviceWizardRequest,
+    DeviceWizardResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     ExecuteServiceResponse,
@@ -109,6 +111,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
+    WizardInputSetRequest,
     ZWaveProxyRequest,
     ZWaveProxyRequestResponse,
 )
@@ -162,6 +165,7 @@ from .model import (
     ConnectionClosedEvent,
     DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
+    DeviceWizard as DeviceWizardModel,
     DisconnectReason,
     EntityInfo,
     EntityState,
@@ -534,6 +538,23 @@ class APIClient(APIClientBase):
                 home_id=device_info.zwave_home_id,
             ),
             serial_proxies=device_info.serial_proxies,
+        )
+
+    async def device_wizard(self) -> DeviceWizardModel:
+        """Fetch the onboarding wizard.
+
+        Only call when DeviceCapabilities.wizard.configured is set: a device
+        without a wizard never answers, so the request raises TimeoutAPIError.
+        """
+        resp = await self._get_connection().send_message_await_response(
+            DeviceWizardRequest(), DeviceWizardResponse
+        )
+        return DeviceWizardModel.from_pb(resp)
+
+    def wizard_input_set(self, key: int, entity_id: str) -> None:
+        """Set the Home Assistant entity id of the wizard input with the given key."""
+        self._get_connection().send_message(
+            WizardInputSetRequest(key=key, entity_id=entity_id)
         )
 
     async def list_entities_services(

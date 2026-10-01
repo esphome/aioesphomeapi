@@ -380,6 +380,17 @@ class ZWaveProxyCapabilities(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class WizardCapabilities(APIModelBase):
+    configured: bool = False
+
+    @classmethod
+    def convert(cls, value: Any) -> WizardCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
 class DeviceCapabilities(APIModelBase):
     bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
         default_factory=BluetoothProxyCapabilities,
@@ -395,6 +406,56 @@ class DeviceCapabilities(APIModelBase):
     )
     serial_proxies: list[SerialProxyInfo] = converter_field(
         default_factory=list, converter=SerialProxyInfo.convert_list
+    )
+    wizard: WizardCapabilities = converter_field(
+        default_factory=WizardCapabilities,
+        converter=WizardCapabilities.convert,
+    )
+
+
+@_frozen_dataclass_decorator
+class WizardEntityFilter(APIModelBase):
+    integration: str = ""
+    domain: list[str] = converter_field(default_factory=list, converter=list)
+    device_class: list[str] = converter_field(default_factory=list, converter=list)
+    supported_features: list[str] = converter_field(
+        default_factory=list, converter=list
+    )
+
+
+@_frozen_dataclass_decorator
+class WizardEntityField(APIModelBase):
+    key: int = 0
+    device_id: int = 0
+    description: str = ""
+
+
+@_frozen_dataclass_decorator
+class WizardInputField(APIModelBase):
+    key: int = 0
+    description: str = ""
+    entity_filters: list[WizardEntityFilter] = converter_field(
+        default_factory=list, converter=WizardEntityFilter.convert_list
+    )
+    entity_id: str = ""
+
+
+@_frozen_dataclass_decorator
+class WizardPage(APIModelBase):
+    title: str = ""
+    description: str = ""
+    entities: list[WizardEntityField] = converter_field(
+        default_factory=list, converter=WizardEntityField.convert_list
+    )
+    inputs: list[WizardInputField] = converter_field(
+        default_factory=list, converter=WizardInputField.convert_list
+    )
+
+
+@_frozen_dataclass_decorator
+class DeviceWizard(APIModelBase):
+    pages: list[WizardPage] = converter_field(
+        default_factory=list, converter=WizardPage.convert_list
     )
 
 
@@ -2260,6 +2321,7 @@ __all__ = (
     "DateTimeState",
     "DeviceCapabilities",
     "DeviceInfo",
+    "DeviceWizard",
     "DisconnectReason",
     "ESPHomeBluetoothGATTServices",
     "EntityCategory",
@@ -2366,6 +2428,11 @@ __all__ = (
     "WaterHeaterMode",
     "WaterHeaterState",
     "WaterHeaterStateFlag",
+    "WizardCapabilities",
+    "WizardEntityField",
+    "WizardEntityFilter",
+    "WizardInputField",
+    "WizardPage",
     "ZWaveProxyCapabilities",
     "ZWaveProxyFeature",
     "ZWaveProxyFrame",

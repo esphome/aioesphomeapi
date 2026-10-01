@@ -52,6 +52,7 @@ from aioesphomeapi.api_pb2 import (
     DateTimeCommandRequest,
     DeviceCapabilitiesResponse,
     DeviceInfoResponse,
+    DeviceWizardResponse,
     DisconnectReason as DisconnectReasonPb,
     DisconnectRequest,
     DisconnectResponse,
@@ -117,6 +118,12 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
     WaterHeaterCommandRequest,
+    WizardCapabilities as WizardCapabilitiesPb,
+    WizardEntityField as WizardEntityFieldPb,
+    WizardEntityFilter as WizardEntityFilterPb,
+    WizardInputField as WizardInputFieldPb,
+    WizardInputSetRequest,
+    WizardPage as WizardPagePb,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
     ZWaveProxyRequestResponse as ZWaveProxyRequestResponsePb,
@@ -159,6 +166,7 @@ from aioesphomeapi.model import (
     ConnectionClosedEvent,
     DeviceCapabilities,
     DeviceInfo,
+    DeviceWizard,
     DisconnectReason,
     ESPHomeBluetoothGATTServices,
     FanDirection,
@@ -199,6 +207,11 @@ from aioesphomeapi.model import (
     WaterHeaterCommandField,
     WaterHeaterMode,
     WaterHeaterStateFlag,
+    WizardCapabilities,
+    WizardEntityField,
+    WizardEntityFilter,
+    WizardInputField,
+    WizardPage,
     ZWaveProxyCapabilities,
     ZWaveProxyRequest,
     ZWaveProxyRequestResponse,
@@ -2262,6 +2275,96 @@ async def test_device_capabilities_compat_no_api_version() -> None:
     )
     with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_capabilities_compat(device_info)
+
+
+async def test_device_capabilities_wizard(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """device_capabilities surfaces wizard.configured."""
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.device_capabilities())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        wizard=WizardCapabilitiesPb(configured=True)
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.wizard == WizardCapabilities(configured=True)
+
+
+async def test_device_wizard(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """device_wizard sends DeviceWizardRequest and decodes the response."""
+    client, _connection, transport, protocol = api_client
+    transport.writelines.reset_mock()
+    task = asyncio.create_task(client.device_wizard())
+    await asyncio.sleep(0)
+    # An empty message is framed without a payload chunk; 156 is varuint b"\x9c\x01"
+    transport.writelines.assert_called_once_with([b"\x00", b"\x00", b"\x9c\x01"])
+    response: message.Message = DeviceWizardResponse(
+        pages=[
+            WizardPagePb(
+                title="Setup",
+                description="Pick a sensor",
+                entities=[WizardEntityFieldPb(key=1, device_id=2, description="d")],
+                inputs=[
+                    WizardInputFieldPb(
+                        key=5,
+                        description="Temperature",
+                        entity_filters=[
+                            WizardEntityFilterPb(
+                                domain=["sensor"], device_class=["temperature"]
+                            )
+                        ],
+                        entity_id="sensor.outside",
+                    )
+                ],
+            )
+        ]
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    assert await task == DeviceWizard(
+        pages=[
+            WizardPage(
+                title="Setup",
+                description="Pick a sensor",
+                entities=[WizardEntityField(key=1, device_id=2, description="d")],
+                inputs=[
+                    WizardInputField(
+                        key=5,
+                        description="Temperature",
+                        entity_filters=[
+                            WizardEntityFilter(
+                                domain=["sensor"], device_class=["temperature"]
+                            )
+                        ],
+                        entity_id="sensor.outside",
+                    )
+                ],
+            )
+        ]
+    )
+
+
+async def test_wizard_input_set(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """wizard_input_set sends a WizardInputSetRequest without awaiting a reply."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    client.wizard_input_set(0xDEADBEEF, "sensor.outside")
+    transport.writelines.assert_called_once_with(
+        generate_split_plaintext_packet(
+            WizardInputSetRequest(key=0xDEADBEEF, entity_id="sensor.outside")
+        )
+    )
 
 
 async def test_device_info_sanitizes_name(

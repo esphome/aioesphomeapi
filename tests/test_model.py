@@ -29,6 +29,7 @@ from aioesphomeapi.api_pb2 import (
     DeviceCapabilitiesResponse,
     DeviceInfo as SubDeviceInfoProto,
     DeviceInfoResponse,
+    DeviceWizardResponse,
     EventResponse,
     ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanStateResponse,
@@ -87,6 +88,11 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
     VoiceAssistantWakeWord as VoiceAssistantWakeWordPb,
     WaterHeaterStateResponse,
+    WizardCapabilities as WizardCapabilitiesPb,
+    WizardEntityField as WizardEntityFieldPb,
+    WizardEntityFilter as WizardEntityFilterPb,
+    WizardInputField as WizardInputFieldPb,
+    WizardPage as WizardPagePb,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
@@ -128,6 +134,7 @@ from aioesphomeapi.model import (
     DateTimeState,
     DeviceCapabilities,
     DeviceInfo,
+    DeviceWizard,
     EntityInfo,
     EntityState,
     Event,
@@ -202,6 +209,11 @@ from aioesphomeapi.model import (
     WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
+    WizardCapabilities,
+    WizardEntityField,
+    WizardEntityFilter,
+    WizardInputField,
+    WizardPage,
     ZWaveProxyCapabilities,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
@@ -418,6 +430,12 @@ def test_api_version_ord():
         (BluetoothProxyCapabilities, BluetoothProxyCapabilitiesPb),
         (VoiceAssistantCapabilities, VoiceAssistantCapabilitiesPb),
         (ZWaveProxyCapabilities, ZWaveProxyCapabilitiesPb),
+        (WizardCapabilities, WizardCapabilitiesPb),
+        (DeviceWizard, DeviceWizardResponse),
+        (WizardPage, WizardPagePb),
+        (WizardEntityField, WizardEntityFieldPb),
+        (WizardInputField, WizardInputFieldPb),
+        (WizardEntityFilter, WizardEntityFilterPb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -2932,3 +2950,99 @@ def test_device_capabilities_convert_dict_branch() -> None:
     assert caps.serial_proxies == [
         SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL)
     ]
+
+
+def test_device_capabilities_wizard_from_pb() -> None:
+    """DeviceCapabilities decodes wizard.configured, defaulting to False when unset."""
+    pb = DeviceCapabilitiesResponse(wizard=WizardCapabilitiesPb(configured=True))
+    assert DeviceCapabilities.from_pb(pb).wizard == WizardCapabilities(configured=True)
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).wizard == WizardCapabilities(configured=False)
+
+
+def test_device_capabilities_wizard_from_dict() -> None:
+    """The dict branch of WizardCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict({"wizard": {"configured": True}})
+    assert caps.wizard == WizardCapabilities(configured=True)
+    assert DeviceCapabilities.from_dict({}).wizard == WizardCapabilities()
+
+
+def _full_device_wizard_pb() -> DeviceWizardResponse:
+    return DeviceWizardResponse(
+        pages=[
+            WizardPagePb(
+                title="Welcome",
+                description="[%key:component::esphome::wizard::intro%]",
+                entities=[
+                    WizardEntityFieldPb(key=1, device_id=2, description="Relay"),
+                ],
+                inputs=[
+                    WizardInputFieldPb(
+                        key=0xDEADBEEF,
+                        description="Outdoor temperature",
+                        entity_filters=[
+                            WizardEntityFilterPb(
+                                integration="met",
+                                domain=["sensor", "weather"],
+                                device_class=["temperature"],
+                                supported_features=[
+                                    "weather.WeatherEntityFeature.FORECAST_DAILY"
+                                ],
+                            ),
+                            WizardEntityFilterPb(domain=["input_number"]),
+                        ],
+                        entity_id="sensor.outdoor",
+                    ),
+                    WizardInputFieldPb(key=3),
+                ],
+            ),
+            WizardPagePb(title="Done"),
+        ]
+    )
+
+
+_FULL_DEVICE_WIZARD = DeviceWizard(
+    pages=[
+        WizardPage(
+            title="Welcome",
+            description="[%key:component::esphome::wizard::intro%]",
+            entities=[WizardEntityField(key=1, device_id=2, description="Relay")],
+            inputs=[
+                WizardInputField(
+                    key=0xDEADBEEF,
+                    description="Outdoor temperature",
+                    entity_filters=[
+                        WizardEntityFilter(
+                            integration="met",
+                            domain=["sensor", "weather"],
+                            device_class=["temperature"],
+                            supported_features=[
+                                "weather.WeatherEntityFeature.FORECAST_DAILY"
+                            ],
+                        ),
+                        WizardEntityFilter(domain=["input_number"]),
+                    ],
+                    entity_id="sensor.outdoor",
+                ),
+                WizardInputField(key=3),
+            ],
+        ),
+        WizardPage(title="Done"),
+    ]
+)
+
+
+def test_device_wizard_from_pb() -> None:
+    """DeviceWizard.from_pb decodes every nested field into model types."""
+    wizard = DeviceWizard.from_pb(_full_device_wizard_pb())
+    assert wizard == _FULL_DEVICE_WIZARD
+    entity_filter = wizard.pages[0].inputs[0].entity_filters[0]
+    assert type(entity_filter.domain) is list
+    assert type(entity_filter.device_class) is list
+    assert type(entity_filter.supported_features) is list
+
+
+def test_device_wizard_dict_round_trip() -> None:
+    """DeviceWizard survives to_dict and from_dict unchanged."""
+    assert DeviceWizard.from_dict(_FULL_DEVICE_WIZARD.to_dict()) == _FULL_DEVICE_WIZARD
