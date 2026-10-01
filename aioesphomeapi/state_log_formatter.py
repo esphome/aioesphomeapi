@@ -97,6 +97,8 @@ def _format_binary_sensor(
 
 
 def _format_switch(state: SwitchState, info: EntityInfo | None) -> str | None:
+    if state.missing_state:
+        return None
     return _header("switch", info, _on_off(state.state))
 
 
@@ -277,6 +279,8 @@ def _climate_humidity_lines(
 
 
 def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None:
+    if state.missing_state:
+        return None
     tag = "climate"
     parts = [
         f"[S][{tag}]: '{_name(info)}' >>",
@@ -309,6 +313,8 @@ def _format_media_player(
 def _format_water_heater(
     state: WaterHeaterState, info: EntityInfo | None
 ) -> str | None:
+    if state.missing_state:
+        return None
     tag = "water_heater"
     parts = [
         f"[S][{tag}]: '{_name(info)}' >>",

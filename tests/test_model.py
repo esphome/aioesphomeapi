@@ -424,6 +424,19 @@ def test_basic_pb_conversions(model, pb):
     assert model.from_pb(pb()) == model()
 
 
+@pytest.mark.parametrize(
+    ("model", "pb"),
+    [
+        (SwitchState, SwitchStateResponse),
+        (ClimateState, ClimateStateResponse),
+        (WaterHeaterState, WaterHeaterStateResponse),
+    ],
+)
+def test_missing_state_from_pb(model, pb):
+    assert model.from_pb(pb(key=1, missing_state=True)).missing_state is True
+    assert model.from_pb(pb(key=1)).missing_state is False
+
+
 def test_bluetooth_scanner_state_surfaces_configured_mode() -> None:
     pb = BluetoothScannerStateResponse(
         state=BluetoothScannerState.BLUETOOTH_SCANNER_STATE_RUNNING,

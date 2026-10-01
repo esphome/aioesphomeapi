@@ -717,6 +717,7 @@ class SwitchInfo(EntityInfo):
 @_frozen_dataclass_decorator
 class SwitchState(EntityState):
     state: bool = False
+    missing_state: bool = False
 
 
 # ==================== TEXT SENSOR ====================
@@ -907,6 +908,7 @@ class ClimateState(EntityState):
     custom_preset: str = ""
     current_humidity: float = 0
     target_humidity: float = 0
+    missing_state: bool = False
 
     def preset_compat(self, api_version: APIVersion) -> ClimatePreset | None:
         if api_version < APIVersion(1, 5):
@@ -1324,6 +1326,7 @@ class WaterHeaterState(EntityState):
         default=WaterHeaterMode.OFF, converter=WaterHeaterMode.convert
     )
     state: int = 0
+    missing_state: bool = False
 
 
 # ==================== TEXT ====================
