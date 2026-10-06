@@ -2321,7 +2321,6 @@ async def test_device_wizard(
                                 domain=["sensor"], device_class=["temperature"]
                             )
                         ],
-                        entity_id="sensor.outside",
                     )
                 ],
             )
@@ -2343,7 +2342,6 @@ async def test_device_wizard(
                                 domain=["sensor"], device_class=["temperature"]
                             )
                         ],
-                        entity_id="sensor.outside",
                     )
                 ],
             )

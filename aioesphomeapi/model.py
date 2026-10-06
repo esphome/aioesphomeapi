@@ -437,7 +437,6 @@ class WizardInputField(APIModelBase):
     entity_filters: list[WizardEntityFilter] = converter_field(
         default_factory=list, converter=WizardEntityFilter.convert_list
     )
-    entity_id: str = ""
 
 
 @_frozen_dataclass_decorator

@@ -552,7 +552,11 @@ class APIClient(APIClientBase):
         return DeviceWizardModel.from_pb(resp)
 
     def wizard_input_set(self, key: int, entity_id: str) -> None:
-        """Set the Home Assistant entity id of the wizard input with the given key."""
+        """Set the Home Assistant entity id of the wizard input with the given key.
+
+        The device keeps it in RAM only, so the caller stores the choices and sends
+        every input after each connect, before subscribe_home_assistant_states.
+        """
         self._get_connection().send_message(
             WizardInputSetRequest(key=key, entity_id=entity_id)
         )
