@@ -1811,6 +1811,7 @@ class APIClient(APIClientBase):
         position: float | None = None,
         tilt: float | None = None,
         stop: bool = False,
+        stop_tilt: bool = False,
         device_id: int = 0,
     ) -> None:
         connection = self._get_connection()
@@ -1827,6 +1828,8 @@ class APIClient(APIClientBase):
                 req.tilt = tilt
             if stop:
                 req.stop = stop
+            if stop_tilt:
+                req.stop_tilt = stop_tilt
         elif stop:
             req.legacy_command = LegacyCoverCommand.STOP
             req.has_legacy_command = True

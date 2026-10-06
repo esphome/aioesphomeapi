@@ -455,6 +455,7 @@ class CoverInfo(EntityInfo):
     supports_stop: bool = False
     supports_position: bool = False
     supports_tilt: bool = False
+    supports_stop_tilt: bool = False
     device_class: str = ""
 
 
