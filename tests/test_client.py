@@ -2360,6 +2360,37 @@ async def test_wizard_input_set(
     )
 
 
+@pytest.mark.parametrize(
+    "entity_id", ["", "sensor", "sensor." + "x" * 249, "sensor." + "é" * 125]
+)
+async def test_wizard_input_set_rejects_ignored_entity_id(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    entity_id: str,
+) -> None:
+    """An entity id the device would ignore raises instead of being sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    with pytest.raises(ValueError, match="Invalid wizard input entity_id"):
+        client.wizard_input_set(1, entity_id)
+    transport.writelines.assert_not_called()
+
+
+async def test_wizard_input_set_accepts_max_length_entity_id(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A 255 byte entity id is the longest one sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    entity_id = "sensor." + "x" * 248
+    assert len(entity_id) == 255
+    client.wizard_input_set(1, entity_id)
+    transport.writelines.assert_called_once()
+
+
 async def test_device_info_sanitizes_name(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
