@@ -1811,8 +1811,9 @@ class APIClient(APIClientBase):
         position: float | None = None,
         tilt: float | None = None,
         stop: bool = False,
-        stop_tilt: bool = False,
         device_id: int = 0,
+        *,
+        stop_tilt: bool = False,
     ) -> None:
         connection = self._get_connection()
         req = CoverCommandRequest(key=key, device_id=device_id)

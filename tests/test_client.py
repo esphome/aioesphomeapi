@@ -796,6 +796,14 @@ async def test_cover_command(
     send.assert_called_once_with(CoverCommandRequest(**req))
 
 
+async def test_cover_command_positional_device_id(auth_client: APIClient) -> None:
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 1))
+
+    auth_client.cover_command(1, None, None, False, 7)
+    send.assert_called_once_with(CoverCommandRequest(key=1, device_id=7))
+
+
 @pytest.mark.parametrize(
     ("cmd", "req"),
     [
