@@ -4,9 +4,12 @@ import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
+import importlib
+import json
 import math
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 
+from .core import UnsupportedWizardVersionError
 from .util import fix_float_single_double_conversion
 
 _dataclass_decorator = partial(dataclass, slots=True)
@@ -15,6 +18,7 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+    from types import ModuleType
 
     from google.protobuf import message
 
@@ -456,6 +460,28 @@ class DeviceWizard(APIModelBase):
     pages: list[WizardPage] = converter_field(
         default_factory=list, converter=WizardPage.convert_list
     )
+
+    @classmethod
+    def from_compressed_json(cls, data: bytes) -> DeviceWizard:
+        """Decode the zstd-compressed JSON of DeviceWizardResponse.data.
+
+        Raises UnsupportedWizardVersionError for a version this client does not know.
+        """
+        document = json.loads(_zstd_module().decompress(data))
+        if (version := document.get("version")) != _WIZARD_JSON_VERSION:
+            raise UnsupportedWizardVersionError(version)
+        return cls.from_dict(document)
+
+
+_WIZARD_JSON_VERSION = 1
+
+
+def _zstd_module() -> ModuleType:
+    """Return the standard library zstd module from Python 3.14, otherwise the backport."""
+    try:
+        return importlib.import_module("compression.zstd")
+    except ImportError:
+        return importlib.import_module("backports.zstd")
 
 
 class EntityCategory(APIIntEnum):

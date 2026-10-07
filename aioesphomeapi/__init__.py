@@ -23,6 +23,7 @@ from .core import (
     RequiresEncryptionAPIError,
     ResolveAPIError,
     SocketAPIError,
+    UnsupportedWizardVersionError,
     wifi_mac_to_bluetooth_mac,
 )
 from .log_parser import LogParser, parse_log_message

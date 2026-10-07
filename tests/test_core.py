@@ -4,6 +4,7 @@ import base64
 
 import pytest
 
+import aioesphomeapi
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     DeviceWizardRequest,
     DeviceWizardResponse,
@@ -12,6 +13,7 @@ from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
 from aioesphomeapi.core import (
     MESSAGE_TYPE_TO_PROTO,
     ZERO_NOISE_PSK,
+    UnsupportedWizardVersionError,
     wifi_mac_to_bluetooth_mac,
 )
 
@@ -32,6 +34,11 @@ def test_device_wizard_message_ids() -> None:
     assert MESSAGE_TYPE_TO_PROTO[156] is DeviceWizardRequest
     assert MESSAGE_TYPE_TO_PROTO[157] is DeviceWizardResponse
     assert MESSAGE_TYPE_TO_PROTO[158] is WizardInputSetRequest
+
+
+def test_unsupported_wizard_version_error_is_exported() -> None:
+    """The wizard version error is reachable from the package root."""
+    assert aioesphomeapi.UnsupportedWizardVersionError is UnsupportedWizardVersionError
 
 
 def test_wifi_mac_to_bluetooth_mac():

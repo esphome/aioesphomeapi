@@ -545,11 +545,13 @@ class APIClient(APIClientBase):
 
         Only call when DeviceCapabilities.wizard.configured is set: a device
         without a wizard never answers, so the request raises TimeoutAPIError.
+        Raises UnsupportedWizardVersionError when the wizard's format is newer
+        than this client understands; the wizard must not be used then.
         """
         resp = await self._get_connection().send_message_await_response(
             DeviceWizardRequest(), DeviceWizardResponse
         )
-        return DeviceWizardModel.from_pb(resp)
+        return DeviceWizardModel.from_compressed_json(resp.data)
 
     def wizard_input_set(self, key: int, entity_id: str) -> None:
         """Set the Home Assistant entity id of the wizard input with the given key.

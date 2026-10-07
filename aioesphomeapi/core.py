@@ -229,6 +229,14 @@ ESPHOME_GATT_ERRORS = {
 }
 
 
+class UnsupportedWizardVersionError(ValueError):
+    """The device sent a wizard in a JSON version this client does not know."""
+
+    def __init__(self, version: object) -> None:
+        super().__init__(f"Unsupported device wizard version: {version!r}")
+        self.version = version
+
+
 class APIConnectionError(Exception):
     pass
 

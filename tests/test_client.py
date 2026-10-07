@@ -119,11 +119,7 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantWakeWord,
     WaterHeaterCommandRequest,
     WizardCapabilities as WizardCapabilitiesPb,
-    WizardEntityField as WizardEntityFieldPb,
-    WizardEntityFilter as WizardEntityFilterPb,
-    WizardInputField as WizardInputFieldPb,
     WizardInputSetRequest,
-    WizardPage as WizardPagePb,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
     ZWaveProxyRequestResponse as ZWaveProxyRequestResponsePb,
@@ -217,6 +213,7 @@ from aioesphomeapi.model import (
     ZWaveProxyRequestResponse,
     ZWaveProxyRequestType,
     ZWaveProxyStatus,
+    _zstd_module,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -2306,37 +2303,35 @@ async def test_device_wizard(
     await asyncio.sleep(0)
     # An empty message is framed without a payload chunk; 156 is varuint b"\x9c\x01"
     transport.writelines.assert_called_once_with([b"\x00", b"\x00", b"\x9c\x01"])
-    response: message.Message = DeviceWizardResponse(
-        pages=[
-            WizardPagePb(
-                title="Setup",
-                description="Pick a sensor",
-                entities=[WizardEntityFieldPb(key=1, device_id=2, description="d")],
-                inputs=[
-                    WizardInputFieldPb(
-                        key=5,
-                        description="Temperature",
-                        entity_filters=[
-                            WizardEntityFilterPb(
-                                domain=["sensor"], device_class=["temperature"]
-                            )
+    document = {
+        "version": 1,
+        "pages": [
+            {
+                "title": "Setup",
+                "entities": [{"key": 1, "device_id": 2, "description": "d"}],
+                "inputs": [
+                    {
+                        "key": 5,
+                        "entity_filters": [
+                            {"domain": ["sensor"], "device_class": ["temperature"]}
                         ],
-                    )
+                    }
                 ],
-            )
-        ]
+            }
+        ],
+    }
+    response: message.Message = DeviceWizardResponse(
+        data=_zstd_module().compress(json.dumps(document).encode())
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     assert await task == DeviceWizard(
         pages=[
             WizardPage(
                 title="Setup",
-                description="Pick a sensor",
                 entities=[WizardEntityField(key=1, device_id=2, description="d")],
                 inputs=[
                     WizardInputField(
                         key=5,
-                        description="Temperature",
                         entity_filters=[
                             WizardEntityFilter(
                                 domain=["sensor"], device_class=["temperature"]
