@@ -2377,6 +2377,21 @@ async def test_wizard_input_set_rejects_ignored_entity_id(
     transport.writelines.assert_not_called()
 
 
+@pytest.mark.parametrize("key", [-1, 0x100000000])
+async def test_wizard_input_set_rejects_out_of_range_key(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    key: int,
+) -> None:
+    """A key outside uint32 raises instead of being sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    with pytest.raises(ValueError, match="Invalid wizard input key"):
+        client.wizard_input_set(key, "sensor.outside")
+    transport.writelines.assert_not_called()
+
+
 async def test_wizard_input_set_accepts_max_length_entity_id(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper

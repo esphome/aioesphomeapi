@@ -94,7 +94,7 @@ from aioesphomeapi.api_pb2 import (
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
-from aioesphomeapi.core import UnsupportedWizardVersionError
+from aioesphomeapi.core import InvalidWizardError, UnsupportedWizardVersionError
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
     COMPONENT_TYPE_TO_INFO,
@@ -3069,6 +3069,53 @@ def test_device_wizard_from_compressed_json_unknown_version(
     ) as exc_info:
         DeviceWizard.from_compressed_json(_compress_wizard(document))
     assert exc_info.value.version == document.get("version")
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(_zstd_module().compress(b'{"version": 1}')[:-3], id="truncated"),
+        pytest.param(_zstd_module().compress(b" " * ((1 << 20) + 1)), id="over_cap"),
+    ],
+)
+def test_device_wizard_from_compressed_json_truncated_or_too_large(
+    data: bytes,
+) -> None:
+    """A frame that ends early or expands past the size cap is refused."""
+    with pytest.raises(InvalidWizardError, match="truncated or too large"):
+        DeviceWizard.from_compressed_json(data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(b"not zstd", id="corrupt_frame"),
+        pytest.param(_zstd_module().compress(b"\xff\xfe"), id="invalid_utf8"),
+        pytest.param(_zstd_module().compress(b"{"), id="invalid_json"),
+        pytest.param(_zstd_module().compress(b"[]"), id="not_an_object"),
+        pytest.param(
+            _compress_wizard({"version": 1, "pages": "x"}), id="pages_not_a_list"
+        ),
+        pytest.param(
+            _compress_wizard(
+                {
+                    "version": 1,
+                    "pages": [{"inputs": [{"entity_filters": [{"domain": "sensor"}]}]}],
+                }
+            ),
+            id="domain_not_a_list",
+        ),
+    ],
+)
+def test_device_wizard_from_compressed_json_invalid(data: bytes) -> None:
+    """A wizard this client cannot decode raises InvalidWizardError."""
+    with pytest.raises(InvalidWizardError):
+        DeviceWizard.from_compressed_json(data)
+
+
+def test_unsupported_wizard_version_is_invalid_wizard() -> None:
+    """Callers can catch every wizard decode failure with InvalidWizardError."""
+    assert issubclass(UnsupportedWizardVersionError, InvalidWizardError)
 
 
 def test_zstd_module_falls_back_to_backport() -> None:

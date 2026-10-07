@@ -19,6 +19,7 @@ from .core import (
     HandshakeAPIError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
+    InvalidWizardError,
     ProtocolAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,

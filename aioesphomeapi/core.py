@@ -229,7 +229,11 @@ ESPHOME_GATT_ERRORS = {
 }
 
 
-class UnsupportedWizardVersionError(ValueError):
+class InvalidWizardError(ValueError):
+    """The device sent a wizard this client cannot decode."""
+
+
+class UnsupportedWizardVersionError(InvalidWizardError):
     """The device sent a wizard in a JSON version this client does not know."""
 
     def __init__(self, version: object) -> None:

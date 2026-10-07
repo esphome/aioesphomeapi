@@ -9,7 +9,7 @@ import json
 import math
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 
-from .core import UnsupportedWizardVersionError
+from .core import InvalidWizardError, UnsupportedWizardVersionError
 from .util import fix_float_single_double_conversion
 
 _dataclass_decorator = partial(dataclass, slots=True)
@@ -417,13 +417,23 @@ class DeviceCapabilities(APIModelBase):
     )
 
 
+def _string_list(value: Iterable[str]) -> list[str]:
+    """Convert to a list of strings, refusing a bare string."""
+    if isinstance(value, str):
+        msg = f"Expected a list of strings, got {value!r}"
+        raise TypeError(msg)
+    return list(value)
+
+
 @_frozen_dataclass_decorator
 class WizardEntityFilter(APIModelBase):
     integration: str = ""
-    domain: list[str] = converter_field(default_factory=list, converter=list)
-    device_class: list[str] = converter_field(default_factory=list, converter=list)
+    domain: list[str] = converter_field(default_factory=list, converter=_string_list)
+    device_class: list[str] = converter_field(
+        default_factory=list, converter=_string_list
+    )
     supported_features: list[str] = converter_field(
-        default_factory=list, converter=list
+        default_factory=list, converter=_string_list
     )
 
 
@@ -465,15 +475,39 @@ class DeviceWizard(APIModelBase):
     def from_compressed_json(cls, data: bytes) -> DeviceWizard:
         """Decode the zstd-compressed JSON of DeviceWizardResponse.data.
 
-        Raises UnsupportedWizardVersionError for a version this client does not know.
+        Raises InvalidWizardError, or its UnsupportedWizardVersionError subclass for a
+        version this client does not know.
         """
-        document = json.loads(_zstd_module().decompress(data))
+        zstd = _zstd_module()
+        decompressor = zstd.ZstdDecompressor()
+        try:
+            text = decompressor.decompress(data, max_length=_WIZARD_JSON_MAX_SIZE)
+        except zstd.ZstdError as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+        if not decompressor.eof:
+            msg = "Device wizard is truncated or too large"
+            raise InvalidWizardError(msg)
+        try:
+            document = json.loads(text)
+        except ValueError as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+        if not isinstance(document, dict):
+            msg = "Device wizard is not a JSON object"
+            raise InvalidWizardError(msg)
         if (version := document.get("version")) != _WIZARD_JSON_VERSION:
             raise UnsupportedWizardVersionError(version)
-        return cls.from_dict(document)
+        try:
+            return cls.from_dict(document)
+        except (TypeError, ValueError, AttributeError) as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
 
 
 _WIZARD_JSON_VERSION = 1
+# A real wizard is a few kB; the cap bounds what a small frame may expand to
+_WIZARD_JSON_MAX_SIZE = 1 << 20
 
 
 def _zstd_module() -> ModuleType:

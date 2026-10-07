@@ -558,8 +558,11 @@ class APIClient(APIClientBase):
 
         The device keeps it in RAM only, so the caller stores the choices and sends
         every input after each connect, before subscribe_home_assistant_states.
-        Raises ValueError for an entity id the device would ignore.
+        Raises ValueError for a key outside uint32 or an entity id the device would ignore.
         """
+        if not 0 <= key <= 0xFFFFFFFF:
+            msg = f"Invalid wizard input key: {key!r}"
+            raise ValueError(msg)
         if "." not in entity_id or len(entity_id.encode()) > 255:
             msg = f"Invalid wizard input entity_id: {entity_id!r}"
             raise ValueError(msg)

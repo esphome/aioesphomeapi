@@ -13,6 +13,7 @@ from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
 from aioesphomeapi.core import (
     MESSAGE_TYPE_TO_PROTO,
     ZERO_NOISE_PSK,
+    InvalidWizardError,
     UnsupportedWizardVersionError,
     wifi_mac_to_bluetooth_mac,
 )
@@ -39,6 +40,7 @@ def test_device_wizard_message_ids() -> None:
 def test_unsupported_wizard_version_error_is_exported() -> None:
     """The wizard version error is reachable from the package root."""
     assert aioesphomeapi.UnsupportedWizardVersionError is UnsupportedWizardVersionError
+    assert aioesphomeapi.InvalidWizardError is InvalidWizardError
 
 
 def test_wifi_mac_to_bluetooth_mac():
