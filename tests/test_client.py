@@ -52,6 +52,7 @@ from aioesphomeapi.api_pb2 import (
     DateTimeCommandRequest,
     DeviceCapabilitiesResponse,
     DeviceInfoResponse,
+    DeviceWizardResponse,
     DisconnectReason as DisconnectReasonPb,
     DisconnectRequest,
     DisconnectResponse,
@@ -117,6 +118,8 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
     WaterHeaterCommandRequest,
+    WizardCapabilities as WizardCapabilitiesPb,
+    WizardInputSetRequest,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
     ZWaveProxyRequestResponse as ZWaveProxyRequestResponsePb,
@@ -159,6 +162,7 @@ from aioesphomeapi.model import (
     ConnectionClosedEvent,
     DeviceCapabilities,
     DeviceInfo,
+    DeviceWizard,
     DisconnectReason,
     ESPHomeBluetoothGATTServices,
     FanDirection,
@@ -199,11 +203,17 @@ from aioesphomeapi.model import (
     WaterHeaterCommandField,
     WaterHeaterMode,
     WaterHeaterStateFlag,
+    WizardCapabilities,
+    WizardEntityField,
+    WizardEntityFilter,
+    WizardInputField,
+    WizardPage,
     ZWaveProxyCapabilities,
     ZWaveProxyRequest,
     ZWaveProxyRequestResponse,
     ZWaveProxyRequestType,
     ZWaveProxyStatus,
+    _zstd_module,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -2262,6 +2272,138 @@ async def test_device_capabilities_compat_no_api_version() -> None:
     )
     with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_capabilities_compat(device_info)
+
+
+async def test_device_capabilities_wizard(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """device_capabilities surfaces wizard.configured."""
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.device_capabilities())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        wizard=WizardCapabilitiesPb(configured=True)
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.wizard == WizardCapabilities(configured=True)
+
+
+async def test_device_wizard(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """device_wizard sends DeviceWizardRequest and decodes the response."""
+    client, _connection, transport, protocol = api_client
+    transport.writelines.reset_mock()
+    task = asyncio.create_task(client.device_wizard())
+    await asyncio.sleep(0)
+    # An empty message is framed without a payload chunk; 156 is varuint b"\x9c\x01"
+    transport.writelines.assert_called_once_with([b"\x00", b"\x00", b"\x9c\x01"])
+    document = {
+        "version": 1,
+        "pages": [
+            {
+                "title": "Setup",
+                "entities": [{"key": 1, "device_id": 2, "description": "d"}],
+                "inputs": [
+                    {
+                        "key": 5,
+                        "entity_filters": [
+                            {"domain": ["sensor"], "device_class": ["temperature"]}
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    response: message.Message = DeviceWizardResponse(
+        data=_zstd_module().compress(json.dumps(document).encode())
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    assert await task == DeviceWizard(
+        pages=[
+            WizardPage(
+                title="Setup",
+                entities=[WizardEntityField(key=1, device_id=2, description="d")],
+                inputs=[
+                    WizardInputField(
+                        key=5,
+                        entity_filters=[
+                            WizardEntityFilter(
+                                domain=["sensor"], device_class=["temperature"]
+                            )
+                        ],
+                    )
+                ],
+            )
+        ]
+    )
+
+
+async def test_wizard_input_set(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """wizard_input_set sends a WizardInputSetRequest without awaiting a reply."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    client.wizard_input_set(0xDEADBEEF, "sensor.outside")
+    transport.writelines.assert_called_once_with(
+        generate_split_plaintext_packet(
+            WizardInputSetRequest(key=0xDEADBEEF, entity_id="sensor.outside")
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "entity_id", ["", "sensor", "sensor." + "x" * 249, "sensor." + "é" * 125]
+)
+async def test_wizard_input_set_rejects_ignored_entity_id(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    entity_id: str,
+) -> None:
+    """An entity id the device would ignore raises instead of being sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    with pytest.raises(ValueError, match="Invalid wizard input entity_id"):
+        client.wizard_input_set(1, entity_id)
+    transport.writelines.assert_not_called()
+
+
+@pytest.mark.parametrize("key", [-1, 0x100000000])
+async def test_wizard_input_set_rejects_out_of_range_key(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    key: int,
+) -> None:
+    """A key outside uint32 raises instead of being sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    with pytest.raises(ValueError, match="Invalid wizard input key"):
+        client.wizard_input_set(key, "sensor.outside")
+    transport.writelines.assert_not_called()
+
+
+async def test_wizard_input_set_accepts_max_length_entity_id(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """A 255 byte entity id is the longest one sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    entity_id = "sensor." + "x" * 248
+    assert len(entity_id) == 255
+    client.wizard_input_set(1, entity_id)
+    transport.writelines.assert_called_once()
 
 
 async def test_device_info_sanitizes_name(

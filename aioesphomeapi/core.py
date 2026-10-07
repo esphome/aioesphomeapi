@@ -53,6 +53,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
+    DeviceWizardRequest,
+    DeviceWizardResponse,
     DisconnectRequest,
     DisconnectResponse,
     EventResponse,
@@ -160,6 +162,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
     WaterHeaterStateResponse,
+    WizardInputSetRequest,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestResponse,
@@ -224,6 +227,18 @@ ESPHOME_GATT_ERRORS = {
     254: "Procedure already in progress",
     255: "Out of range",
 }
+
+
+class InvalidWizardError(ValueError):
+    """The device sent a wizard this client cannot decode."""
+
+
+class UnsupportedWizardVersionError(InvalidWizardError):
+    """The device sent a wizard in a JSON version this client does not know."""
+
+    def __init__(self, version: object) -> None:
+        super().__init__(f"Unsupported device wizard version: {version!r}")
+        self.version = version
 
 
 class APIConnectionError(Exception):
@@ -567,6 +582,9 @@ MESSAGE_TYPE_TO_PROTO = {
     153: InfraredRFTransmitCompleteResponse,
     154: SubscribeSerialProxyIdentityRequest,
     155: SerialProxyIdentity,
+    156: DeviceWizardRequest,
+    157: DeviceWizardResponse,
+    158: WizardInputSetRequest,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
