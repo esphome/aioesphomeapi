@@ -456,6 +456,7 @@ class CoverInfo(EntityInfo):
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
+    supports_stop_tilt: bool = False
 
 
 class LegacyCoverState(APIIntEnum):

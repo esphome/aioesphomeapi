@@ -773,6 +773,7 @@ async def test_cover_command_legacy(
             {"key": 1, "has_position": True, "position": 0.0},
         ),
         ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
+        ({"key": 1, "stop_tilt": True}, {"key": 1, "stop_tilt": True}),
         (
             {"key": 1, "position": 1.0, "tilt": 0.8},
             {
@@ -793,6 +794,14 @@ async def test_cover_command(
 
     auth_client.cover_command(**cmd)
     send.assert_called_once_with(CoverCommandRequest(**req))
+
+
+async def test_cover_command_positional_device_id(auth_client: APIClient) -> None:
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 1))
+
+    auth_client.cover_command(1, None, None, False, 7)
+    send.assert_called_once_with(CoverCommandRequest(key=1, device_id=7))
 
 
 @pytest.mark.parametrize(
