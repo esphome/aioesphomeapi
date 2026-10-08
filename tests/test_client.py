@@ -77,6 +77,8 @@ from aioesphomeapi.api_pb2 import (
     NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
+    SendspinCapabilities as SendspinCapabilitiesPb,
+    SendspinPairingTokenResponse as SendspinPairingTokenResponsePb,
     SerialProxyConfigureRequest as SerialProxyConfigureRequestPb,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsRequest as SerialProxyGetModemPinsRequestPb,
@@ -175,6 +177,9 @@ from aioesphomeapi.model import (
     LockCommand,
     MediaPlayerCommand,
     RadioFrequencyModulation,
+    SendspinCapabilities,
+    SendspinFeature,
+    SendspinPairingTokenStatus,
     SensorInfo,
     SerialProxyDataReceived,
     SerialProxyIdentity,
@@ -2289,6 +2294,69 @@ async def test_device_capabilities_wizard(
     mock_data_received(protocol, generate_plaintext_packet(response))
     caps = await task
     assert caps.wizard == WizardCapabilities(configured=True)
+
+
+async def test_device_capabilities_sendspin(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """device_capabilities surfaces sendspin.feature_flags."""
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.device_capabilities())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        sendspin=SendspinCapabilitiesPb(feature_flags=SendspinFeature.PAIRING_TOKEN)
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.sendspin == SendspinCapabilities(
+        feature_flags=SendspinFeature.PAIRING_TOKEN
+    )
+
+
+async def test_sendspin_pairing_token(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """sendspin_pairing_token sends the request and decodes the response."""
+    client, _connection, transport, protocol = api_client
+    transport.writelines.reset_mock()
+    task = asyncio.create_task(client.sendspin_pairing_token())
+    await asyncio.sleep(0)
+    # An empty message is framed without a payload chunk; 159 is varuint b"\x9f\x01"
+    transport.writelines.assert_called_once_with([b"\x00", b"\x00", b"\x9f\x01"])
+    response: message.Message = SendspinPairingTokenResponsePb(
+        status=SendspinPairingTokenStatus.OK, token="SP:0ABC"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    resp = await task
+    assert resp.status is SendspinPairingTokenStatus.OK
+    assert resp.token == "SP:0ABC"  # noqa: S105
+
+
+async def test_sendspin_pairing_token_redacted_in_debug_log(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The debug log of a received pairing token response hides the token."""
+    client, connection, _transport, protocol = api_client
+    connection.set_debug(True)
+    caplog.set_level(logging.DEBUG, logger="aioesphomeapi")
+    task = asyncio.create_task(client.sendspin_pairing_token())
+    await asyncio.sleep(0)
+    response: message.Message = SendspinPairingTokenResponsePb(
+        status=SendspinPairingTokenStatus.OK, token="SP:0SECRET"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    resp = await task
+    assert resp.token == "SP:0SECRET"  # noqa: S105
+    assert "SendspinPairingTokenResponse" in caplog.text
+    assert "<redacted>" in caplog.text
+    assert "SP:0SECRET" not in caplog.text
 
 
 async def test_device_wizard(

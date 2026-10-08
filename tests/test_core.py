@@ -8,6 +8,8 @@ import aioesphomeapi
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     DeviceWizardRequest,
     DeviceWizardResponse,
+    SendspinPairingTokenRequest,
+    SendspinPairingTokenResponse,
     WizardInputSetRequest,
 )
 from aioesphomeapi.core import (
@@ -35,6 +37,12 @@ def test_device_wizard_message_ids() -> None:
     assert MESSAGE_TYPE_TO_PROTO[156] is DeviceWizardRequest
     assert MESSAGE_TYPE_TO_PROTO[157] is DeviceWizardResponse
     assert MESSAGE_TYPE_TO_PROTO[158] is WizardInputSetRequest
+
+
+def test_sendspin_pairing_token_message_ids() -> None:
+    """The Sendspin pairing token messages map to their wire message ids."""
+    assert MESSAGE_TYPE_TO_PROTO[159] is SendspinPairingTokenRequest
+    assert MESSAGE_TYPE_TO_PROTO[160] is SendspinPairingTokenResponse
 
 
 def test_unsupported_wizard_version_error_is_exported() -> None:

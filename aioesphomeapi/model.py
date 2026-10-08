@@ -176,6 +176,10 @@ class ZWaveProxyFeature(enum.IntFlag):
     ENABLED = 1 << 0
 
 
+class SendspinFeature(enum.IntFlag):
+    PAIRING_TOKEN = 1 << 0
+
+
 class ZWaveProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
@@ -395,6 +399,17 @@ class WizardCapabilities(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class SendspinCapabilities(APIModelBase):
+    feature_flags: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> SendspinCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
 class DeviceCapabilities(APIModelBase):
     bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
         default_factory=BluetoothProxyCapabilities,
@@ -414,6 +429,10 @@ class DeviceCapabilities(APIModelBase):
     wizard: WizardCapabilities = converter_field(
         default_factory=WizardCapabilities,
         converter=WizardCapabilities.convert,
+    )
+    sendspin: SendspinCapabilities = converter_field(
+        default_factory=SendspinCapabilities,
+        converter=SendspinCapabilities.convert,
     )
 
 
@@ -2164,6 +2183,24 @@ class NoiseEncryptionSetKeyResponse(APIModelBase):
     success: bool = False
 
 
+class SendspinPairingTokenStatus(APIIntEnum):
+    NOT_READY = 0
+    OK = 1
+    ENCRYPTION_REQUIRED = 2
+    DISABLED = 3
+    FAILED = 4
+
+
+@_frozen_dataclass_decorator
+class SendspinPairingTokenResponse(APIModelBase):
+    status: SendspinPairingTokenStatus | None = converter_field(
+        default=SendspinPairingTokenStatus.NOT_READY,
+        converter=SendspinPairingTokenStatus.convert,
+    )
+    # A long-lived secret, so it is kept out of repr
+    token: str = field(default="", repr=False)
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1
@@ -2426,6 +2463,10 @@ __all__ = (
     "RadioFrequencyModulation",
     "SelectInfo",
     "SelectState",
+    "SendspinCapabilities",
+    "SendspinFeature",
+    "SendspinPairingTokenResponse",
+    "SendspinPairingTokenStatus",
     "SensorInfo",
     "SensorState",
     "SensorStateClass",
