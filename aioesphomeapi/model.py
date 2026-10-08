@@ -2188,6 +2188,7 @@ class SendspinPairingTokenStatus(APIIntEnum):
     OK = 1
     ENCRYPTION_REQUIRED = 2
     DISABLED = 3
+    FAILED = 4
 
 
 @_frozen_dataclass_decorator

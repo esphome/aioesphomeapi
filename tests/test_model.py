@@ -2997,6 +2997,10 @@ def test_sendspin_pairing_token_response_from_pb() -> None:
     empty = SendspinPairingTokenResponse.from_pb(SendspinPairingTokenResponsePb())
     assert empty.status is SendspinPairingTokenStatus.NOT_READY
     assert empty.token == ""
+    failed = SendspinPairingTokenResponse.from_pb(
+        SendspinPairingTokenResponsePb(status=4)
+    )
+    assert failed.status is SendspinPairingTokenStatus.FAILED
 
 
 def test_sendspin_pairing_token_response_repr_hides_token() -> None:
