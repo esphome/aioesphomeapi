@@ -2336,6 +2336,29 @@ async def test_sendspin_pairing_token(
     assert resp.token == "SP:0ABC"  # noqa: S105
 
 
+async def test_sendspin_pairing_token_redacted_in_debug_log(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The debug log of a received pairing token response hides the token."""
+    client, connection, _transport, protocol = api_client
+    connection.set_debug(True)
+    caplog.set_level(logging.DEBUG, logger="aioesphomeapi")
+    task = asyncio.create_task(client.sendspin_pairing_token())
+    await asyncio.sleep(0)
+    response: message.Message = SendspinPairingTokenResponsePb(
+        status=SendspinPairingTokenStatus.OK, token="SP:0SECRET"
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    resp = await task
+    assert resp.token == "SP:0SECRET"  # noqa: S105
+    assert "SendspinPairingTokenResponse" in caplog.text
+    assert "<redacted>" in caplog.text
+    assert "SP:0SECRET" not in caplog.text
+
+
 async def test_device_wizard(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
