@@ -2196,7 +2196,7 @@ class SendspinPairingTokenResponse(APIModelBase):
         default=SendspinPairingTokenStatus.NOT_READY,
         converter=SendspinPairingTokenStatus.convert,
     )
-    # A long-lived secret, so it is kept out of repr and logs
+    # A long-lived secret, so it is kept out of repr
     token: str = field(default="", repr=False)
 
 
