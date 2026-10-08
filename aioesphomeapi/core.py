@@ -115,6 +115,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     PingResponse,
     SelectCommandRequest,
     SelectStateResponse,
+    SendspinPairingTokenRequest,
+    SendspinPairingTokenResponse,
     SensorStateResponse,
     SerialProxyConfigureRequest,
     SerialProxyDataReceived,
@@ -585,6 +587,8 @@ MESSAGE_TYPE_TO_PROTO = {
     156: DeviceWizardRequest,
     157: DeviceWizardResponse,
     158: WizardInputSetRequest,
+    159: SendspinPairingTokenRequest,
+    160: SendspinPairingTokenResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

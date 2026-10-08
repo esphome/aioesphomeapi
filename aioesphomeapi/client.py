@@ -71,6 +71,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
+    SendspinPairingTokenRequest,
+    SendspinPairingTokenResponse,
     SerialProxyConfigureRequest,
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
@@ -181,6 +183,7 @@ from .model import (
     MediaPlayerCommand,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
+    SendspinPairingTokenResponse as SendspinPairingTokenResponseModel,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
     SerialProxyIdentity as SerialProxyIdentityModel,
     SerialProxyMode,
@@ -569,6 +572,18 @@ class APIClient(APIClientBase):
         self._get_connection().send_message(
             WizardInputSetRequest(key=key, entity_id=entity_id)
         )
+
+    async def sendspin_pairing_token(self) -> SendspinPairingTokenResponseModel:
+        """Fetch the token a Sendspin server uses to pair with the device.
+
+        Only call when DeviceCapabilities.sendspin.feature_flags has
+        SendspinFeature.PAIRING_TOKEN: other devices never answer, so the request
+        raises TimeoutAPIError. The token is a long-lived secret; never log it.
+        """
+        resp = await self._get_connection().send_message_await_response(
+            SendspinPairingTokenRequest(), SendspinPairingTokenResponse
+        )
+        return SendspinPairingTokenResponseModel.from_pb(resp)
 
     async def list_entities_services(
         self,

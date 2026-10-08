@@ -69,6 +69,8 @@ from aioesphomeapi.api_pb2 import (
     NoiseEncryptionSetKeyResponse,
     NumberStateResponse,
     SelectStateResponse,
+    SendspinCapabilities as SendspinCapabilitiesPb,
+    SendspinPairingTokenResponse as SendspinPairingTokenResponsePb,
     SensorStateResponse,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
@@ -163,6 +165,10 @@ from aioesphomeapi.model import (
     RadioFrequencyModulation,
     SelectInfo,
     SelectState,
+    SendspinCapabilities,
+    SendspinFeature,
+    SendspinPairingTokenResponse,
+    SendspinPairingTokenStatus,
     SensorInfo,
     SensorState,
     SerialProxyDataReceived,
@@ -2960,6 +2966,45 @@ def test_device_capabilities_wizard_from_dict() -> None:
     caps = DeviceCapabilities.from_dict({"wizard": {"configured": True}})
     assert caps.wizard == WizardCapabilities(configured=True)
     assert DeviceCapabilities.from_dict({}).wizard == WizardCapabilities()
+
+
+def test_device_capabilities_sendspin_from_pb() -> None:
+    """DeviceCapabilities decodes sendspin.feature_flags, defaulting to 0 when unset."""
+    pb = DeviceCapabilitiesResponse(
+        sendspin=SendspinCapabilitiesPb(feature_flags=SendspinFeature.PAIRING_TOKEN)
+    )
+    assert DeviceCapabilities.from_pb(pb).sendspin == SendspinCapabilities(
+        feature_flags=SendspinFeature.PAIRING_TOKEN
+    )
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).sendspin == SendspinCapabilities(feature_flags=0)
+
+
+def test_device_capabilities_sendspin_from_dict() -> None:
+    """The dict branch of SendspinCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict({"sendspin": {"feature_flags": 1}})
+    assert caps.sendspin == SendspinCapabilities(feature_flags=1)
+    assert DeviceCapabilities.from_dict({}).sendspin == SendspinCapabilities()
+
+
+def test_sendspin_pairing_token_response_from_pb() -> None:
+    """The status and token decode, and an empty response means not ready."""
+    pb = SendspinPairingTokenResponsePb(status=1, token="SP:0ABC")
+    resp = SendspinPairingTokenResponse.from_pb(pb)
+    assert resp.status is SendspinPairingTokenStatus.OK
+    assert resp.token == "SP:0ABC"  # noqa: S105
+    empty = SendspinPairingTokenResponse.from_pb(SendspinPairingTokenResponsePb())
+    assert empty.status is SendspinPairingTokenStatus.NOT_READY
+    assert empty.token == ""
+
+
+def test_sendspin_pairing_token_response_repr_hides_token() -> None:
+    """The token is a secret, so repr leaves it out."""
+    resp = SendspinPairingTokenResponse(
+        status=SendspinPairingTokenStatus.OK, token="SP:0SECRET"
+    )
+    assert "SP:0SECRET" not in repr(resp)
 
 
 def _compress_wizard(document: dict[str, Any]) -> bytes:
