@@ -37,6 +37,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     ParsedTimezone as ParsedTimezoneProto,
     PingRequest,
     PingResponse,
+    SendspinPairingTokenResponse,
 )
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
@@ -69,6 +70,8 @@ if TYPE_CHECKING:
     from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
+
+_REDACTED = "<redacted>"
 
 # The noise frame helper pulls in cryptography and the noise protocol stack,
 # which are only needed for encrypted connections; importing them is deferred
@@ -259,7 +262,7 @@ def _make_hello_request(
     return HelloRequest(
         client_info=client_info,
         api_version_major=1,
-        api_version_minor=18,
+        api_version_minor=19,
         outgoing_connection_target=outgoing_connection_target,
     )
 
@@ -1228,6 +1231,14 @@ class APIConnection:
             raise
 
         if self._debug_enabled:
+            log_msg = msg
+            # The pairing token is a long-lived secret
+            if type(msg) is SendspinPairingTokenResponse:
+                redacted: Any = SendspinPairingTokenResponse()
+                redacted.CopyFrom(msg)
+                if redacted.token:
+                    redacted.token = _REDACTED
+                log_msg = redacted
             _LOGGER.debug(
                 "%s: Got message of type %s (len=%d): %s",
                 self.log_name,
@@ -1236,7 +1247,7 @@ class APIConnection:
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead
-                MessageToDict(msg) if _WIN32 else msg,
+                MessageToDict(log_msg) if _WIN32 else log_msg,
             )
 
         if self._pong_timer is not None:
