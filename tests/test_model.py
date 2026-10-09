@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from unittest.mock import patch
 
 import pytest
 
@@ -67,6 +69,8 @@ from aioesphomeapi.api_pb2 import (
     NoiseEncryptionSetKeyResponse,
     NumberStateResponse,
     SelectStateResponse,
+    SendspinCapabilities as SendspinCapabilitiesPb,
+    SendspinPairingTokenResponse as SendspinPairingTokenResponsePb,
     SensorStateResponse,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
@@ -87,10 +91,12 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
     VoiceAssistantWakeWord as VoiceAssistantWakeWordPb,
     WaterHeaterStateResponse,
+    WizardCapabilities as WizardCapabilitiesPb,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
+from aioesphomeapi.core import InvalidWizardError, UnsupportedWizardVersionError
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
     COMPONENT_TYPE_TO_INFO,
@@ -128,6 +134,7 @@ from aioesphomeapi.model import (
     DateTimeState,
     DeviceCapabilities,
     DeviceInfo,
+    DeviceWizard,
     EntityInfo,
     EntityState,
     Event,
@@ -158,6 +165,10 @@ from aioesphomeapi.model import (
     RadioFrequencyModulation,
     SelectInfo,
     SelectState,
+    SendspinCapabilities,
+    SendspinFeature,
+    SendspinPairingTokenResponse,
+    SendspinPairingTokenStatus,
     SensorInfo,
     SensorState,
     SerialProxyDataReceived,
@@ -202,12 +213,18 @@ from aioesphomeapi.model import (
     WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
+    WizardCapabilities,
+    WizardEntityField,
+    WizardEntityFilter,
+    WizardInputField,
+    WizardPage,
     ZWaveProxyCapabilities,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestType,
     ZWaveProxyStatus,
+    _zstd_module,
     build_device_unique_id,
     build_unique_id,
     converter_field,
@@ -418,6 +435,7 @@ def test_api_version_ord():
         (BluetoothProxyCapabilities, BluetoothProxyCapabilitiesPb),
         (VoiceAssistantCapabilities, VoiceAssistantCapabilitiesPb),
         (ZWaveProxyCapabilities, ZWaveProxyCapabilitiesPb),
+        (WizardCapabilities, WizardCapabilitiesPb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -2932,3 +2950,232 @@ def test_device_capabilities_convert_dict_branch() -> None:
     assert caps.serial_proxies == [
         SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL)
     ]
+
+
+def test_device_capabilities_wizard_from_pb() -> None:
+    """DeviceCapabilities decodes wizard.configured, defaulting to False when unset."""
+    pb = DeviceCapabilitiesResponse(wizard=WizardCapabilitiesPb(configured=True))
+    assert DeviceCapabilities.from_pb(pb).wizard == WizardCapabilities(configured=True)
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).wizard == WizardCapabilities(configured=False)
+
+
+def test_device_capabilities_wizard_from_dict() -> None:
+    """The dict branch of WizardCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict({"wizard": {"configured": True}})
+    assert caps.wizard == WizardCapabilities(configured=True)
+    assert DeviceCapabilities.from_dict({}).wizard == WizardCapabilities()
+
+
+def test_device_capabilities_sendspin_from_pb() -> None:
+    """DeviceCapabilities decodes sendspin.feature_flags, defaulting to 0 when unset."""
+    pb = DeviceCapabilitiesResponse(
+        sendspin=SendspinCapabilitiesPb(feature_flags=SendspinFeature.PAIRING_TOKEN)
+    )
+    assert DeviceCapabilities.from_pb(pb).sendspin == SendspinCapabilities(
+        feature_flags=SendspinFeature.PAIRING_TOKEN
+    )
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).sendspin == SendspinCapabilities(feature_flags=0)
+
+
+def test_device_capabilities_sendspin_from_dict() -> None:
+    """The dict branch of SendspinCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict({"sendspin": {"feature_flags": 1}})
+    assert caps.sendspin == SendspinCapabilities(feature_flags=1)
+    assert DeviceCapabilities.from_dict({}).sendspin == SendspinCapabilities()
+
+
+def test_sendspin_pairing_token_response_from_pb() -> None:
+    """The status and token decode, and an empty response means not ready."""
+    pb = SendspinPairingTokenResponsePb(status=1, token="SP:0ABC")
+    resp = SendspinPairingTokenResponse.from_pb(pb)
+    assert resp.status is SendspinPairingTokenStatus.OK
+    assert resp.token == "SP:0ABC"  # noqa: S105
+    empty = SendspinPairingTokenResponse.from_pb(SendspinPairingTokenResponsePb())
+    assert empty.status is SendspinPairingTokenStatus.NOT_READY
+    assert empty.token == ""
+    failed = SendspinPairingTokenResponse.from_pb(
+        SendspinPairingTokenResponsePb(status=4)
+    )
+    assert failed.status is SendspinPairingTokenStatus.FAILED
+
+
+def test_sendspin_pairing_token_response_repr_hides_token() -> None:
+    """The token is a secret, so repr leaves it out."""
+    resp = SendspinPairingTokenResponse(
+        status=SendspinPairingTokenStatus.OK, token="SP:0SECRET"
+    )
+    assert "SP:0SECRET" not in repr(resp)
+
+
+def _compress_wizard(document: dict[str, Any]) -> bytes:
+    """Encode a wizard document the way the firmware does: compact sorted JSON in zstd."""
+    text = json.dumps(document, separators=(",", ":"), sort_keys=True)
+    return _zstd_module().compress(text.encode())
+
+
+_FULL_DEVICE_WIZARD_DOCUMENT: dict[str, Any] = {
+    "version": 1,
+    "pages": [
+        {
+            "title": "Welcome",
+            "description": "[%key:component::esphome::wizard::intro%]",
+            "entities": [{"key": 1, "device_id": 2, "description": "Relay"}],
+            "inputs": [
+                {
+                    "key": 0xDEADBEEF,
+                    "description": "Outdoor température",
+                    "entity_filters": [
+                        {
+                            "integration": "met",
+                            "domain": ["sensor", "weather"],
+                            "device_class": ["temperature"],
+                            "supported_features": [
+                                "weather.WeatherEntityFeature.FORECAST_DAILY"
+                            ],
+                        },
+                        {"domain": ["input_number"]},
+                    ],
+                },
+                {"key": 3},
+            ],
+        },
+        {"title": "Done", "entities": [{"key": 4}]},
+    ],
+}
+
+
+_FULL_DEVICE_WIZARD = DeviceWizard(
+    pages=[
+        WizardPage(
+            title="Welcome",
+            description="[%key:component::esphome::wizard::intro%]",
+            entities=[WizardEntityField(key=1, device_id=2, description="Relay")],
+            inputs=[
+                WizardInputField(
+                    key=0xDEADBEEF,
+                    description="Outdoor température",
+                    entity_filters=[
+                        WizardEntityFilter(
+                            integration="met",
+                            domain=["sensor", "weather"],
+                            device_class=["temperature"],
+                            supported_features=[
+                                "weather.WeatherEntityFeature.FORECAST_DAILY"
+                            ],
+                        ),
+                        WizardEntityFilter(domain=["input_number"]),
+                    ],
+                ),
+                WizardInputField(key=3),
+            ],
+        ),
+        WizardPage(title="Done", entities=[WizardEntityField(key=4)]),
+    ]
+)
+
+
+def test_device_wizard_from_compressed_json() -> None:
+    """Every field of the JSON document decodes into the model types."""
+    wizard = DeviceWizard.from_compressed_json(
+        _compress_wizard(_FULL_DEVICE_WIZARD_DOCUMENT)
+    )
+    assert wizard == _FULL_DEVICE_WIZARD
+    entity_filter = wizard.pages[0].inputs[0].entity_filters[0]
+    assert type(entity_filter.domain) is list
+
+
+def test_device_wizard_from_compressed_json_fixture() -> None:
+    """A frame made by the zstd CLI, not by this test's own encoder, decodes."""
+    # zstd -19 --no-check of {"pages":[{"inputs":[{"key":5}]}],"version":1}
+    frame = bytes.fromhex(
+        "28b52ffd00687101007b227061676573223a5b7b22696e70757473223a5b7b226b65"
+        "79223a357d5d7d5d2c2276657273696f6e223a317d"
+    )
+    assert DeviceWizard.from_compressed_json(frame) == DeviceWizard(
+        pages=[WizardPage(inputs=[WizardInputField(key=5)])]
+    )
+
+
+def test_device_wizard_from_compressed_json_no_pages() -> None:
+    """A document with only a version decodes to an empty wizard."""
+    assert (
+        DeviceWizard.from_compressed_json(_compress_wizard({"version": 1}))
+        == DeviceWizard()
+    )
+
+
+@pytest.mark.parametrize("document", [{"version": 2, "pages": []}, {"pages": []}])
+def test_device_wizard_from_compressed_json_unknown_version(
+    document: dict[str, Any],
+) -> None:
+    """A version this client does not know, or none, is refused."""
+    with pytest.raises(
+        UnsupportedWizardVersionError, match="Unsupported device wizard version"
+    ) as exc_info:
+        DeviceWizard.from_compressed_json(_compress_wizard(document))
+    assert exc_info.value.version == document.get("version")
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(_zstd_module().compress(b'{"version": 1}')[:-3], id="truncated"),
+        pytest.param(_zstd_module().compress(b" " * ((1 << 20) + 1)), id="over_cap"),
+    ],
+)
+def test_device_wizard_from_compressed_json_truncated_or_too_large(
+    data: bytes,
+) -> None:
+    """A frame that ends early or expands past the size cap is refused."""
+    with pytest.raises(InvalidWizardError, match="truncated or too large"):
+        DeviceWizard.from_compressed_json(data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(b"not zstd", id="corrupt_frame"),
+        pytest.param(_zstd_module().compress(b"\xff\xfe"), id="invalid_utf8"),
+        pytest.param(_zstd_module().compress(b"{"), id="invalid_json"),
+        pytest.param(_zstd_module().compress(b"[]"), id="not_an_object"),
+        pytest.param(
+            _compress_wizard({"version": 1, "pages": "x"}), id="pages_not_a_list"
+        ),
+        pytest.param(
+            _compress_wizard(
+                {
+                    "version": 1,
+                    "pages": [{"inputs": [{"entity_filters": [{"domain": "sensor"}]}]}],
+                }
+            ),
+            id="domain_not_a_list",
+        ),
+    ],
+)
+def test_device_wizard_from_compressed_json_invalid(data: bytes) -> None:
+    """A wizard this client cannot decode raises InvalidWizardError."""
+    with pytest.raises(InvalidWizardError):
+        DeviceWizard.from_compressed_json(data)
+
+
+def test_unsupported_wizard_version_is_invalid_wizard() -> None:
+    """Callers can catch every wizard decode failure with InvalidWizardError."""
+    assert issubclass(UnsupportedWizardVersionError, InvalidWizardError)
+
+
+def test_zstd_module_falls_back_to_backport() -> None:
+    """Without compression.zstd (before Python 3.14) the backports.zstd module is used."""
+    backport = object()
+
+    def fake_import(name: str) -> object:
+        if name == "compression.zstd":
+            raise ImportError(name)
+        assert name == "backports.zstd"
+        return backport
+
+    with patch("aioesphomeapi.model.importlib.import_module", fake_import):
+        assert _zstd_module() is backport
