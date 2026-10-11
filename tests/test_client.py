@@ -2439,6 +2439,7 @@ async def test_wizard_input_set(
         ["a.b", ""],
         "a.b,",
         ["a.b", "sensor"],
+        ["calendar.a,calendar.b"],
         ["a.b", "sensor." + "x" * 249],
         ["sensor." + "x" * 248] * 17,
     ],

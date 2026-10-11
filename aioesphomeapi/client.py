@@ -571,7 +571,13 @@ class APIClient(APIClientBase):
         if not 0 <= key <= 0xFFFFFFFF:
             msg = f"Invalid wizard input key: {key!r}"
             raise ValueError(msg)
-        value = entity_id if isinstance(entity_id, str) else ",".join(entity_id)
+        if isinstance(entity_id, str):
+            value = entity_id
+        elif any("," in one for one in entity_id):
+            msg = f"Invalid wizard input entity_id: {entity_id!r}"
+            raise ValueError(msg)
+        else:
+            value = ",".join(entity_id)
         if len(value.encode()) > WIZARD_INPUT_VALUE_MAX_LENGTH or any(
             "." not in one or len(one.encode()) > WIZARD_INPUT_ENTITY_ID_MAX_LENGTH
             for one in value.split(",")
