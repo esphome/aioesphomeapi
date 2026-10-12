@@ -284,6 +284,9 @@ MIN_VERSION_PROXY_ACK = APIVersion(1, 16)
 # API version 1.18+ replies to each IR/RF transmit once the frame has left the device
 MIN_VERSION_IR_RF_TRANSMIT_COMPLETE = APIVersion(1, 18)
 
+WIZARD_INPUT_ENTITY_ID_MAX_LENGTH = 255
+WIZARD_INPUT_VALUE_MAX_LENGTH = 4095
+
 
 def _make_serial_proxy_configure_request(
     instance: int,
@@ -556,9 +559,11 @@ class APIClient(APIClientBase):
         )
         return DeviceWizardModel.from_compressed_json(resp.data)
 
-    def wizard_input_set(self, key: int, entity_id: str) -> None:
+    def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
         """Set the Home Assistant entity id of the wizard input with the given key.
 
+        A list or a comma separated string sets a multiple input; use
+        WizardInputField.join_entity_ids to check against the input's limits.
         The device keeps it in RAM only, so the caller stores the choices and sends
         every input after each connect, before subscribe_home_assistant_states.
         Raises ValueError for a key outside uint32 or an entity id the device would ignore.
@@ -566,11 +571,21 @@ class APIClient(APIClientBase):
         if not 0 <= key <= 0xFFFFFFFF:
             msg = f"Invalid wizard input key: {key!r}"
             raise ValueError(msg)
-        if "." not in entity_id or len(entity_id.encode()) > 255:
+        if isinstance(entity_id, str):
+            value = entity_id
+        elif any("," in one for one in entity_id):
+            msg = f"Invalid wizard input entity_id: {entity_id!r}"
+            raise ValueError(msg)
+        else:
+            value = ",".join(entity_id)
+        if len(value.encode()) > WIZARD_INPUT_VALUE_MAX_LENGTH or any(
+            "." not in one or len(one.encode()) > WIZARD_INPUT_ENTITY_ID_MAX_LENGTH
+            for one in value.split(",")
+        ):
             msg = f"Invalid wizard input entity_id: {entity_id!r}"
             raise ValueError(msg)
         self._get_connection().send_message(
-            WizardInputSetRequest(key=key, entity_id=entity_id)
+            WizardInputSetRequest(key=key, entity_id=value)
         )
 
     async def sendspin_pairing_token(self) -> SendspinPairingTokenResponseModel:
