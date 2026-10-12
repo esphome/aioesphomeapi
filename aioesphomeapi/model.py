@@ -17,7 +17,7 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Sequence
     from types import ModuleType
 
     from google.protobuf import message
@@ -467,9 +467,38 @@ class WizardEntityField(APIModelBase):
 class WizardInputField(APIModelBase):
     key: int = 0
     description: str = ""
+    multiple: bool = False
+    max_length: int = 255
     entity_filters: list[WizardEntityFilter] = converter_field(
         default_factory=list, converter=WizardEntityFilter.convert_list
     )
+
+    def join_entity_ids(self, entity_ids: Sequence[str]) -> str:
+        """Join entity ids into the value WizardInputSetRequest sends for this input.
+
+        Raises ValueError for picks the device would reject.
+        """
+        if isinstance(entity_ids, str):
+            msg = f"Expected a list of entity ids, got {entity_ids!r}"
+            raise TypeError(msg)
+        if not entity_ids:
+            msg = "No entity ids given"
+            raise ValueError(msg)
+        if len(entity_ids) > 1 and not self.multiple:
+            msg = f"Wizard input {self.key} accepts a single entity id"
+            raise ValueError(msg)
+        for entity_id in entity_ids:
+            if "." not in entity_id or "," in entity_id:
+                msg = f"Invalid wizard input entity_id: {entity_id!r}"
+                raise ValueError(msg)
+        joined = ",".join(entity_ids)
+        if len(joined.encode()) > self.max_length:
+            msg = (
+                f"Wizard input {self.key} entity ids are longer than "
+                f"{self.max_length} bytes"
+            )
+            raise ValueError(msg)
+        return joined
 
 
 @_frozen_dataclass_decorator

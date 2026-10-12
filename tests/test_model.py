@@ -3041,6 +3041,7 @@ _FULL_DEVICE_WIZARD_DOCUMENT: dict[str, Any] = {
                     ],
                 },
                 {"key": 3},
+                {"key": 6, "multiple": True, "max_length": 1023},
             ],
         },
         {"title": "Done", "entities": [{"key": 4}]},
@@ -3071,6 +3072,7 @@ _FULL_DEVICE_WIZARD = DeviceWizard(
                     ],
                 ),
                 WizardInputField(key=3),
+                WizardInputField(key=6, multiple=True, max_length=1023),
             ],
         ),
         WizardPage(title="Done", entities=[WizardEntityField(key=4)]),
@@ -3086,6 +3088,59 @@ def test_device_wizard_from_compressed_json() -> None:
     assert wizard == _FULL_DEVICE_WIZARD
     entity_filter = wizard.pages[0].inputs[0].entity_filters[0]
     assert type(entity_filter.domain) is list
+
+
+def test_wizard_input_field_multiple_defaults() -> None:
+    """An input without multiple and max_length is single with a 255 byte limit."""
+    field = WizardInputField.from_dict({"key": 1})
+    assert field.multiple is False
+    assert field.max_length == 255
+    field = WizardInputField.from_dict({"key": 1, "multiple": True, "max_length": 9})
+    assert field.multiple is True
+    assert field.max_length == 9
+
+
+def test_wizard_input_field_join_entity_ids() -> None:
+    """Valid picks join with a comma, up to max_length bytes."""
+    single = WizardInputField(key=1)
+    assert single.join_entity_ids(["sensor.a"]) == "sensor.a"
+    entity_id = "sensor." + "x" * 248
+    assert single.join_entity_ids([entity_id]) == entity_id
+    multiple = WizardInputField(key=1, multiple=True, max_length=21)
+    assert multiple.join_entity_ids(["calendar.a", "calendar.b"]) == (
+        "calendar.a,calendar.b"
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "entity_ids", "match"),
+    [
+        (WizardInputField(), [], "No entity ids"),
+        (WizardInputField(), ["a.b", "c.d"], "accepts a single"),
+        (WizardInputField(multiple=True), ["a.b", "cd"], "Invalid wizard input"),
+        (WizardInputField(multiple=True), ["a.b", ""], "Invalid wizard input"),
+        (WizardInputField(multiple=True), ["a.b,c.d"], "Invalid wizard input"),
+        (WizardInputField(), ["sensor." + "x" * 249], "longer than 255"),
+        (WizardInputField(multiple=True), ["sensor.x"] * 29, "longer than 255"),
+        (
+            WizardInputField(multiple=True, max_length=20),
+            ["calendar.a", "calendar.b"],
+            "longer than 20",
+        ),
+    ],
+)
+def test_wizard_input_field_join_entity_ids_invalid(
+    field: WizardInputField, entity_ids: list[str], match: str
+) -> None:
+    """Picks the device would reject raise ValueError."""
+    with pytest.raises(ValueError, match=match):
+        field.join_entity_ids(entity_ids)
+
+
+def test_wizard_input_field_join_entity_ids_rejects_bare_string() -> None:
+    """A bare string is refused rather than split into characters."""
+    with pytest.raises(TypeError, match="Expected a list"):
+        WizardInputField().join_entity_ids("sensor.a")
 
 
 def test_device_wizard_from_compressed_json_fixture() -> None:

@@ -2429,7 +2429,20 @@ async def test_wizard_input_set(
 
 
 @pytest.mark.parametrize(
-    "entity_id", ["", "sensor", "sensor." + "x" * 249, "sensor." + "é" * 125]
+    "entity_id",
+    [
+        "",
+        "sensor",
+        "sensor." + "x" * 249,
+        "sensor." + "é" * 125,
+        [],
+        ["a.b", ""],
+        "a.b,",
+        ["a.b", "sensor"],
+        ["calendar.a,calendar.b"],
+        ["a.b", "sensor." + "x" * 249],
+        ["sensor." + "x" * 248] * 17,
+    ],
 )
 async def test_wizard_input_set_rejects_ignored_entity_id(
     api_client: tuple[
@@ -2443,6 +2456,36 @@ async def test_wizard_input_set_rejects_ignored_entity_id(
     with pytest.raises(ValueError, match="Invalid wizard input entity_id"):
         client.wizard_input_set(1, entity_id)
     transport.writelines.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "expected"),
+    [
+        (["calendar.a", "calendar.b"], "calendar.a,calendar.b"),
+        (["calendar.a"], "calendar.a"),
+        ("calendar.a,calendar.b", "calendar.a,calendar.b"),
+        ([("sensor." + "x" * 248)] * 15 + ["a.b" + "c" * 252], None),
+    ],
+)
+async def test_wizard_input_set_multiple(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    entity_id: str | list[str],
+    expected: str | None,
+) -> None:
+    """A list or comma separated string is sent as one request, up to 4095 bytes."""
+    client, _connection, transport, _protocol = api_client
+    transport.writelines.reset_mock()
+    client.wizard_input_set(1, entity_id)
+    if expected is None:
+        expected = ",".join(entity_id)
+        assert len(expected) == 4095
+    transport.writelines.assert_called_once_with(
+        generate_split_plaintext_packet(
+            WizardInputSetRequest(key=1, entity_id=expected)
+        )
+    )
 
 
 @pytest.mark.parametrize("key", [-1, 0x100000000])
