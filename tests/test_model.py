@@ -2494,6 +2494,7 @@ def test_serial_proxy_identity_conversion() -> None:
             product_id=0x4001,
             bcd_device=0x0100,
             interface_number=2,
+            interface_class=0x02,
         ),
     )
     model = SerialProxyIdentity.from_pb(pb_msg)
@@ -2504,7 +2505,11 @@ def test_serial_proxy_identity_conversion() -> None:
     assert model.product == "ZBT-2"
     assert model.serial_number == "10B41DE58F10"
     assert model.usb == UsbDeviceDescriptor(
-        vendor_id=0x303A, product_id=0x4001, bcd_device=0x0100, interface_number=2
+        vendor_id=0x303A,
+        product_id=0x4001,
+        bcd_device=0x0100,
+        interface_number=2,
+        interface_class=0x02,
     )
     assert SerialProxyIdentity.from_dict(model.to_dict()) == model
 
