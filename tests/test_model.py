@@ -200,6 +200,7 @@ from aioesphomeapi.model import (
     UpdateInfo,
     UpdateState,
     UsbDeviceDescriptor,
+    UsbSerialDriver,
     UserService,
     UserServiceArg,
     UserServiceArgType,
@@ -2461,6 +2462,16 @@ def test_serial_proxy_mode_enum() -> None:
     assert SerialProxyMode.convert(-1) is None
 
 
+def test_usb_serial_driver_enum() -> None:
+    """Test UsbSerialDriver enum values."""
+    assert UsbSerialDriver.CLASS == 0
+    assert UsbSerialDriver.VENDOR == 1
+
+    assert UsbSerialDriver.convert(0) == UsbSerialDriver.CLASS
+    assert UsbSerialDriver.convert(1) == UsbSerialDriver.VENDOR
+    assert UsbSerialDriver.convert(2) is None
+
+
 def test_serial_proxy_identity_source_enum() -> None:
     """Test SerialProxyIdentitySource enum values."""
     assert SerialProxyIdentitySource.NONE == 0
@@ -2494,7 +2505,8 @@ def test_serial_proxy_identity_conversion() -> None:
             product_id=0x4001,
             bcd_device=0x0100,
             interface_number=2,
-            interface_class=0x02,
+            driver=UsbSerialDriver.VENDOR,
+            port_number=1,
         ),
     )
     model = SerialProxyIdentity.from_pb(pb_msg)
@@ -2509,7 +2521,8 @@ def test_serial_proxy_identity_conversion() -> None:
         product_id=0x4001,
         bcd_device=0x0100,
         interface_number=2,
-        interface_class=0x02,
+        driver=UsbSerialDriver.VENDOR,
+        port_number=1,
     )
     assert SerialProxyIdentity.from_dict(model.to_dict()) == model
 

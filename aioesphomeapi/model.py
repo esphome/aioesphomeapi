@@ -1592,6 +1592,11 @@ class SerialProxyIdentitySource(APIIntEnum):
     USB = 2
 
 
+class UsbSerialDriver(APIIntEnum):
+    CLASS = 0
+    VENDOR = 1
+
+
 class SerialProxyIdentityFlag(enum.IntFlag):
     CONNECTED = 1 << 0
     ERROR = 1 << 1
@@ -1656,7 +1661,10 @@ class UsbDeviceDescriptor(APIModelBase):
     product_id: int = 0
     bcd_device: int = 0
     interface_number: int = 0
-    interface_class: int = 0
+    driver: UsbSerialDriver | None = converter_field(
+        default=UsbSerialDriver.CLASS, converter=UsbSerialDriver.convert
+    )
+    port_number: int = 0
 
     @classmethod
     def convert(cls, value: Any) -> UsbDeviceDescriptor:
@@ -2531,6 +2539,7 @@ __all__ = (
     "UpdateInfo",
     "UpdateState",
     "UsbDeviceDescriptor",
+    "UsbSerialDriver",
     "UserService",
     "UserServiceArg",
     "UserServiceArgType",
