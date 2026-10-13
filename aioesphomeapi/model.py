@@ -1657,8 +1657,6 @@ class UsbDeviceDescriptor(APIModelBase):
     bcd_device: int = 0
     interface_number: int = 0
     interface_class: int = 0
-    interface_subclass: int = 0
-    interface_protocol: int = 0
     port_number: int = 0
 
     @classmethod

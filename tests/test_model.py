@@ -2495,8 +2495,6 @@ def test_serial_proxy_identity_conversion() -> None:
             bcd_device=0x0100,
             interface_number=2,
             interface_class=0xFF,
-            interface_subclass=0x00,
-            interface_protocol=0x00,
             port_number=1,
         ),
     )
@@ -2513,8 +2511,6 @@ def test_serial_proxy_identity_conversion() -> None:
         bcd_device=0x0100,
         interface_number=2,
         interface_class=0xFF,
-        interface_subclass=0x00,
-        interface_protocol=0x00,
         port_number=1,
     )
     assert SerialProxyIdentity.from_dict(model.to_dict()) == model
