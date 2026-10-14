@@ -475,6 +475,12 @@ def test_bluetooth_connections_free_surfaces_allocated() -> None:
     assert model.allocated == [10, 20]
 
 
+@pytest.mark.parametrize("supports_toggle", [True, False])
+def test_cover_info_supports_toggle(supports_toggle: bool) -> None:
+    pb = ListEntitiesCoverResponse(key=1, supports_toggle=supports_toggle)
+    assert CoverInfo.from_pb(pb).supports_toggle is supports_toggle
+
+
 @pytest.mark.parametrize(
     ("state", "version", "out"),
     [
