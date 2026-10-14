@@ -788,6 +788,7 @@ async def test_cover_command_legacy(
             {"key": 1, "has_position": True, "position": 0.0},
         ),
         ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
+        ({"key": 1, "toggle": True}, {"key": 1, "toggle": True}),
         (
             {"key": 1, "position": 1.0, "tilt": 0.8},
             {

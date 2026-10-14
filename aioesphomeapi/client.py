@@ -1876,6 +1876,7 @@ class APIClient(APIClientBase):
         tilt: float | None = None,
         stop: bool = False,
         device_id: int = 0,
+        toggle: bool = False,
     ) -> None:
         connection = self._get_connection()
         req = CoverCommandRequest(key=key, device_id=device_id)
@@ -1891,6 +1892,8 @@ class APIClient(APIClientBase):
                 req.tilt = tilt
             if stop:
                 req.stop = stop
+            if toggle:
+                req.toggle = toggle
         elif stop:
             req.legacy_command = LegacyCoverCommand.STOP
             req.has_legacy_command = True
