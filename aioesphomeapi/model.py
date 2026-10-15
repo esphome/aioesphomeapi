@@ -401,6 +401,9 @@ class WizardCapabilities(APIModelBase):
 @_frozen_dataclass_decorator
 class SendspinCapabilities(APIModelBase):
     feature_flags: int = 0
+    # Empty on older firmware, or until the device's Sendspin client has started
+    # once since boot.
+    client_id: str = ""
 
     @classmethod
     def convert(cls, value: Any) -> SendspinCapabilities:
@@ -1657,6 +1660,8 @@ class UsbDeviceDescriptor(APIModelBase):
     product_id: int = 0
     bcd_device: int = 0
     interface_number: int = 0
+    interface_class: int = 0
+    port_number: int = 0
 
     @classmethod
     def convert(cls, value: Any) -> UsbDeviceDescriptor:

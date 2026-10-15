@@ -2302,17 +2302,20 @@ async def test_device_capabilities_sendspin(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """device_capabilities surfaces sendspin.feature_flags."""
+    """device_capabilities surfaces the sendspin fields."""
     client, _connection, _transport, protocol = api_client
     task = asyncio.create_task(client.device_capabilities())
     await asyncio.sleep(0)
+    client_id = "q83vEjRWeJq83vEjRWeJq83vEjRWeJq83vEjRWeJq80"
     response: message.Message = DeviceCapabilitiesResponse(
-        sendspin=SendspinCapabilitiesPb(feature_flags=SendspinFeature.PAIRING_TOKEN)
+        sendspin=SendspinCapabilitiesPb(
+            feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=client_id
+        )
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     caps = await task
     assert caps.sendspin == SendspinCapabilities(
-        feature_flags=SendspinFeature.PAIRING_TOKEN
+        feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=client_id
     )
 
 
