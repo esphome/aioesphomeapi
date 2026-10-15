@@ -763,6 +763,8 @@ async def test_subscribe_states_camera_oversized_done_chunk_does_not_tombstone(
                 "legacy_command": LegacyCoverCommand.STOP,
             },
         ),
+        # Toggle has no legacy command, so nothing is sent for it
+        ({"key": 1, "toggle": True}, {"key": 1}),
     ],
 )
 async def test_cover_command_legacy(
@@ -788,6 +790,7 @@ async def test_cover_command_legacy(
             {"key": 1, "has_position": True, "position": 0.0},
         ),
         ({"key": 1, "stop": True}, {"key": 1, "stop": True}),
+        ({"key": 1, "toggle": True}, {"key": 1, "toggle": True}),
         (
             {"key": 1, "position": 1.0, "tilt": 0.8},
             {
