@@ -4,9 +4,12 @@ import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
+import importlib
+import json
 import math
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 
+from .core import InvalidWizardError, UnsupportedWizardVersionError
 from .util import fix_float_single_double_conversion
 
 _dataclass_decorator = partial(dataclass, slots=True)
@@ -14,7 +17,8 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Sequence
+    from types import ModuleType
 
     from google.protobuf import message
 
@@ -170,6 +174,10 @@ class VoiceAssistantFeature(enum.IntFlag):
 
 class ZWaveProxyFeature(enum.IntFlag):
     ENABLED = 1 << 0
+
+
+class SendspinFeature(enum.IntFlag):
+    PAIRING_TOKEN = 1 << 0
 
 
 class ZWaveProxyRequestType(APIIntEnum):
@@ -380,6 +388,31 @@ class ZWaveProxyCapabilities(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class WizardCapabilities(APIModelBase):
+    configured: bool = False
+
+    @classmethod
+    def convert(cls, value: Any) -> WizardCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class SendspinCapabilities(APIModelBase):
+    feature_flags: int = 0
+    # Empty on older firmware, or until the device's Sendspin client has started
+    # once since boot.
+    client_id: str = ""
+
+    @classmethod
+    def convert(cls, value: Any) -> SendspinCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
 class DeviceCapabilities(APIModelBase):
     bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
         default_factory=BluetoothProxyCapabilities,
@@ -396,6 +429,144 @@ class DeviceCapabilities(APIModelBase):
     serial_proxies: list[SerialProxyInfo] = converter_field(
         default_factory=list, converter=SerialProxyInfo.convert_list
     )
+    wizard: WizardCapabilities = converter_field(
+        default_factory=WizardCapabilities,
+        converter=WizardCapabilities.convert,
+    )
+    sendspin: SendspinCapabilities = converter_field(
+        default_factory=SendspinCapabilities,
+        converter=SendspinCapabilities.convert,
+    )
+
+
+def _string_list(value: Iterable[str]) -> list[str]:
+    """Convert to a list of strings, refusing a bare string."""
+    if isinstance(value, str):
+        msg = f"Expected a list of strings, got {value!r}"
+        raise TypeError(msg)
+    return list(value)
+
+
+@_frozen_dataclass_decorator
+class WizardEntityFilter(APIModelBase):
+    integration: str = ""
+    domain: list[str] = converter_field(default_factory=list, converter=_string_list)
+    device_class: list[str] = converter_field(
+        default_factory=list, converter=_string_list
+    )
+    supported_features: list[str] = converter_field(
+        default_factory=list, converter=_string_list
+    )
+
+
+@_frozen_dataclass_decorator
+class WizardEntityField(APIModelBase):
+    key: int = 0
+    device_id: int = 0
+    description: str = ""
+
+
+@_frozen_dataclass_decorator
+class WizardInputField(APIModelBase):
+    key: int = 0
+    description: str = ""
+    multiple: bool = False
+    max_length: int = 255
+    entity_filters: list[WizardEntityFilter] = converter_field(
+        default_factory=list, converter=WizardEntityFilter.convert_list
+    )
+
+    def join_entity_ids(self, entity_ids: Sequence[str]) -> str:
+        """Join entity ids into the value WizardInputSetRequest sends for this input.
+
+        Raises ValueError for picks the device would reject.
+        """
+        if isinstance(entity_ids, str):
+            msg = f"Expected a list of entity ids, got {entity_ids!r}"
+            raise TypeError(msg)
+        if not entity_ids:
+            msg = "No entity ids given"
+            raise ValueError(msg)
+        if len(entity_ids) > 1 and not self.multiple:
+            msg = f"Wizard input {self.key} accepts a single entity id"
+            raise ValueError(msg)
+        for entity_id in entity_ids:
+            if "." not in entity_id or "," in entity_id:
+                msg = f"Invalid wizard input entity_id: {entity_id!r}"
+                raise ValueError(msg)
+        joined = ",".join(entity_ids)
+        if len(joined.encode()) > self.max_length:
+            msg = (
+                f"Wizard input {self.key} entity ids are longer than "
+                f"{self.max_length} bytes"
+            )
+            raise ValueError(msg)
+        return joined
+
+
+@_frozen_dataclass_decorator
+class WizardPage(APIModelBase):
+    title: str = ""
+    description: str = ""
+    entities: list[WizardEntityField] = converter_field(
+        default_factory=list, converter=WizardEntityField.convert_list
+    )
+    inputs: list[WizardInputField] = converter_field(
+        default_factory=list, converter=WizardInputField.convert_list
+    )
+
+
+@_frozen_dataclass_decorator
+class DeviceWizard(APIModelBase):
+    pages: list[WizardPage] = converter_field(
+        default_factory=list, converter=WizardPage.convert_list
+    )
+
+    @classmethod
+    def from_compressed_json(cls, data: bytes) -> DeviceWizard:
+        """Decode the zstd-compressed JSON of DeviceWizardResponse.data.
+
+        Raises InvalidWizardError, or its UnsupportedWizardVersionError subclass for a
+        version this client does not know.
+        """
+        zstd = _zstd_module()
+        decompressor = zstd.ZstdDecompressor()
+        try:
+            text = decompressor.decompress(data, max_length=_WIZARD_JSON_MAX_SIZE)
+        except zstd.ZstdError as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+        if not decompressor.eof:
+            msg = "Device wizard is truncated or too large"
+            raise InvalidWizardError(msg)
+        try:
+            document = json.loads(text)
+        except ValueError as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+        if not isinstance(document, dict):
+            msg = "Device wizard is not a JSON object"
+            raise InvalidWizardError(msg)
+        if (version := document.get("version")) != _WIZARD_JSON_VERSION:
+            raise UnsupportedWizardVersionError(version)
+        try:
+            return cls.from_dict(document)
+        except (TypeError, ValueError, AttributeError) as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+
+
+_WIZARD_JSON_VERSION = 1
+# A real wizard is a few kB; the cap bounds what a small frame may expand to
+_WIZARD_JSON_MAX_SIZE = 1 << 20
+
+
+def _zstd_module() -> ModuleType:
+    """Return the standard library zstd module from Python 3.14, otherwise the backport."""
+    try:
+        return importlib.import_module("compression.zstd")
+    except ImportError:
+        return importlib.import_module("backports.zstd")
 
 
 class EntityCategory(APIIntEnum):
@@ -1488,6 +1659,8 @@ class UsbDeviceDescriptor(APIModelBase):
     product_id: int = 0
     bcd_device: int = 0
     interface_number: int = 0
+    interface_class: int = 0
+    port_number: int = 0
 
     @classmethod
     def convert(cls, value: Any) -> UsbDeviceDescriptor:
@@ -2046,6 +2219,24 @@ class NoiseEncryptionSetKeyResponse(APIModelBase):
     success: bool = False
 
 
+class SendspinPairingTokenStatus(APIIntEnum):
+    NOT_READY = 0
+    OK = 1
+    ENCRYPTION_REQUIRED = 2
+    DISABLED = 3
+    FAILED = 4
+
+
+@_frozen_dataclass_decorator
+class SendspinPairingTokenResponse(APIModelBase):
+    status: SendspinPairingTokenStatus | None = converter_field(
+        default=SendspinPairingTokenStatus.NOT_READY,
+        converter=SendspinPairingTokenStatus.convert,
+    )
+    # A long-lived secret, so it is kept out of repr
+    token: str = field(default="", repr=False)
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1
@@ -2262,6 +2453,7 @@ __all__ = (
     "DateTimeState",
     "DeviceCapabilities",
     "DeviceInfo",
+    "DeviceWizard",
     "DisconnectReason",
     "ESPHomeBluetoothGATTServices",
     "EntityCategory",
@@ -2307,6 +2499,10 @@ __all__ = (
     "RadioFrequencyModulation",
     "SelectInfo",
     "SelectState",
+    "SendspinCapabilities",
+    "SendspinFeature",
+    "SendspinPairingTokenResponse",
+    "SendspinPairingTokenStatus",
     "SensorInfo",
     "SensorState",
     "SensorStateClass",
@@ -2368,6 +2564,11 @@ __all__ = (
     "WaterHeaterMode",
     "WaterHeaterState",
     "WaterHeaterStateFlag",
+    "WizardCapabilities",
+    "WizardEntityField",
+    "WizardEntityFilter",
+    "WizardInputField",
+    "WizardPage",
     "ZWaveProxyCapabilities",
     "ZWaveProxyFeature",
     "ZWaveProxyFrame",

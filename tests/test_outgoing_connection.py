@@ -283,6 +283,8 @@ def test_make_hello_request_flag() -> None:
     # The uncached inner function: the cached wrapper is a C-level name in
     # Cython builds and cannot be imported
     flagged = _make_hello_request("client", True)
+    assert flagged.api_version_major == 1
+    assert flagged.api_version_minor == 19
     assert flagged.outgoing_connection_target is True
     round_trip = HelloRequest.FromString(flagged.SerializeToString())
     assert round_trip.outgoing_connection_target is True
