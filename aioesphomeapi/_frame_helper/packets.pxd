@@ -6,7 +6,6 @@ cpdef _varuint_to_bytes(int value)
 
 
 @cython.locals(
-    type_="unsigned int",
     data=bytes,
     packet=tuple,
     type_=object
