@@ -2508,6 +2508,8 @@ def test_serial_proxy_identity_conversion() -> None:
             product_id=0x4001,
             bcd_device=0x0100,
             interface_number=2,
+            interface_class=0xFF,
+            port_number=1,
         ),
     )
     model = SerialProxyIdentity.from_pb(pb_msg)
@@ -2518,7 +2520,12 @@ def test_serial_proxy_identity_conversion() -> None:
     assert model.product == "ZBT-2"
     assert model.serial_number == "10B41DE58F10"
     assert model.usb == UsbDeviceDescriptor(
-        vendor_id=0x303A, product_id=0x4001, bcd_device=0x0100, interface_number=2
+        vendor_id=0x303A,
+        product_id=0x4001,
+        bcd_device=0x0100,
+        interface_number=2,
+        interface_class=0xFF,
+        port_number=1,
     )
     assert SerialProxyIdentity.from_dict(model.to_dict()) == model
 
@@ -3000,23 +3007,32 @@ def test_device_capabilities_wizard_from_dict() -> None:
     assert DeviceCapabilities.from_dict({}).wizard == WizardCapabilities()
 
 
+_SENDSPIN_CLIENT_ID = "q83vEjRWeJq83vEjRWeJq83vEjRWeJq83vEjRWeJq80"
+
+
 def test_device_capabilities_sendspin_from_pb() -> None:
-    """DeviceCapabilities decodes sendspin.feature_flags, defaulting to 0 when unset."""
+    """DeviceCapabilities decodes the sendspin fields, defaulting when unset."""
     pb = DeviceCapabilitiesResponse(
-        sendspin=SendspinCapabilitiesPb(feature_flags=SendspinFeature.PAIRING_TOKEN)
+        sendspin=SendspinCapabilitiesPb(
+            feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=_SENDSPIN_CLIENT_ID
+        )
     )
     assert DeviceCapabilities.from_pb(pb).sendspin == SendspinCapabilities(
-        feature_flags=SendspinFeature.PAIRING_TOKEN
+        feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=_SENDSPIN_CLIENT_ID
     )
     assert DeviceCapabilities.from_pb(
         DeviceCapabilitiesResponse()
-    ).sendspin == SendspinCapabilities(feature_flags=0)
+    ).sendspin == SendspinCapabilities(feature_flags=0, client_id="")
 
 
 def test_device_capabilities_sendspin_from_dict() -> None:
     """The dict branch of SendspinCapabilities.convert is used by from_dict."""
-    caps = DeviceCapabilities.from_dict({"sendspin": {"feature_flags": 1}})
-    assert caps.sendspin == SendspinCapabilities(feature_flags=1)
+    caps = DeviceCapabilities.from_dict(
+        {"sendspin": {"feature_flags": 1, "client_id": _SENDSPIN_CLIENT_ID}}
+    )
+    assert caps.sendspin == SendspinCapabilities(
+        feature_flags=1, client_id=_SENDSPIN_CLIENT_ID
+    )
     assert DeviceCapabilities.from_dict({}).sendspin == SendspinCapabilities()
 
 
