@@ -7,11 +7,7 @@ import itertools
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ._frame_helper.base import (  # noqa: F401
-    MAX_NAME_LEN,
-    APIFrameHelper,
-    safe_label_str,
-)
+from ._frame_helper.base import MAX_NAME_LEN, APIFrameHelper, safe_label_str  # noqa: F401
 from ._frame_helper.plain_text import APIPlaintextFrameHelper  # noqa: F401
 from .api_pb2 import (  # type: ignore[attr-defined]
     BluetoothConnectionsFreeResponse,

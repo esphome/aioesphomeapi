@@ -22,10 +22,7 @@ if TYPE_CHECKING:
 
     from google.protobuf import message
 
-    from .api_pb2 import (  # type: ignore[attr-defined]
-        BluetoothLEAdvertisementResponse,
-        HomeassistantServiceMap,
-    )
+    from .api_pb2 import BluetoothLEAdvertisementResponse, HomeassistantServiceMap  # type: ignore[attr-defined]
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
