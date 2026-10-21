@@ -29,6 +29,8 @@ from .model import (
     SensorState,
     SirenState,
     SwitchState,
+    TextInfo,
+    TextMode,
     TextSensorState,
     TextState,
     TimeState,
@@ -132,9 +134,11 @@ def _format_event(state: Event, info: EntityInfo | None) -> str | None:
     return _header("event", info, f"'{state.event_type}'")
 
 
-def _format_text(state: TextState, info: EntityInfo | None) -> str | None:
+def _format_text(state: TextState, info: TextInfo | None) -> str | None:
     if state.missing_state:
         return None
+    if info is not None and info.mode == TextMode.PASSWORD:
+        return _header("text", info, "'********'")
     return _header("text", info, f"'{state.state}'")
 
 

@@ -50,6 +50,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
+    DeviceWizardRequest,
+    DeviceWizardResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     ExecuteServiceResponse,
@@ -69,6 +71,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
+    SendspinPairingTokenRequest,
+    SendspinPairingTokenResponse,
     SerialProxyConfigureRequest,
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
@@ -109,6 +113,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
+    WizardInputSetRequest,
     ZWaveProxyRequest,
     ZWaveProxyRequestResponse,
 )
@@ -162,6 +167,7 @@ from .model import (
     ConnectionClosedEvent,
     DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
+    DeviceWizard as DeviceWizardModel,
     DisconnectReason,
     EntityInfo,
     EntityState,
@@ -177,6 +183,7 @@ from .model import (
     MediaPlayerCommand,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
+    SendspinPairingTokenResponse as SendspinPairingTokenResponseModel,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
     SerialProxyIdentity as SerialProxyIdentityModel,
     SerialProxyMode,
@@ -276,6 +283,9 @@ MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
 MIN_VERSION_PROXY_ACK = APIVersion(1, 16)
 # API version 1.18+ replies to each IR/RF transmit once the frame has left the device
 MIN_VERSION_IR_RF_TRANSMIT_COMPLETE = APIVersion(1, 18)
+
+WIZARD_INPUT_ENTITY_ID_MAX_LENGTH = 255
+WIZARD_INPUT_VALUE_MAX_LENGTH = 4095
 
 
 def _make_serial_proxy_configure_request(
@@ -535,6 +545,60 @@ class APIClient(APIClientBase):
             ),
             serial_proxies=device_info.serial_proxies,
         )
+
+    async def device_wizard(self) -> DeviceWizardModel:
+        """Fetch the onboarding wizard.
+
+        Only call when DeviceCapabilities.wizard.configured is set: a device
+        without a wizard never answers, so the request raises TimeoutAPIError.
+        Raises UnsupportedWizardVersionError when the wizard's format is newer
+        than this client understands; the wizard must not be used then.
+        """
+        resp = await self._get_connection().send_message_await_response(
+            DeviceWizardRequest(), DeviceWizardResponse
+        )
+        return DeviceWizardModel.from_compressed_json(resp.data)
+
+    def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
+        """Set the Home Assistant entity id of the wizard input with the given key.
+
+        A list or a comma separated string sets a multiple input; use
+        WizardInputField.join_entity_ids to check against the input's limits.
+        The device keeps it in RAM only, so the caller stores the choices and sends
+        every input after each connect, before subscribe_home_assistant_states.
+        Raises ValueError for a key outside uint32 or an entity id the device would ignore.
+        """
+        if not 0 <= key <= 0xFFFFFFFF:
+            msg = f"Invalid wizard input key: {key!r}"
+            raise ValueError(msg)
+        if isinstance(entity_id, str):
+            value = entity_id
+        elif any("," in one for one in entity_id):
+            msg = f"Invalid wizard input entity_id: {entity_id!r}"
+            raise ValueError(msg)
+        else:
+            value = ",".join(entity_id)
+        if len(value.encode()) > WIZARD_INPUT_VALUE_MAX_LENGTH or any(
+            "." not in one or len(one.encode()) > WIZARD_INPUT_ENTITY_ID_MAX_LENGTH
+            for one in value.split(",")
+        ):
+            msg = f"Invalid wizard input entity_id: {entity_id!r}"
+            raise ValueError(msg)
+        self._get_connection().send_message(
+            WizardInputSetRequest(key=key, entity_id=value)
+        )
+
+    async def sendspin_pairing_token(self) -> SendspinPairingTokenResponseModel:
+        """Fetch the token a Sendspin server uses to pair with the device.
+
+        Only call when DeviceCapabilities.sendspin.feature_flags has
+        SendspinFeature.PAIRING_TOKEN: other devices never answer, so the request
+        raises TimeoutAPIError. The token is a long-lived secret; never log it.
+        """
+        resp = await self._get_connection().send_message_await_response(
+            SendspinPairingTokenRequest(), SendspinPairingTokenResponse
+        )
+        return SendspinPairingTokenResponseModel.from_pb(resp)
 
     async def list_entities_services(
         self,

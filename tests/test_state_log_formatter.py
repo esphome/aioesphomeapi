@@ -34,6 +34,8 @@ from aioesphomeapi.model import (
     SensorState,
     SirenState,
     SwitchState,
+    TextInfo,
+    TextMode,
     TextSensorState,
     TextState,
     TimeState,
@@ -196,9 +198,20 @@ def test_event_basic() -> None:
 
 
 def test_text_basic() -> None:
-    info = BinarySensorInfo(name="Name", key=1)
+    info = TextInfo(name="Name", key=1)
     state = TextState(key=1, state="hello")
     assert format_state_log(state, info) == "[S][text]: 'Name' >> 'hello'"
+
+
+def test_text_password_masked() -> None:
+    info = TextInfo(name="Secret Token", key=1, mode=TextMode.PASSWORD)
+    state = TextState(key=1, state="hunter2")
+    assert format_state_log(state, info) == "[S][text]: 'Secret Token' >> '********'"
+
+
+def test_text_no_info() -> None:
+    state = TextState(key=1, state="hello")
+    assert format_state_log(state, None) == "[S][text]: '?' >> 'hello'"
 
 
 def test_text_missing() -> None:

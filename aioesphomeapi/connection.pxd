@@ -32,6 +32,7 @@ cdef object DisconnectRequest
 cdef object PingRequest
 cdef object GetTimeRequest, GetTimeResponse
 cdef object HelloRequest, HelloResponse
+cdef object SendspinPairingTokenResponse
 
 cdef object APIVersion
 
