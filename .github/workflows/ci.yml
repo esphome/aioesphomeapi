@@ -24,6 +24,8 @@ jobs:
           - "3.11"
           - "3.14"
           - "3.14t"
+          - "3.15"
+          - "3.15t"
         os:
           - ubuntu-latest
           - windows-latest
@@ -39,6 +41,14 @@ jobs:
           - python-version: "3.14t"
             os: windows-latest
           - python-version: "3.14t"
+            os: macos-latest
+          - python-version: "3.15"
+            os: windows-latest
+          - python-version: "3.15"
+            os: macos-latest
+          - python-version: "3.15t"
+            os: windows-latest
+          - python-version: "3.15t"
             os: macos-latest
           - extension: "use_cython"
             os: windows-latest
@@ -173,7 +183,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive timeout -k 15 300 \
             apt-get install -y libc6-dbg
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369  # v5.4.2
+        uses: CodSpeedHQ/action@821a40cd6c80e3cfe387caf55668287addd808da  # v5.5.0
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
