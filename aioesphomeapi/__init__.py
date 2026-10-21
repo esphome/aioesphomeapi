@@ -1,8 +1,5 @@
 # ruff: noqa: F401, F403
-from .api_pb2 import (  # type: ignore[attr-defined]
-    BluetoothLERawAdvertisement,
-    BluetoothLERawAdvertisementsResponse,
-)
+from .api_pb2 import BluetoothLERawAdvertisement, BluetoothLERawAdvertisementsResponse  # type: ignore[attr-defined]
 from .ble_defs import ESP_CONNECTION_ERROR_DESCRIPTION, BLEConnectionError
 from .client import APIClient
 from .connection import APIConnection, ConnectionParams
