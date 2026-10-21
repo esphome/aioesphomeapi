@@ -11,10 +11,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
-    GetTimeRequest,
-    GetTimeResponse,
-)
+from aioesphomeapi.api_pb2 import GetTimeRequest, GetTimeResponse  # type: ignore[attr-defined]
 
 from .common import (
     _create_mock_transport_protocol,
