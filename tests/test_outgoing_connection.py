@@ -13,10 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aioesphomeapi import APIClient
-from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
-    DeviceInfoResponse,
-    HelloRequest,
-)
+from aioesphomeapi.api_pb2 import DeviceInfoResponse, HelloRequest  # type: ignore[attr-defined]
 from aioesphomeapi.connection import APIConnection, ConnectionState, _make_hello_request
 from aioesphomeapi.core import (
     ZERO_NOISE_PSK,

@@ -24,6 +24,8 @@ jobs:
           - "3.11"
           - "3.14"
           - "3.14t"
+          - "3.15"
+          - "3.15t"
         os:
           - ubuntu-latest
           - windows-latest
@@ -40,6 +42,14 @@ jobs:
             os: windows-latest
           - python-version: "3.14t"
             os: macos-latest
+          - python-version: "3.15"
+            os: windows-latest
+          - python-version: "3.15"
+            os: macos-latest
+          - python-version: "3.15t"
+            os: windows-latest
+          - python-version: "3.15t"
+            os: macos-latest
           - extension: "use_cython"
             os: windows-latest
           - extension: "use_cython"
@@ -54,7 +64,7 @@ jobs:
           allow-prereleases: true
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
           enable-cache: true
       - name: Set up Python environment (no cython)
@@ -128,7 +138,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Set up uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
           enable-cache: true
       - name: Set up Python environment (cython)
@@ -173,7 +183,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive timeout -k 15 300 \
             apt-get install -y libc6-dbg
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369  # v5.4.2
+        uses: CodSpeedHQ/action@821a40cd6c80e3cfe387caf55668287addd808da  # v5.5.0
         with:
           mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}

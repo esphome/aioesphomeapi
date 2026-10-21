@@ -166,7 +166,7 @@ async def _async_resolve_host_getaddrinfo(host: str, port: int) -> list[AddrInfo
             )
         else:
             # Unknown family
-            continue
+            continue  # type: ignore[unreachable]
 
         # DNS sinkholes answer with unspecified addresses (0.0.0.0 / ::);
         # connecting to them is never useful, so treat them as a miss
