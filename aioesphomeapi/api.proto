@@ -2814,7 +2814,7 @@ message ListEntitiesInfraredResponse {
 message InfraredRFTransmitRawTimingsRequest {
   option (id) = 136;
   option (source) = SOURCE_CLIENT;
-  option (ifdef) = "USE_IR_RF || USE_RADIO_FREQUENCY";
+  option (ifdef) = "USE_IR_RF";
 
   uint32 device_id = 1 [(field_ifdef) = "USE_DEVICES"];
   fixed32 key = 2 [(force) = true];     // Key identifying the transmitter instance
@@ -2828,7 +2828,7 @@ message InfraredRFTransmitRawTimingsRequest {
 message InfraredRFReceiveEvent {
   option (id) = 137;
   option (source) = SOURCE_SERVER;
-  option (ifdef) = "USE_IR_RF || USE_RADIO_FREQUENCY";
+  option (ifdef) = "USE_IR_RF";
   option (no_delay) = true;
   option (speed_optimized) = true;
 
@@ -2847,13 +2847,11 @@ message InfraredRFReceiveEvent {
 // several entities may share one, so a client should keep at most one transmit outstanding per
 // device, not per entity. A reply for an unknown key or a refused request is sent once and can be lost
 // when the device's send buffer is full, so a client should also stop waiting on its own after the
-// expected air time plus a margin. The reply carries no request id, so a client that queues the same entity
-// twice must treat a reply later than its own timeout as belonging to the next frame. Lets clients pace
-// requests instead of estimating durations (since API 1.18)
+// expected air time plus a margin. Lets clients pace requests instead of estimating durations (since API 1.18)
 message InfraredRFTransmitCompleteResponse {
   option (id) = 153;
   option (source) = SOURCE_SERVER;
-  option (ifdef) = "USE_IR_RF || USE_RADIO_FREQUENCY";
+  option (ifdef) = "USE_IR_RF";
   option (no_delay) = true;
 
   uint32 device_id = 1 [(field_ifdef) = "USE_DEVICES"];
@@ -3043,15 +3041,14 @@ message SubscribeSerialProxyIdentityRequest {
 // Where a port's identity comes from
 enum SerialProxyIdentitySource {
   SERIAL_PROXY_IDENTITY_SOURCE_NONE = 0;        // The port carries no identity
-  SERIAL_PROXY_IDENTITY_SOURCE_CONFIGURED = 1;  // Stated in the device configuration; fixed for the life of the firmware
+  SERIAL_PROXY_IDENTITY_SOURCE_CONFIGURED = 1;  // Reserved for identities stated in the device configuration; not sent yet
   SERIAL_PROXY_IDENTITY_SOURCE_USB = 2;         // Read from the descriptors of the USB device behind the port;
                                                 // changes when a device is attached or removed
 }
 
 enum SerialProxyIdentityFlag {
   SERIAL_PROXY_IDENTITY_FLAG_NONE = 0;
-  SERIAL_PROXY_IDENTITY_FLAG_CONNECTED = 1;  // The backend believes the device is present. Always set for a
-                                             // CONFIGURED identity, which cannot observe presence
+  SERIAL_PROXY_IDENTITY_FLAG_CONNECTED = 1;  // The backend believes the device is present and usable on this port
   SERIAL_PROXY_IDENTITY_FLAG_ERROR = 2;      // The USB host stack refused the descriptor query; the strings and
                                              // IDs below are empty
 }
