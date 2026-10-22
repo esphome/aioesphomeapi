@@ -11,6 +11,7 @@ from .core import (
     BadMACAddressAPIError,
     BadNameAPIError,
     BluetoothConnectionDroppedError,
+    ConnectionNotEstablishedAPIError,
     EncryptionHelloAPIError,
     EncryptionPlaintextAPIError,
     HandshakeAPIError,

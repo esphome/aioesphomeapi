@@ -141,6 +141,7 @@ from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
+    ConnectionNotEstablishedAPIError,
     PingFailedAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
@@ -435,7 +436,8 @@ async def test_request_while_handshaking() -> None:
 
     await asyncio.sleep(0)
     with pytest.raises(
-        APIConnectionError, match="Authenticated connection not ready yet"
+        ConnectionNotEstablishedAPIError,
+        match="Authenticated connection not ready yet",
     ):
         await cli.device_info()
 
@@ -2310,7 +2312,7 @@ async def test_device_capabilities_compat_no_api_version() -> None:
         bluetooth_proxy_feature_flags=3,
         bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
     )
-    with pytest.raises(APIConnectionError, match="Not connected"):
+    with pytest.raises(ConnectionNotEstablishedAPIError, match="Not connected"):
         await client.device_capabilities_compat(device_info)
 
 
