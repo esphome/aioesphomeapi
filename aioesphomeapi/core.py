@@ -64,6 +64,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     FanStateResponse,
     GetTimeRequest,
     GetTimeResponse,
+    GetYamlRequest,
+    GetYamlResponse,
     HelloRequest,
     HelloResponse,
     HomeassistantActionRequest,
@@ -589,6 +591,8 @@ MESSAGE_TYPE_TO_PROTO = {
     158: WizardInputSetRequest,
     159: SendspinPairingTokenRequest,
     160: SendspinPairingTokenResponse,
+    161: GetYamlRequest,
+    162: GetYamlResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
