@@ -6,7 +6,7 @@ from .connection cimport APIConnection, ConnectionParams
 
 
 cdef object create_eager_task
-cdef object APIConnectionError
+cdef object ConnectionNotEstablishedAPIError
 
 cdef dict SUBSCRIBE_STATES_RESPONSE_TYPES
 
