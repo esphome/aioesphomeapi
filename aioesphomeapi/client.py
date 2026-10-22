@@ -1869,13 +1869,15 @@ class APIClient(APIClientBase):
             )
         )
 
-    def cover_command(
+    def cover_command(  # noqa: C901  # pylint: disable=too-many-branches
         self,
         key: int,
         position: float | None = None,
         tilt: float | None = None,
         stop: bool = False,
         device_id: int = 0,
+        *,
+        stop_tilt: bool = False,
         toggle: bool = False,
     ) -> None:
         connection = self._get_connection()
@@ -1892,6 +1894,8 @@ class APIClient(APIClientBase):
                 req.tilt = tilt
             if stop:
                 req.stop = stop
+            if stop_tilt:
+                req.stop_tilt = stop_tilt
             if toggle:
                 req.toggle = toggle
         elif stop:
