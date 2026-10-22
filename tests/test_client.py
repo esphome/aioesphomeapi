@@ -91,6 +91,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxySetModeRequest as SerialProxySetModeRequestPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
+    StoreYamlCapabilities as StoreYamlCapabilitiesPb,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
     SubscribeHomeAssistantStatesRequest,
@@ -194,6 +195,7 @@ from aioesphomeapi.model import (
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
+    StoreYamlCapabilities,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -2330,6 +2332,23 @@ async def test_device_capabilities_sendspin(
     assert caps.sendspin == SendspinCapabilities(
         feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=client_id
     )
+
+
+async def test_device_capabilities_store_yaml(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """device_capabilities surfaces store_yaml.supported."""
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.device_capabilities())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        store_yaml=StoreYamlCapabilitiesPb(supported=True)
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.store_yaml == StoreYamlCapabilities(supported=True)
 
 
 async def test_sendspin_pairing_token(

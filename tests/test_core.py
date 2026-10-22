@@ -8,6 +8,8 @@ import aioesphomeapi
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
     DeviceWizardRequest,
     DeviceWizardResponse,
+    GetYamlRequest,
+    GetYamlResponse,
     SendspinPairingTokenRequest,
     SendspinPairingTokenResponse,
     WizardInputSetRequest,
@@ -43,6 +45,12 @@ def test_sendspin_pairing_token_message_ids() -> None:
     """The Sendspin pairing token messages map to their wire message ids."""
     assert MESSAGE_TYPE_TO_PROTO[159] is SendspinPairingTokenRequest
     assert MESSAGE_TYPE_TO_PROTO[160] is SendspinPairingTokenResponse
+
+
+def test_get_yaml_message_ids() -> None:
+    """The store_yaml messages map to their wire message ids."""
+    assert MESSAGE_TYPE_TO_PROTO[161] is GetYamlRequest
+    assert MESSAGE_TYPE_TO_PROTO[162] is GetYamlResponse
 
 
 def test_unsupported_wizard_version_error_is_exported() -> None:
