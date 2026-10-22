@@ -248,11 +248,19 @@ class AreaInfo(APIModelBase):
         return cls.from_pb(value)
 
 
+class DeviceRelation(APIIntEnum):
+    VIA = 0
+    CHILD = 1
+
+
 @_frozen_dataclass_decorator
 class SubDeviceInfo(APIModelBase):
     device_id: int = 0
     name: str = ""
     area_id: int = 0
+    relation: DeviceRelation | None = converter_field(
+        default=DeviceRelation.VIA, converter=DeviceRelation.convert
+    )
 
 
 class SerialProxyPortType(APIIntEnum):
@@ -2450,6 +2458,7 @@ __all__ = (
     "DateTimeState",
     "DeviceCapabilities",
     "DeviceInfo",
+    "DeviceRelation",
     "DeviceWizard",
     "DisconnectReason",
     "ESPHomeBluetoothGATTServices",

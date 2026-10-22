@@ -134,6 +134,7 @@ from aioesphomeapi.model import (
     DateTimeState,
     DeviceCapabilities,
     DeviceInfo,
+    DeviceRelation,
     DeviceWizard,
     EntityInfo,
     EntityState,
@@ -1626,6 +1627,28 @@ def test_sub_device_info_convert_list() -> None:
         )
         == device_info
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, DeviceRelation.VIA),
+        (0, DeviceRelation.VIA),
+        (1, DeviceRelation.CHILD),
+        (99, None),
+    ],
+)
+def test_sub_device_info_relation(
+    raw: int | None, expected: DeviceRelation | None
+) -> None:
+    """Test SubDeviceInfo.relation from pb and dict, including unknown values."""
+    kwargs = {} if raw is None else {"relation": raw}
+    from_pb = SubDeviceInfo.from_pb(SubDeviceInfoProto(device_id=1, **kwargs))
+    from_dict = SubDeviceInfo.from_dict({"device_id": 1, **kwargs})
+    assert from_pb.relation is expected
+    assert from_dict.relation is expected
+    response = DeviceInfoResponse(devices=[SubDeviceInfoProto(device_id=1, **kwargs)])
+    assert DeviceInfo.from_pb(response).devices[0].relation is expected
 
 
 def test_media_player_supported_format_convert_list() -> None:
