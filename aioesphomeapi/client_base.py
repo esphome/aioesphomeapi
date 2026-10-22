@@ -30,7 +30,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     ZWaveProxyRequest,
 )
 from .connection import ConnectionParams, declares_outgoing_target
-from .core import APIConnectionError
+from .core import ConnectionNotEstablishedAPIError
 from .model import (
     APIVersion,
     BluetoothLEAdvertisement,
@@ -582,13 +582,14 @@ class APIClientBase:
         task.add_done_callback(self._background_tasks.discard)
 
     def _get_connection(self) -> APIConnection:
+        """Return the ready connection, or raise ConnectionNotEstablishedAPIError."""
         if self._connection is None:
             msg = f"Not connected to {self.log_name}!"
-            raise APIConnectionError(msg)
+            raise ConnectionNotEstablishedAPIError(msg)
         if not self._connection.is_connected:
             msg = (
                 f"Authenticated connection not ready yet for {self.log_name}; "
                 f"current state is {self._connection.connection_state}!"
             )
-            raise APIConnectionError(msg)
+            raise ConnectionNotEstablishedAPIError(msg)
         return self._connection
