@@ -34,6 +34,8 @@ from aioesphomeapi.model import (
     SensorState,
     SirenState,
     SwitchState,
+    TextInfo,
+    TextMode,
     TextSensorState,
     TextState,
     TimeState,
@@ -99,6 +101,12 @@ def test_switch_off() -> None:
     info = BinarySensorInfo(name="Relay", key=1)
     state = SwitchState(key=1, state=False)
     assert format_state_log(state, info) == "[S][switch]: 'Relay' >> OFF"
+
+
+def test_switch_missing() -> None:
+    info = BinarySensorInfo(name="Relay", key=1)
+    state = SwitchState(key=1, state=False, missing_state=True)
+    assert format_state_log(state, info) is None
 
 
 def test_siren_on() -> None:
@@ -190,9 +198,20 @@ def test_event_basic() -> None:
 
 
 def test_text_basic() -> None:
-    info = BinarySensorInfo(name="Name", key=1)
+    info = TextInfo(name="Name", key=1)
     state = TextState(key=1, state="hello")
     assert format_state_log(state, info) == "[S][text]: 'Name' >> 'hello'"
+
+
+def test_text_password_masked() -> None:
+    info = TextInfo(name="Secret Token", key=1, mode=TextMode.PASSWORD)
+    state = TextState(key=1, state="hunter2")
+    assert format_state_log(state, info) == "[S][text]: 'Secret Token' >> '********'"
+
+
+def test_text_no_info() -> None:
+    state = TextState(key=1, state="hello")
+    assert format_state_log(state, None) == "[S][text]: '?' >> 'hello'"
 
 
 def test_text_missing() -> None:
@@ -361,6 +380,12 @@ def test_climate_basic() -> None:
     assert "[S][climate]:   Target Temperature: 22.00°C" in result
 
 
+def test_climate_missing() -> None:
+    info = ClimateInfo(name="HVAC", key=1)
+    state = ClimateState(key=1, mode=ClimateMode.OFF, missing_state=True)
+    assert format_state_log(state, info) is None
+
+
 def test_climate_full_features() -> None:
     info = ClimateInfo(name="AC", key=1)
     state = ClimateState(
@@ -492,6 +517,12 @@ def test_water_heater_basic() -> None:
     assert "[S][water_heater]: 'Boiler' >>" in result
     assert "[S][water_heater]:   Mode: ECO" in result
     assert "[S][water_heater]:   Current Temperature: 45.00°C" in result
+
+
+def test_water_heater_missing() -> None:
+    info = BinarySensorInfo(name="Boiler", key=1)
+    state = WaterHeaterState(key=1, mode=WaterHeaterMode.OFF, missing_state=True)
+    assert format_state_log(state, info) is None
 
 
 def test_update_basic() -> None:

@@ -16,4 +16,4 @@ cdef class DecryptCipher:
     cdef uint64_t _nonce
     cdef object _decrypt
 
-    cdef bytes decrypt(self, object frame)
+    cpdef bytes decrypt(self, object frame)

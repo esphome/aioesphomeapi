@@ -9,6 +9,8 @@ from .packets import make_plain_text_packets
 if TYPE_CHECKING:
     import asyncio
 
+    from .packets import Packet
+
 _int = int
 
 # Cap at 4 bytes so the decoded value (max 2**28 - 1) always fits in a signed
@@ -43,9 +45,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
         super().connection_made(transport)
         self.ready_future.set_result(None)
 
-    def write_packets(
-        self, packets: list[tuple[int, bytes]], debug_enabled: bool
-    ) -> None:
+    def write_packets(self, packets: list[Packet], debug_enabled: bool) -> None:
         """Write a packets to the socket.
 
         Packets are in the format of tuple[protobuf_type, protobuf_data]

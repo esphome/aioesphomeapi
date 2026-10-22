@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import contextmanager
-from dataclasses import replace
 from functools import partial
 import reprlib
 import socket
@@ -105,26 +104,27 @@ async def conn(connection_params: ConnectionParams) -> APIConnection:
 
 
 @pytest.fixture
-async def conn_with_password(connection_params: ConnectionParams) -> APIConnection:
-    connection_params = replace(connection_params, password="password")
-    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
+async def conn_with_password() -> APIConnection:
+    params = get_mock_connection_params()
+    params.password = "password"  # noqa: S105
+    return PatchableAPIConnection(params, mock_on_stop, True, None)
 
 
 @pytest.fixture
-async def noise_conn(connection_params: ConnectionParams) -> APIConnection:
+async def noise_conn() -> APIConnection:
     # Pre-resolve the noise frame helper so connection setup takes the warm
     # inline path; the cold executor import is covered in test_lazy_imports.
     _import_noise_frame_helper()
-    connection_params = replace(
-        connection_params, noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
-    )
-    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
+    params = get_mock_connection_params()
+    params.noise_psk = "QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc="
+    return PatchableAPIConnection(params, mock_on_stop, True, None)
 
 
 @pytest.fixture
-async def conn_with_expected_name(connection_params: ConnectionParams) -> APIConnection:
-    connection_params = replace(connection_params, expected_name="test")
-    return PatchableAPIConnection(connection_params, mock_on_stop, True, None)
+async def conn_with_expected_name() -> APIConnection:
+    params = get_mock_connection_params()
+    params.expected_name = "test"
+    return PatchableAPIConnection(params, mock_on_stop, True, None)
 
 
 @pytest.fixture

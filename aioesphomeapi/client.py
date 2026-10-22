@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
+    import socket
 
     from google.protobuf import message
 
@@ -45,9 +46,13 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     CoverCommandRequest,
     DateCommandRequest,
     DateTimeCommandRequest,
+    DeviceCapabilitiesRequest,
+    DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
     DeviceStateResponse,
+    DeviceWizardRequest,
+    DeviceWizardResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
     ExecuteServiceResponse,
@@ -67,13 +72,17 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     NoiseEncryptionSetKeyResponse,
     NumberCommandRequest,
     SelectCommandRequest,
+    SendspinPairingTokenRequest,
+    SendspinPairingTokenResponse,
     SerialProxyConfigureRequest,
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyIdentity,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
+    SerialProxySetModeRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SubscribeBluetoothConnectionsFreeRequest,
@@ -83,6 +92,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStatesRequest,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
+    SubscribeSerialProxyIdentityRequest,
     SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
@@ -104,7 +114,9 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
+    WizardInputSetRequest,
     ZWaveProxyRequest,
+    ZWaveProxyRequestResponse,
 )
 from .client_base import (
     APIClientBase,
@@ -119,6 +131,7 @@ from .client_base import (
     on_home_assistant_action_request,
     on_infrared_rf_receive_event,
     on_serial_proxy_data_received,
+    on_serial_proxy_identity,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
     on_zwave_proxy_request_message,
@@ -133,6 +146,7 @@ from .core import (
     to_human_readable_address,
     to_human_readable_gatt_error,
 )
+from .ir_rf_pacing import IrRfTransmitPacing
 from .model import (
     AlarmControlPanelCommand,
     APIVersion,
@@ -143,6 +157,7 @@ from .model import (
     BluetoothGATTError,
     BluetoothGATTServices,
     BluetoothLEAdvertisement,
+    BluetoothProxyCapabilities as BluetoothProxyCapabilitiesModel,
     BluetoothProxyFeature,
     BluetoothProxySubscriptionFlag,
     BluetoothScannerMode,
@@ -151,8 +166,12 @@ from .model import (
     ClimateMode,
     ClimatePreset,
     ClimateSwingMode,
+    ConnectionClosedEvent,
+    DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
     DeviceState,
+    DeviceWizard as DeviceWizardModel,
+    DisconnectReason,
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
@@ -167,7 +186,10 @@ from .model import (
     MediaPlayerCommand,
     NoiseEncryptionSetKeyResponse as NoiseEncryptionSetKeyResponseModel,
     RadioFrequencyModulation,
+    SendspinPairingTokenResponse as SendspinPairingTokenResponseModel,
     SerialProxyDataReceived as SerialProxyDataReceivedModel,
+    SerialProxyIdentity as SerialProxyIdentityModel,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyRequestResponse as SerialProxyRequestResponseModel,
@@ -178,6 +200,7 @@ from .model import (
     VoiceAssistantAnnounceFinished as VoiceAssistantAnnounceFinishedModel,
     VoiceAssistantAudioData,
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
+    VoiceAssistantCapabilities as VoiceAssistantCapabilitiesModel,
     VoiceAssistantCommand,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
@@ -186,7 +209,10 @@ from .model import (
     VoiceAssistantTimerEventType,
     WaterHeaterCommandField,
     WaterHeaterStateFlag,
+    ZWaveProxyCapabilities as ZWaveProxyCapabilitiesModel,
     ZWaveProxyRequest as ZWaveProxyRequestModel,
+    ZWaveProxyRequestResponse as ZWaveProxyRequestResponseModel,
+    ZWaveProxyRequestType,
     message_types_to_names,
 )
 from .model_conversions import (
@@ -255,6 +281,39 @@ def _validate_connection_params(
 
 # API version 1.14+ may omit object_id to reduce protocol overhead
 MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
+
+# API version 1.16+ acknowledges proxy subscribe and port configuration requests
+MIN_VERSION_PROXY_ACK = APIVersion(1, 16)
+# API version 1.18+ replies to each IR/RF transmit once the frame has left the device
+MIN_VERSION_IR_RF_TRANSMIT_COMPLETE = APIVersion(1, 18)
+
+WIZARD_INPUT_ENTITY_ID_MAX_LENGTH = 255
+WIZARD_INPUT_VALUE_MAX_LENGTH = 4095
+
+
+def _make_serial_proxy_configure_request(
+    instance: int,
+    baudrate: int,
+    flow_control: bool,
+    parity: SerialProxyParity,
+    stop_bits: int,
+    data_size: int,
+) -> SerialProxyConfigureRequest:
+    """Validate parameters and build a SerialProxyConfigureRequest."""
+    if not 1 <= stop_bits <= 2:
+        msg = f"stop_bits must be 1 or 2, got {stop_bits}"
+        raise ValueError(msg)
+    if not 5 <= data_size <= 8:
+        msg = f"data_size must be 5-8, got {data_size}"
+        raise ValueError(msg)
+    return SerialProxyConfigureRequest(
+        instance=instance,
+        baudrate=baudrate,
+        flow_control=flow_control,
+        parity=parity,
+        stop_bits=stop_bits,
+        data_size=data_size,
+    )
 
 
 def _fill_object_ids_if_needed(
@@ -328,17 +387,32 @@ class APIClient(APIClientBase):
         expected_disconnect: bool,
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
+        connection = self._connection
         self._connection = None
         self._cached_device_info = None
+        if (ir_rf := self._ir_rf) is not None:
+            ir_rf.close()
+            self._ir_rf = None
+        if connection is not None:
+            # Subscribers run before on_stop: create_eager_task starts the
+            # on_stop coroutine synchronously, so reconnect machinery would
+            # otherwise get to run first.
+            self._fire_connection_closed_callbacks(
+                ConnectionClosedEvent(
+                    expected_disconnect=expected_disconnect,
+                    reason=DisconnectReason.convert(connection.disconnect_reason),
+                    error=connection.fatal_exception,
+                )
+            )
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
-    async def start_resolve_host(
+    def _create_connection(
         self,
-        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
-        log_errors: bool = True,
-    ) -> None:
-        """Start resolving the host."""
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None,
+        log_errors: bool,
+    ) -> APIConnection:
+        """Create the one connection this client may hold."""
         if self._connection is not None:
             msg = f"Already connected to {self.log_name}!"
             raise APIConnectionError(msg)
@@ -349,7 +423,16 @@ class APIClient(APIClientBase):
             self.log_name,
             log_errors=log_errors,
         )
-        await self._execute_connection_coro(self._connection.start_resolve_host())
+        return self._connection
+
+    async def start_resolve_host(
+        self,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
+        log_errors: bool = True,
+    ) -> None:
+        """Start resolving the host."""
+        connection = self._create_connection(on_stop, log_errors)
+        await self._execute_connection_coro(connection.start_resolve_host())
 
     async def start_connection(self) -> None:
         """Start connecting to the device."""
@@ -359,6 +442,32 @@ class APIClient(APIClientBase):
         # If we connected, we should set the log name now
         if self._connection.connected_address:
             self._set_log_name()
+
+    def start_connection_from_socket(
+        self,
+        sock: socket.socket,
+        on_stop: Callable[[bool], Coroutine[Any, Any, None]] | None = None,
+        log_errors: bool = True,
+    ) -> None:
+        """Adopt an already-connected socket the device opened to us.
+
+        Synchronous. Replaces start_resolve_host and start_connection; call
+        finish_connection afterwards as usual. Owns the socket: it is closed
+        when the client cannot take it.
+        """
+        try:
+            connection = self._create_connection(on_stop, log_errors)
+        except BaseException:
+            sock.close()  # this method owns the socket, even on refusal
+            raise
+        try:
+            connection.start_connection_from_socket(sock)
+        except BaseException:
+            # Match _execute_connection_coro: any failure, cancellation
+            # included, must not leave a half-open connection cached
+            self._connection = None
+            raise
+        self._set_log_name()
 
     async def finish_connection(
         self,
@@ -389,6 +498,11 @@ class APIClient(APIClientBase):
         else:
             await self._connection.disconnect()
 
+    def force_disconnect(self) -> None:
+        """Drop the connection synchronously; safe to call with none open."""
+        if self._connection is not None:
+            self._connection.force_disconnect()
+
     @property
     def cached_device_has_deep_sleep(self) -> bool | None:
         """has_deep_sleep from this session's cached device_info, or None if not fetched."""
@@ -404,6 +518,95 @@ class APIClient(APIClientBase):
         self._set_name_from_device(info.name)
         self._cached_device_info = info
         return info
+
+    async def device_capabilities(self) -> DeviceCapabilitiesModel:
+        resp = await self._get_connection().send_message_await_response(
+            DeviceCapabilitiesRequest(), DeviceCapabilitiesResponse
+        )
+        return DeviceCapabilitiesModel.from_pb(resp)
+
+    async def device_capabilities_compat(
+        self, device_info: DeviceInfo
+    ) -> DeviceCapabilitiesModel:
+        """Fetch capabilities, synthesising them from device_info below API 1.15."""
+        api_version = self.api_version
+        if api_version is None or api_version >= APIVersion(1, 15):
+            # Without a device version there is no way to interpret device_info,
+            # so defer to the RPC and let it raise the usual not-connected error
+            # rather than guessing a version and mistranslating the flags.
+            return await self.device_capabilities()
+        return DeviceCapabilitiesModel(  # type: ignore[call-arg]
+            bluetooth_proxy=BluetoothProxyCapabilitiesModel(  # type: ignore[call-arg]
+                feature_flags=device_info.bluetooth_proxy_feature_flags_compat(
+                    api_version
+                ),
+                mac_address=device_info.bluetooth_mac_address,
+            ),
+            voice_assistant=VoiceAssistantCapabilitiesModel(  # type: ignore[call-arg]
+                feature_flags=device_info.voice_assistant_feature_flags_compat(
+                    api_version
+                )
+            ),
+            zwave_proxy=ZWaveProxyCapabilitiesModel(  # type: ignore[call-arg]
+                feature_flags=device_info.zwave_proxy_feature_flags_compat(api_version),
+                home_id=device_info.zwave_home_id,
+            ),
+            serial_proxies=device_info.serial_proxies,
+        )
+
+    async def device_wizard(self) -> DeviceWizardModel:
+        """Fetch the onboarding wizard.
+
+        Only call when DeviceCapabilities.wizard.configured is set: a device
+        without a wizard never answers, so the request raises TimeoutAPIError.
+        Raises UnsupportedWizardVersionError when the wizard's format is newer
+        than this client understands; the wizard must not be used then.
+        """
+        resp = await self._get_connection().send_message_await_response(
+            DeviceWizardRequest(), DeviceWizardResponse
+        )
+        return DeviceWizardModel.from_compressed_json(resp.data)
+
+    def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
+        """Set the Home Assistant entity id of the wizard input with the given key.
+
+        A list or a comma separated string sets a multiple input; use
+        WizardInputField.join_entity_ids to check against the input's limits.
+        The device keeps it in RAM only, so the caller stores the choices and sends
+        every input after each connect, before subscribe_home_assistant_states.
+        Raises ValueError for a key outside uint32 or an entity id the device would ignore.
+        """
+        if not 0 <= key <= 0xFFFFFFFF:
+            msg = f"Invalid wizard input key: {key!r}"
+            raise ValueError(msg)
+        if isinstance(entity_id, str):
+            value = entity_id
+        elif any("," in one for one in entity_id):
+            msg = f"Invalid wizard input entity_id: {entity_id!r}"
+            raise ValueError(msg)
+        else:
+            value = ",".join(entity_id)
+        if len(value.encode()) > WIZARD_INPUT_VALUE_MAX_LENGTH or any(
+            "." not in one or len(one.encode()) > WIZARD_INPUT_ENTITY_ID_MAX_LENGTH
+            for one in value.split(",")
+        ):
+            msg = f"Invalid wizard input entity_id: {entity_id!r}"
+            raise ValueError(msg)
+        self._get_connection().send_message(
+            WizardInputSetRequest(key=key, entity_id=value)
+        )
+
+    async def sendspin_pairing_token(self) -> SendspinPairingTokenResponseModel:
+        """Fetch the token a Sendspin server uses to pair with the device.
+
+        Only call when DeviceCapabilities.sendspin.feature_flags has
+        SendspinFeature.PAIRING_TOKEN: other devices never answer, so the request
+        raises TimeoutAPIError. The token is a long-lived secret; never log it.
+        """
+        resp = await self._get_connection().send_message_await_response(
+            SendspinPairingTokenRequest(), SendspinPairingTokenResponse
+        )
+        return SendspinPairingTokenResponseModel.from_pb(resp)
 
     async def list_entities_services(
         self,
@@ -588,14 +791,18 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send an infrared/RF raw timings transmit request."""
+        """Send an infrared/RF raw timings transmit request.
+
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
         req.carrier_frequency = carrier_frequency
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req)
 
     def radio_frequency_transmit_raw_timings(
         self,
@@ -606,7 +813,11 @@ class APIClient(APIClientBase):
         repeat_count: int = 1,
         device_id: int = 0,
     ) -> None:
-        """Send a radio frequency raw timings transmit request."""
+        """Send a radio frequency raw timings transmit request.
+
+        Frames to one device go out one at a time; the next is sent once the
+        device reports that the previous one has finished.
+        """
         req = InfraredRFTransmitRawTimingsRequest()
         req.device_id = device_id
         req.key = key
@@ -614,7 +825,36 @@ class APIClient(APIClientBase):
         req.modulation = modulation
         req.repeat_count = repeat_count
         req.timings.extend(timings)
-        self._get_connection().send_message(req)
+        self._send_ir_rf_transmit(req)
+
+    def _send_ir_rf_transmit(self, req: InfraredRFTransmitRawTimingsRequest) -> None:
+        if (ir_rf := self._ir_rf) is None:
+            connection = self._get_connection()
+            api_version = self.api_version
+            supports_complete = True
+            if (
+                api_version is not None
+                and api_version < MIN_VERSION_IR_RF_TRANSMIT_COMPLETE
+            ):
+                supports_complete = False
+                # the pacing object lives as long as the connection, so this warns once per connection
+                _LOGGER.warning(
+                    "%s: firmware API %s.%s does not report when an IR/RF transmit "
+                    "has finished, so frames are spaced by an estimate and a burst of "
+                    "transmits can overwhelm the device; update to ESPHome 2026.10.0 "
+                    "or newer",
+                    self.log_name,
+                    api_version.major,
+                    api_version.minor,
+                )
+            ir_rf = self._ir_rf = IrRfTransmitPacing(
+                connection, self._loop, supports_complete
+            )
+        ir_rf.send(req)
+
+    def _supports_proxy_ack(self) -> bool:
+        api_version = self.api_version
+        return api_version is None or api_version >= MIN_VERSION_PROXY_ACK
 
     def serial_proxy_configure(
         self,
@@ -627,21 +867,67 @@ class APIClient(APIClientBase):
         data_size: int = 8,
     ) -> None:
         """Configure UART parameters for a serial proxy instance."""
-        if not 1 <= stop_bits <= 2:
-            msg = f"stop_bits must be 1 or 2, got {stop_bits}"
-            raise ValueError(msg)
-        if not 5 <= data_size <= 8:
-            msg = f"data_size must be 5-8, got {data_size}"
-            raise ValueError(msg)
         self._get_connection().send_message(
-            SerialProxyConfigureRequest(
-                instance=instance,
-                baudrate=baudrate,
-                flow_control=flow_control,
-                parity=parity,
-                stop_bits=stop_bits,
-                data_size=data_size,
+            _make_serial_proxy_configure_request(
+                instance, baudrate, flow_control, parity, stop_bits, data_size
             )
+        )
+
+    async def serial_proxy_configure_await_response(
+        self,
+        instance: int,
+        baudrate: int,
+        *,
+        flow_control: bool = False,
+        parity: SerialProxyParity = SerialProxyParity.NONE,
+        stop_bits: int = 1,
+        data_size: int = 8,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel | None:
+        """Configure UART parameters and await the device acknowledgement.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = _make_serial_proxy_configure_request(
+            instance, baudrate, flow_control, parity, stop_bits, data_size
+        )
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.CONFIGURE, timeout
+        )
+
+    def serial_proxy_set_mode(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+    ) -> None:
+        """Set the mode for a serial proxy instance.
+
+        The device only honours this from the currently subscribed client;
+        subscribe to the instance first.
+        """
+        self._get_connection().send_message(
+            SerialProxySetModeRequest(
+                instance=instance,
+                mode=mode,
+            )
+        )
+
+    async def serial_proxy_set_mode_await_response(
+        self,
+        instance: int,
+        mode: SerialProxyMode,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel:
+        """Set a serial proxy mode and await the device acknowledgement."""
+        req = SerialProxySetModeRequest(instance=instance, mode=mode)
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.SET_MODE, timeout
         )
 
     def serial_proxy_write(
@@ -684,30 +970,103 @@ class APIClient(APIClientBase):
             )
         )
 
+    async def serial_proxy_set_modem_pins_await_response(
+        self,
+        instance: int,
+        *,
+        line_states: int = 0,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel | None:
+        """Set modem control pin states and await the device acknowledgement.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = SerialProxySetModemPinsRequest(instance=instance, line_states=line_states)
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+        return await self._await_serial_proxy_response(
+            req, instance, SerialProxyRequestType.SET_MODEM_PINS, timeout
+        )
+
     async def serial_proxy_get_modem_pins(
         self,
         instance: int,
         timeout: float = 10.0,
     ) -> SerialProxyModemPins:
-        """Get current modem control pin states for a serial proxy instance."""
-        resp = await self._send_serial_proxy_get_modem_pins(instance, timeout)
+        """Get current modem control pin states for a serial proxy instance.
+
+        line_states is only meaningful when status is SerialProxyStatus.OK.
+        Devices below API 1.16 never set status, so it always reads OK there;
+        an out-of-range instance times out on those devices instead.
+        """
+        resp = await self._await_serial_proxy_instance_response(
+            SerialProxyGetModemPinsRequest(instance=instance),
+            instance,
+            SerialProxyGetModemPinsResponse,
+            timeout,
+        )
         return SerialProxyModemPins.from_pb(resp)
 
-    async def _send_serial_proxy_get_modem_pins(
+    def subscribe_serial_proxy_identity(
+        self,
+        on_identity: Callable[[SerialProxyIdentityModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to the identity of every serial proxy port.
+
+        The device sends one message per port, then one whenever a port changes.
+        A device below API 1.18 or without the proxy component never answers.
+        The returned callable only detaches the local handler; there is no
+        unsubscribe message.
+        """
+        return self._get_connection().send_message_callback_response(
+            SubscribeSerialProxyIdentityRequest(),
+            partial(
+                on_serial_proxy_identity,
+                on_identity,
+            ),
+            (SerialProxyIdentity,),
+        )
+
+    async def serial_proxy_get_identity(
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyGetModemPinsResponse:
-        req = SerialProxyGetModemPinsRequest(instance=instance)
+    ) -> SerialProxyIdentityModel:
+        """Read the identity of one serial proxy port.
 
-        def is_matching_response(msg: SerialProxyGetModemPinsResponse) -> bool:
+        Subscribes as a side effect, so every subscriber on the connection sees
+        the snapshot again. An unknown instance, a device below API 1.18, or a
+        device without the proxy component never answers and the call times out.
+        """
+        resp = await self._await_serial_proxy_instance_response(
+            SubscribeSerialProxyIdentityRequest(),
+            instance,
+            SerialProxyIdentity,
+            timeout,
+        )
+        return SerialProxyIdentityModel.from_pb(resp)
+
+    async def _await_serial_proxy_instance_response(
+        self,
+        req: message.Message,
+        instance: int,
+        msg_type: type[message.Message],
+        timeout: float,
+    ) -> message.Message:
+        """Send a serial proxy message and await the reply for its instance."""
+
+        def is_matching_response(msg: Any) -> bool:
             return bool(msg.instance == instance)
 
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
             is_matching_response,
             is_matching_response,
-            (SerialProxyGetModemPinsResponse,),
+            (msg_type,),
             timeout,
         )
         return resp
@@ -736,17 +1095,17 @@ class APIClient(APIClientBase):
             )
         )
 
-    async def _send_serial_proxy_request_await_response(
+    async def _await_serial_proxy_response(
         self,
+        req: message.Message,
         instance: int,
-        request_type: SerialProxyRequestType,
-        timeout: float = 10.0,
+        response_type: SerialProxyRequestType,
+        timeout: float,
     ) -> SerialProxyRequestResponseModel:
-        """Send a serial proxy request and await its matching response."""
-        req = SerialProxyRequest(instance=instance, type=request_type)
+        """Send a serial proxy message and await its matching acknowledgement."""
 
         def is_matching_response(msg: SerialProxyRequestResponse) -> bool:
-            return bool(msg.instance == instance and msg.type == request_type)
+            return bool(msg.instance == instance and msg.type == response_type)
 
         [resp] = await self._get_connection().send_messages_await_response_complex(
             (req,),
@@ -757,11 +1116,32 @@ class APIClient(APIClientBase):
         )
         return SerialProxyRequestResponseModel.from_pb(resp)
 
+    async def _send_serial_proxy_request_await_response(
+        self,
+        instance: int,
+        request_type: SerialProxyRequestType,
+        timeout: float = 10.0,
+    ) -> SerialProxyRequestResponseModel | None:
+        """Send a serial proxy request and await its matching response.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = SerialProxyRequest(instance=instance, type=request_type)
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+        return await self._await_serial_proxy_response(
+            req, instance, request_type, timeout
+        )
+
     async def serial_proxy_subscribe_await_response(
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyRequestResponseModel:
+    ) -> SerialProxyRequestResponseModel | None:
         """Subscribe and await confirmation from the serial proxy instance."""
         return await self._send_serial_proxy_request_await_response(
             instance, SerialProxyRequestType.SUBSCRIBE, timeout
@@ -771,10 +1151,69 @@ class APIClient(APIClientBase):
         self,
         instance: int,
         timeout: float = 10.0,
-    ) -> SerialProxyRequestResponseModel:
+    ) -> SerialProxyRequestResponseModel | None:
         """Unsubscribe and await confirmation from the serial proxy instance."""
         return await self._send_serial_proxy_request_await_response(
             instance, SerialProxyRequestType.UNSUBSCRIBE, timeout
+        )
+
+    def zwave_proxy_subscribe(self) -> None:
+        """Subscribe to receive frames from the Z-Wave proxy."""
+        self._get_connection().send_message(
+            ZWaveProxyRequest(type=ZWaveProxyRequestType.SUBSCRIBE)
+        )
+
+    def zwave_proxy_unsubscribe(self) -> None:
+        """Unsubscribe from the Z-Wave proxy."""
+        self._get_connection().send_message(
+            ZWaveProxyRequest(type=ZWaveProxyRequestType.UNSUBSCRIBE)
+        )
+
+    async def _send_zwave_proxy_request_await_response(
+        self,
+        request_type: ZWaveProxyRequestType,
+        timeout: float = 10.0,
+    ) -> ZWaveProxyRequestResponseModel | None:
+        """Send a Z-Wave proxy request and await its matching response.
+
+        Returns None when the device is too old to acknowledge (API < 1.16);
+        the request is still sent. A device that does not have the proxy
+        component never answers and the call raises TimeoutAPIError; check
+        the device capabilities before calling.
+        """
+        req = ZWaveProxyRequest(type=request_type)
+        if not self._supports_proxy_ack():
+            self._get_connection().send_message(req)
+            return None
+
+        def is_matching_response(msg: ZWaveProxyRequestResponse) -> bool:
+            return bool(msg.type == request_type)
+
+        [resp] = await self._get_connection().send_messages_await_response_complex(
+            (req,),
+            is_matching_response,
+            is_matching_response,
+            (ZWaveProxyRequestResponse,),
+            timeout,
+        )
+        return ZWaveProxyRequestResponseModel.from_pb(resp)
+
+    async def zwave_proxy_subscribe_await_response(
+        self,
+        timeout: float = 10.0,
+    ) -> ZWaveProxyRequestResponseModel | None:
+        """Subscribe and await confirmation from the Z-Wave proxy."""
+        return await self._send_zwave_proxy_request_await_response(
+            ZWaveProxyRequestType.SUBSCRIBE, timeout
+        )
+
+    async def zwave_proxy_unsubscribe_await_response(
+        self,
+        timeout: float = 10.0,
+    ) -> ZWaveProxyRequestResponseModel | None:
+        """Unsubscribe and await confirmation from the Z-Wave proxy."""
+        return await self._send_zwave_proxy_request_await_response(
+            ZWaveProxyRequestType.UNSUBSCRIBE, timeout
         )
 
     async def serial_proxy_flush(
@@ -783,7 +1222,10 @@ class APIClient(APIClientBase):
         timeout: float = 10.0,
     ) -> SerialProxyRequestResponseModel:
         """Flush the serial port and await confirmation."""
-        return await self._send_serial_proxy_request_await_response(
+        # Flush has been acknowledged since the feature was introduced,
+        # so it is not gated on MIN_VERSION_PROXY_ACK
+        return await self._await_serial_proxy_response(
+            SerialProxyRequest(instance=instance, type=SerialProxyRequestType.FLUSH),
             instance,
             SerialProxyRequestType.FLUSH,
             timeout,
@@ -1133,6 +1575,20 @@ class APIClient(APIClientBase):
         )
         raise BluetoothConnectionDroppedError(msg)
 
+    def bluetooth_device_disconnect_no_wait(self, address: int) -> None:
+        """Disconnect from a Bluetooth device without waiting for a response.
+
+        Sends the disconnect request and returns immediately instead of
+        awaiting the device's connection state change, so a cleanup or
+        cancellation path can release the connection slot without an
+        uncancellable wait. The device frees the slot when it processes
+        the request and reports the state change through the usual
+        subscriptions.
+
+        Raises APIConnectionError if the API connection is not open.
+        """
+        self._bluetooth_disconnect_no_wait(address)
+
     def _bluetooth_disconnect_no_wait(self, address: int) -> None:
         """Disconnect from a Bluetooth device without waiting for a response."""
         self._get_connection().send_message(
@@ -1446,6 +1902,8 @@ class APIClient(APIClientBase):
         tilt: float | None = None,
         stop: bool = False,
         device_id: int = 0,
+        *,
+        stop_tilt: bool = False,
     ) -> None:
         connection = self._get_connection()
         req = CoverCommandRequest(key=key, device_id=device_id)
@@ -1461,6 +1919,8 @@ class APIClient(APIClientBase):
                 req.tilt = tilt
             if stop:
                 req.stop = stop
+            if stop_tilt:
+                req.stop_tilt = stop_tilt
         elif stop:
             req.legacy_command = LegacyCoverCommand.STOP
             req.has_legacy_command = True

@@ -74,9 +74,9 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
 
 def test_make_hello_request_api_version() -> None:
-    request = _make_hello_request("test client")
+    request = _make_hello_request("test client", False)
     assert request.api_version_major == 1
-    assert request.api_version_minor == 15
+    assert request.api_version_minor == 19
 
 
 @pytest.mark.parametrize(

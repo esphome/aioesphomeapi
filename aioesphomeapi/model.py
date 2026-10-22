@@ -4,9 +4,12 @@ import contextlib
 from dataclasses import asdict, dataclass, field, fields
 import enum
 from functools import cache, lru_cache, partial
+import importlib
+import json
+import math
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
-from uuid import UUID
 
+from .core import InvalidWizardError, UnsupportedWizardVersionError
 from .util import fix_float_single_double_conversion
 
 _dataclass_decorator = partial(dataclass, slots=True)
@@ -14,14 +17,12 @@ _frozen_dataclass_decorator = partial(dataclass, frozen=True, slots=True)
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Sequence
+    from types import ModuleType
 
     from google.protobuf import message
 
-    from .api_pb2 import (  # type: ignore[attr-defined]
-        BluetoothLEAdvertisementResponse,
-        HomeassistantServiceMap,
-    )
+    from .api_pb2 import BluetoothLEAdvertisementResponse, HomeassistantServiceMap  # type: ignore[attr-defined]
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
@@ -56,6 +57,11 @@ class APIIntEnum(enum.IntEnum):
 cached_fields = cache(fields)
 
 
+@cache
+def _float_field_names(cls: type[Any]) -> frozenset[str]:
+    return frozenset(f.name for f in cached_fields(cls) if f.type in ("float", float))  # type: ignore[arg-type]
+
+
 @_frozen_dataclass_decorator
 class APIModelBase:
     def __post_init__(self) -> None:
@@ -72,9 +78,16 @@ class APIModelBase:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], *, ignore_missing: bool = True) -> Self:
+        # JSON has no representation for NaN or inf, so serializers such as
+        # orjson emit null; map it back to NaN for float fields.
+        float_fields = _float_field_names(cls)  # type: ignore[arg-type]
         return cls(
             **{
-                f.name: data[f.name]
+                f.name: (
+                    math.nan
+                    if f.name in float_fields and data[f.name] is None
+                    else data[f.name]
+                )
                 for f in cached_fields(cls)  # type: ignore[arg-type]
                 if f.name in data or (not ignore_missing)
             }
@@ -104,6 +117,22 @@ def converter_field(*, converter: Callable[[Any], _V], **kwargs: Any) -> _V:
 class APIVersion(APIModelBase):
     major: int = 0
     minor: int = 0
+
+
+class DisconnectReason(APIIntEnum):
+    UNSPECIFIED = 0
+    PROVISIONING_CLOSED = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectionClosedEvent:
+    """Why a connection closed, passed to connection closed callbacks."""
+
+    expected_disconnect: bool = False
+    # Only set when the device requested the disconnect. `UNSPECIFIED` when no specific
+    # reason exists. `None` for a reason this version of the client does not know about.
+    reason: DisconnectReason | None = DisconnectReason.UNSPECIFIED
+    error: Exception | None = None
 
 
 class BluetoothProxyFeature(enum.IntFlag):
@@ -144,10 +173,20 @@ class ZWaveProxyFeature(enum.IntFlag):
     ENABLED = 1 << 0
 
 
+class SendspinFeature(enum.IntFlag):
+    PAIRING_TOKEN = 1 << 0
+
+
 class ZWaveProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
     HOME_ID_CHANGE = 2
+
+
+class ZWaveProxyStatus(APIIntEnum):
+    OK = 0
+    IN_USE = 1
+    NOT_SUPPORTED = 2
 
 
 @_frozen_dataclass_decorator
@@ -159,6 +198,17 @@ class ZWaveProxyFrame(APIModelBase):
 class ZWaveProxyRequest(APIModelBase):
     type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyRequestResponse(APIModelBase):
+    type: ZWaveProxyRequestType | None = converter_field(
+        default=ZWaveProxyRequestType.SUBSCRIBE,
+        converter=ZWaveProxyRequestType.convert,
+    )
+    status: ZWaveProxyStatus | None = converter_field(
+        default=ZWaveProxyStatus.OK, converter=ZWaveProxyStatus.convert
+    )
 
 
 class InfraredCapability(enum.IntFlag):
@@ -198,11 +248,19 @@ class AreaInfo(APIModelBase):
         return cls.from_pb(value)
 
 
+class DeviceRelation(APIIntEnum):
+    VIA = 0
+    CHILD = 1
+
+
 @_frozen_dataclass_decorator
 class SubDeviceInfo(APIModelBase):
     device_id: int = 0
     name: str = ""
     area_id: int = 0
+    relation: DeviceRelation | None = converter_field(
+        default=DeviceRelation.VIA, converter=DeviceRelation.convert
+    )
 
 
 @_frozen_dataclass_decorator
@@ -215,6 +273,12 @@ class SerialProxyPortType(APIIntEnum):
     TTL = 0
     RS232 = 1
     RS485 = 2
+    USB_SERIAL = 3
+
+
+class SerialProxyMode(APIIntEnum):
+    RAW = 0
+    PROTOCOL = 1
 
 
 @_frozen_dataclass_decorator
@@ -223,6 +287,9 @@ class SerialProxyInfo(APIModelBase):
     port_type: SerialProxyPortType | None = converter_field(
         default=SerialProxyPortType.TTL, converter=SerialProxyPortType.convert
     )
+    # Bitmask of SerialProxyLineStateFlag the instance can drive; devices below
+    # API 1.16 never send it, so 0 there means "unknown", not "drives nothing"
+    configured_line_states: int = 0
 
 
 @_frozen_dataclass_decorator
@@ -249,6 +316,7 @@ class DeviceInfo(APIModelBase):
     bluetooth_mac_address: str = ""
     api_encryption_supported: bool = False
     api_encryption_provisionable: bool = False
+    api_outgoing_connection_supported: bool = False
     devices: list[SubDeviceInfo] = converter_field(
         default_factory=list, converter=SubDeviceInfo.convert_list
     )
@@ -295,6 +363,223 @@ class DeviceInfo(APIModelBase):
         return self.zwave_proxy_feature_flags
 
 
+@_frozen_dataclass_decorator
+class BluetoothProxyCapabilities(APIModelBase):
+    feature_flags: int = 0
+    mac_address: str = ""
+
+    @classmethod
+    def convert(cls, value: Any) -> BluetoothProxyCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantCapabilities(APIModelBase):
+    feature_flags: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> VoiceAssistantCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyCapabilities(APIModelBase):
+    feature_flags: int = 0
+    home_id: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> ZWaveProxyCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class WizardCapabilities(APIModelBase):
+    configured: bool = False
+
+    @classmethod
+    def convert(cls, value: Any) -> WizardCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class SendspinCapabilities(APIModelBase):
+    feature_flags: int = 0
+    # Empty on older firmware, or until the device's Sendspin client has started
+    # once since boot.
+    client_id: str = ""
+
+    @classmethod
+    def convert(cls, value: Any) -> SendspinCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class DeviceCapabilities(APIModelBase):
+    bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
+        default_factory=BluetoothProxyCapabilities,
+        converter=BluetoothProxyCapabilities.convert,
+    )
+    voice_assistant: VoiceAssistantCapabilities = converter_field(
+        default_factory=VoiceAssistantCapabilities,
+        converter=VoiceAssistantCapabilities.convert,
+    )
+    zwave_proxy: ZWaveProxyCapabilities = converter_field(
+        default_factory=ZWaveProxyCapabilities,
+        converter=ZWaveProxyCapabilities.convert,
+    )
+    serial_proxies: list[SerialProxyInfo] = converter_field(
+        default_factory=list, converter=SerialProxyInfo.convert_list
+    )
+    wizard: WizardCapabilities = converter_field(
+        default_factory=WizardCapabilities,
+        converter=WizardCapabilities.convert,
+    )
+    sendspin: SendspinCapabilities = converter_field(
+        default_factory=SendspinCapabilities,
+        converter=SendspinCapabilities.convert,
+    )
+
+
+def _string_list(value: Iterable[str]) -> list[str]:
+    """Convert to a list of strings, refusing a bare string."""
+    if isinstance(value, str):
+        msg = f"Expected a list of strings, got {value!r}"
+        raise TypeError(msg)
+    return list(value)
+
+
+@_frozen_dataclass_decorator
+class WizardEntityFilter(APIModelBase):
+    integration: str = ""
+    domain: list[str] = converter_field(default_factory=list, converter=_string_list)
+    device_class: list[str] = converter_field(
+        default_factory=list, converter=_string_list
+    )
+    supported_features: list[str] = converter_field(
+        default_factory=list, converter=_string_list
+    )
+
+
+@_frozen_dataclass_decorator
+class WizardEntityField(APIModelBase):
+    key: int = 0
+    device_id: int = 0
+    description: str = ""
+
+
+@_frozen_dataclass_decorator
+class WizardInputField(APIModelBase):
+    key: int = 0
+    description: str = ""
+    multiple: bool = False
+    max_length: int = 255
+    entity_filters: list[WizardEntityFilter] = converter_field(
+        default_factory=list, converter=WizardEntityFilter.convert_list
+    )
+
+    def join_entity_ids(self, entity_ids: Sequence[str]) -> str:
+        """Join entity ids into the value WizardInputSetRequest sends for this input.
+
+        Raises ValueError for picks the device would reject.
+        """
+        if isinstance(entity_ids, str):
+            msg = f"Expected a list of entity ids, got {entity_ids!r}"
+            raise TypeError(msg)
+        if not entity_ids:
+            msg = "No entity ids given"
+            raise ValueError(msg)
+        if len(entity_ids) > 1 and not self.multiple:
+            msg = f"Wizard input {self.key} accepts a single entity id"
+            raise ValueError(msg)
+        for entity_id in entity_ids:
+            if "." not in entity_id or "," in entity_id:
+                msg = f"Invalid wizard input entity_id: {entity_id!r}"
+                raise ValueError(msg)
+        joined = ",".join(entity_ids)
+        if len(joined.encode()) > self.max_length:
+            msg = (
+                f"Wizard input {self.key} entity ids are longer than "
+                f"{self.max_length} bytes"
+            )
+            raise ValueError(msg)
+        return joined
+
+
+@_frozen_dataclass_decorator
+class WizardPage(APIModelBase):
+    title: str = ""
+    description: str = ""
+    entities: list[WizardEntityField] = converter_field(
+        default_factory=list, converter=WizardEntityField.convert_list
+    )
+    inputs: list[WizardInputField] = converter_field(
+        default_factory=list, converter=WizardInputField.convert_list
+    )
+
+
+@_frozen_dataclass_decorator
+class DeviceWizard(APIModelBase):
+    pages: list[WizardPage] = converter_field(
+        default_factory=list, converter=WizardPage.convert_list
+    )
+
+    @classmethod
+    def from_compressed_json(cls, data: bytes) -> DeviceWizard:
+        """Decode the zstd-compressed JSON of DeviceWizardResponse.data.
+
+        Raises InvalidWizardError, or its UnsupportedWizardVersionError subclass for a
+        version this client does not know.
+        """
+        zstd = _zstd_module()
+        decompressor = zstd.ZstdDecompressor()
+        try:
+            text = decompressor.decompress(data, max_length=_WIZARD_JSON_MAX_SIZE)
+        except zstd.ZstdError as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+        if not decompressor.eof:
+            msg = "Device wizard is truncated or too large"
+            raise InvalidWizardError(msg)
+        try:
+            document = json.loads(text)
+        except ValueError as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+        if not isinstance(document, dict):
+            msg = "Device wizard is not a JSON object"
+            raise InvalidWizardError(msg)
+        if (version := document.get("version")) != _WIZARD_JSON_VERSION:
+            raise UnsupportedWizardVersionError(version)
+        try:
+            return cls.from_dict(document)
+        except (TypeError, ValueError, AttributeError) as err:
+            msg = f"Invalid device wizard: {err}"
+            raise InvalidWizardError(msg) from err
+
+
+_WIZARD_JSON_VERSION = 1
+# A real wizard is a few kB; the cap bounds what a small frame may expand to
+_WIZARD_JSON_MAX_SIZE = 1 << 20
+
+
+def _zstd_module() -> ModuleType:
+    """Return the standard library zstd module from Python 3.14, otherwise the backport."""
+    try:
+        return importlib.import_module("compression.zstd")
+    except ImportError:
+        return importlib.import_module("backports.zstd")
+
+
 class EntityCategory(APIIntEnum):
     NONE = 0
     CONFIG = 1
@@ -318,6 +603,12 @@ class EntityInfo(APIModelBase):
 class EntityState(APIModelBase):
     key: int = 0
     device_id: int = 0
+
+    def with_device_id(self, device_id: int) -> Self:
+        """Return a copy of this state that belongs to another device."""
+        values = {f.name: getattr(self, f.name) for f in cached_fields(type(self))}  # type: ignore[arg-type]
+        values["device_id"] = device_id
+        return type(self)(**values)
 
 
 @_frozen_dataclass_decorator
@@ -347,6 +638,7 @@ class CoverInfo(EntityInfo):
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
+    supports_stop_tilt: bool = False
 
 
 class LegacyCoverState(APIIntEnum):
@@ -608,6 +900,7 @@ class SwitchInfo(EntityInfo):
 @_frozen_dataclass_decorator
 class SwitchState(EntityState):
     state: bool = False
+    missing_state: bool = False
 
 
 # ==================== TEXT SENSOR ====================
@@ -798,6 +1091,7 @@ class ClimateState(EntityState):
     custom_preset: str = ""
     current_humidity: float = 0
     target_humidity: float = 0
+    missing_state: bool = False
 
     def preset_compat(self, api_version: APIVersion) -> ClimatePreset | None:
         if api_version < APIVersion(1, 5):
@@ -1215,6 +1509,7 @@ class WaterHeaterState(EntityState):
         default=WaterHeaterMode.OFF, converter=WaterHeaterMode.convert
     )
     state: int = 0
+    missing_state: bool = False
 
 
 # ==================== TEXT ====================
@@ -1299,6 +1594,24 @@ class RadioFrequencyInfo(EntityInfo):
 # ==================== SERIAL PROXY ====================
 
 
+class SerialProxyLineStateFlag(enum.IntFlag):
+    """Modem control line bits used in line_states and configured_line_states."""
+
+    RTS = 1 << 0
+    DTR = 1 << 1
+
+
+class SerialProxyIdentitySource(APIIntEnum):
+    NONE = 0
+    CONFIGURED = 1
+    USB = 2
+
+
+class SerialProxyIdentityFlag(enum.IntFlag):
+    CONNECTED = 1 << 0
+    ERROR = 1 << 1
+
+
 class SerialProxyParity(APIIntEnum):
     NONE = 0
     EVEN = 1
@@ -1309,6 +1622,9 @@ class SerialProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
     FLUSH = 2
+    CONFIGURE = 3
+    SET_MODEM_PINS = 4
+    SET_MODE = 5
 
 
 class SerialProxyStatus(APIIntEnum):
@@ -1317,6 +1633,8 @@ class SerialProxyStatus(APIIntEnum):
     ERROR = 2
     TIMEOUT = 3
     NOT_SUPPORTED = 4
+    PORT_IN_USE = 5
+    INVALID_ARGUMENT = 6
 
 
 @_frozen_dataclass_decorator
@@ -1342,6 +1660,44 @@ class SerialProxyRequestResponse(APIModelBase):
 class SerialProxyModemPins(APIModelBase):
     instance: int = 0
     line_states: int = 0
+    status: SerialProxyStatus | None = converter_field(
+        default=SerialProxyStatus.OK, converter=SerialProxyStatus.convert
+    )
+
+
+@_frozen_dataclass_decorator
+class UsbDeviceDescriptor(APIModelBase):
+    vendor_id: int = 0
+    product_id: int = 0
+    bcd_device: int = 0
+    interface_number: int = 0
+    interface_class: int = 0
+    port_number: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> UsbDeviceDescriptor:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
+class SerialProxyIdentity(APIModelBase):
+    """Identity of the device behind a serial proxy port."""
+
+    instance: int = 0
+    source: SerialProxyIdentitySource | None = converter_field(
+        default=SerialProxyIdentitySource.NONE,
+        converter=SerialProxyIdentitySource.convert,
+    )
+    flags: int = 0
+    manufacturer: str = ""
+    product: str = ""
+    serial_number: str = ""
+    # All zero unless source is USB
+    usb: UsbDeviceDescriptor = converter_field(
+        default_factory=UsbDeviceDescriptor, converter=UsbDeviceDescriptor.convert
+    )
 
 
 # ==================== INFO MAP ====================
@@ -1438,6 +1794,8 @@ class UserServiceArg(APIModelBase):
     type: UserServiceArgType | None = converter_field(
         default=UserServiceArgType.BOOL, converter=UserServiceArgType.convert
     )
+    description: str = ""
+    example: str = ""
 
     @classmethod
     def convert_list(cls, value: list[Any]) -> list[UserServiceArg]:
@@ -1462,6 +1820,7 @@ class UserService(APIModelBase):
     supports_response: SupportsResponseType | None = converter_field(
         default=SupportsResponseType.NONE, converter=SupportsResponseType.convert
     )
+    description: str = ""
 
 
 @_frozen_dataclass_decorator
@@ -1489,7 +1848,14 @@ def _join_split_uuid(value: list[int]) -> str:
 
 @lru_cache(maxsize=256)
 def _join_split_uuid_high_low(high: int, low: int) -> str:
-    return str(UUID(int=(high << 64) | low))
+    # Same output and range check as str(UUID(int=...)) without
+    # importing the uuid module
+    value = (high << 64) | low
+    if not 0 <= value < 1 << 128:
+        msg = "int is out of range (need a 128-bit value)"
+        raise ValueError(msg)
+    h = f"{value:032x}"
+    return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:]}"
 
 
 @lru_cache(maxsize=256)
@@ -1863,6 +2229,24 @@ class NoiseEncryptionSetKeyResponse(APIModelBase):
     success: bool = False
 
 
+class SendspinPairingTokenStatus(APIIntEnum):
+    NOT_READY = 0
+    OK = 1
+    ENCRYPTION_REQUIRED = 2
+    DISABLED = 3
+    FAILED = 4
+
+
+@_frozen_dataclass_decorator
+class SendspinPairingTokenResponse(APIModelBase):
+    status: SendspinPairingTokenStatus | None = converter_field(
+        default=SendspinPairingTokenStatus.NOT_READY,
+        converter=SendspinPairingTokenStatus.convert,
+    )
+    # A long-lived secret, so it is kept out of repr
+    token: str = field(default="", repr=False)
+
+
 class LogLevel(APIIntEnum):
     LOG_LEVEL_NONE = 0
     LOG_LEVEL_ERROR = 1
@@ -2050,6 +2434,7 @@ __all__ = (
     "BluetoothGATTService",
     "BluetoothGATTServices",
     "BluetoothLEAdvertisement",
+    "BluetoothProxyCapabilities",
     "BluetoothProxyFeature",
     "BluetoothProxySubscriptionFlag",
     "BluetoothScannerMode",
@@ -2068,6 +2453,7 @@ __all__ = (
     "ClimateSwingMode",
     "ColorMode",
     "CommandProtoMessage",
+    "ConnectionClosedEvent",
     "CoverInfo",
     "CoverOperation",
     "CoverState",
@@ -2075,8 +2461,12 @@ __all__ = (
     "DateState",
     "DateTimeInfo",
     "DateTimeState",
+    "DeviceCapabilities",
     "DeviceInfo",
+    "DeviceRelation",
     "DeviceState",
+    "DeviceWizard",
+    "DisconnectReason",
     "ESPHomeBluetoothGATTServices",
     "EntityCategory",
     "EntityInfo",
@@ -2121,11 +2511,20 @@ __all__ = (
     "RadioFrequencyModulation",
     "SelectInfo",
     "SelectState",
+    "SendspinCapabilities",
+    "SendspinFeature",
+    "SendspinPairingTokenResponse",
+    "SendspinPairingTokenStatus",
     "SensorInfo",
     "SensorState",
     "SensorStateClass",
     "SerialProxyDataReceived",
+    "SerialProxyIdentity",
+    "SerialProxyIdentityFlag",
+    "SerialProxyIdentitySource",
     "SerialProxyInfo",
+    "SerialProxyLineStateFlag",
+    "SerialProxyMode",
     "SerialProxyModemPins",
     "SerialProxyParity",
     "SerialProxyPortType",
@@ -2149,6 +2548,7 @@ __all__ = (
     "UpdateCommand",
     "UpdateInfo",
     "UpdateState",
+    "UsbDeviceDescriptor",
     "UserService",
     "UserServiceArg",
     "UserServiceArgType",
@@ -2158,6 +2558,7 @@ __all__ = (
     "VoiceAssistantAnnounceFinished",
     "VoiceAssistantAudioData",
     "VoiceAssistantAudioSettings",
+    "VoiceAssistantCapabilities",
     "VoiceAssistantCommand",
     "VoiceAssistantCommandFlag",
     "VoiceAssistantConfigurationRequest",
@@ -2175,10 +2576,18 @@ __all__ = (
     "WaterHeaterMode",
     "WaterHeaterState",
     "WaterHeaterStateFlag",
+    "WizardCapabilities",
+    "WizardEntityField",
+    "WizardEntityFilter",
+    "WizardInputField",
+    "WizardPage",
+    "ZWaveProxyCapabilities",
     "ZWaveProxyFeature",
     "ZWaveProxyFrame",
     "ZWaveProxyRequest",
+    "ZWaveProxyRequestResponse",
     "ZWaveProxyRequestType",
+    "ZWaveProxyStatus",
     "build_device_unique_id",
     "build_unique_id",
 )

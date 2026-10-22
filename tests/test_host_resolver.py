@@ -76,8 +76,8 @@ async def test_resolve_host_zeroconf(async_zeroconf: AsyncZeroconf, addr_infos):
     ]
     info.async_request = AsyncMock(return_value=True)
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
-        patch("aioesphomeapi.zeroconf.AsyncZeroconf", return_value=async_zeroconf),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncZeroconf", return_value=async_zeroconf),
     ):
         ret = await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf", 6052)
 
@@ -93,7 +93,7 @@ async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
         [ipv6],
     ]
     info.async_request = AsyncMock(return_value=True)
-    with patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info):
+    with patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info):
         ret = await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf", 6052)
 
     info.async_request.assert_called_once()
@@ -102,9 +102,7 @@ async def test_resolve_host_passed_zeroconf(addr_infos, async_zeroconf):
 
 
 async def test_resolve_host_zeroconf_empty(async_zeroconf: AsyncZeroconf):
-    with patch(
-        "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request"
-    ) as mock_async_request:
+    with patch("zeroconf.asyncio.AsyncServiceInfo.async_request") as mock_async_request:
         ret = await hr._async_resolve_short_host_zeroconf(
             async_zeroconf, "asdf.local", 6052
         )
@@ -115,7 +113,7 @@ async def test_resolve_host_zeroconf_empty(async_zeroconf: AsyncZeroconf):
 async def test_resolve_host_zeroconf_fails(async_zeroconf: AsyncZeroconf):
     with (
         patch(
-            "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request",
+            "zeroconf.asyncio.AsyncServiceInfo.async_request",
             side_effect=Exception("no buffers"),
         ),
         pytest.raises(ResolveAPIError, match="no buffers"),
@@ -270,7 +268,7 @@ async def test_resolve_host_mdns_and_dns_slow_mdns_wins(
         return []
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", slow_getaddrinfo),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -302,7 +300,7 @@ async def test_resolve_host_mdns_and_dns_exception_mdns_wins(
         raise OSError(None, "DNS exception")
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", slow_getaddrinfo),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -334,7 +332,7 @@ async def test_resolve_host_mdns_and_dns_fast_mdns_wins(
         return []
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", slow_getaddrinfo),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -377,7 +375,7 @@ async def test_resolve_host_mdns_and_dns_slow_dns_wins(
         return mock_getaddrinfo
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", slow_getaddrinfo),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -418,7 +416,7 @@ async def test_resolve_host_mdns_and_mdns_exception_dns_wins(
         return mock_getaddrinfo
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", fast_getaddrinfo),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -453,7 +451,7 @@ async def test_resolve_host_mdns_and_mdns_no_results_dns_wins(
         return mock_getaddrinfo
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", fast_getaddrinfo),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -493,7 +491,7 @@ async def test_resolve_host_mdns_and_dns_fast_dns_wins(
         raise OSError(msg)
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", fast_getaddrinfo),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -512,7 +510,7 @@ async def test_resolve_host_mdns_cache(addr_infos: list[AddrInfo]) -> None:
     ]
     info.async_request = AsyncMock(return_value=False)
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo") as mock_getaddrinfo,
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -539,7 +537,7 @@ async def test_resolve_host_mdns_and_mdns_both_fail(
         raise OSError(None, "DNS exception")
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", fast_fail_getaddrinfo),
         pytest.raises(ResolveAPIError, match="DNS exception"),
     ):
@@ -572,7 +570,7 @@ async def test_resolve_host_mdns_and_dns_slow_all_timeout(
         return mock_getaddrinfo
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", slow_getaddrinfo),
         pytest.raises(ResolveTimeoutAPIError, match="x"),
     ):
@@ -599,7 +597,7 @@ async def test_resolve_host_mdns_empty(resolve_addr, resolve_zc, addr_infos):
         assert addr in ret
 
 
-@patch("aioesphomeapi.host_resolver.AsyncServiceInfo.async_request", return_value=False)
+@patch("zeroconf.asyncio.AsyncServiceInfo.async_request", return_value=False)
 @patch("aioesphomeapi.host_resolver._async_resolve_host_getaddrinfo")
 async def test_resolve_host_mdns_no_results(resolve_addr, addr_infos):
     resolve_addr.return_value = addr_infos
@@ -778,7 +776,7 @@ async def test_resolve_host_local_suffix_fallback_wins(
         raise OSError(msg)
 
     with (
-        patch("aioesphomeapi.host_resolver.AsyncServiceInfo", return_value=info),
+        patch("zeroconf.asyncio.AsyncServiceInfo", return_value=info),
         patch.object(loop, "getaddrinfo", getaddrinfo_with_fallback),
     ):
         ret = await hr.async_resolve_host(["example.local"], 6052)
@@ -817,10 +815,10 @@ async def test_resolve_host_zeroconf_service_info_oserror(
     info.async_request = AsyncMock(return_value=True)
     with (
         patch(
-            "aioesphomeapi.host_resolver.AsyncServiceInfo.async_request",
+            "zeroconf.asyncio.AsyncServiceInfo.async_request",
             side_effect=OSError("out of buffers"),
         ),
-        patch("aioesphomeapi.zeroconf.AsyncZeroconf", return_value=async_zeroconf),
+        patch("zeroconf.asyncio.AsyncZeroconf", return_value=async_zeroconf),
         pytest.raises(ResolveAPIError, match="out of buffers"),
     ):
         await hr._async_resolve_short_host_zeroconf(async_zeroconf, "asdf", 6052)
@@ -838,7 +836,7 @@ async def test_resolve_host_create_zeroconf_oserror(
     info.async_request = AsyncMock(return_value=True)
     with (
         patch(
-            "aioesphomeapi.zeroconf.AsyncZeroconf",
+            "zeroconf.asyncio.AsyncZeroconf",
             side_effect=OSError("out of buffers"),
         ),
         pytest.raises(ResolveAPIError, match="out of buffers"),

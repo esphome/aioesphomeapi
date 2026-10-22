@@ -11,11 +11,18 @@ from aioesphomeapi.singleton import _SINGLETON_CACHE
 from aioesphomeapi.timezone import (
     _extract_tz_string,
     _get_local_timezone,
+    _load_resources,
     _load_tzdata,
+    _load_tzlocal,
     get_local_timezone,
     get_timezone,
     iana_to_posix_tz,
 )
+
+# Populate the lazily imported tzlocal/resources module globals so the
+# patch targets below resolve.
+_load_resources()
+_load_tzlocal()
 
 
 @pytest.fixture(autouse=True)

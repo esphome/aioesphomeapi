@@ -1,8 +1,5 @@
 # ruff: noqa: F401, F403
-from .api_pb2 import (  # type: ignore[attr-defined]
-    BluetoothLERawAdvertisement,
-    BluetoothLERawAdvertisementsResponse,
-)
+from .api_pb2 import BluetoothLERawAdvertisement, BluetoothLERawAdvertisementsResponse  # type: ignore[attr-defined]
 from .ble_defs import ESP_CONNECTION_ERROR_DESCRIPTION, BLEConnectionError
 from .client import APIClient
 from .connection import APIConnection, ConnectionParams
@@ -19,12 +16,18 @@ from .core import (
     HandshakeAPIError,
     InvalidAuthAPIError,
     InvalidEncryptionKeyAPIError,
+    InvalidWizardError,
     ProtocolAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
     SocketAPIError,
+    UnsupportedWizardVersionError,
     wifi_mac_to_bluetooth_mac,
 )
 from .log_parser import LogParser, parse_log_message
 from .model import *
+from .outgoing_connection import (
+    DEFAULT_OUTGOING_CONNECTION_PORT,
+    OutgoingConnectionServer,
+)
 from .reconnect_logic import ReconnectLogic

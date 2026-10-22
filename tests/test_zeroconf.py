@@ -31,7 +31,7 @@ async def test_does_not_closed_passed_in_sync_instance(async_zeroconf: AsyncZero
 
 async def test_closes_created_instance(async_zeroconf: AsyncZeroconf):
     """Test that the created instance is closed."""
-    with patch("aioesphomeapi.zeroconf.AsyncZeroconf", return_value=async_zeroconf):
+    with patch("zeroconf.asyncio.AsyncZeroconf", return_value=async_zeroconf):
         manager = ZeroconfManager()
         assert manager.get_async_zeroconf() is async_zeroconf
         await manager.async_close()

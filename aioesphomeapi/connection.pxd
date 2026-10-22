@@ -32,6 +32,7 @@ cdef object DisconnectRequest
 cdef object PingRequest
 cdef object GetTimeRequest, GetTimeResponse
 cdef object HelloRequest, HelloResponse
+cdef object SendspinPairingTokenResponse
 
 cdef object APIVersion
 
@@ -78,7 +79,6 @@ cdef tuple MESSAGE_NUMBER_TO_PROTO
 cdef Py_ssize_t _MESSAGE_NUMBER_TO_PROTO_LEN
 
 
-@cython.dataclasses.dataclass
 cdef class ConnectionParams:
 
     cdef public list addresses
@@ -92,6 +92,7 @@ cdef class ConnectionParams:
     cdef public object expected_mac
     cdef public object timezone
     cdef public bint provide_time
+    cdef public bint outgoing_connection_target
 
 
 cdef class APIConnection:
@@ -123,6 +124,7 @@ cdef class APIConnection:
     cdef public str connected_address
     cdef public object disconnect_reason
     cdef str _cached_timezone
+    cdef public object _timezone_task
     cdef list _addrs_info
     cdef bint _log_errors
 

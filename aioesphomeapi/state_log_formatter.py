@@ -29,6 +29,8 @@ from .model import (
     SensorState,
     SirenState,
     SwitchState,
+    TextInfo,
+    TextMode,
     TextSensorState,
     TextState,
     TimeState,
@@ -97,6 +99,8 @@ def _format_binary_sensor(
 
 
 def _format_switch(state: SwitchState, info: EntityInfo | None) -> str | None:
+    if state.missing_state:
+        return None
     return _header("switch", info, _on_off(state.state))
 
 
@@ -130,9 +134,11 @@ def _format_event(state: Event, info: EntityInfo | None) -> str | None:
     return _header("event", info, f"'{state.event_type}'")
 
 
-def _format_text(state: TextState, info: EntityInfo | None) -> str | None:
+def _format_text(state: TextState, info: TextInfo | None) -> str | None:
     if state.missing_state:
         return None
+    if info is not None and info.mode == TextMode.PASSWORD:
+        return _header("text", info, "'********'")
     return _header("text", info, f"'{state.state}'")
 
 
@@ -277,6 +283,8 @@ def _climate_humidity_lines(
 
 
 def _format_climate(state: ClimateState, info: ClimateInfo | None) -> str | None:
+    if state.missing_state:
+        return None
     tag = "climate"
     parts = [
         f"[S][{tag}]: '{_name(info)}' >>",
@@ -309,6 +317,8 @@ def _format_media_player(
 def _format_water_heater(
     state: WaterHeaterState, info: EntityInfo | None
 ) -> str | None:
+    if state.missing_state:
+        return None
     tag = "water_heater"
     parts = [
         f"[S][{tag}]: '{_name(info)}' >>",

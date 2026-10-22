@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+import json
+import math
+from typing import TYPE_CHECKING, Any
+from unittest.mock import patch
 
 import pytest
 
@@ -17,6 +20,7 @@ from aioesphomeapi.api_pb2 import (
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTService as BluetoothGATTServicePb,
+    BluetoothProxyCapabilities as BluetoothProxyCapabilitiesPb,
     BluetoothScannerMode,
     BluetoothScannerState,
     BluetoothScannerStateResponse,
@@ -24,6 +28,7 @@ from aioesphomeapi.api_pb2 import (
     CoverStateResponse,
     DateStateResponse,
     DateTimeStateResponse,
+    DeviceCapabilitiesResponse,
     DeviceInfo as SubDeviceInfoProto,
     DeviceInfoResponse,
     EventResponse,
@@ -64,9 +69,12 @@ from aioesphomeapi.api_pb2 import (
     NoiseEncryptionSetKeyResponse,
     NumberStateResponse,
     SelectStateResponse,
+    SendspinCapabilities as SendspinCapabilitiesPb,
+    SendspinPairingTokenResponse as SendspinPairingTokenResponsePb,
     SensorStateResponse,
     SerialProxyDataReceived as SerialProxyDataReceivedPb,
     SerialProxyGetModemPinsResponse as SerialProxyGetModemPinsResponsePb,
+    SerialProxyIdentity as SerialProxyIdentityPb,
     SerialProxyInfo as SerialProxyInfoPb,
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     ServiceArgType,
@@ -77,13 +85,18 @@ from aioesphomeapi.api_pb2 import (
     TextStateResponse,
     TimeStateResponse,
     UpdateStateResponse,
+    UsbDeviceDescriptor as UsbDeviceDescriptorPb,
     ValveStateResponse,
+    VoiceAssistantCapabilities as VoiceAssistantCapabilitiesPb,
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordPb,
     VoiceAssistantWakeWord as VoiceAssistantWakeWordPb,
     WaterHeaterStateResponse,
+    WizardCapabilities as WizardCapabilitiesPb,
+    ZWaveProxyCapabilities as ZWaveProxyCapabilitiesPb,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
+from aioesphomeapi.core import InvalidWizardError, UnsupportedWizardVersionError
 from aioesphomeapi.model import (
     _TYPE_TO_NAME,
     COMPONENT_TYPE_TO_INFO,
@@ -101,6 +114,7 @@ from aioesphomeapi.model import (
     BluetoothGATTDescriptor as BluetoothGATTDescriptorModel,
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothGATTServices as BluetoothGATTServicesModel,
+    BluetoothProxyCapabilities,
     BluetoothProxyFeature,
     BluetoothScannerMode as BluetoothScannerModeModel,
     BluetoothScannerState as BluetoothScannerStateModel,
@@ -118,7 +132,10 @@ from aioesphomeapi.model import (
     DateState,
     DateTimeInfo,
     DateTimeState,
+    DeviceCapabilities,
     DeviceInfo,
+    DeviceRelation,
+    DeviceWizard,
     EntityInfo,
     EntityState,
     Event,
@@ -149,10 +166,19 @@ from aioesphomeapi.model import (
     RadioFrequencyModulation,
     SelectInfo,
     SelectState,
+    SendspinCapabilities,
+    SendspinFeature,
+    SendspinPairingTokenResponse,
+    SendspinPairingTokenStatus,
     SensorInfo,
     SensorState,
     SerialProxyDataReceived,
+    SerialProxyIdentity,
+    SerialProxyIdentityFlag,
+    SerialProxyIdentitySource,
     SerialProxyInfo,
+    SerialProxyLineStateFlag,
+    SerialProxyMode,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyPortType,
@@ -174,11 +200,13 @@ from aioesphomeapi.model import (
     TimeState,
     UpdateInfo,
     UpdateState,
+    UsbDeviceDescriptor,
     UserService,
     UserServiceArg,
     UserServiceArgType,
     ValveInfo,
     ValveState,
+    VoiceAssistantCapabilities,
     VoiceAssistantConfigurationResponse,
     VoiceAssistantExternalWakeWord,
     VoiceAssistantFeature,
@@ -186,10 +214,18 @@ from aioesphomeapi.model import (
     WaterHeaterFeature,
     WaterHeaterInfo,
     WaterHeaterState,
+    WizardCapabilities,
+    WizardEntityField,
+    WizardEntityFilter,
+    WizardInputField,
+    WizardPage,
+    ZWaveProxyCapabilities,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestType,
+    ZWaveProxyStatus,
+    _zstd_module,
     build_device_unique_id,
     build_unique_id,
     converter_field,
@@ -293,6 +329,28 @@ def test_api_model_base_from_dict():
     assert ListAPIModel.from_dict({"val": []}) == ListAPIModel()
 
 
+def test_entity_state_with_device_id() -> None:
+    """Test with_device_id returns a copy with only the device id changed."""
+    state = SensorState(key=1, state=4.5, device_id=1)
+    moved = state.with_device_id(2)
+    assert moved == SensorState(key=1, state=4.5, device_id=2)
+    assert state.device_id == 1
+
+
+def test_api_model_base_from_dict_null_float_becomes_nan() -> None:
+    """Test a null float field (how JSON encodes NaN) is restored as NaN."""
+    restored = SensorState.from_dict({"key": 1, "state": None})
+    assert math.isnan(restored.state)
+    assert math.isnan(
+        ClimateState.from_dict(
+            {"key": 1, "target_temperature": None}
+        ).target_temperature
+    )
+    assert restored.key == 1
+    assert SensorState.from_dict({"key": 1, "state": 4.5}).state == 4.5
+    assert DummyAPIModel.from_dict({"val1": None}).val1 is None
+
+
 def test_api_model_base_from_pb():
     class DummyPB:
         def __init__(self, val1=0, val2=0):
@@ -372,10 +430,30 @@ def test_api_version_ord():
         (SerialProxyInfo, SerialProxyInfoPb),
         (SerialProxyDataReceived, SerialProxyDataReceivedPb),
         (SerialProxyModemPins, SerialProxyGetModemPinsResponsePb),
+        (SerialProxyIdentity, SerialProxyIdentityPb),
+        (UsbDeviceDescriptor, UsbDeviceDescriptorPb),
+        (DeviceCapabilities, DeviceCapabilitiesResponse),
+        (BluetoothProxyCapabilities, BluetoothProxyCapabilitiesPb),
+        (VoiceAssistantCapabilities, VoiceAssistantCapabilitiesPb),
+        (ZWaveProxyCapabilities, ZWaveProxyCapabilitiesPb),
+        (WizardCapabilities, WizardCapabilitiesPb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
     assert model.from_pb(pb()) == model()
+
+
+@pytest.mark.parametrize(
+    ("model", "pb"),
+    [
+        (SwitchState, SwitchStateResponse),
+        (ClimateState, ClimateStateResponse),
+        (WaterHeaterState, WaterHeaterStateResponse),
+    ],
+)
+def test_missing_state_from_pb(model, pb):
+    assert model.from_pb(pb(key=1, missing_state=True)).missing_state is True
+    assert model.from_pb(pb(key=1)).missing_state is False
 
 
 def test_bluetooth_scanner_state_surfaces_configured_mode() -> None:
@@ -523,6 +601,55 @@ def test_user_service_conversion():
     assert UserService.from_dict(
         {"args": [{"name": "arg", "type_": 1}]}
     ) == UserService(args=[UserServiceArg(name="arg", type=UserServiceArgType.INT)])
+
+
+def test_user_service_conversion_with_metadata():
+    assert UserService.from_pb(
+        ListEntitiesServicesResponse(
+            description="Play an RTTTL melody",
+            args=[
+                ListEntitiesServicesArgument(
+                    name="song_str",
+                    type=ServiceArgType.SERVICE_ARG_TYPE_STRING,
+                    description="RTTTL melody string",
+                    example="two_short:d=4,o=5,b=100:16e6,16e6",
+                )
+            ],
+        )
+    ) == UserService(
+        description="Play an RTTTL melody",
+        args=[
+            UserServiceArg(
+                name="song_str",
+                type=UserServiceArgType.STRING,
+                description="RTTTL melody string",
+                example="two_short:d=4,o=5,b=100:16e6,16e6",
+            )
+        ],
+    )
+    assert UserService.from_dict(
+        {
+            "description": "Play an RTTTL melody",
+            "args": [
+                {
+                    "name": "song_str",
+                    "type": 3,
+                    "description": "RTTTL melody string",
+                    "example": "two_short:d=4,o=5,b=100:16e6,16e6",
+                }
+            ],
+        }
+    ) == UserService(
+        description="Play an RTTTL melody",
+        args=[
+            UserServiceArg(
+                name="song_str",
+                type=UserServiceArgType.STRING,
+                description="RTTTL melody string",
+                example="two_short:d=4,o=5,b=100:16e6,16e6",
+            )
+        ],
+    )
 
 
 @pytest.mark.parametrize(
@@ -714,6 +841,18 @@ def test_zwave_proxy_frame_conversion() -> None:
     # Test from_dict
     frame_from_dict = ZWaveProxyFrame.from_dict({"data": b"\x05\x06\x07\x08"})
     assert frame_from_dict.data == b"\x05\x06\x07\x08"
+
+
+def test_zwave_proxy_status_enum() -> None:
+    """Test ZWaveProxyStatus enum values."""
+    assert ZWaveProxyStatus.OK == 0
+    assert ZWaveProxyStatus.IN_USE == 1
+    assert ZWaveProxyStatus.NOT_SUPPORTED == 2
+
+    assert ZWaveProxyStatus.convert(0) == ZWaveProxyStatus.OK
+    assert ZWaveProxyStatus.convert(1) == ZWaveProxyStatus.IN_USE
+    assert ZWaveProxyStatus.convert(2) == ZWaveProxyStatus.NOT_SUPPORTED
+    assert ZWaveProxyStatus.convert(-1) is None
 
 
 def test_zwave_proxy_request_type_enum() -> None:
@@ -1041,6 +1180,14 @@ def test_bluetooth_all_zero_uuid_from_dict() -> None:
     ) == BluetoothGATTDescriptorModel(
         uuid="00000000-0000-0000-0000-000000000000", handle=7
     )
+
+
+def test_bluetooth_out_of_range_uuid_from_dict() -> None:
+    """from_dict rejects uuid words outside the 128-bit range."""
+    with pytest.raises(ValueError, match="128-bit"):
+        BluetoothGATTDescriptorModel.from_dict({"uuid": [2**100, 0], "handle": 7})
+    with pytest.raises(ValueError, match="128-bit"):
+        BluetoothGATTDescriptorModel.from_dict({"uuid": [-1, 0], "handle": 7})
 
 
 def test_bluetooth_characteristic_efficient_uuids() -> None:
@@ -1440,6 +1587,28 @@ def test_sub_device_info_convert_list() -> None:
         )
         == device_info
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, DeviceRelation.VIA),
+        (0, DeviceRelation.VIA),
+        (1, DeviceRelation.CHILD),
+        (99, None),
+    ],
+)
+def test_sub_device_info_relation(
+    raw: int | None, expected: DeviceRelation | None
+) -> None:
+    """Test SubDeviceInfo.relation from pb and dict, including unknown values."""
+    kwargs = {} if raw is None else {"relation": raw}
+    from_pb = SubDeviceInfo.from_pb(SubDeviceInfoProto(device_id=1, **kwargs))
+    from_dict = SubDeviceInfo.from_dict({"device_id": 1, **kwargs})
+    assert from_pb.relation is expected
+    assert from_dict.relation is expected
+    response = DeviceInfoResponse(devices=[SubDeviceInfoProto(device_id=1, **kwargs)])
+    assert DeviceInfo.from_pb(response).devices[0].relation is expected
 
 
 def test_media_player_supported_format_convert_list() -> None:
@@ -2215,11 +2384,21 @@ def test_serial_proxy_request_type_enum() -> None:
     assert SerialProxyRequestType.SUBSCRIBE == 0
     assert SerialProxyRequestType.UNSUBSCRIBE == 1
     assert SerialProxyRequestType.FLUSH == 2
+    assert SerialProxyRequestType.CONFIGURE == 3
+    assert SerialProxyRequestType.SET_MODEM_PINS == 4
 
     assert SerialProxyRequestType.convert(0) == SerialProxyRequestType.SUBSCRIBE
     assert SerialProxyRequestType.convert(1) == SerialProxyRequestType.UNSUBSCRIBE
     assert SerialProxyRequestType.convert(2) == SerialProxyRequestType.FLUSH
+    assert SerialProxyRequestType.convert(3) == SerialProxyRequestType.CONFIGURE
+    assert SerialProxyRequestType.convert(4) == SerialProxyRequestType.SET_MODEM_PINS
     assert SerialProxyRequestType.convert(-1) is None
+
+
+def test_serial_proxy_line_state_flag_enum() -> None:
+    """Test SerialProxyLineStateFlag bit values."""
+    assert SerialProxyLineStateFlag.RTS == 1
+    assert SerialProxyLineStateFlag.DTR == 2
 
 
 def test_serial_proxy_data_received_conversion() -> None:
@@ -2260,9 +2439,19 @@ def test_serial_proxy_modem_pins_conversion() -> None:
     model_with_pins = SerialProxyModemPins.from_pb(pb_msg_with_pins)
     assert model_with_pins.instance == 1
     assert model_with_pins.line_states == 3
+    assert model_with_pins.status == SerialProxyStatus.OK
 
-    # Test to_dict
-    assert model_with_pins.to_dict() == {"instance": 1, "line_states": 3}
+    pb_msg_error = SerialProxyGetModemPinsResponsePb(
+        instance=9, status=SerialProxyStatus.INVALID_ARGUMENT
+    )
+    model_error = SerialProxyModemPins.from_pb(pb_msg_error)
+    assert model_error.status == SerialProxyStatus.INVALID_ARGUMENT
+
+    assert model_with_pins.to_dict() == {
+        "instance": 1,
+        "line_states": 3,
+        "status": SerialProxyStatus.OK,
+    }
 
     # Test from_dict
     model_from_dict = SerialProxyModemPins.from_dict({"instance": 3, "line_states": 1})
@@ -2275,11 +2464,79 @@ def test_serial_proxy_port_type_enum() -> None:
     assert SerialProxyPortType.TTL == 0
     assert SerialProxyPortType.RS232 == 1
     assert SerialProxyPortType.RS485 == 2
+    assert SerialProxyPortType.USB_SERIAL == 3
 
     assert SerialProxyPortType.convert(0) == SerialProxyPortType.TTL
     assert SerialProxyPortType.convert(1) == SerialProxyPortType.RS232
     assert SerialProxyPortType.convert(2) == SerialProxyPortType.RS485
+    assert SerialProxyPortType.convert(3) == SerialProxyPortType.USB_SERIAL
     assert SerialProxyPortType.convert(-1) is None
+
+
+def test_serial_proxy_mode_enum() -> None:
+    """Test SerialProxyMode enum values."""
+    assert SerialProxyMode.RAW == 0
+    assert SerialProxyMode.PROTOCOL == 1
+
+    assert SerialProxyMode.convert(0) == SerialProxyMode.RAW
+    assert SerialProxyMode.convert(1) == SerialProxyMode.PROTOCOL
+    assert SerialProxyMode.convert(2) is None
+    assert SerialProxyMode.convert(-1) is None
+
+
+def test_serial_proxy_identity_source_enum() -> None:
+    """Test SerialProxyIdentitySource enum values."""
+    assert SerialProxyIdentitySource.NONE == 0
+    assert SerialProxyIdentitySource.CONFIGURED == 1
+    assert SerialProxyIdentitySource.USB == 2
+
+    assert SerialProxyIdentitySource.convert(0) == SerialProxyIdentitySource.NONE
+    assert SerialProxyIdentitySource.convert(1) == SerialProxyIdentitySource.CONFIGURED
+    assert SerialProxyIdentitySource.convert(2) == SerialProxyIdentitySource.USB
+    assert SerialProxyIdentitySource.convert(3) is None
+    assert SerialProxyIdentitySource.convert(-1) is None
+
+
+def test_serial_proxy_identity_flag_enum() -> None:
+    """Test SerialProxyIdentityFlag bit values."""
+    assert SerialProxyIdentityFlag.CONNECTED == 1
+    assert SerialProxyIdentityFlag.ERROR == 2
+
+
+def test_serial_proxy_identity_conversion() -> None:
+    """Test SerialProxyIdentity conversion from protobuf."""
+    pb_msg = SerialProxyIdentityPb(
+        instance=1,
+        source=SerialProxyIdentitySource.USB,
+        flags=SerialProxyIdentityFlag.CONNECTED,
+        manufacturer="Nabu Casa",
+        product="ZBT-2",
+        serial_number="10B41DE58F10",
+        usb=UsbDeviceDescriptorPb(
+            vendor_id=0x303A,
+            product_id=0x4001,
+            bcd_device=0x0100,
+            interface_number=2,
+            interface_class=0xFF,
+            port_number=1,
+        ),
+    )
+    model = SerialProxyIdentity.from_pb(pb_msg)
+    assert model.instance == 1
+    assert model.source == SerialProxyIdentitySource.USB
+    assert model.flags & SerialProxyIdentityFlag.CONNECTED
+    assert model.manufacturer == "Nabu Casa"
+    assert model.product == "ZBT-2"
+    assert model.serial_number == "10B41DE58F10"
+    assert model.usb == UsbDeviceDescriptor(
+        vendor_id=0x303A,
+        product_id=0x4001,
+        bcd_device=0x0100,
+        interface_number=2,
+        interface_class=0xFF,
+        port_number=1,
+    )
+    assert SerialProxyIdentity.from_dict(model.to_dict()) == model
 
 
 def test_serial_proxy_info_conversion() -> None:
@@ -2291,13 +2548,19 @@ def test_serial_proxy_info_conversion() -> None:
     assert model.port_type == SerialProxyPortType.TTL
 
     # With values
-    pb_msg = SerialProxyInfoPb(name="UART1", port_type=SerialProxyPortType.RS485)
+    pb_msg = SerialProxyInfoPb(
+        name="UART1", port_type=SerialProxyPortType.RS485, configured_line_states=3
+    )
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == "UART1"
     assert model.port_type == SerialProxyPortType.RS485
+    assert model.configured_line_states == 3
 
-    # to_dict / from_dict
-    assert model.to_dict() == {"name": "UART1", "port_type": 2}
+    assert model.to_dict() == {
+        "name": "UART1",
+        "port_type": 2,
+        "configured_line_states": 3,
+    }
     model_from_dict = SerialProxyInfo.from_dict(
         {"name": "RS485 Port", "port_type": SerialProxyPortType.RS485}
     )
@@ -2351,9 +2614,12 @@ def test_serial_proxy_status_enum() -> None:
     assert SerialProxyStatus.ERROR == 2
     assert SerialProxyStatus.TIMEOUT == 3
     assert SerialProxyStatus.NOT_SUPPORTED == 4
+    assert SerialProxyStatus.PORT_IN_USE == 5
+    assert SerialProxyStatus.INVALID_ARGUMENT == 6
 
     assert SerialProxyStatus.convert(0) == SerialProxyStatus.OK
     assert SerialProxyStatus.convert(4) == SerialProxyStatus.NOT_SUPPORTED
+    assert SerialProxyStatus.convert(6) == SerialProxyStatus.INVALID_ARGUMENT
     assert SerialProxyStatus.convert(-1) is None
 
 
@@ -2635,3 +2901,375 @@ def test_all_entity_info_subclasses_registered() -> None:
         f"EntityInfo subclasses missing from _TYPE_TO_NAME: "
         f"{sorted(subclass_names - type_to_name_names)}"
     )
+
+
+def test_device_capabilities_from_pb_fully_populated() -> None:
+    """Pin DeviceCapabilities.from_pb decoding every nested field."""
+    pb = DeviceCapabilitiesResponse(
+        bluetooth_proxy=BluetoothProxyCapabilitiesPb(
+            feature_flags=3, mac_address="AA:BB:CC:DD:EE:FF"
+        ),
+        voice_assistant=VoiceAssistantCapabilitiesPb(feature_flags=5),
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=7, home_id=1234),
+        serial_proxies=[
+            SerialProxyInfoPb(name="RS485 Port", port_type=SerialProxyPortType.RS485),
+            SerialProxyInfoPb(name="RS232 Port", port_type=SerialProxyPortType.RS232),
+        ],
+    )
+    caps = DeviceCapabilities.from_pb(pb)
+    assert caps.bluetooth_proxy.feature_flags == 3
+    assert caps.bluetooth_proxy.mac_address == "AA:BB:CC:DD:EE:FF"
+    assert caps.voice_assistant.feature_flags == 5
+    assert caps.zwave_proxy.feature_flags == 7
+    assert caps.zwave_proxy.home_id == 1234
+    assert len(caps.serial_proxies) == 2
+    assert caps.serial_proxies[0].name == "RS485 Port"
+    assert caps.serial_proxies[0].port_type == SerialProxyPortType.RS485
+    assert caps.serial_proxies[1].name == "RS232 Port"
+    assert caps.serial_proxies[1].port_type == SerialProxyPortType.RS232
+
+
+def test_device_capabilities_from_pb_empty() -> None:
+    """An unset DeviceCapabilitiesResponse decodes to default sub-models, not None."""
+    caps = DeviceCapabilities.from_pb(DeviceCapabilitiesResponse())
+    assert caps.bluetooth_proxy == BluetoothProxyCapabilities()
+    assert caps.voice_assistant == VoiceAssistantCapabilities()
+    assert caps.zwave_proxy == ZWaveProxyCapabilities()
+    assert caps.serial_proxies == []
+
+
+def test_device_capabilities_from_pb_partial() -> None:
+    """Only the set sub-message is populated; the others stay default."""
+    pb = DeviceCapabilitiesResponse(
+        zwave_proxy=ZWaveProxyCapabilitiesPb(feature_flags=1, home_id=99)
+    )
+    caps = DeviceCapabilities.from_pb(pb)
+    assert caps.bluetooth_proxy == BluetoothProxyCapabilities()
+    assert caps.voice_assistant == VoiceAssistantCapabilities()
+    assert caps.zwave_proxy == ZWaveProxyCapabilities(feature_flags=1, home_id=99)
+
+
+def test_device_capabilities_convert_dict_branch() -> None:
+    """Exercise the dict branch of every capabilities convert classmethod."""
+    assert BluetoothProxyCapabilities.convert(
+        {"feature_flags": 1, "mac_address": "11:22:33:44:55:66"}
+    ) == BluetoothProxyCapabilities(feature_flags=1, mac_address="11:22:33:44:55:66")
+    assert VoiceAssistantCapabilities.convert(
+        {"feature_flags": 2}
+    ) == VoiceAssistantCapabilities(feature_flags=2)
+    assert ZWaveProxyCapabilities.convert(
+        {"feature_flags": 4, "home_id": 42}
+    ) == ZWaveProxyCapabilities(feature_flags=4, home_id=42)
+
+    caps = DeviceCapabilities.from_dict(
+        {
+            "bluetooth_proxy": {
+                "feature_flags": 1,
+                "mac_address": "11:22:33:44:55:66",
+            },
+            "voice_assistant": {"feature_flags": 2},
+            "zwave_proxy": {"feature_flags": 4, "home_id": 42},
+            "serial_proxies": [{"name": "UART0", "port_type": 0}],
+        }
+    )
+    assert caps.bluetooth_proxy == BluetoothProxyCapabilities(
+        feature_flags=1, mac_address="11:22:33:44:55:66"
+    )
+    assert caps.voice_assistant == VoiceAssistantCapabilities(feature_flags=2)
+    assert caps.zwave_proxy == ZWaveProxyCapabilities(feature_flags=4, home_id=42)
+    assert caps.serial_proxies == [
+        SerialProxyInfo(name="UART0", port_type=SerialProxyPortType.TTL)
+    ]
+
+
+def test_device_capabilities_wizard_from_pb() -> None:
+    """DeviceCapabilities decodes wizard.configured, defaulting to False when unset."""
+    pb = DeviceCapabilitiesResponse(wizard=WizardCapabilitiesPb(configured=True))
+    assert DeviceCapabilities.from_pb(pb).wizard == WizardCapabilities(configured=True)
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).wizard == WizardCapabilities(configured=False)
+
+
+def test_device_capabilities_wizard_from_dict() -> None:
+    """The dict branch of WizardCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict({"wizard": {"configured": True}})
+    assert caps.wizard == WizardCapabilities(configured=True)
+    assert DeviceCapabilities.from_dict({}).wizard == WizardCapabilities()
+
+
+_SENDSPIN_CLIENT_ID = "q83vEjRWeJq83vEjRWeJq83vEjRWeJq83vEjRWeJq80"
+
+
+def test_device_capabilities_sendspin_from_pb() -> None:
+    """DeviceCapabilities decodes the sendspin fields, defaulting when unset."""
+    pb = DeviceCapabilitiesResponse(
+        sendspin=SendspinCapabilitiesPb(
+            feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=_SENDSPIN_CLIENT_ID
+        )
+    )
+    assert DeviceCapabilities.from_pb(pb).sendspin == SendspinCapabilities(
+        feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=_SENDSPIN_CLIENT_ID
+    )
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).sendspin == SendspinCapabilities(feature_flags=0, client_id="")
+
+
+def test_device_capabilities_sendspin_from_dict() -> None:
+    """The dict branch of SendspinCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict(
+        {"sendspin": {"feature_flags": 1, "client_id": _SENDSPIN_CLIENT_ID}}
+    )
+    assert caps.sendspin == SendspinCapabilities(
+        feature_flags=1, client_id=_SENDSPIN_CLIENT_ID
+    )
+    assert DeviceCapabilities.from_dict({}).sendspin == SendspinCapabilities()
+
+
+def test_sendspin_pairing_token_response_from_pb() -> None:
+    """The status and token decode, and an empty response means not ready."""
+    pb = SendspinPairingTokenResponsePb(status=1, token="SP:0ABC")
+    resp = SendspinPairingTokenResponse.from_pb(pb)
+    assert resp.status is SendspinPairingTokenStatus.OK
+    assert resp.token == "SP:0ABC"  # noqa: S105
+    empty = SendspinPairingTokenResponse.from_pb(SendspinPairingTokenResponsePb())
+    assert empty.status is SendspinPairingTokenStatus.NOT_READY
+    assert empty.token == ""
+    failed = SendspinPairingTokenResponse.from_pb(
+        SendspinPairingTokenResponsePb(status=4)
+    )
+    assert failed.status is SendspinPairingTokenStatus.FAILED
+
+
+def test_sendspin_pairing_token_response_repr_hides_token() -> None:
+    """The token is a secret, so repr leaves it out."""
+    resp = SendspinPairingTokenResponse(
+        status=SendspinPairingTokenStatus.OK, token="SP:0SECRET"
+    )
+    assert "SP:0SECRET" not in repr(resp)
+
+
+def _compress_wizard(document: dict[str, Any]) -> bytes:
+    """Encode a wizard document the way the firmware does: compact sorted JSON in zstd."""
+    text = json.dumps(document, separators=(",", ":"), sort_keys=True)
+    return _zstd_module().compress(text.encode())
+
+
+_FULL_DEVICE_WIZARD_DOCUMENT: dict[str, Any] = {
+    "version": 1,
+    "pages": [
+        {
+            "title": "Welcome",
+            "description": "[%key:component::esphome::wizard::intro%]",
+            "entities": [{"key": 1, "device_id": 2, "description": "Relay"}],
+            "inputs": [
+                {
+                    "key": 0xDEADBEEF,
+                    "description": "Outdoor température",
+                    "entity_filters": [
+                        {
+                            "integration": "met",
+                            "domain": ["sensor", "weather"],
+                            "device_class": ["temperature"],
+                            "supported_features": [
+                                "weather.WeatherEntityFeature.FORECAST_DAILY"
+                            ],
+                        },
+                        {"domain": ["input_number"]},
+                    ],
+                },
+                {"key": 3},
+                {"key": 6, "multiple": True, "max_length": 1023},
+            ],
+        },
+        {"title": "Done", "entities": [{"key": 4}]},
+    ],
+}
+
+
+_FULL_DEVICE_WIZARD = DeviceWizard(
+    pages=[
+        WizardPage(
+            title="Welcome",
+            description="[%key:component::esphome::wizard::intro%]",
+            entities=[WizardEntityField(key=1, device_id=2, description="Relay")],
+            inputs=[
+                WizardInputField(
+                    key=0xDEADBEEF,
+                    description="Outdoor température",
+                    entity_filters=[
+                        WizardEntityFilter(
+                            integration="met",
+                            domain=["sensor", "weather"],
+                            device_class=["temperature"],
+                            supported_features=[
+                                "weather.WeatherEntityFeature.FORECAST_DAILY"
+                            ],
+                        ),
+                        WizardEntityFilter(domain=["input_number"]),
+                    ],
+                ),
+                WizardInputField(key=3),
+                WizardInputField(key=6, multiple=True, max_length=1023),
+            ],
+        ),
+        WizardPage(title="Done", entities=[WizardEntityField(key=4)]),
+    ]
+)
+
+
+def test_device_wizard_from_compressed_json() -> None:
+    """Every field of the JSON document decodes into the model types."""
+    wizard = DeviceWizard.from_compressed_json(
+        _compress_wizard(_FULL_DEVICE_WIZARD_DOCUMENT)
+    )
+    assert wizard == _FULL_DEVICE_WIZARD
+    entity_filter = wizard.pages[0].inputs[0].entity_filters[0]
+    assert type(entity_filter.domain) is list
+
+
+def test_wizard_input_field_multiple_defaults() -> None:
+    """An input without multiple and max_length is single with a 255 byte limit."""
+    field = WizardInputField.from_dict({"key": 1})
+    assert field.multiple is False
+    assert field.max_length == 255
+    field = WizardInputField.from_dict({"key": 1, "multiple": True, "max_length": 9})
+    assert field.multiple is True
+    assert field.max_length == 9
+
+
+def test_wizard_input_field_join_entity_ids() -> None:
+    """Valid picks join with a comma, up to max_length bytes."""
+    single = WizardInputField(key=1)
+    assert single.join_entity_ids(["sensor.a"]) == "sensor.a"
+    entity_id = "sensor." + "x" * 248
+    assert single.join_entity_ids([entity_id]) == entity_id
+    multiple = WizardInputField(key=1, multiple=True, max_length=21)
+    assert multiple.join_entity_ids(["calendar.a", "calendar.b"]) == (
+        "calendar.a,calendar.b"
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "entity_ids", "match"),
+    [
+        (WizardInputField(), [], "No entity ids"),
+        (WizardInputField(), ["a.b", "c.d"], "accepts a single"),
+        (WizardInputField(multiple=True), ["a.b", "cd"], "Invalid wizard input"),
+        (WizardInputField(multiple=True), ["a.b", ""], "Invalid wizard input"),
+        (WizardInputField(multiple=True), ["a.b,c.d"], "Invalid wizard input"),
+        (WizardInputField(), ["sensor." + "x" * 249], "longer than 255"),
+        (WizardInputField(multiple=True), ["sensor.x"] * 29, "longer than 255"),
+        (
+            WizardInputField(multiple=True, max_length=20),
+            ["calendar.a", "calendar.b"],
+            "longer than 20",
+        ),
+    ],
+)
+def test_wizard_input_field_join_entity_ids_invalid(
+    field: WizardInputField, entity_ids: list[str], match: str
+) -> None:
+    """Picks the device would reject raise ValueError."""
+    with pytest.raises(ValueError, match=match):
+        field.join_entity_ids(entity_ids)
+
+
+def test_wizard_input_field_join_entity_ids_rejects_bare_string() -> None:
+    """A bare string is refused rather than split into characters."""
+    with pytest.raises(TypeError, match="Expected a list"):
+        WizardInputField().join_entity_ids("sensor.a")
+
+
+def test_device_wizard_from_compressed_json_fixture() -> None:
+    """A frame made by the zstd CLI, not by this test's own encoder, decodes."""
+    # zstd -19 --no-check of {"pages":[{"inputs":[{"key":5}]}],"version":1}
+    frame = bytes.fromhex(
+        "28b52ffd00687101007b227061676573223a5b7b22696e70757473223a5b7b226b65"
+        "79223a357d5d7d5d2c2276657273696f6e223a317d"
+    )
+    assert DeviceWizard.from_compressed_json(frame) == DeviceWizard(
+        pages=[WizardPage(inputs=[WizardInputField(key=5)])]
+    )
+
+
+def test_device_wizard_from_compressed_json_no_pages() -> None:
+    """A document with only a version decodes to an empty wizard."""
+    assert (
+        DeviceWizard.from_compressed_json(_compress_wizard({"version": 1}))
+        == DeviceWizard()
+    )
+
+
+@pytest.mark.parametrize("document", [{"version": 2, "pages": []}, {"pages": []}])
+def test_device_wizard_from_compressed_json_unknown_version(
+    document: dict[str, Any],
+) -> None:
+    """A version this client does not know, or none, is refused."""
+    with pytest.raises(
+        UnsupportedWizardVersionError, match="Unsupported device wizard version"
+    ) as exc_info:
+        DeviceWizard.from_compressed_json(_compress_wizard(document))
+    assert exc_info.value.version == document.get("version")
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(_zstd_module().compress(b'{"version": 1}')[:-3], id="truncated"),
+        pytest.param(_zstd_module().compress(b" " * ((1 << 20) + 1)), id="over_cap"),
+    ],
+)
+def test_device_wizard_from_compressed_json_truncated_or_too_large(
+    data: bytes,
+) -> None:
+    """A frame that ends early or expands past the size cap is refused."""
+    with pytest.raises(InvalidWizardError, match="truncated or too large"):
+        DeviceWizard.from_compressed_json(data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(b"not zstd", id="corrupt_frame"),
+        pytest.param(_zstd_module().compress(b"\xff\xfe"), id="invalid_utf8"),
+        pytest.param(_zstd_module().compress(b"{"), id="invalid_json"),
+        pytest.param(_zstd_module().compress(b"[]"), id="not_an_object"),
+        pytest.param(
+            _compress_wizard({"version": 1, "pages": "x"}), id="pages_not_a_list"
+        ),
+        pytest.param(
+            _compress_wizard(
+                {
+                    "version": 1,
+                    "pages": [{"inputs": [{"entity_filters": [{"domain": "sensor"}]}]}],
+                }
+            ),
+            id="domain_not_a_list",
+        ),
+    ],
+)
+def test_device_wizard_from_compressed_json_invalid(data: bytes) -> None:
+    """A wizard this client cannot decode raises InvalidWizardError."""
+    with pytest.raises(InvalidWizardError):
+        DeviceWizard.from_compressed_json(data)
+
+
+def test_unsupported_wizard_version_is_invalid_wizard() -> None:
+    """Callers can catch every wizard decode failure with InvalidWizardError."""
+    assert issubclass(UnsupportedWizardVersionError, InvalidWizardError)
+
+
+def test_zstd_module_falls_back_to_backport() -> None:
+    """Without compression.zstd (before Python 3.14) the backports.zstd module is used."""
+    backport = object()
+
+    def fake_import(name: str) -> object:
+        if name == "compression.zstd":
+            raise ImportError(name)
+        assert name == "backports.zstd"
+        return backport
+
+    with patch("aioesphomeapi.model.importlib.import_module", fake_import):
+        assert _zstd_module() is backport

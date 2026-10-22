@@ -49,9 +49,13 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DateStateResponse,
     DateTimeCommandRequest,
     DateTimeStateResponse,
+    DeviceCapabilitiesRequest,
+    DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
     DeviceStateResponse,
+    DeviceWizardRequest,
+    DeviceWizardResponse,
     DisconnectRequest,
     DisconnectResponse,
     EventResponse,
@@ -67,6 +71,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
     InfraredRFReceiveEvent,
+    InfraredRFTransmitCompleteResponse,
     InfraredRFTransmitRawTimingsRequest,
     LightCommandRequest,
     LightStateResponse,
@@ -111,14 +116,18 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     PingResponse,
     SelectCommandRequest,
     SelectStateResponse,
+    SendspinPairingTokenRequest,
+    SendspinPairingTokenResponse,
     SensorStateResponse,
     SerialProxyConfigureRequest,
     SerialProxyDataReceived,
     SerialProxyGetModemPinsRequest,
     SerialProxyGetModemPinsResponse,
+    SerialProxyIdentity,
     SerialProxyRequest,
     SerialProxyRequestResponse,
     SerialProxySetModemPinsRequest,
+    SerialProxySetModeRequest,
     SerialProxyWriteRequest,
     SirenCommandRequest,
     SirenStateResponse,
@@ -129,6 +138,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     SubscribeHomeAssistantStatesRequest,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
+    SubscribeSerialProxyIdentityRequest,
     SubscribeStatesRequest,
     SubscribeVoiceAssistantRequest,
     SwitchCommandRequest,
@@ -155,8 +165,10 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     VoiceAssistantTimerEventResponse,
     WaterHeaterCommandRequest,
     WaterHeaterStateResponse,
+    WizardInputSetRequest,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
+    ZWaveProxyRequestResponse,
 )
 
 TWO_CHAR = re.compile(r".{2}")
@@ -218,6 +230,18 @@ ESPHOME_GATT_ERRORS = {
     254: "Procedure already in progress",
     255: "Out of range",
 }
+
+
+class InvalidWizardError(ValueError):
+    """The device sent a wizard this client cannot decode."""
+
+
+class UnsupportedWizardVersionError(InvalidWizardError):
+    """The device sent a wizard in a JSON version this client does not know."""
+
+    def __init__(self, version: object) -> None:
+        super().__init__(f"Unsupported device wizard version: {version!r}")
+        self.version = version
 
 
 class APIConnectionError(Exception):
@@ -554,7 +578,19 @@ MESSAGE_TYPE_TO_PROTO = {
     146: BluetoothSetConnectionParamsResponse,
     147: SerialProxyRequestResponse,
     148: ListEntitiesRadioFrequencyResponse,
-    149: DeviceStateResponse,
+    149: DeviceCapabilitiesRequest,
+    150: DeviceCapabilitiesResponse,
+    151: ZWaveProxyRequestResponse,
+    152: SerialProxySetModeRequest,
+    153: InfraredRFTransmitCompleteResponse,
+    154: SubscribeSerialProxyIdentityRequest,
+    155: SerialProxyIdentity,
+    156: DeviceWizardRequest,
+    157: DeviceWizardResponse,
+    158: WizardInputSetRequest,
+    159: SendspinPairingTokenRequest,
+    160: SendspinPairingTokenResponse,
+    161: DeviceStateResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import CancelledError
-from dataclasses import astuple, dataclass
+from dataclasses import astuple
 import enum
 from functools import lru_cache, partial
 import logging
@@ -37,9 +37,11 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     ParsedTimezone as ParsedTimezoneProto,
     PingRequest,
     PingResponse,
+    SendspinPairingTokenResponse,
 )
 from .core import (
     MESSAGE_TYPE_TO_PROTO,
+    ZERO_NOISE_PSK,
     APIConnectionCancelledError,
     APIConnectionError,
     BadNameAPIError,
@@ -57,7 +59,7 @@ from .core import (
 from .model import APIVersion, message_types_to_names
 from .posix_tz import DSTRule as DSTRuleParsed, DSTRuleType, parse_posix_tz
 from .timezone import get_timezone
-from .util import asyncio_timeout
+from .util import asyncio_timeout, create_eager_task
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -68,6 +70,8 @@ if TYPE_CHECKING:
     from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
+
+_REDACTED = "<redacted>"
 
 # The noise frame helper pulls in cryptography and the noise protocol stack,
 # which are only needed for encrypted connections; importing them is deferred
@@ -183,7 +187,8 @@ class ConnectionInterruptedError(Exception):
     """An error that is raised when a connection is interrupted."""
 
 
-@dataclass
+# Not a dataclass: Cython 3.3 rejects an annotated field with a default on a
+# cdef class declared in a .pxd, and the defaults here are public API.
 class ConnectionParams:
     addresses: list[str]
     port: int
@@ -194,8 +199,37 @@ class ConnectionParams:
     noise_psk: str | None
     expected_name: str | None
     expected_mac: str | None
-    timezone: str | None = None
-    provide_time: bool = True
+    timezone: str | None
+    provide_time: bool
+    outgoing_connection_target: bool
+
+    def __init__(
+        self,
+        addresses: list[str],
+        port: int,
+        password: str | None,
+        client_info: str,
+        keepalive: float,
+        zeroconf_manager: ZeroconfManager,
+        noise_psk: str | None,
+        expected_name: str | None,
+        expected_mac: str | None,
+        timezone: str | None = None,
+        provide_time: bool = True,
+        outgoing_connection_target: bool = False,
+    ) -> None:
+        self.addresses = addresses
+        self.port = port
+        self.password = password
+        self.client_info = client_info
+        self.keepalive = keepalive
+        self.zeroconf_manager = zeroconf_manager
+        self.noise_psk = noise_psk
+        self.expected_name = expected_name
+        self.expected_mac = expected_mac
+        self.timezone = timezone
+        self.provide_time = provide_time
+        self.outgoing_connection_target = outgoing_connection_target
 
 
 class ConnectionState(enum.Enum):
@@ -220,15 +254,34 @@ CONNECTION_STATE_CONNECTED = ConnectionState.CONNECTED
 CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 
 
-def _make_hello_request(client_info: str) -> HelloRequest:
+def _make_hello_request(
+    client_info: str, outgoing_connection_target: bool
+) -> HelloRequest:
     """Make a HelloRequest."""
+    # A False flag has implicit presence and does not serialize
     return HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=15
+        client_info=client_info,
+        api_version_major=1,
+        api_version_minor=19,
+        outgoing_connection_target=outgoing_connection_target,
     )
 
 
-_cached_make_hello_request = lru_cache(maxsize=16)(_make_hello_request)
+_cached_make_hello_request = lru_cache(maxsize=32)(_make_hello_request)
 make_hello_request = _cached_make_hello_request
+
+
+def declares_outgoing_target(params: ConnectionParams) -> bool:
+    """Whether the hello declares a dial-back target.
+
+    Devices only honor the declaration on sessions with a real key, so it
+    is derived from the current PSK rather than fixed at construction.
+    """
+    psk = params.noise_psk
+    return (
+        params.outgoing_connection_target and psk is not None and psk != ZERO_NOISE_PSK
+    )
+
 
 _DST_RULE_TYPE_MAP: dict[DSTRuleType, int] = {
     DSTRuleType.NONE: DST_RULE_TYPE_NONE_PB,
@@ -328,6 +381,7 @@ class APIConnection:
         "_send_pending_ping",
         "_socket",
         "_start_connect_future",
+        "_timezone_task",
         "api_version",
         "connected_address",
         "connection_state",
@@ -384,9 +438,15 @@ class APIConnection:
         self._debug_enabled = debug_enabled
         self.received_name: str = ""
         self._cached_timezone: str = ""
+        self._timezone_task: asyncio.Task[str] | None = None
         self.connected_address: str | None = None
         self._addrs_info: list[hr.AddrInfo] = []
         self._log_errors = log_errors
+
+    @property
+    def fatal_exception(self) -> Exception | None:
+        """The exception that ended this connection, if it ended in an error."""
+        return self._fatal_exception
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -493,6 +553,18 @@ class APIConnection:
             msg = f"Error connecting to {addrs}: {last_exception}"
             raise SocketAPIError(msg) from last_exception
 
+        self._finish_socket_setup(sock)
+
+        if self._debug_enabled:
+            _LOGGER.debug(
+                "%s: Opened socket to %s:%s",
+                self.log_name,
+                self.connected_address,
+                self._params.port,
+            )
+
+    def _finish_socket_setup(self, sock: socket.socket) -> None:
+        """Apply socket options and record the peer of a connected socket."""
         self._socket = sock
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -504,15 +576,10 @@ class APIConnection:
                 self.log_name,
             )
         self._increase_recv_buffer_size()
-        self.connected_address = sock.getpeername()[0]
-
-        if self._debug_enabled:
-            _LOGGER.debug(
-                "%s: Opened socket to %s:%s",
-                self.log_name,
-                self.connected_address,
-                self._params.port,
-            )
+        peer_address: str = sock.getpeername()[0]
+        # Dual-stack listeners report IPv4 peers as ::ffff:x.x.x.x; strip the
+        # mapping so log names show the plain IPv4 address
+        self.connected_address = peer_address.removeprefix("::ffff:")
 
     def _increase_recv_buffer_size(self) -> None:
         """Increase the recv buffer size."""
@@ -592,7 +659,11 @@ class APIConnection:
 
     async def _connect_hello_login(self, login: bool) -> None:
         """Step 4 in connect process: send hello and login and get api version."""
-        messages = [make_hello_request(self._params.client_info)]
+        messages = [
+            make_hello_request(
+                self._params.client_info, declares_outgoing_target(self._params)
+            )
+        ]
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_auth_request())
@@ -782,6 +853,24 @@ class APIConnection:
             self._set_start_connect_future()
         self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
 
+    def start_connection_from_socket(self, sock: socket.socket) -> None:
+        """Adopt an already-connected socket.
+
+        Used when the device opened the TCP connection to us (the api
+        outgoing_connection option). Synchronous: there is nothing to
+        resolve or connect. Replaces start_resolve_host and
+        start_connection; finish_connection runs unchanged afterwards.
+        """
+        if self.connection_state is not CONNECTION_STATE_INITIALIZED:
+            sock.close()  # this method owns the socket, even on refusal
+            msg = "Connection can only be used once, connection is not in init state"
+            raise RuntimeError(msg)
+        try:
+            self._finish_socket_setup(sock)  # synchronous, cannot be cancelled
+        except Exception as ex:  # noqa: BLE001
+            self._raise_fatal_connection_exception("adopting", ex)
+        self._set_connection_state(CONNECTION_STATE_SOCKET_OPENED)
+
     def _set_start_connect_future(self) -> None:
         if (
             self._start_connect_future is not None
@@ -839,11 +928,15 @@ class APIConnection:
 
     async def _do_finish_connect(self, login: bool) -> None:
         """Finish the connection process."""
-        # Cache timezone before registering handlers to ensure it's available
-        # when GetTimeRequest is received
-        # Use provided timezone from params (converted from IANA to POSIX if needed),
-        # or fall back to local timezone detection
-        self._cached_timezone = await get_timezone(self._params.timezone)
+        # Only needed to answer GetTimeRequest; runs as its own task so it
+        # never delays the handshake.
+        if self._params.provide_time:
+            timezone_task = create_eager_task(get_timezone(self._params.timezone))
+            if timezone_task.done():
+                self._set_cached_timezone(timezone_task)
+            else:
+                self._timezone_task = timezone_task
+                timezone_task.add_done_callback(self._set_cached_timezone)
         # Register internal handlers before
         # connecting the helper so we can ensure
         # we handle any messages that are received immediately
@@ -1138,6 +1231,14 @@ class APIConnection:
             raise
 
         if self._debug_enabled:
+            log_msg = msg
+            # The pairing token is a long-lived secret
+            if type(msg) is SendspinPairingTokenResponse:
+                redacted: Any = SendspinPairingTokenResponse()
+                redacted.CopyFrom(msg)
+                if redacted.token:
+                    redacted.token = _REDACTED
+                log_msg = redacted
             _LOGGER.debug(
                 "%s: Got message of type %s (len=%d): %s",
                 self.log_name,
@@ -1146,7 +1247,7 @@ class APIConnection:
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead
-                MessageToDict(msg) if _WIN32 else msg,
+                MessageToDict(log_msg) if _WIN32 else log_msg,
             )
 
         if self._pong_timer is not None:
@@ -1254,6 +1355,27 @@ class APIConnection:
         self, _msg: GetTimeRequest
     ) -> None:
         """Handle a GetTimeRequest."""
+        if (timezone_task := self._timezone_task) is not None:
+            timezone_task.add_done_callback(self._send_get_time_response_when_ready)
+            return
+        self._send_get_time_response()
+
+    def _set_cached_timezone(self, task: asyncio.Task[str]) -> None:
+        self._timezone_task = None
+        if task.cancelled():
+            return
+        if (exc := task.exception()) is not None:
+            _LOGGER.warning("%s: Timezone resolution failed: %s", self.log_name, exc)
+            return
+        self._cached_timezone = task.result()
+
+    def _send_get_time_response_when_ready(self, _task: asyncio.Task[str]) -> None:
+        # _cleanup clears _handshake_complete, so this also drops the
+        # response when the connection closed while the timezone resolved.
+        if self._handshake_complete:
+            self._send_get_time_response()
+
+    def _send_get_time_response(self) -> None:
         resp = GetTimeResponse()
         resp.epoch_seconds = int(time.time())
         resp.timezone = self._cached_timezone
