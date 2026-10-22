@@ -1895,7 +1895,7 @@ class APIClient(APIClientBase):
             )
         )
 
-    def cover_command(
+    def cover_command(  # noqa: C901  # pylint: disable=too-many-branches
         self,
         key: int,
         position: float | None = None,
@@ -1904,6 +1904,7 @@ class APIClient(APIClientBase):
         device_id: int = 0,
         *,
         stop_tilt: bool = False,
+        toggle: bool = False,
     ) -> None:
         connection = self._get_connection()
         req = CoverCommandRequest(key=key, device_id=device_id)
@@ -1921,6 +1922,8 @@ class APIClient(APIClientBase):
                 req.stop = stop
             if stop_tilt:
                 req.stop_tilt = stop_tilt
+            if toggle:
+                req.toggle = toggle
         elif stop:
             req.legacy_command = LegacyCoverCommand.STOP
             req.has_legacy_command = True
