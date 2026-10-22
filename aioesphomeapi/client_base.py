@@ -582,6 +582,7 @@ class APIClientBase:
         task.add_done_callback(self._background_tasks.discard)
 
     def _get_connection(self) -> APIConnection:
+        """Return the ready connection, or raise ConnectionNotEstablishedAPIError."""
         if self._connection is None:
             msg = f"Not connected to {self.log_name}!"
             raise ConnectionNotEstablishedAPIError(msg)
