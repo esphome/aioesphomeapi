@@ -424,6 +424,18 @@ class SendspinCapabilities(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class StoreYamlCapabilities(APIModelBase):
+    # True when the firmware embeds its YAML and answers GetYamlRequest
+    supported: bool = False
+
+    @classmethod
+    def convert(cls, value: Any) -> StoreYamlCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
 class DeviceCapabilities(APIModelBase):
     bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
         default_factory=BluetoothProxyCapabilities,
@@ -447,6 +459,10 @@ class DeviceCapabilities(APIModelBase):
     sendspin: SendspinCapabilities = converter_field(
         default_factory=SendspinCapabilities,
         converter=SendspinCapabilities.convert,
+    )
+    store_yaml: StoreYamlCapabilities = converter_field(
+        default_factory=StoreYamlCapabilities,
+        converter=StoreYamlCapabilities.convert,
     )
 
 
@@ -2537,6 +2553,7 @@ __all__ = (
     "SerialProxyStatus",
     "SirenInfo",
     "SirenState",
+    "StoreYamlCapabilities",
     "SubDeviceInfo",
     "SupportsResponseType",
     "SwitchInfo",
