@@ -50,6 +50,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
+    DeviceStateResponse,
     DeviceWizardRequest,
     DeviceWizardResponse,
     ExecuteServiceArgument,
@@ -126,6 +127,7 @@ from .client_base import (
     on_bluetooth_le_advertising_response,
     on_bluetooth_message_types,
     on_bluetooth_scanner_state_response,
+    on_device_state_msg,
     on_home_assistant_action_request,
     on_infrared_rf_receive_event,
     on_serial_proxy_data_received,
@@ -167,6 +169,7 @@ from .model import (
     ConnectionClosedEvent,
     DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
+    DeviceState,
     DeviceWizard as DeviceWizardModel,
     DisconnectReason,
     EntityInfo,
@@ -324,7 +327,12 @@ def _fill_object_ids_if_needed(
     return entities
 
 
-SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
+SUBSCRIBE_STATES_MSG_TYPES = (
+    *SUBSCRIBE_STATES_RESPONSE_TYPES,
+    CameraImageResponse,
+)
+
+DEVICE_STATE_MSG_TYPES = (DeviceStateResponse,)
 
 LIST_ENTITIES_MSG_TYPES = (
     ListEntitiesDoneResponse,
@@ -694,9 +702,20 @@ class APIClient(APIClientBase):
             services,
         )
 
-    def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
+    def subscribe_states(
+        self,
+        on_state: Callable[[EntityState], None],
+        *,
+        on_device_state: Callable[[DeviceState], None] | None = None,
+    ) -> None:
         """Subscribe to state updates."""
-        self._get_connection().send_message_callback_response(
+        connection = self._get_connection()
+        if on_device_state is not None:
+            connection.add_message_callback(
+                partial(on_device_state_msg, on_device_state),
+                DEVICE_STATE_MSG_TYPES,
+            )
+        connection.send_message_callback_response(
             SubscribeStatesRequest(),
             partial(on_state_msg, on_state, {}),
             SUBSCRIBE_STATES_MSG_TYPES,
@@ -1823,6 +1842,8 @@ class APIClient(APIClientBase):
         on_service_call: Callable[[HomeassistantServiceCall], None],
         on_state_sub: Callable[[str, str | None], None],
         on_state_request: Callable[[str, str | None], None] | None = None,
+        *,
+        on_device_state: Callable[[DeviceState], None] | None = None,
     ) -> None:
         """Subscribe to all state updates and service calls in a single request.
 
@@ -1836,6 +1857,11 @@ class APIClient(APIClientBase):
             partial(on_state_msg, on_state, {}),
             SUBSCRIBE_STATES_MSG_TYPES,
         )
+        if on_device_state is not None:
+            connection.add_message_callback(
+                partial(on_device_state_msg, on_device_state),
+                DEVICE_STATE_MSG_TYPES,
+            )
         connection.add_message_callback(
             partial(on_home_assistant_action_request, on_service_call),
             (HomeassistantActionRequest,),
