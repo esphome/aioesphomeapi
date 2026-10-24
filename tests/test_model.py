@@ -32,6 +32,8 @@ from aioesphomeapi.api_pb2 import (
     DeviceInfo as SubDeviceInfoProto,
     DeviceInfoResponse,
     EventResponse,
+    EventVariableType as EventVariableTypePb,
+    EventVariableValue as EventVariableValuePb,
     ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanStateResponse,
     HomeassistantActionRequest,
@@ -46,6 +48,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesDateResponse,
     ListEntitiesDateTimeResponse,
     ListEntitiesEventResponse,
+    ListEntitiesEventVariable,
     ListEntitiesFanResponse,
     ListEntitiesInfraredResponse,
     ListEntitiesLightResponse,
@@ -141,6 +144,9 @@ from aioesphomeapi.model import (
     EntityState,
     Event,
     EventInfo,
+    EventVariable,
+    EventVariableType,
+    EventVariableValue,
     ExecuteServiceResponse,
     FanInfo,
     FanState,
@@ -419,6 +425,8 @@ def test_api_version_ord():
         (DateTimeState, DateTimeStateResponse),
         (EventInfo, ListEntitiesEventResponse),
         (Event, EventResponse),
+        (EventVariable, ListEntitiesEventVariable),
+        (EventVariableValue, EventVariableValuePb),
         (UpdateInfo, ListEntitiesUpdateResponse),
         (UpdateState, UpdateStateResponse),
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
@@ -477,6 +485,86 @@ def test_bluetooth_connections_free_surfaces_allocated() -> None:
     assert model.free == 2
     assert model.limit == 3
     assert model.allocated == [10, 20]
+
+
+def test_event_info_variables() -> None:
+    info = EventInfo.from_pb(
+        ListEntitiesEventResponse(
+            key=1,
+            event_types=["rotate_left", "rotate_right"],
+            variables=[
+                ListEntitiesEventVariable(
+                    name="steps", type=EventVariableTypePb.EVENT_VARIABLE_TYPE_INT
+                ),
+                ListEntitiesEventVariable(
+                    name="fast", type=EventVariableTypePb.EVENT_VARIABLE_TYPE_BOOL
+                ),
+                ListEntitiesEventVariable(
+                    name="speed", type=EventVariableTypePb.EVENT_VARIABLE_TYPE_FLOAT
+                ),
+                ListEntitiesEventVariable(
+                    name="action", type=EventVariableTypePb.EVENT_VARIABLE_TYPE_STRING
+                ),
+            ],
+        )
+    )
+    assert info.variables == [
+        EventVariable(name="steps", type=EventVariableType.INT),
+        EventVariable(name="fast", type=EventVariableType.BOOL),
+        EventVariable(name="speed", type=EventVariableType.FLOAT),
+        EventVariable(name="action", type=EventVariableType.STRING),
+    ]
+
+
+def test_event_variable_unknown_type() -> None:
+    # 9 stands for a type that newer firmware could add
+    assert EventVariable.from_pb(ListEntitiesEventVariable(type=9)).type is None
+    assert EventVariable.from_dict({"type": 9}).type is None
+
+
+def test_event_values() -> None:
+    # Index 0 to 3: steps (int), fast (bool), speed (float) and action (string)
+    event = Event.from_pb(
+        EventResponse(
+            key=1,
+            event_type="rotate_left",
+            values=[
+                EventVariableValuePb(index=0, int_=-3),
+                EventVariableValuePb(index=1, bool_=True),
+                EventVariableValuePb(index=2, float_=0.1),
+                EventVariableValuePb(index=3, string_="start"),
+            ],
+        )
+    )
+    assert event.values == [
+        EventVariableValue(index=0, int_=-3),
+        EventVariableValue(index=1, bool_=True),
+        EventVariableValue(index=2, float_=0.1),
+        EventVariableValue(index=3, string_="start"),
+    ]
+    # 0.1 arrives as the 32-bit float 0.10000000149011612 and is rounded back
+    assert event.values[2].float_ == 0.1
+
+
+def test_event_without_values() -> None:
+    assert EventInfo.from_pb(ListEntitiesEventResponse(key=1)).variables == []
+    assert Event.from_pb(EventResponse(key=1, event_type="press")).values == []
+
+
+def test_event_data_dict_round_trip() -> None:
+    info = EventInfo(
+        key=1, variables=[EventVariable(name="steps", type=EventVariableType.INT)]
+    )
+    event = Event(
+        key=1, event_type="rotate_left", values=[EventVariableValue(index=0, int_=3)]
+    )
+    assert info.to_dict()["variables"] == [{"name": "steps", "type": 1}]
+    assert event.to_dict()["values"] == [
+        {"index": 0, "bool_": False, "int_": 3, "float_": 0.0, "string_": ""}
+    ]
+    # Through JSON, as Home Assistant stores the entity info
+    assert EventInfo.from_dict(json.loads(json.dumps(info.to_dict()))) == info
+    assert Event.from_dict(json.loads(json.dumps(event.to_dict()))) == event
 
 
 @pytest.mark.parametrize("supports_toggle", [True, False])
@@ -2155,7 +2243,12 @@ def test_event_entity_state_device_id():
 
     # Test to_dict includes device_id
     event_dict = event_model.to_dict()
-    assert event_dict == {"key": 100, "event_type": "button_press", "device_id": 42}
+    assert event_dict == {
+        "key": 100,
+        "event_type": "button_press",
+        "device_id": 42,
+        "values": [],
+    }
 
     # Test from_dict with device_id
     event_from_dict = Event.from_dict(
