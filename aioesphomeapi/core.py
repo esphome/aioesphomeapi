@@ -45,6 +45,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     ClimateStateResponse,
     CoverCommandRequest,
     CoverStateResponse,
+    CrashReportRequest,
+    CrashReportResponse,
     DateCommandRequest,
     DateStateResponse,
     DateTimeCommandRequest,
@@ -593,6 +595,8 @@ MESSAGE_TYPE_TO_PROTO = {
     160: SendspinPairingTokenResponse,
     161: GetYamlRequest,
     162: GetYamlResponse,
+    163: CrashReportRequest,
+    164: CrashReportResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())

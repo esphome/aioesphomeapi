@@ -44,6 +44,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    CrashReportRequest,
+    CrashReportResponse,
     DateCommandRequest,
     DateTimeCommandRequest,
     DeviceCapabilitiesRequest,
@@ -165,6 +167,7 @@ from .model import (
     ClimatePreset,
     ClimateSwingMode,
     ConnectionClosedEvent,
+    CrashReport as CrashReportModel,
     DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
     DeviceWizard as DeviceWizardModel,
@@ -558,6 +561,18 @@ class APIClient(APIClientBase):
             DeviceWizardRequest(), DeviceWizardResponse
         )
         return DeviceWizardModel.from_compressed_json(resp.data)
+
+    async def crash_report(self) -> CrashReportModel:
+        """Fetch the crash recorded on the previous boot.
+
+        Only call when DeviceCapabilities.crash_report.flags has CrashReportFlag.PRESENT
+        set: older devices never answer, so the request raises TimeoutAPIError. The
+        device drops the report once sent, so later calls return flags without PRESENT.
+        """
+        resp = await self._get_connection().send_message_await_response(
+            CrashReportRequest(), CrashReportResponse
+        )
+        return CrashReportModel.from_pb(resp)
 
     def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
         """Set the Home Assistant entity id of the wizard input with the given key.
