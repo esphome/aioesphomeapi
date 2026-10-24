@@ -2408,7 +2408,7 @@ async def test_crash_report(
     transport.writelines.reset_mock()
     task = asyncio.create_task(client.crash_report())
     await asyncio.sleep(0)
-    # An empty message is framed without a payload chunk; 163 is varuint b"\xa3\x01"
+    # 163 is varuint b"\xa3\x01"
     transport.writelines.assert_called_once_with([b"\x00", b"\x00", b"\xa3\x01"])
     response: message.Message = CrashReportResponse(
         flags=CrashReportFlag.PRESENT | CrashReportFlag.BUILD_MATCHES,

@@ -495,12 +495,11 @@ class DeviceCapabilities(APIModelBase):
 
 @_frozen_dataclass_decorator
 class CrashReport(APIModelBase):
-    # Bitmask of CrashReportFlag; without PRESENT the other fields are unset
+    # Bitmask of CrashReportFlag
     flags: int = 0
     reason: CrashReason | None = converter_field(
         default=CrashReason.UNKNOWN, converter=CrashReason.convert
     )
-    # Addresses are raw; decode them against the ELF of the build that recorded them
     pc: int = 0
     backtrace: list[int] = converter_field(default_factory=list, converter=list)
     cause: int = 0
