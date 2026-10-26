@@ -2068,3 +2068,75 @@ async def test_zc_listener_starts_when_timer_fires_mid_attempt(
             await asyncio.sleep(0)
 
             await rl.stop()
+
+
+async def test_zeroconf_kick_reopens_gate_when_attempt_fails_synchronously(
+    patchable_api_client: APIClient,
+) -> None:
+    """An mDNS kick whose attempt fails without yielding keeps the gate open."""
+    cli = patchable_api_client
+
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+        await drain_zc_start(rl)
+        assert rl._tries == 1
+
+        rl._zc_wake.async_update_records(
+            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+        )
+        await asyncio.sleep(0)
+        assert rl._tries == 2
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._connect_timer is not None
+        assert rl._zc_wake._accept_records is True
+
+        rl._zc_wake.async_update_records(
+            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+        )
+        await asyncio.sleep(0)
+        assert rl._tries == 3
+
+    await rl.stop()
+
+
+async def test_zeroconf_kick_ignored_when_gated(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """kick() schedules nothing while stopped or once the attempt was kicked."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=MagicMock(spec=Zeroconf),
+        name="mydevice",
+    )
+    with patch.object(rl, "_schedule_connect") as mock_schedule:
+        rl._zc_wake.kick("a test kick")
+    mock_schedule.assert_not_called()
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    caplog.clear()
+    with patch.object(rl, "_schedule_connect") as mock_schedule:
+        rl._zc_wake.kick("a test kick")
+        rl._zc_wake.kick("a test kick")
+    mock_schedule.assert_called_once_with(0.0)
+    assert caplog.text.count("Triggering connect because a test kick") == 1
+
+    await rl.stop()
