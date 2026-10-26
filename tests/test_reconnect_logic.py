@@ -2095,6 +2095,7 @@ async def test_zeroconf_kick_reopens_gate_when_attempt_fails_synchronously(
         rl._zc_wake.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
+        await asyncio.sleep(0)
         assert rl._tries == 2
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
         assert rl._connect_timer is not None
@@ -2103,6 +2104,38 @@ async def test_zeroconf_kick_reopens_gate_when_attempt_fails_synchronously(
         rl._zc_wake.async_update_records(
             mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
         )
+        await asyncio.sleep(0)
         assert rl._tries == 3
 
+    await rl.stop()
+
+
+async def test_zeroconf_kick_returns_false_when_gated(
+    patchable_api_client: APIClient,
+) -> None:
+    """kick() refuses while stopped and after the attempt was already kicked."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=MagicMock(spec=Zeroconf),
+        name="mydevice",
+    )
+    assert rl._zc_wake.kick("%s: test kick") is False
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+    ):
+        assert rl._zc_wake.kick("%s: test kick") is True
+        assert rl._zc_wake.kick("%s: test kick") is False
+        await asyncio.sleep(0)
+
+    rl._cancel_connect("forced cancel in test")
     await rl.stop()
