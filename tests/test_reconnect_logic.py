@@ -2416,3 +2416,37 @@ async def test_notify_device_seen_logs_before_attempt(
 
     rl._cancel_connect("forced cancel in test")
     await rl.stop()
+
+
+async def test_notify_device_seen_during_connect_error_callback(
+    patchable_api_client: APIClient,
+) -> None:
+    """A sighting while on_connect_error runs leaves the gate open for the backoff."""
+    cli = patchable_api_client
+
+    async def on_connect_error(err: Exception) -> None:
+        await asyncio.sleep(0)
+        rl.notify_device_seen()
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        on_connect_error=on_connect_error,
+        name="mydevice",
+        zeroconf_wake=False,
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._connect_timer is not None
+
+    with patch.object(rl, "_schedule_connect") as mock_schedule:
+        rl.notify_device_seen()
+    mock_schedule.assert_called_once_with(0.0)
+
+    await rl.stop()

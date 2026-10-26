@@ -506,11 +506,14 @@ class ReconnectLogic:
     async def _handle_connection_failure(self, err: Exception) -> None:
         """Handle a connection failure."""
         self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
-        # The attempt has truly ended — allow the next mDNS record to
-        # kick a fresh connect attempt early.
-        self._zc_wake.reopen()
-        if self._on_connect_error_cb is not None:
-            await self._on_connect_error_cb(err)
+        try:
+            if self._on_connect_error_cb is not None:
+                await self._on_connect_error_cb(err)
+        finally:
+            # The attempt has truly ended — allow the next wake to kick a fresh
+            # connect attempt early. Reopen after the callback: a kick while it
+            # yields is declined by the still running task but closes the gate.
+            self._zc_wake.reopen()
         self._async_log_connection_error(err)
         if (
             self._allow_plaintext_fallback
