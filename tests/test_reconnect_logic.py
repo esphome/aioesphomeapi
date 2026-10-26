@@ -2110,10 +2110,11 @@ async def test_zeroconf_kick_reopens_gate_when_attempt_fails_synchronously(
     await rl.stop()
 
 
-async def test_zeroconf_kick_returns_false_when_gated(
+async def test_zeroconf_kick_ignored_when_gated(
     patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """kick() refuses while stopped and after the attempt was already kicked."""
+    """kick() schedules nothing while stopped or once the attempt was kicked."""
     cli = patchable_api_client
 
     rl = ReconnectLogic(
@@ -2123,19 +2124,19 @@ async def test_zeroconf_kick_returns_false_when_gated(
         zeroconf_instance=MagicMock(spec=Zeroconf),
         name="mydevice",
     )
-    assert rl._zc_wake.kick("%s: test kick") is False
+    with patch.object(rl, "_schedule_connect") as mock_schedule:
+        rl._zc_wake.kick("a test kick")
+    mock_schedule.assert_not_called()
 
     with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
         await rl.start()
         await asyncio.sleep(0)
 
-    with (
-        patch.object(cli, "start_resolve_host"),
-        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
-    ):
-        assert rl._zc_wake.kick("%s: test kick") is True
-        assert rl._zc_wake.kick("%s: test kick") is False
-        await asyncio.sleep(0)
+    caplog.clear()
+    with patch.object(rl, "_schedule_connect") as mock_schedule:
+        rl._zc_wake.kick("a test kick")
+        rl._zc_wake.kick("a test kick")
+    mock_schedule.assert_called_once_with(0.0)
+    assert caplog.text.count("Triggering connect because a test kick") == 1
 
-    rl._cancel_connect("forced cancel in test")
     await rl.stop()
