@@ -126,6 +126,23 @@ class ZeroconfWake:
         """Allow the next matching mDNS record to kick a connect again."""
         self._accept_records = True
 
+    def kick(self, msg: str, *args: object) -> bool:
+        """Log msg and kick the current connect attempt once; return False if gated."""
+        if not self._accept_records or not self._can_kick():
+            return False
+        _LOGGER.debug(msg, self._client.log_name, *args)
+        #
+        # If we scheduled the connect attempt immediately, the listener could fire
+        # again before the connect attempt and we cancel and reschedule the connect
+        # attempt again.
+        #
+        self.stop()
+        # Close the gate first: the eager connect task can fail without
+        # yielding, and its failure handler reopens the gate for the backoff.
+        self._accept_records = False
+        self._on_wake()
+        return True
+
     def arm(self) -> None:
         """Arm the delayed listener start for a connect attempt."""
         if self._startable() and self._timer is None:
@@ -219,19 +236,10 @@ class ZeroconfWake:
                 continue
 
             # Tell connection logic to retry connection attempt now (even before connect timer finishes)
-            _LOGGER.debug(
+            self.kick(
                 "%s: Triggering connect because of received mDNS record %s",
-                self._client.log_name,
                 record_update.new,
             )
-            #
-            # If we scheduled the connect attempt immediately, the listener could fire
-            # again before the connect attempt and we cancel and reschedule the connect
-            # attempt again.
-            #
-            self.stop()
-            self._on_wake()
-            self._accept_records = False
             return
 
     async def _async_start(self) -> None:
