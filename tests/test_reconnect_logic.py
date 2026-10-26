@@ -2140,3 +2140,313 @@ async def test_zeroconf_kick_ignored_when_gated(
     assert caplog.text.count("Triggering connect because a test kick") == 1
 
     await rl.stop()
+
+
+async def test_zeroconf_wake_disabled_never_creates_zeroconf(
+    patchable_api_client: APIClient,
+) -> None:
+    """zeroconf_wake=False never touches zeroconf, even across failed attempts."""
+    cli = patchable_api_client
+
+    with patch.object(cli.zeroconf_manager, "get_async_zeroconf") as get_zeroconf:
+        rl = ReconnectLogic(
+            client=cli,
+            on_connect=AsyncMock(),
+            on_disconnect=AsyncMock(),
+            name="mydevice",
+            zeroconf_wake=False,
+        )
+        assert cli.log_name == "mydevice @ 127.0.0.1"
+
+        with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+            await rl.start()
+            await asyncio.sleep(0)
+            await drain_zc_start(rl)
+
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._connect_timer is not None
+        assert rl._zc_wake._timer is None
+        assert rl._zc_wake._start_task is None
+        assert rl._zc_wake._listening is False
+
+        await rl.stop()
+
+    get_zeroconf.assert_not_called()
+
+
+async def test_notify_device_seen_kicks_backoff_timer(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """notify_device_seen connects immediately and leaves the backoff counter alone."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        name="mydevice",
+        zeroconf_wake=False,
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._connect_timer is not None
+    assert rl._tries == 1
+
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve,
+        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+    ):
+        caplog.clear()
+        rl.notify_device_seen()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_resolve.call_count == 1
+        assert rl._connect_timer is None
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+        assert rl._tries == 1
+        assert "Triggering connect because the device was seen" in caplog.text
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+
+
+@pytest.mark.parametrize("first_kick", ["notify", "mdns"])
+async def test_notify_device_seen_shares_one_kick_per_attempt(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+    first_kick: str,
+) -> None:
+    """notify_device_seen and mDNS records share the one-kick-per-attempt gate."""
+    cli = patchable_api_client
+
+    mock_zeroconf = MagicMock(spec=Zeroconf)
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        zeroconf_instance=mock_zeroconf,
+        name="mydevice",
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+    ):
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert rl._connection_state is ReconnectLogicState.CONNECTING
+
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve,
+        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+    ):
+        if first_kick == "notify":
+            rl.notify_device_seen()
+        else:
+            rl._zc_wake.async_update_records(
+                mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+            )
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert mock_resolve.call_count == 1
+        assert rl._zc_wake._accept_records is False
+
+        caplog.clear()
+        for _ in range(5):
+            rl.notify_device_seen()
+            rl._zc_wake.async_update_records(
+                mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
+            )
+        await asyncio.sleep(0)
+        assert "Triggering connect" not in caplog.text
+        assert mock_resolve.call_count == 1
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+
+
+async def test_notify_device_seen_ignored_while_stopped(
+    patchable_api_client: APIClient,
+) -> None:
+    """notify_device_seen does nothing before start or after stop."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        name="mydevice",
+        zeroconf_wake=False,
+    )
+
+    with patch.object(cli, "start_resolve_host") as mock_resolve:
+        rl.notify_device_seen()
+        await asyncio.sleep(0)
+        assert mock_resolve.call_count == 0
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+    await rl.stop()
+
+    with patch.object(cli, "start_resolve_host") as mock_resolve:
+        rl.notify_device_seen()
+        await asyncio.sleep(0)
+        assert mock_resolve.call_count == 0
+    assert rl._connect_timer is None
+
+
+async def test_notify_device_seen_ignored_while_handshaking(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """notify_device_seen does not restart an attempt that is handshaking."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        name="mydevice",
+        zeroconf_wake=False,
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(cli, "start_resolve_host") as mock_resolve,
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection", side_effect=slow_connect_fail),
+    ):
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        assert rl._connection_state is ReconnectLogicState.HANDSHAKING
+
+        caplog.clear()
+        rl.notify_device_seen()
+        await asyncio.sleep(0)
+        assert "Triggering connect because the device was seen" not in caplog.text
+        assert mock_resolve.call_count == 1
+        assert rl._connection_state is ReconnectLogicState.HANDSHAKING
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+
+
+async def test_notify_device_seen_reopens_gate_when_attempt_fails_synchronously(
+    patchable_api_client: APIClient,
+) -> None:
+    """A notify_device_seen kick whose attempt fails without yielding keeps the gate open."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        name="mydevice",
+        zeroconf_wake=False,
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+        assert rl._tries == 1
+
+        rl.notify_device_seen()
+        await asyncio.sleep(0)
+        assert rl._tries == 2
+        assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+        assert rl._connect_timer is not None
+        assert rl._zc_wake._accept_records is True
+
+        rl.notify_device_seen()
+        await asyncio.sleep(0)
+        assert rl._tries == 3
+
+    await rl.stop()
+
+
+async def test_notify_device_seen_logs_before_attempt(
+    patchable_api_client: APIClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The trigger log line precedes the connect attempt it starts."""
+    cli = patchable_api_client
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        name="mydevice",
+        zeroconf_wake=False,
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection", side_effect=slow_connect_fail),
+    ):
+        caplog.clear()
+        rl.notify_device_seen()
+        await asyncio.sleep(0)
+        messages = [record.message for record in caplog.records]
+        trigger = next(
+            i for i, m in enumerate(messages) if "because the device was seen" in m
+        )
+        attempt = next(i for i, m in enumerate(messages) if "Trying to connect" in m)
+        assert trigger < attempt
+
+    rl._cancel_connect("forced cancel in test")
+    await rl.stop()
+
+
+async def test_notify_device_seen_during_connect_error_callback(
+    patchable_api_client: APIClient,
+) -> None:
+    """A sighting while on_connect_error runs leaves the gate open for the backoff."""
+    cli = patchable_api_client
+
+    async def on_connect_error(err: Exception) -> None:
+        await asyncio.sleep(0)
+        rl.notify_device_seen()
+
+    rl = ReconnectLogic(
+        client=cli,
+        on_disconnect=AsyncMock(),
+        on_connect=AsyncMock(),
+        on_connect_error=on_connect_error,
+        name="mydevice",
+        zeroconf_wake=False,
+    )
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl.start()
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+    assert rl._connection_state is ReconnectLogicState.DISCONNECTED
+    assert rl._connect_timer is not None
+
+    with patch.object(rl, "_schedule_connect") as mock_schedule:
+        rl.notify_device_seen()
+    mock_schedule.assert_called_once_with(0.0)
+
+    await rl.stop()

@@ -88,7 +88,7 @@ AUTH_EXCEPTIONS = (
 
 
 class ZeroconfWake:
-    """Deferred mDNS listener that wakes a reconnect attempt when its device announces."""
+    """Deferred mDNS listener plus the one-kick-per-attempt gate shared by all wakes."""
 
     def __init__(
         self,
@@ -96,12 +96,14 @@ class ZeroconfWake:
         name: str | None,
         can_kick: Callable[[], bool],
         on_wake: Callable[[], None],
+        *,
+        enabled: bool = True,
     ) -> None:
-        """Initialize the wake listener; can_kick gates records, on_wake kicks a connect."""
+        """Initialize the wake listener; can_kick gates kicks, on_wake kicks a connect."""
         self._loop = asyncio.get_running_loop()
         self._client = client
         self._name = name
-        self._eligible = bool(name) and not is_ip_address(name)
+        self._eligible = enabled and bool(name) and not is_ip_address(name)
         self._can_kick = can_kick
         self._on_wake = on_wake
         self._warned = False
@@ -123,7 +125,7 @@ class ZeroconfWake:
         self._accept_records = True
 
     def reopen(self) -> None:
-        """Allow the next matching mDNS record to kick a connect again."""
+        """Allow the next wake to kick a connect again."""
         self._accept_records = True
 
     def kick(self, reason: str) -> None:
@@ -294,12 +296,16 @@ class ReconnectLogic:
         name: str | None = None,
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
         allow_plaintext_fallback: bool = False,
+        zeroconf_wake: bool = True,
     ) -> None:
         """Initialize ReconnectingLogic.
 
         :param client: initialized :class:`APIClient` to reconnect for
         :param on_connect: Coroutine Function to call when connected.
         :param on_disconnect: Coroutine Function to call when disconnected.
+        :param zeroconf_wake: If False, never start the mDNS listener that
+            kicks a pending connect; callers with their own discovery report
+            sightings via :meth:`notify_device_seen` instead.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
             the device responds with the plaintext protocol marker, instead
@@ -343,8 +349,9 @@ class ReconnectLogic:
         self._zc_wake = ZeroconfWake(
             client,
             self.name,
-            self._zc_can_kick,
-            self._connect_from_zeroconf,
+            self._can_kick,
+            self._connect_now,
+            enabled=zeroconf_wake,
         )
         # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
@@ -499,11 +506,14 @@ class ReconnectLogic:
     async def _handle_connection_failure(self, err: Exception) -> None:
         """Handle a connection failure."""
         self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
-        # The attempt has truly ended — allow the next mDNS record to
-        # kick a fresh connect attempt early.
-        self._zc_wake.reopen()
-        if self._on_connect_error_cb is not None:
-            await self._on_connect_error_cb(err)
+        try:
+            if self._on_connect_error_cb is not None:
+                await self._on_connect_error_cb(err)
+        finally:
+            # The attempt has truly ended — allow the next wake to kick a fresh
+            # connect attempt early. Reopen after the callback: a kick while it
+            # yields is declined by the still running task but closes the gate.
+            self._zc_wake.reopen()
         self._async_log_connection_error(err)
         if (
             self._allow_plaintext_fallback
@@ -723,14 +733,24 @@ class ReconnectLogic:
 
         await self._zeroconf_manager.async_close()
 
-    def _zc_can_kick(self) -> bool:
-        """Return True while an mDNS record could still usefully kick a connect."""
+    def notify_device_seen(self) -> None:
+        """Connect now because out-of-band discovery saw the device.
+
+        Same policy as a matching mDNS record: ignored while stopped or
+        once handshaking/connected, at most one kick per connect attempt,
+        and the backoff counter is left untouched. Must be called from the
+        event loop.
+        """
+        self._zc_wake.kick("the device was seen")
+
+    def _can_kick(self) -> bool:
+        """Return True while a wake could still usefully kick a connect."""
         return (
             not self._is_stopped and self._connection_state in NOT_YET_CONNECTED_STATES
         )
 
-    def _connect_from_zeroconf(self) -> None:
-        """Connect from zeroconf."""
+    def _connect_now(self) -> None:
+        """Connect now for a wake from mDNS or notify_device_seen."""
         self._schedule_connect(0.0)
 
     def _refuse_adoption(self, sock: socket.socket, state: ReconnectLogicState) -> bool:
