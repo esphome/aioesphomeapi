@@ -2148,11 +2148,7 @@ async def test_zeroconf_wake_disabled_never_creates_zeroconf(
     """zeroconf_wake=False never touches zeroconf, even across failed attempts."""
     cli = patchable_api_client
 
-    with patch.object(
-        cli.zeroconf_manager,
-        "get_async_zeroconf",
-        side_effect=Exception("Should not create zeroconf with zeroconf_wake=False"),
-    ):
+    with patch.object(cli.zeroconf_manager, "get_async_zeroconf") as get_zeroconf:
         rl = ReconnectLogic(
             client=cli,
             on_connect=AsyncMock(),
@@ -2174,6 +2170,8 @@ async def test_zeroconf_wake_disabled_never_creates_zeroconf(
         assert rl._zc_wake._listening is False
 
         await rl.stop()
+
+    get_zeroconf.assert_not_called()
 
 
 async def test_notify_device_seen_kicks_backoff_timer(
