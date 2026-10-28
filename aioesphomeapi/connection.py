@@ -750,7 +750,9 @@ class APIConnection:
                 # since the only thing we want to reset the timer
                 # is if we receive a pong.
                 self._pong_timer = self._loop.call_at(
-                    now + self._keep_alive_timeout, self._async_pong_not_received
+                    now + self._keep_alive_timeout,
+                    self._async_pong_not_received,
+                    self._keep_alive_timeout,
                 )
             elif self._debug_enabled:
                 #
@@ -777,18 +779,16 @@ class APIConnection:
             self._pong_timer.cancel()
             self._pong_timer = None
 
-    def _async_pong_not_received(self) -> None:
+    def _async_pong_not_received(self, timeout: _float) -> None:
         """Ping not received."""
         if self._debug_enabled:
             _LOGGER.debug(
                 "%s: Ping response not received after %s seconds",
                 self.log_name,
-                self._keep_alive_timeout,
+                timeout,
             )
         self.report_fatal_error(
-            PingFailedAPIError(
-                f"Ping response not received after {self._keep_alive_timeout} seconds"
-            )
+            PingFailedAPIError(f"Ping response not received after {timeout} seconds")
         )
 
     async def start_resolve_host(self) -> None:
@@ -1142,6 +1142,25 @@ class APIConnection:
             timeout,
         )
         return response
+
+    def check_alive(self, timeout: _float) -> bool:
+        """Ping; drop the connection unless a frame arrives within timeout. True if sent."""
+        if not self._handshake_complete:
+            return False
+        deadline = self._loop.time() + timeout
+        if self._pong_timer is not None:
+            if self._pong_timer.when() <= deadline:
+                return False
+            self._async_cancel_pong_timer()
+        try:
+            self.send_messages(PING_REQUEST_MESSAGES)
+        except APIConnectionError:
+            return False
+        # Shares the keepalive pong timer, which any received frame cancels.
+        self._pong_timer = self._loop.call_at(
+            deadline, self._async_pong_not_received, timeout
+        )
+        return True
 
     def report_fatal_error(self, err: Exception) -> None:
         """Report a fatal error that occurred during an operation.

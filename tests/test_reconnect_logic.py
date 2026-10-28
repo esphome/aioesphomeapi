@@ -4,7 +4,7 @@ import asyncio
 from functools import partial
 from ipaddress import ip_address
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
@@ -30,9 +30,13 @@ from aioesphomeapi.client import APIClient
 from aioesphomeapi.core import APIConnectionCancelledError
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
     DEEP_SLEEP_MAXIMUM_BACKOFF,
+    EXPECTED_DISCONNECT_COOLDOWN,
+    LIVENESS_PROBE_TIMEOUT,
     MAXIMUM_BACKOFF,
     MAXIMUM_BACKOFF_TRIES,
     TYPE_A,
@@ -2449,4 +2453,156 @@ async def test_notify_device_seen_during_connect_error_callback(
         rl.notify_device_seen()
     mock_schedule.assert_called_once_with(0.0)
 
+    await rl.stop()
+
+
+async def _connected_logic(cli: APIClient, **kwargs: Any) -> ReconnectLogic:
+    """Return a ReconnectLogic connected to READY with the client calls patched."""
+    rl = ReconnectLogic(
+        client=cli,
+        on_connect=AsyncMock(),
+        on_disconnect=AsyncMock(),
+        name="mydevice",
+        **kwargs,
+    )
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+    await drain_zc_start(rl)
+    assert rl._connection_state is ReconnectLogicState.READY
+    return rl
+
+
+@pytest.fixture
+async def probing(
+    patchable_api_client: APIClient,
+) -> AsyncGenerator[tuple[ReconnectLogic, MagicMock, MagicMock]]:
+    """Yield a connected ReconnectLogic with probe_on_announce and mocked listeners."""
+    cli = patchable_api_client
+    async_zeroconf = get_mock_async_zeroconf()
+    with (
+        patch.object(
+            cli.zeroconf_manager, "get_async_zeroconf", return_value=async_zeroconf
+        ),
+        patch.object(async_zeroconf.zeroconf, "async_add_listener") as add_listener,
+        patch.object(async_zeroconf.zeroconf, "async_remove_listener") as remove,
+    ):
+        rl = await _connected_logic(cli, probe_on_announce=True)
+        yield rl, add_listener, remove
+        await rl.stop()
+
+
+def _send_record(rl: ReconnectLogic, record: DNSRecord = DNS_POINTER) -> None:
+    rl._zc_wake.async_update_records(
+        MagicMock(), current_time_millis(), [RecordUpdate(record, None)]
+    )
+
+
+async def test_probe_on_announce_listener_lifecycle(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """The listener runs while connected and stops on disconnect."""
+    rl, add_listener, remove = probing
+    add_listener.assert_called_once()
+    assert rl._zc_wake._listening is True
+
+    with patch.object(rl, "_schedule_connect") as schedule:
+        await rl._on_disconnect(True)
+    schedule.assert_called_once_with(EXPECTED_DISCONNECT_COOLDOWN)
+    remove.assert_called_once()
+    assert rl._zc_wake._listening is False
+
+
+async def test_probe_on_announce_listener_kept_through_handshake(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """The listener is not removed at handshake."""
+    rl, add_listener, remove = probing
+    with patch.object(rl, "_schedule_connect"):
+        await rl._on_disconnect(False)
+    rl._zc_wake.start()
+    with (
+        patch.object(rl._cli, "start_resolve_host"),
+        patch.object(rl._cli, "start_connection"),
+        patch.object(rl._cli, "finish_connection"),
+    ):
+        await rl._connect_once_or_reschedule()
+    assert rl._connection_state is ReconnectLogicState.READY
+    assert rl._zc_wake._listening is True
+    assert add_listener.call_count == 2
+    assert remove.call_count == 1
+
+
+@pytest.mark.parametrize("sent", [True, False])
+async def test_probe_on_announce_record_probes(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+    caplog: pytest.LogCaptureFixture,
+    sent: bool,
+) -> None:
+    """A record while connected probes instead of kicking; logged only if sent."""
+    rl, _, _ = probing
+    with (
+        patch.object(rl._cli, "check_connection", return_value=sent) as check,
+        patch.object(rl, "_schedule_connect") as schedule,
+    ):
+        _send_record(rl)
+    check.assert_called_once_with(LIVENESS_PROBE_TIMEOUT)
+    schedule.assert_not_called()
+    assert (
+        "Checking the connection is alive because of received mDNS" in caplog.text
+    ) is sent
+
+
+async def test_probe_on_announce_error_is_logged_not_raised(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unexpected error from the probe is logged, not raised into zeroconf."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "check_connection", side_effect=RuntimeError("boom")):
+        _send_record(rl)
+    assert "Unexpected error checking the connection" in caplog.text
+
+
+async def test_probe_on_announce_off_by_default(
+    patchable_api_client: APIClient,
+) -> None:
+    """Without probe_on_announce a sighting while connected does nothing."""
+    cli = patchable_api_client
+    with patch.object(
+        cli.zeroconf_manager,
+        "get_async_zeroconf",
+        return_value=get_mock_async_zeroconf(),
+    ):
+        rl = await _connected_logic(cli)
+    assert rl._zc_wake._listening is False
+    with (
+        patch.object(cli, "check_connection") as check,
+        patch.object(rl, "_schedule_connect") as schedule,
+    ):
+        _send_record(rl)
+        rl.notify_device_seen()
+    check.assert_not_called()
+    schedule.assert_not_called()
+    await rl.stop()
+
+
+async def test_notify_device_seen_probes_while_connected(
+    patchable_api_client: APIClient,
+) -> None:
+    """notify_device_seen while connected probes the session."""
+    cli = patchable_api_client
+    rl = await _connected_logic(cli, zeroconf_wake=False, probe_on_announce=True)
+    with (
+        patch.object(cli, "check_connection") as check,
+        patch.object(rl, "_schedule_connect") as schedule,
+    ):
+        rl.notify_device_seen()
+    check.assert_called_once_with(LIVENESS_PROBE_TIMEOUT)
+    schedule.assert_not_called()
     await rl.stop()

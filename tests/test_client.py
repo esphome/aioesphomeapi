@@ -7003,3 +7003,21 @@ async def test_ir_rf_transmit_estimate_fallback_dropped_after_disconnect(
     async_fire_time_changed(utcnow() + timedelta(seconds=2))
     await asyncio.sleep(0)
     assert len(sent) == 1
+
+
+async def test_check_connection_delegates(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """check_connection runs check_alive on the connection."""
+    client, connection, _transport, _protocol = api_client
+    with patch.object(connection, "check_alive", return_value=True) as check_alive:
+        assert client.check_connection(3.0) is True
+    check_alive.assert_called_once_with(3.0)
+
+
+async def test_check_connection_without_connection() -> None:
+    """check_connection returns False without a connection."""
+    client = APIClient(address="127.0.0.1", port=6052, password=None)
+    assert client.check_connection(3.0) is False

@@ -42,6 +42,8 @@ ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 # came online mid-attempt is woken by its boot announcement.
 ZC_LISTEN_DELAY = 2.0
 
+LIVENESS_PROBE_TIMEOUT = 3.0
+
 _zc_listener_cache: list[type[ReconnectRecordUpdateListener]] = []
 
 
@@ -98,14 +100,18 @@ class ZeroconfWake:
         on_wake: Callable[[], None],
         *,
         enabled: bool = True,
+        can_probe: Callable[[], bool] | None = None,
+        on_probe: Callable[[str], None] | None = None,
     ) -> None:
-        """Initialize the wake listener; can_kick gates kicks, on_wake kicks a connect."""
+        """Initialize the wake listener; can_kick/can_probe gate on_wake/on_probe."""
         self._loop = asyncio.get_running_loop()
         self._client = client
         self._name = name
         self._eligible = enabled and bool(name) and not is_ip_address(name)
         self._can_kick = can_kick
         self._on_wake = on_wake
+        self._can_probe = can_probe
+        self._on_probe = on_probe
         self._warned = False
         # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
         # Lowercase the match keys here and the incoming records in
@@ -220,7 +226,8 @@ class ZeroconfWake:
         # Bail if the current attempt has already been kicked by a previous
         # mDNS record (one-shot gate) or if a kick could no longer help
         # (stopped, or past the point where a restart matters).
-        if not self._accept_records or not self._can_kick():
+        # While connected, a record probes the session instead.
+        if not self._interested():
             return
 
         for record_update in records:
@@ -239,8 +246,15 @@ class ZeroconfWake:
                 continue
 
             # Tell connection logic to retry connection attempt now (even before connect timer finishes)
-            self.kick(f"of received mDNS record {record_update.new}")
+            self.seen("of received mDNS record %s", record_update.new)
             return
+
+    def seen(self, reason: str, *args: object) -> None:
+        """Kick a pending connect, or probe the session while connected."""
+        if self._accept_records and self._can_kick():
+            self.kick(reason % args if args else reason)
+        elif self._on_probe is not None and self._should_probe():
+            self._on_probe(reason % args if args else reason)
 
     async def _async_start(self) -> None:
         """Import the listener off the event loop, then start listening."""
@@ -254,8 +268,16 @@ class ZeroconfWake:
                     self._client.log_name,
                     err,
                 )
-        if self._can_kick():
+        if self._can_kick() or self._should_probe():
             self.start()
+
+    def _interested(self) -> bool:
+        """Return True while a sighting would kick a connect or probe the session."""
+        return (self._accept_records and self._can_kick()) or self._should_probe()
+
+    def _should_probe(self) -> bool:
+        """Return True while a matching record should probe the session."""
+        return self._can_probe is not None and self._can_probe()
 
     def _startable(self) -> bool:
         """Return True when the listener may be armed or started."""
@@ -279,9 +301,10 @@ class ZeroconfWake:
 class ReconnectLogic:
     """Reconnectiong logic handler for ESPHome config entries.
 
-    Contains two reconnect strategies:
+    Contains three reconnect strategies:
      - Connect with increasing time between connection attempts.
      - Listen to zeroconf mDNS records, if any records are found for this device, try reconnecting immediately.
+     - With probe_on_announce, ping a connected device when it is seen and reconnect if it does not answer.
 
     All methods in this class should be run inside the eventloop unless stated otherwise.
     """
@@ -297,6 +320,7 @@ class ReconnectLogic:
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
         allow_plaintext_fallback: bool = False,
         zeroconf_wake: bool = True,
+        probe_on_announce: bool = False,
     ) -> None:
         """Initialize ReconnectingLogic.
 
@@ -306,6 +330,9 @@ class ReconnectLogic:
         :param zeroconf_wake: If False, never start the mDNS listener that
             kicks a pending connect; callers with their own discovery report
             sightings via :meth:`notify_device_seen` instead.
+        :param probe_on_announce: If True, seeing the device while connected (mDNS or
+            :meth:`notify_device_seen`) pings it and drops the session if it does not
+            answer within LIVENESS_PROBE_TIMEOUT.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
             the device responds with the plaintext protocol marker, instead
@@ -346,12 +373,15 @@ class ReconnectLogic:
         self._connection_state = ReconnectLogicState.DISCONNECTED
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
+        self._probe_on_announce = probe_on_announce
         self._zc_wake = ZeroconfWake(
             client,
             self.name,
             self._can_kick,
             self._connect_now,
             enabled=zeroconf_wake,
+            can_probe=self._can_probe,
+            on_probe=self._probe_now,
         )
         # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
@@ -389,6 +419,10 @@ class ReconnectLogic:
             self._async_set_connection_state_while_locked(
                 ReconnectLogicState.DISCONNECTED
             )
+            if self._probe_on_announce:
+                # The listener kept running while connected must not kick
+                # through the expected-disconnect cooldown.
+                self._zc_wake.stop()
             # The previous session ended — allow the next mDNS record to
             # kick a fresh connect attempt early.
             self._zc_wake.reopen()
@@ -479,7 +513,8 @@ class ReconnectLogic:
 
     async def _finish_connection_while_locked(self) -> bool:
         """Handshake and mark the attempt ready; shared by dial-out and adoption."""
-        self._zc_wake.stop()
+        if not self._probe_on_announce:
+            self._zc_wake.stop()
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
         start_handshake_time = time.perf_counter()
         try:
@@ -493,6 +528,8 @@ class ReconnectLogic:
             "Successful handshake with %s in %0.3fs", self._cli.log_name, handshake_time
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
+        if self._probe_on_announce:
+            self._zc_wake.start_soon()
         await self._on_connect_cb()
         # Remember deep-sleep from the device_info the connect callback just
         # fetched; the client clears its cache on disconnect, so capture it now
@@ -741,13 +778,38 @@ class ReconnectLogic:
         and the backoff counter is left untouched. Must be called from the
         event loop.
         """
-        self._zc_wake.kick("the device was seen")
+        self._zc_wake.seen("the device was seen")
 
     def _can_kick(self) -> bool:
         """Return True while a wake could still usefully kick a connect."""
         return (
             not self._is_stopped and self._connection_state in NOT_YET_CONNECTED_STATES
         )
+
+    def _can_probe(self) -> bool:
+        """Return True while a sighting should probe the session."""
+        return (
+            self._probe_on_announce
+            and not self._is_stopped
+            and self._connection_state is ReconnectLogicState.READY
+        )
+
+    def _probe_now(self, reason: str) -> None:
+        """Ping the device; a probe already in flight is not repeated."""
+        try:
+            sent = self._cli.check_connection(LIVENESS_PROBE_TIMEOUT)
+        except Exception:  # pylint: disable=broad-except
+            # Called from the shared zeroconf listener loop; never raise into it.
+            _LOGGER.exception(
+                "%s: Unexpected error checking the connection", self._cli.log_name
+            )
+            return
+        if sent:
+            _LOGGER.debug(
+                "%s: Checking the connection is alive because %s",
+                self._cli.log_name,
+                reason,
+            )
 
     def _connect_now(self) -> None:
         """Connect now for a wake from mDNS or notify_device_seen."""

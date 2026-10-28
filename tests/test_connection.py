@@ -45,6 +45,7 @@ from aioesphomeapi.core import (
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
+    PingFailedAPIError,
     ReadFailedAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
@@ -1303,6 +1304,98 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
 
     # We should disconnect if we are getting ping responses
     assert conn.is_connected is True
+
+
+async def _logged_in(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> tuple[APIConnection, asyncio.Transport, APIPlaintextFrameHelper]:
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    send_plaintext_hello(protocol)
+    send_plaintext_auth_response(protocol, False)
+    await connect_task
+    transport.reset_mock()
+    return conn, transport, protocol
+
+
+async def test_check_alive_drops_connection_without_response(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """check_alive sends a ping and drops the connection if nothing arrives."""
+    conn, transport, _protocol = await _logged_in(plaintext_connect_task_with_login)
+    start_time = utcnow()
+    assert conn.check_alive(3.0) is True
+    assert transport.writelines.mock_calls == [call([b"\x00", b"\x00", b"\x07"])]
+
+    async_fire_time_changed(start_time + timedelta(seconds=2.9))
+    assert conn.is_connected is True
+    async_fire_time_changed(start_time + timedelta(seconds=3.1))
+    assert conn.is_connected is False
+    assert isinstance(conn.fatal_exception, PingFailedAPIError)
+
+
+async def test_check_alive_any_frame_keeps_connection(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """Any frame received after check_alive keeps the connection."""
+    conn, _transport, protocol = await _logged_in(plaintext_connect_task_with_login)
+    start_time = utcnow()
+    conn.check_alive(3.0)
+    send_ping_request(protocol)
+    async_fire_time_changed(start_time + timedelta(seconds=3.1))
+    assert conn.is_connected is True
+
+
+async def test_check_alive_keeps_earlier_deadline(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """A second check_alive with a later deadline sends no ping."""
+    conn, transport, _protocol = await _logged_in(plaintext_connect_task_with_login)
+    assert conn.check_alive(3.0) is True
+    assert conn.check_alive(5.0) is False
+    assert transport.writelines.call_count == 1
+
+
+async def test_check_alive_shortens_keepalive_deadline(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """check_alive replaces a pending keepalive pong deadline with its shorter one."""
+    conn, transport, _protocol = await _logged_in(plaintext_connect_task_with_login)
+    start_time = utcnow()
+    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL))
+    assert transport.writelines.call_count == 1
+
+    conn.check_alive(3.0)
+    assert transport.writelines.call_count == 2
+    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL + 3.1))
+    assert conn.is_connected is False
+
+
+def test_check_alive_before_handshake_is_noop(conn: APIConnection) -> None:
+    """check_alive does nothing before the handshake completes."""
+    assert conn.check_alive(3.0) is False
+    assert conn.is_connected is False
+
+
+async def test_check_alive_send_failure(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """A failed ping send returns False instead of raising."""
+    conn, transport, _protocol = await _logged_in(plaintext_connect_task_with_login)
+    transport.writelines.side_effect = OSError("gone")
+    assert conn.check_alive(3.0) is False
+    assert conn.is_connected is False
 
 
 def test_raise_during_send_messages_when_not_yet_connected(conn: APIConnection) -> None:
