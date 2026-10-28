@@ -208,6 +208,7 @@ from aioesphomeapi.model import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantFeature,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    VoiceAssistantWakeWordAudio,
     WaterHeaterCommandField,
     WaterHeaterMode,
     WaterHeaterStateFlag,
@@ -5834,6 +5835,100 @@ async def test_subscribe_voice_assistant_api_audio(
     # and does not raise
     unsub()
     assert len(send.mock_calls) == 0
+
+
+async def test_subscribe_voice_assistant_wake_word_audio(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_voice_assistant with wake word audio."""
+    client, _connection, _transport, protocol = api_client
+    send = patch_send(client)
+    starts = []
+
+    async def handle_start(
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
+        wake_word_audio: VoiceAssistantWakeWordAudio | None,
+    ) -> int | None:
+        starts.append((wake_word_phrase, wake_word_audio))
+        return 0
+
+    async def handle_stop(abort: bool) -> None:
+        pass
+
+    async def handle_audio(data: bytes, data2: bytes | None = None) -> None:
+        pass
+
+    unsub = client.subscribe_voice_assistant(
+        handle_start=handle_start,
+        handle_stop=handle_stop,
+        handle_audio=handle_audio,
+        wake_word_audio=True,
+    )
+    send.assert_called_once_with(
+        SubscribeVoiceAssistantRequest(subscribe=True, flags=4 | 8)
+    )
+    send.reset_mock()
+
+    # Detected on the device, with the audio buffered before it
+    response: message.Message = VoiceAssistantRequest(
+        start=True,
+        wake_word_phrase="okay nabu",
+        wake_word_id="okay_nabu",
+        wake_word_audio_bytes=48000,
+        wake_word_probability=0.75,
+        wake_word_probability_cutoff=0.375,
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    # Started without a wake word
+    response = VoiceAssistantRequest(start=True)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert starts == [
+        (
+            "okay nabu",
+            VoiceAssistantWakeWordAudio(
+                wake_word_id="okay_nabu",
+                audio_bytes=48000,
+                probability=0.75,
+                probability_cutoff=0.375,
+            ),
+        ),
+        (None, None),
+    ]
+    unsub()
+
+
+async def test_subscribe_voice_assistant_wake_word_audio_requires_audio(
+    auth_client: APIClient,
+) -> None:
+    """Test wake word audio can't be requested without API audio."""
+
+    async def handle_start(
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
+        wake_word_audio: VoiceAssistantWakeWordAudio | None,
+    ) -> int | None:
+        return 0
+
+    async def handle_stop(abort: bool) -> None:
+        pass
+
+    with pytest.raises(ValueError, match="requires handle_audio"):
+        auth_client.subscribe_voice_assistant(
+            handle_start=handle_start, handle_stop=handle_stop, wake_word_audio=True
+        )
 
 
 async def test_send_voice_assistant_timer_event(auth_client: APIClient) -> None:
