@@ -5880,6 +5880,7 @@ async def test_subscribe_voice_assistant_wake_word_audio(
         wake_word_phrase="okay nabu",
         wake_word_id="okay_nabu",
         wake_word_audio_bytes=48000,
+        wake_word_audio_bytes2=46208,
         wake_word_probability=0.75,
         wake_word_probability_cutoff=0.375,
     )
@@ -5899,6 +5900,7 @@ async def test_subscribe_voice_assistant_wake_word_audio(
             VoiceAssistantWakeWordAudio(
                 wake_word_id="okay_nabu",
                 audio_bytes=48000,
+                audio_bytes2=46208,
                 probability=0.75,
                 probability_cutoff=0.375,
             ),

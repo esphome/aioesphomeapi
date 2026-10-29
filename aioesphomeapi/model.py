@@ -2184,16 +2184,18 @@ class VoiceAssistantCommand(APIModelBase):
     wake_word_phrase: str = ""
     wake_word_id: str = ""
     wake_word_audio_bytes: int = 0
+    wake_word_audio_bytes2: int = 0
     wake_word_probability: float = 0.0
     wake_word_probability_cutoff: float = 0.0
 
 
 @_frozen_dataclass_decorator
 class VoiceAssistantWakeWordAudio(APIModelBase):
-    """A wake word detected on the device; audio_bytes of each channel precede the live audio."""
+    """A wake word detected on the device; audio_bytes(2) of channel 0 (1) precede the live audio."""
 
     wake_word_id: str = ""
     audio_bytes: int = 0
+    audio_bytes2: int = 0
     probability: float = 0.0
     probability_cutoff: float = 0.0
 

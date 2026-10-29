@@ -2407,6 +2407,7 @@ class APIClient(APIClientBase):
                         detection = VoiceAssistantWakeWordAudio(  # type: ignore[call-arg]
                             wake_word_id=command.wake_word_id,
                             audio_bytes=command.wake_word_audio_bytes,
+                            audio_bytes2=command.wake_word_audio_bytes2,
                             probability=command.wake_word_probability,
                             probability_cutoff=command.wake_word_probability_cutoff,
                         )
