@@ -5910,6 +5910,79 @@ async def test_subscribe_voice_assistant_wake_word_audio(
     unsub()
 
 
+async def test_subscribe_voice_assistant_wake_word_audio_before_start(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test wake word audio is handled while handle_start is still running."""
+    client, _connection, _transport, protocol = api_client
+    send = patch_send(client)
+    start_event = asyncio.Event()
+    audio = []
+
+    async def handle_start(
+        conversation_id: str,
+        flags: int,
+        audio_settings: VoiceAssistantAudioSettings,
+        wake_word_phrase: str | None,
+        wake_word_audio: VoiceAssistantWakeWordAudio | None,
+    ) -> int | None:
+        await start_event.wait()
+        return 0
+
+    async def handle_stop(abort: bool) -> None:
+        pass
+
+    async def handle_audio(data: bytes, data2: bytes | None = None) -> None:
+        audio.append((data, data2))
+
+    unsub = client.subscribe_voice_assistant(
+        handle_start=handle_start,
+        handle_stop=handle_stop,
+        handle_audio=handle_audio,
+        wake_word_audio=True,
+    )
+    send.reset_mock()
+
+    # The device streams right after the start request, without waiting for the response
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            VoiceAssistantRequest(
+                start=True,
+                wake_word_id="okay_nabu",
+                wake_word_audio_bytes=4,
+                wake_word_audio_bytes2=2,
+            )
+        ),
+    )
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            VoiceAssistantAudio(data=b"\x01\x02\x03\x04", data2=b"\x05\x06")
+        ),
+    )
+    mock_data_received(
+        protocol,
+        generate_plaintext_packet(
+            VoiceAssistantAudio(data=b"\x07\x08", data2=b"\x09\x0a")
+        ),
+    )
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert audio == [(b"\x01\x02\x03\x04", b"\x05\x06"), (b"\x07\x08", b"\x09\x0a")]
+    send.assert_not_called()
+
+    start_event.set()
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    send.assert_called_once_with(VoiceAssistantResponse(port=0))
+    unsub()
+
+
 async def test_subscribe_voice_assistant_wake_word_audio_requires_audio(
     auth_client: APIClient,
 ) -> None:
