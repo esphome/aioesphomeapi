@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from zeroconf import RecordUpdateListener
+from zeroconf.const import _TYPE_A, _TYPE_AAAA, _TYPE_PTR
 
 if TYPE_CHECKING:
     from zeroconf import RecordUpdate, Zeroconf
@@ -10,13 +11,60 @@ if TYPE_CHECKING:
     from .reconnect_logic import ZeroconfWake
 
 
-class ReconnectRecordUpdateListener(RecordUpdateListener):
-    """Forward zeroconf record updates to a ZeroconfWake."""
+class ZeroconfRecordDispatcher(RecordUpdateListener):
+    """Route record updates to the wakes registered for their names."""
 
-    def __init__(self, wake: ZeroconfWake) -> None:
-        self._wake = wake
+    def __init__(self, zc: Zeroconf | None = None) -> None:
+        self._zc = zc
+        self._wakes: dict[str, list[ZeroconfWake]] = {}
+
+    def add(self, wake: ZeroconfWake) -> None:
+        """Route records named by the wake's keys to it."""
+        for key in wake.keys:
+            self._wakes.setdefault(key, []).append(wake)
+
+    def remove(self, wake: ZeroconfWake) -> None:
+        """Stop routing records to wake; the last one removes the listener."""
+        for key in wake.keys:
+            wakes = self._wakes[key]
+            wakes.remove(wake)
+            if not wakes:
+                del self._wakes[key]
+        if not self._wakes and self._zc is not None:
+            del _dispatchers[id(self._zc)]
+            self._zc.async_remove_listener(self)
 
     def async_update_records(
-        self, zc: Zeroconf, now: float, records: list[RecordUpdate]
+        self,
+        zc: Zeroconf,  # noqa: ARG002 # pylint: disable=unused-argument
+        now: float,  # noqa: ARG002 # pylint: disable=unused-argument
+        records: list[RecordUpdate],
     ) -> None:
-        self._wake.async_update_records(zc, now, records)
+        # Every mDNS packet on the LAN lands here, so the miss path must not
+        # allocate; zeroconf pre-lowercases key and alias_key.
+        wakes = self._wakes
+        for record_update in records:
+            new_record = record_update.new
+            record_type = new_record.type
+            if record_type == _TYPE_PTR:
+                matched = wakes.get(new_record.alias_key)  # type: ignore[attr-defined]
+            elif record_type in (_TYPE_A, _TYPE_AAAA):
+                matched = wakes.get(new_record.key)
+            else:
+                continue
+            if matched is not None:
+                for wake in tuple(matched):
+                    wake.on_record(new_record)
+
+
+_dispatchers: dict[int, ZeroconfRecordDispatcher] = {}
+
+
+def async_add_wake(zc: Zeroconf, wake: ZeroconfWake) -> ZeroconfRecordDispatcher:
+    """Register wake on the one shared listener for zc and return that listener."""
+    if (dispatcher := _dispatchers.get(id(zc))) is None:
+        dispatcher = ZeroconfRecordDispatcher(zc)
+        zc.async_add_listener(dispatcher, None)
+        _dispatchers[id(zc)] = dispatcher
+    dispatcher.add(wake)
+    return dispatcher
