@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
+from datetime import timedelta
 from functools import partial
 from ipaddress import ip_address
 import logging
@@ -27,16 +29,16 @@ from aioesphomeapi import (
     RequiresEncryptionAPIError,
 )
 from aioesphomeapi.client import APIClient
-from aioesphomeapi.core import APIConnectionCancelledError
+from aioesphomeapi.client_base import KEEP_ALIVE_FREQUENCY
+from aioesphomeapi.core import APIConnectionCancelledError, PingFailedAPIError
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Generator
 
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
     DEEP_SLEEP_MAXIMUM_BACKOFF,
     EXPECTED_DISCONNECT_COOLDOWN,
-    LIVENESS_PROBE_TIMEOUT,
     MAXIMUM_BACKOFF,
     MAXIMUM_BACKOFF_TRIES,
     TYPE_A,
@@ -48,15 +50,20 @@ from aioesphomeapi.reconnect_logic import (
 )
 
 from .common import (
+    async_fire_time_changed,
     get_mock_async_zeroconf,
     get_mock_zeroconf,
     mock_data_received,
     send_plaintext_auth_response,
     send_plaintext_hello,
+    utcnow,
 )
 from .conftest import _create_mock_transport_protocol
 
 logging.getLogger("aioesphomeapi").setLevel(logging.DEBUG)
+
+# Not importable from connection when it is compiled with Cython.
+KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 
 
 def find_log_with_message(
@@ -2456,34 +2463,28 @@ async def test_notify_device_seen_during_connect_error_callback(
     await rl.stop()
 
 
-async def _connected_logic(cli: APIClient, **kwargs: Any) -> ReconnectLogic:
-    """Return a ReconnectLogic connected to READY with the client calls patched."""
-    rl = ReconnectLogic(
-        client=cli,
-        on_connect=AsyncMock(),
-        on_disconnect=AsyncMock(),
-        name="mydevice",
-        **kwargs,
-    )
+@contextmanager
+def _patch_connect(cli: APIClient) -> Generator[None]:
+    """Patch the three client connect steps to succeed."""
     with (
         patch.object(cli, "start_resolve_host"),
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection"),
     ):
-        await rl.start()
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-    await drain_zc_start(rl)
-    assert rl._connection_state is ReconnectLogicState.READY
-    return rl
+        yield
 
 
 @pytest.fixture
 async def probing(
-    patchable_api_client: APIClient,
+    patchable_api_client: APIClient, request: pytest.FixtureRequest
 ) -> AsyncGenerator[tuple[ReconnectLogic, MagicMock, MagicMock]]:
-    """Yield a connected ReconnectLogic with probe_on_announce and mocked listeners."""
+    """Yield a ReconnectLogic connected to READY with mocked zeroconf listeners.
+
+    Indirect parametrization passes ReconnectLogic kwargs; the default enables
+    probe_on_announce.
+    """
     cli = patchable_api_client
+    kwargs: dict[str, Any] = getattr(request, "param", {"probe_on_announce": True})
     async_zeroconf = get_mock_async_zeroconf()
     with (
         patch.object(
@@ -2492,14 +2493,33 @@ async def probing(
         patch.object(async_zeroconf.zeroconf, "async_add_listener") as add_listener,
         patch.object(async_zeroconf.zeroconf, "async_remove_listener") as remove,
     ):
-        rl = await _connected_logic(cli, probe_on_announce=True)
+        rl = ReconnectLogic(
+            client=cli,
+            on_connect=AsyncMock(),
+            on_disconnect=AsyncMock(),
+            name="mydevice",
+            **kwargs,
+        )
+        with _patch_connect(cli):
+            await rl.start()
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+        await drain_zc_start(rl)
+        assert rl._connection_state is ReconnectLogicState.READY
         yield rl, add_listener, remove
         await rl.stop()
 
 
-def _send_record(rl: ReconnectLogic, record: DNSRecord = DNS_POINTER) -> None:
+DNS_A = DNSAddress(
+    "mydevice.local.", _TYPE_A, _CLASS_IN, 120, ip_address("192.168.1.9").packed
+)
+
+
+def _send_record(
+    rl: ReconnectLogic, record: DNSRecord = DNS_POINTER, old: DNSRecord | None = None
+) -> None:
     rl._zc_wake.async_update_records(
-        MagicMock(), current_time_millis(), [RecordUpdate(record, None)]
+        MagicMock(), current_time_millis(), [RecordUpdate(record, old)]
     )
 
 
@@ -2526,11 +2546,7 @@ async def test_probe_on_announce_listener_kept_through_handshake(
     with patch.object(rl, "_schedule_connect"):
         await rl._on_disconnect(False)
     rl._zc_wake.start()
-    with (
-        patch.object(rl._cli, "start_resolve_host"),
-        patch.object(rl._cli, "start_connection"),
-        patch.object(rl._cli, "finish_connection"),
-    ):
+    with _patch_connect(rl._cli):
         await rl._connect_once_or_reschedule()
     assert rl._connection_state is ReconnectLogicState.READY
     assert rl._zc_wake._listening is True
@@ -2539,70 +2555,150 @@ async def test_probe_on_announce_listener_kept_through_handshake(
 
 
 @pytest.mark.parametrize("sent", [True, False])
-async def test_probe_on_announce_record_probes(
+@pytest.mark.parametrize(
+    ("record", "old"),
+    [
+        (DNS_POINTER, None),
+        (DNS_POINTER, DNS_POINTER),
+        (DNS_A, None),
+        (DNS_A, DNS_A),
+    ],
+    ids=["ptr-new", "ptr-refresh", "a-new", "a-refresh"],
+)
+async def test_probe_on_announce_record_pings(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
     caplog: pytest.LogCaptureFixture,
+    record: DNSRecord,
+    old: DNSRecord | None,
     sent: bool,
 ) -> None:
-    """A record while connected probes instead of kicking; logged only if sent."""
+    """A new or refreshed record while connected pings instead of kicking; logged only if sent."""
     rl, _, _ = probing
     with (
         patch.object(rl._cli, "check_connection", return_value=sent) as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
-        _send_record(rl)
-    check.assert_called_once_with(LIVENESS_PROBE_TIMEOUT)
+        _send_record(rl, record, old)
+    check.assert_called_once_with()
     schedule.assert_not_called()
     assert (
-        "Checking the connection is alive because of received mDNS" in caplog.text
+        "Sending keepalive ping because of received mDNS record" in caplog.text
     ) is sent
 
 
-async def test_probe_on_announce_error_is_logged_not_raised(
+async def test_probe_on_announce_every_announce_pings(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """An unexpected error from the probe is logged, not raised into zeroconf."""
+    """Each matching announce asks for a ping; the connection rate limits it."""
     rl, _, _ = probing
-    with patch.object(rl._cli, "check_connection", side_effect=RuntimeError("boom")):
+    with patch.object(rl._cli, "check_connection", return_value=False) as check:
         _send_record(rl)
-    assert "Unexpected error checking the connection" in caplog.text
+        _send_record(rl, DNS_POINTER, DNS_POINTER)
+    assert check.call_count == 2
 
 
+@pytest.mark.parametrize("probing", [{}], indirect=True)
 async def test_probe_on_announce_off_by_default(
-    patchable_api_client: APIClient,
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
     """Without probe_on_announce a sighting while connected does nothing."""
-    cli = patchable_api_client
-    with patch.object(
-        cli.zeroconf_manager,
-        "get_async_zeroconf",
-        return_value=get_mock_async_zeroconf(),
-    ):
-        rl = await _connected_logic(cli)
+    rl, _, _ = probing
     assert rl._zc_wake._listening is False
     with (
-        patch.object(cli, "check_connection") as check,
+        patch.object(rl._cli, "check_connection") as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
         _send_record(rl)
         rl.notify_device_seen()
     check.assert_not_called()
     schedule.assert_not_called()
-    await rl.stop()
 
 
+@pytest.mark.parametrize(
+    "probing", [{"probe_on_announce": True, "zeroconf_wake": False}], indirect=True
+)
 async def test_notify_device_seen_probes_while_connected(
-    patchable_api_client: APIClient,
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """notify_device_seen while connected probes the session."""
-    cli = patchable_api_client
-    rl = await _connected_logic(cli, zeroconf_wake=False, probe_on_announce=True)
+    """notify_device_seen while connected pings the session."""
+    rl, add_listener, _ = probing
+    add_listener.assert_not_called()
     with (
-        patch.object(cli, "check_connection") as check,
+        patch.object(rl._cli, "check_connection", return_value=True) as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
         rl.notify_device_seen()
-    check.assert_called_once_with(LIVENESS_PROBE_TIMEOUT)
+    check.assert_called_once_with()
     schedule.assert_not_called()
-    await rl.stop()
+    assert "Sending keepalive ping because the device was seen" in caplog.text
+
+
+async def test_probe_on_announce_unanswered_ping_reconnects(
+    aiohappyeyeballs_start_connection: MagicMock,
+) -> None:
+    """An announce pings a real session; no reply drops it and starts a reconnect."""
+    loop = asyncio.get_running_loop()
+    transport = MagicMock()
+    connected = asyncio.Event()
+    async_zeroconf = get_mock_async_zeroconf()
+    cli = APIClient(
+        address="127.0.0.1",
+        port=6052,
+        password=None,
+        expected_name="fake",
+        zeroconf_instance=async_zeroconf.zeroconf,
+    )
+    on_disconnect_calls: list[bool] = []
+
+    async def on_disconnect(expected_disconnect: bool) -> None:
+        on_disconnect_calls.append(expected_disconnect)
+
+    logic = ReconnectLogic(
+        client=cli,
+        on_connect=AsyncMock(),
+        on_disconnect=on_disconnect,
+        zeroconf_instance=async_zeroconf,
+        name="fake",
+        probe_on_announce=True,
+    )
+    with patch.object(
+        loop,
+        "create_connection",
+        side_effect=partial(_create_mock_transport_protocol, transport, connected),
+    ):
+        await logic.start()
+        await connected.wait()
+        protocol = cli._connection._frame_helper
+        send_plaintext_hello(protocol)
+        send_plaintext_auth_response(protocol, False)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+    conn = cli._connection
+    assert conn.is_connected is True
+    assert logic._connection_state is ReconnectLogicState.READY
+    transport.reset_mock()
+
+    start_time = utcnow()
+    _send_record(
+        logic,
+        DNSPointer(
+            "_esphomelib._tcp.local.",
+            _TYPE_PTR,
+            _CLASS_IN,
+            1000,
+            "fake._esphomelib._tcp.local.",
+        ),
+    )
+    assert transport.writelines.call_count == 1
+
+    timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
+    with patch.object(logic, "_schedule_connect") as schedule:
+        async_fire_time_changed(start_time + timedelta(seconds=timeout + 1))
+        for _ in range(5):
+            await asyncio.sleep(0)
+    assert conn.is_connected is False
+    assert isinstance(conn.fatal_exception, PingFailedAPIError)
+    assert on_disconnect_calls == [False]
+    schedule.assert_called_once_with(0)
+    await logic.stop()

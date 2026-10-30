@@ -495,11 +495,11 @@ class APIClient(APIClientBase):
         if self._connection is not None:
             self._connection.force_disconnect()
 
-    def check_connection(self, timeout: float) -> bool:
-        """Ping; drop the connection unless a frame arrives within timeout. True if sent."""
+    def check_connection(self) -> bool:
+        """Send the keepalive ping now unless a pong is pending. True if sent."""
         if self._connection is None:
             return False
-        return self._connection.check_alive(timeout)
+        return self._connection.send_keepalive_now()
 
     @property
     def cached_device_has_deep_sleep(self) -> bool | None:

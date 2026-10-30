@@ -42,8 +42,6 @@ ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 # came online mid-attempt is woken by its boot announcement.
 ZC_LISTEN_DELAY = 2.0
 
-LIVENESS_PROBE_TIMEOUT = 3.0
-
 _zc_listener_cache: list[type[ReconnectRecordUpdateListener]] = []
 
 
@@ -100,8 +98,8 @@ class ZeroconfWake:
         on_wake: Callable[[], None],
         *,
         enabled: bool = True,
-        can_probe: Callable[[], bool] | None = None,
-        on_probe: Callable[[str], None] | None = None,
+        can_probe: Callable[[], bool],
+        on_probe: Callable[..., None],
     ) -> None:
         """Initialize the wake listener; can_kick/can_probe gate on_wake/on_probe."""
         self._loop = asyncio.get_running_loop()
@@ -134,13 +132,16 @@ class ZeroconfWake:
         """Allow the next wake to kick a connect again."""
         self._accept_records = True
 
-    def kick(self, reason: str) -> None:
+    def kick(self, reason: str, *args: object) -> None:
         """Kick a connect once per attempt; the connect logic may keep one in flight."""
-        if not self._accept_records or not self._can_kick():
+        if not self._kickable():
             return
-        _LOGGER.debug(
-            "%s: Triggering connect because %s", self._client.log_name, reason
-        )
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug(
+                "%s: Triggering connect because %s",
+                self._client.log_name,
+                reason % args,
+            )
         #
         # If we scheduled the connect attempt immediately, the listener could fire
         # again before the connect attempt and we cancel and reschedule the connect
@@ -251,10 +252,10 @@ class ZeroconfWake:
 
     def seen(self, reason: str, *args: object) -> None:
         """Kick a pending connect, or probe the session while connected."""
-        if self._accept_records and self._can_kick():
-            self.kick(reason % args if args else reason)
-        elif self._on_probe is not None and self._should_probe():
-            self._on_probe(reason % args if args else reason)
+        if self._kickable():
+            self.kick(reason, *args)
+        elif self._can_probe():
+            self._on_probe(reason, *args)
 
     async def _async_start(self) -> None:
         """Import the listener off the event loop, then start listening."""
@@ -268,16 +269,18 @@ class ZeroconfWake:
                     self._client.log_name,
                     err,
                 )
-        if self._can_kick() or self._should_probe():
+        # Ignores the one-shot gate: the listener outlives a kick so records
+        # are seen again as soon as reopen() is called.
+        if self._can_kick() or self._can_probe():
             self.start()
+
+    def _kickable(self) -> bool:
+        """Return True while a sighting may kick a connect."""
+        return self._accept_records and self._can_kick()
 
     def _interested(self) -> bool:
         """Return True while a sighting would kick a connect or probe the session."""
-        return (self._accept_records and self._can_kick()) or self._should_probe()
-
-    def _should_probe(self) -> bool:
-        """Return True while a matching record should probe the session."""
-        return self._can_probe is not None and self._can_probe()
+        return self._kickable() or self._can_probe()
 
     def _startable(self) -> bool:
         """Return True when the listener may be armed or started."""
@@ -301,10 +304,9 @@ class ZeroconfWake:
 class ReconnectLogic:
     """Reconnectiong logic handler for ESPHome config entries.
 
-    Contains three reconnect strategies:
+    Contains two reconnect strategies:
      - Connect with increasing time between connection attempts.
      - Listen to zeroconf mDNS records, if any records are found for this device, try reconnecting immediately.
-     - With probe_on_announce, ping a connected device when it is seen and reconnect if it does not answer.
 
     All methods in this class should be run inside the eventloop unless stated otherwise.
     """
@@ -330,9 +332,11 @@ class ReconnectLogic:
         :param zeroconf_wake: If False, never start the mDNS listener that
             kicks a pending connect; callers with their own discovery report
             sightings via :meth:`notify_device_seen` instead.
-        :param probe_on_announce: If True, seeing the device while connected (mDNS or
-            :meth:`notify_device_seen`) pings it and drops the session if it does not
-            answer within LIVENESS_PROBE_TIMEOUT.
+        :param probe_on_announce: If True, every sighting of the device while
+            connected (any matching mDNS record, including cache refreshes, or
+            :meth:`notify_device_seen`) sends the keepalive ping now, so a device
+            that rebooted without a goodbye is detected by its TCP reset or the
+            normal pong timeout. No ping is sent while a pong is pending.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
             the device responds with the plaintext protocol marker, instead
@@ -774,9 +778,13 @@ class ReconnectLogic:
         """Connect now because out-of-band discovery saw the device.
 
         Same policy as a matching mDNS record: ignored while stopped or
-        once handshaking/connected, at most one kick per connect attempt,
-        and the backoff counter is left untouched. Must be called from the
-        event loop.
+        handshaking, at most one kick per connect attempt, and the backoff
+        counter is left untouched. Once connected, it is ignored unless
+        probe_on_announce is set; then it sends the keepalive ping now,
+        unless a pong is already pending. A rebooted device usually answers
+        with a TCP reset right away; otherwise the session drops only if no
+        reply arrives before the normal pong deadline. Must be called from
+        the event loop.
         """
         self._zc_wake.seen("the device was seen")
 
@@ -794,21 +802,13 @@ class ReconnectLogic:
             and self._connection_state is ReconnectLogicState.READY
         )
 
-    def _probe_now(self, reason: str) -> None:
-        """Ping the device; a probe already in flight is not repeated."""
-        try:
-            sent = self._cli.check_connection(LIVENESS_PROBE_TIMEOUT)
-        except Exception:  # pylint: disable=broad-except
-            # Called from the shared zeroconf listener loop; never raise into it.
-            _LOGGER.exception(
-                "%s: Unexpected error checking the connection", self._cli.log_name
-            )
-            return
-        if sent:
+    def _probe_now(self, reason: str, *args: object) -> None:
+        """Send the keepalive ping now; skipped while a pong is pending."""
+        if self._cli.check_connection() and _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug(
-                "%s: Checking the connection is alive because %s",
+                "%s: Sending keepalive ping because %s",
                 self._cli.log_name,
-                reason,
+                reason % args,
             )
 
     def _connect_now(self) -> None:

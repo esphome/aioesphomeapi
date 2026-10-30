@@ -7010,14 +7010,16 @@ async def test_check_connection_delegates(
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
     ],
 ) -> None:
-    """check_connection runs check_alive on the connection."""
+    """check_connection runs send_keepalive_now on the connection."""
     client, connection, _transport, _protocol = api_client
-    with patch.object(connection, "check_alive", return_value=True) as check_alive:
-        assert client.check_connection(3.0) is True
-    check_alive.assert_called_once_with(3.0)
+    with patch.object(
+        connection, "send_keepalive_now", return_value=True
+    ) as send_keepalive_now:
+        assert client.check_connection() is True
+    send_keepalive_now.assert_called_once_with()
 
 
 async def test_check_connection_without_connection() -> None:
     """check_connection returns False without a connection."""
     client = APIClient(address="127.0.0.1", port=6052, password=None)
-    assert client.check_connection(3.0) is False
+    assert client.check_connection() is False
