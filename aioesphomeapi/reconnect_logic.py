@@ -40,12 +40,12 @@ _LOGGER = logging.getLogger(__name__)
 # came online mid-attempt is woken by its boot announcement.
 ZC_LISTEN_DELAY = 2.0
 
-# Responders send at least two unsolicited announcements about 1s apart
-# after boot or a link change (RFC 6762 §8.3); a single answer to someone
-# else's query does not repeat, so two packets within this window mean the
-# device restarted its mDNS. Wide margin for Wi-Fi loss.
-ANNOUNCE_BURST_WINDOW = 5.0
-_ANNOUNCE_BURST_WINDOW_MS = ANNOUNCE_BURST_WINDOW * 1000
+# Responders repeat unsolicited announcements ~1s apart after boot or a link
+# change (RFC 6762 §8.3); replies to queries do not. A responder may split one
+# round over packets a few ms apart, so closer packets count as one. The
+# window is wide for Wi-Fi loss.
+ANNOUNCE_MIN_GAP_MS = 500.0
+ANNOUNCE_BURST_WINDOW_MS = 5000.0
 
 _zc_listener_cache: list[ModuleType] = []
 
@@ -219,11 +219,13 @@ class ZeroconfWake:
         if self._kickable():
             self.kick("of received mDNS record %s", record)
             return
-        if not self._can_probe() or now == self._last_packet_ms:
+        if not self._can_probe():
             return
-        # Zeroconf stamps every record of one packet with the same now.
-        last, self._last_packet_ms = self._last_packet_ms, now
-        if now - last <= _ANNOUNCE_BURST_WINDOW_MS:
+        gap = now - self._last_packet_ms
+        if gap < ANNOUNCE_MIN_GAP_MS:
+            return
+        self._last_packet_ms = now
+        if gap <= ANNOUNCE_BURST_WINDOW_MS:
             self._on_probe("of repeated mDNS announcement %s", record)
 
     def seen(self, reason: str, *args: object) -> None:
@@ -307,10 +309,9 @@ class ReconnectLogic:
         :param probe_on_announce: If True, a sighting of the device while
             connected sends the keepalive ping now, so a device that rebooted
             without a goodbye is detected by its TCP reset or the normal pong
-            timeout. Over mDNS a sighting is a second packet of its records
-            within ANNOUNCE_BURST_WINDOW, as a restarted responder repeats its
-            announcement; :meth:`notify_device_seen` always counts. No ping is
-            sent while a pong is pending. Defaults to on when a
+            timeout. Over mDNS, only a second round of its records between
+            ANNOUNCE_MIN_GAP_MS and ANNOUNCE_BURST_WINDOW_MS after the last
+            counts; :meth:`notify_device_seen` always does. No ping is sent while a pong is pending. Defaults to on when a
             zeroconf_instance is shared with the client and zeroconf_wake is on.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when

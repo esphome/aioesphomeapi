@@ -17,7 +17,6 @@ from zeroconf import (
     RecordUpdate,
     RecordUpdateListener,
     Zeroconf,
-    current_time_millis,
 )
 from zeroconf.asyncio import AsyncZeroconf
 from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR
@@ -38,7 +37,8 @@ if TYPE_CHECKING:
 
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
-    ANNOUNCE_BURST_WINDOW,
+    ANNOUNCE_BURST_WINDOW_MS,
+    ANNOUNCE_MIN_GAP_MS,
     DEEP_SLEEP_MAXIMUM_BACKOFF,
     EXPECTED_DISCONNECT_COOLDOWN,
     MAXIMUM_BACKOFF,
@@ -87,13 +87,11 @@ def find_log_with_message(
 
 
 def deliver_records(
-    wake: ZeroconfWake, records: list[RecordUpdate], now: float | None = None
+    wake: ZeroconfWake, records: list[RecordUpdate], now: float = 0.0
 ) -> None:
     """Route one packet of records through a dispatcher holding only wake."""
     dispatcher = ZeroconfRecordDispatcher()
     dispatcher.add(wake)
-    if now is None:
-        now = current_time_millis()
     dispatcher.async_update_records(MagicMock(), now, records)
 
 
@@ -2574,14 +2572,16 @@ async def test_probe_on_announce_record_pings(
 @pytest.mark.parametrize(
     ("gap", "pings"),
     [
-        (ANNOUNCE_BURST_WINDOW * 1000, 1),
-        (ANNOUNCE_BURST_WINDOW * 1000 + 1, 0),
+        (ANNOUNCE_MIN_GAP_MS - 1, 0),
+        (ANNOUNCE_MIN_GAP_MS, 1),
+        (ANNOUNCE_BURST_WINDOW_MS, 1),
+        (ANNOUNCE_BURST_WINDOW_MS + 1, 0),
     ],
 )
 async def test_probe_on_announce_burst_window(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock], gap: float, pings: int
 ) -> None:
-    """Only a second packet within ANNOUNCE_BURST_WINDOW pings."""
+    """Only a second round between the minimum gap and the window pings."""
     rl, _, _ = probing
     with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
         _send_record(rl, now=10_000.0)
@@ -2793,6 +2793,19 @@ async def test_probe_on_announce_one_packet_counts_once(
         deliver_records(rl._zc_wake, packet, 1000.0)
         check.assert_not_called()
         deliver_records(rl._zc_wake, packet, 2000.0)
+    check.assert_called_once_with()
+
+
+async def test_probe_on_announce_split_round_counts_once(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """Packets of one round a few ms apart count once and keep the round's time."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        _send_record(rl, DNS_A, now=1000.0)
+        _send_record(rl, DNS_POINTER, now=1005.0)
+        check.assert_not_called()
+        _send_record(rl, DNS_A, now=2000.0)
     check.assert_called_once_with()
 
 
