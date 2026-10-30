@@ -108,8 +108,8 @@ class ZeroconfWake:
         self._on_wake = on_wake
         self._warned = False
         # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
-        # Lowercase the match keys here and the incoming records in
-        # async_update_records so a device advertising mixed-case labels
+        # Lowercase the match keys here and compare them to zeroconf's
+        # pre-lowercased key/alias_key so a device advertising mixed-case labels
         # still triggers the fast reconnect instead of falling back to
         # exponential backoff.
         self._ptr_alias: str | None = None
@@ -229,11 +229,11 @@ class ZeroconfWake:
             if not (
                 (
                     new_record.type == TYPE_PTR
-                    and new_record.alias.lower() == self._ptr_alias  # type: ignore[attr-defined]
+                    and new_record.alias_key == self._ptr_alias  # type: ignore[attr-defined]
                 )
                 or (
                     new_record.type in ADDRESS_RECORD_TYPES
-                    and new_record.name.lower() == self._a_name
+                    and new_record.key == self._a_name
                 )
             ):
                 continue
