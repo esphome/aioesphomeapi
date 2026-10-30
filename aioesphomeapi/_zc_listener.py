@@ -37,7 +37,7 @@ class ZeroconfRecordDispatcher(RecordUpdateListener):
     def async_update_records(
         self,
         zc: Zeroconf,  # noqa: ARG002 # pylint: disable=unused-argument
-        now: float,  # noqa: ARG002 # pylint: disable=unused-argument
+        now: float,
         records: list[RecordUpdate],
     ) -> None:
         # Every mDNS packet on the LAN lands here, so the miss path must not
@@ -54,7 +54,7 @@ class ZeroconfRecordDispatcher(RecordUpdateListener):
                 continue
             if matched is not None:
                 for wake in tuple(matched):
-                    wake.on_record(new_record)
+                    wake.on_record(new_record, now)
 
 
 _dispatchers: dict[int, ZeroconfRecordDispatcher] = {}

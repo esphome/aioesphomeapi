@@ -40,9 +40,12 @@ _LOGGER = logging.getLogger(__name__)
 # came online mid-attempt is woken by its boot announcement.
 ZC_LISTEN_DELAY = 2.0
 
-# A device needs longer than this to reboot and announce itself again, so a
-# probe skipped by the interval can never hide a reboot.
-PROBE_MIN_INTERVAL = 1.0
+# Responders send at least two unsolicited announcements about 1s apart
+# after boot or a link change (RFC 6762 §8.3); a single answer to someone
+# else's query does not repeat, so two packets within this window mean the
+# device restarted its mDNS. Wide margin for Wi-Fi loss.
+ANNOUNCE_BURST_WINDOW = 5.0
+_ANNOUNCE_BURST_WINDOW_MS = ANNOUNCE_BURST_WINDOW * 1000
 
 _zc_listener_cache: list[ModuleType] = []
 
@@ -125,6 +128,7 @@ class ZeroconfWake:
                 f"{name}.local.".lower(),
             )
         self._dispatcher: ZeroconfRecordDispatcher | None = None
+        self._last_packet_ms = float("-inf")
         self._timer: asyncio.TimerHandle | None = None
         self._start_task: asyncio.Task[None] | None = None
         # One-shot gate: a connect attempt is only kicked once per record burst.
@@ -210,9 +214,17 @@ class ZeroconfWake:
             self._dispatcher.remove(self)
             self._dispatcher = None
 
-    def on_record(self, record: DNSRecord) -> None:
-        """Handle a mDNS record from the device; it may have just woken up."""
-        self.seen("of received mDNS record %s", record)
+    def on_record(self, record: DNSRecord, now: float) -> None:
+        """Handle a mDNS record from the device received in the packet at now (ms)."""
+        if self._kickable():
+            self.kick("of received mDNS record %s", record)
+            return
+        if not self._can_probe() or now == self._last_packet_ms:
+            return
+        # Zeroconf stamps every record of one packet with the same now.
+        last, self._last_packet_ms = self._last_packet_ms, now
+        if now - last <= _ANNOUNCE_BURST_WINDOW_MS:
+            self._on_probe("of repeated mDNS announcement %s", record)
 
     def seen(self, reason: str, *args: object) -> None:
         """Kick a pending connect, or probe the session while connected."""
@@ -292,12 +304,13 @@ class ReconnectLogic:
         :param zeroconf_wake: If False, never start the mDNS listener that
             kicks a pending connect; callers with their own discovery report
             sightings via :meth:`notify_device_seen` instead.
-        :param probe_on_announce: If True, every sighting of the device while
-            connected (any matching mDNS record, including cache refreshes, or
-            :meth:`notify_device_seen`) sends the keepalive ping now, so a device
-            that rebooted without a goodbye is detected by its TCP reset or the
-            normal pong timeout. No ping is sent while a pong is pending or
-            within PROBE_MIN_INTERVAL of the last one. Defaults to on when a
+        :param probe_on_announce: If True, a sighting of the device while
+            connected sends the keepalive ping now, so a device that rebooted
+            without a goodbye is detected by its TCP reset or the normal pong
+            timeout. Over mDNS a sighting is a second packet of its records
+            within ANNOUNCE_BURST_WINDOW, as a restarted responder repeats its
+            announcement; :meth:`notify_device_seen` always counts. No ping is
+            sent while a pong is pending. Defaults to on when a
             zeroconf_instance is shared with the client and zeroconf_wake is on.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
@@ -342,7 +355,6 @@ class ReconnectLogic:
         if probe_on_announce is None:
             probe_on_announce = zeroconf_wake and self._zeroconf_manager.is_shared
         self._probe_on_announce = probe_on_announce
-        self._next_probe = 0.0
         self._zc_wake = ZeroconfWake(
             client,
             self.name,
@@ -768,12 +780,8 @@ class ReconnectLogic:
         )
 
     def _probe_now(self, reason: str, *args: object) -> None:
-        """Send the keepalive ping now unless a pong is pending or one was just sent."""
-        now = self.loop.time()
-        if now < self._next_probe or not self._cli.send_keepalive_now():
-            return
-        self._next_probe = now + PROBE_MIN_INTERVAL
-        if _LOGGER.isEnabledFor(logging.DEBUG):
+        """Send the keepalive ping now; skipped while a pong is pending."""
+        if self._cli.send_keepalive_now() and _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug(
                 "%s: Sending keepalive ping because %s",
                 self._cli.log_name,

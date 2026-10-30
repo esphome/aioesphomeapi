@@ -38,11 +38,11 @@ if TYPE_CHECKING:
 
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
+    ANNOUNCE_BURST_WINDOW,
     DEEP_SLEEP_MAXIMUM_BACKOFF,
     EXPECTED_DISCONNECT_COOLDOWN,
     MAXIMUM_BACKOFF,
     MAXIMUM_BACKOFF_TRIES,
-    PROBE_MIN_INTERVAL,
     ZC_LISTEN_DELAY,
     ReconnectLogic,
     ReconnectLogicState,
@@ -86,11 +86,15 @@ def find_log_with_message(
     return None
 
 
-def deliver_records(wake: ZeroconfWake, records: list[RecordUpdate]) -> None:
-    """Route records through a dispatcher holding only wake."""
+def deliver_records(
+    wake: ZeroconfWake, records: list[RecordUpdate], now: float | None = None
+) -> None:
+    """Route one packet of records through a dispatcher holding only wake."""
     dispatcher = ZeroconfRecordDispatcher()
     dispatcher.add(wake)
-    dispatcher.async_update_records(MagicMock(), current_time_millis(), records)
+    if now is None:
+        now = current_time_millis()
+    dispatcher.async_update_records(MagicMock(), now, records)
 
 
 async def drain_zc_start(rl: ReconnectLogic) -> None:
@@ -2011,7 +2015,7 @@ async def test_zc_listener_dispatcher_registered_on_failed_attempt(
                 listener.async_update_records(
                     async_zeroconf.zeroconf, 0.0, [RecordUpdate(DNS_POINTER, None)]
                 )
-            mock_on_record.assert_called_once_with(DNS_POINTER)
+            mock_on_record.assert_called_once_with(DNS_POINTER, 0.0)
 
             await rl.stop()
             remove_listener.assert_called_once_with(listener)
@@ -2494,9 +2498,12 @@ DNS_A = DNSAddress(
 
 
 def _send_record(
-    rl: ReconnectLogic, record: DNSRecord = DNS_POINTER, old: DNSRecord | None = None
+    rl: ReconnectLogic,
+    record: DNSRecord = DNS_POINTER,
+    old: DNSRecord | None = None,
+    now: float = 0.0,
 ) -> None:
-    deliver_records(rl._zc_wake, [RecordUpdate(record, old)])
+    deliver_records(rl._zc_wake, [RecordUpdate(record, old)], now)
 
 
 async def test_probe_on_announce_listener_lifecycle(
@@ -2548,28 +2555,48 @@ async def test_probe_on_announce_record_pings(
     old: DNSRecord | None,
     sent: bool,
 ) -> None:
-    """A new or refreshed record while connected pings instead of kicking; logged only if sent."""
+    """A repeated announcement while connected pings instead of kicking; logged only if sent."""
     rl, _, _ = probing
     with (
         patch.object(rl._cli, "send_keepalive_now", return_value=sent) as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
-        _send_record(rl, record, old)
+        _send_record(rl, record, old, now=1000.0)
+        check.assert_not_called()
+        _send_record(rl, record, old, now=2000.0)
     check.assert_called_once_with()
     schedule.assert_not_called()
     assert (
-        "Sending keepalive ping because of received mDNS record" in caplog.text
+        "Sending keepalive ping because of repeated mDNS announcement" in caplog.text
     ) is sent
 
 
-async def test_probe_on_announce_every_announce_pings(
+@pytest.mark.parametrize(
+    ("gap", "pings"),
+    [
+        (ANNOUNCE_BURST_WINDOW * 1000, 1),
+        (ANNOUNCE_BURST_WINDOW * 1000 + 1, 0),
+    ],
+)
+async def test_probe_on_announce_burst_window(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock], gap: float, pings: int
+) -> None:
+    """Only a second packet within ANNOUNCE_BURST_WINDOW pings."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        _send_record(rl, now=10_000.0)
+        _send_record(rl, now=10_000.0 + gap)
+    assert check.call_count == pings
+
+
+async def test_probe_on_announce_every_burst_packet_pings(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
-    """Each matching announce asks for a ping; the connection rate limits it."""
+    """Each further packet of a burst asks for a ping; the connection rate limits it."""
     rl, _, _ = probing
     with patch.object(rl._cli, "send_keepalive_now", return_value=False) as check:
-        _send_record(rl)
-        _send_record(rl, DNS_POINTER, DNS_POINTER)
+        for now in (1000.0, 2000.0, 3000.0):
+            _send_record(rl, now=now)
     assert check.call_count == 2
 
 
@@ -2656,16 +2683,16 @@ async def test_probe_on_announce_unanswered_ping_reconnects(
     transport.reset_mock()
 
     start_time = utcnow()
-    _send_record(
-        logic,
-        DNSPointer(
-            "_esphomelib._tcp.local.",
-            _TYPE_PTR,
-            _CLASS_IN,
-            1000,
-            "fake._esphomelib._tcp.local.",
-        ),
+    announce = DNSPointer(
+        "_esphomelib._tcp.local.",
+        _TYPE_PTR,
+        _CLASS_IN,
+        1000,
+        "fake._esphomelib._tcp.local.",
     )
+    _send_record(logic, announce, now=1000.0)
+    assert transport.writelines.call_count == 0
+    _send_record(logic, announce, now=2000.0)
     assert transport.writelines.call_count == 1
 
     timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
@@ -2717,7 +2744,10 @@ async def test_wakes_share_one_zeroconf_listener() -> None:
                 zc, 0.0, [RecordUpdate(DNS_POINTER, None), RecordUpdate(DNS_A, None)]
             )
         first_seen.assert_not_called()
-        assert second_seen.call_args_list == [call(DNS_POINTER), call(DNS_A)]
+        assert second_seen.call_args_list == [
+            call(DNS_POINTER, 0.0),
+            call(DNS_A, 0.0),
+        ]
 
         first._zc_wake.stop()
         remove_listener.assert_not_called()
@@ -2747,39 +2777,23 @@ async def test_wakes_with_the_same_name_both_see_records() -> None:
             patch.object(second._zc_wake, "on_record") as second_seen,
         ):
             listener.async_update_records(zc, 0.0, [RecordUpdate(DNS_POINTER, None)])
-        first_seen.assert_called_once_with(DNS_POINTER)
-        second_seen.assert_called_once_with(DNS_POINTER)
+        first_seen.assert_called_once_with(DNS_POINTER, 0.0)
+        second_seen.assert_called_once_with(DNS_POINTER, 0.0)
         first._zc_wake.stop()
         second._zc_wake.stop()
 
 
-async def test_probe_on_announce_batch_pings_once(
+async def test_probe_on_announce_one_packet_counts_once(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
-    """A batch with several of the device's records sends one ping."""
+    """Several of the device's records in one packet are not a burst."""
     rl, _, _ = probing
+    packet = [RecordUpdate(DNS_POINTER, None), RecordUpdate(DNS_A, None)]
     with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
-        deliver_records(
-            rl._zc_wake,
-            [RecordUpdate(DNS_POINTER, None), RecordUpdate(DNS_A, None)],
-        )
+        deliver_records(rl._zc_wake, packet, 1000.0)
+        check.assert_not_called()
+        deliver_records(rl._zc_wake, packet, 2000.0)
     check.assert_called_once_with()
-
-
-async def test_probe_on_announce_min_interval(
-    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
-) -> None:
-    """Sightings within PROBE_MIN_INTERVAL of a sent ping send no other ping."""
-    rl, _, _ = probing
-    now = rl.loop.time()
-    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
-        with patch.object(rl.loop, "time", return_value=now):
-            rl.notify_device_seen()
-            rl.notify_device_seen()
-        assert check.call_count == 1
-        with patch.object(rl.loop, "time", return_value=now + PROBE_MIN_INTERVAL):
-            rl.notify_device_seen()
-        assert check.call_count == 2
 
 
 @pytest.mark.parametrize(
