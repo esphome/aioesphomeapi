@@ -3147,6 +3147,17 @@ def test_crash_report_from_pb() -> None:
     assert report.other_core_backtrace == [0x42009ABC]
 
 
+def test_crash_report_from_pb_without_report() -> None:
+    """A reply without a report decodes to the defaults."""
+    assert CrashReport.from_pb(CrashReportResponse()) == CrashReport()
+
+
+def test_crash_report_from_pb_unknown_reason() -> None:
+    """A reason this client does not know decodes to None."""
+    pb = CrashReportResponse(flags=CrashReportFlag.PRESENT, reason=99)
+    assert CrashReport.from_pb(pb).reason is None
+
+
 _SENDSPIN_CLIENT_ID = "q83vEjRWeJq83vEjRWeJq83vEjRWeJq83vEjRWeJq80"
 
 
