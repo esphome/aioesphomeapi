@@ -1392,6 +1392,18 @@ def test_send_keepalive_now_before_handshake_is_noop(conn: APIConnection) -> Non
     assert conn.is_connected is False
 
 
+async def test_send_keepalive_now_while_hello_pending_is_noop(
+    api_client: ApiClientFixture,
+) -> None:
+    """send_keepalive_now does nothing after the handshake until setup completes."""
+    _client, conn, transport, _protocol = api_client
+    conn.connection_state = ConnectionState.HANDSHAKE_COMPLETE
+    conn.is_connected = False
+    assert conn.send_keepalive_now() is False
+    assert transport.writelines.call_count == 0
+    assert conn._pong_timer is None
+
+
 async def test_send_keepalive_now_send_failure(
     api_client: ApiClientFixture,
 ) -> None:
