@@ -495,7 +495,7 @@ class APIClient(APIClientBase):
         if self._connection is not None:
             self._connection.force_disconnect()
 
-    def check_connection(self) -> bool:
+    def send_keepalive_now(self) -> bool:
         """Send the keepalive ping now unless a pong is pending. True if sent."""
         if self._connection is None:
             return False

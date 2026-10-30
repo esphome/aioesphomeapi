@@ -2575,7 +2575,7 @@ async def test_probe_on_announce_record_pings(
     """A new or refreshed record while connected pings instead of kicking; logged only if sent."""
     rl, _, _ = probing
     with (
-        patch.object(rl._cli, "check_connection", return_value=sent) as check,
+        patch.object(rl._cli, "send_keepalive_now", return_value=sent) as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
         _send_record(rl, record, old)
@@ -2591,7 +2591,7 @@ async def test_probe_on_announce_every_announce_pings(
 ) -> None:
     """Each matching announce asks for a ping; the connection rate limits it."""
     rl, _, _ = probing
-    with patch.object(rl._cli, "check_connection", return_value=False) as check:
+    with patch.object(rl._cli, "send_keepalive_now", return_value=False) as check:
         _send_record(rl)
         _send_record(rl, DNS_POINTER, DNS_POINTER)
     assert check.call_count == 2
@@ -2605,7 +2605,7 @@ async def test_probe_on_announce_off_by_default(
     rl, _, _ = probing
     assert rl._zc_wake._listening is False
     with (
-        patch.object(rl._cli, "check_connection") as check,
+        patch.object(rl._cli, "send_keepalive_now") as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
         _send_record(rl)
@@ -2625,7 +2625,7 @@ async def test_notify_device_seen_probes_while_connected(
     rl, add_listener, _ = probing
     add_listener.assert_not_called()
     with (
-        patch.object(rl._cli, "check_connection", return_value=True) as check,
+        patch.object(rl._cli, "send_keepalive_now", return_value=True) as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
         rl.notify_device_seen()

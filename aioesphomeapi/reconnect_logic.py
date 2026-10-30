@@ -20,12 +20,17 @@ from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     import socket
+    from typing import Protocol
 
     from zeroconf import RecordUpdate, Zeroconf
 
     from ._zc_listener import ReconnectRecordUpdateListener
     from .client import APIClient
     from .zeroconf import ZeroconfInstanceType
+
+    class _ProbeCallback(Protocol):
+        def __call__(self, reason: str, *args: object) -> None: ...
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,7 +104,7 @@ class ZeroconfWake:
         *,
         enabled: bool = True,
         can_probe: Callable[[], bool],
-        on_probe: Callable[..., None],
+        on_probe: _ProbeCallback,
     ) -> None:
         """Initialize the wake listener; can_kick/can_probe gate on_wake/on_probe."""
         self._loop = asyncio.get_running_loop()
@@ -804,7 +809,7 @@ class ReconnectLogic:
 
     def _probe_now(self, reason: str, *args: object) -> None:
         """Send the keepalive ping now; skipped while a pong is pending."""
-        if self._cli.check_connection() and _LOGGER.isEnabledFor(logging.DEBUG):
+        if self._cli.send_keepalive_now() and _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug(
                 "%s: Sending keepalive ping because %s",
                 self._cli.log_name,
