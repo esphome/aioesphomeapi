@@ -495,6 +495,12 @@ class APIClient(APIClientBase):
         if self._connection is not None:
             self._connection.force_disconnect()
 
+    def send_keepalive_now(self) -> bool:
+        """Send the keepalive ping now unless a pong is pending. True if sent."""
+        if self._connection is None:
+            return False
+        return self._connection.send_keepalive_now()
+
     @property
     def cached_device_has_deep_sleep(self) -> bool | None:
         """has_deep_sleep from this session's cached device_info, or None if not fetched."""
