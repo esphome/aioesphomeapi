@@ -121,12 +121,51 @@ jobs:
           name: genrated-proto-files
           path: aioesphomeapi/*pb2.py
         if: ${{ failure() && matrix.python-version == '3.14' && matrix.extension == 'skip_cython' && matrix.os == 'ubuntu-latest' }}
-      - run: pytest -q -n auto --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native --ignore=tests/benchmarks tests
+      - run: pytest -q -n auto --cov=aioesphomeapi --cov-report=xml --timeout=4 --tb=native --ignore=tests/benchmarks --ignore=tests/e2e tests
         name: Run tests with pytest
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  e2e:
+    name: E2E py 3.14 (${{ matrix.extension }})
+    runs-on: ubuntu-latest
+    # Real ReconnectLogic sessions against fake devices over loopback TCP and mDNS.
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        extension:
+          - "skip_cython"
+          - "use_cython"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+      - name: Set up Python environment (${{ matrix.extension }})
+        env:
+          SKIP_CYTHON: ${{ matrix.extension == 'skip_cython' && '1' || '' }}
+          REQUIRE_CYTHON: ${{ matrix.extension == 'use_cython' && '1' || '' }}
+        run: |
+          uv pip install --system -r requirements/base.txt -r requirements/test.txt
+          uv pip install --system -e .
+      - name: Enable multicast on loopback
+        # Linux brings lo up without the MULTICAST flag; the fake devices'
+        # mDNS never leaves loopback.
+        run: |
+          sudo ip link set lo multicast on
+          sudo ip route add 224.0.0.0/4 dev lo || true
+      - name: Run e2e tests
+        env:
+          AIOESPHOMEAPI_E2E_REQUIRE_MDNS: 1
+        run: pytest -q -n auto --timeout=120 --durations=10 --tb=native tests/e2e
 
   benchmarks:
     name: Run benchmarks

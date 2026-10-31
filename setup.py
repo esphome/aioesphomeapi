@@ -15,6 +15,7 @@ except ImportError:
 
 TO_CYTHONIZE = [
     "aioesphomeapi/_sanitize.py",
+    "aioesphomeapi/_zc_listener.py",
     "aioesphomeapi/client_base.py",
     "aioesphomeapi/connection.py",
     "aioesphomeapi/_frame_helper/base.py",

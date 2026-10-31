@@ -7,7 +7,7 @@ from functools import partial
 from ipaddress import ip_address
 import logging
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 
 import pytest
 from zeroconf import (
@@ -17,10 +17,9 @@ from zeroconf import (
     RecordUpdate,
     RecordUpdateListener,
     Zeroconf,
-    current_time_millis,
 )
 from zeroconf.asyncio import AsyncZeroconf
-from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR
+from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_CNAME, _TYPE_PTR
 
 from aioesphomeapi import (
     APIConnectionError,
@@ -28,6 +27,7 @@ from aioesphomeapi import (
     EncryptionPlaintextAPIError,
     RequiresEncryptionAPIError,
 )
+from aioesphomeapi._zc_listener import ZeroconfRecordDispatcher
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.client_base import KEEP_ALIVE_FREQUENCY
 from aioesphomeapi.core import APIConnectionCancelledError, PingFailedAPIError
@@ -37,16 +37,16 @@ if TYPE_CHECKING:
 
     from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
+    ANNOUNCE_BURST_WINDOW_MS,
+    ANNOUNCE_MIN_GAP_MS,
     DEEP_SLEEP_MAXIMUM_BACKOFF,
     EXPECTED_DISCONNECT_COOLDOWN,
     MAXIMUM_BACKOFF,
     MAXIMUM_BACKOFF_TRIES,
-    TYPE_A,
-    TYPE_AAAA,
-    TYPE_PTR,
     ZC_LISTEN_DELAY,
     ReconnectLogic,
     ReconnectLogicState,
+    ZeroconfWake,
 )
 
 from .common import (
@@ -84,6 +84,15 @@ def find_log_with_message(
         if message_substring in record.message:
             return record
     return None
+
+
+def deliver_records(
+    wake: ZeroconfWake, records: list[RecordUpdate], now: float = 0.0
+) -> None:
+    """Route one packet of records through a dispatcher holding only wake."""
+    dispatcher = ZeroconfRecordDispatcher(MagicMock())
+    dispatcher.add(wake)
+    dispatcher.async_update_records(MagicMock(), now, records)
 
 
 async def drain_zc_start(rl: ReconnectLogic) -> None:
@@ -482,6 +491,16 @@ DNS_POINTER = DNSPointer(
 )
 
 
+def _send_record(
+    rl: ReconnectLogic,
+    record: DNSRecord = DNS_POINTER,
+    old: DNSRecord | None = None,
+    now: float = 0.0,
+) -> None:
+    """Deliver one packet holding record to rl's wake."""
+    deliver_records(rl._zc_wake, [RecordUpdate(record, old)], now)
+
+
 @pytest.mark.parametrize(
     ("record", "should_trigger_zeroconf", "expected_state_after_trigger", "log_text"),
     [
@@ -647,9 +666,7 @@ async def test_reconnect_zeroconf(  # noqa: C901  # parametrized over many recor
             # For matching records, signal the resolver to complete
             resolve_event.set()
 
-        rl._zc_wake.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(record, None)]
-        )
+        deliver_records(rl._zc_wake, [RecordUpdate(record, None)])
 
         # Verify the expected log message
         assert (
@@ -737,9 +754,7 @@ async def test_reconnect_zeroconf_cancels_connecting_no_socket(
         patch.object(cli, "start_connection") as mock_start_connection_2,
         patch.object(cli, "finish_connection"),
     ):
-        rl._zc_wake.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-        )
+        _send_record(rl)
 
         # Should see the cancellation message since no socket is connected
         assert "Cancelling existing connect task" in caplog.text
@@ -805,9 +820,7 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
         patch.object(cli, "finish_connection"),
     ):
         caplog.clear()
-        rl._zc_wake.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-        )
+        _send_record(rl)
         assert (
             caplog.text.count("Triggering connect because of received mDNS record") == 1
         )
@@ -823,11 +836,7 @@ async def test_reconnect_zeroconf_only_cancels_connecting_once(
         # Subsequent mDNS records during the same attempt must be ignored.
         caplog.clear()
         for _ in range(5):
-            rl._zc_wake.async_update_records(
-                mock_zeroconf,
-                current_time_millis(),
-                [RecordUpdate(DNS_POINTER, None)],
-            )
+            _send_record(rl)
         assert "Triggering connect because of received mDNS record" not in caplog.text
         assert mock_resolve_2.call_count == 1
         assert mock_connect_2.call_count == 1
@@ -937,9 +946,7 @@ async def test_reconnect_zeroconf_does_not_cancel_connecting_with_socket(
         return_value="192.168.1.5",
     ):
         # Now trigger zeroconf while in CONNECTING state with socket connected
-        rl._zc_wake.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-        )
+        _send_record(rl)
 
         # Should NOT cancel since the device already accepted the connection
         assert "Not cancelling existing connect task" in caplog.text
@@ -984,9 +991,7 @@ async def test_reconnect_zeroconf_cancels_pending_timer(
         patch.object(cli, "start_connection"),
         patch.object(cli, "finish_connection"),
     ):
-        rl._zc_wake.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-        )
+        _send_record(rl)
 
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -1050,9 +1055,7 @@ async def test_reconnect_zeroconf_not_while_handshaking(
         assert rl._zc_wake._accept_records is True
         assert not rl._is_stopped
 
-    rl._zc_wake.async_update_records(
-        mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-    )
+    _send_record(rl)
     assert (
         "Triggering connect because of received mDNS record" in caplog.text
     ) is False
@@ -1681,9 +1684,9 @@ async def test_zc_listen_failure_does_not_block_connect(
             "Expected zeroconf failure warning was not logged"
         )
         assert log_record.levelno == logging.WARNING
-        # _listening must remain False so stop() doesn't try to remove a
+        # _dispatcher must remain None so stop() doesn't try to remove a
         # listener we never added.
-        assert logic._zc_wake._listening is False
+        assert logic._zc_wake._dispatcher is None
 
         # The broken zeroconf stack must not block the next attempt
         with (
@@ -1780,7 +1783,7 @@ async def test_zc_listen_import_failure_logged_and_retried_inline(
     log_record = find_log_with_message(caplog, "Could not start zeroconf listener")
     assert log_record is not None
     assert log_record.levelno == logging.WARNING
-    assert logic._zc_wake._listening is False
+    assert logic._zc_wake._dispatcher is None
 
     await logic.stop()
 
@@ -1949,13 +1952,6 @@ async def test_add_addresses_ignored_when_ready(
     await rl.stop()
 
 
-def test_zc_record_type_constants_match_zeroconf() -> None:
-    """The hardcoded DNS record type codes must match zeroconf's."""
-    assert TYPE_A == _TYPE_A
-    assert TYPE_AAAA == _TYPE_AAAA
-    assert TYPE_PTR == _TYPE_PTR
-
-
 @pytest.mark.asyncio
 async def test_zc_listen_timer_cancelled_on_fast_connect(
     patchable_api_client: APIClient,
@@ -1988,10 +1984,10 @@ async def test_zc_listen_timer_cancelled_on_fast_connect(
 
 
 @pytest.mark.asyncio
-async def test_zc_listener_delegate_registered_on_failed_attempt(
+async def test_zc_listener_dispatcher_registered_on_failed_attempt(
     patchable_api_client: APIClient,
 ) -> None:
-    """A failed attempt registers a delegate listener that forwards to the logic."""
+    """A failed attempt registers the shared listener that routes to the wake."""
     cli = patchable_api_client
     async_zeroconf = get_mock_async_zeroconf()
 
@@ -2023,9 +2019,11 @@ async def test_zc_listener_delegate_registered_on_failed_attempt(
             assert question is None
             assert isinstance(listener, RecordUpdateListener)
 
-            with patch.object(rl._zc_wake, "async_update_records") as mock_update:
-                listener.async_update_records(async_zeroconf.zeroconf, 0.0, [])
-            mock_update.assert_called_once_with(async_zeroconf.zeroconf, 0.0, [])
+            with patch.object(rl._zc_wake, "on_record") as mock_on_record:
+                listener.async_update_records(
+                    async_zeroconf.zeroconf, 0.0, [RecordUpdate(DNS_POINTER, None)]
+                )
+            mock_on_record.assert_called_once_with(DNS_POINTER, 0.0)
 
             await rl.stop()
             remove_listener.assert_called_once_with(listener)
@@ -2073,7 +2071,7 @@ async def test_zc_listener_starts_when_timer_fires_mid_attempt(
             await rl._zc_wake._start_task
 
             add_listener.assert_called_once()
-            assert rl._zc_wake._listening is True
+            assert rl._zc_wake._dispatcher is not None
 
             release_resolve.set()
             await asyncio.sleep(0)
@@ -2103,18 +2101,14 @@ async def test_zeroconf_kick_reopens_gate_when_attempt_fails_synchronously(
         await drain_zc_start(rl)
         assert rl._tries == 1
 
-        rl._zc_wake.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-        )
+        _send_record(rl)
         await asyncio.sleep(0)
         assert rl._tries == 2
         assert rl._connection_state is ReconnectLogicState.DISCONNECTED
         assert rl._connect_timer is not None
         assert rl._zc_wake._accept_records is True
 
-        rl._zc_wake.async_update_records(
-            mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-        )
+        _send_record(rl)
         await asyncio.sleep(0)
         assert rl._tries == 3
 
@@ -2178,7 +2172,7 @@ async def test_zeroconf_wake_disabled_never_creates_zeroconf(
         assert rl._connect_timer is not None
         assert rl._zc_wake._timer is None
         assert rl._zc_wake._start_task is None
-        assert rl._zc_wake._listening is False
+        assert rl._zc_wake._dispatcher is None
 
         await rl.stop()
 
@@ -2266,9 +2260,7 @@ async def test_notify_device_seen_shares_one_kick_per_attempt(
         if first_kick == "notify":
             rl.notify_device_seen()
         else:
-            rl._zc_wake.async_update_records(
-                mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-            )
+            _send_record(rl)
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert mock_resolve.call_count == 1
@@ -2277,9 +2269,7 @@ async def test_notify_device_seen_shares_one_kick_per_attempt(
         caplog.clear()
         for _ in range(5):
             rl.notify_device_seen()
-            rl._zc_wake.async_update_records(
-                mock_zeroconf, current_time_millis(), [RecordUpdate(DNS_POINTER, None)]
-            )
+            _send_record(rl)
         await asyncio.sleep(0)
         assert "Triggering connect" not in caplog.text
         assert mock_resolve.call_count == 1
@@ -2515,27 +2505,19 @@ DNS_A = DNSAddress(
 )
 
 
-def _send_record(
-    rl: ReconnectLogic, record: DNSRecord = DNS_POINTER, old: DNSRecord | None = None
-) -> None:
-    rl._zc_wake.async_update_records(
-        MagicMock(), current_time_millis(), [RecordUpdate(record, old)]
-    )
-
-
 async def test_probe_on_announce_listener_lifecycle(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
     """The listener runs while connected and stops on disconnect."""
     rl, add_listener, remove = probing
     add_listener.assert_called_once()
-    assert rl._zc_wake._listening is True
+    assert rl._zc_wake._dispatcher is not None
 
     with patch.object(rl, "_schedule_connect") as schedule:
         await rl._on_disconnect(True)
     schedule.assert_called_once_with(EXPECTED_DISCONNECT_COOLDOWN)
     remove.assert_called_once()
-    assert rl._zc_wake._listening is False
+    assert rl._zc_wake._dispatcher is None
 
 
 async def test_probe_on_announce_listener_kept_through_handshake(
@@ -2549,7 +2531,7 @@ async def test_probe_on_announce_listener_kept_through_handshake(
     with _patch_connect(rl._cli):
         await rl._connect_once_or_reschedule()
     assert rl._connection_state is ReconnectLogicState.READY
-    assert rl._zc_wake._listening is True
+    assert rl._zc_wake._dispatcher is not None
     assert add_listener.call_count == 2
     assert remove.call_count == 1
 
@@ -2572,28 +2554,66 @@ async def test_probe_on_announce_record_pings(
     old: DNSRecord | None,
     sent: bool,
 ) -> None:
-    """A new or refreshed record while connected pings instead of kicking; logged only if sent."""
+    """A repeated announcement while connected pings instead of kicking; logged only if sent."""
     rl, _, _ = probing
     with (
         patch.object(rl._cli, "send_keepalive_now", return_value=sent) as check,
         patch.object(rl, "_schedule_connect") as schedule,
     ):
-        _send_record(rl, record, old)
+        _send_record(rl, record, old, now=1000.0)
+        check.assert_not_called()
+        _send_record(rl, record, old, now=2000.0)
     check.assert_called_once_with()
     schedule.assert_not_called()
     assert (
-        "Sending keepalive ping because of received mDNS record" in caplog.text
+        "Sending keepalive ping because of repeated mDNS announcement" in caplog.text
     ) is sent
 
 
-async def test_probe_on_announce_every_announce_pings(
+@pytest.mark.parametrize(
+    ("gap", "pings"),
+    [
+        (ANNOUNCE_MIN_GAP_MS - 1, 0),
+        (ANNOUNCE_MIN_GAP_MS, 1),
+        (ANNOUNCE_BURST_WINDOW_MS, 1),
+        (ANNOUNCE_BURST_WINDOW_MS + 1, 0),
+    ],
+)
+async def test_probe_on_announce_burst_window(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock], gap: float, pings: int
+) -> None:
+    """Only a second round between the minimum gap and the window pings."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        _send_record(rl, now=10_000.0)
+        _send_record(rl, now=10_000.0 + gap)
+    assert check.call_count == pings
+
+
+@pytest.mark.parametrize(
+    ("gap", "pings"),
+    [(926.0, 1), (1135.0, 1), (1940.0, 1), (2500.0, 0), (5000.0, 0)],
+    ids=["lwip-min", "esp32-max", "leamdns-max", "query-answers", "query-backoff"],
+)
+async def test_probe_on_announce_bench_gaps(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock], gap: float, pings: int
+) -> None:
+    """Measured boot round gaps ping; answers to queries seconds apart do not."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        _send_record(rl, now=10_000.0)
+        _send_record(rl, now=10_000.0 + gap)
+    assert check.call_count == pings
+
+
+async def test_probe_on_announce_every_burst_packet_pings(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
-    """Each matching announce asks for a ping; the connection rate limits it."""
+    """Each further packet of a burst asks for a ping; the connection rate limits it."""
     rl, _, _ = probing
     with patch.object(rl._cli, "send_keepalive_now", return_value=False) as check:
-        _send_record(rl)
-        _send_record(rl, DNS_POINTER, DNS_POINTER)
+        for now in (1000.0, 2000.0, 3000.0):
+            _send_record(rl, now=now)
     assert check.call_count == 2
 
 
@@ -2601,9 +2621,9 @@ async def test_probe_on_announce_every_announce_pings(
 async def test_probe_on_announce_off_by_default(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
-    """Without probe_on_announce a sighting while connected does nothing."""
+    """Without a shared zeroconf a sighting while connected does nothing."""
     rl, _, _ = probing
-    assert rl._zc_wake._listening is False
+    assert rl._zc_wake._dispatcher is None
     with (
         patch.object(rl._cli, "send_keepalive_now") as check,
         patch.object(rl, "_schedule_connect") as schedule,
@@ -2680,16 +2700,16 @@ async def test_probe_on_announce_unanswered_ping_reconnects(
     transport.reset_mock()
 
     start_time = utcnow()
-    _send_record(
-        logic,
-        DNSPointer(
-            "_esphomelib._tcp.local.",
-            _TYPE_PTR,
-            _CLASS_IN,
-            1000,
-            "fake._esphomelib._tcp.local.",
-        ),
+    announce = DNSPointer(
+        "_esphomelib._tcp.local.",
+        _TYPE_PTR,
+        _CLASS_IN,
+        1000,
+        "fake._esphomelib._tcp.local.",
     )
+    _send_record(logic, announce, now=1000.0)
+    assert transport.writelines.call_count == 0
+    _send_record(logic, announce, now=2000.0)
     assert transport.writelines.call_count == 1
 
     timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
@@ -2702,3 +2722,174 @@ async def test_probe_on_announce_unanswered_ping_reconnects(
     assert on_disconnect_calls == [False]
     schedule.assert_called_once_with(0)
     await logic.stop()
+
+
+def _logic_on(
+    async_zeroconf: AsyncZeroconf | None, name: str, **kwargs: Any
+) -> ReconnectLogic:
+    """Build a ReconnectLogic for name sharing async_zeroconf."""
+    return ReconnectLogic(
+        client=APIClient(f"{name}.local", 6053, None),
+        on_connect=AsyncMock(),
+        on_disconnect=AsyncMock(),
+        zeroconf_instance=async_zeroconf,
+        name=name,
+        **kwargs,
+    )
+
+
+async def test_wakes_share_one_zeroconf_listener() -> None:
+    """Wakes on one zeroconf share a listener that goes away with the last one."""
+    async_zeroconf = get_mock_async_zeroconf()
+    zc = async_zeroconf.zeroconf
+    first = _logic_on(async_zeroconf, "first")
+    second = _logic_on(async_zeroconf, "mydevice")
+    with (
+        patch.object(zc, "async_add_listener") as add_listener,
+        patch.object(zc, "async_remove_listener") as remove_listener,
+    ):
+        first._zc_wake.start()
+        second._zc_wake.start()
+        add_listener.assert_called_once()
+        listener = add_listener.call_args[0][0]
+
+        with (
+            patch.object(first._zc_wake, "on_record") as first_seen,
+            patch.object(second._zc_wake, "on_record") as second_seen,
+        ):
+            listener.async_update_records(
+                zc, 0.0, [RecordUpdate(DNS_POINTER, None), RecordUpdate(DNS_A, None)]
+            )
+        first_seen.assert_not_called()
+        assert second_seen.call_args_list == [
+            call(DNS_POINTER, 0.0),
+            call(DNS_A, 0.0),
+        ]
+
+        first._zc_wake.stop()
+        remove_listener.assert_not_called()
+        second._zc_wake.stop()
+        remove_listener.assert_called_once_with(listener)
+
+        first._zc_wake.start()
+        assert add_listener.call_count == 2
+        first._zc_wake.stop()
+
+
+async def test_dispatcher_ignores_cname_pointing_at_device() -> None:
+    """A CNAME aliasing the device's service name is not a sighting."""
+    rl = _logic_on(get_mock_async_zeroconf(), "mydevice")
+    cname = DNSPointer(
+        "other._esphomelib._tcp.local.",
+        _TYPE_CNAME,
+        _CLASS_IN,
+        1000,
+        "mydevice._esphomelib._tcp.local.",
+    )
+    with patch.object(rl._zc_wake, "on_record") as on_record:
+        deliver_records(rl._zc_wake, [RecordUpdate(cname, None)])
+    on_record.assert_not_called()
+
+
+async def test_wakes_with_the_same_name_both_see_records() -> None:
+    """Two wakes registered for one name both receive its records."""
+    async_zeroconf = get_mock_async_zeroconf()
+    zc = async_zeroconf.zeroconf
+    first = _logic_on(async_zeroconf, "mydevice")
+    second = _logic_on(async_zeroconf, "mydevice")
+    with (
+        patch.object(zc, "async_add_listener") as add_listener,
+        patch.object(zc, "async_remove_listener"),
+    ):
+        first._zc_wake.start()
+        second._zc_wake.start()
+        listener = add_listener.call_args[0][0]
+        with (
+            patch.object(first._zc_wake, "on_record") as first_seen,
+            patch.object(second._zc_wake, "on_record") as second_seen,
+        ):
+            listener.async_update_records(zc, 0.0, [RecordUpdate(DNS_POINTER, None)])
+        first_seen.assert_called_once_with(DNS_POINTER, 0.0)
+        second_seen.assert_called_once_with(DNS_POINTER, 0.0)
+        first._zc_wake.stop()
+        second._zc_wake.stop()
+
+
+async def test_probe_on_announce_one_packet_counts_once(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """Several of the device's records in one packet are not a burst."""
+    rl, _, _ = probing
+    packet = [RecordUpdate(DNS_POINTER, None), RecordUpdate(DNS_A, None)]
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        deliver_records(rl._zc_wake, packet, 1000.0)
+        check.assert_not_called()
+        deliver_records(rl._zc_wake, packet, 2000.0)
+    check.assert_called_once_with()
+
+
+async def test_probe_on_announce_skips_burst_that_kicked_the_connect(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """The rest of a boot burst whose first record kicked the connect never probes."""
+    rl, _, _ = probing
+    with patch.object(rl, "_schedule_connect"):
+        await rl._on_disconnect(False)
+    with patch.object(rl, "_schedule_connect") as schedule:
+        _send_record(rl, now=1000.0)
+    schedule.assert_called_once_with(0.0)
+    with _patch_connect(rl._cli):
+        await rl._connect_once_or_reschedule()
+    assert rl._connection_state is ReconnectLogicState.READY
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        for now in (2000.0, 3000.0, 4000.0):
+            _send_record(rl, now=now)
+        check.assert_not_called()
+        _send_record(rl, now=4000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
+        _send_record(rl, now=5000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
+    check.assert_called_once_with()
+
+
+async def test_probe_on_announce_split_round_counts_once(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """Packets of one round a few ms apart count once and keep the round's time."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        _send_record(rl, DNS_A, now=1000.0)
+        _send_record(rl, DNS_POINTER, now=1005.0)
+        check.assert_not_called()
+        _send_record(rl, DNS_A, now=2000.0)
+    check.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    ("shared", "kwargs", "expected"),
+    [
+        (True, {}, True),
+        (True, {"zeroconf_wake": False}, False),
+        (True, {"probe_on_announce": False}, False),
+        (False, {}, False),
+        (False, {"probe_on_announce": True}, True),
+    ],
+)
+async def test_probe_on_announce_default(
+    shared: bool, kwargs: dict[str, Any], expected: bool
+) -> None:
+    """probe_on_announce defaults on only with a shared zeroconf and zeroconf_wake."""
+    aiozc = get_mock_async_zeroconf() if shared else None
+    rl = _logic_on(aiozc, "mydevice", **kwargs)
+    assert rl._probe_on_announce is expected
+
+
+async def test_probe_on_announce_default_off_with_private_zeroconf() -> None:
+    """A zeroconf instance the client created itself does not turn probing on."""
+    cli = APIClient("mydevice.local", 6053, None)
+    with patch(
+        "zeroconf.asyncio.AsyncZeroconf", return_value=get_mock_async_zeroconf()
+    ):
+        cli.zeroconf_manager.get_async_zeroconf()
+    rl = ReconnectLogic(
+        client=cli, on_connect=AsyncMock(), on_disconnect=AsyncMock(), name="mydevice"
+    )
+    assert rl._probe_on_announce is False
