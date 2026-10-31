@@ -10,6 +10,9 @@ if TYPE_CHECKING:
 
     from .reconnect_logic import ZeroconfWake
 
+# A frozenset constant; `in (_TYPE_A, _TYPE_AAAA)` builds a tuple per record.
+_ADDRESS_TYPES = frozenset((_TYPE_A, _TYPE_AAAA))
+
 
 class ZeroconfRecordDispatcher(RecordUpdateListener):
     """Route record updates to the wakes registered for their names."""
@@ -46,10 +49,10 @@ class ZeroconfRecordDispatcher(RecordUpdateListener):
         for record_update in records:
             new_record = record_update.new
             record_type = new_record.type
-            if record_type == _TYPE_PTR:
-                matched = wakes.get(new_record.alias_key)  # type: ignore[attr-defined]
-            elif record_type in (_TYPE_A, _TYPE_AAAA):
+            if record_type in _ADDRESS_TYPES:
                 matched = wakes.get(new_record.key)
+            elif record_type == _TYPE_PTR:
+                matched = wakes.get(new_record.alias_key)  # type: ignore[attr-defined]
             else:
                 continue
             if matched is not None:
