@@ -204,6 +204,7 @@ from .model import (
     VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
+    VoiceAssistantWakeWordAudio,
     WaterHeaterCommandField,
     WaterHeaterStateFlag,
     ZWaveProxyCapabilities as ZWaveProxyCapabilitiesModel,
@@ -2327,10 +2328,22 @@ class APIClient(APIClientBase):
     def subscribe_voice_assistant(  # noqa: C901  # high-fan-in command builder with many optional features
         self,
         *,
-        handle_start: Callable[
-            [str, int, VoiceAssistantAudioSettingsModel, str | None],
-            Coroutine[Any, Any, int | None],
-        ],
+        handle_start: (
+            Callable[
+                [str, int, VoiceAssistantAudioSettingsModel, str | None],
+                Coroutine[Any, Any, int | None],
+            ]
+            | Callable[
+                [
+                    str,
+                    int,
+                    VoiceAssistantAudioSettingsModel,
+                    str | None,
+                    VoiceAssistantWakeWordAudio | None,
+                ],
+                Coroutine[Any, Any, int | None],
+            ]
+        ),
         handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
         handle_audio: (
             Callable[
@@ -2346,6 +2359,7 @@ class APIClient(APIClientBase):
             ]
             | None
         ) = None,
+        wake_word_audio: bool = False,
     ) -> Callable[[], None]:
         """Subscribe to voice assistant messages from the device.
 
@@ -2357,6 +2371,12 @@ class APIClient(APIClientBase):
         handle_audio: called when a chunk of audio is sent from the device.
 
         handle_announcement_finished: called when a VoiceAssistantAnnounceFinished message is sent from the device.
+
+        wake_word_audio: requests the audio the device buffered before each wake word it detects,
+                         sent ahead of the live audio. Requires handle_audio. handle_start is then
+                         called with a fifth argument: the VoiceAssistantWakeWordAudio of the
+                         detection, or None when the pipeline was not started by one.
+                         handle_audio may be called before handle_start returns.
 
         Returns a callback to unsubscribe.
         """
@@ -2381,22 +2401,38 @@ class APIClient(APIClientBase):
                 wake_word_phrase: str | None = command.wake_word_phrase
                 if wake_word_phrase == "":
                     wake_word_phrase = None
-                start_task = create_eager_task(
-                    handle_start(
-                        command.conversation_id,
-                        command.flags,
-                        command.audio_settings,
-                        wake_word_phrase,
-                    )
-                )
+                start_args: list[Any] = [
+                    command.conversation_id,
+                    command.flags,
+                    command.audio_settings,
+                    wake_word_phrase,
+                ]
+                if wake_word_audio:
+                    detection: VoiceAssistantWakeWordAudio | None = None
+                    if command.wake_word_id:
+                        detection = VoiceAssistantWakeWordAudio(  # type: ignore[call-arg]
+                            wake_word_id=command.wake_word_id,
+                            audio_bytes=command.wake_word_audio_bytes,
+                            audio_bytes2=command.wake_word_audio_bytes2,
+                            probability=command.wake_word_probability,
+                            probability_cutoff=command.wake_word_probability_cutoff,
+                        )
+                    start_args.append(detection)
+                start_task = create_eager_task(handle_start(*start_args))
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
             else:
                 self._create_background_task(handle_stop(True))
 
+        if wake_word_audio and handle_audio is None:
+            msg = "wake_word_audio requires handle_audio"
+            raise ValueError(msg)
+
         remove_callbacks = []
         flags = 0
+        if wake_word_audio:
+            flags |= VoiceAssistantSubscriptionFlag.WAKE_WORD_AUDIO
         if handle_audio is not None:
             flags |= VoiceAssistantSubscriptionFlag.API_AUDIO
 
