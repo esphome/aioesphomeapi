@@ -2609,7 +2609,7 @@ async def test_probe_on_announce_bench_gaps(
 async def test_probe_on_announce_every_burst_packet_pings(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
-    """Each further round of a burst sends a ping, also while a pong is pending."""
+    """Each further round of a burst asks for a ping."""
     rl, _, _ = probing
     with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
         for now in (1000.0, 2000.0, 3000.0):
