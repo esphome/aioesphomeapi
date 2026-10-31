@@ -23,14 +23,16 @@ class ZeroconfRecordDispatcher(RecordUpdateListener):
         for key in wake.keys:
             self._wakes.setdefault(key, []).append(wake)
 
-    def remove(self, wake: ZeroconfWake) -> bool:
-        """Stop routing records to wake; True once no wakes are left."""
+    def async_remove(self, wake: ZeroconfWake) -> None:
+        """Stop routing records to wake; the last wake removes the listener."""
         for key in wake.keys:
             wakes = self._wakes[key]
             wakes.remove(wake)
             if not wakes:
                 del self._wakes[key]
-        return not self._wakes
+        if not self._wakes:
+            del _dispatchers[id(self.zc)]
+            self.zc.async_remove_listener(self)
 
     def async_update_records(
         self,
@@ -71,10 +73,3 @@ def async_add_wake(zc: Zeroconf, wake: ZeroconfWake) -> ZeroconfRecordDispatcher
         _dispatchers[id(zc)] = dispatcher
     dispatcher.add(wake)
     return dispatcher
-
-
-def async_remove_wake(dispatcher: ZeroconfRecordDispatcher, wake: ZeroconfWake) -> None:
-    """Unregister wake; the shared listener goes away with the last wake."""
-    if dispatcher.remove(wake):
-        del _dispatchers[id(dispatcher.zc)]
-        dispatcher.zc.async_remove_listener(dispatcher)

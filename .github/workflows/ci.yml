@@ -131,10 +131,7 @@ jobs:
   e2e:
     name: E2E py 3.14 (${{ matrix.extension }})
     runs-on: ubuntu-latest
-    # tests/e2e drives real ReconnectLogic sessions against fake devices
-    # over loopback TCP and loopback mDNS, so it waits on real timers
-    # (announcement spacing, keepalives); kept out of the unit job so its
-    # runtime and any flake read as e2e signal.
+    # Real ReconnectLogic sessions against fake devices over loopback TCP and mDNS.
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -152,17 +149,10 @@ jobs:
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
         with:
           enable-cache: true
-      - name: Set up Python environment (no cython)
-        if: ${{ matrix.extension == 'skip_cython' }}
+      - name: Set up Python environment (${{ matrix.extension }})
         env:
-          SKIP_CYTHON: 1
-        run: |
-          uv pip install --system -r requirements/base.txt -r requirements/test.txt
-          uv pip install --system -e .
-      - name: Set up Python environment (cython)
-        if: ${{ matrix.extension == 'use_cython' }}
-        env:
-          REQUIRE_CYTHON: 1
+          SKIP_CYTHON: ${{ matrix.extension == 'skip_cython' && '1' || '' }}
+          REQUIRE_CYTHON: ${{ matrix.extension == 'use_cython' && '1' || '' }}
         run: |
           uv pip install --system -r requirements/base.txt -r requirements/test.txt
           uv pip install --system -e .

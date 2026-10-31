@@ -66,14 +66,15 @@ _zc_listener_cache: list[ModuleType] = []
 
 
 def _import_zc_listener() -> ModuleType:
+    if _zc_listener_cache:
+        return _zc_listener_cache[0]
     # Preload zeroconf.asyncio too; start() needs it via get_async_zeroconf
     # and it is not pulled in by the top-level zeroconf import.
     import zeroconf.asyncio  # noqa: F401, PLC0415
 
     from . import _zc_listener  # noqa: PLC0415
 
-    if not _zc_listener_cache:
-        _zc_listener_cache.append(_zc_listener)
+    _zc_listener_cache.append(_zc_listener)
     return _zc_listener
 
 
@@ -147,16 +148,17 @@ class ZeroconfWake:
         self._quiet_needed = False
         self._timer: asyncio.TimerHandle | None = None
         self._start_task: asyncio.Task[None] | None = None
-        # One-shot gate: a connect attempt is only kicked once per record burst.
+        # One-shot gate: a connect attempt is only kicked once.
         self._accept_records = True
 
     def reopen(self) -> None:
         """Allow the next wake to kick a connect again."""
         self._accept_records = True
 
-    def skip_current_burst(self) -> None:
-        """Probe again only after a gap longer than the burst window."""
+    def on_session_ready(self) -> None:
+        """Listen while connected, ignoring the rest of a burst that began before."""
         self._quiet_needed = True
+        self.start_soon()
 
     def kick(self, reason: str, *args: object) -> None:
         """Kick a connect once per attempt; the connect logic may keep one in flight."""
@@ -207,11 +209,7 @@ class ZeroconfWake:
         if self._dispatcher is None and self._eligible:
             _LOGGER.debug("Starting zeroconf listener for %s", self._name)
             try:
-                zc_listener = (
-                    _zc_listener_cache[0]
-                    if _zc_listener_cache
-                    else _import_zc_listener()
-                )
+                zc_listener = _import_zc_listener()
                 zc = self._client.zeroconf_manager.get_async_zeroconf().zeroconf
                 self._dispatcher = zc_listener.async_add_wake(zc, self)
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
@@ -235,7 +233,7 @@ class ZeroconfWake:
             self._start_task = None
         if self._dispatcher is not None:
             _LOGGER.debug("Removing zeroconf listener for %s", self._name)
-            _zc_listener_cache[0].async_remove_wake(self._dispatcher, self)
+            self._dispatcher.async_remove(self)
             self._dispatcher = None
 
     def on_record(self, record: DNSRecord, now: float) -> None:
@@ -542,10 +540,7 @@ class ReconnectLogic:
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         if self._probe_on_announce:
-            # The rest of a burst that started before this session must not
-            # probe it.
-            self._zc_wake.skip_current_burst()
-            self._zc_wake.start_soon()
+            self._zc_wake.on_session_ready()
         await self._on_connect_cb()
         # Remember deep-sleep from the device_info the connect callback just
         # fetched; the client clears its cache on disconnect, so capture it now

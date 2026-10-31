@@ -7,35 +7,30 @@ import socket
 import struct
 from typing import TYPE_CHECKING
 
-from zeroconf import DNSAddress, DNSOutgoing, DNSPointer, DNSService, DNSText
-from zeroconf.const import (
-    _CLASS_IN,
-    _CLASS_UNIQUE,
-    _FLAGS_AA,
-    _FLAGS_QR_RESPONSE,
-    _TYPE_A,
-    _TYPE_PTR,
-    _TYPE_SRV,
-    _TYPE_TXT,
-)
+from zeroconf import DNSOutgoing, ServiceInfo
+from zeroconf.const import _FLAGS_AA, _FLAGS_QR_RESPONSE
 
-from aioesphomeapi._frame_helper.packets import make_plain_text_packets
-from aioesphomeapi.api_pb2 import DisconnectResponse, HelloResponse, PingResponse  # type: ignore[attr-defined]
+from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
+    DisconnectRequest,
+    DisconnectResponse,
+    HelloRequest,
+    HelloResponse,
+    PingRequest,
+    PingResponse,
+)
+from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
+
+from ..common import generate_plaintext_packet
 
 if TYPE_CHECKING:
+    from google.protobuf import message
+    from zeroconf import DNSRecord
     from zeroconf.asyncio import AsyncZeroconf
 
 LOOPBACK = "127.0.0.1"
 SERVICE = "_esphomelib._tcp.local."
 # Loopback delivery plus zeroconf's handling of a packet.
 DELIVERY_WAIT = 0.5
-
-HELLO_REQUEST = 1
-HELLO_RESPONSE = 2
-DISCONNECT_REQUEST = 5
-DISCONNECT_RESPONSE = 6
-PING_REQUEST = 7
-PING_RESPONSE = 8
 
 
 def _read_varuint(buf: bytes, pos: int) -> tuple[int, int]:
@@ -88,24 +83,27 @@ class _DeviceProtocol(asyncio.Protocol):
             if msg_type < 0 or len(self._buf) < pos + length:
                 return
             self._buf = self._buf[pos + length :]
-            self._handle(msg_type)
+            self._handle(MESSAGE_TYPE_TO_PROTO.get(msg_type))
 
-    def _send(self, msg_type: int, msg: object) -> None:
+    def _send(self, msg: message.Message) -> None:
         assert self.transport is not None
-        payload = msg.SerializeToString()  # type: ignore[attr-defined]
-        self.transport.writelines(make_plain_text_packets([(msg_type, payload)]))
+        self.transport.write(generate_plaintext_packet(msg))
 
-    def _handle(self, msg_type: int) -> None:
-        if msg_type == HELLO_REQUEST:
-            hello = HelloResponse(api_version_major=1, api_version_minor=12)
-            hello.server_info = "fake"
-            hello.name = self._device.name
-            self._send(HELLO_RESPONSE, hello)
-        elif msg_type == PING_REQUEST:
-            self._send(PING_RESPONSE, PingResponse())
-        elif msg_type == DISCONNECT_REQUEST:
-            assert self.transport is not None
-            self._send(DISCONNECT_RESPONSE, DisconnectResponse())
+    def _handle(self, msg_cls: type[message.Message] | None) -> None:
+        assert self.transport is not None
+        if msg_cls is HelloRequest:
+            self._send(
+                HelloResponse(
+                    api_version_major=1,
+                    api_version_minor=12,
+                    server_info="fake",
+                    name=self._device.name,
+                )
+            )
+        elif msg_cls is PingRequest:
+            self._send(PingResponse())
+        elif msg_cls is DisconnectRequest:
+            self._send(DisconnectResponse())
             self.transport.close()
 
 
@@ -128,8 +126,9 @@ class FakeDevice:
         self.port = self._server.sockets[0].getsockname()[1]
 
     async def stop(self) -> None:
-        """Stop listening and drop every connection."""
-        assert self._server is not None
+        """Stop listening and drop every connection; a no-op when stopped."""
+        if self._server is None:
+            return
         self._server.close()
         for conn in list(self.connections):
             assert conn.transport is not None
@@ -162,19 +161,18 @@ class FakeDevice:
                 self.send_packet(kind)
         await asyncio.sleep(DELIVERY_WAIT)
 
-    def _records(self, kind: str) -> list[object]:
-        instance = f"{self.name}.{SERVICE}"
-        host = f"{self.name}.local."
-        unique = _CLASS_IN | _CLASS_UNIQUE
-        records: list[object] = []
+    def _records(self, kind: str) -> list[DNSRecord]:
+        info = ServiceInfo(
+            SERVICE,
+            f"{self.name}.{SERVICE}",
+            port=self.port,
+            properties={"version": "dev"},
+            server=f"{self.name}.local.",
+            addresses=[socket.inet_aton(LOOPBACK)],
+        )
+        records: list[DNSRecord] = []
         if kind in ("all", "service"):
-            records += [
-                DNSPointer(SERVICE, _TYPE_PTR, _CLASS_IN, 4500, instance),
-                DNSService(instance, _TYPE_SRV, unique, 120, 0, 0, self.port, host),
-                DNSText(instance, _TYPE_TXT, unique, 4500, b"\x0bversion=dev"),
-            ]
+            records += [info.dns_pointer(), info.dns_service(), info.dns_text()]
         if kind in ("all", "host"):
-            records.append(
-                DNSAddress(host, _TYPE_A, unique, 120, socket.inet_aton(LOOPBACK))
-            )
+            records += info.dns_addresses()
         return records

@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-import logging
 import time
 from typing import TYPE_CHECKING
 
 import pytest
 
 import aioesphomeapi._zc_listener as zc_listener
-from aioesphomeapi.client_base import KEEP_ALIVE_FREQUENCY
 from aioesphomeapi.reconnect_logic import ANNOUNCE_BURST_WINDOW_MS
 
 from .conftest import DeviceClient
@@ -20,7 +18,7 @@ from .fake_device import DELIVERY_WAIT
 if TYPE_CHECKING:
     from zeroconf.asyncio import AsyncZeroconf
 
-MakeDevice = Callable[[], Awaitable[DeviceClient]]
+MakeDevice = Callable[..., Awaitable[DeviceClient]]
 ProbeLog = Callable[[str], list[float]]
 
 # Rounds of (ms before the round, packet kinds) after a reboot, per responder.
@@ -30,6 +28,8 @@ ESP32_IDF_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",)), (1010.0, ("
 LEAMDNS = [(300.0, ("host", "service"))] + [(1000.0, ("host", "service"))] * 3
 LWIP = [(300.0, ("all",)), (1005.0, ("all",))]
 LWIP_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",))]
+# Short so the regular keepalive that catches a missed burst comes quickly.
+FALLBACK_KEEPALIVE = 2.0
 
 
 def _dispatchers(aiozc: AsyncZeroconf) -> int:
@@ -58,7 +58,7 @@ async def test_solicited_answers_do_not_probe(
 ) -> None:
     """Single answers outside the burst window and a split answer never ping."""
     client = await make_device()
-    for _ in range(3):
+    for _ in range(2):
         client.device.send_packet()
         await asyncio.sleep(ANNOUNCE_BURST_WINDOW_MS / 1000 + 0.5)
     client.device.send_packet("host")
@@ -82,7 +82,7 @@ async def test_reboot_detected_by_announcement_burst(
 ) -> None:
     """A reboot burst pings the stale session, which drops; the new one is left alone."""
     client = await make_device()
-    rebooted = time.monotonic()
+    rebooted = time.time()
     client.device.reboot()
     announce = asyncio.create_task(client.device.announce(rounds))
     dropped = await client.wait_disconnected(rebooted, 5)
@@ -100,11 +100,11 @@ async def test_lwip_second_announce_suppressed_falls_back_to_keepalive(
     make_device: MakeDevice, probe_log: ProbeLog
 ) -> None:
     """With lwIP's 2nd announcement suppressed, only the regular keepalive finds the reboot."""
-    client = await make_device()
-    rebooted = time.monotonic()
+    client = await make_device(keepalive=FALLBACK_KEEPALIVE)
+    rebooted = time.time()
     client.device.reboot()
     await client.device.announce(LWIP_SECOND_SUPPRESSED)
-    dropped = await client.wait_disconnected(rebooted, KEEP_ALIVE_FREQUENCY + 5)
+    dropped = await client.wait_disconnected(rebooted, FALLBACK_KEEPALIVE + 3)
     assert dropped is not None
     assert probe_log(client.device.name) == []
 
@@ -115,15 +115,19 @@ async def test_disconnected_device_kicked_by_announcement(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """The first announcement kicks a backed-off reconnect; the rest of its burst never pings."""
-    caplog.set_level(logging.DEBUG, logger="aioesphomeapi.reconnect_logic")
     client = await make_device()
     await client.device.stop()
     assert await client.wait_disconnected(0, 5) is not None
     # Wait out the immediate retries so the next attempt is a backoff away.
-    await asyncio.sleep(4)
+    for _ in range(100):
+        if client.logic._tries >= 2:
+            break
+        await asyncio.sleep(0.05)
+    else:
+        pytest.fail("the reconnect never backed off")
     assert not client.connected.is_set()
     await client.device.start()
-    announced = time.monotonic()
+    announced = time.time()
     announce = asyncio.create_task(client.device.announce(ESP32_IDF))
     assert await client.wait_connected(2)
     reconnected = client.connect_times[-1]

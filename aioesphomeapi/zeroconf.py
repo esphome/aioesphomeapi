@@ -35,7 +35,7 @@ class ZeroconfManager:
     @property
     def is_shared(self) -> bool:
         """Return True if the caller supplied the Zeroconf instance."""
-        return self._aiozc is not None and not self._created
+        return self.has_instance and not self._created
 
     def set_instance(self, zc: AsyncZeroconf | Zeroconf) -> None:
         """Set the AsyncZeroconf instance."""

@@ -15,6 +15,7 @@ from zeroconf import RecordUpdate, RecordUpdateListener, Zeroconf
 from zeroconf.asyncio import AsyncZeroconf
 
 from aioesphomeapi import APIClient, ReconnectLogic
+from aioesphomeapi.client_base import KEEP_ALIVE_FREQUENCY
 
 from .fake_device import LOOPBACK, FakeDevice
 
@@ -42,12 +43,14 @@ class _Seen(RecordUpdateListener):
 class DeviceClient:
     """A ReconnectLogic session to a FakeDevice that records connects and disconnects."""
 
-    def __init__(self, device: FakeDevice, aiozc: AsyncZeroconf) -> None:
+    def __init__(
+        self, device: FakeDevice, aiozc: AsyncZeroconf, keepalive: float
+    ) -> None:
         self.device = device
         self.connected = asyncio.Event()
         self.connect_times: list[float] = []
         self.disconnect_times: list[float] = []
-        self.cli = APIClient(LOOPBACK, device.port, None)
+        self.cli = APIClient(LOOPBACK, device.port, None, keepalive=keepalive)
         self.logic = ReconnectLogic(
             client=self.cli,
             on_connect=self._on_connect,
@@ -73,8 +76,8 @@ class DeviceClient:
 
     async def wait_disconnected(self, after: float, timeout: float) -> float | None:
         """Return the first disconnect time after after, or None after timeout."""
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
             for when in self.disconnect_times:
                 if when > after:
                     return when
@@ -82,23 +85,22 @@ class DeviceClient:
         return None
 
     async def _on_connect(self) -> None:
-        self.connect_times.append(time.monotonic())
+        self.connect_times.append(time.time())
         self.connected.set()
 
     async def _on_disconnect(self, expected_disconnect: bool) -> None:
-        self.disconnect_times.append(time.monotonic())
+        self.disconnect_times.append(time.time())
         self.connected.clear()
 
 
 @pytest.fixture
 def probe_log(caplog: pytest.LogCaptureFixture) -> Callable[[str], list[float]]:
-    """Return a lookup of monotonic-ish times of probe pings logged for a device."""
+    """Return a lookup of the times probe pings were logged for a device."""
     caplog.set_level(logging.DEBUG, logger="aioesphomeapi.reconnect_logic")
-    offset = time.monotonic() - time.time()
 
     def probes(name: str) -> list[float]:
         return [
-            record.created + offset
+            record.created
             for record in caplog.records
             if "Sending keepalive ping because of repeated mDNS announcement"
             in record.getMessage()
@@ -139,15 +141,15 @@ async def mdns() -> AsyncGenerator[tuple[AsyncZeroconf, AsyncZeroconf]]:
 @pytest.fixture
 async def make_device(
     mdns: tuple[AsyncZeroconf, AsyncZeroconf],
-) -> AsyncGenerator[Callable[[], Awaitable[DeviceClient]]]:
+) -> AsyncGenerator[Callable[..., Awaitable[DeviceClient]]]:
     """Return a factory that starts a uniquely named FakeDevice plus a connected client."""
     responder, client_zc = mdns
     clients: list[DeviceClient] = []
 
-    async def _make() -> DeviceClient:
+    async def _make(keepalive: float = KEEP_ALIVE_FREQUENCY) -> DeviceClient:
         device = FakeDevice(f"e2e-{uuid.uuid4().hex[:8]}", responder)
         await device.start()
-        client = DeviceClient(device, client_zc)
+        client = DeviceClient(device, client_zc, keepalive)
         clients.append(client)
         await client.start()
         return client
@@ -156,5 +158,4 @@ async def make_device(
     for client in clients:
         await client.logic.stop()
         await client.cli.disconnect(force=True)
-        if client.device._server is not None:
-            await client.device.stop()
+        await client.device.stop()
