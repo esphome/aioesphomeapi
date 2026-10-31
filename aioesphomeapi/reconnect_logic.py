@@ -51,8 +51,10 @@ ZC_LISTEN_DELAY = 2.0
 #
 # LEAmDNS sends host and service records in separate packets [4], so packets
 # closer than ANNOUNCE_MIN_GAP_MS count as one round and a split round is not
-# a burst. ANNOUNCE_BURST_WINDOW_MS is wide enough to still see two
-# announcements when Wi-Fi drops one (except lwIP, which only sends two).
+# a burst. On the bench, rounds landed 0.9 to 1.2s apart (one D1 mini gap was
+# 1.9s among 7 to 9 rounds). ANNOUNCE_BURST_WINDOW_MS stays close to that: lwIP
+# answers every query with a multicast PTR, so two browsers querying a few
+# seconds apart would otherwise look like a burst.
 #
 # [1] https://github.com/espressif/esp-protocols/blob/5c4650d0ab6f9fde165ae1e3c1ef16714be0a619/components/mdns/mdns_pcb.c#L212-L258
 # [2] https://github.com/esp8266/Arduino/blob/210897ef83305496947c4e73c937bab52a33cb48/libraries/ESP8266mDNS/src/LEAmDNS_Priv.h#L161-L164
@@ -60,7 +62,7 @@ ZC_LISTEN_DELAY = 2.0
 # [4] https://github.com/esp8266/Arduino/blob/210897ef83305496947c4e73c937bab52a33cb48/libraries/ESP8266mDNS/src/LEAmDNS_Control.cpp#L1429-L1524
 # [5] https://github.com/libretiny-eu/lwip/blob/0d1cedf257bf58ac7c12fb7b79ec79daf2a006bd/src/apps/mdns/mdns.c#L2325-L2350
 ANNOUNCE_MIN_GAP_MS = 500.0
-ANNOUNCE_BURST_WINDOW_MS = 5000.0
+ANNOUNCE_BURST_WINDOW_MS = 2000.0
 
 _zc_listener_cache: list[ModuleType] = []
 

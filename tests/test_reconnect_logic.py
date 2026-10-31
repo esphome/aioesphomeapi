@@ -2590,6 +2590,22 @@ async def test_probe_on_announce_burst_window(
     assert check.call_count == pings
 
 
+@pytest.mark.parametrize(
+    ("gap", "pings"),
+    [(926.0, 1), (1135.0, 1), (1940.0, 1), (2500.0, 0), (5000.0, 0)],
+    ids=["lwip-min", "esp32-max", "leamdns-max", "query-answers", "query-backoff"],
+)
+async def test_probe_on_announce_bench_gaps(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock], gap: float, pings: int
+) -> None:
+    """Measured boot round gaps ping; answers to queries seconds apart do not."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        _send_record(rl, now=10_000.0)
+        _send_record(rl, now=10_000.0 + gap)
+    assert check.call_count == pings
+
+
 async def test_probe_on_announce_every_burst_packet_pings(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
