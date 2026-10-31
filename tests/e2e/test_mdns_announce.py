@@ -13,7 +13,14 @@ import aioesphomeapi._zc_listener as zc_listener
 from aioesphomeapi.reconnect_logic import ANNOUNCE_BURST_WINDOW_MS
 
 from .conftest import DeviceClient
-from .fake_device import DELIVERY_WAIT
+from .fake_device import (
+    DELIVERY_WAIT,
+    ESP32_IDF,
+    ESP32_IDF_SECOND_SUPPRESSED,
+    LEAMDNS,
+    LWIP,
+    LWIP_SECOND_SUPPRESSED,
+)
 
 if TYPE_CHECKING:
     from zeroconf.asyncio import AsyncZeroconf
@@ -21,13 +28,6 @@ if TYPE_CHECKING:
 MakeDevice = Callable[..., Awaitable[DeviceClient]]
 ProbeLog = Callable[[str], list[float]]
 
-# Rounds of (ms before the round, packet kinds) after a reboot, per responder.
-ESP32_IDF = [(300.0, ("all",)), (1005.0, ("all",)), (1005.0, ("all",))]
-# The 2nd copy lands inside zeroconf's 1000 ms duplicate packet suppression.
-ESP32_IDF_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",)), (1010.0, ("all",))]
-LEAMDNS = [(300.0, ("host", "service"))] + [(1000.0, ("host", "service"))] * 3
-LWIP = [(300.0, ("all",)), (1005.0, ("all",))]
-LWIP_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",))]
 # Short so the regular keepalive that catches a missed burst comes quickly.
 FALLBACK_KEEPALIVE = 2.0
 

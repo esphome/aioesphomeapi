@@ -11,12 +11,18 @@ from zeroconf import DNSOutgoing, ServiceInfo
 from zeroconf.const import _FLAGS_AA, _FLAGS_QR_RESPONSE
 
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
+    DeviceInfoRequest,
+    DeviceInfoResponse,
     DisconnectRequest,
     DisconnectResponse,
     HelloRequest,
     HelloResponse,
+    ListEntitiesDoneResponse,
+    ListEntitiesRequest,
     PingRequest,
     PingResponse,
+    SubscribeLogsRequest,
+    SubscribeLogsResponse,
 )
 from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
 
@@ -31,6 +37,15 @@ LOOPBACK = "127.0.0.1"
 SERVICE = "_esphomelib._tcp.local."
 # Loopback delivery plus zeroconf's handling of a packet.
 DELIVERY_WAIT = 0.5
+# Rounds of (ms before the round, packet kinds) after a reboot, per responder.
+ESP32_IDF = [(300.0, ("all",)), (1005.0, ("all",)), (1005.0, ("all",))]
+# The 2nd copy lands inside zeroconf's 1000 ms duplicate packet suppression.
+ESP32_IDF_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",)), (1010.0, ("all",))]
+LEAMDNS = [(300.0, ("host", "service"))] + [(1000.0, ("host", "service"))] * 3
+LWIP = [(300.0, ("all",)), (1005.0, ("all",))]
+LWIP_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",))]
+# Sent to every log subscriber, so a test can tell a logs session resumed.
+BOOT_LOG_LINE = b"[I][app:100]: ESPHome version dev"
 
 
 def _read_varuint(buf: bytes, pos: int) -> tuple[int, int]:
@@ -102,6 +117,12 @@ class _DeviceProtocol(asyncio.Protocol):
             )
         elif msg_cls is PingRequest:
             self._send(PingResponse())
+        elif msg_cls is DeviceInfoRequest:
+            self._send(DeviceInfoResponse(name=self._device.name))
+        elif msg_cls is ListEntitiesRequest:
+            self._send(ListEntitiesDoneResponse())
+        elif msg_cls is SubscribeLogsRequest:
+            self._send(SubscribeLogsResponse(level=3, message=BOOT_LOG_LINE))
         elif msg_cls is DisconnectRequest:
             self._send(DisconnectResponse())
             self.transport.close()
@@ -125,15 +146,17 @@ class FakeDevice:
         )
         self.port = self._server.sockets[0].getsockname()[1]
 
-    async def stop(self) -> None:
-        """Stop listening and drop every connection; a no-op when stopped."""
+    async def stop(self, drop_connections: bool = True) -> None:
+        """Stop listening and, unless told not to, drop every connection."""
         if self._server is None:
             return
         self._server.close()
-        for conn in list(self.connections):
-            assert conn.transport is not None
-            conn.transport.abort()
-        await self._server.wait_closed()
+        if drop_connections:
+            for conn in list(self.connections):
+                assert conn.transport is not None
+                conn.transport.abort()
+            # wait_closed waits for open connections too, so only after dropping.
+            await self._server.wait_closed()
         self._server = None
 
     def reboot(self) -> None:
