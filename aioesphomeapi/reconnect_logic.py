@@ -41,9 +41,24 @@ _LOGGER = logging.getLogger(__name__)
 ZC_LISTEN_DELAY = 2.0
 
 # Responders repeat unsolicited announcements ~1s apart after boot or a link
-# change (RFC 6762 §8.3); replies to queries do not. A responder may split one
-# round over packets a few ms apart, so closer packets count as one. The
-# window is wide for Wi-Fi loss.
+# change (RFC 6762 §8.3); replies to queries do not. The responders ESPHome
+# builds against:
+#
+#   responder        platforms         announces  spacing
+#   IDF mdns 1.14.0  ESP32             3          1s  [1]
+#   LEAmDNS          ESP8266, RP2040   8          1s  [2][3]
+#   lwIP 2.2         LibreTiny         2          1s  [5]
+#
+# LEAmDNS sends host and service records in separate packets [4], so packets
+# closer than ANNOUNCE_MIN_GAP_MS count as one round and a split round is not
+# a burst. ANNOUNCE_BURST_WINDOW_MS is wide enough to still see two
+# announcements when Wi-Fi drops one (except lwIP, which only sends two).
+#
+# [1] https://github.com/espressif/esp-protocols/blob/5c4650d0ab6f9fde165ae1e3c1ef16714be0a619/components/mdns/mdns_pcb.c#L212-L258
+# [2] https://github.com/esp8266/Arduino/blob/210897ef83305496947c4e73c937bab52a33cb48/libraries/ESP8266mDNS/src/LEAmDNS_Priv.h#L161-L164
+# [3] https://github.com/earlephilhower/arduino-pico/blob/7a00f15279c74064a39549c1fdce81e877027983/libraries/LEAmDNS/src/LEAmDNS_Priv.h#L154-L157
+# [4] https://github.com/esp8266/Arduino/blob/210897ef83305496947c4e73c937bab52a33cb48/libraries/ESP8266mDNS/src/LEAmDNS_Control.cpp#L1429-L1524
+# [5] https://github.com/libretiny-eu/lwip/blob/0d1cedf257bf58ac7c12fb7b79ec79daf2a006bd/src/apps/mdns/mdns.c#L2325-L2350
 ANNOUNCE_MIN_GAP_MS = 500.0
 ANNOUNCE_BURST_WINDOW_MS = 5000.0
 
