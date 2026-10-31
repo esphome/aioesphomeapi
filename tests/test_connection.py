@@ -1340,9 +1340,9 @@ async def test_send_keepalive_now_while_pong_pending(
     timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
     assert conn.send_keepalive_now() is True
     async_fire_time_changed(start_time + timedelta(seconds=timeout - 1))
+    sent = transport.writelines.call_count
     assert conn.send_keepalive_now() is True
-    assert transport.writelines.call_count >= 2
-    assert transport.writelines.mock_calls[-1] == call(PING_REQUEST_BYTES)
+    assert transport.writelines.mock_calls[sent:] == [call(PING_REQUEST_BYTES)]
 
     async_fire_time_changed(start_time + timedelta(seconds=timeout + 1))
     assert conn.is_connected is False

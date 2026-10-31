@@ -342,9 +342,9 @@ class ReconnectLogic:
             timeout. Over mDNS, only a second round of its records between
             ANNOUNCE_MIN_GAP_MS and ANNOUNCE_BURST_WINDOW_MS after the last
             counts; :meth:`notify_device_seen` always does. The ping is also
-            sent while a pong is pending, so a reset is not left waiting for
-            TCP to retransmit the unanswered one. Defaults to on when a zeroconf_instance
-            is shared with the client and zeroconf_wake is on.
+            sent while a pong is pending. Defaults to on when a
+            zeroconf_instance is shared with the client and zeroconf_wake is
+            on.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
             the device responds with the plaintext protocol marker, instead
