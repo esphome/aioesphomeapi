@@ -1336,12 +1336,14 @@ async def test_send_keepalive_now_while_pong_pending(
 ) -> None:
     """A ping goes out while a pong is pending; the pong deadline is kept."""
     _client, conn, transport, _protocol = api_client
+    loop = asyncio.get_running_loop()
     start_time = utcnow()
     timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
     assert conn.send_keepalive_now() is True
     async_fire_time_changed(start_time + timedelta(seconds=timeout - 1))
     sent = transport.writelines.call_count
-    assert conn.send_keepalive_now() is True
+    with patch.object(loop, "time", return_value=loop.time() + timeout - 1):
+        assert conn.send_keepalive_now() is True
     assert transport.writelines.mock_calls[sent:] == [call(PING_REQUEST_BYTES)]
 
     async_fire_time_changed(start_time + timedelta(seconds=timeout + 1))
