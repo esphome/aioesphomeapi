@@ -44,6 +44,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    CrashReportRequest,
+    CrashReportResponse,
     DateCommandRequest,
     DateTimeCommandRequest,
     DeviceCapabilitiesRequest,
@@ -165,6 +167,7 @@ from .model import (
     ClimatePreset,
     ClimateSwingMode,
     ConnectionClosedEvent,
+    CrashReport as CrashReportModel,
     DeviceCapabilities as DeviceCapabilitiesModel,
     DeviceInfo,
     DeviceWizard as DeviceWizardModel,
@@ -564,6 +567,13 @@ class APIClient(APIClientBase):
             DeviceWizardRequest(), DeviceWizardResponse
         )
         return DeviceWizardModel.from_compressed_json(resp.data)
+
+    async def crash_report(self) -> CrashReportModel:
+        """Fetch and clear the crash report; call only when crash_report has PRESENT."""
+        resp = await self._get_connection().send_message_await_response(
+            CrashReportRequest(), CrashReportResponse
+        )
+        return CrashReportModel.from_pb(resp)
 
     def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
         """Set the Home Assistant entity id of the wizard input with the given key.

@@ -177,6 +177,23 @@ class SendspinFeature(enum.IntFlag):
     PAIRING_TOKEN = 1 << 0
 
 
+class CrashReportFlag(enum.IntFlag):
+    PRESENT = 1 << 0
+    BUILD_MATCHES = 1 << 1
+    CAUSE = 1 << 2
+    FAULT_ADDRESS = 1 << 3
+
+
+class CrashReason(APIIntEnum):
+    UNKNOWN = 0
+    EXCEPTION = 1
+    ABORT = 2
+    TASK_WATCHDOG = 3
+    INTERRUPT_WATCHDOG = 4
+    SOFT_WATCHDOG = 5
+    HARDWARE_WATCHDOG = 6
+
+
 class ZWaveProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
@@ -430,6 +447,18 @@ class StoreYamlCapabilities(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class CrashReportCapabilities(APIModelBase):
+    # Bitmask of CrashReportFlag
+    flags: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> CrashReportCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
 class DeviceCapabilities(APIModelBase):
     bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
         default_factory=BluetoothProxyCapabilities,
@@ -457,6 +486,28 @@ class DeviceCapabilities(APIModelBase):
     store_yaml: StoreYamlCapabilities = converter_field(
         default_factory=StoreYamlCapabilities,
         converter=StoreYamlCapabilities.convert,
+    )
+    crash_report: CrashReportCapabilities = converter_field(
+        default_factory=CrashReportCapabilities,
+        converter=CrashReportCapabilities.convert,
+    )
+
+
+@_frozen_dataclass_decorator
+class CrashReport(APIModelBase):
+    # Bitmask of CrashReportFlag
+    flags: int = 0
+    reason: CrashReason | None = converter_field(
+        default=CrashReason.UNKNOWN, converter=CrashReason.convert
+    )
+    pc: int = 0
+    backtrace: list[int] = converter_field(default_factory=list, converter=list)
+    cause: int = 0
+    fault_address: int = 0
+    build_time: int = 0
+    crashed_core: int = 0
+    other_core_backtrace: list[int] = converter_field(
+        default_factory=list, converter=list
     )
 
 
@@ -2471,6 +2522,10 @@ __all__ = (
     "CoverInfo",
     "CoverOperation",
     "CoverState",
+    "CrashReason",
+    "CrashReport",
+    "CrashReportCapabilities",
+    "CrashReportFlag",
     "DateInfo",
     "DateState",
     "DateTimeInfo",
