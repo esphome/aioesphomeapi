@@ -39,12 +39,13 @@ class LogsSession:
         self._cli = APIClient(LOOPBACK, device.port, None, keepalive=keepalive)
         self._stop: Callable[[], Awaitable[None]] | None = None
 
-    async def start(self) -> None:
-        """Run logs and wait for the first log line."""
+    async def start(self, wait_for_logs: bool) -> None:
+        """Run logs, waiting for the first log line when wait_for_logs."""
         self._stop = await async_run(
             self._cli, self._on_log, name=self.device.name, subscribe_states=True
         )
-        assert await self.wait_log(0, 10) is not None
+        if wait_for_logs:
+            assert await self.wait_log(0, 10) is not None
 
     async def stop(self) -> None:
         """Stop the logs session."""
@@ -81,18 +82,22 @@ def _private_zeroconf_on_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
 async def logs_device(
     mdns: tuple[zc_asyncio.AsyncZeroconf, zc_asyncio.AsyncZeroconf],
     caplog: pytest.LogCaptureFixture,
-) -> AsyncGenerator[Callable[[float], Awaitable[LogsSession]]]:
+) -> AsyncGenerator[Callable[..., Awaitable[LogsSession]]]:
     """Return a factory for a FakeDevice with a running logs session on it."""
     caplog.set_level(logging.DEBUG, logger="aioesphomeapi.reconnect_logic")
     responder, _ = mdns
     sessions: list[LogsSession] = []
 
-    async def _make(keepalive: float = KEEP_ALIVE_FREQUENCY) -> LogsSession:
+    async def _make(
+        keepalive: float = KEEP_ALIVE_FREQUENCY, online: bool = True
+    ) -> LogsSession:
         device = FakeDevice(f"e2e-logs-{uuid.uuid4().hex[:8]}", responder)
         await device.start()
+        if not online:
+            await device.stop()  # keeps the port for a later start()
         session = LogsSession(device, keepalive)
         sessions.append(session)
-        await session.start()
+        await session.start(wait_for_logs=online)
         return session
 
     yield _make
@@ -113,8 +118,28 @@ async def _wait_for_backoff(caplog: pytest.LogCaptureFixture, timeout: float) ->
     pytest.fail("the reconnect never backed off")
 
 
+async def test_logs_connect_on_announcement_when_device_offline_at_start(
+    logs_device: Callable[..., Awaitable[LogsSession]],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A logs session that cannot connect at start listens and connects on the announcement."""
+    session = await logs_device(online=False)
+    await _wait_for_backoff(caplog, 15)
+    assert session.log_times == []
+    assert f"Starting zeroconf listener for {session.device.name}" in caplog.text
+    await session.device.start()
+    announced = time.time()
+    announce = asyncio.create_task(session.device.announce(ESP32_IDF))
+    connected = await session.wait_log(announced, 3)
+    await announce
+    assert connected is not None, "logs never started"
+    assert connected - announced < 1.0
+    assert "Triggering connect because of received mDNS record" in caplog.text
+    assert "repeated mDNS announcement" not in caplog.text
+
+
 async def test_logs_resume_on_announcement_after_device_went_offline(
-    logs_device: Callable[[float], Awaitable[LogsSession]],
+    logs_device: Callable[..., Awaitable[LogsSession]],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A device that went offline is reconnected on its announcement, not its backoff."""
@@ -133,7 +158,7 @@ async def test_logs_resume_on_announcement_after_device_went_offline(
 
 
 async def test_logs_resume_on_announcement_after_device_rebooted(
-    logs_device: Callable[[float], Awaitable[LogsSession]],
+    logs_device: Callable[..., Awaitable[LogsSession]],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A reboot leaves a stale session; once it is found, the boot announcement reconnects."""
