@@ -19,7 +19,7 @@ from zeroconf import (
     Zeroconf,
 )
 from zeroconf.asyncio import AsyncZeroconf
-from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR
+from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_CNAME, _TYPE_PTR
 
 from aioesphomeapi import (
     APIConnectionError,
@@ -90,7 +90,7 @@ def deliver_records(
     wake: ZeroconfWake, records: list[RecordUpdate], now: float = 0.0
 ) -> None:
     """Route one packet of records through a dispatcher holding only wake."""
-    dispatcher = ZeroconfRecordDispatcher()
+    dispatcher = ZeroconfRecordDispatcher(MagicMock())
     dispatcher.add(wake)
     dispatcher.async_update_records(MagicMock(), now, records)
 
@@ -2757,6 +2757,21 @@ async def test_wakes_share_one_zeroconf_listener() -> None:
         first._zc_wake.start()
         assert add_listener.call_count == 2
         first._zc_wake.stop()
+
+
+async def test_dispatcher_ignores_cname_pointing_at_device() -> None:
+    """A CNAME aliasing the device's service name is not a sighting."""
+    rl = _logic_on(get_mock_async_zeroconf(), "mydevice")
+    cname = DNSPointer(
+        "other._esphomelib._tcp.local.",
+        _TYPE_CNAME,
+        _CLASS_IN,
+        1000,
+        "mydevice._esphomelib._tcp.local.",
+    )
+    with patch.object(rl._zc_wake, "on_record") as on_record:
+        deliver_records(rl._zc_wake, [RecordUpdate(cname, None)])
+    on_record.assert_not_called()
 
 
 async def test_wakes_with_the_same_name_both_see_records() -> None:

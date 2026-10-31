@@ -202,7 +202,11 @@ class ZeroconfWake:
         if self._dispatcher is None and self._eligible:
             _LOGGER.debug("Starting zeroconf listener for %s", self._name)
             try:
-                zc_listener = _import_zc_listener()
+                zc_listener = (
+                    _zc_listener_cache[0]
+                    if _zc_listener_cache
+                    else _import_zc_listener()
+                )
                 zc = self._client.zeroconf_manager.get_async_zeroconf().zeroconf
                 self._dispatcher = zc_listener.async_add_wake(zc, self)
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
@@ -226,7 +230,7 @@ class ZeroconfWake:
             self._start_task = None
         if self._dispatcher is not None:
             _LOGGER.debug("Removing zeroconf listener for %s", self._name)
-            self._dispatcher.remove(self)
+            _zc_listener_cache[0].async_remove_wake(self._dispatcher, self)
             self._dispatcher = None
 
     def on_record(self, record: DNSRecord, now: float) -> None:
@@ -326,8 +330,9 @@ class ReconnectLogic:
             without a goodbye is detected by its TCP reset or the normal pong
             timeout. Over mDNS, only a second round of its records between
             ANNOUNCE_MIN_GAP_MS and ANNOUNCE_BURST_WINDOW_MS after the last
-            counts; :meth:`notify_device_seen` always does. No ping is sent while a pong is pending. Defaults to on when a
-            zeroconf_instance is shared with the client and zeroconf_wake is on.
+            counts; :meth:`notify_device_seen` always does. No ping is sent
+            while a pong is pending. Defaults to on when a zeroconf_instance
+            is shared with the client and zeroconf_wake is on.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
             the device responds with the plaintext protocol marker, instead

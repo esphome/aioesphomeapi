@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from zeroconf import RecordUpdateListener
-from zeroconf.const import _TYPE_A, _TYPE_AAAA, _TYPE_PTR
+from zeroconf._dns import DNSAddress, DNSPointer
+from zeroconf.const import _TYPE_PTR
 
 if TYPE_CHECKING:
     from zeroconf import RecordUpdate, Zeroconf
@@ -14,8 +15,8 @@ if TYPE_CHECKING:
 class ZeroconfRecordDispatcher(RecordUpdateListener):
     """Route record updates to the wakes registered for their names."""
 
-    def __init__(self, zc: Zeroconf | None = None) -> None:
-        self._zc = zc
+    def __init__(self, zc: Zeroconf) -> None:
+        self.zc = zc
         self._wakes: dict[str, list[ZeroconfWake]] = {}
 
     def add(self, wake: ZeroconfWake) -> None:
@@ -23,16 +24,14 @@ class ZeroconfRecordDispatcher(RecordUpdateListener):
         for key in wake.keys:
             self._wakes.setdefault(key, []).append(wake)
 
-    def remove(self, wake: ZeroconfWake) -> None:
-        """Stop routing records to wake; the last one removes the listener."""
+    def remove(self, wake: ZeroconfWake) -> bool:
+        """Stop routing records to wake; True once no wakes are left."""
         for key in wake.keys:
             wakes = self._wakes[key]
             wakes.remove(wake)
             if not wakes:
                 del self._wakes[key]
-        if not self._wakes and self._zc is not None:
-            del _dispatchers[id(self._zc)]
-            self._zc.async_remove_listener(self)
+        return not self._wakes
 
     def async_update_records(
         self,
@@ -45,16 +44,15 @@ class ZeroconfRecordDispatcher(RecordUpdateListener):
 
 def _dispatch(wakes: dict, now: float, records: list) -> None:  # type: ignore[type-arg]
     """Hand each A/AAAA/PTR record named by a registered key to its wakes."""
-    # Every mDNS packet on the LAN lands here, so the miss path must not
-    # allocate; zeroconf pre-lowercases key and alias_key. `in (_TYPE_A,
-    # _TYPE_AAAA)` would build a tuple per record in pure Python, while `==`
-    # compiles to C int compares.
+    # Runs for every mDNS packet on the LAN; the miss path must not allocate.
+    # zeroconf parses A/AAAA into exact DNSAddress and PTR/CNAME into exact
+    # DNSPointer, and a class identity check is cheaper than reading .type.
     for record_update in records:
         new_record = record_update.new
-        record_type = new_record.type
-        if record_type == _TYPE_A or record_type == _TYPE_AAAA:  # noqa: PLR1714, SIM109
+        record_cls = type(new_record)
+        if record_cls is DNSAddress:
             matched = wakes.get(new_record.key)
-        elif record_type == _TYPE_PTR:
+        elif record_cls is DNSPointer and new_record.type == _TYPE_PTR:
             matched = wakes.get(new_record.alias_key)
         else:
             continue
@@ -74,3 +72,10 @@ def async_add_wake(zc: Zeroconf, wake: ZeroconfWake) -> ZeroconfRecordDispatcher
         _dispatchers[id(zc)] = dispatcher
     dispatcher.add(wake)
     return dispatcher
+
+
+def async_remove_wake(dispatcher: ZeroconfRecordDispatcher, wake: ZeroconfWake) -> None:
+    """Unregister wake; the shared listener goes away with the last wake."""
+    if dispatcher.remove(wake):
+        del _dispatchers[id(dispatcher.zc)]
+        dispatcher.zc.async_remove_listener(dispatcher)
