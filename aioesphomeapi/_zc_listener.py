@@ -10,9 +10,6 @@ if TYPE_CHECKING:
 
     from .reconnect_logic import ZeroconfWake
 
-# A frozenset constant; `in (_TYPE_A, _TYPE_AAAA)` builds a tuple per record.
-_ADDRESS_TYPES = frozenset((_TYPE_A, _TYPE_AAAA))
-
 
 class ZeroconfRecordDispatcher(RecordUpdateListener):
     """Route record updates to the wakes registered for their names."""
@@ -43,21 +40,27 @@ class ZeroconfRecordDispatcher(RecordUpdateListener):
         now: float,
         records: list[RecordUpdate],
     ) -> None:
-        # Every mDNS packet on the LAN lands here, so the miss path must not
-        # allocate; zeroconf pre-lowercases key and alias_key.
-        wakes = self._wakes
-        for record_update in records:
-            new_record = record_update.new
-            record_type = new_record.type
-            if record_type in _ADDRESS_TYPES:
-                matched = wakes.get(new_record.key)
-            elif record_type == _TYPE_PTR:
-                matched = wakes.get(new_record.alias_key)  # type: ignore[attr-defined]
-            else:
-                continue
-            if matched is not None:
-                for wake in tuple(matched):
-                    wake.on_record(new_record, now)
+        _dispatch(self._wakes, now, records)
+
+
+def _dispatch(wakes: dict, now: float, records: list) -> None:  # type: ignore[type-arg]
+    """Hand each A/AAAA/PTR record named by a registered key to its wakes."""
+    # Every mDNS packet on the LAN lands here, so the miss path must not
+    # allocate; zeroconf pre-lowercases key and alias_key. `in (_TYPE_A,
+    # _TYPE_AAAA)` would build a tuple per record in pure Python, while `==`
+    # compiles to C int compares.
+    for record_update in records:
+        new_record = record_update.new
+        record_type = new_record.type
+        if record_type == _TYPE_A or record_type == _TYPE_AAAA:  # noqa: PLR1714, SIM109
+            matched = wakes.get(new_record.key)
+        elif record_type == _TYPE_PTR:
+            matched = wakes.get(new_record.alias_key)
+        else:
+            continue
+        if matched is not None:
+            for wake in tuple(matched):
+                wake.on_record(new_record, now)
 
 
 _dispatchers: dict[int, ZeroconfRecordDispatcher] = {}
