@@ -691,15 +691,48 @@ class CoverState(EntityState):
 
 
 # ==================== EVENT ==================
+class EventVariableType(APIIntEnum):
+    BOOL = 0
+    INT = 1
+    FLOAT = 2
+    STRING = 3
+
+
+@_frozen_dataclass_decorator
+class EventVariable(APIModelBase):
+    name: str = ""
+    type: EventVariableType | None = converter_field(
+        default=EventVariableType.BOOL, converter=EventVariableType.convert
+    )
+
+
+@_frozen_dataclass_decorator
+class EventVariableValue(APIModelBase):
+    # Index into EventInfo.variables; the field of that variable's type holds the value
+    index: int = 0
+    bool_: bool = False
+    int_: int = 0
+    float_: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    string_: str = ""
+
+
 @_frozen_dataclass_decorator
 class EventInfo(EntityInfo):
     device_class: str = ""
     event_types: list[str] = converter_field(default_factory=list, converter=list)
+    variables: list[EventVariable] = converter_field(
+        default_factory=list, converter=EventVariable.convert_list
+    )
 
 
 @_frozen_dataclass_decorator
 class Event(EntityState):
     event_type: str = ""
+    values: list[EventVariableValue] = converter_field(
+        default_factory=list, converter=EventVariableValue.convert_list
+    )
 
 
 # ==================== FAN ====================
@@ -2486,6 +2519,9 @@ __all__ = (
     "EntityState",
     "Event",
     "EventInfo",
+    "EventVariable",
+    "EventVariableType",
+    "EventVariableValue",
     "ExecuteServiceResponse",
     "FanDirection",
     "FanInfo",
