@@ -39,11 +39,12 @@ SERVICE = "_esphomelib._tcp.local."
 DELIVERY_WAIT = 0.5
 # Rounds of (ms before the round, packet kinds) after a reboot, per responder.
 ESP32_IDF = [(300.0, ("all",)), (1005.0, ("all",)), (1005.0, ("all",))]
-# The 2nd copy lands inside zeroconf's 1000 ms duplicate packet suppression.
-ESP32_IDF_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",)), (1010.0, ("all",))]
+# The 2nd copy lands well inside zeroconf's 1000 ms duplicate packet suppression
+# (asyncio.sleep only ever resumes late) but past ANNOUNCE_MIN_GAP_MS.
+ESP32_IDF_SECOND_SUPPRESSED = [(300.0, ("all",)), (750.0, ("all",)), (1000.0, ("all",))]
 LEAMDNS = [(300.0, ("host", "service"))] + [(1000.0, ("host", "service"))] * 3
 LWIP = [(300.0, ("all",)), (1005.0, ("all",))]
-LWIP_SECOND_SUPPRESSED = [(300.0, ("all",)), (990.0, ("all",))]
+LWIP_SECOND_SUPPRESSED = [(300.0, ("all",)), (750.0, ("all",))]
 # Sent to every log subscriber, so a test can tell a logs session resumed.
 BOOT_LOG_LINE = b"[I][app:100]: ESPHome version dev"
 
