@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from zeroconf import RecordUpdateListener
-from zeroconf._dns import DNSAddress, DNSPointer
+from zeroconf import DNSAddress, DNSPointer, RecordUpdateListener  # type: ignore[attr-defined]
 from zeroconf.const import _TYPE_PTR
 
 if TYPE_CHECKING:

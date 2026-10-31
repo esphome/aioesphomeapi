@@ -2814,7 +2814,7 @@ async def test_probe_on_announce_one_packet_counts_once(
 async def test_probe_on_announce_skips_burst_in_progress_at_connect(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
-    """A burst in progress when the session starts never probes it; the next one does."""
+    """A burst that probed the old session never probes the new one; the next burst does."""
     rl, _, _ = probing
     with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
         _send_record(rl, now=1000.0)
@@ -2824,6 +2824,28 @@ async def test_probe_on_announce_skips_burst_in_progress_at_connect(
         check.assert_not_called()
         _send_record(rl, now=4000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
         check.assert_not_called()
+        _send_record(rl, now=5000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
+    check.assert_called_once_with()
+
+
+async def test_probe_on_announce_skips_burst_that_kicked_the_connect(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """The rest of a boot burst whose first record kicked the connect never probes."""
+    rl, _, _ = probing
+    with patch.object(rl, "_schedule_connect"):
+        await rl._on_disconnect(False)
+    with patch.object(rl, "_schedule_connect") as schedule:
+        _send_record(rl, now=1000.0)
+    schedule.assert_called_once_with(0.0)
+    with _patch_connect(rl._cli):
+        await rl._connect_once_or_reschedule()
+    assert rl._connection_state is ReconnectLogicState.READY
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        for now in (2000.0, 3000.0, 4000.0):
+            _send_record(rl, now=now)
+        check.assert_not_called()
+        _send_record(rl, now=4000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
         _send_record(rl, now=5000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
     check.assert_called_once_with()
 

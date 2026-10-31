@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from types import ModuleType
     from typing import Protocol
 
-    from zeroconf._dns import DNSRecord
+    from zeroconf import DNSRecord  # type: ignore[attr-defined]
 
     from ._zc_listener import ZeroconfRecordDispatcher
     from .client import APIClient
@@ -240,18 +240,22 @@ class ZeroconfWake:
 
     def on_record(self, record: DNSRecord, now: float) -> None:
         """Handle a mDNS record from the device received in the packet at now (ms)."""
+        # Track rounds in every state so a burst that kicked the connect is
+        # still known when the session reaches READY.
+        gap = now - self._last_packet_ms
+        new_round = gap >= ANNOUNCE_MIN_GAP_MS
+        if new_round:
+            self._last_packet_ms = now
+            if gap > ANNOUNCE_BURST_WINDOW_MS:
+                self._quiet_needed = False
         if self._kickable():
             self.kick("of received mDNS record %s", record)
-            return
-        if not self._can_probe():
-            return
-        gap = now - self._last_packet_ms
-        if gap < ANNOUNCE_MIN_GAP_MS:
-            return
-        self._last_packet_ms = now
-        if gap > ANNOUNCE_BURST_WINDOW_MS:
-            self._quiet_needed = False
-        elif not self._quiet_needed:
+        elif (
+            new_round
+            and gap <= ANNOUNCE_BURST_WINDOW_MS
+            and not self._quiet_needed
+            and self._can_probe()
+        ):
             self._on_probe("of repeated mDNS announcement %s", record)
 
     def seen(self, reason: str, *args: object) -> None:
