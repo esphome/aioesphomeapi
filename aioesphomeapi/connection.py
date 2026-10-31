@@ -1144,8 +1144,8 @@ class APIConnection:
         return response
 
     def send_keepalive_now(self) -> bool:
-        """Send the keepalive ping now unless a pong is pending. True if sent."""
-        if not self.is_connected or self._pong_timer is not None:
+        """Send the keepalive ping now, also while a pong is pending. True if sent."""
+        if not self.is_connected:
             return False
         if self._ping_timer is not None:
             self._ping_timer.cancel()
