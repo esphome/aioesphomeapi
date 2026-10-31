@@ -144,6 +144,7 @@ class ZeroconfWake:
             )
         self._dispatcher: ZeroconfRecordDispatcher | None = None
         self._last_packet_ms = float("-inf")
+        self._quiet_needed = False
         self._timer: asyncio.TimerHandle | None = None
         self._start_task: asyncio.Task[None] | None = None
         # One-shot gate: a connect attempt is only kicked once per record burst.
@@ -152,6 +153,10 @@ class ZeroconfWake:
     def reopen(self) -> None:
         """Allow the next wake to kick a connect again."""
         self._accept_records = True
+
+    def skip_current_burst(self) -> None:
+        """Probe again only after a gap longer than the burst window."""
+        self._quiet_needed = True
 
     def kick(self, reason: str, *args: object) -> None:
         """Kick a connect once per attempt; the connect logic may keep one in flight."""
@@ -244,7 +249,9 @@ class ZeroconfWake:
         if gap < ANNOUNCE_MIN_GAP_MS:
             return
         self._last_packet_ms = now
-        if gap <= ANNOUNCE_BURST_WINDOW_MS:
+        if gap > ANNOUNCE_BURST_WINDOW_MS:
+            self._quiet_needed = False
+        elif not self._quiet_needed:
             self._on_probe("of repeated mDNS announcement %s", record)
 
     def seen(self, reason: str, *args: object) -> None:
@@ -531,6 +538,9 @@ class ReconnectLogic:
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
         if self._probe_on_announce:
+            # The rest of a burst that started before this session must not
+            # probe it.
+            self._zc_wake.skip_current_burst()
             self._zc_wake.start_soon()
         await self._on_connect_cb()
         # Remember deep-sleep from the device_info the connect callback just

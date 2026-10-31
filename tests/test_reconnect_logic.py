@@ -2811,6 +2811,31 @@ async def test_probe_on_announce_one_packet_counts_once(
     check.assert_called_once_with()
 
 
+async def test_probe_on_announce_skips_burst_in_progress_at_connect(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """A burst in progress when the session starts never probes it; the next one does."""
+    rl, _, _ = probing
+    with patch.object(rl._cli, "send_keepalive_now", return_value=True) as check:
+        _send_record(rl, now=1000.0)
+        rl._zc_wake.skip_current_burst()
+        for now in (2000.0, 3000.0, 4000.0):
+            _send_record(rl, now=now)
+        check.assert_not_called()
+        _send_record(rl, now=4000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
+        check.assert_not_called()
+        _send_record(rl, now=5000.0 + ANNOUNCE_BURST_WINDOW_MS + 1)
+    check.assert_called_once_with()
+
+
+async def test_probe_on_announce_handshake_skips_current_burst(
+    probing: tuple[ReconnectLogic, MagicMock, MagicMock],
+) -> None:
+    """Reaching READY marks the burst in progress as already handled."""
+    rl, _, _ = probing
+    assert rl._zc_wake._quiet_needed is True
+
+
 async def test_probe_on_announce_split_round_counts_once(
     probing: tuple[ReconnectLogic, MagicMock, MagicMock],
 ) -> None:
