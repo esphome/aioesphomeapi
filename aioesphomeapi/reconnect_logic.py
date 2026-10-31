@@ -341,9 +341,10 @@ class ReconnectLogic:
             without a goodbye is detected by its TCP reset or the normal pong
             timeout. Over mDNS, only a second round of its records between
             ANNOUNCE_MIN_GAP_MS and ANNOUNCE_BURST_WINDOW_MS after the last
-            counts; :meth:`notify_device_seen` always does. No ping is sent
-            while a pong is pending. Defaults to on when a zeroconf_instance
-            is shared with the client and zeroconf_wake is on.
+            counts; :meth:`notify_device_seen` always does. The ping is also
+            sent while a pong is pending. Defaults to on when a
+            zeroconf_instance is shared with the client and zeroconf_wake is
+            on.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
             the device responds with the plaintext protocol marker, instead
@@ -790,7 +791,7 @@ class ReconnectLogic:
         handshaking, at most one kick per connect attempt, and the backoff
         counter is left untouched. Once connected, it is ignored unless
         probe_on_announce is set; then it sends the keepalive ping now,
-        unless a pong is already pending. A rebooted device usually answers
+        also while a pong is pending. A rebooted device usually answers
         with a TCP reset right away; otherwise the session drops only if no
         reply arrives before the normal pong deadline. Must be called from
         the event loop.
@@ -812,7 +813,7 @@ class ReconnectLogic:
         )
 
     def _probe_now(self, reason: str, *args: object) -> None:
-        """Send the keepalive ping now; skipped while a pong is pending."""
+        """Send the keepalive ping now."""
         if self._cli.send_keepalive_now() and _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug(
                 "%s: Sending keepalive ping because %s",

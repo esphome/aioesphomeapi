@@ -1331,29 +1331,35 @@ async def test_send_keepalive_now_pings_and_reschedules(
     assert transport.writelines.call_count == 2
 
 
-async def test_send_keepalive_now_skipped_while_pong_pending(
+async def test_send_keepalive_now_while_pong_pending(
     api_client: ApiClientFixture,
 ) -> None:
-    """No second ping goes out while a pong is pending."""
-    _client, conn, transport, protocol = api_client
+    """A ping goes out while a pong is pending; the pong deadline is kept."""
+    _client, conn, transport, _protocol = api_client
+    loop = asyncio.get_running_loop()
+    start_time = utcnow()
+    timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
     assert conn.send_keepalive_now() is True
-    assert conn.send_keepalive_now() is False
-    assert transport.writelines.call_count == 1
+    async_fire_time_changed(start_time + timedelta(seconds=timeout - 1))
+    sent = transport.writelines.call_count
+    with patch.object(loop, "time", return_value=loop.time() + timeout - 1):
+        assert conn.send_keepalive_now() is True
+    assert transport.writelines.mock_calls[sent:] == [call(PING_REQUEST_BYTES)]
 
-    send_ping_response(protocol)
-    assert conn.send_keepalive_now() is True
-    assert transport.writelines.call_count == 2
+    async_fire_time_changed(start_time + timedelta(seconds=timeout + 1))
+    assert conn.is_connected is False
+    assert isinstance(conn.fatal_exception, PingFailedAPIError)
 
 
-async def test_send_keepalive_now_skipped_after_regular_keepalive(
+async def test_send_keepalive_now_after_regular_keepalive(
     api_client: ApiClientFixture,
 ) -> None:
-    """A pong pending from the regular keepalive also blocks the ping."""
+    """A pong pending from the regular keepalive does not block the ping."""
     _client, conn, transport, _protocol = api_client
     async_fire_time_changed(utcnow() + timedelta(seconds=KEEP_ALIVE_FREQUENCY))
     assert transport.writelines.call_count == 1
-    assert conn.send_keepalive_now() is False
-    assert transport.writelines.call_count == 1
+    assert conn.send_keepalive_now() is True
+    assert transport.writelines.call_count == 2
 
 
 async def test_send_keepalive_now_pong_timeout_disconnects(
