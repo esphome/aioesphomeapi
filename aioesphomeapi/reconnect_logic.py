@@ -464,8 +464,8 @@ class ReconnectLogic:
         self._connection_state = state
 
     def _first_try_log_level(self) -> int:
-        """WARNING on the first attempt of a reconnect cycle, DEBUG after."""
-        return logging.WARNING if self._tries == 0 else logging.DEBUG
+        """INFO on the first attempt of a reconnect cycle, DEBUG after."""
+        return logging.INFO if self._tries == 0 else logging.DEBUG
 
     def _async_log_connection_error(self, err: Exception) -> None:
         """Log connection errors."""
@@ -508,7 +508,7 @@ class ReconnectLogic:
         start_connect_time = time.perf_counter()
         resolve_time = start_connect_time - start_resolve_time
         _LOGGER.log(
-            logging.INFO if self._tries == 0 else logging.DEBUG,
+            self._first_try_log_level(),
             "Successfully resolved %s in %0.3fs",
             self._cli.log_name,
             resolve_time,

@@ -30,7 +30,11 @@ from aioesphomeapi import (
 from aioesphomeapi._zc_listener import ZeroconfRecordDispatcher
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.client_base import KEEP_ALIVE_FREQUENCY
-from aioesphomeapi.core import APIConnectionCancelledError, PingFailedAPIError
+from aioesphomeapi.core import (
+    APIConnectionCancelledError,
+    PingFailedAPIError,
+    UnhandledAPIConnectionError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator
@@ -112,6 +116,17 @@ async def slow_connect_fail(*args, **kwargs):
 
 async def quick_connect_fail(*args, **kwargs):
     raise APIConnectionError
+
+
+@contextmanager
+def _patch_connect(cli: APIClient) -> Generator[None]:
+    """Patch the three client connect steps to succeed."""
+    with (
+        patch.object(cli, "start_resolve_host"),
+        patch.object(cli, "start_connection"),
+        patch.object(cli, "finish_connection"),
+    ):
+        yield
 
 
 async def test_reconnect_logic_name_from_host():
@@ -355,7 +370,7 @@ async def test_reconnect_retry(
     assert "connect to ESPHome API for mydevice @ 127.0.0.1" in caplog.text
     for record in caplog.records:
         if "connect to ESPHome API for mydevice @ 127.0.0.1" in record.message:
-            assert record.levelno == logging.WARNING
+            assert record.levelno == logging.INFO
 
     caplog.clear()
     # Next retry should run at debug level
@@ -1573,7 +1588,7 @@ async def test_connection_cancelled_error_logged_at_debug_level(
         on_connect_fail.call_args_list[0][0][0], APIConnectionCancelledError
     )
 
-    # Check that the error was logged at DEBUG level, not WARNING
+    # Check that the error was logged at DEBUG level, not INFO
     log_record = find_log_with_message(caplog, "Can't connect to ESPHome API")
     assert log_record is not None, "Expected log message not found"
     assert "APIConnectionCancelledError" in log_record.message
@@ -1645,6 +1660,76 @@ async def test_resolved_log_level_changes_after_first_attempt(
     assert log_record.levelno == logging.DEBUG
 
     await logic.stop()
+
+
+async def test_disconnect_reconnect_failure_logs_info_not_warning(
+    patchable_api_client: APIClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Handled failures after a disconnect log at INFO on the first retry, DEBUG after."""
+    cli = patchable_api_client
+    rl = ReconnectLogic(
+        client=cli,
+        on_connect=AsyncMock(),
+        on_disconnect=AsyncMock(),
+        zeroconf_wake=False,
+        name="mydevice",
+    )
+
+    with _patch_connect(cli):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert rl._connection_state is ReconnectLogicState.READY
+    caplog.clear()
+
+    with patch.object(cli, "start_resolve_host", side_effect=quick_connect_fail):
+        await rl._on_disconnect(expected_disconnect=False)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+        assert rl._connect_timer is not None
+        rl._connect_timer._run()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert [
+        record.levelno
+        for record in caplog.records
+        if "Can't connect to ESPHome API" in record.message
+    ] == [logging.INFO, logging.DEBUG]
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+
+    await rl.stop()
+
+
+async def test_unhandled_connection_error_logged_at_error(
+    patchable_api_client: APIClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """UnhandledAPIConnectionError logs at ERROR with traceback."""
+    cli = patchable_api_client
+    rl = ReconnectLogic(
+        client=cli,
+        on_connect=AsyncMock(),
+        on_disconnect=AsyncMock(),
+        zeroconf_wake=False,
+        name="mydevice",
+    )
+    caplog.clear()
+
+    with patch.object(
+        cli, "start_resolve_host", side_effect=UnhandledAPIConnectionError("bug")
+    ):
+        await rl.start()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    log_record = find_log_with_message(caplog, "Can't connect to ESPHome API")
+    assert log_record is not None
+    assert log_record.levelno == logging.ERROR
+    assert log_record.exc_info is not None
+
+    await rl.stop()
 
 
 @pytest.mark.asyncio
@@ -2451,17 +2536,6 @@ async def test_notify_device_seen_during_connect_error_callback(
     mock_schedule.assert_called_once_with(0.0)
 
     await rl.stop()
-
-
-@contextmanager
-def _patch_connect(cli: APIClient) -> Generator[None]:
-    """Patch the three client connect steps to succeed."""
-    with (
-        patch.object(cli, "start_resolve_host"),
-        patch.object(cli, "start_connection"),
-        patch.object(cli, "finish_connection"),
-    ):
-        yield
 
 
 @pytest.fixture
