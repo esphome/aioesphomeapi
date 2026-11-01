@@ -48,6 +48,7 @@ from aioesphomeapi.api_pb2 import (
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    CrashReportResponse,
     DateCommandRequest,
     DateTimeCommandRequest,
     DeviceCapabilitiesResponse,
@@ -164,6 +165,8 @@ from aioesphomeapi.model import (
     ClimatePreset,
     ClimateSwingMode,
     ConnectionClosedEvent,
+    CrashReason,
+    CrashReportFlag,
     DeviceCapabilities,
     DeviceInfo,
     DeviceWizard,
@@ -2393,6 +2396,32 @@ async def test_sendspin_pairing_token_redacted_in_debug_log(
     assert "SendspinPairingTokenResponse" in caplog.text
     assert "<redacted>" in caplog.text
     assert "SP:0SECRET" not in caplog.text
+
+
+async def test_crash_report(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """crash_report sends CrashReportRequest and decodes the response."""
+    client, _connection, transport, protocol = api_client
+    transport.writelines.reset_mock()
+    task = asyncio.create_task(client.crash_report())
+    await asyncio.sleep(0)
+    # 163 is varuint b"\xa3\x01"
+    transport.writelines.assert_called_once_with([b"\x00", b"\x00", b"\xa3\x01"])
+    response: message.Message = CrashReportResponse(
+        flags=CrashReportFlag.PRESENT | CrashReportFlag.BUILD_MATCHES,
+        reason=CrashReason.ABORT,
+        pc=0x42001234,
+        backtrace=[0x42005678],
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    report = await task
+    assert report.flags == CrashReportFlag.PRESENT | CrashReportFlag.BUILD_MATCHES
+    assert report.reason is CrashReason.ABORT
+    assert report.pc == 0x42001234
+    assert report.backtrace == [0x42005678]
 
 
 async def test_device_wizard(

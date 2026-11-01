@@ -26,6 +26,8 @@ from aioesphomeapi.api_pb2 import (
     BluetoothScannerStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
+    CrashReportCapabilities as CrashReportCapabilitiesPb,
+    CrashReportResponse,
     DateStateResponse,
     DateTimeStateResponse,
     DeviceCapabilitiesResponse,
@@ -129,6 +131,10 @@ from aioesphomeapi.model import (
     ColorMode,
     CoverInfo,
     CoverState,
+    CrashReason,
+    CrashReport,
+    CrashReportCapabilities,
+    CrashReportFlag,
     DateInfo,
     DateState,
     DateTimeInfo,
@@ -440,6 +446,8 @@ def test_api_version_ord():
         (ZWaveProxyCapabilities, ZWaveProxyCapabilitiesPb),
         (WizardCapabilities, WizardCapabilitiesPb),
         (StoreYamlCapabilities, StoreYamlCapabilitiesPb),
+        (CrashReportCapabilities, CrashReportCapabilitiesPb),
+        (CrashReport, CrashReportResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -3095,6 +3103,59 @@ def test_device_capabilities_store_yaml_from_dict() -> None:
     caps = DeviceCapabilities.from_dict({"store_yaml": {"supported": True}})
     assert caps.store_yaml == StoreYamlCapabilities(supported=True)
     assert DeviceCapabilities.from_dict({}).store_yaml == StoreYamlCapabilities()
+
+
+def test_device_capabilities_crash_report_from_pb() -> None:
+    """DeviceCapabilities decodes crash_report.flags, defaulting to 0 when unset."""
+    pb = DeviceCapabilitiesResponse(
+        crash_report=CrashReportCapabilitiesPb(flags=CrashReportFlag.PRESENT)
+    )
+    assert DeviceCapabilities.from_pb(pb).crash_report == CrashReportCapabilities(
+        flags=CrashReportFlag.PRESENT
+    )
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).crash_report == CrashReportCapabilities(flags=0)
+
+
+def test_device_capabilities_crash_report_from_dict() -> None:
+    """The dict branch of CrashReportCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict({"crash_report": {"flags": 3}})
+    assert caps.crash_report == CrashReportCapabilities(flags=3)
+    assert DeviceCapabilities.from_dict({}).crash_report == CrashReportCapabilities()
+
+
+def test_crash_report_from_pb() -> None:
+    """CrashReport decodes every field, including both backtraces."""
+    pb = CrashReportResponse(
+        flags=CrashReportFlag.PRESENT | CrashReportFlag.FAULT_ADDRESS,
+        reason=CrashReason.EXCEPTION,
+        pc=0x42001234,
+        backtrace=[0x42005678, 0x40380000],
+        fault_address=0x0,
+        build_time=1792800000,
+        crashed_core=1,
+        other_core_backtrace=[0x42009ABC],
+    )
+    report = CrashReport.from_pb(pb)
+    assert report.flags == CrashReportFlag.PRESENT | CrashReportFlag.FAULT_ADDRESS
+    assert report.reason is CrashReason.EXCEPTION
+    assert report.pc == 0x42001234
+    assert report.backtrace == [0x42005678, 0x40380000]
+    assert report.build_time == 1792800000
+    assert report.crashed_core == 1
+    assert report.other_core_backtrace == [0x42009ABC]
+
+
+def test_crash_report_from_pb_without_report() -> None:
+    """A reply without a report decodes to the defaults."""
+    assert CrashReport.from_pb(CrashReportResponse()) == CrashReport()
+
+
+def test_crash_report_from_pb_unknown_reason() -> None:
+    """A reason this client does not know decodes to None."""
+    pb = CrashReportResponse(flags=CrashReportFlag.PRESENT, reason=99)
+    assert CrashReport.from_pb(pb).reason is None
 
 
 _SENDSPIN_CLIENT_ID = "q83vEjRWeJq83vEjRWeJq83vEjRWeJq83vEjRWeJq80"
