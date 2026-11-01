@@ -241,6 +241,16 @@ message DeviceInfo {
   DeviceRelation relation = 4;
 }
 
+message DeviceStateResponse {
+  option (id) = 163;
+  option (source) = SOURCE_SERVER;
+  option (ifdef) = "USE_DEVICES";
+  option (no_delay) = true;
+
+  uint32 device_id = 1;
+  bool available = 2;
+}
+
 enum SerialProxyPortType {
   SERIAL_PROXY_PORT_TYPE_TTL = 0;
   SERIAL_PROXY_PORT_TYPE_RS232 = 1;
