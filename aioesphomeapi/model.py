@@ -733,6 +733,7 @@ class Event(EntityState):
     values: list[EventVariableValue] = converter_field(
         default_factory=list, converter=EventVariableValue.convert_list
     )
+    values_dropped: bool = False
 
 
 # ==================== FAN ====================

@@ -551,6 +551,13 @@ def test_event_without_values() -> None:
     assert Event.from_pb(EventResponse(key=1, event_type="press")).values == []
 
 
+def test_event_values_dropped() -> None:
+    assert Event.from_pb(EventResponse(key=1)).values_dropped is False
+    event = Event.from_pb(EventResponse(key=1, event_type="press", values_dropped=True))
+    assert event.values == []
+    assert event.values_dropped is True
+
+
 def test_event_data_dict_round_trip() -> None:
     info = EventInfo(
         key=1, variables=[EventVariable(name="steps", type=EventVariableType.INT)]
@@ -2248,6 +2255,7 @@ def test_event_entity_state_device_id():
         "event_type": "button_press",
         "device_id": 42,
         "values": [],
+        "values_dropped": False,
     }
 
     # Test from_dict with device_id
