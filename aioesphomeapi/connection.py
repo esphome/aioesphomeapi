@@ -1143,6 +1143,21 @@ class APIConnection:
         )
         return response
 
+    def send_keepalive_now(self) -> bool:
+        """Send the keepalive ping now, also while a pong is pending. True if sent."""
+        if not self.is_connected:
+            return False
+        if self._ping_timer is not None:
+            self._ping_timer.cancel()
+            self._ping_timer = None
+        self._send_pending_ping = True
+        try:
+            self._async_send_keep_alive()
+        except APIConnectionError:
+            # send_messages already reported the fatal error.
+            return False
+        return True
+
     def report_fatal_error(self, err: Exception) -> None:
         """Report a fatal error that occurred during an operation.
 

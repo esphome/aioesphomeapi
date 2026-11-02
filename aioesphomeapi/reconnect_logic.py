@@ -20,41 +20,64 @@ from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     import socket
+    from types import ModuleType
+    from typing import Protocol
 
-    from zeroconf import RecordUpdate, Zeroconf
+    from zeroconf import DNSRecord  # type: ignore[attr-defined]
 
-    from ._zc_listener import ReconnectRecordUpdateListener
+    from ._zc_listener import ZeroconfRecordDispatcher
     from .client import APIClient
     from .zeroconf import ZeroconfInstanceType
 
+    class _ProbeCallback(Protocol):
+        def __call__(self, reason: str, *args: object) -> None: ...
+
+
 _LOGGER = logging.getLogger(__name__)
-
-# DNS record type codes (RFC 1035/3596), duplicated from zeroconf.const
-# (pinned in tests) so this module does not import zeroconf at load time.
-TYPE_A = 1
-TYPE_PTR = 12
-TYPE_AAAA = 28
-
-ADDRESS_RECORD_TYPES = {TYPE_A, TYPE_AAAA}
 
 # Connects that land within this window never load the zeroconf stack; an
 # attempt still in flight when it fires gets the listener so a device that
 # came online mid-attempt is woken by its boot announcement.
 ZC_LISTEN_DELAY = 2.0
 
-_zc_listener_cache: list[type[ReconnectRecordUpdateListener]] = []
+# Responders repeat unsolicited announcements ~1s apart after boot or a link
+# change (RFC 6762 §8.3); replies to queries do not. The responders ESPHome
+# builds against:
+#
+#   responder        platforms         announces  spacing
+#   IDF mdns 1.14.0  ESP32             3          1s  [1]
+#   LEAmDNS          ESP8266, RP2040   8          1s  [2][3]
+#   lwIP 2.2         LibreTiny         2          1s  [5]
+#
+# LEAmDNS sends host and service records in separate packets [4], so packets
+# closer than ANNOUNCE_MIN_GAP_MS count as one round and a split round is not
+# a burst. On the bench, rounds landed 0.9 to 1.2s apart (one D1 mini gap was
+# 1.9s among 7 to 9 rounds). ANNOUNCE_BURST_WINDOW_MS stays close to that: lwIP
+# answers every query with a multicast PTR, so two browsers querying a few
+# seconds apart would otherwise look like a burst.
+#
+# [1] https://github.com/espressif/esp-protocols/blob/5c4650d0ab6f9fde165ae1e3c1ef16714be0a619/components/mdns/mdns_pcb.c#L212-L258
+# [2] https://github.com/esp8266/Arduino/blob/210897ef83305496947c4e73c937bab52a33cb48/libraries/ESP8266mDNS/src/LEAmDNS_Priv.h#L161-L164
+# [3] https://github.com/earlephilhower/arduino-pico/blob/7a00f15279c74064a39549c1fdce81e877027983/libraries/LEAmDNS/src/LEAmDNS_Priv.h#L154-L157
+# [4] https://github.com/esp8266/Arduino/blob/210897ef83305496947c4e73c937bab52a33cb48/libraries/ESP8266mDNS/src/LEAmDNS_Control.cpp#L1429-L1524
+# [5] https://github.com/libretiny-eu/lwip/blob/0d1cedf257bf58ac7c12fb7b79ec79daf2a006bd/src/apps/mdns/mdns.c#L2325-L2350
+ANNOUNCE_MIN_GAP_MS = 500.0
+ANNOUNCE_BURST_WINDOW_MS = 2000.0
+
+_zc_listener_cache: list[ModuleType] = []
 
 
-def _import_zc_listener() -> type[ReconnectRecordUpdateListener]:
+def _import_zc_listener() -> ModuleType:
+    if _zc_listener_cache:
+        return _zc_listener_cache[0]
     # Preload zeroconf.asyncio too; start() needs it via get_async_zeroconf
     # and it is not pulled in by the top-level zeroconf import.
     import zeroconf.asyncio  # noqa: F401, PLC0415
 
-    from ._zc_listener import ReconnectRecordUpdateListener  # noqa: PLC0415
+    from . import _zc_listener  # noqa: PLC0415
 
-    if not _zc_listener_cache:
-        _zc_listener_cache.append(ReconnectRecordUpdateListener)
-    return ReconnectRecordUpdateListener
+    _zc_listener_cache.append(_zc_listener)
+    return _zc_listener
 
 
 EXPECTED_DISCONNECT_COOLDOWN = 5.0
@@ -88,7 +111,7 @@ AUTH_EXCEPTIONS = (
 
 
 class ZeroconfWake:
-    """Deferred mDNS listener that wakes a reconnect attempt when its device announces."""
+    """Deferred mDNS listener plus the one-kick-per-attempt gate shared by all wakes."""
 
     def __init__(
         self,
@@ -96,35 +119,69 @@ class ZeroconfWake:
         name: str | None,
         can_kick: Callable[[], bool],
         on_wake: Callable[[], None],
+        *,
+        enabled: bool = True,
+        can_probe: Callable[[], bool],
+        on_probe: _ProbeCallback,
     ) -> None:
-        """Initialize the wake listener; can_kick gates records, on_wake kicks a connect."""
+        """Initialize the wake listener; can_kick/can_probe gate on_wake/on_probe."""
         self._loop = asyncio.get_running_loop()
         self._client = client
         self._name = name
-        self._eligible = bool(name) and not is_ip_address(name)
+        self._eligible = enabled and bool(name) and not is_ip_address(name)
         self._can_kick = can_kick
         self._on_wake = on_wake
+        self._can_probe = can_probe
+        self._on_probe = on_probe
         self._warned = False
         # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
-        # Lowercase the match keys here and the incoming records in
-        # async_update_records so a device advertising mixed-case labels
+        # Lowercase the match keys here and compare them to zeroconf's
+        # pre-lowercased key/alias_key so a device advertising mixed-case labels
         # still triggers the fast reconnect instead of falling back to
         # exponential backoff.
-        self._ptr_alias: str | None = None
-        self._a_name: str | None = None
+        self.keys: tuple[str, ...] = ()
         if self._eligible:
-            self._ptr_alias = f"{name}._esphomelib._tcp.local.".lower()
-            self._a_name = f"{name}.local.".lower()
-        self._listening = False
-        self._listener: ReconnectRecordUpdateListener | None = None
+            self.keys = (
+                f"{name}._esphomelib._tcp.local.".lower(),
+                f"{name}.local.".lower(),
+            )
+        self._dispatcher: ZeroconfRecordDispatcher | None = None
+        self._last_packet_ms = float("-inf")
+        self._quiet_needed = False
         self._timer: asyncio.TimerHandle | None = None
         self._start_task: asyncio.Task[None] | None = None
-        # One-shot gate: a connect attempt is only kicked once per record burst.
+        # One-shot gate: a connect attempt is only kicked once.
         self._accept_records = True
 
     def reopen(self) -> None:
-        """Allow the next matching mDNS record to kick a connect again."""
+        """Allow the next wake to kick a connect again."""
         self._accept_records = True
+
+    def on_session_ready(self) -> None:
+        """Listen while connected, ignoring the rest of a burst that began before."""
+        self._quiet_needed = True
+        self.start_soon()
+
+    def kick(self, reason: str, *args: object) -> None:
+        """Kick a connect once per attempt; the connect logic may keep one in flight."""
+        if not self._kickable():
+            return
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug(
+                "%s: Triggering connect because %s",
+                self._client.log_name,
+                reason % args,
+            )
+        #
+        # If we scheduled the connect attempt immediately, the listener could fire
+        # again before the connect attempt and we cancel and reschedule the connect
+        # attempt again.
+        #
+        self.stop()
+        # Close the gate first: the eager connect task can fail without
+        # yielding, and its failure handler reopens the gate for the backoff.
+        self._accept_records = False
+        self._on_wake()
 
     def arm(self) -> None:
         """Arm the delayed listener start for a connect attempt."""
@@ -151,13 +208,12 @@ class ZeroconfWake:
         connect attempt; the listener is a reconnect-speed
         optimisation, not a requirement for connecting.
         """
-        if not self._listening and self._eligible:
+        if self._dispatcher is None and self._eligible:
             _LOGGER.debug("Starting zeroconf listener for %s", self._name)
             try:
-                if self._listener is None:
-                    self._listener = _import_zc_listener()(self)
-                async_zc = self._client.zeroconf_manager.get_async_zeroconf()
-                async_zc.zeroconf.async_add_listener(self._listener, None)
+                zc_listener = _import_zc_listener()
+                zc = self._client.zeroconf_manager.get_async_zeroconf().zeroconf
+                self._dispatcher = zc_listener.async_add_wake(zc, self)
             except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
                 # WARNING once per instance, DEBUG after, so a broken
                 # zeroconf stack is visible without spamming every retry.
@@ -170,8 +226,6 @@ class ZeroconfWake:
                     type(err).__name__,
                 )
                 self._warned = True
-                return
-            self._listening = True
 
     def stop(self) -> None:
         """Stop listening for zeroconf updates."""
@@ -179,60 +233,37 @@ class ZeroconfWake:
         if self._start_task:
             self._start_task.cancel()
             self._start_task = None
-        if self._listening:
+        if self._dispatcher is not None:
             _LOGGER.debug("Removing zeroconf listener for %s", self._name)
-            if TYPE_CHECKING:
-                assert self._listener is not None
-            zc = self._client.zeroconf_manager.get_async_zeroconf().zeroconf
-            zc.async_remove_listener(self._listener)
-            self._listening = False
+            self._dispatcher.async_remove(self)
+            self._dispatcher = None
 
-    def async_update_records(
-        self,
-        zc: Zeroconf,  # noqa: ARG002 # pylint: disable=unused-argument
-        now: float,  # noqa: ARG002 # pylint: disable=unused-argument
-        records: list[RecordUpdate],
-    ) -> None:
-        """Handle updated mDNS records. This must be called from the eventloop.
+    def on_record(self, record: DNSRecord, now: float) -> None:
+        """Handle a mDNS record from the device received in the packet at now (ms)."""
+        # Track rounds in every state so a burst that kicked the connect is
+        # still known when the session reaches READY.
+        gap = now - self._last_packet_ms
+        new_round = gap >= ANNOUNCE_MIN_GAP_MS
+        if new_round:
+            self._last_packet_ms = now
+            if gap > ANNOUNCE_BURST_WINDOW_MS:
+                self._quiet_needed = False
+        if self._kickable():
+            self.kick("of received mDNS record %s", record)
+        elif (
+            new_round
+            and gap <= ANNOUNCE_BURST_WINDOW_MS
+            and not self._quiet_needed
+            and self._can_probe()
+        ):
+            self._on_probe("of repeated mDNS announcement %s", record)
 
-        This is a mDNS record from the device and could mean it just woke up.
-        """
-        # Bail if the current attempt has already been kicked by a previous
-        # mDNS record (one-shot gate) or if a kick could no longer help
-        # (stopped, or past the point where a restart matters).
-        if not self._accept_records or not self._can_kick():
-            return
-
-        for record_update in records:
-            # We only consider A, AAAA, and PTR records and match using the alias name
-            new_record = record_update.new
-            if not (
-                (
-                    new_record.type == TYPE_PTR
-                    and new_record.alias.lower() == self._ptr_alias  # type: ignore[attr-defined]
-                )
-                or (
-                    new_record.type in ADDRESS_RECORD_TYPES
-                    and new_record.name.lower() == self._a_name
-                )
-            ):
-                continue
-
-            # Tell connection logic to retry connection attempt now (even before connect timer finishes)
-            _LOGGER.debug(
-                "%s: Triggering connect because of received mDNS record %s",
-                self._client.log_name,
-                record_update.new,
-            )
-            #
-            # If we scheduled the connect attempt immediately, the listener could fire
-            # again before the connect attempt and we cancel and reschedule the connect
-            # attempt again.
-            #
-            self.stop()
-            self._on_wake()
-            self._accept_records = False
-            return
+    def seen(self, reason: str, *args: object) -> None:
+        """Kick a pending connect, or probe the session while connected."""
+        if self._kickable():
+            self.kick(reason, *args)
+        elif self._can_probe():
+            self._on_probe(reason, *args)
 
     async def _async_start(self) -> None:
         """Import the listener off the event loop, then start listening."""
@@ -246,14 +277,20 @@ class ZeroconfWake:
                     self._client.log_name,
                     err,
                 )
-        if self._can_kick():
+        # Ignores the one-shot gate: the listener outlives a kick so records
+        # are seen again as soon as reopen() is called.
+        if self._can_kick() or self._can_probe():
             self.start()
+
+    def _kickable(self) -> bool:
+        """Return True while a sighting may kick a connect."""
+        return self._accept_records and self._can_kick()
 
     def _startable(self) -> bool:
         """Return True when the listener may be armed or started."""
         return (
             self._eligible
-            and not self._listening
+            and self._dispatcher is None
             and (self._start_task is None or self._start_task.done())
         )
 
@@ -288,12 +325,26 @@ class ReconnectLogic:
         name: str | None = None,
         on_connect_error: Callable[[Exception], Awaitable[None]] | None = None,
         allow_plaintext_fallback: bool = False,
+        zeroconf_wake: bool = True,
+        probe_on_announce: bool | None = None,
     ) -> None:
         """Initialize ReconnectingLogic.
 
         :param client: initialized :class:`APIClient` to reconnect for
         :param on_connect: Coroutine Function to call when connected.
         :param on_disconnect: Coroutine Function to call when disconnected.
+        :param zeroconf_wake: If False, never start the mDNS listener that
+            kicks a pending connect; callers with their own discovery report
+            sightings via :meth:`notify_device_seen` instead.
+        :param probe_on_announce: If True, a sighting of the device while
+            connected sends the keepalive ping now, so a device that rebooted
+            without a goodbye is detected by its TCP reset or the normal pong
+            timeout. Over mDNS, only a second round of its records between
+            ANNOUNCE_MIN_GAP_MS and ANNOUNCE_BURST_WINDOW_MS after the last
+            counts; :meth:`notify_device_seen` always does. The ping is also
+            sent while a pong is pending. Defaults to on when a
+            zeroconf_instance is shared with the client and zeroconf_wake is
+            on.
         :param allow_plaintext_fallback: If True and the client has a noise
             PSK configured, downgrade to plaintext (and log a warning) when
             the device responds with the plaintext protocol marker, instead
@@ -334,11 +385,17 @@ class ReconnectLogic:
         self._connection_state = ReconnectLogicState.DISCONNECTED
         self._connected_lock = asyncio.Lock()
         self._is_stopped = True
+        if probe_on_announce is None:
+            probe_on_announce = zeroconf_wake and self._zeroconf_manager.is_shared
+        self._probe_on_announce = probe_on_announce
         self._zc_wake = ZeroconfWake(
             client,
             self.name,
-            self._zc_can_kick,
-            self._connect_from_zeroconf,
+            self._can_kick,
+            self._connect_now,
+            enabled=zeroconf_wake,
+            can_probe=self._can_probe,
+            on_probe=self._probe_now,
         )
         # How many connect attempts have there been already, used for exponential wait time
         self._tries = 0
@@ -376,6 +433,10 @@ class ReconnectLogic:
             self._async_set_connection_state_while_locked(
                 ReconnectLogicState.DISCONNECTED
             )
+            if self._probe_on_announce:
+                # The listener kept running while connected must not kick
+                # through the expected-disconnect cooldown.
+                self._zc_wake.stop()
             # The previous session ended — allow the next mDNS record to
             # kick a fresh connect attempt early.
             self._zc_wake.reopen()
@@ -403,8 +464,8 @@ class ReconnectLogic:
         self._connection_state = state
 
     def _first_try_log_level(self) -> int:
-        """WARNING on the first attempt of a reconnect cycle, DEBUG after."""
-        return logging.WARNING if self._tries == 0 else logging.DEBUG
+        """INFO on the first attempt of a reconnect cycle, DEBUG after."""
+        return logging.INFO if self._tries == 0 else logging.DEBUG
 
     def _async_log_connection_error(self, err: Exception) -> None:
         """Log connection errors."""
@@ -447,7 +508,7 @@ class ReconnectLogic:
         start_connect_time = time.perf_counter()
         resolve_time = start_connect_time - start_resolve_time
         _LOGGER.log(
-            logging.INFO if self._tries == 0 else logging.DEBUG,
+            self._first_try_log_level(),
             "Successfully resolved %s in %0.3fs",
             self._cli.log_name,
             resolve_time,
@@ -466,7 +527,8 @@ class ReconnectLogic:
 
     async def _finish_connection_while_locked(self) -> bool:
         """Handshake and mark the attempt ready; shared by dial-out and adoption."""
-        self._zc_wake.stop()
+        if not self._probe_on_announce:
+            self._zc_wake.stop()
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
         start_handshake_time = time.perf_counter()
         try:
@@ -480,6 +542,8 @@ class ReconnectLogic:
             "Successful handshake with %s in %0.3fs", self._cli.log_name, handshake_time
         )
         self._async_set_connection_state_while_locked(ReconnectLogicState.READY)
+        if self._probe_on_announce:
+            self._zc_wake.on_session_ready()
         await self._on_connect_cb()
         # Remember deep-sleep from the device_info the connect callback just
         # fetched; the client clears its cache on disconnect, so capture it now
@@ -493,11 +557,14 @@ class ReconnectLogic:
     async def _handle_connection_failure(self, err: Exception) -> None:
         """Handle a connection failure."""
         self._async_set_connection_state_while_locked(ReconnectLogicState.DISCONNECTED)
-        # The attempt has truly ended — allow the next mDNS record to
-        # kick a fresh connect attempt early.
-        self._zc_wake.reopen()
-        if self._on_connect_error_cb is not None:
-            await self._on_connect_error_cb(err)
+        try:
+            if self._on_connect_error_cb is not None:
+                await self._on_connect_error_cb(err)
+        finally:
+            # The attempt has truly ended — allow the next wake to kick a fresh
+            # connect attempt early. Reopen after the callback: a kick while it
+            # yields is declined by the still running task but closes the gate.
+            self._zc_wake.reopen()
         self._async_log_connection_error(err)
         if (
             self._allow_plaintext_fallback
@@ -717,14 +784,45 @@ class ReconnectLogic:
 
         await self._zeroconf_manager.async_close()
 
-    def _zc_can_kick(self) -> bool:
-        """Return True while an mDNS record could still usefully kick a connect."""
+    def notify_device_seen(self) -> None:
+        """Connect now because out-of-band discovery saw the device.
+
+        Same policy as a matching mDNS record: ignored while stopped or
+        handshaking, at most one kick per connect attempt, and the backoff
+        counter is left untouched. Once connected, it is ignored unless
+        probe_on_announce is set; then it sends the keepalive ping now,
+        also while a pong is pending. A rebooted device usually answers
+        with a TCP reset right away; otherwise the session drops only if no
+        reply arrives before the normal pong deadline. Must be called from
+        the event loop.
+        """
+        self._zc_wake.seen("the device was seen")
+
+    def _can_kick(self) -> bool:
+        """Return True while a wake could still usefully kick a connect."""
         return (
             not self._is_stopped and self._connection_state in NOT_YET_CONNECTED_STATES
         )
 
-    def _connect_from_zeroconf(self) -> None:
-        """Connect from zeroconf."""
+    def _can_probe(self) -> bool:
+        """Return True while a sighting should probe the session."""
+        return (
+            self._probe_on_announce
+            and not self._is_stopped
+            and self._connection_state is ReconnectLogicState.READY
+        )
+
+    def _probe_now(self, reason: str, *args: object) -> None:
+        """Send the keepalive ping now."""
+        if self._cli.send_keepalive_now() and _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug(
+                "%s: Sending keepalive ping because %s",
+                self._cli.log_name,
+                reason % args,
+            )
+
+    def _connect_now(self) -> None:
+        """Connect now for a wake from mDNS or notify_device_seen."""
         self._schedule_connect(0.0)
 
     def _refuse_adoption(self, sock: socket.socket, state: ReconnectLogicState) -> bool:

@@ -7003,3 +7003,23 @@ async def test_ir_rf_transmit_estimate_fallback_dropped_after_disconnect(
     async_fire_time_changed(utcnow() + timedelta(seconds=2))
     await asyncio.sleep(0)
     assert len(sent) == 1
+
+
+async def test_send_keepalive_now_delegates(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """send_keepalive_now runs send_keepalive_now on the connection."""
+    client, connection, _transport, _protocol = api_client
+    with patch.object(
+        connection, "send_keepalive_now", return_value=True
+    ) as send_keepalive_now:
+        assert client.send_keepalive_now() is True
+    send_keepalive_now.assert_called_once_with()
+
+
+async def test_send_keepalive_now_without_connection() -> None:
+    """send_keepalive_now returns False without a connection."""
+    client = APIClient(address="127.0.0.1", port=6052, password=None)
+    assert client.send_keepalive_now() is False

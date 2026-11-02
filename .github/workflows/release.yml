@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
       # Used to host cibuildwheel
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
       - name: Set up QEMU
@@ -64,7 +64,7 @@ jobs:
             echo "CIBW_BUILD=${{ matrix.pyver }}*" >> $GITHUB_ENV
           fi
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.3.1
+        uses: pypa/cibuildwheel@v4.3.5
         env:
           CIBW_SKIP: cp36-* cp37-* cp38-* cp39-* cp310-* pp* ${{ matrix.musl == 'musllinux' && '*manylinux*' || '*musllinux*' }}
           REQUIRE_CYTHON: 1
@@ -103,7 +103,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.3
 
   bump_esphome:
     name: Bump aioesphomeapi in esphome
