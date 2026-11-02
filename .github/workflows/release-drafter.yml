@@ -14,13 +14,13 @@ jobs:
   update_release_draft:
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@978bb0b30c5ee8cdd332ced253758157150d43f0  # v7.10.0
+      - uses: release-drafter/release-drafter@v7.10.0
         id: release-draft
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Update version number in setup.py
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@v7.0.1
       - name: Calculate version
         id: version
         run: |
