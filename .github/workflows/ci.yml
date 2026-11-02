@@ -64,7 +64,7 @@ jobs:
           allow-prereleases: true
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.2
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - name: Set up Python environment (no cython)
@@ -146,7 +146,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.2
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - name: Set up Python environment (${{ matrix.extension }})
@@ -177,7 +177,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.2
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - name: Set up Python environment (cython)
