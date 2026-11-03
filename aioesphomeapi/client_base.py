@@ -22,6 +22,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     BluetoothLEAdvertisementResponse,
     BluetoothScannerStateResponse,
     CameraImageResponse,
+    DeviceStateResponse,
     HomeassistantActionRequest,
     InfraredRFReceiveEvent,
     SerialProxyDataReceived,
@@ -38,6 +39,7 @@ from .model import (
     CameraState,
     ConnectionClosedEvent,
     DeviceInfo,
+    DeviceState,
     EntityState,
     HomeassistantServiceCall,
     InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
@@ -139,6 +141,13 @@ def on_state_msg(
                     key=cam_msg.key, data=bytes(buf), device_id=cam_msg.device_id
                 )  # type: ignore[call-arg]
             )
+
+
+def on_device_state_msg(
+    on_device_state: Callable[[DeviceState], None], msg: DeviceStateResponse
+) -> None:
+    """Handle a device state message."""
+    on_device_state(DeviceState.from_pb(msg))
 
 
 def on_home_assistant_action_request(

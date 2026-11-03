@@ -53,6 +53,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DeviceCapabilitiesResponse,
     DeviceInfoRequest,
     DeviceInfoResponse,
+    DeviceStateResponse,
     DeviceWizardRequest,
     DeviceWizardResponse,
     DisconnectRequest,
@@ -593,6 +594,7 @@ MESSAGE_TYPE_TO_PROTO = {
     160: SendspinPairingTokenResponse,
     161: GetYamlRequest,
     162: GetYamlResponse,
+    163: DeviceStateResponse,
 }
 
 MESSAGE_NUMBER_TO_PROTO = tuple(MESSAGE_TYPE_TO_PROTO.values())
