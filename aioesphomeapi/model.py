@@ -167,6 +167,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     ANNOUNCE = 1 << 4
     START_CONVERSATION = 1 << 5
     MULTI_CHANNEL_AUDIO = 1 << 6
+    WAKE_WORD_AUDIO = 1 << 7
 
 
 class ZWaveProxyFeature(enum.IntFlag):
@@ -251,6 +252,7 @@ class RadioFrequencyCapability(enum.IntFlag):
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
+    WAKE_WORD_AUDIO = 1 << 3
 
 
 @_frozen_dataclass_decorator
@@ -2237,6 +2239,39 @@ class VoiceAssistantCommand(APIModelBase):
         converter=VoiceAssistantAudioSettings.from_pb,
     )
     wake_word_phrase: str = ""
+    wake_word_id: str = ""
+    wake_word_audio_bytes: int = 0
+    wake_word_audio_bytes2: int = 0
+    wake_word_probability: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    wake_word_probability_cutoff: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    @property
+    def wake_word_audio(self) -> VoiceAssistantWakeWordAudio | None:
+        """The wake word detection that started the pipeline, or None when no wake word did."""
+        if not self.wake_word_id:
+            return None
+        return VoiceAssistantWakeWordAudio(  # type: ignore[call-arg]
+            wake_word_id=self.wake_word_id,
+            audio_bytes=self.wake_word_audio_bytes,
+            audio_bytes2=self.wake_word_audio_bytes2,
+            probability=self.wake_word_probability,
+            probability_cutoff=self.wake_word_probability_cutoff,
+        )
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantWakeWordAudio(APIModelBase):
+    """A wake word detected on the device; audio_bytes(2) of channel 0 (1) precede the live audio."""
+
+    wake_word_id: str = ""
+    audio_bytes: int = 0
+    audio_bytes2: int = 0
+    probability: float = 0.0
+    probability_cutoff: float = 0.0
 
 
 @_frozen_dataclass_decorator
@@ -2343,6 +2378,7 @@ class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_WAKE_WORD_END = 10
     VOICE_ASSISTANT_STT_VAD_START = 11
     VOICE_ASSISTANT_STT_VAD_END = 12
+    VOICE_ASSISTANT_WAKE_WORD_REJECTED = 13
     VOICE_ASSISTANT_TTS_STREAM_START = 98
     VOICE_ASSISTANT_TTS_STREAM_END = 99
     VOICE_ASSISTANT_INTENT_PROGRESS = 100
@@ -2646,6 +2682,7 @@ __all__ = (
     "VoiceAssistantSubscriptionFlag",
     "VoiceAssistantTimerEventType",
     "VoiceAssistantWakeWord",
+    "VoiceAssistantWakeWordAudio",
     "WaterHeaterCommandField",
     "WaterHeaterFeature",
     "WaterHeaterInfo",
