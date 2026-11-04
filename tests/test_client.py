@@ -48,6 +48,7 @@ from aioesphomeapi.api_pb2 import (
     CameraImageResponse,
     ClimateCommandRequest,
     CoverCommandRequest,
+    CrashReportCore as CrashReportCorePb,
     CrashReportResponse,
     DateCommandRequest,
     DateTimeCommandRequest,
@@ -166,6 +167,7 @@ from aioesphomeapi.model import (
     ClimateSwingMode,
     ConnectionClosedEvent,
     CrashReason,
+    CrashReportCore,
     CrashReportFlag,
     DeviceCapabilities,
     DeviceInfo,
@@ -2414,14 +2416,14 @@ async def test_crash_report(
         flags=CrashReportFlag.PRESENT | CrashReportFlag.BUILD_MATCHES,
         reason=CrashReason.ABORT,
         pc=0x42001234,
-        backtrace=[0x42005678],
+        cores=[CrashReportCorePb(backtrace=[0x42005678])],
     )
     mock_data_received(protocol, generate_plaintext_packet(response))
     report = await task
     assert report.flags == CrashReportFlag.PRESENT | CrashReportFlag.BUILD_MATCHES
     assert report.reason is CrashReason.ABORT
     assert report.pc == 0x42001234
-    assert report.backtrace == [0x42005678]
+    assert report.cores == [CrashReportCore(backtrace=[0x42005678])]
 
 
 async def test_device_wizard(

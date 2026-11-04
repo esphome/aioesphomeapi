@@ -494,6 +494,12 @@ class DeviceCapabilities(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class CrashReportCore(APIModelBase):
+    core: int = 0
+    backtrace: list[int] = converter_field(default_factory=list, converter=list)
+
+
+@_frozen_dataclass_decorator
 class CrashReport(APIModelBase):
     # Bitmask of CrashReportFlag
     flags: int = 0
@@ -501,13 +507,12 @@ class CrashReport(APIModelBase):
         default=CrashReason.UNKNOWN, converter=CrashReason.convert
     )
     pc: int = 0
-    backtrace: list[int] = converter_field(default_factory=list, converter=list)
     cause: int = 0
     fault_address: int = 0
     build_time: int = 0
     crashed_core: int = 0
-    other_core_backtrace: list[int] = converter_field(
-        default_factory=list, converter=list
+    cores: list[CrashReportCore] = converter_field(
+        default_factory=list, converter=CrashReportCore.convert_list
     )
 
 
@@ -2526,6 +2531,7 @@ __all__ = (
     "CrashReason",
     "CrashReport",
     "CrashReportCapabilities",
+    "CrashReportCore",
     "CrashReportFlag",
     "DateInfo",
     "DateState",

@@ -27,6 +27,7 @@ from aioesphomeapi.api_pb2 import (
     ClimateStateResponse,
     CoverStateResponse,
     CrashReportCapabilities as CrashReportCapabilitiesPb,
+    CrashReportCore as CrashReportCorePb,
     CrashReportResponse,
     DateStateResponse,
     DateTimeStateResponse,
@@ -134,6 +135,7 @@ from aioesphomeapi.model import (
     CrashReason,
     CrashReport,
     CrashReportCapabilities,
+    CrashReportCore,
     CrashReportFlag,
     DateInfo,
     DateState,
@@ -447,6 +449,7 @@ def test_api_version_ord():
         (WizardCapabilities, WizardCapabilitiesPb),
         (StoreYamlCapabilities, StoreYamlCapabilitiesPb),
         (CrashReportCapabilities, CrashReportCapabilitiesPb),
+        (CrashReportCore, CrashReportCorePb),
         (CrashReport, CrashReportResponse),
     ],
 )
@@ -3128,25 +3131,29 @@ def test_device_capabilities_crash_report_from_dict() -> None:
 
 
 def test_crash_report_from_pb() -> None:
-    """CrashReport decodes every field, including both backtraces."""
+    """CrashReport decodes every field, including each core's backtrace."""
     pb = CrashReportResponse(
         flags=CrashReportFlag.PRESENT | CrashReportFlag.FAULT_ADDRESS,
         reason=CrashReason.EXCEPTION,
         pc=0x42001234,
-        backtrace=[0x42005678, 0x40380000],
         fault_address=0x0,
         build_time=1792800000,
         crashed_core=1,
-        other_core_backtrace=[0x42009ABC],
+        cores=[
+            CrashReportCorePb(core=1, backtrace=[0x42005678, 0x40380000]),
+            CrashReportCorePb(core=0, backtrace=[0x42009ABC]),
+        ],
     )
     report = CrashReport.from_pb(pb)
     assert report.flags == CrashReportFlag.PRESENT | CrashReportFlag.FAULT_ADDRESS
     assert report.reason is CrashReason.EXCEPTION
     assert report.pc == 0x42001234
-    assert report.backtrace == [0x42005678, 0x40380000]
     assert report.build_time == 1792800000
     assert report.crashed_core == 1
-    assert report.other_core_backtrace == [0x42009ABC]
+    assert report.cores == [
+        CrashReportCore(core=1, backtrace=[0x42005678, 0x40380000]),
+        CrashReportCore(core=0, backtrace=[0x42009ABC]),
+    ]
 
 
 def test_crash_report_from_pb_without_report() -> None:
