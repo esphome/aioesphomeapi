@@ -2590,6 +2590,7 @@ def test_serial_proxy_identity_conversion() -> None:
             interface_number=2,
             interface_class=0xFF,
             port_number=1,
+            interface_description="Zigbee",
         ),
     )
     model = SerialProxyIdentity.from_pb(pb_msg)
@@ -2606,6 +2607,7 @@ def test_serial_proxy_identity_conversion() -> None:
         interface_number=2,
         interface_class=0xFF,
         port_number=1,
+        interface_description="Zigbee",
     )
     assert SerialProxyIdentity.from_dict(model.to_dict()) == model
 

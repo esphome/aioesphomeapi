@@ -1736,6 +1736,7 @@ class UsbDeviceDescriptor(APIModelBase):
     interface_number: int = 0
     interface_class: int = 0
     port_number: int = 0
+    interface_description: str = ""
 
     @classmethod
     def convert(cls, value: Any) -> UsbDeviceDescriptor:
