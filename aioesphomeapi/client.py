@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Protocol, overload
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, overload
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
@@ -2427,6 +2427,10 @@ class APIClient(APIClientBase):
 
         Returns a callback to unsubscribe.
         """
+        if wake_word_audio and handle_audio is None:
+            msg = "wake_word_audio requires handle_audio"
+            raise ValueError(msg)
+
         connection = self._get_connection()
 
         start_task: asyncio.Task[int | None] | None = None
@@ -2448,24 +2452,28 @@ class APIClient(APIClientBase):
                 wake_word_phrase: str | None = command.wake_word_phrase
                 if wake_word_phrase == "":
                     wake_word_phrase = None
-                start_args: list[Any] = [
-                    command.conversation_id,
-                    command.flags,
-                    command.audio_settings,
-                    wake_word_phrase,
-                ]
+                # The overloads tie the handler's arity to wake_word_audio
                 if wake_word_audio:
-                    start_args.append(command.wake_word_audio)
-                start_task = create_eager_task(handle_start(*start_args))
+                    coro = cast("VoiceAssistantWakeWordStartHandler", handle_start)(
+                        command.conversation_id,
+                        command.flags,
+                        command.audio_settings,
+                        wake_word_phrase,
+                        command.wake_word_audio,
+                    )
+                else:
+                    coro = cast("VoiceAssistantStartHandler", handle_start)(
+                        command.conversation_id,
+                        command.flags,
+                        command.audio_settings,
+                        wake_word_phrase,
+                    )
+                start_task = create_eager_task(coro)
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
                 # so we don't need to add it to the background tasks.
             else:
                 self._create_background_task(handle_stop(True))
-
-        if wake_word_audio and handle_audio is None:
-            msg = "wake_word_audio requires handle_audio"
-            raise ValueError(msg)
 
         remove_callbacks = []
         flags = 0

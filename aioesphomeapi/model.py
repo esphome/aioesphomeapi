@@ -2186,8 +2186,12 @@ class VoiceAssistantCommand(APIModelBase):
     wake_word_id: str = ""
     wake_word_audio_bytes: int = 0
     wake_word_audio_bytes2: int = 0
-    wake_word_probability: float = 0.0
-    wake_word_probability_cutoff: float = 0.0
+    wake_word_probability: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    wake_word_probability_cutoff: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
 
     @property
     def wake_word_audio(self) -> VoiceAssistantWakeWordAudio | None:
