@@ -31,6 +31,7 @@ from aioesphomeapi.api_pb2 import (
     PingResponse,
     TextSensorStateResponse,
 )
+from aioesphomeapi.client_base import KEEP_ALIVE_FREQUENCY
 from aioesphomeapi.connection import (
     MAX_PROTOBUF_ERROR_DATA_BYTES,
     APIConnection,
@@ -45,6 +46,7 @@ from aioesphomeapi.core import (
     ConnectionNotEstablishedAPIError,
     HandshakeAPIError,
     InvalidAuthAPIError,
+    PingFailedAPIError,
     ReadFailedAPIError,
     RequiresEncryptionAPIError,
     ResolveAPIError,
@@ -1303,6 +1305,119 @@ async def test_ping_does_not_disconnect_if_we_get_responses(
 
     # We should disconnect if we are getting ping responses
     assert conn.is_connected is True
+
+
+ApiClientFixture = tuple[
+    APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+]
+PING_REQUEST_BYTES = [b"\x00", b"\x00", b"\x07"]
+
+
+async def test_send_keepalive_now_pings_and_reschedules(
+    api_client: ApiClientFixture,
+) -> None:
+    """send_keepalive_now sends a ping now and restarts the keepalive interval."""
+    _client, conn, transport, _protocol = api_client
+    loop = asyncio.get_running_loop()
+    start_time = utcnow()
+    with patch.object(loop, "time", return_value=loop.time() + 10):
+        assert conn.send_keepalive_now() is True
+    assert transport.writelines.mock_calls == [call(PING_REQUEST_BYTES)]
+
+    # The interval that was running at the time is cancelled.
+    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_FREQUENCY + 1))
+    assert transport.writelines.call_count == 1
+    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_FREQUENCY + 11))
+    assert transport.writelines.call_count == 2
+
+
+async def test_send_keepalive_now_while_pong_pending(
+    api_client: ApiClientFixture,
+) -> None:
+    """A ping goes out while a pong is pending; the pong deadline is kept."""
+    _client, conn, transport, _protocol = api_client
+    loop = asyncio.get_running_loop()
+    start_time = utcnow()
+    timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
+    assert conn.send_keepalive_now() is True
+    async_fire_time_changed(start_time + timedelta(seconds=timeout - 1))
+    sent = transport.writelines.call_count
+    with patch.object(loop, "time", return_value=loop.time() + timeout - 1):
+        assert conn.send_keepalive_now() is True
+    assert transport.writelines.mock_calls[sent:] == [call(PING_REQUEST_BYTES)]
+
+    async_fire_time_changed(start_time + timedelta(seconds=timeout + 1))
+    assert conn.is_connected is False
+    assert isinstance(conn.fatal_exception, PingFailedAPIError)
+
+
+async def test_send_keepalive_now_after_regular_keepalive(
+    api_client: ApiClientFixture,
+) -> None:
+    """A pong pending from the regular keepalive does not block the ping."""
+    _client, conn, transport, _protocol = api_client
+    async_fire_time_changed(utcnow() + timedelta(seconds=KEEP_ALIVE_FREQUENCY))
+    assert transport.writelines.call_count == 1
+    assert conn.send_keepalive_now() is True
+    assert transport.writelines.call_count == 2
+
+
+async def test_send_keepalive_now_pong_timeout_disconnects(
+    api_client: ApiClientFixture,
+) -> None:
+    """Without a reply the normal pong timeout drops the connection."""
+    _client, conn, _transport, _protocol = api_client
+    start_time = utcnow()
+    timeout = KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO
+    assert conn.send_keepalive_now() is True
+
+    async_fire_time_changed(start_time + timedelta(seconds=timeout - 1))
+    assert conn.is_connected is True
+    async_fire_time_changed(start_time + timedelta(seconds=timeout + 1))
+    assert conn.is_connected is False
+    assert isinstance(conn.fatal_exception, PingFailedAPIError)
+
+
+async def test_send_keepalive_now_any_frame_keeps_connection(
+    api_client: ApiClientFixture,
+) -> None:
+    """Any frame received after send_keepalive_now cancels the pong timer."""
+    _client, conn, _transport, protocol = api_client
+    assert conn.send_keepalive_now() is True
+    send_ping_request(protocol)
+    async_fire_time_changed(
+        utcnow()
+        + timedelta(seconds=KEEP_ALIVE_FREQUENCY * KEEP_ALIVE_TIMEOUT_RATIO + 1)
+    )
+    assert conn.is_connected is True
+
+
+def test_send_keepalive_now_before_handshake_is_noop(conn: APIConnection) -> None:
+    """send_keepalive_now does nothing before the handshake completes."""
+    assert conn.send_keepalive_now() is False
+    assert conn.is_connected is False
+
+
+async def test_send_keepalive_now_while_hello_pending_is_noop(
+    api_client: ApiClientFixture,
+) -> None:
+    """send_keepalive_now does nothing after the handshake until setup completes."""
+    _client, conn, transport, _protocol = api_client
+    conn.connection_state = ConnectionState.HANDSHAKE_COMPLETE
+    conn.is_connected = False
+    assert conn.send_keepalive_now() is False
+    assert transport.writelines.call_count == 0
+
+
+async def test_send_keepalive_now_send_failure(
+    api_client: ApiClientFixture,
+) -> None:
+    """A failed ping send drops the connection and returns False instead of raising."""
+    _client, conn, transport, _protocol = api_client
+    transport.writelines.side_effect = OSError("gone")
+    assert conn.send_keepalive_now() is False
+    assert conn.is_connected is False
+    assert isinstance(conn.fatal_exception, SocketClosedAPIError)
 
 
 def test_raise_during_send_messages_when_not_yet_connected(conn: APIConnection) -> None:

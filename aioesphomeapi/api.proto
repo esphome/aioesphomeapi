@@ -2857,7 +2857,7 @@ message InfraredRFReceiveEvent {
 
   uint32 device_id = 1 [(field_ifdef) = "USE_DEVICES"];
   fixed32 key = 2 [(force) = true];     // Key identifying the receiver instance
-  repeated sint32 timings = 3 [packed = true, (container_pointer_no_template) = "std::vector<int32_t>"];  // Raw timings in microseconds (zigzag-encoded): alternating mark/space periods
+  repeated sint32 timings = 3 [packed = true, (container_pointer_no_template) = "std::span<const int32_t>"];  // Raw timings in microseconds (zigzag-encoded): alternating mark/space periods
 }
 
 // Sent only to the client that issued an InfraredRFTransmitRawTimingsRequest, once the
@@ -3085,6 +3085,7 @@ message UsbDeviceDescriptor {
   uint32 interface_number = 4;  // bInterfaceNumber the port is bound through
   uint32 interface_class = 5;   // bInterfaceClass of that interface
   uint32 port_number = 6;
+  string interface_description = 7;  // iInterface string of that interface, empty when it has none
 }
 
 // The identity of the device behind a port. Identifies one physical device among others of

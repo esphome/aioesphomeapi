@@ -56,9 +56,12 @@ ZEROCONF_DEFERRED_MODULES = (
 )
 
 
-def _assert_modules_not_loaded_on_import(modules: tuple[str, ...]) -> None:
+def _assert_modules_not_loaded_on_import(
+    modules: tuple[str, ...], prelude: str = "import aioesphomeapi\n"
+) -> None:
     script = (
-        "import sys, aioesphomeapi\n"
+        "import sys\n"
+        f"{prelude}"
         f"loaded = [m for m in {modules!r} if m in sys.modules]\n"
         "print(','.join(loaded))\n"
     )
@@ -84,6 +87,21 @@ def test_import_does_not_load_tz_or_uuid_modules() -> None:
 def test_import_does_not_load_zeroconf_stack() -> None:
     """Importing the package must not pull in the zeroconf stack."""
     _assert_modules_not_loaded_on_import(ZEROCONF_DEFERRED_MODULES)
+
+
+def test_reconnect_logic_without_zeroconf_does_not_load_zeroconf_stack() -> None:
+    """A ReconnectLogic without a shared zeroconf (esphome logs) must not load it."""
+    _assert_modules_not_loaded_on_import(
+        ZEROCONF_DEFERRED_MODULES,
+        "import asyncio\n"
+        "from aioesphomeapi import APIClient, ReconnectLogic\n"
+        "async def noop(*args):\n"
+        "    pass\n"
+        "async def main():\n"
+        "    ReconnectLogic(client=APIClient('mydevice.local', 6053, None),\n"
+        "        on_connect=noop, on_disconnect=noop, name='mydevice')\n"
+        "asyncio.run(main())\n",
+    )
 
 
 def test_explicit_timezone_does_not_load_tzlocal() -> None:
