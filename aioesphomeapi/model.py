@@ -2189,6 +2189,19 @@ class VoiceAssistantCommand(APIModelBase):
     wake_word_probability: float = 0.0
     wake_word_probability_cutoff: float = 0.0
 
+    @property
+    def wake_word_audio(self) -> VoiceAssistantWakeWordAudio | None:
+        """The wake word detection that started the pipeline, or None when no wake word did."""
+        if not self.wake_word_id:
+            return None
+        return VoiceAssistantWakeWordAudio(  # type: ignore[call-arg]
+            wake_word_id=self.wake_word_id,
+            audio_bytes=self.wake_word_audio_bytes,
+            audio_bytes2=self.wake_word_audio_bytes2,
+            probability=self.wake_word_probability,
+            probability_cutoff=self.wake_word_probability_cutoff,
+        )
+
 
 @_frozen_dataclass_decorator
 class VoiceAssistantWakeWordAudio(APIModelBase):

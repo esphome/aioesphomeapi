@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, Protocol, overload
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
@@ -219,6 +219,43 @@ from .model_conversions import (
 )
 from .object_id import fill_missing_object_ids
 from .util import create_eager_task
+
+if TYPE_CHECKING:
+    VoiceAssistantStartHandler = Callable[
+        [str, int, VoiceAssistantAudioSettingsModel, str | None],
+        Coroutine[Any, Any, int | None],
+    ]
+    # With wake_word_audio, handle_start also gets the detection that started the pipeline
+    VoiceAssistantWakeWordStartHandler = Callable[
+        [
+            str,
+            int,
+            VoiceAssistantAudioSettingsModel,
+            str | None,
+            VoiceAssistantWakeWordAudio | None,
+        ],
+        Coroutine[Any, Any, int | None],
+    ]
+
+    class VoiceAssistantOptionalWakeWordStartHandler(Protocol):
+        """A handle_start that works with and without wake_word_audio: the detection is optional."""
+
+        def __call__(
+            self,
+            conversation_id: str,
+            flags: int,
+            audio_settings: VoiceAssistantAudioSettingsModel,
+            wake_word_phrase: str | None,
+            wake_word_audio: VoiceAssistantWakeWordAudio | None = None,
+            /,
+        ) -> Coroutine[Any, Any, int | None]: ...
+
+    VoiceAssistantAudioHandler = Callable[
+        [bytes, bytes | None], Coroutine[Any, Any, None]
+    ]
+    VoiceAssistantAnnounceFinishedHandler = Callable[
+        [VoiceAssistantAnnounceFinishedModel], Coroutine[Any, Any, None]
+    ]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -2325,40 +2362,50 @@ class APIClient(APIClientBase):
     def request_image_stream(self) -> None:
         self._request_image(stream=True)
 
+    @overload
+    def subscribe_voice_assistant(
+        self,
+        *,
+        handle_start: VoiceAssistantStartHandler,
+        handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
+        handle_audio: VoiceAssistantAudioHandler | None = None,
+        handle_announcement_finished: VoiceAssistantAnnounceFinishedHandler
+        | None = None,
+        wake_word_audio: Literal[False] = False,
+    ) -> Callable[[], None]: ...
+
+    @overload
+    def subscribe_voice_assistant(
+        self,
+        *,
+        handle_start: VoiceAssistantWakeWordStartHandler,
+        handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
+        handle_audio: VoiceAssistantAudioHandler,
+        handle_announcement_finished: VoiceAssistantAnnounceFinishedHandler
+        | None = None,
+        wake_word_audio: Literal[True],
+    ) -> Callable[[], None]: ...
+
+    @overload
+    def subscribe_voice_assistant(
+        self,
+        *,
+        handle_start: VoiceAssistantOptionalWakeWordStartHandler,
+        handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
+        handle_audio: VoiceAssistantAudioHandler | None = None,
+        handle_announcement_finished: VoiceAssistantAnnounceFinishedHandler
+        | None = None,
+        wake_word_audio: bool = False,
+    ) -> Callable[[], None]: ...
+
     def subscribe_voice_assistant(  # noqa: C901  # high-fan-in command builder with many optional features
         self,
         *,
-        handle_start: (
-            Callable[
-                [str, int, VoiceAssistantAudioSettingsModel, str | None],
-                Coroutine[Any, Any, int | None],
-            ]
-            | Callable[
-                [
-                    str,
-                    int,
-                    VoiceAssistantAudioSettingsModel,
-                    str | None,
-                    VoiceAssistantWakeWordAudio | None,
-                ],
-                Coroutine[Any, Any, int | None],
-            ]
-        ),
+        handle_start: VoiceAssistantStartHandler | VoiceAssistantWakeWordStartHandler,
         handle_stop: Callable[[bool], Coroutine[Any, Any, None]],
-        handle_audio: (
-            Callable[
-                [bytes, bytes | None],
-                Coroutine[Any, Any, None],
-            ]
-            | None
-        ) = None,
-        handle_announcement_finished: (
-            Callable[
-                [VoiceAssistantAnnounceFinishedModel],
-                Coroutine[Any, Any, None],
-            ]
-            | None
-        ) = None,
+        handle_audio: VoiceAssistantAudioHandler | None = None,
+        handle_announcement_finished: VoiceAssistantAnnounceFinishedHandler
+        | None = None,
         wake_word_audio: bool = False,
     ) -> Callable[[], None]:
         """Subscribe to voice assistant messages from the device.
@@ -2408,16 +2455,7 @@ class APIClient(APIClientBase):
                     wake_word_phrase,
                 ]
                 if wake_word_audio:
-                    detection: VoiceAssistantWakeWordAudio | None = None
-                    if command.wake_word_id:
-                        detection = VoiceAssistantWakeWordAudio(  # type: ignore[call-arg]
-                            wake_word_id=command.wake_word_id,
-                            audio_bytes=command.wake_word_audio_bytes,
-                            audio_bytes2=command.wake_word_audio_bytes2,
-                            probability=command.wake_word_probability,
-                            probability_cutoff=command.wake_word_probability_cutoff,
-                        )
-                    start_args.append(detection)
+                    start_args.append(command.wake_word_audio)
                 start_task = create_eager_task(handle_start(*start_args))
                 start_task.add_done_callback(_started)
                 # We hold a reference to the start_task in unsub function
