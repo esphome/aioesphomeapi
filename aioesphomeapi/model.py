@@ -485,6 +485,7 @@ class WizardEntityField(APIModelBase):
     key: int = 0
     device_id: int = 0
     description: str = ""
+    role: str = ""
 
 
 @_frozen_dataclass_decorator
