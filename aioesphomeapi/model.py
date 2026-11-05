@@ -167,6 +167,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     ANNOUNCE = 1 << 4
     START_CONVERSATION = 1 << 5
     MULTI_CHANNEL_AUDIO = 1 << 6
+    WAKE_WORD_AUDIO = 1 << 7
 
 
 class ZWaveProxyFeature(enum.IntFlag):
@@ -175,6 +176,23 @@ class ZWaveProxyFeature(enum.IntFlag):
 
 class SendspinFeature(enum.IntFlag):
     PAIRING_TOKEN = 1 << 0
+
+
+class CrashReportFlag(enum.IntFlag):
+    PRESENT = 1 << 0
+    BUILD_MATCHES = 1 << 1
+    CAUSE = 1 << 2
+    FAULT_ADDRESS = 1 << 3
+
+
+class CrashReason(APIIntEnum):
+    UNKNOWN = 0
+    EXCEPTION = 1
+    ABORT = 2
+    TASK_WATCHDOG = 3
+    INTERRUPT_WATCHDOG = 4
+    SOFT_WATCHDOG = 5
+    HARDWARE_WATCHDOG = 6
 
 
 class ZWaveProxyRequestType(APIIntEnum):
@@ -234,6 +252,7 @@ class RadioFrequencyCapability(enum.IntFlag):
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
+    WAKE_WORD_AUDIO = 1 << 3
 
 
 @_frozen_dataclass_decorator
@@ -430,6 +449,18 @@ class StoreYamlCapabilities(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class CrashReportCapabilities(APIModelBase):
+    # Bitmask of CrashReportFlag
+    flags: int = 0
+
+    @classmethod
+    def convert(cls, value: Any) -> CrashReportCapabilities:
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        return cls.from_pb(value)
+
+
+@_frozen_dataclass_decorator
 class DeviceCapabilities(APIModelBase):
     bluetooth_proxy: BluetoothProxyCapabilities = converter_field(
         default_factory=BluetoothProxyCapabilities,
@@ -457,6 +488,33 @@ class DeviceCapabilities(APIModelBase):
     store_yaml: StoreYamlCapabilities = converter_field(
         default_factory=StoreYamlCapabilities,
         converter=StoreYamlCapabilities.convert,
+    )
+    crash_report: CrashReportCapabilities = converter_field(
+        default_factory=CrashReportCapabilities,
+        converter=CrashReportCapabilities.convert,
+    )
+
+
+@_frozen_dataclass_decorator
+class CrashReportCore(APIModelBase):
+    core: int = 0
+    backtrace: list[int] = converter_field(default_factory=list, converter=list)
+
+
+@_frozen_dataclass_decorator
+class CrashReport(APIModelBase):
+    # Bitmask of CrashReportFlag
+    flags: int = 0
+    reason: CrashReason | None = converter_field(
+        default=CrashReason.UNKNOWN, converter=CrashReason.convert
+    )
+    pc: int = 0
+    cause: int = 0
+    fault_address: int = 0
+    build_time: int = 0
+    crashed_core: int = 0
+    cores: list[CrashReportCore] = converter_field(
+        default_factory=list, converter=CrashReportCore.convert_list
     )
 
 
@@ -1686,6 +1744,7 @@ class UsbDeviceDescriptor(APIModelBase):
     interface_number: int = 0
     interface_class: int = 0
     port_number: int = 0
+    interface_description: str = ""
 
     @classmethod
     def convert(cls, value: Any) -> UsbDeviceDescriptor:
@@ -2181,6 +2240,39 @@ class VoiceAssistantCommand(APIModelBase):
         converter=VoiceAssistantAudioSettings.from_pb,
     )
     wake_word_phrase: str = ""
+    wake_word_id: str = ""
+    wake_word_audio_bytes: int = 0
+    wake_word_audio_bytes2: int = 0
+    wake_word_probability: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    wake_word_probability_cutoff: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    @property
+    def wake_word_audio(self) -> VoiceAssistantWakeWordAudio | None:
+        """The wake word detection that started the pipeline, or None when no wake word did."""
+        if not self.wake_word_id:
+            return None
+        return VoiceAssistantWakeWordAudio(  # type: ignore[call-arg]
+            wake_word_id=self.wake_word_id,
+            audio_bytes=self.wake_word_audio_bytes,
+            audio_bytes2=self.wake_word_audio_bytes2,
+            probability=self.wake_word_probability,
+            probability_cutoff=self.wake_word_probability_cutoff,
+        )
+
+
+@_frozen_dataclass_decorator
+class VoiceAssistantWakeWordAudio(APIModelBase):
+    """A wake word detected on the device; audio_bytes(2) of channel 0 (1) precede the live audio."""
+
+    wake_word_id: str = ""
+    audio_bytes: int = 0
+    audio_bytes2: int = 0
+    probability: float = 0.0
+    probability_cutoff: float = 0.0
 
 
 @_frozen_dataclass_decorator
@@ -2287,6 +2379,7 @@ class VoiceAssistantEventType(APIIntEnum):
     VOICE_ASSISTANT_WAKE_WORD_END = 10
     VOICE_ASSISTANT_STT_VAD_START = 11
     VOICE_ASSISTANT_STT_VAD_END = 12
+    VOICE_ASSISTANT_WAKE_WORD_REJECTED = 13
     VOICE_ASSISTANT_TTS_STREAM_START = 98
     VOICE_ASSISTANT_TTS_STREAM_END = 99
     VOICE_ASSISTANT_INTENT_PROGRESS = 100
@@ -2472,6 +2565,11 @@ __all__ = (
     "CoverInfo",
     "CoverOperation",
     "CoverState",
+    "CrashReason",
+    "CrashReport",
+    "CrashReportCapabilities",
+    "CrashReportCore",
+    "CrashReportFlag",
     "DateInfo",
     "DateState",
     "DateTimeInfo",
@@ -2585,6 +2683,7 @@ __all__ = (
     "VoiceAssistantSubscriptionFlag",
     "VoiceAssistantTimerEventType",
     "VoiceAssistantWakeWord",
+    "VoiceAssistantWakeWordAudio",
     "WaterHeaterCommandField",
     "WaterHeaterFeature",
     "WaterHeaterInfo",

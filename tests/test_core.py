@@ -6,6 +6,8 @@ import pytest
 
 import aioesphomeapi
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
+    CrashReportRequest,
+    CrashReportResponse,
     DeviceWizardRequest,
     DeviceWizardResponse,
     GetYamlRequest,
@@ -51,6 +53,12 @@ def test_get_yaml_message_ids() -> None:
     """The store_yaml messages map to their wire message ids."""
     assert MESSAGE_TYPE_TO_PROTO[161] is GetYamlRequest
     assert MESSAGE_TYPE_TO_PROTO[162] is GetYamlResponse
+
+
+def test_crash_report_message_ids() -> None:
+    """The crash report messages map to their wire message ids."""
+    assert MESSAGE_TYPE_TO_PROTO[163] is CrashReportRequest
+    assert MESSAGE_TYPE_TO_PROTO[164] is CrashReportResponse
 
 
 def test_unsupported_wizard_version_error_is_exported() -> None:
