@@ -12,7 +12,7 @@ workflows:
         - 'actions/upload-artifact@v7.0.2'
         - 'astral-sh/setup-uv@v10.3.3'
         - 'codecov/codecov-action@v7.1.1'
-        - 'codspeedhq/action@v5.6.1'
+        - 'codspeedhq/action@v5.6.3'
     '.github/workflows/close-pr-from-fork-default-branch.yml':
         - 'actions/github-script@v9.0.0'
     '.github/workflows/docker.yml':
@@ -105,9 +105,9 @@ dependencies:
         repo_id: 200299178
         uses:
             - 'actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd'
-    'codspeedhq/action@v5.6.1':
-        ref: 'v5.6.1'
-        commit: 'sha1-61efe07e57e55bedeab750c434504de272a56e8c'
+    'codspeedhq/action@v5.6.3':
+        ref: 'v5.6.3'
+        commit: 'sha1-af75f77f17a054769abefaa42fe8dc2975469b5f'
         owner_id: 116658140
         repo_id: 561699778
         uses:
