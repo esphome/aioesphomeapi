@@ -3,10 +3,7 @@
 cd "$(dirname "$0")/.."
 set -euxo pipefail
 
-black --safe aioesphomeapi tests
-pylint aioesphomeapi
 ruff check aioesphomeapi tests
 ruff format --check aioesphomeapi tests
-isort aioesphomeapi tests
 mypy aioesphomeapi
 pytest tests
