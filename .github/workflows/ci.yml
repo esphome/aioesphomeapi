@@ -86,7 +86,6 @@ jobs:
       - name: Register problem matchers
         shell: bash
         run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/mypy.json"
           echo "::add-matcher::.github/workflows/matchers/pytest.json"
 
