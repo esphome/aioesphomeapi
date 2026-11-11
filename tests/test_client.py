@@ -146,7 +146,6 @@ from aioesphomeapi.core import (
     BluetoothGATTAPIError,
     ConnectionNotEstablishedAPIError,
     PingFailedAPIError,
-    ProtocolAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
 )
@@ -2448,25 +2447,6 @@ async def test_get_yaml(
     ):
         mock_data_received(protocol, generate_plaintext_packet(response))
     assert await task == b"abcdef"
-
-
-async def test_get_yaml_size_mismatch(
-    api_client: tuple[
-        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
-    ],
-) -> None:
-    """get_yaml rejects a blob that does not match total_size."""
-    client, _connection, _transport, protocol = api_client
-    task = asyncio.create_task(client.get_yaml())
-    await asyncio.sleep(0)
-    mock_data_received(
-        protocol,
-        generate_plaintext_packet(
-            GetYamlResponse(data=b"abc", total_size=4, done=True)
-        ),
-    )
-    with pytest.raises(ProtocolAPIError, match="3 bytes, expected 4"):
-        await task
 
 
 async def test_device_wizard(

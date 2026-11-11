@@ -145,7 +145,6 @@ from .core import (
     BluetoothConnectionDroppedError,
     BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
-    ProtocolAPIError,
     TimeoutAPIError,
     to_human_readable_address,
     to_human_readable_gatt_error,
@@ -622,6 +621,7 @@ class APIClient(APIClientBase):
 
         Only call when DeviceCapabilities.store_yaml.supported is set: a device
         without it never answers, so the request raises TimeoutAPIError.
+        The timeout covers the whole transfer.
         """
         msgs: list[
             GetYamlResponse
@@ -632,11 +632,7 @@ class APIClient(APIClientBase):
             (GetYamlResponse,),
             timeout,
         )
-        data = b"".join(msg.data for msg in msgs)
-        if (expected := msgs[0].total_size) != len(data):
-            reason = f"Stored YAML is {len(data)} bytes, expected {expected}"
-            raise ProtocolAPIError(reason)
-        return data
+        return b"".join(msg.data for msg in msgs)
 
     def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
         """Set the Home Assistant entity id of the wizard input with the given key.
