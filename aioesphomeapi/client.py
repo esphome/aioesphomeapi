@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
+from operator import attrgetter
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, overload
 
 if TYPE_CHECKING:
@@ -58,6 +59,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     ExecuteServiceRequest,
     ExecuteServiceResponse,
     FanCommandRequest,
+    GetYamlRequest,
+    GetYamlResponse,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
@@ -142,6 +145,7 @@ from .core import (
     BluetoothConnectionDroppedError,
     BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
+    ProtocolAPIError,
     TimeoutAPIError,
     to_human_readable_address,
     to_human_readable_gatt_error,
@@ -612,6 +616,27 @@ class APIClient(APIClientBase):
             CrashReportRequest(), CrashReportResponse
         )
         return CrashReportModel.from_pb(resp)
+
+    async def get_yaml(self, timeout: float = 60.0) -> bytes:
+        """Fetch the YAML stored by store_yaml as the zstd compressed blob.
+
+        Only call when DeviceCapabilities.store_yaml.supported is set: a device
+        without it never answers, so the request raises TimeoutAPIError.
+        """
+        msgs: list[
+            GetYamlResponse
+        ] = await self._get_connection().send_messages_await_response_complex(
+            (GetYamlRequest(),),
+            None,
+            attrgetter("done"),
+            (GetYamlResponse,),
+            timeout,
+        )
+        data = b"".join(msg.data for msg in msgs)
+        if (expected := msgs[0].total_size) != len(data):
+            reason = f"Stored YAML is {len(data)} bytes, expected {expected}"
+            raise ProtocolAPIError(reason)
+        return data
 
     def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
         """Set the Home Assistant entity id of the wizard input with the given key.
