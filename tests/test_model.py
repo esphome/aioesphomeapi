@@ -3332,7 +3332,15 @@ _FULL_DEVICE_WIZARD_DOCUMENT: dict[str, Any] = {
         {
             "title": "Welcome",
             "description": "[%key:component::esphome::wizard::intro%]",
-            "entities": [{"key": 1, "device_id": 2, "description": "Relay"}],
+            "entities": [
+                {
+                    "key": 1,
+                    "device_id": 2,
+                    "description": "Relay",
+                    "role": "sendspin.enabled",
+                    "platform": "switch",
+                }
+            ],
             "inputs": [
                 {
                     "key": 0xDEADBEEF,
@@ -3353,7 +3361,7 @@ _FULL_DEVICE_WIZARD_DOCUMENT: dict[str, Any] = {
                 {"key": 6, "multiple": True, "max_length": 1023},
             ],
         },
-        {"title": "Done", "entities": [{"key": 4}]},
+        {"title": "Done", "entities": [{"key": 4, "platform": "sensor"}]},
     ],
 }
 
@@ -3363,7 +3371,15 @@ _FULL_DEVICE_WIZARD = DeviceWizard(
         WizardPage(
             title="Welcome",
             description="[%key:component::esphome::wizard::intro%]",
-            entities=[WizardEntityField(key=1, device_id=2, description="Relay")],
+            entities=[
+                WizardEntityField(
+                    key=1,
+                    device_id=2,
+                    description="Relay",
+                    role="sendspin.enabled",
+                    platform="switch",
+                )
+            ],
             inputs=[
                 WizardInputField(
                     key=0xDEADBEEF,
@@ -3384,7 +3400,9 @@ _FULL_DEVICE_WIZARD = DeviceWizard(
                 WizardInputField(key=6, multiple=True, max_length=1023),
             ],
         ),
-        WizardPage(title="Done", entities=[WizardEntityField(key=4)]),
+        WizardPage(
+            title="Done", entities=[WizardEntityField(key=4, platform="sensor")]
+        ),
     ]
 )
 
@@ -3397,6 +3415,20 @@ def test_device_wizard_from_compressed_json() -> None:
     assert wizard == _FULL_DEVICE_WIZARD
     entity_filter = wizard.pages[0].inputs[0].entity_filters[0]
     assert type(entity_filter.domain) is list
+
+
+def test_wizard_entity_field_role_defaults() -> None:
+    """An entity without a role has an empty one."""
+    assert WizardEntityField.from_dict({"key": 1}).role == ""
+    assert WizardEntityField.from_dict({"key": 1, "role": "a.b"}).role == "a.b"
+
+
+def test_wizard_entity_field_platform_defaults() -> None:
+    """An entity from older firmware has no platform."""
+    assert WizardEntityField.from_dict({"key": 1}).platform == ""
+    assert (
+        WizardEntityField.from_dict({"key": 1, "platform": "date"}).platform == "date"
+    )
 
 
 def test_wizard_input_field_multiple_defaults() -> None:

@@ -62,6 +62,7 @@ from aioesphomeapi.api_pb2 import (
     ExecuteServiceRequest,
     ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanCommandRequest,
+    GetYamlResponse,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
@@ -2425,6 +2426,27 @@ async def test_crash_report(
     assert report.reason is CrashReason.ABORT
     assert report.pc == 0x42001234
     assert report.cores == [CrashReportCore(backtrace=[0x42005678])]
+
+
+async def test_get_yaml(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """get_yaml joins the chunks up to the one marked done."""
+    client, _connection, transport, protocol = api_client
+    transport.writelines.reset_mock()
+    task = asyncio.create_task(client.get_yaml())
+    await asyncio.sleep(0)
+    # 161 is varuint b"\xa1\x01"
+    transport.writelines.assert_called_once_with([b"\x00", b"\x00", b"\xa1\x01"])
+    for response in (
+        GetYamlResponse(data=b"abc", total_size=6),
+        GetYamlResponse(data=b"de"),
+        GetYamlResponse(data=b"f", done=True),
+    ):
+        mock_data_received(protocol, generate_plaintext_packet(response))
+    assert await task == b"abcdef"
 
 
 async def test_device_wizard(

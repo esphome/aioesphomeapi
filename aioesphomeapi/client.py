@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
+from operator import attrgetter
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, overload
 
 if TYPE_CHECKING:
@@ -58,6 +59,8 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     ExecuteServiceRequest,
     ExecuteServiceResponse,
     FanCommandRequest,
+    GetYamlRequest,
+    GetYamlResponse,
     HomeassistantActionRequest,
     HomeassistantActionResponse,
     HomeAssistantStateResponse,
@@ -612,6 +615,24 @@ class APIClient(APIClientBase):
             CrashReportRequest(), CrashReportResponse
         )
         return CrashReportModel.from_pb(resp)
+
+    async def get_yaml(self, timeout: float = 60.0) -> bytes:
+        """Fetch the YAML stored by store_yaml as the zstd compressed blob.
+
+        Only call when DeviceCapabilities.store_yaml.supported is set: a device
+        without it never answers, so the request raises TimeoutAPIError.
+        The timeout covers the whole transfer.
+        """
+        msgs: list[
+            GetYamlResponse
+        ] = await self._get_connection().send_messages_await_response_complex(
+            (GetYamlRequest(),),
+            None,
+            attrgetter("done"),
+            (GetYamlResponse,),
+            timeout,
+        )
+        return b"".join(msg.data for msg in msgs)
 
     def wizard_input_set(self, key: int, entity_id: str | list[str]) -> None:
         """Set the Home Assistant entity id of the wizard input with the given key.
