@@ -105,12 +105,13 @@ def test_reconnect_logic_without_zeroconf_does_not_load_zeroconf_stack() -> None
 
 
 def test_explicit_timezone_does_not_load_tzlocal() -> None:
-    """Resolving an explicit IANA key must not pull in tzlocal."""
+    """An explicit IANA key must not load tzlocal or importlib.resources."""
     script = (
         "import sys\n"
         "from aioesphomeapi.timezone import iana_to_posix_tz\n"
         "assert iana_to_posix_tz('America/Chicago')\n"
         "assert 'tzlocal' not in sys.modules\n"
+        "assert 'importlib.resources' not in sys.modules\n"
     )
     subprocess.run(  # noqa: S603
         [sys.executable, "-c", script],

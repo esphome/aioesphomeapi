@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -11,7 +11,6 @@ from aioesphomeapi.singleton import _SINGLETON_CACHE
 from aioesphomeapi.timezone import (
     _extract_tz_string,
     _get_local_timezone,
-    _load_resources,
     _load_tzdata,
     _load_tzlocal,
     get_local_timezone,
@@ -19,9 +18,8 @@ from aioesphomeapi.timezone import (
     iana_to_posix_tz,
 )
 
-# Populate the lazily imported tzlocal/resources module globals so the
-# patch targets below resolve.
-_load_resources()
+# Populate the lazily imported tzlocal module global so the patch targets
+# below resolve.
 _load_tzlocal()
 
 
@@ -68,16 +66,12 @@ def test_load_tzdata_invalid_key() -> None:
     assert result is None
 
 
-@patch("aioesphomeapi.timezone.resources.files")
-def test_load_tzdata_top_level_key(mock_files) -> None:
+@patch("pkgutil.get_data", return_value=b"tzdata_content")
+def test_load_tzdata_top_level_key(mock_get_data) -> None:
     """Test loading tzdata with top-level IANA key like UTC or GMT."""
-    mock_resource = MagicMock()
-    mock_resource.read_bytes.return_value = b"tzdata_content"
-    mock_files.return_value.__truediv__.return_value = mock_resource
-
     result = _load_tzdata("UTC")
     assert result == b"tzdata_content"
-    mock_files.assert_called_with("tzdata.zoneinfo")
+    mock_get_data.assert_called_with("tzdata.zoneinfo", "UTC")
 
 
 def test_load_tzdata_utc_resolves_to_utc0() -> None:
@@ -102,24 +96,37 @@ def test_iana_to_posix_tz_uses_bundled_tzdata() -> None:
     assert parsed.has_dst
 
 
-@patch("aioesphomeapi.timezone.resources.files")
-def test_load_tzdata_file_not_found(mock_files) -> None:
+@patch("pkgutil.get_data", side_effect=FileNotFoundError())
+def test_load_tzdata_file_not_found(mock_get_data) -> None:
     """Test loading tzdata when file doesn't exist."""
-    mock_files.side_effect = FileNotFoundError()
     result = _load_tzdata("America/Chicago")
     assert result is None
 
 
-@patch("aioesphomeapi.timezone.resources.files")
-def test_load_tzdata_success(mock_files) -> None:
-    """Test successful tzdata loading."""
-    mock_resource = MagicMock()
-    mock_resource.read_bytes.return_value = b"tzdata_content"
-    mock_files.return_value.__truediv__.return_value = mock_resource
+@patch("pkgutil.get_data", side_effect=PermissionError())
+def test_load_tzdata_permission_error(mock_get_data) -> None:
+    """A directory key opened on Windows raises PermissionError and resolves to None."""
+    result = _load_tzdata("America")
+    assert result is None
 
+
+def test_load_tzdata_missing_package() -> None:
+    """A key whose region package does not exist resolves to None."""
+    assert _load_tzdata("Nowhere/City") is None
+    assert _load_tzdata("Nowhere/Deeper/City") is None
+
+
+def test_load_tzdata_directory_key() -> None:
+    """A key naming a region directory rather than a zone resolves to None."""
+    assert _load_tzdata("America") is None
+
+
+@patch("pkgutil.get_data", return_value=b"tzdata_content")
+def test_load_tzdata_success(mock_get_data) -> None:
+    """Test successful tzdata loading."""
     result = _load_tzdata("America/Chicago")
     assert result == b"tzdata_content"
-    mock_files.assert_called_with("tzdata.zoneinfo.America")
+    mock_get_data.assert_called_with("tzdata.zoneinfo.America", "Chicago")
 
 
 @patch("aioesphomeapi.timezone.tzlocal.get_localzone_name")

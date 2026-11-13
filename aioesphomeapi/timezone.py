@@ -11,11 +11,8 @@ from typing import TYPE_CHECKING
 from .singleton import singleton
 
 if TYPE_CHECKING:
-    from importlib import resources
-
     import tzlocal
 else:
-    resources = None
     tzlocal = None
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,20 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 # Guards the lazy imports below; a module-level lock is per-interpreter,
 # matching the per-interpreter sys.modules the imports populate.
 _import_lock = threading.Lock()
-_resources_loaded = False
 _tzlocal_loaded = False
-
-
-def _load_resources() -> None:
-    """Import importlib.resources; blocking, so run off the event loop."""
-    global resources, _resources_loaded  # noqa: PLW0603
-    # Callers are behind lru_cache so this is cold; always taking the lock
-    # keeps the flag and module stores ordered on free-threaded builds.
-    with _import_lock:
-        if not _resources_loaded:
-            from importlib import resources  # noqa: PLC0415
-
-            _resources_loaded = True
 
 
 def _load_tzlocal() -> None:
@@ -53,7 +37,8 @@ def _load_tzdata(iana_key: str) -> bytes | None:
     """Load timezone data from tzdata package."""
     if not iana_key:
         return None
-    _load_resources()
+    import pkgutil  # noqa: PLC0415
+
     try:
         package_loc, resource = iana_key.rsplit("/", 1)
     except ValueError:
@@ -64,8 +49,14 @@ def _load_tzdata(iana_key: str) -> bytes | None:
         package = "tzdata.zoneinfo." + package_loc.replace("/", ".")
 
     try:
-        return (resources.files(package) / resource).read_bytes()
-    except (FileNotFoundError, ModuleNotFoundError, IsADirectoryError):
+        return pkgutil.get_data(package, resource)
+    # Windows raises PermissionError instead of IsADirectoryError for a directory key.
+    except (
+        FileNotFoundError,
+        ModuleNotFoundError,
+        IsADirectoryError,
+        PermissionError,
+    ):
         return None
 
 
