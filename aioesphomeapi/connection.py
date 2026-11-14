@@ -711,6 +711,20 @@ class APIConnection:
             raise APIConnectionError(msg)
 
         self.api_version = api_version
+        if (server_keepalive := resp.keepalive_interval) > self._keep_alive_interval:
+            # The server asked for a longer keepalive (e.g. a sleepy Thread
+            # device with a long poll period); pinging more often would only
+            # wake it up and the default pong timeout would drop it.
+            self._keep_alive_interval = float(server_keepalive)
+            self._keep_alive_timeout = (
+                self._keep_alive_interval * KEEP_ALIVE_TIMEOUT_RATIO
+            )
+            if self._debug_enabled:
+                _LOGGER.debug(
+                    "%s: Using server keepalive interval of %s seconds",
+                    self.log_name,
+                    server_keepalive,
+                )
         expected_name = self._params.expected_name
         # Compare against the raw decoded value so a peer can't sneak past
         # expected_name by appending non-printable bytes that the sanitizer
