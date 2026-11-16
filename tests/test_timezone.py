@@ -110,6 +110,13 @@ def test_load_tzdata_permission_error(mock_get_data) -> None:
     assert result is None
 
 
+@patch("pkgutil.get_data", side_effect=OSError(0, "bad local file header"))
+def test_load_tzdata_zipped_missing_key(mock_get_data) -> None:
+    """A key missing from a zipped tzdata raises a plain OSError and resolves to None."""
+    result = _load_tzdata("America/Nowhere")
+    assert result is None
+
+
 def test_load_tzdata_missing_package() -> None:
     """A key whose region package does not exist resolves to None."""
     assert _load_tzdata("Nowhere/City") is None

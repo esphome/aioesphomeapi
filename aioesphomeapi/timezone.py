@@ -50,13 +50,9 @@ def _load_tzdata(iana_key: str) -> bytes | None:
 
     try:
         return pkgutil.get_data(package, resource)
-    # Windows raises PermissionError instead of IsADirectoryError for a directory key.
-    except (
-        FileNotFoundError,
-        ModuleNotFoundError,
-        IsADirectoryError,
-        PermissionError,
-    ):
+    # OSError covers a missing file, a directory key (PermissionError on Windows)
+    # and a key missing from a zipped tzdata, which raises a plain OSError.
+    except (ModuleNotFoundError, OSError):
         return None
 
 
