@@ -24,6 +24,7 @@ workflows:
     '.github/workflows/labeler.yml':
         - 'actions/labeler@v7.0.0'
     '.github/workflows/lock.yml': []
+    '.github/workflows/pr-event.yml': []
     '.github/workflows/release-drafter.yml':
         - 'actions/checkout@v7.0.1'
         - 'release-drafter/release-drafter@v7.10.0'
