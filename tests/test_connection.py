@@ -1313,6 +1313,73 @@ ApiClientFixture = tuple[
 PING_REQUEST_BYTES = [b"\x00", b"\x00", b"\x07"]
 
 
+async def test_server_keepalive_interval_stretches_pings(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """A server advertising a longer keepalive is pinged less often."""
+    conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+    server_keepalive = int(KEEP_ALIVE_INTERVAL * 10)
+
+    hello_response = HelloResponse()
+    hello_response.api_version_major = 1
+    hello_response.api_version_minor = 9
+    hello_response.name = "fake"
+    hello_response.keepalive_interval = server_keepalive
+    protocol.data_received(generate_plaintext_packet(hello_response))
+    send_plaintext_auth_response(protocol, False)
+    await connect_task
+
+    assert conn.is_connected
+    transport.reset_mock()
+    start_time = utcnow()
+
+    # No ping at the client default interval
+    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL * 2))
+    assert transport.writelines.call_count == 0
+
+    # First ping at the server interval
+    async_fire_time_changed(start_time + timedelta(seconds=server_keepalive))
+    assert transport.writelines.mock_calls == [call(PING_REQUEST_BYTES)]
+
+    # Pong timeout scales with the server interval
+    async_fire_time_changed(
+        start_time + timedelta(seconds=server_keepalive * int(KEEP_ALIVE_TIMEOUT_RATIO))
+    )
+    assert conn.is_connected is True
+    async_fire_time_changed(
+        start_time
+        + timedelta(seconds=server_keepalive * (int(KEEP_ALIVE_TIMEOUT_RATIO) + 1))
+    )
+    assert conn.is_connected is False
+
+
+async def test_server_keepalive_interval_never_shortens_pings(
+    plaintext_connect_task_with_login: tuple[
+        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
+    ],
+) -> None:
+    """A server advertising a shorter keepalive does not speed up pings."""
+    _conn, transport, protocol, connect_task = plaintext_connect_task_with_login
+
+    hello_response = HelloResponse()
+    hello_response.api_version_major = 1
+    hello_response.api_version_minor = 9
+    hello_response.name = "fake"
+    hello_response.keepalive_interval = 1
+    protocol.data_received(generate_plaintext_packet(hello_response))
+    send_plaintext_auth_response(protocol, False)
+    await connect_task
+
+    transport.reset_mock()
+    start_time = utcnow()
+    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL - 1))
+    assert transport.writelines.call_count == 0
+    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL))
+    assert transport.writelines.mock_calls == [call(PING_REQUEST_BYTES)]
+
+
 async def test_send_keepalive_now_pings_and_reschedules(
     api_client: ApiClientFixture,
 ) -> None:
