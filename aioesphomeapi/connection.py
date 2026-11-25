@@ -145,6 +145,11 @@ KEEP_ALIVE_TIMEOUT_RATIO = 4.5
 # from the network.
 #
 
+# A server advertising a longer keepalive drops an unanswered client after
+# min(1.5x its interval, 300s); use the same pong timeout.
+SERVER_KEEP_ALIVE_TIMEOUT_RATIO = 1.5
+SERVER_KEEP_ALIVE_TIMEOUT_MAX = 300.0
+
 DISCONNECT_CONNECT_TIMEOUT = 5.0
 # How long to wait for an existing connection to finish being
 # setup when requesting a disconnect so we can try to disconnect
@@ -711,6 +716,24 @@ class APIConnection:
             raise APIConnectionError(msg)
 
         self.api_version = api_version
+        if (server_keepalive := resp.keepalive_interval) > self._keep_alive_interval:
+            # The server asked for a longer keepalive (e.g. a sleepy Thread
+            # device with a long poll period); pinging more often would only
+            # wake it up.
+            self._keep_alive_interval = float(server_keepalive)
+            self._keep_alive_timeout = max(
+                self._keep_alive_timeout,
+                min(
+                    server_keepalive * SERVER_KEEP_ALIVE_TIMEOUT_RATIO,
+                    SERVER_KEEP_ALIVE_TIMEOUT_MAX,
+                ),
+            )
+            if self._debug_enabled:
+                _LOGGER.debug(
+                    "%s: Using server keepalive interval of %s seconds",
+                    self.log_name,
+                    server_keepalive,
+                )
         expected_name = self._params.expected_name
         # Compare against the raw decoded value so a peer can't sneak past
         # expected_name by appending non-printable bytes that the sanitizer
