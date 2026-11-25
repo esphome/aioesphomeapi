@@ -34,6 +34,7 @@ from aioesphomeapi.api_pb2 import (
 from aioesphomeapi.client_base import KEEP_ALIVE_FREQUENCY
 from aioesphomeapi.connection import (
     MAX_PROTOBUF_ERROR_DATA_BYTES,
+    SERVER_KEEP_ALIVE_TIMEOUT_MAX,
     APIConnection,
     ConnectionParams,
     ConnectionState,
@@ -779,13 +780,18 @@ async def test_connect_wrong_name(
 
 
 def _send_plaintext_hello_with(
-    protocol: APIPlaintextFrameHelper, *, name: str, server_info: str = "esp"
+    protocol: APIPlaintextFrameHelper,
+    *,
+    name: str,
+    server_info: str = "esp",
+    keepalive_interval: int = 0,
 ) -> None:
     hello_response = HelloResponse()
     hello_response.api_version_major = 1
     hello_response.api_version_minor = 9
     hello_response.name = name
     hello_response.server_info = server_info
+    hello_response.keepalive_interval = keepalive_interval
     protocol.data_received(generate_plaintext_packet(hello_response))
 
 
@@ -1313,21 +1319,30 @@ ApiClientFixture = tuple[
 PING_REQUEST_BYTES = [b"\x00", b"\x00", b"\x07"]
 
 
-async def test_server_keepalive_interval_stretches_pings(
+@pytest.mark.parametrize(
+    ("server_keepalive", "first_ping", "pong_timeout"),
+    [
+        (0, KEEP_ALIVE_INTERVAL, KEEP_ALIVE_INTERVAL * KEEP_ALIVE_TIMEOUT_RATIO),
+        (10, KEEP_ALIVE_INTERVAL, KEEP_ALIVE_INTERVAL * KEEP_ALIVE_TIMEOUT_RATIO),
+        (60, 60, 90),
+        (300, 300, SERVER_KEEP_ALIVE_TIMEOUT_MAX),
+        (3600, 3600, SERVER_KEEP_ALIVE_TIMEOUT_MAX),
+    ],
+)
+async def test_server_keepalive_interval(
     plaintext_connect_task_with_login: tuple[
         APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
     ],
+    server_keepalive: int,
+    first_ping: float,
+    pong_timeout: float,
 ) -> None:
-    """A server advertising a longer keepalive is pinged less often."""
+    """A longer server keepalive sets the ping interval and the device's pong timeout."""
     conn, transport, protocol, connect_task = plaintext_connect_task_with_login
-    server_keepalive = int(KEEP_ALIVE_INTERVAL * 10)
 
-    hello_response = HelloResponse()
-    hello_response.api_version_major = 1
-    hello_response.api_version_minor = 9
-    hello_response.name = "fake"
-    hello_response.keepalive_interval = server_keepalive
-    protocol.data_received(generate_plaintext_packet(hello_response))
+    _send_plaintext_hello_with(
+        protocol, name="fake", keepalive_interval=server_keepalive
+    )
     send_plaintext_auth_response(protocol, False)
     await connect_task
 
@@ -1335,49 +1350,16 @@ async def test_server_keepalive_interval_stretches_pings(
     transport.reset_mock()
     start_time = utcnow()
 
-    # No ping at the client default interval
-    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL * 2))
+    async_fire_time_changed(start_time + timedelta(seconds=first_ping - 1))
     assert transport.writelines.call_count == 0
-
-    # First ping at the server interval
-    async_fire_time_changed(start_time + timedelta(seconds=server_keepalive))
+    async_fire_time_changed(start_time + timedelta(seconds=first_ping))
     assert transport.writelines.mock_calls == [call(PING_REQUEST_BYTES)]
 
-    # Pong timeout scales with the server interval
-    async_fire_time_changed(
-        start_time + timedelta(seconds=server_keepalive * int(KEEP_ALIVE_TIMEOUT_RATIO))
-    )
+    # loop.time() does not advance here, so the pong deadline counts from start_time
+    async_fire_time_changed(start_time + timedelta(seconds=pong_timeout - 1))
     assert conn.is_connected is True
-    async_fire_time_changed(
-        start_time
-        + timedelta(seconds=server_keepalive * (int(KEEP_ALIVE_TIMEOUT_RATIO) + 1))
-    )
+    async_fire_time_changed(start_time + timedelta(seconds=pong_timeout + 1))
     assert conn.is_connected is False
-
-
-async def test_server_keepalive_interval_never_shortens_pings(
-    plaintext_connect_task_with_login: tuple[
-        APIConnection, asyncio.Transport, APIPlaintextFrameHelper, asyncio.Task
-    ],
-) -> None:
-    """A server advertising a shorter keepalive does not speed up pings."""
-    _conn, transport, protocol, connect_task = plaintext_connect_task_with_login
-
-    hello_response = HelloResponse()
-    hello_response.api_version_major = 1
-    hello_response.api_version_minor = 9
-    hello_response.name = "fake"
-    hello_response.keepalive_interval = 1
-    protocol.data_received(generate_plaintext_packet(hello_response))
-    send_plaintext_auth_response(protocol, False)
-    await connect_task
-
-    transport.reset_mock()
-    start_time = utcnow()
-    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL - 1))
-    assert transport.writelines.call_count == 0
-    async_fire_time_changed(start_time + timedelta(seconds=KEEP_ALIVE_INTERVAL))
-    assert transport.writelines.mock_calls == [call(PING_REQUEST_BYTES)]
 
 
 async def test_send_keepalive_now_pings_and_reschedules(
